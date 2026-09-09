@@ -110,7 +110,7 @@ async function runToolCalls(opts: RunAgentOptions, toolCalls: ToolCall[]): Promi
     const results: ToolOutput[] = [];
     for (const tc of toolCalls) {
         const tool = opts.tools.find((t) => t.name === tc.name);
-        const { content, images } = await invokeTool(tc, tool);
+        const { content, images } = await invokeTool(tc, tool, opts.signal);
         opts.callbacks.onToolCall({ name: tc.name, arguments: tc.arguments, result: content });
         results.push({ toolCallId: tc.id, name: tc.name, content, images });
     }
@@ -121,12 +121,13 @@ async function runToolCalls(opts: RunAgentOptions, toolCalls: ToolCall[]): Promi
 async function invokeTool(
     tc: ToolCall,
     tool: Tool | undefined,
+    signal?: AbortSignal,
 ): Promise<{ content: string; images?: ImagePart[] }> {
     if (!tool) {
         return { content: JSON.stringify({ error: `unknown tool "${tc.name}"` }) };
     }
     try {
-        const result = await tool.handler(JSON.parse(tc.arguments));
+        const result = await tool.handler(JSON.parse(tc.arguments), signal);
         if (typeof result === "string") {
             return { content: result };
         }

@@ -151,20 +151,20 @@ export class OccSurface extends OccGeometry implements ISurface {
     isVClosed(): boolean {
         return this.surface.isVClosed();
     }
-    isUPreiodic(): boolean {
+    isUPeriodic(): boolean {
         return this.surface.isUPeriodic();
     }
-    isVPreiodic(): boolean {
+    isVPeriodic(): boolean {
         return this.surface.isVPeriodic();
     }
     vPeriod(): number {
-        if (!this.isVPreiodic()) {
+        if (!this.isVPeriodic()) {
             throw new Error("Surface is not periodic in the V direction");
         }
         return this.surface.vPeriod();
     }
     uPeriod(): number {
-        if (!this.isUPreiodic()) {
+        if (!this.isUPeriodic()) {
             throw new Error("Surface is not periodic in the U direction");
         }
         return this.surface.uPeriod();

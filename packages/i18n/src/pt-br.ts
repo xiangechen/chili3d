@@ -21,8 +21,12 @@ export default {
         "ai.emptyTitle": "Assistente de Modelagem IA",
         "ai.error.missingParam": 'Parâmetro obrigatório ausente "{0}"',
         "ai.error.noDocument": "Nenhum documento aberto — crie ou abra um primeiro",
+        "ai.error.noRefs": "nenhuma registrada ainda",
+        "ai.error.nullRef":
+            'A referência "{0}" foi definida, mas sua consulta retornou null — não pode ser usada como alvo ou argumento',
         "ai.error.prefix": "Erro: {0}",
-        "ai.error.unknownRef": 'Referência desconhecida "{0}"',
+        "ai.error.unknownRef":
+            'Referência desconhecida "{0}". Referências disponíveis: {1} — uma referência só existe depois que a op que a define foi executada; verifique a ordem das ops e não adivinhe ids por padrões de numeração.',
         "ai.inputPlaceholder": "Descreva um modelo, ex.: crie uma caixa 10×20×5",
         "ai.model": "Modelo",
         "ai.noReply": "(sem resposta de texto)",
@@ -35,6 +39,7 @@ export default {
         "ai.stop": "Parar",
         "ai.title": "Assistente IA",
         "ai.tool.created": "Criado {0}",
+        "ai.tool.removed": "Removido {0}",
         "ai.workedFor": "Processado em {0}",
         "ai.working": "Processando…",
         "arc.angle": "Ângulo",

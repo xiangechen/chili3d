@@ -4,7 +4,7 @@
 import { BoundingBox, type IShape, Matrix4, Plane, Result, ShapeTypes } from "@chili3d/core";
 import { createMockApplication, createMockDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { buildCapabilityTools } from "../src/tools/capabilityEngine";
+import { buildCapabilityTools, summarizeRefIds } from "../src/tools/capabilityEngine";
 
 describe("capabilityEngine", () => {
     test("exposes a single run_program tool with the full method enum", () => {
@@ -32,6 +32,24 @@ describe("capabilityEngine", () => {
         expect(methodEnum).toContain("shape.matrix");
         expect(methodEnum).toContain("shape.section");
         expect(methodEnum).toContain("removeFillet");
+        // fuse is hidden: it is booleanFuse without input consumption, a duplicate-geometry trap.
+        expect(methodEnum).not.toContain("fuse");
+    });
+
+    test("summarizeRefIds compresses numeric runs and caps the list", () => {
+        expect(summarizeRefIds(new Map())).toBe("ai.error.noRefs");
+
+        const refs = new Map<string, never>();
+        refs.set("body", undefined as never);
+        refs.set("b", undefined as never);
+        for (const id of ["c8", "c9", "c10"]) refs.set(id, undefined as never);
+        for (let i = 0; i < 30; i++) refs.set(`e#${i}`, undefined as never);
+        for (const id of ["x1", "x2"]) refs.set(id, undefined as never);
+        expect(summarizeRefIds(refs)).toBe("body, b, c8..c10, e#0..e#29, x1, x2");
+
+        const many = new Map<string, never>();
+        for (let i = 0; i < 50; i++) many.set(`n${i}z`, undefined as never);
+        expect(summarizeRefIds(many)).toContain("… (+10 more)");
     });
 
     test("transformedMul derives a moved copy without consuming the source", async () => {
@@ -444,6 +462,49 @@ describe("capabilityEngine", () => {
             }
         });
 
+        test("plane literals accept an optional normal and xvec", async () => {
+            const solid = { shapeType: ShapeTypes.solid };
+            const box = rs.fn((_p: unknown, _dx: number, _dy: number, _dz: number) =>
+                Result.ok(solid as unknown as IShape),
+            );
+            setup({ box });
+            try {
+                await run([
+                    {
+                        id: "b1",
+                        method: "box",
+                        args: {
+                            plane: { origin: { x: 0, y: 0, z: 0 }, normal: { x: 1, y: 0, z: 0 } },
+                            dx: 1,
+                            dy: 2,
+                            dz: 3,
+                        },
+                    },
+                    {
+                        id: "b2",
+                        method: "box",
+                        args: {
+                            plane: { normal: { x: 0, y: 0, z: -1 }, xvec: { x: 0, y: 1, z: 0 } },
+                            dx: 1,
+                            dy: 2,
+                            dz: 3,
+                        },
+                    },
+                ]);
+
+                const plane1 = box.mock.calls[0][0] as Plane;
+                expect(plane1).toBeInstanceOf(Plane);
+                expect(plane1.normal.x).toBeCloseTo(1, 6);
+                // xvec omitted while unitX is parallel to the normal -> falls back to unitY.
+                expect(plane1.xvec.y).toBeCloseTo(1, 6);
+                const plane2 = box.mock.calls[1][0] as Plane;
+                expect(plane2.normal.z).toBeCloseTo(-1, 6);
+                expect(plane2.xvec.y).toBeCloseTo(1, 6);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
         test("removeFillet consumes its input and reports newEdges as refs", async () => {
             const length = rs.fn(() => 3);
             const newEdge = { shapeType: ShapeTypes.edge, length };
@@ -464,6 +525,8 @@ describe("capabilityEngine", () => {
                 expect(removeFillet.mock.calls.length).toBe(1);
                 expect(removed.length).toBe(1);
                 expect(result.created.length).toBe(2);
+                // The consumed source node is reported so the model knows it no longer exists.
+                expect(result.removed).toEqual([{ nodeId: result.created[0].nodeId, name: "box" }]);
                 expect(result.results["rf.newEdges"]).toEqual({
                     count: 1,
                     refs: ["rf#newEdges#0"],
@@ -545,6 +608,119 @@ describe("capabilityEngine", () => {
                 expect(result.results.len).toBe(31.4);
                 expect(result.results.t).toBe("circle");
                 expect(length.mock.calls.length).toBe(1);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("curve queries auto-derive an edge ref's curve", async () => {
+            const length = rs.fn(() => 31.4);
+            const edge = { shapeType: ShapeTypes.edge, curve: { curveType: "trimmedCurve", length } };
+            const line = rs.fn(() => Result.ok(edge as unknown as IShape));
+            setup({ line });
+            try {
+                const result = await run([
+                    {
+                        id: "e",
+                        method: "line",
+                        args: { start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+                    },
+                    { id: "t", method: "curve.curveType", target: "e" },
+                    { id: "len", method: "curve.length", target: "e" },
+                ]);
+
+                expect(result.results.t).toBe("trimmedCurve");
+                expect(result.results.len).toBe(31.4);
+                expect(length.mock.calls.length).toBe(1);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("concrete curve owners auto-unwrap an edge ref to its basis curve", async () => {
+            const edge = {
+                shapeType: ShapeTypes.edge,
+                curve: { curveType: "trimmedCurve", basisCurve: { curveType: "circle", radius: 5 } },
+            };
+            const line = rs.fn(() => Result.ok(edge as unknown as IShape));
+            setup({ line });
+            try {
+                const result = await run([
+                    {
+                        id: "e",
+                        method: "line",
+                        args: { start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+                    },
+                    { id: "r", method: "circle.radius", target: "e" },
+                    { id: "c", method: "trimmedCurve.basisCurve", target: "e" },
+                    { id: "t", method: "curve.curveType", target: "c" },
+                ]);
+
+                expect(result.results.r).toBe(5);
+                expect(result.results.c).toEqual({ ref: "c", kind: "curve" });
+                expect(result.results.t).toBe("circle");
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("surface queries auto-derive a face ref's surface", async () => {
+            const bounds = rs.fn(() => "uv-bounds");
+            const face = { shapeType: ShapeTypes.face, surface: { bounds } };
+            const findSubShapes = rs.fn(() => [face]);
+            const solid = { shapeType: ShapeTypes.solid, findSubShapes };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+            try {
+                const result = await run([
+                    { id: "b", method: "box", args: { dx: 10, dy: 20, dz: 5 } },
+                    { id: "f", method: "shape.findSubShapes", target: "b", args: { subshapeType: "face" } },
+                    { id: "uv", method: "surface.bounds", target: "f#0" },
+                ]);
+
+                expect(result.results.uv).toBe("uv-bounds");
+                expect(bounds.mock.calls.length).toBe(1);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("mutation queries stay strict: no auto-derivation from an edge ref", async () => {
+            const edge = { shapeType: ShapeTypes.edge, curve: { curveType: "trimmedCurve" } };
+            const line = rs.fn(() => Result.ok(edge as unknown as IShape));
+            setup({ line });
+            try {
+                const tool = buildCapabilityTools()[0];
+                await expect(
+                    tool.handler({
+                        ops: [
+                            {
+                                id: "e",
+                                method: "line",
+                                args: { start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+                            },
+                            { id: "r", method: "curve.reverse", target: "e" },
+                        ],
+                    }),
+                ).rejects.toThrow("curve.reverse requires a curve target, got an edge shape ref");
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("family mismatch on a shape ref names the shape type", async () => {
+            const box = rs.fn(() => Result.ok({ shapeType: ShapeTypes.solid } as unknown as IShape));
+            setup({ box });
+            try {
+                const tool = buildCapabilityTools()[0];
+                await expect(
+                    tool.handler({
+                        ops: [
+                            { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                            { id: "t", method: "curve.curveType", target: "b" },
+                        ],
+                    }),
+                ).rejects.toThrow("curve.curveType requires a curve target, got a solid shape ref");
             } finally {
                 rs.unstubAllGlobals();
             }
@@ -928,6 +1104,82 @@ describe("capabilityEngine", () => {
                     await expect(
                         tool.handler({ ops: [{ id: "a", method: "face.area", target: "faces#2" }] }),
                     ).rejects.toThrow('ref "faces#2" is no longer valid: its source shape changed');
+                } finally {
+                    rs.unstubAllGlobals();
+                }
+            });
+
+            test("an unknown ref fails with the unknownRef message listing available refs", async () => {
+                const box = rs.fn(() => Result.ok({ shapeType: ShapeTypes.solid } as unknown as IShape));
+                setup({ box });
+                try {
+                    const tool = buildCapabilityTools()[0];
+                    await tool.handler({ ops: [{ id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } }] });
+
+                    await expect(
+                        tool.handler({ ops: [{ id: "t", method: "curve.curveType", target: "c20" }] }),
+                    ).rejects.toThrow('op "curve.curveType" (target "c20") failed: ai.error.unknownRef');
+                } finally {
+                    rs.unstubAllGlobals();
+                }
+            });
+
+            test("a query returning null marks the id null-valued; using it reports nullRef", async () => {
+                const edge = { shapeType: ShapeTypes.edge, curve: null };
+                const line = rs.fn(() => Result.ok(edge as unknown as IShape));
+                setup({ line });
+                try {
+                    const tool = buildCapabilityTools()[0];
+                    const first = JSON.parse(
+                        (await tool.handler({
+                            ops: [
+                                {
+                                    id: "e",
+                                    method: "line",
+                                    args: { start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } },
+                                },
+                                { id: "c", method: "edge.curve", target: "e" },
+                            ],
+                        })) as string,
+                    );
+                    expect(first.results.c).toBeNull();
+
+                    await expect(
+                        tool.handler({ ops: [{ id: "t", method: "curve.curveType", target: "c" }] }),
+                    ).rejects.toThrow("ai.error.nullRef");
+                } finally {
+                    rs.unstubAllGlobals();
+                }
+            });
+
+            test("a failed program drops the refs it registered", async () => {
+                const edge = { shapeType: ShapeTypes.edge, curve: { curveType: "line", length: () => 1 } };
+                const line = rs.fn(() => Result.ok(edge as unknown as IShape));
+                setup({ line });
+                try {
+                    const tool = buildCapabilityTools()[0];
+                    await tool.handler({
+                        ops: [
+                            {
+                                id: "e",
+                                method: "line",
+                                args: { start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } },
+                            },
+                        ],
+                    });
+
+                    await expect(
+                        tool.handler({
+                            ops: [
+                                { id: "c", method: "edge.curve", target: "e" },
+                                { method: "transformedMul", args: {} },
+                            ],
+                        }),
+                    ).rejects.toThrow("transformedMul requires args.shape");
+
+                    await expect(
+                        tool.handler({ ops: [{ id: "t", method: "curve.curveType", target: "c" }] }),
+                    ).rejects.toThrow("ai.error.unknownRef");
                 } finally {
                     rs.unstubAllGlobals();
                 }

@@ -31,8 +31,8 @@ export interface ISurface extends IGeometry {
     isPlanar(): boolean;
     isUClosed(): boolean;
     isVClosed(): boolean;
-    isUPreiodic(): boolean;
-    isVPreiodic(): boolean;
+    isUPeriodic(): boolean;
+    isVPeriodic(): boolean;
     vPeriod(): number;
     uPeriod(): number;
     bounds(): {

@@ -244,14 +244,6 @@ export const shapeCapabilities: ShapeCapability[] = [
         ],
     },
     {
-        method: "fuse",
-        returnKind: "shape",
-        params: [
-            { name: "bottom", kind: "ref" },
-            { name: "top", kind: "ref" },
-        ],
-    },
-    {
         method: "sweep",
         returnKind: "shape",
         params: [
@@ -1586,16 +1578,16 @@ export const queryCapabilities: QueryCapability[] = [
         params: [],
     },
     {
-        method: "surface.isUPreiodic",
-        name: "isUPreiodic",
+        method: "surface.isUPeriodic",
+        name: "isUPeriodic",
         owner: "surface",
         family: "surface",
         returnKind: "data",
         params: [],
     },
     {
-        method: "surface.isVPreiodic",
-        name: "isVPreiodic",
+        method: "surface.isVPeriodic",
+        name: "isVPeriodic",
         owner: "surface",
         family: "surface",
         returnKind: "data",
@@ -1966,7 +1958,6 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   wire(edges: refArray) -> wire
   prism(shape: ref, vec: xyz) -> shape
   pushPull(shape: ref, face: ref, vec: xyz) -> shape
-  fuse(bottom: ref, top: ref) -> shape
   sweep(profile: refArray, path: ref, isRoundCorner: boolean) -> shape
   revolve(profile: ref, axis: line, angle: number) -> shape
   booleanCommon(shape1: refArray, shape2: refArray) -> shape
@@ -1975,20 +1966,21 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   sewing(shapes: refArray) -> shape
   combine(shapes: refArray) -> compound
   makeThickSolidBySimple(shape: ref, thickness: number) -> shape
-  makeThickSolidByJoin(shape: ref, openFaces: refArray, thickness: number, joinType: enum, mode: enum?, intersection: boolean?) -> shape
+  makeThickSolidByJoin(shape: ref, openFaces: refArray, thickness: number, joinType: arc|tangent|intersection, mode: skin|pipe|rectoVerso?, intersection: boolean?) -> shape
   fillet(shape: ref, edges: numberArray, radius: number) -> shape
   chamfer(shape: ref, edges: numberArray, distance: number) -> shape
   fillet2d(face: ref, edge1: ref, edge2: ref, radius: number) -> face
   chamfer2d(face: ref, edge1: ref, edge2: ref, distance: number) -> face
-  loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: enum) -> shape
+  loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: c0|g1|c1|g2|c2|c3|cn) -> shape
   removeFeature(shape: ref, faces: refArray) -> shape
   removeFillet(shape: ref, faces: refArray) -> shapeWithData
   removeSubShape(shape: ref, subShapes: refArray) -> shape
   replaceSubShapes(shape: ref, oldSubShapes: refArray, newSubShapes: refArray) -> shape
   curveProjection(curve: ref, targetFace: ref, vec: xyz) -> shape
   simplifyShape(shape: ref, removeEdges: boolean, removeFaces: boolean, keepShapes: refArray, linearTolerance: number?, angleTolerance: number?) -> shape
-JSON encoding: XYZ={x,y,z}; Plane={origin:{x,y,z}}; Line={point:{x,y,z},direction:{x,y,z}}; a shape/ref parameter takes an op id from any run_program call on this document or an existing node id; number[] is edge/face sub-shape indices; enum takes one of the listed values. Geometric params (plane/center/normal) may be omitted and default to the origin/Z axis. Params marked with ? are optional and may be omitted; the factory default applies. A method returning "shapeWithData" (removeFillet) creates its node from the result's shape; array extras (newEdges) come back in "results" under "<opId>.<key>" as { count, refs, kind: "shape" } with refs named <opId>#<key>#0..n.
-Placement: box/rect/pyramid — plane.origin is a CORNER, the shape extends +dx/+dy/+dz from it. cylinder/cone — center is the BASE-FACE center, the shape extends +dz along normal. sphere — center is the true center. To center a box at P use origin = P - (dx/2,dy/2,dz/2); to center a cylinder/cone at P use center = P - normal*(dz/2).`;
+JSON encoding: XYZ={x,y,z}; Plane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} — an XY-oriented plane through origin when normal is omitted; Line={point:{x,y,z},direction:{x,y,z}} — a point plus a direction, NOT {start,end} ("line(start,end)" above is a creation method that builds an edge; to revolve around an existing edge, query edge.ends and derive point/direction from them); a shape/ref parameter takes an op id from any run_program call on this document or an existing node id; number[] is a plain number array — for fillet/chamfer "edges" it takes edge indices in the order returned by shape.findSubShapes(target, edge), so run that query first and pick indices from the edges' geometry (e.g. via edge.ends); enum params list their allowed values inline (a|b|c). Geometric params (plane/center/normal) may be omitted and default to the origin/Z axis. Params marked with ? are optional and may be omitted; the factory default applies. A method returning "shapeWithData" (removeFillet) creates its node from the result's shape; array extras (newEdges) come back in "results" under "<opId>.<key>" as { count, refs, kind: "shape" } with refs named <opId>#<key>#0..n.
+Placement: box/rect/pyramid — plane.origin is a CORNER, the shape extends +dx/+dy/+dz from it. cylinder/cone — center is the BASE-FACE center, the shape extends +dz along normal. sphere — center is the true center. To center a box at P use origin = P - (dx/2,dy/2,dz/2); to center a cylinder/cone at P use center = P - normal*(dz/2).
+polygon: pass the corner points in PERIMETER ORDER, at least 3, ALL ON ONE PLANE, and REPEAT THE FIRST POINT as the last point to close the wire explicitly. An unclosed wire can still become a face, but prism/revolve on it sweeps an open SHELL instead of a solid — a silent wrong result that breaks downstream booleans and fillets. polygon returns a WIRE, not a face: chain wire.toFace for a face or feed the closed wire to prism/revolve. A self-crossing point order (bowtie) yields a degenerate near-zero-area face, not an error — order points around the perimeter.`;
 
 export const queryApiDoc = `Shape query API (units: mm, angles: degrees). Run via run_program query ops:
 { "method": "<owner>.<name>", "target": "<ref>", "id": "q1", "args": { ... } }
@@ -1996,13 +1988,14 @@ export const queryApiDoc = `Shape query API (units: mm, angles: degrees). Run vi
 - Refs persist across run_program calls on the same document and re-resolve against the live shape; a ref whose source node was deleted fails with a clear error — re-run the query that produced it.
 - Every query op needs an "id"; its return value comes back in the response "results" under that id. Result encodings: data queries return the plain value; curve/surface-producing queries (edge.curve, face.surface, trimmedCurve.basisCurve, ...) return { ref, kind } where kind is "curve" or "surface" — pass ref as the target of follow-up queries, and only to members matching its kind; single-shape queries (wire.toFace, wire.offset, face.outerWire, edge.trim, ...) return { ref, kind: "shape" } — the ref works both as a query target and as a shape argument in creation ops; list queries (shape.findSubShapes, wire.edgeLoop) return { count, refs, kind: "shape" }; mutation queries (curve.reverse, trimmedCurve.setTrim, ...) return null and modify the target ref's geometry in place — the mutation is remembered and re-applied whenever the ref is re-resolved.
 - Query ops never consume or delete the referenced node, and never create scene nodes.
-- kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}} (an XY-oriented plane through that point) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid; ref/curveRef/surfaceRef take a ref string.
+- kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} (XY-oriented through origin when normal is omitted) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid; ref/curveRef/surfaceRef take a ref string.
 - Type hierarchy: circle/ellipse/hyperbola/parabola are conic; conic/line/bezierCurve/bsplineCurve/trimmedCurve/offsetCurve are curve — curve.* and conic.* members apply to those targets too. Surfaces likewise: cylindricalSurface/planeSurface/sphericalSurface/... are elementarySurface, and every *Surface is a surface. Use curve.curveType to check what a curve ref actually is.
-- edge.curve ALWAYS yields a trimmedCurve (it carries the edge's parameter range), even for a straight or circular edge. Chain trimmedCurve.basisCurve to reach the underlying line/circle/bezier/... before using type-specific members like circle.radius or line.direction.
+- edge.curve ALWAYS yields a trimmedCurve (it carries the edge's parameter range), even for a straight or circular edge.
+- Auto-derivation: curve-family queries accept an edge shape ref directly (edge.curve is applied for you), and surface-family queries accept a face shape ref (face.surface). Type-specific curve members (circle.radius, line.direction, ...) additionally unwrap a trimmedCurve to its basisCurve, so circle.radius works straight on an edge ref. curve.curveType is the exception — it reports the target's own type, so on an edge or trimmedCurve it says "trimmedCurve"; chain trimmedCurve.basisCurve (callable on an edge ref too) to classify the underlying curve. Mutation queries (curve.reverse, trimmedCurve.setTrim) are strict: they need an explicit curve ref from edge.curve.
 - curve/surface refs come from edge.curve and face.surface; sub-shape refs from shape.findSubShapes / wire.edgeLoop. A face's SURFACE (face.surface → plane/cylinder/...) is NOT its boundary curve: to inspect the edges bounding a face (e.g. the circular rim of a cylinder's top face), run shape.findSubShapes with subshapeType=edge on the face or solid, then edge.curve on the edge refs.
 
 shape.* (target must be a shape):
-  shape.shapeType(target) -> ShapeType
+  shape.shapeType(target) -> "shape" | "compound" | "compoundSolid" | "solid" | "shell" | "face" | "wire" | "edge" | "vertex"
   shape.id(target) -> string
   shape.matrix(target) -> Matrix4
   shape.isClosed(target) -> boolean
@@ -2010,7 +2003,7 @@ shape.* (target must be a shape):
   shape.isEqual(target, other: ref) -> boolean
   shape.isSame(target, other: ref) -> boolean
   shape.isPartner(target, other: ref) -> boolean
-  shape.orientation(target) -> Orientation
+  shape.orientation(target) -> "forward" | "reversed" | "internal" | "external"
   shape.findAncestor(target, ancestorType: shapeType, fromShape: ref) -> { count, refs } — also registers sub-shape refs <id>#0..n
   shape.findSubShapes(target, subshapeType: shapeType) -> { count, refs } — also registers sub-shape refs <id>#0..n
   shape.directSubShapes(target) -> { count, refs } — also registers sub-shape refs <id>#0..n
@@ -2034,7 +2027,7 @@ shape.* (target must be a shape):
 vertex.* (target must be a vertex):
   vertex.point(target) -> XYZ
 
-edge.* (target must be a edge):
+edge.* (target must be an edge):
   edge.update(target, curve: curveRef) -> null — mutates the target ref's geometry in place (re-applied on ref refresh)
   edge.intersect(target, other: refOrLine) -> { parameter: number; point: XYZ; }[]
   edge.length(target) -> number
@@ -2053,7 +2046,7 @@ edge.* (target must be a edge):
 wire.* (target must be a wire):
   wire.toFace(target) -> shape ref (registered under the op id)
   wire.edgeLoop(target) -> { count, refs } — also registers sub-shape refs <id>#0..n
-  wire.offset(target, distance: number, joinType: enum) -> shape ref (registered under the op id)
+  wire.offset(target, distance: number, joinType: arc|tangent|intersection) -> shape ref (registered under the op id)
 
 face.* (target must be a face):
   face.area(target) -> number
@@ -2068,7 +2061,7 @@ solid.* (target must be a solid):
   solid.containsPoint(target, point: xyz, containsSurface: boolean, tolerance: number) -> boolean
 
 curve.* (target must be a curve (or a subtype of it)):
-  curve.curveType(target) -> CurveType
+  curve.curveType(target) -> "line" | "circle" | "ellipse" | "hyperbola" | "parabola" | "bezierCurve" | "bsplineCurve" | "offsetCurve" | "otherCurve" | "trimmedCurve"
   curve.uniformAbscissaByLength(target, length: number) -> XYZ[]
   curve.uniformAbscissaByCount(target, curveCount: number) -> XYZ[]
   curve.length(target) -> number
@@ -2106,7 +2099,7 @@ circle.* (target must be a circle (or a subtype of it)):
   circle.center(target) -> XYZ
   circle.radius(target) -> number
 
-ellipse.* (target must be a ellipse (or a subtype of it)):
+ellipse.* (target must be an ellipse (or a subtype of it)):
   ellipse.center(target) -> XYZ
   ellipse.focus1(target) -> XYZ
   ellipse.focus2(target) -> XYZ
@@ -2157,7 +2150,7 @@ trimmedCurve.* (target must be a trimmedCurve (or a subtype of it)):
   trimmedCurve.basisCurve(target) -> curve ref (registered under the op id)
   trimmedCurve.setTrim(target, u1: number, u2: number) -> null — mutates the target ref's geometry in place (re-applied on ref refresh)
 
-offsetCurve.* (target must be a offsetCurve (or a subtype of it)):
+offsetCurve.* (target must be an offsetCurve (or a subtype of it)):
   offsetCurve.basisCurve(target) -> curve ref (registered under the op id)
   offsetCurve.offset(target) -> number
   offsetCurve.direction(target) -> XYZ
@@ -2177,8 +2170,8 @@ surface.* (target must be a surface (or a subtype of it)):
   surface.isPlanar(target) -> boolean
   surface.isUClosed(target) -> boolean
   surface.isVClosed(target) -> boolean
-  surface.isUPreiodic(target) -> boolean
-  surface.isVPreiodic(target) -> boolean
+  surface.isUPeriodic(target) -> boolean
+  surface.isVPeriodic(target) -> boolean
   surface.vPeriod(target) -> number
   surface.uPeriod(target) -> number
   surface.bounds(target) -> { u1: number; u2: number; v1: number; v2: number; }
@@ -2194,12 +2187,12 @@ surface.* (target must be a surface (or a subtype of it)):
 plateSurface.* (target must be a plateSurface (or a subtype of it)):
   plateSurface.setBounds(target, u1: number, u2: number, v1: number, v2: number) -> null — mutates the target ref's geometry in place (re-applied on ref refresh)
 
-elementarySurface.* (target must be a elementarySurface (or a subtype of it)):
+elementarySurface.* (target must be an elementarySurface (or a subtype of it)):
   elementarySurface.axis(target) -> XYZ
   elementarySurface.coordinates(target) -> Plane
   elementarySurface.location(target) -> XYZ
 
-offsetSurface.* (target must be a offsetSurface (or a subtype of it)):
+offsetSurface.* (target must be an offsetSurface (or a subtype of it)):
   offsetSurface.offset(target) -> number
   offsetSurface.basisSurface(target) -> surface ref (registered under the op id)
 
@@ -2244,5 +2237,5 @@ Examples:
 - Measure a solid: { "method": "shape.volume", "target": "<nodeId>", "id": "v" } -> results.v = 12000
 - Face area of a box face: { "method": "shape.findSubShapes", "target": "b", "id": "f", "args": { "subshapeType": "face" } } then { "method": "face.area", "target": "f#0", "id": "a" }
 - Face from a wire loop: { "method": "wire.toFace", "target": "<wireRef>", "id": "f" } -> results.f = { ref: "f", kind: "shape" }, then e.g. { "method": "face.area", "target": "f", "id": "a" }
-- Curve of a solid's edge (full chain): { "method": "shape.findSubShapes", "target": "<solidId>", "id": "e", "args": { "subshapeType": "edge" } }, then { "method": "edge.curve", "target": "e#0", "id": "tc" } (always a trimmedCurve), then { "method": "trimmedCurve.basisCurve", "target": "tc", "id": "c" }, then { "method": "curve.curveType", "target": "c", "id": "t" } — and when t is "circle", { "method": "circle.radius", "target": "c", "id": "r" }.
+- Classify a solid's edge: { "method": "shape.findSubShapes", "target": "<solidId>", "id": "e", "args": { "subshapeType": "edge" } }, then { "method": "trimmedCurve.basisCurve", "target": "e#0", "id": "c" }, then { "method": "curve.curveType", "target": "c", "id": "t" } — and when t is "circle", { "method": "circle.radius", "target": "e#0", "id": "r" } works directly on the edge ref.
 - Surface bounds: { "method": "face.surface", "target": "f#0", "id": "s" } then { "method": "surface.bounds", "target": "s", "id": "uv" }`;

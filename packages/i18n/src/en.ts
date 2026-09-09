@@ -19,8 +19,12 @@ export default {
         "ai.emptyTitle": "AI Modeling Assistant",
         "ai.error.missingParam": 'Missing required parameter "{0}"',
         "ai.error.noDocument": "No open document — create or open one first",
+        "ai.error.noRefs": "none registered yet",
+        "ai.error.nullRef":
+            'Ref "{0}" was defined but its query returned null — it cannot be used as a target or argument',
         "ai.error.prefix": "Error: {0}",
-        "ai.error.unknownRef": 'Unknown reference "{0}"',
+        "ai.error.unknownRef":
+            'Unknown ref "{0}". Available refs: {1} — a ref exists only after the op defining it has run; check op order, and do not guess ids from numbering patterns.',
         "ai.inputPlaceholder": "Describe a model, e.g. create a 10×20×5 box",
         "ai.model": "Model",
         "ai.noReply": "(no text response)",
@@ -33,6 +37,7 @@ export default {
         "ai.stop": "Stop",
         "ai.title": "AI Assistant",
         "ai.tool.created": "Created {0}",
+        "ai.tool.removed": "Removed {0}",
         "ai.workedFor": "Worked for {0}",
         "ai.working": "Working…",
         "arc.angle": "Angle",

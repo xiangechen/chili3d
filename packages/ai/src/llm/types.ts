@@ -8,7 +8,8 @@ export interface Tool {
     name: string;
     description: string;
     parameters: JsonSchema;
-    handler: (args: Record<string, unknown>) => Promise<string | ToolResult>;
+    /** `signal` aborts when the user cancels the chat; long-running handlers should respect it. */
+    handler: (args: Record<string, unknown>, signal?: AbortSignal) => Promise<string | ToolResult>;
 }
 
 export interface ToolCall {

@@ -242,4 +242,43 @@ describe("runAgent", () => {
             }),
         ).rejects.toThrow("boom");
     });
+
+    test("passes the abort signal through to tool handlers", async () => {
+        let received: unknown;
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* (opts) {
+                if (opts.messages.some((m) => m.role === "tool")) {
+                    yield { type: "done", stopReason: "end_turn" };
+                } else {
+                    yield { type: "tool_call", id: "t1", name: "probe", arguments: "{}" };
+                    yield { type: "done", stopReason: "tool_use" };
+                }
+            },
+        };
+        const controller = new AbortController();
+        const tools: Tool[] = [
+            {
+                name: "probe",
+                description: "",
+                parameters: { type: "object" },
+                handler: async (_args, signal) => {
+                    received = signal;
+                    return "ok";
+                },
+            },
+        ];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: "sys",
+            messages: [],
+            tools,
+            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            provider,
+            signal: controller.signal,
+        });
+
+        expect(received).toBe(controller.signal);
+    });
 });

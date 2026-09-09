@@ -48,6 +48,24 @@ describe("nodeTools", () => {
         }
     });
 
+    test("set_node_visible returns a self-healing error for a missing node", async () => {
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => []);
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "set_node_visible")!;
+            const result = JSON.parse((await tool.handler({ id: "missing", visible: false })) as string);
+            expect(result.error).toContain("node not found: missing");
+            expect(result.error).toContain("get_document_state");
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
     test("transform_node translates a node", async () => {
         const node = { id: "n1", name: "box", transform: Matrix4.identity() };
         const doc = createMockDocument();

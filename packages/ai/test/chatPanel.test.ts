@@ -274,6 +274,27 @@ describe("ChatPanel", () => {
         expect(card!.classList.contains("open")).toBe(true);
     });
 
+    test("tool cards render created and removed nodes from run_program", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onToolCall({
+                name: "run_program",
+                arguments: "{}",
+                result: JSON.stringify({ created: [{ name: "Box" }], removed: [{ name: "Tool" }] }),
+            });
+            opts.callbacks.onTextDelta("done");
+        });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+
+        anyPanel.input.value = "cut a box";
+        await anyPanel.send();
+
+        const card = panel.querySelector(".toolCard");
+        expect(card).not.toBeNull();
+        expect(card!.querySelector(".toolResult")!.textContent).toBe("ai.tool.created; ai.tool.removed");
+    });
+
     test("tool cards with an error result open by default", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         agentMock.runAgent.mockImplementationOnce(async (opts: any) => {

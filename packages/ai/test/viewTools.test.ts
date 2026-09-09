@@ -197,3 +197,58 @@ describe("isolate_view tool", () => {
         expect(JSON.parse(result.content).error).toBeDefined();
     });
 });
+
+describe("set_camera_type tool", () => {
+    afterEach(() => {
+        rs.unstubAllGlobals();
+    });
+
+    function getTool() {
+        const tool = buildViewTools().find((t) => t.name === "set_camera_type");
+        expect(tool).toBeDefined();
+        return tool!;
+    }
+
+    function stubView(initial: string) {
+        const cameraController = { cameraType: initial };
+        const update = rs.fn();
+        rs.stubGlobal("app", { activeView: { cameraController, update } });
+        return { cameraController, update };
+    }
+
+    test("switches to the requested projection", async () => {
+        const { cameraController, update } = stubView("perspective");
+
+        const result = (await getTool().handler({ type: "orthographic" })) as { content: string };
+
+        expect(cameraController.cameraType).toBe("orthographic");
+        expect(update).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(result.content)).toEqual({ ok: true, cameraType: "orthographic" });
+    });
+
+    test("toggles between perspective and orthographic when type is omitted", async () => {
+        const { cameraController } = stubView("orthographic");
+
+        const result = (await getTool().handler({})) as { content: string };
+
+        expect(cameraController.cameraType).toBe("perspective");
+        expect(JSON.parse(result.content)).toEqual({ ok: true, cameraType: "perspective" });
+    });
+
+    test("rejects an unknown camera type", async () => {
+        const { cameraController } = stubView("perspective");
+
+        const result = (await getTool().handler({ type: "fisheye" })) as { content: string };
+
+        expect(JSON.parse(result.content).error).toContain('unknown camera type "fisheye"');
+        expect(cameraController.cameraType).toBe("perspective");
+    });
+
+    test("reports an error when there is no active view", async () => {
+        rs.stubGlobal("app", { activeView: undefined });
+
+        const result = (await getTool().handler({ type: "orthographic" })) as { content: string };
+
+        expect(JSON.parse(result.content)).toEqual({ error: "no active view" });
+    });
+});

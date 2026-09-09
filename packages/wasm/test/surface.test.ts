@@ -195,9 +195,9 @@ describe("OccSurface — core methods", () => {
         expect(plane.isVClosed()).toBe(false);
     });
 
-    test("isUPreiodic / isVPreiodic are false for a plane", () => {
-        expect(plane.isUPreiodic()).toBe(false);
-        expect(plane.isVPreiodic()).toBe(false);
+    test("isUPeriodic / isVPeriodic are false for a plane", () => {
+        expect(plane.isUPeriodic()).toBe(false);
+        expect(plane.isVPeriodic()).toBe(false);
     });
 
     test("uPeriod / vPeriod throw a catchable error on non-periodic surfaces", () => {
@@ -316,12 +316,12 @@ describe("OccCylindricalSurface", () => {
     });
 
     test("uPeriod returns 2π for the periodic U direction", () => {
-        expect(cyl.isUPreiodic()).toBe(true);
+        expect(cyl.isUPeriodic()).toBe(true);
         expect(cyl.uPeriod()).toBeCloseTo(2 * Math.PI);
     });
 
     test("vPeriod throws a catchable error for the non-periodic V direction", () => {
-        expect(cyl.isVPreiodic()).toBe(false);
+        expect(cyl.isVPeriodic()).toBe(false);
         expect(() => cyl.vPeriod()).toThrow("Surface is not periodic in the V direction");
     });
 });

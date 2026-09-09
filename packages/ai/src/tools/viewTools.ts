@@ -49,6 +49,7 @@ export function buildViewTools(): Tool[] {
         fitContentTool(),
         isolateViewTool(),
         rotateViewTool(),
+        setCameraTypeTool(),
     ];
 }
 
@@ -224,6 +225,39 @@ function rotateViewTool(): Tool {
             camera.lookAt(eye, target, up);
             view.update();
             return textResult({ ok: true, eye: toPlainPoint(eye) });
+        },
+    };
+}
+
+function setCameraTypeTool(): Tool {
+    return {
+        name: "set_camera_type",
+        description:
+            "Switch the viewport camera projection: perspective (natural depth) or orthographic (no foreshortening — suited for technical views and alignment checks). Omit the type to toggle between the two.",
+        parameters: {
+            type: "object",
+            properties: {
+                type: {
+                    type: "string",
+                    enum: ["perspective", "orthographic"],
+                    description: "Projection to switch to; omit to toggle",
+                },
+            },
+        },
+        handler: async (args) => {
+            const view = globalThis.app.activeView;
+            if (!view) return textResult({ error: "no active view" });
+            const camera = view.cameraController;
+            const type = args["type"] as string | undefined;
+            if (type !== undefined && type !== "perspective" && type !== "orthographic") {
+                return textResult({
+                    error: `unknown camera type "${type}", expected perspective|orthographic`,
+                });
+            }
+            camera.cameraType =
+                type ?? (camera.cameraType === "perspective" ? "orthographic" : "perspective");
+            view.update();
+            return textResult({ ok: true, cameraType: camera.cameraType });
         },
     };
 }

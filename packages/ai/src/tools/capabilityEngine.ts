@@ -40,6 +40,12 @@ interface CreatedNode {
     name: string;
 }
 
+/** A scene node consumed (removed) by an edit-style op, reported back so the model knows it is gone. */
+interface RemovedNode {
+    nodeId: string;
+    name: string;
+}
+
 type RefKind = "shape" | "curve" | "surface";
 
 interface LocalRef {
@@ -82,6 +88,63 @@ function setRef(refs: Map<string, LocalRef>, id: string, entry: LocalRef): void 
         if (oldest === undefined) break;
         refs.delete(oldest);
     }
+}
+
+/** Ids whose defining query returned null: known to the session but holding no geometry. */
+const nullRefsByDocument = new WeakMap<IDocument, Set<string>>();
+
+function sessionNullRefs(doc: IDocument): Set<string> {
+    let ids = nullRefsByDocument.get(doc);
+    if (!ids) {
+        ids = new Set();
+        nullRefsByDocument.set(doc, ids);
+    }
+    return ids;
+}
+
+/** Register a real ref; the id is no longer considered null-valued. */
+function registerRef(doc: IDocument, refs: Map<string, LocalRef>, id: string, entry: LocalRef): void {
+    sessionNullRefs(doc).delete(id);
+    setRef(refs, id, entry);
+}
+
+const MAX_REF_TOKENS = 40;
+
+/**
+ * Compress ref ids into a short list for error messages: numeric runs sharing a prefix
+ * collapse to `e#0..e#29`; the token list is capped so huge sessions stay readable.
+ */
+export function summarizeRefIds(refs: Map<string, LocalRef>): string {
+    if (refs.size === 0) return I18n.translate("ai.error.noRefs");
+    const groups = new Map<string, number[]>();
+    const tokens: string[] = [];
+    for (const id of refs.keys()) {
+        const m = /^(.*?)(\d+)$/.exec(id);
+        if (!m) {
+            tokens.push(id);
+            continue;
+        }
+        const nums = groups.get(m[1]) ?? [];
+        nums.push(Number(m[2]));
+        groups.set(m[1], nums);
+    }
+    for (const [prefix, nums] of groups) {
+        nums.sort((a, b) => a - b);
+        let start = 0;
+        for (let i = 1; i <= nums.length; i++) {
+            if (i < nums.length && nums[i] === nums[i - 1] + 1) continue;
+            if (i - start >= 3) {
+                tokens.push(`${prefix}${nums[start]}..${prefix}${nums[i - 1]}`);
+            } else {
+                for (let j = start; j < i; j++) tokens.push(`${prefix}${nums[j]}`);
+            }
+            start = i;
+        }
+    }
+    if (tokens.length > MAX_REF_TOKENS) {
+        return `${tokens.slice(0, MAX_REF_TOKENS).join(", ")} … (+${tokens.length - MAX_REF_TOKENS} more)`;
+    }
+    return tokens.join(", ");
 }
 
 /**
@@ -162,12 +225,15 @@ function resolveRefEntry(
     const id = String(v);
     const hit = localRefs.get(id);
     if (hit) return refreshEntry(id, hit, doc, localRefs, consumed, new Set());
+    if (sessionNullRefs(doc).has(id)) {
+        throw new Error(I18n.translate("ai.error.nullRef", id));
+    }
     const node = doc.modelManager.findNodes((n) => n.id === id)[0];
     if (node instanceof ShapeNode && node.shape.isOk) {
         consumed.add(node.id);
         return { nodeId: node.id, kind: "shape", value: node.shape.value };
     }
-    throw new Error(I18n.translate("ai.error.unknownRef", id));
+    throw new Error(I18n.translate("ai.error.unknownRef", id, summarizeRefIds(localRefs)));
 }
 
 /**
@@ -346,10 +412,25 @@ function coerceGeometry(p: ShapeCapabilityParam, v: unknown): unknown {
     }
 }
 
-/** Inline plane literal: { origin: {x,y,z} } — an XY-oriented plane through that point. */
+/**
+ * Inline plane literal: { origin?, normal?, xvec? }. Without a normal it is an XY-oriented
+ * plane through origin (default: the world XY plane); with a normal, xvec defaults to unitX
+ * (unitY when the normal is parallel to unitX).
+ */
 function coercePlane(label: string, v: unknown): Plane {
-    const origin = (v as { origin?: unknown } | null)?.origin;
-    return origin !== undefined ? Plane.XY.translateTo(coerceXYZ(origin, `${label}.origin`)) : Plane.XY;
+    const p = v as { origin?: unknown; normal?: unknown; xvec?: unknown } | null;
+    const origin = p?.origin !== undefined ? coerceXYZ(p.origin, `${label}.origin`) : XYZ.zero;
+    if (p?.normal === undefined) {
+        return Plane.XY.translateTo(origin);
+    }
+    const normal = coerceXYZ(p.normal, `${label}.normal`);
+    // The Plane constructor rejects an xvec parallel to the normal — fall back to unitY then.
+    const fallbackX = normal.isParallelTo(XYZ.unitX) ? XYZ.unitY : XYZ.unitX;
+    return new Plane({
+        origin,
+        normal,
+        xvec: p.xvec !== undefined ? coerceXYZ(p.xvec, `${label}.xvec`) : fallbackX,
+    });
 }
 
 function coerceRefParam(
@@ -394,10 +475,17 @@ function toPlain(v: unknown): unknown {
     return out;
 }
 
+function shapeTypeName(value: unknown): string {
+    const actual = (value as IShape).shapeType;
+    return Object.keys(ShapeTypes).find((k) => ShapeTypes[k as keyof typeof ShapeTypes] === actual) ?? "?";
+}
+
 function checkQueryOwner(cap: QueryCapability, entry: LocalRef): void {
     if (cap.family !== "shape") {
         if (entry.kind !== cap.family) {
-            throw new Error(`${cap.method} requires a ${cap.family} target, got a ${entry.kind} ref`);
+            const type = entry.kind === "shape" ? `${shapeTypeName(entry.value)} shape` : entry.kind;
+            const article = /^[aeiou]/i.test(type) ? "an" : "a";
+            throw new Error(`${cap.method} requires a ${cap.family} target, got ${article} ${type} ref`);
         }
         if (cap.runtimeType !== undefined) {
             const actual = (entry.value as { curveType?: string }).curveType;
@@ -422,6 +510,64 @@ function checkQueryOwner(cap: QueryCapability, entry: LocalRef): void {
     }
 }
 
+/** Read a member (property or zero-arg method) of a query target, unwrapping Result. */
+function readMember(target: unknown, name: string): unknown {
+    const member = (target as Record<string, unknown>)[name];
+    let raw = typeof member === "function" ? (member as () => unknown).apply(target) : member;
+    if (raw instanceof Result) {
+        if (!raw.isOk) throw new Error(String(raw.error));
+        raw = raw.value;
+    }
+    return raw;
+}
+
+/**
+ * Convenience derivation for query targets: curve-family queries accept an edge shape ref
+ * (its edge.curve becomes the target) and surface-family queries accept a face shape ref
+ * (face.surface). Concrete curve owners (circle, line, ...) additionally unwrap a
+ * trimmedCurve to its basisCurve. Mutation queries stay strict — they re-register the
+ * target ref, which only makes sense for an explicit geometry ref.
+ */
+function deriveTargetEntry(cap: QueryCapability, entry: LocalRef): LocalRef {
+    if (cap.returnKind === "mutate") return entry;
+    let derived = entry;
+    if (derived.kind === "shape") {
+        const shapeType = (derived.value as IShape).shapeType;
+        const member =
+            cap.family === "curve" && shapeType === ShapeTypes.edge
+                ? "curve"
+                : cap.family === "surface" && shapeType === ShapeTypes.face
+                  ? "surface"
+                  : undefined;
+        if (member !== undefined) {
+            const value = readMember(derived.value, member);
+            if (value === undefined || value === null) return entry;
+            derived = {
+                nodeId: derived.nodeId,
+                kind: cap.family as RefKind,
+                value,
+                parent: derived,
+                name: member,
+            };
+        }
+    }
+    if (cap.family === "curve" && cap.runtimeType !== undefined && cap.runtimeType !== "trimmedCurve") {
+        while (
+            (derived.value as { curveType?: string }).curveType === "trimmedCurve" &&
+            (derived.value as Record<string, unknown>)["basisCurve"] != null
+        ) {
+            derived = {
+                nodeId: derived.nodeId,
+                kind: "curve",
+                value: readMember(derived.value, "basisCurve"),
+                parent: derived,
+                name: "basisCurve",
+            };
+        }
+    }
+    return derived;
+}
+
 function runQuery(
     cap: QueryCapability,
     op: Op,
@@ -432,7 +578,7 @@ function runQuery(
     if (!op.id) throw new Error(`query op "${op.method}" requires an id to report its result`);
     if (op.target === undefined) throw new Error(`query op "${op.method}" requires a target`);
 
-    const entry = resolveRefEntry(op.target, doc, localRefs, new Set());
+    const entry = deriveTargetEntry(cap, resolveRefEntry(op.target, doc, localRefs, new Set()));
     checkQueryOwner(cap, entry);
 
     const target = entry.value as Record<string, unknown>;
@@ -446,10 +592,10 @@ function runQuery(
     }
 
     if (cap.returnKind === "mutate") {
-        recordMutation(cap, op, entry, args, localRefs, results);
+        recordMutation(cap, op, entry, args, doc, localRefs, results);
         return;
     }
-    recordQueryResult(cap, op.id, entry, args, raw, localRefs, results);
+    recordQueryResult(cap, op.id, entry, args, raw, doc, localRefs, results);
 }
 
 /**
@@ -462,10 +608,11 @@ function recordMutation(
     op: Op,
     entry: LocalRef,
     args: unknown[],
+    doc: IDocument,
     localRefs: Map<string, LocalRef>,
     results: Record<string, unknown>,
 ): void {
-    setRef(localRefs, String(op.target), {
+    registerRef(doc, localRefs, String(op.target), {
         nodeId: entry.nodeId,
         kind: entry.kind,
         value: entry.value,
@@ -482,6 +629,7 @@ function recordQueryResult(
     entry: LocalRef,
     args: unknown[],
     raw: unknown,
+    doc: IDocument,
     localRefs: Map<string, LocalRef>,
     results: Record<string, unknown>,
 ): void {
@@ -492,10 +640,10 @@ function recordQueryResult(
         case "curveRef":
         case "surfaceRef":
         case "shapeRef":
-            recordGeometryRef(cap, opId, entry, args, raw, localRefs, results);
+            recordGeometryRef(cap, opId, entry, args, raw, doc, localRefs, results);
             break;
         case "refList":
-            recordSubShapeRefs(cap, opId, entry, args, raw, localRefs, results);
+            recordSubShapeRefs(cap, opId, entry, args, raw, doc, localRefs, results);
             break;
     }
 }
@@ -509,15 +657,19 @@ function recordGeometryRef(
     entry: LocalRef,
     args: unknown[],
     raw: unknown,
+    doc: IDocument,
     localRefs: Map<string, LocalRef>,
     results: Record<string, unknown>,
 ): void {
     if (raw === undefined || raw === null) {
+        // A null result redefines the id as null: drop any previous real ref with it.
+        localRefs.delete(opId);
+        sessionNullRefs(doc).add(opId);
         results[opId] = null;
         return;
     }
     const kind = REF_KINDS[cap.returnKind];
-    setRef(localRefs, opId, {
+    registerRef(doc, localRefs, opId, {
         nodeId: entry.nodeId,
         kind,
         value: raw,
@@ -535,12 +687,13 @@ function recordSubShapeRefs(
     entry: LocalRef,
     args: unknown[],
     raw: unknown,
+    doc: IDocument,
     localRefs: Map<string, LocalRef>,
     results: Record<string, unknown>,
 ): void {
     const refs = (raw as IShape[]).map((shape, i) => {
         const ref = `${opId}#${i}`;
-        setRef(localRefs, ref, {
+        registerRef(doc, localRefs, ref, {
             nodeId: entry.nodeId,
             kind: "shape",
             value: shape,
@@ -559,23 +712,46 @@ async function runProgram(ops: Op[]): Promise<string> {
     const factory = globalThis.app.shapeProvider.factory;
     const localRefs = sessionRefs(doc);
     const created: CreatedNode[] = [];
+    const removed: RemovedNode[] = [];
     const results: Record<string, unknown> = {};
 
-    Transaction.execute(doc, "AI program", () => {
-        for (const op of ops) {
-            try {
-                runOp(op, doc, factory, localRefs, created, results);
-            } catch (e) {
-                const message = e instanceof Error ? e.message : String(e);
-                const where =
-                    op.target !== undefined ? `target "${String(op.target)}"` : `id "${op.id ?? ""}"`;
-                throw new Error(`op "${op.method}" (${where}) failed: ${message}`);
+    // The transaction rolls the scene back on failure; refs registered by this program
+    // would dangle (pointing at rolled-back nodes), and refs deleted mid-program belong to
+    // nodes the rollback restored — so reset the registries to their pre-program state.
+    const nullRefs = sessionNullRefs(doc);
+    const refSnapshot = new Map(localRefs);
+    const nullSnapshot = new Set(nullRefs);
+    try {
+        Transaction.execute(doc, "AI program", () => {
+            for (const op of ops) {
+                try {
+                    runOp(op, doc, factory, localRefs, created, removed, results);
+                } catch (e) {
+                    const message = e instanceof Error ? e.message : String(e);
+                    const where =
+                        op.target !== undefined ? `target "${String(op.target)}"` : `id "${op.id ?? ""}"`;
+                    throw new Error(`op "${op.method}" (${where}) failed: ${message}`);
+                }
             }
+            doc.visual.update();
+        });
+    } catch (e) {
+        for (const key of [...localRefs.keys()]) {
+            if (!refSnapshot.has(key)) localRefs.delete(key);
         }
-        doc.visual.update();
-    });
+        for (const [key, entry] of refSnapshot) {
+            if (!localRefs.has(key)) localRefs.set(key, entry);
+        }
+        for (const key of [...nullRefs]) {
+            if (!nullSnapshot.has(key)) nullRefs.delete(key);
+        }
+        for (const key of nullSnapshot) {
+            if (!localRefs.has(key)) nullRefs.add(key);
+        }
+        throw e;
+    }
 
-    return JSON.stringify({ created, results });
+    return JSON.stringify({ created, removed, results });
 }
 
 /**
@@ -610,7 +786,7 @@ function addCreatedNode(
 ): void {
     const node = new EditableShapeNode({ document: doc, name, shape });
     doc.modelManager.addNode(node);
-    if (op.id) setRef(localRefs, op.id, { nodeId: node.id, kind: "shape", value: shape.value });
+    if (op.id) registerRef(doc, localRefs, op.id, { nodeId: node.id, kind: "shape", value: shape.value });
     created.push({ id: op.id, nodeId: node.id, name });
 }
 
@@ -620,6 +796,7 @@ function runOp(
     factory: unknown,
     localRefs: Map<string, LocalRef>,
     created: CreatedNode[],
+    removed: RemovedNode[],
     results: Record<string, unknown>,
 ): void {
     if (op.method === "transformedMul") {
@@ -631,7 +808,7 @@ function runOp(
         runQueryOp(op, doc, localRefs, results);
         return;
     }
-    runShapeOp(cap, op, doc, factory, localRefs, created, results);
+    runShapeOp(cap, op, doc, factory, localRefs, created, removed, results);
 }
 
 function runQueryOp(
@@ -652,6 +829,7 @@ function runShapeOp(
     factory: unknown,
     localRefs: Map<string, LocalRef>,
     created: CreatedNode[],
+    removed: RemovedNode[],
     results: Record<string, unknown>,
 ): void {
     const consumed = new Set<string>();
@@ -660,12 +838,12 @@ function runShapeOp(
     const result = raw instanceof Result ? raw : Result.ok(raw);
     if (!result.isOk) throw new Error(result.error);
 
-    consumeEditInputs(op.method, doc, localRefs, consumed);
+    consumeEditInputs(op.method, doc, localRefs, consumed, removed);
     if (cap.returnKind === "shapeWithData") {
         // { shape, ...extras } — node from .shape; array extras (e.g. newEdges) become refs.
         const { shape, ...extras } = result.value as { shape: IShape } & Record<string, unknown>;
         addCreatedNode(op, doc, localRefs, created, op.name ?? cap.method, Result.ok(shape));
-        recordExtras(op, localRefs, extras, results);
+        recordExtras(op, doc, localRefs, extras, results);
         return;
     }
     addCreatedNode(op, doc, localRefs, created, op.name ?? cap.method, result);
@@ -678,6 +856,7 @@ function runShapeOp(
  */
 function recordExtras(
     op: Op,
+    doc: IDocument,
     localRefs: Map<string, LocalRef>,
     extras: Record<string, unknown>,
     results: Record<string, unknown>,
@@ -689,7 +868,7 @@ function recordExtras(
         if (!Array.isArray(value)) continue;
         const refs = value.map((item, i) => {
             const ref = `${op.id}#${key}#${i}`;
-            setRef(localRefs, ref, { nodeId: parent.nodeId, kind: "shape", value: item, parent });
+            registerRef(doc, localRefs, ref, { nodeId: parent.nodeId, kind: "shape", value: item, parent });
             return ref;
         });
         results[`${op.id}.${key}`] = { count: refs.length, refs, kind: "shape" };
@@ -698,17 +877,22 @@ function recordExtras(
 
 /**
  * Edit-style ops replace their inputs: remove the pre-edit / intermediate
- * nodes. Read/derive ops leave referenced nodes in the scene.
+ * nodes. Read/derive ops leave referenced nodes in the scene. Removed nodes
+ * are reported so the model knows they no longer exist (no hide/delete needed).
  */
 function consumeEditInputs(
     method: string,
     doc: IDocument,
     localRefs: Map<string, LocalRef>,
     consumed: Set<string>,
+    removed: RemovedNode[],
 ): void {
     if (!EDIT_METHODS.has(method)) return;
     for (const id of consumed) {
         const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+        if (node && !removed.some((r) => r.nodeId === id)) {
+            removed.push({ nodeId: id, name: node.name });
+        }
         node?.parent?.remove(node);
         for (const [key, entry] of [...localRefs]) {
             if (entry.nodeId === id) localRefs.delete(key);
@@ -720,7 +904,7 @@ function buildModelingTool(): Tool {
     return {
         name: "run_program",
         description:
-            'Run a sequence of modeling and query operations in one call. The single argument is an object { "ops": [...] } where ops run in order. Creation ops have "method" (a modeling capability), "args", optional "id" (referenced by later ops) and optional "name"; they return created nodes. Query ops have "method" (a query like "face.area" or "shape.volume"), "target" (a ref) and "id"; their values come back in "results". Use load_skill("shape-query") for the full query reference. A ref arg takes an op id, a sub-shape/curve/surface ref, or an existing node id; refs stay valid across run_program calls on the same document and re-resolve against the live scene, so an edited node is seen through its current shape (a ref whose source node was deleted fails with a clear error — re-run the query that produced it).',
+            'Run a sequence of modeling and query operations in one call. The single argument is an object { "ops": [...] } where ops run in order. Creation ops have "method" (a modeling capability), "args", optional "id" (referenced by later ops) and optional "name"; they return created nodes. Query ops have "method" (a query like "face.area" or "shape.volume"), "target" (a ref) and "id"; their values come back in "results". The response is { created, removed, results }: "created" lists new nodes, "removed" lists input nodes consumed by edit-style ops (booleanCut/booleanFuse/fillet/...) — removed nodes no longer exist, do not hide, delete or reference them. Use load_skill("shape-query") for the full query reference. A ref arg takes an op id, a sub-shape/curve/surface ref, or an existing node id; refs stay valid across run_program calls on the same document and re-resolve against the live scene, so an edited node is seen through its current shape (a ref whose source node was deleted fails with a clear error — re-run the query that produced it).',
         parameters: runProgramParameters(),
         handler: handleRunProgram,
     };

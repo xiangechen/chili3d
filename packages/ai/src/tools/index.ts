@@ -7,6 +7,7 @@ import { buildCapabilityTools } from "./capabilityEngine";
 import { buildFileTools } from "./fileTools";
 import { buildNodeTools } from "./nodeTools";
 import { buildReadTools } from "./readTools";
+import { buildSelectionTools } from "./selectionTools";
 import { buildViewTools } from "./viewTools";
 
 export function buildTools(): Tool[] {
@@ -14,6 +15,7 @@ export function buildTools(): Tool[] {
         ...buildReadTools(),
         ...buildNodeTools(),
         ...buildViewTools(),
+        ...buildSelectionTools(),
         ...buildFileTools(),
         ...buildCapabilityTools(),
         buildSkillTool(),

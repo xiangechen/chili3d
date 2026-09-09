@@ -754,14 +754,23 @@ export class ChatPanel extends HTMLElement {
             const parsed = JSON.parse(result) as {
                 ref?: string;
                 created?: { nodeId?: string; name?: string }[];
+                removed?: { nodeId?: string; name?: string }[];
                 error?: string;
             };
             if (parsed.error) {
                 return { text: I18n.translate("ai.error.prefix", parsed.error), isError: true };
             }
+            const segments: string[] = [];
             if (parsed.created?.length) {
                 const names = parsed.created.map((c) => c.name ?? c.nodeId ?? "").filter(Boolean);
-                return { text: I18n.translate("ai.tool.created", names.join(", ")), isError: false };
+                segments.push(I18n.translate("ai.tool.created", names.join(", ")));
+            }
+            if (parsed.removed?.length) {
+                const names = parsed.removed.map((r) => r.name ?? r.nodeId ?? "").filter(Boolean);
+                segments.push(I18n.translate("ai.tool.removed", names.join(", ")));
+            }
+            if (segments.length) {
+                return { text: segments.join("; "), isError: false };
             }
             if (parsed.ref) {
                 return { text: I18n.translate("ai.tool.created", parsed.ref), isError: false };
