@@ -349,10 +349,10 @@ public:
         aFixTol.SetTolerance(shape, tolerance);
     }
 
-    static double volume(const TopoDS_Solid& solid)
+    static double volume(const TopoDS_Shape& shape)
     {
         GProp_GProps props;
-        BRepGProp::VolumeProperties(solid, props);
+        BRepGProp::VolumeProperties(shape, props);
         return props.Mass();
     }
 };

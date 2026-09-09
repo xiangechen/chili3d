@@ -922,6 +922,22 @@ describe("ShapeFactory — advanced operations", () => {
             expect(result.isOk).toBe(true);
             expect(result.value.shapeType).toBe(ShapeTypes.compound);
         });
+
+        test("should compute the volume of a compound as the sum of its solids", () => {
+            const box1 = factory.box(plane, 5, 5, 5).value;
+            const box2 = factory.box(
+                new Plane({
+                    origin: new XYZ({ x: 20, y: 0, z: 0 }),
+                    normal: XYZ.unitZ,
+                    xvec: XYZ.unitX,
+                }),
+                5,
+                5,
+                5,
+            ).value;
+            const compound = factory.combine([box1, box2]).value;
+            expect(compound.volume()).toBeCloseTo(250, 6);
+        });
     });
 
     describe("sewing", () => {
