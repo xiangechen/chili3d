@@ -538,10 +538,20 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
                 ? {
                       sketchId: node.id,
                       ...(this.pickedFaces.length > 0
-                          ? { profiles: this.pickedFaces.map(captureProfileRef) }
+                          ? { profiles: this.pickedFaces.map((face) => captureProfileRef(face)) }
                           : {}),
                   }
-                : { source: { nodeId: node.id, profiles: worldFaces.map(captureProfileRef) } }),
+                : {
+                      // Press-pull: pair each fingerprint with the picked face's tracked
+                      // id so rebuilds re-match by identity, not geometry (a merged face
+                      // re-splitting is indistinguishable by fingerprint alone).
+                      source: {
+                          nodeId: node.id,
+                          profiles: worldFaces.map((face, index) =>
+                              captureProfileRef(face, node.faceIdAt(this.dragData.shapes[index].indexes[0])),
+                          ),
+                      },
+                  }),
         };
     }
 

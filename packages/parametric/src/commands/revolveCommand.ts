@@ -99,7 +99,7 @@ export class RevolveFeatureCommand extends MultistepCommand {
                 direction: { x: axis.direction.x, y: axis.direction.y, z: axis.direction.z },
             },
             angle: this.angle,
-            ...(faces.length > 0 ? { profiles: faces.map(captureProfileRef) } : {}),
+            ...(faces.length > 0 ? { profiles: faces.map((face) => captureProfileRef(face)) } : {}),
             ...this.axisSource(),
         };
     }

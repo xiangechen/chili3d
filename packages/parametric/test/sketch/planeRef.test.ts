@@ -4,7 +4,9 @@
 import {
     EditableShapeNode,
     type IFace,
+    type INodeVisual,
     type IShape,
+    Matrix4,
     Plane,
     Result,
     Serializer,
@@ -22,7 +24,8 @@ function planarFace(point: XYZ, normal: XYZ): IFace {
         shapeType: ShapeTypes.face,
         normal: () => [point, normal],
         surface: () => ({ isPlanar: () => true }),
-        transformedMul: () => planarFace(point, normal),
+        transformedMul: (transform: Matrix4) =>
+            planarFace(transform.ofPoint(point), transform.ofVector(normal)),
         isEqual: () => false,
         dispose: rs.fn(),
     } as unknown as IFace;
@@ -200,6 +203,24 @@ describe("SketchNode plane follow", () => {
             source.shape = Result.ok(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 10 }), XYZ.unitZ)));
 
             expect(sketch.plane.origin.z).toBe(10);
+        } finally {
+            restore();
+        }
+    });
+
+    test("moves the plane with the referenced node's transform", () => {
+        const restore = mockCombine();
+        try {
+            const { doc, source } = setup(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)));
+            const sketch = sketchOn(doc, source.id, 5);
+            // the face itself is unchanged — only the node's placement moves it
+            const moved = Matrix4.fromTranslation(0, 0, 4);
+            const visual = { worldTransform: () => moved } as unknown as INodeVisual;
+            doc.visual.context.getVisual = () => visual;
+
+            source.transform = moved;
+
+            expect(sketch.plane.origin.z).toBe(9);
         } finally {
             restore();
         }

@@ -5,6 +5,7 @@ import {
     CurveUtils,
     type IDocument,
     type IEdge,
+    type IFace,
     type IShape,
     Line,
     Result,
@@ -13,10 +14,11 @@ import {
     XYZ,
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
-import { matchEdgeIndexes } from "./edgeRef";
+import { completeEdgeHistory, MATCH_TOLERANCE, matchEdgeIndexes } from "./edgeRef";
 import { resolveNumber } from "./expression";
 import { findSketch } from "./extrude";
 import {
+    combineIds,
     type FeatureHandler,
     type RevolveFeatureData,
     registerFeature,
@@ -105,29 +107,105 @@ function revolveTracked(
     const shapes: IShape[] = [];
     const outputFaceIds: string[] = [];
     const outputEdgeIds: string[] = [];
-    for (const { face, index } of profiles) {
-        const result = shapeFactory.revolveTracked!(face, axis, angle);
-        if (!result.isOk) return Result.err(result.error);
-        shapes.push(result.value.shape);
-        // Revolve edge history is sparse; unmapped edges get feature-scoped ids.
-        const edgeSeeds = face
-            .findSubShapes(ShapeTypes.edge)
-            .map((_, edgeIndex) => `sketch:${sketch.id}:${index}:e${edgeIndex}`);
-        // Side faces generated from profile edges take the edge's seed (see extrude).
-        outputFaceIds.push(
-            ...trackedFaceIds(
-                feature.id,
-                [`sketch:${sketch.id}:${index}`],
-                edgeSeeds,
-                result.value.faceMap,
-                result.value.faceEdgeMap,
-            ),
-        );
-        outputEdgeIds.push(...trackedIds(feature.id, edgeSeeds, result.value.edgeMap));
+    for (const profile of profiles) {
+        const revolved = revolveProfileTracked(feature, sketch, axis, angle, profile);
+        if (!revolved.isOk) return Result.err(revolved.error);
+        shapes.push(revolved.value.shape);
+        outputFaceIds.push(...revolved.value.faceIds);
+        outputEdgeIds.push(...revolved.value.edgeIds);
     }
     tracking.outputFaceIds = outputFaceIds;
     tracking.outputEdgeIds = outputEdgeIds;
     return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
+}
+
+/**
+ * Revolves one profile with kernel history and maps the tracked ids into
+ * findSubShapes order (the per-profile half of extrude's sweepProfileTracked).
+ */
+function revolveProfileTracked(
+    feature: RevolveFeatureData,
+    sketch: SketchNode,
+    axis: Line,
+    angle: number,
+    profile: ResolvedProfile,
+): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
+    // Guaranteed by the caller's guard — the type just cannot see it.
+    if (shapeFactory.revolveTracked === undefined) return Result.err("Revolve tracking is unavailable");
+    const result = shapeFactory.revolveTracked(profile.face, axis, angle);
+    if (!result.isOk) return Result.err(result.error);
+    const seed = `sketch:${sketch.id}:${profile.seed}`;
+    const faceEdges = profile.face.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const edgeSeeds = faceEdges.map((_, edgeIndex) => `${seed}:e${edgeIndex}`);
+    // Revolve edge history is sparse; geometry-identical completion recovers the
+    // unchanged edges it missed, the rest get feature-scoped ids.
+    const edgeMap = completeEdgeHistory(
+        faceEdges,
+        result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
+        result.value.edgeMap,
+    );
+    // Side faces generated from profile edges take the edge's seed (see extrude).
+    const faceIds = trackedFaceIds(
+        feature.id,
+        [seed],
+        edgeSeeds,
+        result.value.faceMap,
+        result.value.faceEdgeMap,
+    );
+    seedHistoryLessFaces(
+        result.value.shape.findSubShapes(ShapeTypes.face) as IFace[],
+        faceIds,
+        result.value.faceMap,
+        result.value.faceEdgeMap,
+        faceEdges,
+        edgeSeeds,
+        seed,
+    );
+    return Result.ok({
+        shape: result.value.shape,
+        faceIds,
+        edgeIds: trackedIds(feature.id, edgeSeeds, edgeMap),
+    });
+}
+
+/**
+ * The kernel's revolve history never reports the end cap of a partial revolve, and
+ * drops the end rings of a full turn (the flange faces an axis-perpendicular profile
+ * edge sweeps at 360°) — both would otherwise get positional ids that realign onto
+ * another face when the profile's structure changes. Seed them from the profile
+ * geometry instead: the single history-less face of a partial revolve is the end
+ * cap; otherwise each face takes the seeds of the profile edges lying on its surface
+ * (a full-turn ring contains the input edge that swept it), compounding when a
+ * merged ring carries several. Only the edge midpoint is probed — the endpoints are
+ * shared with the neighboring edge's surface. Faces no edge claims keep the
+ * positional fallback.
+ */
+function seedHistoryLessFaces(
+    faces: IFace[],
+    faceIds: string[],
+    faceMap: number[],
+    faceEdgeMap: number[] | undefined,
+    faceEdges: IEdge[],
+    edgeSeeds: string[],
+    seed: string,
+): void {
+    const candidates = faceIds.flatMap((_, index) =>
+        faceMap[index] < 0 && (faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
+    );
+    if (candidates.length === 0) return;
+    if (candidates.length === 1) {
+        faceIds[candidates[0]] = `${seed}:cap`;
+        return;
+    }
+    for (const index of candidates) {
+        const surface = faces[index].surface();
+        const claims = edgeSeeds.filter((_, edgeIndex) => {
+            const edge = faceEdges[edgeIndex];
+            const mid = edge.pointAt((edge.firstParameter() + edge.lastParameter()) / 2);
+            return surface.parameter(mid, MATCH_TOLERANCE) !== undefined;
+        });
+        if (claims.length > 0) faceIds[index] = combineIds(claims);
+    }
 }
 
 registerFeature("revolve", revolveHandler);

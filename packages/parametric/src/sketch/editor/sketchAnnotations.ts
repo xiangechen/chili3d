@@ -15,6 +15,7 @@ import {
     isDatumEntityId,
     pointRefKey,
     type SketchConstraintData,
+    type SketchEntityData,
     type SketchPointRef,
     toUV,
     toWorld,
@@ -377,8 +378,7 @@ export class SketchAnnotationManager implements IDisposable {
 
     /**
      * Anchor beside an entity's own geometry: normal offset from a line's midpoint;
-     * radial offset from a circle (facing away from the constraint's other party, so
-     * tangent/equal partners do not stack) or from an arc's mid-sweep direction.
+     * radial offset from a circle or arc (see `badgeRadialDirection`).
      * Datum axes are unit stubs at the origin, so the anchor sits beside the
      * projection of the constraint midpoint onto the axis instead.
      */
@@ -402,20 +402,27 @@ export class SketchAnnotationManager implements IDisposable {
             entity.type === "circle"
                 ? entity.params[2]
                 : Math.hypot(entity.params[2] - cx, entity.params[3] - cy);
-        let direction: [number, number] | undefined;
+        const direction = this.badgeRadialDirection(entity, hint);
+        return [cx + direction[0] * (radius + off), cy + direction[1] * (radius + off)];
+    }
+
+    /**
+     * Radial badge direction of a circle/arc: an arc's mid-sweep direction, otherwise
+     * facing away from the constraint's other party (`hint`), so tangent/equal
+     * partners do not stack; degenerate cases fall back to the diagonal.
+     */
+    private badgeRadialDirection(entity: SketchEntityData, hint: [number, number]): [number, number] {
+        const [cx, cy] = entity.params;
         if (entity.type === "arc") {
             // mid-sweep direction keeps the badge next to the visible arc stroke
             const mx = (entity.params[2] + entity.params[4]) / 2 - cx;
             const my = (entity.params[3] + entity.params[5]) / 2 - cy;
             const length = Math.hypot(mx, my);
-            if (length > 1e-9) direction = [mx / length, my / length];
+            if (length > 1e-9) return [mx / length, my / length];
         }
-        if (direction === undefined) {
-            const [du, dv] = [cx - hint[0], cy - hint[1]];
-            const length = Math.hypot(du, dv);
-            direction = length < 1e-9 ? [Math.SQRT1_2, Math.SQRT1_2] : [du / length, dv / length];
-        }
-        return [cx + direction[0] * (radius + off), cy + direction[1] * (radius + off)];
+        const [du, dv] = [cx - hint[0], cy - hint[1]];
+        const length = Math.hypot(du, dv);
+        return length < 1e-9 ? [Math.SQRT1_2, Math.SQRT1_2] : [du / length, dv / length];
     }
 
     /** Average of the referenced points — generic badge anchor for multi-point constraints. */
@@ -526,55 +533,91 @@ export class SketchAnnotationManager implements IDisposable {
             return;
         }
         if (preview.kind === "distance") {
-            const offset = segmentOffset(preview.p1, preview.p2, preview.position);
-            const geometry = distanceDimension(preview.p1, preview.p2, offset, px);
-            if (geometry === undefined) return;
-            segments.push(...geometry.segments);
-            const value = Math.hypot(preview.p2[0] - preview.p1[0], preview.p2[1] - preview.p1[1]);
-            this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+            this.previewDistance(preview, px, segments);
             return;
         }
         if (preview.kind === "radius") {
-            const [cx, cy] = preview.center;
-            const geometry = radiusDimension(
-                preview.center,
-                preview.radius,
-                preview.position[0] - cx,
-                preview.position[1] - cy,
-                px,
-            );
-            segments.push(...geometry.segments);
-            this.addPreviewBadge(`R${preview.radius.toFixed(2)}`, geometry.textPosition);
+            this.previewRadius(preview, px, segments);
             return;
         }
         if (preview.kind === "pointLine") {
-            const foot = pointLineFoot(preview.p, preview.l1, preview.l2);
-            if (foot === undefined) return;
-            const offset = segmentOffset(preview.p, foot, preview.position);
-            const geometry = pointLineDistanceDimension(preview.p, preview.l1, preview.l2, offset, px);
-            if (geometry === undefined) return;
-            segments.push(...geometry.segments);
-            this.addPreviewBadge(
-                pointLineSignedDistance(preview.p, preview.l1, preview.l2).toFixed(2),
-                geometry.textPosition,
-            );
+            this.previewPointLine(preview, px, segments);
             return;
         }
         if (preview.kind === "axisDistance") {
-            const base =
-                preview.axis === "h"
-                    ? (preview.p1[1] + preview.p2[1]) / 2
-                    : (preview.p1[0] + preview.p2[0]) / 2;
-            const offset = (preview.axis === "h" ? preview.position[1] : preview.position[0]) - base;
-            const geometry = axisDistanceDimension(preview.p1, preview.p2, preview.axis, offset, px);
-            if (geometry === undefined) return;
-            segments.push(...geometry.segments);
-            const value =
-                preview.axis === "h" ? preview.p2[0] - preview.p1[0] : preview.p2[1] - preview.p1[1];
-            this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+            this.previewAxisDistance(preview, px, segments);
             return;
         }
-        // angle preview
+        this.previewAngle(preview, px, segments);
+    }
+
+    private previewDistance(
+        preview: Extract<DimensionPreview, { kind: "distance" }>,
+        px: number,
+        segments: DimensionGeometry["segments"],
+    ): void {
+        const offset = segmentOffset(preview.p1, preview.p2, preview.position);
+        const geometry = distanceDimension(preview.p1, preview.p2, offset, px);
+        if (geometry === undefined) return;
+        segments.push(...geometry.segments);
+        const value = Math.hypot(preview.p2[0] - preview.p1[0], preview.p2[1] - preview.p1[1]);
+        this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+    }
+
+    private previewRadius(
+        preview: Extract<DimensionPreview, { kind: "radius" }>,
+        px: number,
+        segments: DimensionGeometry["segments"],
+    ): void {
+        const [cx, cy] = preview.center;
+        const geometry = radiusDimension(
+            preview.center,
+            preview.radius,
+            preview.position[0] - cx,
+            preview.position[1] - cy,
+            px,
+        );
+        segments.push(...geometry.segments);
+        this.addPreviewBadge(`R${preview.radius.toFixed(2)}`, geometry.textPosition);
+    }
+
+    private previewPointLine(
+        preview: Extract<DimensionPreview, { kind: "pointLine" }>,
+        px: number,
+        segments: DimensionGeometry["segments"],
+    ): void {
+        const foot = pointLineFoot(preview.p, preview.l1, preview.l2);
+        if (foot === undefined) return;
+        const offset = segmentOffset(preview.p, foot, preview.position);
+        const geometry = pointLineDistanceDimension(preview.p, preview.l1, preview.l2, offset, px);
+        if (geometry === undefined) return;
+        segments.push(...geometry.segments);
+        this.addPreviewBadge(
+            pointLineSignedDistance(preview.p, preview.l1, preview.l2).toFixed(2),
+            geometry.textPosition,
+        );
+    }
+
+    private previewAxisDistance(
+        preview: Extract<DimensionPreview, { kind: "axisDistance" }>,
+        px: number,
+        segments: DimensionGeometry["segments"],
+    ): void {
+        const base =
+            preview.axis === "h" ? (preview.p1[1] + preview.p2[1]) / 2 : (preview.p1[0] + preview.p2[0]) / 2;
+        const offset = (preview.axis === "h" ? preview.position[1] : preview.position[0]) - base;
+        const geometry = axisDistanceDimension(preview.p1, preview.p2, preview.axis, offset, px);
+        if (geometry === undefined) return;
+        segments.push(...geometry.segments);
+        const value = preview.axis === "h" ? preview.p2[0] - preview.p1[0] : preview.p2[1] - preview.p1[1];
+        this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+    }
+
+    private previewAngle(
+        preview: Extract<DimensionPreview, { kind: "angle" }>,
+        px: number,
+        segments: DimensionGeometry["segments"],
+    ): void {
         const vertex = lineIntersection(preview.a1, preview.a2, preview.b1, preview.b2) ?? [
             (preview.a1[0] + preview.a2[0] + preview.b1[0] + preview.b2[0]) / 4,
             (preview.a1[1] + preview.a2[1] + preview.b1[1] + preview.b2[1]) / 4,

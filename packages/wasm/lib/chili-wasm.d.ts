@@ -63,6 +63,8 @@ export interface TrackedShapeResult extends ClassHandle {
   faceMap: IntVector;
   edgeMap: IntVector;
   faceEdgeMap: IntVector;
+  faceAncestors: IntVector;
+  edgeAncestors: IntVector;
 }
 
 export interface ShapeFactory extends ClassHandle {

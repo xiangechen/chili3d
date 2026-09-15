@@ -13,7 +13,7 @@ import {
     VisualStates,
     XYZ,
 } from "@chili3d/core";
-import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
+import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ExtrudeFeatureCommand } from "../../src/commands/extrudeCommand";
 import type { ExtrudeFeatureData } from "../../src/features/feature";
@@ -117,6 +117,7 @@ describe("ExtrudeFeatureCommand profile step", () => {
             line: (start: XYZ, end: XYZ) =>
                 Result.ok({
                     shapeType: ShapeTypes.edge,
+                    curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                     startPoint: () => start,
                     endPoint: () => end,
                     firstParameter: () => 0,
@@ -470,6 +471,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
             line: (start: XYZ, end: XYZ) =>
                 Result.ok({
                     shapeType: ShapeTypes.edge,
+                    curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                     startPoint: () => start,
                     endPoint: () => end,
                     firstParameter: () => 0,
@@ -615,6 +617,7 @@ describe("ExtrudeFeatureCommand consumption", () => {
             line: (start: XYZ, end: XYZ) =>
                 Result.ok({
                     shapeType: ShapeTypes.edge,
+                    curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                     startPoint: () => start,
                     endPoint: () => end,
                     firstParameter: () => 0,

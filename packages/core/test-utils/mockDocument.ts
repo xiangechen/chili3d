@@ -114,6 +114,8 @@ export function createMockDocument(overrides: MockDocumentOverrides = {}): IDocu
         nodes: [],
         materials: [],
         addNode: () => {},
+        findNode: () => undefined,
+        findNodes: () => [],
         getChildren: () => [],
         notifyNodeChanged: () => {},
         dispose: () => {},

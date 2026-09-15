@@ -12,7 +12,12 @@ import {
     Transaction,
     XYZ,
 } from "@chili3d/core";
-import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
+import {
+    createMockApplication,
+    nearestOnCircle,
+    nearestOnSegment,
+    TestDocument,
+} from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { type SketchData, SketchNode } from "../src/sketch";
 import "../src/features"; // registers all feature handlers
@@ -71,7 +76,10 @@ function subEdge() {
 function edge(start: XYZ, end: XYZ) {
     const self: any = {
         shapeType: ShapeTypes.edge,
-        curve: { basisCurve: { direction: { x: end.x - start.x, y: end.y - start.y, z: end.z - start.z } } },
+        curve: {
+            basisCurve: { direction: { x: end.x - start.x, y: end.y - start.y, z: end.z - start.z } },
+            nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point),
+        },
         startPoint: () => start,
         endPoint: () => end,
         firstParameter: () => 0,
@@ -112,7 +120,10 @@ function setupMocks() {
     const circle = rs.fn((normal: XYZ, center: XYZ, radius: number) =>
         Result.ok({
             shapeType: ShapeTypes.edge,
-            curve: { basisCurve: { center, radius, axis: normal } },
+            curve: {
+                basisCurve: { center, radius, axis: normal },
+                nearestFromPoint: (point: XYZ) => nearestOnCircle(center, radius, point),
+            },
             startPoint: () => center.add(new XYZ({ x: radius, y: 0, z: 0 })),
             endPoint: () => center.add(new XYZ({ x: radius, y: 0, z: 0 })),
             firstParameter: () => 0,

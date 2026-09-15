@@ -24,18 +24,50 @@ export const selectedVertexMaterial = new PointsMaterial({
     size: 5,
 });
 
-export const defaultEdgeMaterial = new LineMaterial({
-    linewidth: 1,
+const defaultEdgeMaterialOptions = {
     color: VisualConfig.defaultEdgeColor,
     side: DoubleSide,
     polygonOffset: true,
     polygonOffsetFactor: -2,
     polygonOffsetUnits: -2,
+};
+
+export const defaultEdgeMaterial = new LineMaterial({
+    ...defaultEdgeMaterialOptions,
+    linewidth: 1,
 });
+
+const edgeMaterialsByWidth = new Map<number, LineMaterial>([[1, defaultEdgeMaterial]]);
+
+/**
+ * Shared edge material for a pixel `lineWidth` — `undefined`/1 maps to
+ * `defaultEdgeMaterial`, anything else is cached per width so mesh data can carry a
+ * `lineWidth` without every visual owning a material instance. The cache is
+ * deliberately unbounded and never disposed: widths come from a small set of UI
+ * constants and from document mesh data (`MeshData.lineWidth` is serialized), so
+ * the key space stays bounded by the handful of widths real documents carry, and
+ * sharing keeps the `defaultEdgeColor` listener below O(1) per material.
+ * `ThreeGeometryFactory.createEdgeMaterial` is a separate source on purpose — it
+ * builds per-visual materials at a different z-layer.
+ */
+export function edgeMaterialOfWidth(lineWidth: number | undefined): LineMaterial {
+    const width = lineWidth ?? 1;
+    let material = edgeMaterialsByWidth.get(width);
+    if (material === undefined) {
+        material = new LineMaterial({
+            ...defaultEdgeMaterialOptions,
+            linewidth: width,
+        });
+        edgeMaterialsByWidth.set(width, material);
+    }
+    return material;
+}
+
 VisualConfig.onPropertyChanged((property: keyof VisualItemConfig) => {
     if (property === "defaultEdgeColor") {
         defaultEdgeMaterial.color.set(VisualConfig.defaultEdgeColor);
         defaultVertexMaterial.color.set(VisualConfig.defaultEdgeColor);
+        edgeMaterialsByWidth.forEach((material) => material.color.set(VisualConfig.defaultEdgeColor));
     }
 });
 

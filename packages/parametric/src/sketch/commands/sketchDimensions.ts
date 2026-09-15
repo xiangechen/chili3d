@@ -20,6 +20,7 @@ import {
     type SketchPointRef,
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
+import { allowsConstraintOnEntity } from "../solverEntities";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 @command({ key: "dimension.distance", icon: "icon-dDimension" })
@@ -27,7 +28,7 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.controller = new AsyncController();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined) return;
+        if (p1 === undefined || !allowsConstraintOnEntity(ConstraintKind.P2PDistance, p1.entityId)) return;
 
         // rubber-band line from the first point to the cursor while picking the second
         const uv1 = editor.solver.pointOf(p1);
@@ -42,7 +43,7 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
                 this.controller,
             ),
         );
-        if (p2 === undefined) return;
+        if (p2 === undefined || !allowsConstraintOnEntity(ConstraintKind.P2PDistance, p2.entityId)) return;
 
         const uv2 = editor.solver.pointOf(p2);
         this.controller = new AsyncController();
@@ -84,7 +85,7 @@ export class RadiusDimensionCommand extends SketchConstraintCommand {
             undefined,
             this.controller,
         );
-        if (entityId === undefined) return;
+        if (entityId === undefined || !allowsConstraintOnEntity(ConstraintKind.Radius, entityId)) return;
 
         const entity = editor.solver.entity(entityId)!;
         const center: [number, number] = [entity.params[0], entity.params[1]];
@@ -190,7 +191,7 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.controller = new AsyncController();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p === undefined) return;
+        if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.P2LDistance, p.entityId)) return;
         this.controller = new AsyncController();
         const lineId = await editor.pickEntity(
             "prompt.pickSketchEntity",
@@ -198,7 +199,7 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
             { datum: true },
             this.controller,
         );
-        if (lineId === undefined) return;
+        if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.P2LDistance, lineId)) return;
 
         const l1: SketchPointRef = { entityId: lineId, pointIndex: 0 };
         const l2: SketchPointRef = { entityId: lineId, pointIndex: 1 };
@@ -254,7 +255,7 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
             { datum: true },
             this.controller,
         );
-        if (l1Id === undefined) return;
+        if (l1Id === undefined || !allowsConstraintOnEntity(ConstraintKind.Angle, l1Id)) return;
         this.controller = new AsyncController();
         const l2Id = await editor.pickEntity(
             "prompt.pickSketchEntity",
@@ -262,7 +263,7 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
             { datum: true },
             this.controller,
         );
-        if (l2Id === undefined) return;
+        if (l2Id === undefined || !allowsConstraintOnEntity(ConstraintKind.Angle, l2Id)) return;
 
         const refs: SketchPointRef[] = [
             { entityId: l1Id, pointIndex: 0 },
@@ -309,12 +310,13 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
     protected abstract readonly axis: "h" | "v";
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        const kind = this.axis === "h" ? ConstraintKind.HorizontalDistance : ConstraintKind.VerticalDistance;
         this.controller = new AsyncController();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined) return;
+        if (p1 === undefined || !allowsConstraintOnEntity(kind, p1.entityId)) return;
         this.controller = new AsyncController();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p2 === undefined) return;
+        if (p2 === undefined || !allowsConstraintOnEntity(kind, p2.entityId)) return;
 
         const uv1 = editor.solver.pointOf(p1);
         const uv2 = editor.solver.pointOf(p2);
@@ -341,7 +343,7 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
         commitDimension(
             editor,
             {
-                kind: axis === "h" ? ConstraintKind.HorizontalDistance : ConstraintKind.VerticalDistance,
+                kind,
                 refs: [p1, p2],
                 datum: initial,
             },

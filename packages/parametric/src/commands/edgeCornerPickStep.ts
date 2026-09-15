@@ -14,6 +14,7 @@ import {
     ShapeTypeUtils,
     type SnapResult,
     SubshapeSelectionHandler,
+    type VisualShapeData,
     type XY,
     type XYZ,
 } from "@chili3d/core";
@@ -246,21 +247,10 @@ export class EdgeCornerSelectStep implements IStep {
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const preselected = document.selection
-            .getSelectedShapes()
-            .filter(
-                (x) =>
-                    ShapeTypeUtils.contains(ShapeTypes.edge, x.shape.shapeType) &&
-                    (this.nodeFilter.allow?.(x.owner.node) ?? true),
-            );
+        const preselected = this.preselectedEdges(document);
         if (preselected.length > 0) {
             controller.success();
-            return {
-                view: document.application.activeView!,
-                shapes: preselected,
-                nodes: preselected.map((x) => x.owner.node),
-                type: "shape",
-            };
+            return toSnapResult(document, preselected);
         }
 
         document.selection.clearSelection();
@@ -281,12 +271,25 @@ export class EdgeCornerSelectStep implements IStep {
 
         if (controller.result?.status !== "success") return undefined;
         const shapes = document.selection.getSelectedShapes();
-        if (shapes.length === 0) return undefined;
-        return {
-            view: document.application.activeView!,
-            shapes,
-            nodes: shapes.map((x) => x.owner.node),
-            type: "shape",
-        };
+        return shapes.length === 0 ? undefined : toSnapResult(document, shapes);
     }
+
+    private preselectedEdges(document: IDocument): VisualShapeData[] {
+        return document.selection
+            .getSelectedShapes()
+            .filter(
+                (x) =>
+                    ShapeTypeUtils.contains(ShapeTypes.edge, x.shape.shapeType) &&
+                    (this.nodeFilter.allow?.(x.owner.node) ?? true),
+            );
+    }
+}
+
+function toSnapResult(document: IDocument, shapes: VisualShapeData[]): SnapResult {
+    return {
+        view: document.application.activeView!,
+        shapes,
+        nodes: shapes.map((x) => x.owner.node),
+        type: "shape",
+    };
 }

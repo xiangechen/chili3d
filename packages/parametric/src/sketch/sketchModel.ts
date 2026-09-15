@@ -3,8 +3,19 @@
 
 import { type IView, type Plane, Precision, type XYZ } from "@chili3d/core";
 import { ConstraintKind } from "../../lib/garlic";
+import type { EdgeRef } from "../features/edgeRef";
 
 export { ConstraintKind };
+
+/** Screen-pixel line width of sketch geometry (entity edges, in and out of the editor). */
+export const SKETCH_EDGE_LINE_WIDTH = 2;
+
+/**
+ * Shared tolerance for incidence residuals (a point left off its line/circle after a coarse
+ * solve). The solver's repair pass uses it; profileBuilder's endpoint-on-interior probe matches
+ * it so the two layers agree on what "on the edge" means.
+ */
+export const INCIDENCE_TOLERANCE = 1e-4;
 
 export type SketchEntityType = "line" | "circle" | "arc";
 
@@ -50,15 +61,101 @@ export interface SketchDimensionAnchor {
     anchor: DimensionAnchor;
 }
 
+/**
+ * An edge of another node projected onto the sketch plane as construction
+ * geometry. The edge is re-matched on the source node's current shape via the
+ * stored `EdgeRef` fingerprint (exact `edgeId` hit when the source tracks
+ * edges); the last successfully resolved geometry is kept in `snapshot` (sketch
+ * UV params in the layout of `type`), so constraints keep solving against stale
+ * geometry when resolution fails (`dangling`). Constraints reference external
+ * entities as ordinary `{ entityId, pointIndex }` refs — no format change.
+ */
+export interface ExternalRefData {
+    /** Reserved negative id, allocated from `FIRST_EXTERNAL_ENTITY_ID` downward. */
+    entityId: number;
+    /** Source node (the part) the edge lives on. */
+    nodeId: string;
+    /** Edge fingerprint, with the kernel edgeId when the source provides one. */
+    edge: EdgeRef;
+    /** "profile" externals join profile building; "reference" ones never do. */
+    role: "reference" | "profile";
+    /**
+     * Set by an explicit profile-role choice: the profile role option when
+     * projecting edges, and every `sketch.toggleExternal` flip. Auto-derivation
+     * never overrides a pinned ref (see `syncExternalRoles`). An explicit REFERENCE
+     * pick (the default role option) stays unpinned — a promotable default: when a
+     * constraint later references the edge, derivation promotes it to profile.
+     * That is deliberate: reference-role edges never enter `generateShape`, so
+     * promotion is the only way a referenced edge can close loops into faces.
+     */
+    pinned?: boolean;
+    /** Last resolved params in sketch UV (line/circle/arc layout matching `type`). */
+    snapshot: number[];
+    /** Resolved sketch entity type. */
+    type: SketchEntityType;
+    /** Resolution failed at the last rebuild; `snapshot` is stale (but still builds profiles). */
+    dangling?: boolean;
+}
+
 export interface SketchData {
     entities: SketchEntityData[];
     constraints: SketchConstraintData[];
     /** Datum label positions chosen by the user; absent when never placed. */
     anchors?: SketchDimensionAnchor[];
+    /** Edges of other nodes usable as constraint targets (and optionally profiles). */
+    externalRefs?: ExternalRefData[];
+    /**
+     * Timeline anchor per referenced parametric body (nodeId → feature count when
+     * the sketch first referenced it). The sketch editor rolls each such body back
+     * to this position for the session (see `computeSketchRollback`), so the plane
+     * and external references resolve against the geometry they were captured from
+     * and features added later are hidden while editing. Recorded only at capture
+     * time (sketch creation on a face, `sketch.projectEdges`), never on the
+     * resolution/generateShape path.
+     */
+    refPositions?: Record<string, number>;
+    /**
+     * Next real entity id (monotonic, counts up from 1). Entity ids are the primary
+     * key of ProfileRef region identity, so a freed id is never reused — a stale
+     * fingerprint could otherwise match a geometrically different region. Absent in
+     * documents written before the counters; the solver then initializes it from the
+     * current max entity id + 1.
+     */
+    entityIdSeq?: number;
+    /**
+     * Next external entity id (monotonic, counts down from FIRST_EXTERNAL_ENTITY_ID).
+     * Same no-reuse guarantee as `entityIdSeq`; absent in pre-counter documents,
+     * where the solver initializes it from the current min external id − 1.
+     */
+    externalIdSeq?: number;
 }
 
 export function emptySketchData(): SketchData {
     return { entities: [], constraints: [] };
+}
+
+/**
+ * Derives unpinned external-ref roles from the constraints referencing them: a ref
+ * any constraint (of any kind, dimensions included) points at is "profile", one no
+ * constraint references is "reference". Refs with `pinned` keep their stored role —
+ * an explicit user choice. Mutates in place; returns whether any role changed.
+ * Applied when SketchData is finalized (solver `toData`, `loadData`), never on the
+ * resolution/generateShape path.
+ */
+export function syncExternalRoles(data: Pick<SketchData, "constraints" | "externalRefs">): boolean {
+    const refs = data.externalRefs;
+    if (refs === undefined || refs.length === 0) return false;
+    const referenced = new Set(data.constraints.flatMap((c) => c.refs.map((r) => r.entityId)));
+    let changed = false;
+    for (const ref of refs) {
+        if (ref.pinned === true) continue;
+        const role = referenced.has(ref.entityId) ? "profile" : "reference";
+        if (ref.role !== role) {
+            ref.role = role;
+            changed = true;
+        }
+    }
+    return changed;
 }
 
 export function nextSketchId(items: ReadonlyArray<{ id: number }>): number {
@@ -67,10 +164,12 @@ export function nextSketchId(items: ReadonlyArray<{ id: number }>): number {
 
 /**
  * Reserved entity ids for the sketch datum: the origin point and the X/Y axis
- * lines. Real entity ids start at 1 (`nextSketchId`), so negatives never clash.
- * Datum entities live only in the solver — never serialized as entities, never
- * rendered as sketch geometry — but constraints may reference them and are
- * serialized as ordinary `SketchConstraintData`.
+ * lines. Real entity ids are allocated monotonically from 1 (`entityIdSeq` in the
+ * solver, persisted as `SketchData.entityIdSeq`; `nextSketchId` serves constraint
+ * ids only), so negatives never clash. Datum entities live only in the solver —
+ * never serialized as entities, never rendered as sketch geometry — but
+ * constraints may reference them and are serialized as ordinary
+ * `SketchConstraintData`.
  */
 export const SKETCH_ORIGIN_ID = -1;
 export const SKETCH_X_AXIS_ID = -2;
@@ -78,6 +177,41 @@ export const SKETCH_Y_AXIS_ID = -3;
 
 export function isDatumEntityId(id: number): boolean {
     return id === SKETCH_ORIGIN_ID || id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID;
+}
+
+/**
+ * Reserved entity ids for external references start at -100 and count down, so
+ * they never collide with the datum ids (-1..-3) or real entity ids (1+). Ids are
+ * allocated monotonically downward via `SketchData.externalIdSeq` and never
+ * reused (a stale `ProfileRef` entity-id set must not hit a new, unrelated ref).
+ * Like the datum, external entities live only in the solver (never serialized as
+ * entities); their persistent state is `SketchData.externalRefs`.
+ */
+export const FIRST_EXTERNAL_ENTITY_ID = -100;
+
+export function isExternalEntityId(id: number): boolean {
+    return id <= FIRST_EXTERNAL_ENTITY_ID;
+}
+
+/**
+ * External refs that participate in profile building: every profile-role ref,
+ * including dangling ones — a ref whose source edge is (temporarily) gone keeps
+ * contributing its last-known `snapshot`, so the sketch degrades to frozen
+ * geometry (drawn red in the editor) instead of failing dependent features with
+ * "not closed" errors. A later rebuild that re-matches the edge clears `dangling`
+ * and the profile follows the freshened snapshot.
+ */
+export function profileExternalRefs(data: SketchData): ExternalRefData[] {
+    return (data.externalRefs ?? []).filter((ref) => ref.role === "profile");
+}
+
+/**
+ * Entity ids parallel to the edges `SketchNode.generateShape` emits: the sketch's
+ * own entities first, then the profile-role external refs. `sketchProfiles` maps
+ * the kernel's source edge indexes through this list on the crossing path.
+ */
+export function shapeEntityIds(data: SketchData): number[] {
+    return [...data.entities.map((entity) => entity.id), ...profileExternalRefs(data).map((r) => r.entityId)];
 }
 
 /** Point ref of the sketch origin (0, 0). */

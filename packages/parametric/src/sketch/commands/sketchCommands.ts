@@ -8,14 +8,24 @@ import {
     type IApplication,
     type ICommand,
     type IDocument,
+    type IEdge,
     type IFace,
+    type INode,
     type Plane,
     PubSub,
+    ShapeTypes,
     Transaction,
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import { SketchEditor } from "../editor/sketchEditor";
+import { captureExternalRef } from "../externalRef";
 import { captureFaceRef, type PlaneFaceRef, sketchPlaneOfFace } from "../planeRef";
+import {
+    type ExternalRefData,
+    emptySketchData,
+    FIRST_EXTERNAL_ENTITY_ID,
+    type SketchData,
+} from "../sketchModel";
 import { SketchNode } from "../sketchNode";
 import { PlanePickHandler, type PlanePickResult } from "./planePickHandler";
 
@@ -23,6 +33,48 @@ interface PickedPlane {
     plane: Plane;
     /** Set when the plane comes from a solid's face, so the sketch follows that face. */
     planeRef?: PlaneFaceRef;
+    /** Boundary edges of the picked face, captured as reference-role external refs. */
+    externalRefs?: ExternalRefData[];
+    /** Timeline anchor of the picked body (its feature count now), for session rollback. */
+    refPositions?: Record<string, number>;
+}
+
+/**
+ * The picked face's boundary edges as reference-role external refs (profile would
+ * surprise-extrude the whole face boundary). Edges whose curve is not a line or a
+ * circle are skipped silently. `localFace` is in the owner's coordinates; the world
+ * transform projects them onto the new sketch plane.
+ */
+function captureBoundaryExternalRefs(
+    owner: INode,
+    result: PlanePickResult & { kind: "face" },
+    plane: Plane,
+): ExternalRefData[] | undefined {
+    const localFace = result.data.shape as IFace;
+    const localEdges = localFace.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const refs: ExternalRefData[] = [];
+    const ownerEdges =
+        owner instanceof ParametricBodyNode && owner.shape.isOk
+            ? (owner.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[])
+            : [];
+    let nextId = FIRST_EXTERNAL_ENTITY_ID;
+    for (const localEdge of localEdges) {
+        const worldEdge = localEdge.transformedMul(result.data.transform) as IEdge;
+        try {
+            let edgeId: string | undefined;
+            if (owner instanceof ParametricBodyNode) {
+                const index = ownerEdges.findIndex((edge) => edge.isEqual(localEdge));
+                edgeId = index < 0 ? undefined : owner.edgeIdAt(index);
+            }
+            const ref = captureExternalRef(nextId, owner.id, plane, worldEdge, edgeId, "reference");
+            if (ref === undefined) continue;
+            refs.push(ref);
+            nextId--;
+        } finally {
+            worldEdge.dispose();
+        }
+    }
+    return refs.length === 0 ? undefined : refs;
 }
 
 function resolvePlane(document: IDocument, result: PlanePickResult | undefined): PickedPlane | undefined {
@@ -32,6 +84,8 @@ function resolvePlane(document: IDocument, result: PlanePickResult | undefined):
     const plane = sketchPlaneOfFace(face);
     const owner = document.visual.context.getNode(result.data.owner);
     let planeRef: PlaneFaceRef | undefined;
+    let externalRefs: ExternalRefData[] | undefined;
+    let refPositions: Record<string, number> | undefined;
     if (owner !== undefined) {
         planeRef = captureFaceRef(owner.id, face);
         // Faces of a parametric body carry a stable id across rebuilds — store it so
@@ -39,10 +93,14 @@ function resolvePlane(document: IDocument, result: PlanePickResult | undefined):
         if (owner instanceof ParametricBodyNode) {
             const faceId = owner.faceIdAt(result.data.indexes[0]);
             if (faceId !== undefined) planeRef.faceId = faceId;
+            // anchor the sketch's timeline position: the features that exist now
+            // are the state the sketch was created against (see computeSketchRollback)
+            refPositions = { [owner.id]: owner.features.length };
         }
+        externalRefs = captureBoundaryExternalRefs(owner, result, plane);
     }
     face.dispose();
-    return { plane, planeRef };
+    return { plane, planeRef, externalRefs, refPositions };
 }
 
 async function pickPlane(document: IDocument, controller: AsyncController): Promise<PickedPlane | undefined> {
@@ -53,6 +111,24 @@ async function pickPlane(document: IDocument, controller: AsyncController): Prom
     handler.dispose();
     document.selection.clearSelection();
     return resolvePlane(document, handler.result);
+}
+
+function sketchDataFromPick(picked: PickedPlane): SketchData | undefined {
+    if (picked.externalRefs === undefined && picked.refPositions === undefined) return undefined;
+    return {
+        ...emptySketchData(),
+        externalRefs: picked.externalRefs,
+        refPositions: picked.refPositions,
+        // captureBoundaryExternalRefs numbered the refs from
+        // FIRST_EXTERNAL_ENTITY_ID down before the solver existed —
+        // persist the counter so the no-reuse invariant is explicit
+        // instead of relying on the load-time Math.min recovery
+        // (undefined drops out of the serialized JSON)
+        externalIdSeq:
+            picked.externalRefs === undefined
+                ? undefined
+                : FIRST_EXTERNAL_ENTITY_ID - picked.externalRefs.length,
+    };
 }
 
 @command({ key: "sketch.create", icon: "icon-sketchNew" })
@@ -68,7 +144,12 @@ export class CreateSketch extends CancelableCommand {
         this.controller = new AsyncController();
         const picked = await pickPlane(document, this.controller);
         if (picked === undefined) return;
-        const node = new SketchNode({ document, plane: picked.plane, planeRef: picked.planeRef });
+        const node = new SketchNode({
+            document,
+            plane: picked.plane,
+            planeRef: picked.planeRef,
+            data: sketchDataFromPick(picked),
+        });
         Transaction.execute(document, "create sketch", () => {
             document.modelManager.addNode(node);
         });

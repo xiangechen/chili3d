@@ -276,13 +276,7 @@ export function angleDimension(
         vertex[0] + r * Math.cos(angle),
         vertex[1] + r * Math.sin(angle),
     ];
-    const segments: DimensionGeometry["segments"] = [];
-    const count = Math.max(4, Math.ceil((Math.abs(sweep) / Math.PI) * 16));
-    for (let i = 0; i < count; i++) {
-        const p0 = arcPoint(a1 + (sweep * i) / count);
-        const p1 = arcPoint(a1 + (sweep * (i + 1)) / count);
-        segments.push([p0[0], p0[1], p1[0], p1[1]]);
-    }
+    const segments = arcPolyline(vertex, r, a1, sweep);
     // tangent direction at an arc end, pointing along the sweep
     const tangent = (angle: number, forward: boolean): Vec2 => {
         const s = (forward ? 1 : -1) * Math.sign(sweep);
@@ -297,4 +291,19 @@ export function angleDimension(
         segments,
         textPosition: [vertex[0] + labelDistance * Math.cos(mid), vertex[1] + labelDistance * Math.sin(mid)],
     };
+}
+
+function arcPolyline(vertex: Vec2, r: number, a1: number, sweep: number): DimensionGeometry["segments"] {
+    const arcPoint = (angle: number): Vec2 => [
+        vertex[0] + r * Math.cos(angle),
+        vertex[1] + r * Math.sin(angle),
+    ];
+    const segments: DimensionGeometry["segments"] = [];
+    const count = Math.max(4, Math.ceil((Math.abs(sweep) / Math.PI) * 16));
+    for (let i = 0; i < count; i++) {
+        const p0 = arcPoint(a1 + (sweep * i) / count);
+        const p1 = arcPoint(a1 + (sweep * (i + 1)) / count);
+        segments.push([p0[0], p0[1], p1[0], p1[1]]);
+    }
+    return segments;
 }

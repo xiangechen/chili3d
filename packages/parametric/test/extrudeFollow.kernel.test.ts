@@ -121,8 +121,16 @@ test("an extrude follows a circle dragged in the sketch editor", () => {
     editor.solver.dragTo({ entityId: 1, pointIndex: 0 }, 15, 0);
     editor.solver.endDrag();
     editor.commit();
+
+    // The body stays rolled back for the whole session — its only feature consumes
+    // the sketch, so the extrude is hidden until the session ends (Fusion-style).
+    expect(body.rollbackIndex).toBe(0);
+    expect(body.shape.unchecked()!.findSubShapes(ShapeTypes.face).length).toBe(0);
+
     editor.exit();
 
+    // exiting restores the full chain, now with the dragged circle
+    expect(body.rollbackIndex).toBeUndefined();
     expect(body.featureItems()[0].error).toBeUndefined();
     expect(body.shape.isOk).toBe(true);
     expect(body.shape.unchecked()!.boundingBox().min.x).toBeCloseTo(10, 1);

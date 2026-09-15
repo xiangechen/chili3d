@@ -3,7 +3,7 @@
 
 import type { IShape, ISubShape, Matrix4, ShapeMeshRange, ShapeType } from "@chili3d/core";
 import { Matrix4 as CoreMatrix4 } from "@chili3d/core";
-import { Mesh, MeshBasicMaterial, type Points } from "three";
+import { Group, Mesh, MeshBasicMaterial, type Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { highlightFaceMaterial, hilightEdgeMaterial, lockFaceMaterial } from "../src/materials";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
@@ -196,6 +196,19 @@ describe("ThreeVisualObject base class", () => {
         const matrix = CoreMatrix4.fromArray([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1]);
         obj.transform = matrix;
         expect(obj.matrix.elements[12]).toBe(10);
+    });
+
+    test("transform setter refreshes worldTransform without a render", () => {
+        const parent = new Group();
+        parent.position.set(1, 0, 0);
+        parent.updateMatrixWorld();
+        const obj = new TestableVisualObject(createTestVisualNode());
+        parent.add(obj);
+
+        obj.transform = CoreMatrix4.fromArray([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1]);
+
+        // no updateMatrixWorld() in between: listeners on "transform" read this synchronously
+        expect(obj.worldTransform().toArray()[12]).toBe(11);
     });
 
     test("visible false when node is not visible", () => {

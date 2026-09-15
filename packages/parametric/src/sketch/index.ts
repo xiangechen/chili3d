@@ -3,6 +3,7 @@
 
 export * from "./autoConstraints";
 export * from "./editor/sketchEditor";
+export * from "./externalRef";
 export * from "./garlic";
 export * from "./ribbon";
 export * from "./sketchModel";

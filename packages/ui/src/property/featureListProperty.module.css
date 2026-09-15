@@ -19,6 +19,10 @@
         border-left: 2px solid var(--error-color);
     }
 
+    &.warning {
+        border-left: 2px solid var(--warning-color);
+    }
+
     &.suppressed {
         opacity: 0.5;
     }
@@ -94,6 +98,14 @@
 
 .errorText {
     color: var(--error-color);
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: 4px;
+    word-break: break-word;
+}
+
+.warningText {
+    color: var(--warning-color);
     font-size: 12px;
     line-height: 1.4;
     margin-top: 4px;

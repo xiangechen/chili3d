@@ -25,8 +25,14 @@ export interface FeatureItem {
     readonly icon?: string;
     /** Suppressed features are skipped on rebuild and shown dimmed. */
     readonly suppressed?: boolean;
-    /** Set when this feature failed to rebuild — the panel highlights the row. */
+    /** Set when this feature failed to rebuild — the panel highlights the row and keeps it expanded. */
     readonly error?: string;
+    /**
+     * Set for a softer, non-fatal condition (e.g. a sketch's dangling external
+     * reference): the panel tints the row and shows the text when expanded, but
+     * does not force expansion like an error does.
+     */
+    readonly warning?: string;
     /** Set when the feature's shape references (e.g. fillet edges) can be re-picked. */
     readonly reselectable?: boolean;
     readonly parameters: readonly FeatureParameter[];

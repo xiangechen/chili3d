@@ -4,6 +4,7 @@
 import {
     BoundingBox,
     EditableShapeNode,
+    type IEdge,
     type IFace,
     type IShape,
     Plane,
@@ -15,7 +16,7 @@ import {
     Transaction,
     XYZ,
 } from "@chili3d/core";
-import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
+import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import type { EdgeRef } from "../src/features/edgeRef";
 import type { FeatureData } from "../src/features/feature";
@@ -46,6 +47,21 @@ function planarFace(point: XYZ, normal: XYZ): IFace {
     } as unknown as IFace;
 }
 
+/** A line edge with real XYZ endpoints — the id-invariant check reads its direction. */
+function mockLine(start: XYZ, end: XYZ) {
+    return {
+        shapeType: ShapeTypes.edge,
+        curve: { basisCurve: { direction: end.sub(start).normalize() } },
+        startPoint: () => start,
+        endPoint: () => end,
+        firstParameter: () => 0,
+        lastParameter: () => 1,
+        pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+        length: () => start.distanceTo(end),
+        isEqual: () => false,
+    } as unknown as IEdge;
+}
+
 function mockShapeFactory(methods: Record<string, (...args: any[]) => any>) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, "shapeFactory");
     Object.defineProperty(globalThis, "shapeFactory", { value: methods, writable: true, configurable: true });
@@ -64,6 +80,7 @@ function sketchShapeMocks() {
         line: rs.fn((start: XYZ, end: XYZ) =>
             Result.ok({
                 shapeType: ShapeTypes.edge,
+                curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                 startPoint: () => start,
                 endPoint: () => end,
                 firstParameter: () => 0,
@@ -111,25 +128,29 @@ function setupTrackedMocks(
     faces: IFace[] = [],
     extra: Record<string, (...args: any[]) => any> = {},
 ): TrackedMocks {
-    const sub = {
-        shapeType: ShapeTypes.edge,
-        curve: { basisCurve: { direction: { x: 1, y: 0, z: 0 } } },
-        startPoint: () => ({ x: 0, y: 0, z: 0 }) as XYZ,
-        endPoint: () => ({ x: 1, y: 0, z: 0 }) as XYZ,
-        isEqual: () => false,
-    };
-    const profileFace = {
-        shapeType: ShapeTypes.face,
-        isEqual: () => false,
-        findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [sub, sub, sub, sub] : []),
-    };
+    // Distinct boundary edges of the unit-square profile — geometry completion tells
+    // them apart, and the id-invariant check reads their directions.
+    const subEdges = [
+        mockLine(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 1, y: 0, z: 0 })),
+        mockLine(new XYZ({ x: 1, y: 0, z: 0 }), new XYZ({ x: 1, y: 1, z: 0 })),
+        mockLine(new XYZ({ x: 1, y: 1, z: 0 }), new XYZ({ x: 0, y: 1, z: 0 })),
+        mockLine(new XYZ({ x: 0, y: 1, z: 0 }), new XYZ({ x: 0, y: 0, z: 0 })),
+    ];
+    // Fresh per call: profile entity registration is keyed on the face instance, so
+    // two profiles must not share one.
+    const profileFace = () =>
+        ({
+            shapeType: ShapeTypes.face,
+            isEqual: () => false,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? subEdges : []),
+        }) as unknown as IFace;
     const prismShape = {
         shapeType: ShapeTypes.solid,
         isEqual: () => false,
         dispose: rs.fn(),
         findSubShapes: (type: ShapeType) =>
-            type === ShapeTypes.face ? faces : type === ShapeTypes.edge ? [sub] : [],
-        mesh: { edges: { range: [{ shape: sub }] } },
+            type === ShapeTypes.face ? faces : type === ShapeTypes.edge ? subEdges : [],
+        mesh: { edges: { range: subEdges.map((shape) => ({ shape })) } },
     } as unknown as IShape;
     const filletedShape = {
         shapeType: ShapeTypes.solid,
@@ -141,6 +162,7 @@ function setupTrackedMocks(
         line: rs.fn((start: XYZ, end: XYZ) =>
             Result.ok({
                 shapeType: ShapeTypes.edge,
+                curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                 startPoint: () => start,
                 endPoint: () => end,
                 firstParameter: () => 0,
@@ -163,7 +185,7 @@ function setupTrackedMocks(
             }),
         ),
         wire: rs.fn((edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges })),
-        face: rs.fn((_wires: any[]) => Result.ok(profileFace)),
+        face: rs.fn((_wires: any[]) => Result.ok(profileFace())),
         combine: rs.fn((edges: any[]) =>
             Result.ok({
                 shapeType: ShapeTypes.compound,
@@ -173,12 +195,12 @@ function setupTrackedMocks(
             }),
         ),
     };
-    // Bottom face keeps the profile id, the five remaining faces are new. Edge 0 keeps
-    // the profile edge id, the other three prism edges are new.
+    // Bottom face keeps the profile id, the five remaining faces are new. The kernel
+    // history reports only edge 0 as identical; geometric completion recovers the
+    // other three bottom edges (the prism edges ARE the profile edges here).
     const prismTracked = rs.fn((_face: any, _vec: XYZ) =>
         Result.ok({ shape: prismShape, faceMap: [0, -1, -1, -1, -1, -1], edgeMap: [0, -1, -1, -1] }),
     );
-    // Every input face survives identically; one new fillet face appears at the end.
     // Every input face/edge survives identically; one new fillet face and edge appear.
     const filletTracked = rs.fn((_shape: any, _indexes: number[], _radius: number) =>
         Result.ok({
@@ -216,9 +238,9 @@ describe("ParametricBodyNode face tracking", () => {
 
         expect(body.shape.isOk).toBe(true);
         expect(mocks.prismTracked).toHaveBeenCalledTimes(1);
-        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(1)).toBe("f1:1");
-        expect(body.faceIndexById(`sketch:${sketch.id}:0`)).toBe(0);
+        expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4`)).toBe(0);
         expect(body.faceIndexById("f1:1")).toBe(1);
         expect(body.faceIndexById("unknown")).toBeUndefined();
     });
@@ -236,11 +258,11 @@ describe("ParametricBodyNode face tracking", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
-        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:0:e0`);
-        expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:0:e3`);
-        // the top face has no edge origin and stays feature-scoped
-        expect(body.faceIdAt(5)).toBe("f1:5");
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
+        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:e1.2.3.4:e3`);
+        // the top face has no kernel history and is seeded from the profile by hand
+        expect(body.faceIdAt(5)).toBe(`sketch:${sketch.id}:e1.2.3.4:top`);
     });
 
     test("fillet propagates input ids and adds a feature-scoped id for the new face", () => {
@@ -251,7 +273,7 @@ describe("ParametricBodyNode face tracking", () => {
 
         expect(body.shape.isOk).toBe(true);
         expect(mocks.filletTracked).toHaveBeenCalledTimes(1);
-        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(5)).toBe("f1:5");
         expect(body.faceIdAt(6)).toBe("f2:6");
     });
@@ -267,7 +289,7 @@ describe("ParametricBodyNode face tracking", () => {
         Transaction.execute(doc, "edit feature", () => body.setFeatureParameter("f2", "radius", 5));
 
         expect(mocks.prismTracked).not.toHaveBeenCalled();
-        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
     });
 
     test("face ids stay undefined when the kernel lacks tracked methods", () => {
@@ -342,9 +364,11 @@ describe("ParametricBodyNode face tracking", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:0:e0`);
-        expect(body.edgeIdAt(1)).toBe("f1:1");
-        expect(body.edgeIndexById("f1:1")).toBe(1);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        // The kernel history reported only edge 0; geometric identity completion
+        // recovered the other bottom edges, so they keep the sketch-scoped ids too.
+        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:e1`);
+        expect(body.edgeIndexById(`sketch:${sketch.id}:e1.2.3.4:e1`)).toBe(1);
         expect(body.edgeIndexById("unknown")).toBeUndefined();
     });
 
@@ -355,8 +379,8 @@ describe("ParametricBodyNode face tracking", () => {
         ]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:0:e0`);
-        expect(body.edgeIdAt(3)).toBe("f1:3");
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        expect(body.edgeIdAt(3)).toBe(`sketch:${sketch.id}:e1.2.3.4:e3`);
         expect(body.edgeIdAt(4)).toBe("f2:4");
     });
 
@@ -402,9 +426,9 @@ describe("ParametricBodyNode face tracking", () => {
 
         await body.reselectShapes("f2");
 
-        // Edge 1 of the pre-fillet shape carries the extrude-scoped id; the permuted
-        // fillet list would have produced "f1:2" for the same index.
-        expect(body.features[1]).toMatchObject({ edges: [{ edgeId: "f1:1" }] });
+        // Edge 1 of the pre-fillet shape carries the sketch-scoped id; the permuted
+        // fillet list would have produced ":e2" for the same index.
+        expect(body.features[1]).toMatchObject({ edges: [{ edgeId: `sketch:${sketch.id}:e1.2.3.4:e1` }] });
         // And the re-evaluated fillet is applied to that exact edge (id hit), not a
         // fingerprint guess.
         const [, indexes] = permutedFilletTracked.mock.calls.at(-1) as unknown as [any, number[], number];
@@ -442,10 +466,10 @@ describe("ParametricBodyNode face tracking", () => {
         ]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(1)).toBe(`tool:${tool.id}:0`);
         expect(body.faceIdAt(2)).toBe("f2:2");
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:0:e0`);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
         expect(body.edgeIdAt(1)).toBe("f2:1");
     });
 
@@ -531,12 +555,12 @@ describe("ParametricBodyNode face tracking", () => {
         expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
         // Input hits keep the input ids, tool hits take the sweep's sketch-scoped ids,
         // boolean-born sub-shapes are feature-scoped.
-        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:0`);
-        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:0`);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
+        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(2)).toBe("f2:1");
         expect(body.faceIdAt(3)).toBe("f2:3");
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:0:e0`);
-        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:0:e0`);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
         expect(body.edgeIdAt(2)).toBe("f2:2");
     });
 
@@ -633,12 +657,12 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.shape.isOk).toBe(true);
             expect(body.shape.unchecked()).toBe(fusedShape);
             expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
-            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:0`);
-            expect(body.faceIdAt(1)).toBe("f1:1");
-            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:1`);
+            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4`);
+            expect(body.faceIdAt(1)).toBe(`sketch:${two.id}:e1.2.3.4:top`);
+            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:e5.6.7.8`);
             expect(body.faceIdAt(3)).toBe("f1:3");
-            expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:0:e0`);
-            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:1:e0`);
+            expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4:e0`);
+            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:e5.6.7.8:e0`);
             expect(body.edgeIdAt(2)).toBe("f1:2");
             // The fuse copies the geometry; the intermediate prisms are disposed.
             expect(prismShapes[0].dispose).toHaveBeenCalled();
@@ -653,8 +677,8 @@ describe("ParametricBodyNode face tracking", () => {
 
             expect(body.shape.isOk).toBe(true);
             expect(booleanFuseTracked).not.toHaveBeenCalled();
-            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:0`);
-            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:1`);
+            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4`);
+            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:e5.6.7.8`);
         });
 
         test("a failed fuse falls back to the compound with flat per-profile ids", () => {
@@ -665,8 +689,8 @@ describe("ParametricBodyNode face tracking", () => {
 
             expect(body.shape.isOk).toBe(true);
             expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
-            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:0`);
-            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:1`);
+            expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4`);
+            expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:e5.6.7.8`);
         });
 
         test("a symmetric extrude suffixes the mirrored half's ids", () => {
@@ -698,12 +722,12 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.shape.isOk).toBe(true);
             expect(prismTracked).toHaveBeenCalledTimes(2);
             expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
-            expect(body.faceIdAt(0)).toBe(`sketch:${fresh.id}:0`);
-            expect(body.faceIdAt(1)).toBe("f1:1");
-            expect(body.faceIdAt(2)).toBe(`sketch:${fresh.id}:0:neg`);
+            expect(body.faceIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4`);
+            expect(body.faceIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:top`);
+            expect(body.faceIdAt(2)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg`);
             expect(body.faceIdAt(3)).toBe("f1:3");
-            expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:0:e0`);
-            expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:0:neg:e0`);
+            expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4:e0`);
+            expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg:e0`);
             expect(body.edgeIdAt(2)).toBe("f1:2");
         });
     });

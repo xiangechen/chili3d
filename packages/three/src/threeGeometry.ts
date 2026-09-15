@@ -30,7 +30,13 @@ import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { Constants } from "./constants";
-import { defaultEdgeMaterial, defaultVertexMaterial, lockFaceMaterial, lockLineMaterial } from "./materials";
+import {
+    defaultEdgeMaterial,
+    defaultVertexMaterial,
+    edgeMaterialOfWidth,
+    lockFaceMaterial,
+    lockLineMaterial,
+} from "./materials";
 import { ThreeGeometryFactory, TopRenderOrder } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeVisualContext } from "./threeVisualContext";
@@ -40,6 +46,7 @@ const OnTopMaterialKey = "onTopMaterial";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material | Material[];
+    private _edgeMaterial: LineMaterial = defaultEdgeMaterial;
     private _edges?: LineSegments2;
     private _faces?: Mesh;
     private _vertexs?: Points;
@@ -74,7 +81,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         if (this._renderOnTop === value) return;
         this._renderOnTop = value;
         if (this._vertexs) this.applyOnTopMaterial(this._vertexs, defaultVertexMaterial);
-        if (this._edges) this.applyOnTopMaterial(this._edges, defaultEdgeMaterial);
+        if (this._edges) this.applyOnTopMaterial(this._edges, this._edgeMaterial);
         if (this._faces) this.applyOnTopMaterial(this._faces, this._faceMaterial);
     }
 
@@ -169,9 +176,10 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private initEdges(data: EdgeMeshData) {
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
-        this._edges = new LineSegments2(buff, defaultEdgeMaterial);
+        this._edgeMaterial = edgeMaterialOfWidth(data.lineWidth);
+        this._edges = new LineSegments2(buff, this._edgeMaterial);
         this._edges.layers.set(Constants.Layers.Wireframe);
-        if (this._renderOnTop) this.applyOnTopMaterial(this._edges, defaultEdgeMaterial);
+        if (this._renderOnTop) this.applyOnTopMaterial(this._edges, this._edgeMaterial);
         this.add(this._edges);
     }
 
@@ -199,14 +207,14 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     removeTemperaryMaterial(): void {
         if (this._vertexs) this._vertexs.material = defaultVertexMaterial;
         if (this._edges && this._edges.material !== lockLineMaterial)
-            this._edges.material = defaultEdgeMaterial;
+            this._edges.material = this._edgeMaterial;
         if (this._faces && this._faces.material !== lockFaceMaterial)
             this._faces.material = this._faceMaterial;
         // restore the on-top state the temporary material replaced
         if (this._renderOnTop) {
             if (this._vertexs) this.applyOnTopMaterial(this._vertexs, defaultVertexMaterial);
             if (this._edges && this._edges.material !== lockLineMaterial)
-                this.applyOnTopMaterial(this._edges, defaultEdgeMaterial);
+                this.applyOnTopMaterial(this._edges, this._edgeMaterial);
             if (this._faces && this._faces.material !== lockFaceMaterial)
                 this.applyOnTopMaterial(this._faces, this._faceMaterial);
         }

@@ -125,24 +125,45 @@ struct TrackedShapeResult {
     // output face index -> input edge index for faces Generated from an input edge
     // (a sweep's side faces), -1 = not edge-generated
     std::vector<int> faceEdgeMap = {};
+    // Every (output, input) derivation as flat pairs (out0, in0, out1, in1, ...) — the
+    // maps above keep only the FIRST ancestor; these keep them all, so a face MERGED
+    // from several input faces records each of them. Filled for booleans only (merges
+    // are a boolean phenomenon); empty for sweeps/fillets, where the maps suffice.
+    std::vector<int> faceAncestors = {};
+    std::vector<int> edgeAncestors = {};
 };
 
 // Marks output sub-shapes identical to or derived (Modified/Generated — guarded, some
-// algorithms only implement Generated) from `inShape` with its input index.
+// algorithms only implement Generated) from `inShape` with its input index. The map keeps
+// the first ancestor per output; `ancestors` (when given) records every derivation, so a
+// merge of several inputs into one output is fully preserved.
 static void mapInputShape(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& inShape, int inIndex,
-    const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& outMap, std::vector<int>& map)
+    const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& outMap, std::vector<int>& map,
+    std::vector<int>* ancestors)
 {
     auto markDerived = [&](const NCollection_List<TopoDS_Shape>& derived) {
         for (const TopoDS_Shape& shape : derived) {
             int outIndex = outMap.FindIndex(shape);
-            if (outIndex > 0 && map[outIndex - 1] < 0) {
-                map[outIndex - 1] = inIndex;
+            if (outIndex > 0) {
+                if (map[outIndex - 1] < 0) {
+                    map[outIndex - 1] = inIndex;
+                }
+                if (ancestors != nullptr) {
+                    ancestors->push_back(outIndex - 1);
+                    ancestors->push_back(inIndex);
+                }
             }
         }
     };
     int identical = outMap.FindIndex(inShape);
-    if (identical > 0 && map[identical - 1] < 0) {
-        map[identical - 1] = inIndex;
+    if (identical > 0) {
+        if (map[identical - 1] < 0) {
+            map[identical - 1] = inIndex;
+        }
+        if (ancestors != nullptr) {
+            ancestors->push_back(identical - 1);
+            ancestors->push_back(inIndex);
+        }
     }
     try {
         markDerived(algo.Modified(inShape));
@@ -156,9 +177,11 @@ static void mapInputShape(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& in
 
 // Maps each output sub-shape of `type` to the input sub-shape it derives from (identity
 // first — some algorithms keep input shapes as-is, e.g. the prism bottom face).
-// Sub-shapes without an input origin keep -1.
+// Sub-shapes without an input origin keep -1. When `ancestors` is given it additionally
+// receives every (output, input) derivation as flat pairs — including derivations the
+// returned map dropped as non-first ancestors.
 static std::vector<int> shapeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
-    const TopoDS_Shape& output, TopAbs_ShapeEnum type)
+    const TopoDS_Shape& output, TopAbs_ShapeEnum type, std::vector<int>* ancestors = nullptr)
 {
     NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> inMap;
     NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outMap;
@@ -166,19 +189,21 @@ static std::vector<int> shapeHistory(BRepBuilderAPI_MakeShape& algo, const TopoD
     TopExp::MapShapes(output, type, outMap);
     std::vector<int> map(outMap.Extent(), -1);
     for (int i = 1; i <= inMap.Extent(); i++) {
-        mapInputShape(algo, inMap.FindKey(i), i - 1, outMap, map);
+        mapInputShape(algo, inMap.FindKey(i), i - 1, outMap, map, ancestors);
     }
     return map;
 }
 
-static std::vector<int> faceHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input, const TopoDS_Shape& output)
+static std::vector<int> faceHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
+    const TopoDS_Shape& output, std::vector<int>* ancestors = nullptr)
 {
-    return shapeHistory(algo, input, output, TopAbs_FACE);
+    return shapeHistory(algo, input, output, TopAbs_FACE, ancestors);
 }
 
-static std::vector<int> edgeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input, const TopoDS_Shape& output)
+static std::vector<int> edgeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
+    const TopoDS_Shape& output, std::vector<int>* ancestors = nullptr)
 {
-    return shapeHistory(algo, input, output, TopAbs_EDGE);
+    return shapeHistory(algo, input, output, TopAbs_EDGE, ancestors);
 }
 
 // Maps each output face Generated from an input edge (a prism/revol side face) to that
@@ -1340,9 +1365,14 @@ public:
             inputs.insert(inputs.end(), toolVec.begin(), toolVec.end());
             inputCompound = compoundOf(inputs);
         }
-        return TrackedShapeResult { boolOperater.Shape(), true, "",
-            faceHistory(boolOperater, inputCompound, boolOperater.Shape()),
-            edgeHistory(boolOperater, inputCompound, boolOperater.Shape()) };
+        std::vector<int> faceAncestors;
+        std::vector<int> edgeAncestors;
+        TrackedShapeResult result { boolOperater.Shape(), true, "",
+            faceHistory(boolOperater, inputCompound, boolOperater.Shape(), &faceAncestors),
+            edgeHistory(boolOperater, inputCompound, boolOperater.Shape(), &edgeAncestors) };
+        result.faceAncestors = std::move(faceAncestors);
+        result.edgeAncestors = std::move(edgeAncestors);
+        return result;
     }
 
     static TrackedShapeResult booleanCommonTracked(const ShapeArray& args, const ShapeArray& tools)
@@ -1794,7 +1824,9 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("error", &TrackedShapeResult::error)
         .property("faceMap", &TrackedShapeResult::faceMap)
         .property("edgeMap", &TrackedShapeResult::edgeMap)
-        .property("faceEdgeMap", &TrackedShapeResult::faceEdgeMap);
+        .property("faceEdgeMap", &TrackedShapeResult::faceEdgeMap)
+        .property("faceAncestors", &TrackedShapeResult::faceAncestors)
+        .property("edgeAncestors", &TrackedShapeResult::edgeAncestors);
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)

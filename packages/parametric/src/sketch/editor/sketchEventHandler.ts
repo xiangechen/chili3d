@@ -17,7 +17,9 @@ import {
     arcAngles,
     ConstraintKind,
     isDatumEntityId,
+    isExternalEntityId,
     originRef,
+    SKETCH_EDGE_LINE_WIDTH,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
     type SketchEntityData,
@@ -27,6 +29,7 @@ import {
     toWorld,
     worldPerPixel,
 } from "../sketchModel";
+import { constraintTargetEntities } from "../solverEntities";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
 import style from "./sketchAnnotations.module.css";
 import type { SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
@@ -35,6 +38,10 @@ const PICK_TOLERANCE_PX = 8;
 const CIRCLE_SEGMENTS = 64;
 const DATUM_X_AXIS_COLOR = 0xcc5555;
 const DATUM_Y_AXIS_COLOR = 0x55aa55;
+/** External references (edges of another part): SolidWorks-style purple. */
+const EXTERNAL_REF_COLOR = 0x9b59b6;
+/** External references whose source edge no longer resolves. */
+const EXTERNAL_DANGLING_COLOR = 0xdd4444;
 /** Live-snap target accent — distinct from the green hover/selection and blue dimensions. */
 const SNAP_HIGHLIGHT_COLOR = 0xff9800;
 
@@ -55,12 +62,14 @@ export class SketchEventHandler implements IEventHandler {
     private selectionMeshId?: number;
     private constraintMeshId?: number;
     private datumDisplayId?: number;
+    private externalDisplayId?: number;
     private snapTargetMeshId?: number;
     private snapHintItem?: IDisposable;
     private controller?: AsyncController;
 
     constructor(private readonly editor: SketchEditor) {
         this.showDatum();
+        this.showExternalRefs();
     }
 
     setController(view: IView, controller: AsyncController | undefined) {
@@ -101,6 +110,37 @@ export class SketchEventHandler implements IEventHandler {
         );
     }
 
+    /** Session-persistent display of the external references: dashed purple, red when dangling. */
+    private showExternalRefs(): void {
+        const view = this.editor.document.application.activeView;
+        if (view === undefined) return;
+        const meshes: ShapeMeshData[] = [];
+        // the solver carries the live refs — node.data lags behind until the next commit
+        for (const ref of this.editor.solver.externalRefsData()) {
+            const entity = this.editor.solver.entity(ref.entityId);
+            if (entity === undefined) continue;
+            const color = ref.dangling === true ? EXTERNAL_DANGLING_COLOR : EXTERNAL_REF_COLOR;
+            // reference-role externals read as construction geometry; profile-role ones
+            // build real profiles, so they get a solid line
+            meshes.push(
+                sketchEntityMesh(this.editor, entity, color, ref.role === "profile" ? "solid" : "dash"),
+            );
+        }
+        if (meshes.length === 0) return;
+        this.externalDisplayId = view.document.visual.context.displayMesh(meshes, { onTop: true });
+    }
+
+    /** Re-renders the external references after they were added, removed or re-resolved. */
+    refreshExternalRefs(): void {
+        const view = this.editor.document.application.activeView;
+        if (view !== undefined && this.externalDisplayId !== undefined) {
+            view.document.visual.context.removeMesh(this.externalDisplayId);
+            this.externalDisplayId = undefined;
+        }
+        this.showExternalRefs();
+        view?.update();
+    }
+
     /** Half-length of the drawn axis lines: 1.5× the sketch extent, at least 100, and always spanning the visible viewport. */
     private datumHalfLength(): number {
         let extent = 0;
@@ -134,7 +174,7 @@ export class SketchEventHandler implements IEventHandler {
         const plane = this.editor.node.plane;
         let best: SketchPointRef | undefined;
         let bestDistance = PICK_TOLERANCE_PX;
-        for (const entity of solver.entities()) {
+        for (const entity of this.pickableEntities()) {
             const pointCount = entityPointCount(entity.type);
             for (let pointIndex = 0; pointIndex < pointCount; pointIndex++) {
                 const [u, v] = solver.pointOf({ entityId: entity.id, pointIndex });
@@ -153,6 +193,11 @@ export class SketchEventHandler implements IEventHandler {
             best = originRef();
         }
         return best;
+    }
+
+    /** Real entities plus the seeded external references (constraint targets). */
+    private pickableEntities(): SketchEntityData[] {
+        return constraintTargetEntities(this.editor.solver);
     }
 
     hitTestEntity(
@@ -176,7 +221,7 @@ export class SketchEventHandler implements IEventHandler {
                 best = id;
             }
         };
-        for (const entity of this.editor.solver.entities()) {
+        for (const entity of this.pickableEntities()) {
             if (types !== undefined && !types.includes(entity.type)) continue;
             consider(entity.id, entityDistance(uv, entity));
         }
@@ -238,8 +283,8 @@ export class SketchEventHandler implements IEventHandler {
         if (event.button !== 0) return;
 
         const ref = this.hitTestPoint(view, event);
-        // the datum origin is pickable for constraints but never draggable
-        if (ref !== undefined && !isDatumEntityId(ref.entityId)) {
+        // the datum origin and external references are pickable for constraints but never draggable
+        if (ref !== undefined && !isDatumEntityId(ref.entityId) && !isExternalEntityId(ref.entityId)) {
             this.beginPointDrag(view, ref);
             return;
         }
@@ -351,6 +396,7 @@ export class SketchEventHandler implements IEventHandler {
         if (ids.length === 0) return;
         this.clearHover(view);
         this.clearSelection(view);
+        // regular entities and external references delete together in one transaction
         this.editor.deleteEntities(ids);
     }
 
@@ -363,29 +409,33 @@ export class SketchEventHandler implements IEventHandler {
         this.clearHover(view);
         this.syncAnnotationHighlights();
         this.clearConstraintHighlight(view);
-        if (entityIds.length > 0) {
-            const meshes = this.editor.solver
-                .entities()
-                .filter((entity) => entityIds.includes(entity.id))
-                .map((entity) => sketchEntityMesh(this.editor, entity));
-            for (const id of entityIds) {
-                if (id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID) {
-                    meshes.push(this.datumAxisMesh(id, VisualConfig.highlightEdgeColor));
-                } else if (isDatumEntityId(id)) {
-                    meshes.push(
-                        MeshDataUtils.createVertexMesh(
-                            toWorld(this.editor.node.plane, 0, 0),
-                            VisualConfig.editVertexSize,
-                            VisualConfig.highlightEdgeColor,
-                        ),
-                    );
-                }
-            }
-            if (meshes.length > 0) {
-                this.constraintMeshId = view.document.visual.context.displayMesh(meshes, { onTop: true });
-            }
+        const meshes = this.constraintHighlightMeshes(entityIds);
+        if (meshes.length > 0) {
+            this.constraintMeshId = view.document.visual.context.displayMesh(meshes, { onTop: true });
         }
         view.update();
+    }
+
+    private constraintHighlightMeshes(entityIds: number[]): ShapeMeshData[] {
+        const meshes: ShapeMeshData[] = [];
+        for (const id of entityIds) {
+            if (id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID) {
+                meshes.push(this.datumAxisMesh(id, VisualConfig.highlightEdgeColor));
+            } else if (isDatumEntityId(id)) {
+                meshes.push(
+                    MeshDataUtils.createVertexMesh(
+                        toWorld(this.editor.node.plane, 0, 0),
+                        VisualConfig.editVertexSize,
+                        VisualConfig.highlightEdgeColor,
+                    ),
+                );
+            } else {
+                // solver.entity also answers external references and datum axes
+                const entity = this.editor.solver.entity(id);
+                if (entity !== undefined) meshes.push(sketchEntityMesh(this.editor, entity));
+            }
+        }
+        return meshes;
     }
 
     /** Entity id of the current hover highlight (`entity:<id>` or `point:<id>:<index>`). */
@@ -407,6 +457,10 @@ export class SketchEventHandler implements IEventHandler {
             if (this.datumDisplayId !== undefined) {
                 view.document.visual.context.removeMesh(this.datumDisplayId);
                 this.datumDisplayId = undefined;
+            }
+            if (this.externalDisplayId !== undefined) {
+                view.document.visual.context.removeMesh(this.externalDisplayId);
+                this.externalDisplayId = undefined;
             }
         }
         this.selectedEntities.clear();
@@ -505,9 +559,9 @@ export class SketchEventHandler implements IEventHandler {
             this.syncAnnotationHighlights();
             return;
         }
-        const meshes = this.editor.solver
-            .entities()
-            .filter((entity) => this.selectedEntities.has(entity.id))
+        const meshes = [...this.selectedEntities]
+            .map((id) => this.editor.solver.entity(id))
+            .filter((entity) => entity !== undefined)
             .map((entity) => sketchEntityMesh(this.editor, entity, VisualConfig.selectedEdgeColor));
         this.selectionMeshId = view.document.visual.context.displayMesh(meshes, { onTop: true });
         this.syncAnnotationHighlights();
@@ -623,17 +677,21 @@ export function sketchEntityMesh(
     editor: SketchEditor,
     entity: SketchEntityData,
     color: number = VisualConfig.highlightEdgeColor,
-): ShapeMeshData {
+    lineType: "solid" | "dash" = "solid",
+): EdgeMeshData {
     const plane = editor.node.plane;
     const [x1, y1, x2, y2] = entity.params;
+    let mesh: EdgeMeshData;
     if (entity.type === "line") {
-        return MeshDataUtils.createEdgeMesh(toWorld(plane, x1, y1), toWorld(plane, x2, y2), color, "solid");
-    }
-    if (entity.type === "arc") {
+        mesh = MeshDataUtils.createEdgeMesh(toWorld(plane, x1, y1), toWorld(plane, x2, y2), color, lineType);
+    } else if (entity.type === "arc") {
         const [cx, cy, r, a0, sweep] = arcGeometry(entity.params);
-        return arcSegmentMesh(editor, cx, cy, r, a0, a0 + sweep, color);
+        mesh = arcSegmentMesh(editor, cx, cy, r, a0, a0 + sweep, color, lineType);
+    } else {
+        mesh = arcSegmentMesh(editor, x1, y1, entity.params[2], 0, Math.PI * 2, color, lineType);
     }
-    return arcSegmentMesh(editor, x1, y1, entity.params[2], 0, Math.PI * 2, color);
+    mesh.lineWidth = SKETCH_EDGE_LINE_WIDTH;
+    return mesh;
 }
 
 function entityPointCount(type: SketchEntityType): number {
@@ -659,13 +717,16 @@ function arcGeometry(params: number[]): [number, number, number, number, number]
 
 /** uv distance to an arc: radial gap inside the sweep, endpoint gap outside it. */
 function pointToArcDistance(x: number, y: number, params: number[]): number {
-    const [cx, cy, r, a0, sweep] = arcGeometry(params);
+    const [cx, cy, sx, sy, ex, ey] = params;
+    const r = Math.hypot(sx - cx, sy - cy);
     if (r < Precision.Distance) return Math.hypot(x - cx, y - cy);
-    const angle = (Math.atan2(y - cy, x - cx) - a0 + Math.PI * 4) % (Math.PI * 2);
-    if (angle <= sweep) {
+    const [, sweep] = arcAngles(params);
+    // the probe direction measured like an arc sweep from the start ray — the
+    // same counter-clockwise (0, 2π] convention as arcAngles
+    const [, probeSweep] = arcAngles([cx, cy, sx, sy, x, y]);
+    if (probeSweep <= sweep) {
         return Math.abs(Math.hypot(x - cx, y - cy) - r);
     }
-    const [, , sx, sy, ex, ey] = params;
     return Math.min(Math.hypot(x - sx, y - sy), Math.hypot(x - ex, y - ey));
 }
 
@@ -677,6 +738,7 @@ function arcSegmentMesh(
     a0: number,
     a1: number,
     color: number,
+    lineType: "solid" | "dash" = "solid",
 ): EdgeMeshData {
     const plane = editor.node.plane;
     const segments = Math.max(2, Math.ceil((CIRCLE_SEGMENTS * (a1 - a0)) / (Math.PI * 2)));
@@ -688,7 +750,7 @@ function arcSegmentMesh(
         const p1 = toWorld(plane, cx + r * Math.cos(t1), cy + r * Math.sin(t1));
         position.set([p0.x, p0.y, p0.z, p1.x, p1.y, p1.z], i * 6);
     }
-    return { position, range: [], color, lineType: "solid" };
+    return { position, range: [], color, lineType };
 }
 
 /** uv distance to an entity's curve: segment, arc sweep, or circle circumference. */

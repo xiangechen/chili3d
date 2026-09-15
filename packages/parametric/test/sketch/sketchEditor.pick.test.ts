@@ -346,3 +346,28 @@ describe("datum picking (origin and axes)", () => {
         }
     });
 });
+
+describe("arc entity hit testing", () => {
+    test("distances follow the ccw sweep: radial inside, endpoint-anchored outside", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            // center (0,0), start (10,0), end (0,10): a first-quadrant (0°..90°) sweep
+            editor.solver.addArc(0, 0, 10, 0, 0, 10);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // screen (407, 293) -> uv (7, 7): on the rim inside the sweep
+            expect(handler.hitTestEntity(view, pointerEvent(407, 293))).toBe(1);
+            // screen (415, 300) -> uv (15, 0): on the start ray, 5 past the start point
+            expect(handler.hitTestEntity(view, pointerEvent(415, 300))).toBe(1);
+            // screen (392, 285) -> uv (-8, 15): past the end ray; 7 from the rim circle but
+            // ~9.4 from the nearer endpoint, so the sweep-aware distance misses
+            expect(handler.hitTestEntity(view, pointerEvent(392, 285))).toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});

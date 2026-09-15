@@ -13,10 +13,15 @@ import {
     Transaction,
     XYZ,
 } from "@chili3d/core";
-import { createMockApplication, createMockDocument, TestDocument } from "@chili3d/core/test-utils";
+import {
+    createMockApplication,
+    createMockDocument,
+    nearestOnSegment,
+    TestDocument,
+} from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import type { SketchData } from "../../src/sketch/sketchModel";
-import { SketchNode } from "../../src/sketch/sketchNode";
+import type { ExternalRefData, SketchData } from "../../src/sketch/sketchModel";
+import { danglingProfileRefs, SketchNode } from "../../src/sketch/sketchNode";
 
 function fakeShape(name: string) {
     return { name, isEqual: () => false } as any;
@@ -118,6 +123,41 @@ describe("SketchNode", () => {
         expect(result.unchecked()).toBe(lineShape);
         expect(line).toHaveBeenCalledTimes(1);
         expect(combine).not.toHaveBeenCalled();
+    });
+
+    test("a truncated profile-role snapshot is zero-padded and persisted on evaluation", () => {
+        const { line } = setupFactory();
+        const node = new SketchNode({
+            document: doc,
+            plane,
+            data: {
+                entities: [],
+                constraints: [],
+                externalRefs: [
+                    {
+                        entityId: -100,
+                        nodeId: "missing-source",
+                        edge: { kind: "line", start: { x: 5, y: 6, z: 0 }, end: { x: 7, y: 8, z: 0 } },
+                        role: "profile",
+                        // hand-edited/legacy data: a line snapshot needs 4 params
+                        snapshot: [5, 6, 7],
+                        type: "line",
+                    },
+                ],
+            },
+        });
+
+        const result = node.generateShape();
+
+        expect(result.isOk).toBe(true);
+        // the padded end point reaches the factory — no NaN coordinates
+        const [start, end] = line.mock.calls[0] as unknown as XYZ[];
+        expect([start.x, start.y, start.z]).toEqual([5, 6, 5]);
+        expect([end.x, end.y, end.z]).toEqual([7, 0, 5]);
+        // …and the persisted data self-heals (the missing source also dangles it)
+        const ref = node.data.externalRefs![0];
+        expect(ref.snapshot).toEqual([5, 6, 7, 0]);
+        expect(ref.dangling).toBe(true);
     });
 
     test("generateShape builds an arc edge with the counter-clockwise sweep angle", () => {
@@ -294,6 +334,7 @@ describe("SketchNode", () => {
         restoreFactory = mockShapeFactory({
             line: (start: XYZ, end: XYZ) => {
                 const e = {
+                    curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                     startPoint: () => start,
                     endPoint: () => end,
                     firstParameter: () => 0,
@@ -338,12 +379,45 @@ describe("SketchNode", () => {
         expect(node.mesh.faces).toBeDefined();
         expect(node.mesh.faces!.range.length).toBe(1);
         expect(node.mesh.faces!.range[0].shape).toBe(face);
+        expect(node.mesh.edges!.lineWidth).toBe(2);
 
         node.setShowProfileFaces(false);
         expect(node.mesh.faces).toBeUndefined();
+        expect(node.mesh.edges!.lineWidth).toBe(2);
 
         node.setShowProfileFaces(true);
         expect(node.mesh.faces).toBeDefined();
         expect(node.mesh.faces!.range.length).toBe(1);
+    });
+
+    test("danglingProfileRefs returns only refs that are both dangling and profile-role", () => {
+        const ref = (
+            entityId: number,
+            role: ExternalRefData["role"],
+            dangling?: boolean,
+        ): ExternalRefData => ({
+            entityId,
+            nodeId: "src",
+            edge: { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } },
+            role,
+            snapshot: [0, 0, 1, 0],
+            type: "line",
+            ...(dangling === true ? { dangling: true } : {}),
+        });
+        const danglingProfile = ref(-100, "profile", true);
+        const resolvedProfile = ref(-101, "profile");
+        const danglingReference = ref(-102, "reference", true);
+        const node = new SketchNode({
+            document: doc,
+            plane,
+            data: {
+                entities: [],
+                constraints: [],
+                externalRefs: [danglingProfile, resolvedProfile, danglingReference],
+            },
+        });
+
+        expect(danglingProfileRefs(node)).toEqual([danglingProfile]);
+        expect(danglingProfileRefs(new SketchNode({ document: doc, plane }))).toEqual([]);
     });
 });

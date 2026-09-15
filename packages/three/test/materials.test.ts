@@ -7,6 +7,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import {
     defaultEdgeMaterial,
     defaultVertexMaterial,
+    edgeMaterialOfWidth,
     faceTransparentMaterial,
     highlightFaceMaterial,
     highlightVertexMaterial,
@@ -64,6 +65,36 @@ describe("materials", () => {
         test("selectedEdgeMaterial has linewidth 3", () => {
             expect(selectedEdgeMaterial).toBeInstanceOf(LineMaterial);
             expect(selectedEdgeMaterial.linewidth).toBe(3);
+        });
+    });
+
+    describe("edgeMaterialOfWidth", () => {
+        test("undefined and 1 map to defaultEdgeMaterial", () => {
+            expect(edgeMaterialOfWidth(undefined)).toBe(defaultEdgeMaterial);
+            expect(edgeMaterialOfWidth(1)).toBe(defaultEdgeMaterial);
+        });
+
+        test("other widths return a cached LineMaterial of that linewidth", () => {
+            const material = edgeMaterialOfWidth(2);
+            expect(material).toBeInstanceOf(LineMaterial);
+            expect(material).not.toBe(defaultEdgeMaterial);
+            expect(material.linewidth).toBe(2);
+            expect(material.polygonOffset).toBe(true);
+            expect(edgeMaterialOfWidth(2)).toBe(material);
+        });
+
+        test("cached material color follows VisualConfig.defaultEdgeColor", () => {
+            const material = edgeMaterialOfWidth(2);
+            const originalColor = VisualConfig.defaultEdgeColor;
+            const testColor = 0x123fed;
+
+            try {
+                VisualConfig.defaultEdgeColor = testColor;
+                expect(material.color.getHex()).toBe(testColor);
+            } finally {
+                VisualConfig.defaultEdgeColor = originalColor;
+            }
+            expect(material.color.getHex()).toBe(originalColor);
         });
     });
 

@@ -26,8 +26,7 @@ export class SketchPointSnapEventHandler extends PointSnapEventHandler {
         const editor = SketchEditor.getActive();
         const hit = editor?.node.plane.intersectRay(view.rayAt(event.offsetX, event.offsetY));
         if (editor === undefined || hit === undefined) {
-            this.sketchSnap = undefined;
-            super.findSnapPoint(shapeType, view, event);
+            this.fallbackToCoreSnap(shapeType, view, event);
             return;
         }
 
@@ -38,21 +37,24 @@ export class SketchPointSnapEventHandler extends PointSnapEventHandler {
             lineTolerance: tolerance,
         });
         if (snap === undefined) {
-            this.sketchSnap = undefined;
-            super.findSnapPoint(shapeType, view, event);
+            this.fallbackToCoreSnap(shapeType, view, event);
             return;
         }
 
         const point = toWorld(editor.node.plane, position[0], position[1]);
         // honour the step's validator (e.g. a circle radius point must not land on its center)
         if (this.data.validator !== undefined && !this.data.validator(point)) {
-            this.sketchSnap = undefined;
-            super.findSnapPoint(shapeType, view, event);
+            this.fallbackToCoreSnap(shapeType, view, event);
             return;
         }
 
         this.sketchSnap = snap;
         this._snaped = { view, point, info: "", shapes: [], type: "feature" };
+    }
+
+    private fallbackToCoreSnap(shapeType: ShapeType, view: IView, event: PointerEvent): void {
+        this.sketchSnap = undefined;
+        super.findSnapPoint(shapeType, view, event);
     }
 
     protected override formatSnapPrompt(

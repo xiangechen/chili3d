@@ -11,6 +11,7 @@ import {
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
+import { nearestOnCircle, nearestOnSegment } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { allProfiles, resolveProfiles, sketchProfiles } from "../src/features/profileBuilder";
 import { captureProfileRef } from "../src/features/profileRef";
@@ -33,7 +34,10 @@ function edge(x1: number, y1: number, x2: number, y2: number): IEdge {
     const end = new XYZ({ x: x2, y: y2, z: 0 });
     return {
         shapeType: ShapeTypes.edge,
-        curve: { basisCurve: { direction: { x: x2 - x1, y: y2 - y1, z: 0 } } },
+        curve: {
+            basisCurve: { direction: { x: x2 - x1, y: y2 - y1, z: 0 } },
+            nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point),
+        },
         startPoint: () => start,
         endPoint: () => end,
         firstParameter: () => 0,
@@ -71,6 +75,13 @@ function squareEdges(): IEdge[] {
 }
 
 function sketchWith(edges: IEdge[]): SketchNode {
+    return sketchWithIds(
+        edges,
+        edges.map((_, index) => index + 1),
+    );
+}
+
+function sketchWithIds(edges: IEdge[], ids: number[]): SketchNode {
     const compound = {
         shapeType: ShapeTypes.compound,
         findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
@@ -80,7 +91,7 @@ function sketchWith(edges: IEdge[]): SketchNode {
         plane: Plane.XY,
         // generateShape pushes one edge per entity in `data.entities` order, so the
         // collected edge index corresponds to the entity index.
-        data: { entities: edges.map((_, index) => ({ id: index + 1, type: "line", params: [] })) },
+        data: { entities: edges.map((_, index) => ({ id: ids[index], type: "line", params: [] })) },
     } as unknown as SketchNode;
 }
 
@@ -211,7 +222,11 @@ describe("sketchProfiles", () => {
         const { wire, restore } = setup();
         try {
             const circle = edge(0, 0, 0, 0);
-            const sketch = { shape: Result.ok(circle), plane: Plane.XY } as unknown as SketchNode;
+            const sketch = {
+                shape: Result.ok(circle),
+                plane: Plane.XY,
+                data: { entities: [{ id: 1, type: "line", params: [] }] },
+            } as unknown as SketchNode;
 
             const result = sketchProfiles(sketch);
 
@@ -409,6 +424,89 @@ describe("sketchProfiles with crossing edges", () => {
         }
     });
 
+    test("a divider ending a hair off the rectangle's edge still goes through the kernel", () => {
+        const regions = [faceOf([]), faceOf([])];
+        const { wire, facesFromEdges, restore } = setupCrossing(regions);
+        try {
+            // Both endpoints stop 5e-8 short of the bottom/top edges (solver residual
+            // scale): intersect() sees nothing at either end, but each endpoint lies on
+            // the edge's interior within Precision.Distance, so the kernel must split it.
+            const rect = square(0, 0, 10, 10);
+            const divider = edge(5, 5e-8, 5, 10 - 5e-8);
+            const result = sketchProfiles(sketchWith([...rect, divider]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer).toEqual(regions);
+            expect(facesFromEdges).toHaveBeenCalledTimes(1);
+            expect(wire).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    test("a divider ending within INCIDENCE_TOLERANCE of the rectangle's edge goes through the kernel", () => {
+        const regions = [faceOf([]), faceOf([])];
+        const { wire, facesFromEdges, restore } = setupCrossing(regions);
+        try {
+            // Both endpoints stop 5e-5 short of the bottom/top edges: beyond
+            // Precision.Distance but within the solver's incidence-residual scale, so
+            // the endpoint-on-interior probe must still route the sketch to the kernel.
+            const rect = square(0, 0, 10, 10);
+            const divider = edge(5, 5e-5, 5, 10 - 5e-5);
+            const result = sketchProfiles(sketchWith([...rect, divider]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer).toEqual(regions);
+            expect(facesFromEdges).toHaveBeenCalledTimes(1);
+            expect(wire).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    test("an endpoint within INCIDENCE_TOLERANCE of a vertex splits without a curve query", () => {
+        const regions = [faceOf([])];
+        const { facesFromEdges, restore } = setupCrossing(regions);
+        try {
+            // The divider's foot sits 5e-5 off the bottom edge's left corner — beyond a
+            // plain vertex contact, but within INCIDENCE_TOLERANCE of the corner, so the
+            // endpoint distances alone settle the contact: no curve query runs at all.
+            const bottom = edge(0, 0, 10, 0);
+            const divider = edge(5e-5, 5e-5, 5e-5, 10);
+            const nearestBottom = rs.spyOn(bottom.curve, "nearestFromPoint");
+            const nearestDivider = rs.spyOn(divider.curve, "nearestFromPoint");
+
+            const result = sketchProfiles(sketchWith([bottom, divider]));
+
+            expect(result.isOk).toBe(true);
+            expect(facesFromEdges).toHaveBeenCalledTimes(1);
+            expect(nearestBottom).not.toHaveBeenCalled();
+            expect(nearestDivider).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
+    test("a line partially overlapping another collinearly goes through the kernel", () => {
+        const regions = [faceOf([])];
+        const { wire, facesFromEdges, restore } = setupCrossing(regions);
+        try {
+            // The redrawn bottom sits exactly on the rectangle's bottom edge between
+            // the corners: parallel curves report no intersection, but its endpoints
+            // lie on the bottom edge's interior (a collinear overlap splits the edge).
+            const rect = square(0, 0, 10, 10);
+            const redrawnBottom = edge(2, 0, 8, 0);
+            const result = sketchProfiles(sketchWith([...rect, redrawnBottom]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outer).toEqual(regions);
+            expect(facesFromEdges).toHaveBeenCalledTimes(1);
+            expect(wire).not.toHaveBeenCalled();
+        } finally {
+            restore();
+        }
+    });
+
     test("propagates facesFromEdges errors", () => {
         const { restore } = setupCrossing("faces failed");
         try {
@@ -429,7 +527,11 @@ describe("resolveProfiles", () => {
     function circleEdge(cx: number, cy: number, radius: number): IEdge {
         return {
             shapeType: ShapeTypes.edge,
-            curve: { basisCurve: { center: { x: cx, y: cy, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } } },
+            curve: {
+                basisCurve: { center: { x: cx, y: cy, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } },
+                nearestFromPoint: (point: XYZ) =>
+                    nearestOnCircle(new XYZ({ x: cx, y: cy, z: 0 }), radius, point),
+            },
             startPoint: () => new XYZ({ x: cx + radius, y: cy, z: 0 }),
             endPoint: () => new XYZ({ x: cx + radius, y: cy, z: 0 }),
             firstParameter: () => 0,
@@ -547,7 +649,11 @@ describe("profile topology defects", () => {
             new XYZ({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle), z: 0 });
         return {
             shapeType: ShapeTypes.edge,
-            curve: { basisCurve: { center: { x: cx, y: cy, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } } },
+            curve: {
+                basisCurve: { center: { x: cx, y: cy, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } },
+                nearestFromPoint: (point: XYZ) =>
+                    nearestOnCircle(new XYZ({ x: cx, y: cy, z: 0 }), radius, point),
+            },
             startPoint: () => at(phase),
             endPoint: () => at(phase),
             firstParameter: () => 0,
@@ -622,12 +728,61 @@ describe("profile topology defects", () => {
             const refB = captureProfileRef(faceOf(b));
             const before = resolveProfiles(sketchWith([...a, ...b]), [refB]).unchecked()![0].index;
 
-            // Adding an unrelated loop after b shifts b's positional index (the sketch-
-            // scoped seed id `sketch:<id>:<index>`), breaking downstream edge tracking.
+            // Adding an unrelated loop after b keeps b's positional index, which still
+            // indexes the profile mesh ranges (see preselectCurrentProfiles).
             const refB2 = captureProfileRef(faceOf(b));
             const after = resolveProfiles(sketchWith([...a, ...b, ...c]), [refB2]).unchecked()![0].index;
 
             expect(after).toBe(before);
+        } finally {
+            restore();
+        }
+    });
+
+    test("a profile's seed comes from its bounding entity ids, not its position", () => {
+        const { restore } = setup();
+        try {
+            const a = square(0, 0, 2, 2);
+            const b = square(20, 20, 22, 22);
+            const c = square(40, 40, 42, 42);
+
+            const before = resolveProfiles(
+                sketchWithIds([...a, ...b], [1, 2, 3, 4, 5, 6, 7, 8]),
+            ).unchecked()!;
+            expect(before.map((p) => p.seed)).toEqual(["e1.2.3.4", "e5.6.7.8"]);
+
+            // Inserting c ahead of b shifts b's positional index 1 → 2, but the entity
+            // ids — and therefore the seed — are unchanged, so downstream edge tracking
+            // survives profile reordering.
+            const after = resolveProfiles(
+                sketchWithIds([...a, ...c, ...b], [1, 2, 3, 4, 9, 10, 11, 12, 5, 6, 7, 8]),
+            ).unchecked()!;
+            expect(after.map((p) => p.index)).toEqual([0, 1, 2]);
+            expect(after.map((p) => p.seed)).toEqual(["e1.2.3.4", "e9.10.11.12", "e5.6.7.8"]);
+        } finally {
+            restore();
+        }
+    });
+
+    test("regions bounded by the same entity set get occurrence-suffixed seeds", () => {
+        const regions = [faceOf([]), faceOf([])];
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({
+                faces: regions,
+                sources: [
+                    [0, 1],
+                    [1, 0],
+                ],
+            }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        try {
+            // Overlapping squares route through the kernel; both regions report the
+            // same bounding entity set (e.g. the lens regions of two crossing circles).
+            const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
+            const profiles = resolveProfiles(sketchWith(edges)).unchecked()!;
+
+            expect(profiles.map((p) => p.seed)).toEqual(["e1.2", "e1.2~1"]);
         } finally {
             restore();
         }
@@ -640,7 +795,11 @@ describe("profile topology defects", () => {
                 new XYZ({ x: cx + radius * Math.cos(angle), y: radius * Math.sin(angle), z: 0 });
             return {
                 shapeType: ShapeTypes.edge,
-                curve: { basisCurve: { center: { x: cx, y: 0, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } } },
+                curve: {
+                    basisCurve: { center: { x: cx, y: 0, z: 0 }, radius, axis: { x: 0, y: 0, z: 1 } },
+                    nearestFromPoint: (point: XYZ) =>
+                        nearestOnCircle(new XYZ({ x: cx, y: 0, z: 0 }), radius, point),
+                },
                 startPoint: () => at(0),
                 endPoint: () => at(0),
                 firstParameter: () => 0,

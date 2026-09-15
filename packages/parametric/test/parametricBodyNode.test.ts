@@ -16,7 +16,7 @@ import {
     VisualStates,
     type XYZ,
 } from "@chili3d/core";
-import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
+import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import type { EdgeRef } from "../src/features/edgeRef";
 import type {
@@ -55,6 +55,7 @@ const SQUARE: SketchData = {
 function edge(start: XYZ, end: XYZ) {
     return {
         shapeType: ShapeTypes.edge,
+        curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
         startPoint: () => start,
         endPoint: () => end,
         firstParameter: () => 0,
@@ -214,6 +215,42 @@ describe("ParametricBodyNode", () => {
         expect(mocks.prism).not.toHaveBeenCalled();
         expect(body.shape.unchecked()).toBe(lastGood);
         expect(body.featureItems()[0].error).toBe("Sketch profile is not closed");
+    });
+
+    test("keeps unrelated feature warnings when the chain fails", () => {
+        // A dangling profile-role external ref: the sketch degrades to frozen
+        // geometry instead of failing, and the consuming feature row gets a warning.
+        sketch.setDataEmitShapeChanged({
+            ...SQUARE,
+            externalRefs: [
+                {
+                    entityId: -100,
+                    nodeId: "missing-source",
+                    edge: {
+                        kind: "line",
+                        start: { x: 2, y: 2, z: 0 },
+                        end: { x: 4, y: 2, z: 0 },
+                    },
+                    role: "profile",
+                    snapshot: [2, 2, 4, 2],
+                    type: "line",
+                    dangling: true,
+                },
+            ],
+        });
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        expect(body.featureItems()[0].warning).toBe("Sketch has unresolved external references");
+
+        // A failure in a later, unrelated feature must not wipe that warning.
+        body.setFeaturesEmitShapeChanged([
+            extrudeFeature(sketch.id),
+            { id: "f2", type: "extrude", sketchId: "missing-sketch", depth: 5 },
+        ]);
+
+        const items = body.featureItems();
+        expect(items[1].error).toBe("Sketch not found");
+        expect(items[0].warning).toBe("Sketch has unresolved external references");
     });
 
     test("fails when the referenced sketch is missing", () => {
@@ -499,8 +536,10 @@ describe("ParametricBodyNode", () => {
         const body = bodyWith([extrudeFeature(sketch.id), fillet]);
         expect(body.shape.isOk).toBe(true);
         mockSelection();
+        let rollbackWhilePicking: number | undefined;
         let featuresWhilePicking: unknown;
         doc.picker.pickShape = rs.fn(() => {
+            rollbackWhilePicking = body.rollbackIndex;
             featuresWhilePicking = body.features;
             return Promise.resolve([]);
         }) as any;
@@ -508,9 +547,12 @@ describe("ParametricBodyNode", () => {
 
         await body.reselectShapes("f2");
 
-        // The fillet is suppressed while picking (the view shows its input shape),
-        // and the original list is restored afterwards without touching the history.
-        expect(featuresWhilePicking).toMatchObject([{ id: "f1" }, { id: "f2", suppressed: true }]);
+        // The runtime-only rollback truncates the replay at the fillet while picking
+        // (the view shows its input shape); the feature list itself is never
+        // rewritten, and the full chain is restored afterwards — no history either way.
+        expect(rollbackWhilePicking).toBe(1);
+        expect(featuresWhilePicking).toMatchObject([{ id: "f1" }, { id: "f2", edges: [EDGE_REF] }]);
+        expect(body.rollbackIndex).toBeUndefined();
         expect(body.features).toMatchObject([{ id: "f1" }, { id: "f2", edges: [EDGE_REF] }]);
         expect(body.shape.isOk).toBe(true);
         expect(doc.history.undoCount()).toBe(undoCount);

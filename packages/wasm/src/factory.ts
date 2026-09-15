@@ -132,6 +132,8 @@ function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
             faceMap: toIntArray(result.faceMap),
             edgeMap: toIntArray(result.edgeMap),
             faceEdgeMap: toIntArray(result.faceEdgeMap),
+            faceAncestors: toIntArray(result.faceAncestors),
+            edgeAncestors: toIntArray(result.edgeAncestors),
         });
     }
 

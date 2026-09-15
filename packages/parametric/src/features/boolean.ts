@@ -4,6 +4,7 @@
 import {
     type I18nKeys,
     type IDocument,
+    type IEdge,
     type IShape,
     type IShapeFactory,
     Matrix4,
@@ -13,9 +14,12 @@ import {
     type TrackedShape,
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "./bodyTracking";
+import { completeEdgeHistory } from "./edgeRef";
 import {
+    ancestorInputs,
     type BooleanFeatureData,
     type BooleanOperation,
+    combineIds,
     type FeatureContext,
     type FeatureHandler,
     registerFeature,
@@ -123,24 +127,38 @@ function evaluateTracked(
     toolShapes: IShape[],
     tracked: TrackedMethod,
 ): Result<IShape> {
-    const result = tracked([context.input!], toolShapes);
+    const input = context.input;
+    const tracking = context.tracking;
+    // Both are guaranteed by the caller's guards — the type just cannot see it.
+    if (input === undefined || tracking === undefined) {
+        return Result.err("boolean requires a preceding feature");
+    }
+    const result = tracked([input], toolShapes);
     if (!result.isOk) return Result.err(result.error);
-    const tracking = context.tracking!;
+    // The history input enumerates args then tools; geometry-identical completion
+    // recovers unchanged edges the kernel history missed (see mapBooleanIds).
+    const edgeMap = completeEdgeHistory(
+        [input, ...toolShapes].flatMap((shape) => shape.findSubShapes(ShapeTypes.edge) as IEdge[]),
+        result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
+        result.value.edgeMap,
+    );
     tracking.outputFaceIds = mapBooleanIds(
         feature,
-        context.input!,
+        input,
         tracking.inputFaceIds,
         tools,
         result.value.faceMap,
         ShapeTypes.face,
+        result.value.faceAncestors,
     );
     tracking.outputEdgeIds = mapBooleanIds(
         feature,
-        context.input!,
+        input,
         tracking.inputEdgeIds,
         tools,
-        result.value.edgeMap,
+        edgeMap,
         ShapeTypes.edge,
+        result.value.edgeAncestors,
     );
     return Result.ok(result.value.shape);
 }
@@ -154,6 +172,11 @@ function evaluateTracked(
  * shape's own sub-shape count: when upstream tracking was lost (`inputIds` empty),
  * main-body sub-shapes would otherwise leak into the tool ranges and get bogus
  * tool ids.
+ *
+ * The kernel's full derivation pairs (`ancestors`) extend the single-valued map: a
+ * sub-shape MERGED from several inputs (a face unified with a coplanar neighbor, an
+ * edge fused with a collinear one) combines every ancestor's id into a compound
+ * (`combineIds`), so pieces of a later re-split still intersect the stored id.
  */
 function mapBooleanIds(
     feature: BooleanFeatureData,
@@ -162,6 +185,7 @@ function mapBooleanIds(
     tools: ShapeNode[],
     map: number[],
     type: (typeof ShapeTypes)["face" | "edge"],
+    ancestors?: number[],
 ): string[] {
     // The boundary is the tracked-id count when available, else the input shape's
     // own sub-shape count (upstream tracking lost): without it, main-body sub-shapes
@@ -174,7 +198,7 @@ function mapBooleanIds(
         start += count;
         return range;
     });
-    return map.map((inputIndex, outputIndex) => {
+    const idOfInput = (inputIndex: number, outputIndex: number): string => {
         if (inputIndex >= 0 && inputIndex < inputIds.length) return inputIds[inputIndex];
         // Untracked main-body hit or boolean-born sub-shape: stable feature-scoped id.
         if (inputIndex < mainCount) return `${feature.id}:${outputIndex}`;
@@ -188,6 +212,12 @@ function mapBooleanIds(
                 : node.edgeIdAt(local)
             : undefined;
         return `tool:${node.id}:${toolId ?? local}`;
+    };
+    const perOutput = ancestorInputs(map, ancestors);
+    return map.map((_, outputIndex) => {
+        const inputs = perOutput[outputIndex];
+        if (inputs.length === 0) return `${feature.id}:${outputIndex}`;
+        return combineIds(inputs.map((x) => idOfInput(x, outputIndex)));
     });
 }
 

@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type I18nKeys, type IShape, Result } from "@chili3d/core";
-import { matchEdgeIndexes, matchEdgeIndexesTracked } from "./edgeRef";
+import { type I18nKeys, type IEdge, type IShape, Result, ShapeTypes, type TrackedShape } from "@chili3d/core";
+import { completeEdgeHistory, matchEdgeIndexes, matchEdgeIndexesTracked } from "./edgeRef";
 import { resolveNumber } from "./expression";
 import {
     type ChamferFeatureData,
@@ -10,6 +10,7 @@ import {
     type FeatureHandler,
     type FilletFeatureData,
     registerFeature,
+    type ShapeTracking,
     trackedIds,
 } from "./feature";
 
@@ -66,11 +67,28 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
             }
             const result = tracked(context.input, indexes.value, parameter.value);
             if (!result.isOk) return Result.err(result.error);
-            tracking.outputFaceIds = trackedIds(feature.id, tracking.inputFaceIds, result.value.faceMap);
-            tracking.outputEdgeIds = trackedIds(feature.id, tracking.inputEdgeIds, result.value.edgeMap);
-            return Result.ok(result.value.shape);
+            return trackEdgeCorner(feature.id, tracking, context.input, result.value);
         },
     };
+}
+
+/** Fills the tracking outputs from the corner's kernel history (see `trackedIds`). */
+function trackEdgeCorner(
+    featureId: string,
+    tracking: ShapeTracking,
+    input: IShape,
+    result: TrackedShape,
+): Result<IShape> {
+    // Geometry-identical completion recovers unchanged edges the kernel history
+    // missed, the rest get feature-scoped ids.
+    const edgeMap = completeEdgeHistory(
+        input.findSubShapes(ShapeTypes.edge) as IEdge[],
+        result.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
+        result.edgeMap,
+    );
+    tracking.outputFaceIds = trackedIds(featureId, tracking.inputFaceIds, result.faceMap);
+    tracking.outputEdgeIds = trackedIds(featureId, tracking.inputEdgeIds, edgeMap);
+    return Result.ok(result.shape);
 }
 
 registerFeature(

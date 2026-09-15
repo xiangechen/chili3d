@@ -4,15 +4,15 @@
 import {
     type IDocument,
     type IFace,
-    type INodeVisual,
-    Matrix4,
+    type Matrix4,
     Plane,
-    ShapeNode,
+    type ShapeNode,
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "../features/bodyTracking";
 import type { Vec3 } from "../features/edgeRef";
+import { resolveShapeSource } from "./shapeSource";
 
 /**
  * Identifies the planar face a sketch plane was captured from, in a rebuild-tolerant
@@ -78,14 +78,12 @@ export function captureFaceRef(nodeId: string, face: IFace): PlaneFaceRef {
  * node or a matching face no longer exists; callers keep the last plane then.
  */
 export function resolveFacePlane(document: IDocument, ref: PlaneFaceRef): Plane | undefined {
-    const node = document.modelManager.findNode((n) => n.id === ref.nodeId);
-    if (!(node instanceof ShapeNode) || !node.shape.isOk) return undefined;
-    const visual = document.visual.context.getVisual(node) as INodeVisual | undefined;
-    const transform = visual?.worldTransform() ?? Matrix4.identity();
-    const faces = node.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[];
-    const face = matchFace(node, faces, transform, ref);
+    const source = resolveShapeSource(document, ref.nodeId);
+    if (source === undefined) return undefined;
+    const faces = source.shape.findSubShapes(ShapeTypes.face) as IFace[];
+    const face = matchFace(source.node, faces, source.transform, ref);
     if (face === undefined) return undefined;
-    const worldFace = face.transformedMul(transform) as IFace;
+    const worldFace = face.transformedMul(source.transform) as IFace;
     const plane = sketchPlaneOfFace(worldFace);
     worldFace.dispose();
     return plane;
@@ -99,19 +97,29 @@ function matchFace(
 ): IFace | undefined {
     const refNormal = new XYZ(ref.normal);
     let byId: IFace | undefined;
+    let descendants: IFace[] = [];
     if (ref.faceId !== undefined && isBodyTrackingNode(node)) {
         const index = node.faceIndexById(ref.faceId);
         byId = index === undefined ? undefined : faces[index];
         // An exact hit trusts the id only while the face's normal still matches — a
         // rigid move along the normal (an extrude length edit) keeps both.
         if (byId !== undefined && normalMatches(byId, transform, refNormal)) return byId;
+        descendants = node.faceIndexesOfId(ref.faceId).map((i) => faces[i]);
     }
-    // The normal no longer matches. Either the id realigned (a rebuild reordered the
-    // faces — then the face carrying the captured normal is the right one), or the face
-    // itself rotated in place (a side face tilting when a crossing diagonal moves —
-    // then no face matches the captured normal and the id is the only signal left).
-    // Prefer the geometric hit when one exists, else trust the id.
-    return closestFace(faces, transform, refNormal, ref.offset) ?? byId;
+    // The exact id missed or its normal no longer matches. When the id still overlaps
+    // pieces of the current shape (a merged face re-split by an upstream edit), match
+    // the fingerprint against those descendants only — among them the piece still
+    // lying on the captured plane wins, and an unrelated face closer to the captured
+    // offset never enters the contest. Otherwise either the id realigned (a rebuild
+    // reordered the faces — then the face carrying the captured normal is the right
+    // one), or the face itself rotated in place (then no face matches the captured
+    // normal and the id is the only signal left). Prefer the geometric hit when one
+    // exists, else trust the id.
+    return (
+        closestFace(descendants, transform, refNormal, ref.offset) ??
+        closestFace(faces, transform, refNormal, ref.offset) ??
+        byId
+    );
 }
 
 function normalMatches(face: IFace, transform: Matrix4, refNormal: XYZ): boolean {

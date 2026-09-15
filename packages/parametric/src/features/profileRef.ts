@@ -37,6 +37,15 @@ export interface ProfileRef {
     readonly area?: number;
     /** Sorted ids of the sketch entities bounding the region (crossing sketches only). */
     readonly entities?: number[];
+    /**
+     * Identity assigned by the owning parametric feature chain — set for press-pull refs captured
+     * from a parametric body's face, absent for sketch-side refs and pre-id documents. Face ids
+     * survive rebuilds: a face split by a later cut shares one id across its pieces, and a face
+     * MERGED from several faces combines their ids into a compound (`combineIds`), so an id hit
+     * (`idsOverlap`) adopts every piece of a later re-split as well as a re-merge of the pieces —
+     * mirroring EdgeRef's whole-span adoption.
+     */
+    readonly id?: string;
 }
 
 /** Region faces of the crossing path → their bounding sketch entity ids. */
@@ -65,13 +74,19 @@ function registeredEntities(face: IFace): number[] | undefined {
     return undefined;
 }
 
-export function captureProfileRef(face: IFace): ProfileRef {
+/** The entity-id set registered for `face` (or an ancestor), when `sketchProfiles` attached one. */
+export function profileEntityIds(face: IFace): number[] | undefined {
+    return registeredEntities(face);
+}
+
+export function captureProfileRef(face: IFace, id?: string): ProfileRef {
     const edges = boundaryEdges(face).map((edge) => captureEdgeRef(edge));
     const entities = registeredEntities(face);
     return {
         edges,
         center: vec3(BoundingBox.center(face.boundingBox())),
         area: face.area(),
+        ...(id !== undefined ? { id } : {}),
         ...(entities !== undefined ? { entities } : {}),
     };
 }

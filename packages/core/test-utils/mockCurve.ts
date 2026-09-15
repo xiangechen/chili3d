@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { ICurve, IShape, ITrimmedCurve, ShapeType } from "../src";
+import type { ICurve, IShape, ITrimmedCurve, ShapeType, XYZLike } from "../src";
 import { Matrix4, ShapeTypes } from "../src";
 import { XYZ } from "../src/math";
 import type { VisualShapeData } from "../src/visual";
@@ -51,6 +51,33 @@ export interface MockEdgeCurveConfig {
     valueFn?: (t: number) => XYZ;
     /** Result of nearestFromPoint(); defaults to { point: XYZ.zero, parameter: 0, distance: 0 }. */
     nearestFromPointResult?: { point: XYZ; parameter: number; distance: number };
+}
+
+/**
+ * A realistic `ITrimmedCurve.nearestFromPoint` for a straight segment mock: the
+ * perpendicular projection clamped to [start, end]. `parameter` is normalized to
+ * [0, 1] like the line-mock convention (`pointAt(t)` interpolates start → end).
+ */
+export function nearestOnSegment(start: XYZ, end: XYZ, point: XYZLike) {
+    const p = new XYZ({ x: point.x, y: point.y, z: point.z });
+    const direction = end.sub(start);
+    const lengthSq = direction.lengthSq();
+    const t = lengthSq < 1e-12 ? 0 : Math.min(1, Math.max(0, p.sub(start).dot(direction) / lengthSq));
+    const nearest = start.add(direction.multiply(t));
+    return { point: nearest, parameter: t, distance: p.distanceTo(nearest) };
+}
+
+/**
+ * A realistic `ITrimmedCurve.nearestFromPoint` for a full-circle mock in the XY
+ * plane: the radial projection onto the circumference.
+ */
+export function nearestOnCircle(center: XYZ, radius: number, point: XYZLike) {
+    const p = new XYZ({ x: point.x, y: point.y, z: point.z });
+    const offset = p.sub(center);
+    const length = offset.length();
+    const direction = length < 1e-12 ? XYZ.unitX : offset.multiply(1 / length);
+    const nearest = center.add(direction.multiply(radius));
+    return { point: nearest, parameter: 0, distance: Math.abs(length - radius) };
 }
 
 export function createMockEdgeCurve(config?: MockEdgeCurveConfig) {

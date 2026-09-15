@@ -7,4 +7,5 @@ import "./sketchCommands";
 import "./sketchConstraints";
 import "./sketchDimensions";
 import "./sketchLine";
+import "./sketchProjectEdges";
 import "./sketchRectangle";

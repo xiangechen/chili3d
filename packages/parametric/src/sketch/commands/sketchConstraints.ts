@@ -1,17 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    AsyncController,
-    CancelableCommand,
-    command,
-    type IApplication,
-    type ICommand,
-    PubSub,
-} from "@chili3d/core";
+import { AsyncController, CancelableCommand, command, PubSub } from "@chili3d/core";
 import { SketchEditor } from "../editor/sketchEditor";
-import { ConstraintKind, pointRefKey, type SketchPointRef } from "../sketchModel";
+import { ConstraintKind, pointRefKey, type SketchEntityType, type SketchPointRef } from "../sketchModel";
 import type { SketchSolver } from "../solver";
+import { allowsConstraintOnEntity } from "../solverEntities";
 
 function editorOrError(): SketchEditor | undefined {
     const editor = SketchEditor.getActive();
@@ -84,7 +78,7 @@ abstract class LineConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.controller = new AsyncController();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
-        if (lineId === undefined) return;
+        if (lineId === undefined || !allowsConstraintOnEntity(this.kind, lineId)) return;
         editor.solver.addConstraint({
             kind: this.kind,
             refs: [
@@ -147,10 +141,10 @@ abstract class TwoPointConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.controller = new AsyncController();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined) return;
+        if (p1 === undefined || !allowsConstraintOnEntity(this.kind, p1.entityId)) return;
         this.controller = new AsyncController();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p2 === undefined) return;
+        if (p2 === undefined || !allowsConstraintOnEntity(this.kind, p2.entityId)) return;
         addAndCommit(editor, this.kind, [p1, p2]);
     }
 }
@@ -215,35 +209,53 @@ export class TangentConstraintCommand extends SketchConstraintCommand {
             PubSub.default.pub("displayError", "Pick two different entities");
             return;
         }
-        const types = [editor.solver.entity(e1)?.type, editor.solver.entity(e2)?.type];
-        const pair = types.slice().sort().join("+");
-        let kind: ConstraintKind;
-        let refs: SketchPointRef[];
-        // normalize pick order so refs match the garlic params layout
-        if (pair === "circle+line") {
-            const [line, circle] = types[0] === "line" ? [e1, e2] : [e2, e1];
-            kind = ConstraintKind.TangentLineCircle;
-            refs = [...lineRefs(line), centerRef(circle)];
-        } else if (pair === "circle+circle") {
-            kind = ConstraintKind.TangentCircleCircle;
-            refs = [centerRef(e1), centerRef(e2)];
-        } else if (pair === "arc+line") {
-            const [line, arc] = types[0] === "line" ? [e1, e2] : [e2, e1];
-            kind = ConstraintKind.TangentLineArc;
-            refs = [...lineRefs(line), centerRef(arc), arcStartRef(arc)];
-        } else if (pair === "arc+arc") {
-            kind = ConstraintKind.TangentArcArc;
-            refs = [centerRef(e1), arcStartRef(e1), centerRef(e2), arcStartRef(e2)];
-        } else if (pair === "arc+circle") {
-            const [circle, arc] = types[0] === "circle" ? [e1, e2] : [e2, e1];
-            kind = ConstraintKind.TangentCircleArc;
-            refs = [centerRef(circle), centerRef(arc), arcStartRef(arc)];
-        } else {
+        const t1 = editor.solver.entity(e1)?.type;
+        const t2 = editor.solver.entity(e2)?.type;
+        const tangent = tangentConstraintFor(t1, e1, t2, e2);
+        if (tangent === undefined) {
             PubSub.default.pub("displayError", "Tangent does not apply to two lines");
             return;
         }
-        addAndCommit(editor, kind, refs);
+        addAndCommit(editor, tangent.kind, tangent.refs);
     }
+}
+
+function tangentConstraintFor(
+    t1: SketchEntityType | undefined,
+    e1: number,
+    t2: SketchEntityType | undefined,
+    e2: number,
+): { kind: ConstraintKind; refs: SketchPointRef[] } | undefined {
+    const pair = [t1, t2].sort().join("+");
+    // normalize pick order so refs match the garlic params layout
+    if (pair === "circle+line") {
+        const [line, circle] = t1 === "line" ? [e1, e2] : [e2, e1];
+        return { kind: ConstraintKind.TangentLineCircle, refs: [...lineRefs(line), centerRef(circle)] };
+    }
+    if (pair === "circle+circle") {
+        return { kind: ConstraintKind.TangentCircleCircle, refs: [centerRef(e1), centerRef(e2)] };
+    }
+    if (pair === "arc+line") {
+        const [line, arc] = t1 === "line" ? [e1, e2] : [e2, e1];
+        return {
+            kind: ConstraintKind.TangentLineArc,
+            refs: [...lineRefs(line), centerRef(arc), arcStartRef(arc)],
+        };
+    }
+    if (pair === "arc+arc") {
+        return {
+            kind: ConstraintKind.TangentArcArc,
+            refs: [centerRef(e1), arcStartRef(e1), centerRef(e2), arcStartRef(e2)],
+        };
+    }
+    if (pair === "arc+circle") {
+        const [circle, arc] = t1 === "circle" ? [e1, e2] : [e2, e1];
+        return {
+            kind: ConstraintKind.TangentCircleArc,
+            refs: [centerRef(circle), centerRef(arc), arcStartRef(arc)],
+        };
+    }
+    return undefined;
 }
 
 /** Picks a point and an entity (or a datum axis), constraining the point onto it. */
@@ -280,7 +292,7 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
         if (p === undefined) return;
         this.controller = new AsyncController();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
-        if (lineId === undefined) return;
+        if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.Midpoint, lineId)) return;
         addAndCommit(editor, ConstraintKind.Midpoint, [p, ...lineRefs(lineId)]);
     }
 }
@@ -302,7 +314,7 @@ export class SymmetricConstraintCommand extends SketchConstraintCommand {
             { datum: true },
             this.controller,
         );
-        if (lineId === undefined) return;
+        if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.Symmetric, lineId)) return;
         addAndCommit(editor, ConstraintKind.Symmetric, [p1, p2, ...lineRefs(lineId)]);
     }
 }
@@ -313,7 +325,7 @@ export class FixConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.controller = new AsyncController();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p === undefined) return;
+        if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.Fix, p.entityId)) return;
         addAndCommit(editor, ConstraintKind.Fix, [p], { datums: [...editor.solver.pointOf(p)] });
     }
 }

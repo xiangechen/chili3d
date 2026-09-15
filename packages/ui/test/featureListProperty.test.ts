@@ -17,6 +17,7 @@ rs.mock("../src/property/featureListProperty.module.css", () => ({
     root: "fl-root",
     item: "fl-item",
     error: "fl-error",
+    warning: "fl-warning",
     suppressed: "fl-suppressed",
     header: "fl-header",
     expander: "fl-expander",
@@ -25,6 +26,7 @@ rs.mock("../src/property/featureListProperty.module.css", () => ({
     more: "fl-more",
     body: "fl-body",
     errorText: "fl-error-text",
+    warningText: "fl-warning-text",
     param: "fl-param",
     menu: "fl-menu",
     menuItem: "fl-menu-item",
@@ -160,6 +162,24 @@ describe("FeatureListProperty", () => {
         const prop = new FeatureListProperty(doc, node);
 
         expect(mustQuery(prop, ".fl-error-text").textContent).toBe("Edge not found after rebuild");
+    });
+
+    test("warning rows render tinted without forcing expansion", () => {
+        const doc = createMockDocument();
+        const node = featureNode([], { warning: "Sketch has unresolved external references" });
+        const prop = new FeatureListProperty(doc, node);
+
+        const row = mustQuery<HTMLElement>(prop, ".fl-item");
+        expect(row.className).toContain("fl-warning");
+        expect(row.className).not.toContain("fl-error");
+        expect(row.title).toBe("Sketch has unresolved external references");
+        // no forced expansion: the text appears only once the user expands the row
+        expect(prop.querySelector(".fl-warning-text")).toBeNull();
+
+        expandFirstRow(prop);
+        expect(mustQuery(prop, ".fl-warning-text").textContent).toBe(
+            "Sketch has unresolved external references",
+        );
     });
 
     test("the more menu opens with rename/suppress/delete entries", () => {

@@ -12,6 +12,7 @@ import {
 } from "@chili3d/core";
 import { applyPointAutoConstraints } from "../autoConstraints";
 import { ConstraintKind, toUV, toWorld } from "../sketchModel";
+import type { SketchSolver } from "../solver";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
 import { SketchPointStep } from "./sketchPointStep";
 
@@ -35,39 +36,7 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
         }
 
         const solver = this.editor.solver;
-        const top = solver.addLine(u1, v2, u2, v2);
-        const right = solver.addLine(u2, v2, u2, v1);
-        const bottom = solver.addLine(u2, v1, u1, v1);
-        const left = solver.addLine(u1, v1, u1, v2);
-        for (const [from, to] of [
-            [top, right],
-            [right, bottom],
-            [bottom, left],
-            [left, top],
-        ] as const) {
-            solver.addConstraint({
-                kind: ConstraintKind.P2PCoincident,
-                refs: [
-                    { entityId: from, pointIndex: 1 },
-                    { entityId: to, pointIndex: 0 },
-                ],
-            });
-        }
-        // the corners are already axis-aligned, so these only keep the rectangle rigid
-        for (const [entityId, kind] of [
-            [top, ConstraintKind.Horizontal],
-            [right, ConstraintKind.Vertical],
-            [bottom, ConstraintKind.Horizontal],
-            [left, ConstraintKind.Vertical],
-        ] as const) {
-            solver.addConstraint({
-                kind,
-                refs: [
-                    { entityId, pointIndex: 0 },
-                    { entityId, pointIndex: 1 },
-                ],
-            });
-        }
+        const [top, right, bottom, left] = addRectangle(solver, [u1, v1], [u2, v2]);
         // Snap the two picked corners onto the origin/points/lines/axes; the shape's
         // own four edges are excluded so the corners never snap onto each other.
         applyPointAutoConstraints(
@@ -108,4 +77,47 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
             ...corners.map((corner, i) => this.meshLine(corner, corners[(i + 1) % 4])),
         ];
     };
+}
+
+function addRectangle(
+    solver: SketchSolver,
+    corner1: [number, number],
+    corner2: [number, number],
+): [number, number, number, number] {
+    const [u1, v1] = corner1;
+    const [u2, v2] = corner2;
+    const top = solver.addLine(u1, v2, u2, v2);
+    const right = solver.addLine(u2, v2, u2, v1);
+    const bottom = solver.addLine(u2, v1, u1, v1);
+    const left = solver.addLine(u1, v1, u1, v2);
+    for (const [from, to] of [
+        [top, right],
+        [right, bottom],
+        [bottom, left],
+        [left, top],
+    ] as const) {
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: from, pointIndex: 1 },
+                { entityId: to, pointIndex: 0 },
+            ],
+        });
+    }
+    // the corners are already axis-aligned, so these only keep the rectangle rigid
+    for (const [entityId, kind] of [
+        [top, ConstraintKind.Horizontal],
+        [right, ConstraintKind.Vertical],
+        [bottom, ConstraintKind.Horizontal],
+        [left, ConstraintKind.Vertical],
+    ] as const) {
+        solver.addConstraint({
+            kind,
+            refs: [
+                { entityId, pointIndex: 0 },
+                { entityId, pointIndex: 1 },
+            ],
+        });
+    }
+    return [top, right, bottom, left];
 }

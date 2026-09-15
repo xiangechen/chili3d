@@ -17,6 +17,7 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { ConstraintKind, type SketchData } from "../../src/sketch/sketchModel";
@@ -298,6 +299,189 @@ describe("SketchEditor session statics", () => {
             expect(editor.dimensionAnchors.get(id)).toEqual({ kind: "offset", offset: 25 });
             editor.exit();
         } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a type-flipped external ref drops its constraints, their anchors, and warns", () => {
+        const { doc, restoreFactory } = setup();
+        try {
+            const data: SketchData = {
+                entities: [{ id: 1, type: "line", params: [0, 0, 10, 0] }],
+                constraints: [],
+                externalRefs: [
+                    {
+                        entityId: -100,
+                        nodeId: "missing-src",
+                        edge: {
+                            kind: "line",
+                            start: { x: 0, y: 5, z: 0 },
+                            end: { x: 10, y: 5, z: 0 },
+                        },
+                        role: "reference",
+                        snapshot: [0, 5, 10, 5],
+                        type: "line",
+                    },
+                ],
+            };
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data });
+            const editor = SketchEditor.enter(node);
+            const constraintId = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: -100, pointIndex: 0 },
+                ],
+            });
+            editor.dimensionAnchors.set(constraintId, { kind: "offset", offset: 25 });
+            const pub = rs.spyOn(PubSub.default, "pub");
+
+            // the same ref comes back with a different entity type (line → circle):
+            // the reseed cascades its constraints away untransacted
+            node.setDataEmitShapeChanged({
+                entities: [{ id: 1, type: "line", params: [0, 0, 10, 0] }],
+                constraints: [],
+                externalRefs: [
+                    {
+                        entityId: -100,
+                        nodeId: "missing-src",
+                        edge: {
+                            kind: "circle",
+                            center: { x: 5, y: 5, z: 0 },
+                            radius: 3,
+                            axis: { x: 0, y: 0, z: 1 },
+                        },
+                        role: "reference",
+                        snapshot: [5, 5, 3],
+                        type: "circle",
+                    },
+                ],
+            });
+
+            expect(editor.solver.toData().constraints).toEqual([]);
+            expect(editor.dimensionAnchors.size).toBe(0);
+            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.externalRefTypeChanged");
+            pub.mockRestore();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a failed truncated replay reverts that body's rollback and warns", () => {
+        const { doc, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            doc.modelManager.addNode(node);
+            // The sketch is consumed at feature index 1, but feature 0 cannot replay
+            // (its sketch is gone): rolling back to the sketch's timeline position
+            // fails, so the body must stay on the full chain instead of letting
+            // plane/external-ref resolution read the later geometry as capture-time.
+            const body = new ParametricBodyNode({
+                document: doc,
+                features: [
+                    { id: "e0", type: "extrude", sketchId: "missing-sketch", depth: 10 },
+                    { id: "e1", type: "extrude", sketchId: node.id, depth: 10 },
+                ],
+            });
+            doc.modelManager.addNode(body);
+            const pub = rs.spyOn(PubSub.default, "pub");
+
+            const editor = SketchEditor.enter(node);
+
+            expect(body.rollbackIndex).toBeUndefined();
+            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.rollbackFailed");
+            pub.mockRestore();
+            editor.exit();
+            expect(body.rollbackIndex).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a throwing rollback body is reverted in place and the session still starts", () => {
+        const { doc, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            doc.modelManager.addNode(node);
+            const makeBody = (id: string) => {
+                const body = new ParametricBodyNode({
+                    document: doc,
+                    features: [{ id: `${id}-e0`, type: "extrude", sketchId: node.id, depth: 10 }],
+                });
+                doc.modelManager.addNode(body);
+                return body;
+            };
+            const good = makeBody("good");
+            const bad = makeBody("bad");
+            const goodCalls: (number | undefined)[] = [];
+            good.setRollbackIndex = (index) => {
+                goodCalls.push(index);
+                return true;
+            };
+            const badCalls: (number | undefined)[] = [];
+            bad.setRollbackIndex = (index) => {
+                badCalls.push(index);
+                if (index !== undefined) throw new Error("rebuild exploded");
+                return true;
+            };
+            const pub = rs.spyOn(PubSub.default, "pub");
+
+            // The throwing body must not strand `good` (already rolled back) by
+            // escaping before the rollback map reaches startSession's catch.
+            const editor = SketchEditor.enter(node);
+
+            expect(goodCalls).toEqual([0]);
+            expect(badCalls).toEqual([0, undefined]);
+            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.rollbackFailed");
+            expect(node.editingSession).toBe(true);
+            pub.mockRestore();
+
+            editor.exit();
+            expect(goodCalls).toEqual([0, undefined]);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a constructor failure after the session starts unwinds the whole session", () => {
+        const { doc, view, camera, oldHandler, setNodeOnTop, restoreFactory } = setup();
+        // the editor's own solve is the last stateful constructor step (the solver's
+        // internal initial solve happens earlier, inside startSession)
+        const solveSpy = rs.spyOn(SketchEditor.prototype, "solve").mockImplementation(() => {
+            throw new Error("solver exploded");
+        });
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            node.visible = false; // a consumed sketch
+            doc.modelManager.addNode(node);
+            const body = new ParametricBodyNode({
+                document: doc,
+                features: [{ id: "e0", type: "extrude", sketchId: node.id, depth: 10 }],
+            });
+            doc.modelManager.addNode(body);
+            const bodyCalls: (number | undefined)[] = [];
+            body.setRollbackIndex = (index) => {
+                bodyCalls.push(index);
+                return true;
+            };
+            const oldWorkplane = view.workplane;
+
+            // solve() is the last stateful constructor step; activeEditor is never
+            // published, so the constructor itself must undo every earlier step.
+            expect(() => SketchEditor.enter(node)).toThrow("solver exploded");
+
+            expect(SketchEditor.getActive()).toBeUndefined();
+            expect(node.editingSession).toBe(false);
+            expect(bodyCalls).toEqual([0, undefined]);
+            expect(camera.cameraType).toBe("perspective");
+            expect(view.workplane).toBe(oldWorkplane);
+            expect(doc.visual.eventHandler).toBe(oldHandler);
+            expect((doc.visual.viewHandler as any).canRotate).toBe(true);
+            expect(setNodeOnTop).toHaveBeenLastCalledWith([node], false);
+            expect(node.visible).toBe(false);
+        } finally {
+            solveSpy.mockRestore();
             restoreFactory();
         }
     });

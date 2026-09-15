@@ -70,6 +70,8 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
     }
     set transform(value: Matrix4) {
         this.matrix.fromArray(value.toArray());
+        // matrixWorld is lazy (recomputed on render), but "transform" listeners read it synchronously.
+        this.updateWorldMatrix(true, false);
     }
 
     private _node: VisualNode;
@@ -280,6 +282,8 @@ export class GroupVisualObject extends Group implements IVisualObject {
     }
     set transform(value: Matrix4) {
         this.matrix.fromArray(value.toArray());
+        // matrixWorld is lazy (recomputed on render), but "transform" listeners read it synchronously.
+        this.updateWorldMatrix(true, false);
     }
 
     worldTransform(): Matrix4 {

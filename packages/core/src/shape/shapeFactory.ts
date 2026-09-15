@@ -33,6 +33,15 @@ export interface TrackedShape {
      * enumeration-order-scoped one. Absent when the kernel predates this map.
      */
     faceEdgeMap?: number[];
+    /**
+     * Every (output, input) face derivation as flat pairs (out0, in0, out1, in1, ...) —
+     * `faceMap` keeps only the first ancestor per output; this keeps them all, so a
+     * face MERGED from several input faces records each of them. Filled for booleans
+     * (merges are a boolean phenomenon); absent for sweeps/fillets and older kernels.
+     */
+    faceAncestors?: number[];
+    /** The edge counterpart of `faceAncestors` — emitted alongside it, not yet consumed. */
+    edgeAncestors?: number[];
 }
 
 export interface IShapeFactory {

@@ -64,7 +64,8 @@ export class FeatureListProperty extends HTMLElement {
     }
 
     private isExpanded(item: FeatureItem) {
-        // Errored rows stay expanded so the message and repair path remain visible.
+        // Errored rows stay expanded so the message and repair path remain visible;
+        // warnings don't force expansion — the row tint and title carry the hint.
         return this.expanded.has(item.id) || item.error !== undefined;
     }
 
@@ -79,9 +80,9 @@ export class FeatureListProperty extends HTMLElement {
         const row = div(
             {
                 className: `${style.item} ${item.error === undefined ? "" : style.error} ${
-                    item.suppressed ? style.suppressed : ""
-                }`,
-                title: item.error ?? "",
+                    item.warning === undefined ? "" : style.warning
+                } ${item.suppressed ? style.suppressed : ""}`,
+                title: item.error ?? item.warning ?? "",
             },
             this.featureHeader(item, expanded),
             ...(expanded ? [this.featureBody(item)] : []),
@@ -116,11 +117,17 @@ export class FeatureListProperty extends HTMLElement {
     }
 
     private featureBody(item: FeatureItem) {
+        // An error outranks a warning for the message slot (they never co-occur:
+        // warnings are computed only after a fully successful chain).
+        const message =
+            item.error !== undefined
+                ? div({ className: style.errorText, textContent: item.error })
+                : item.warning !== undefined
+                  ? div({ className: style.warningText, textContent: item.warning })
+                  : undefined;
         return div(
             { className: style.body },
-            ...(item.error === undefined
-                ? []
-                : [div({ className: style.errorText, textContent: item.error })]),
+            ...(message === undefined ? [] : [message]),
             ...item.parameters.map((param) => this.parameterRow(item, param)),
         );
     }

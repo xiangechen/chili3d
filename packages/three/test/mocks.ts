@@ -140,6 +140,7 @@ export function createTestGeometryNode(
         hasFaces?: boolean;
         hasEdges?: boolean;
         hasVertexs?: boolean;
+        edgeLineWidth?: number;
     } = {},
 ): GeometryNode & Notifiable {
     const listeners: Array<(prop: string) => void> = [];
@@ -195,6 +196,7 @@ export function createTestGeometryNode(
                       position: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0]),
                       color: 0xff0000,
                       lineType: "solid" as const,
+                      lineWidth: overrides.edgeLineWidth,
                       range: [{ start: 0, count: 6, shape: edgeShape }],
                   } as any)
                 : null,

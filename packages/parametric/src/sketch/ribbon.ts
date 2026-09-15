@@ -54,6 +54,10 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                     "dimension.verticalDistance",
                 ],
             },
+            {
+                groupName: "ribbon.group.other",
+                items: ["sketch.projectEdges", "sketch.toggleExternal"],
+            },
         ],
     },
 ];

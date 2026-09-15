@@ -14,14 +14,17 @@ import {
     Transaction,
     type XYZ,
 } from "@chili3d/core";
+import type { ParametricBodyNode } from "../../parametricBodyNode";
 import {
     ConstraintKind,
+    isExternalEntityId,
     type SketchData,
     type SketchEntityType,
     type SketchPointRef,
     worldPerPixel,
 } from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
+import { computeSketchRollback } from "../sketchRollback";
 import { SketchSolver, type SolveOutcome } from "../solver";
 import { type DimensionAnchor, toDisplayDatum, toStorageDatum } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
@@ -51,6 +54,9 @@ interface SavedCamera {
     type: CameraType;
 }
 
+/** Bodies rolled back for the session and their timeline positions (see `computeSketchRollback`). */
+type RollbackMap = ReturnType<typeof computeSketchRollback>;
+
 /**
  * One sketch editing session: owns the solver, swaps the view's event handler,
  * locks the camera onto the sketch plane and renders constraint annotations.
@@ -69,6 +75,12 @@ export class SketchEditor implements IDisposable {
     private disposed = false;
     /** Visibility before the session; a consumed sketch is hidden but editing shows it. */
     private readonly savedVisible: boolean;
+    /**
+     * Bodies rolled back to the sketch's timeline position for the session
+     * (`computeSketchRollback`), restored in `dispose`. Runtime-only — the feature
+     * lists and the undo history never see it.
+     */
+    private readonly rollback: RollbackMap;
 
     /**
      * At most one sketch is edited at a time (`enter` exits any previous session),
@@ -85,10 +97,17 @@ export class SketchEditor implements IDisposable {
         SketchEditor.exit();
         // Profile faces are normally shown for picking; hide them while editing.
         node.setShowProfileFaces(false);
-        const editor = new SketchEditor(node.document, node);
-        SketchEditor.activeEditor = editor;
-        node.document.application.mainWindow?.ribbon.openTab("ribbon.tab.sketch");
-        return editor;
+        try {
+            const editor = new SketchEditor(node.document, node);
+            SketchEditor.activeEditor = editor;
+            node.document.application.mainWindow?.ribbon.openTab("ribbon.tab.sketch");
+            return editor;
+        } catch (error) {
+            // The constructor already undid its own session state; this is the flag
+            // enter() itself set.
+            node.setShowProfileFaces(true);
+            throw error;
+        }
     }
 
     static exit(): void {
@@ -99,33 +118,180 @@ export class SketchEditor implements IDisposable {
         readonly document: IDocument,
         readonly node: SketchNode,
     ) {
-        const data = node.data;
-        this.solver = new SketchSolver(node.plane, data);
-        this.loadAnchors(data);
-
+        // The only non-null assertion in here — resolve it before any session state
+        // is written: enter() publishes the active editor only after the constructor
+        // returns, so a later throw unwinds in this constructor's own catch, and this
+        // one cannot strand anything.
         this.view = this.document.application.activeView!;
+        const session = this.startSession();
+        this.solver = session.solver;
+        this.rollback = session.rollback;
+
+        // From here on every step writes view/session state, and exit() stays a no-op
+        // when the constructor throws (the active editor is published only after it
+        // returns) — so each completed step queues its own undo, and a throw unwinds
+        // the queue in reverse, then releases startSession as well.
+        const teardown: Array<() => void> = [];
+        try {
+            this.savedCamera = this.captureCamera();
+            this.savedWorkplane = this.view.workplane;
+            this.savedHandler = document.visual.eventHandler;
+            // queued before the camera move, so a throw mid-move still restores it
+            teardown.push(() => this.restoreViewState());
+            this.lockCameraOntoPlane(this.view);
+
+            this.eventHandler = this.installEventHandler();
+            teardown.push(() => {
+                this.eventHandler.dispose();
+                this.document.visual.eventHandler = this.savedHandler;
+                this.setCanRotate(true);
+            });
+
+            this.savedVisible = this.showSketchForSession();
+            teardown.push(() => {
+                this.document.visual.context.setNodeOnTop([this.node], false);
+                this.setNodeVisibleSilently(this.savedVisible);
+            });
+
+            this.annotations = this.createAnnotations();
+            teardown.push(() => this.annotations.dispose());
+
+            node.onPropertyChanged(this.onNodeDataChanged);
+            teardown.push(() => this.node.removePropertyChanged(this.onNodeDataChanged));
+
+            this.solve(true);
+            PubSub.default.sub("activeViewChanged", this.onActiveViewChanged);
+            teardown.push(() => PubSub.default.remove("activeViewChanged", this.onActiveViewChanged));
+        } catch (error) {
+            for (const undo of teardown.reverse()) {
+                try {
+                    undo();
+                } catch {
+                    // keep unwinding the remaining steps
+                }
+            }
+            this.unwindSession();
+            throw error;
+        }
+    }
+
+    /**
+     * Claims the session state (editing flag, timeline rollback, solver), unwinding
+     * what it already wrote when a later step throws: exit() would be a permanent
+     * no-op after a constructor throw — enter() publishes the active editor only
+     * after the constructor returns (it restores the profile-face visibility it
+     * set itself).
+     */
+    private startSession(): { rollback: RollbackMap; solver: SketchSolver } {
+        // the session owns the solver and dataJson; the node skips its off-session
+        // re-solve of external-reference followers while this flag is set
+        this.node.setEditingSession(true);
+        let rollback: RollbackMap | undefined;
+        try {
+            rollback = this.applyTimelineRollback();
+            return { rollback, solver: this.createSessionSolver() };
+        } catch (error) {
+            if (rollback !== undefined) {
+                for (const body of rollback.keys()) body.setRollbackIndex(undefined);
+            }
+            this.node.setEditingSession(false);
+            throw error;
+        }
+    }
+
+    /**
+     * Undoes startSession when a later constructor step throws: the session never
+     * became active (enter() publishes it only after the constructor returns), so
+     * dispose() will never run to release any of this.
+     */
+    private unwindSession(): void {
+        for (const body of this.rollback.keys()) {
+            try {
+                body.setRollbackIndex(undefined);
+            } catch {
+                // best effort — the body keeps displaying its last good shape
+            }
+        }
+        this.node.setEditingSession(false);
+        this.solver.dispose();
+    }
+
+    /**
+     * Rolls dependent bodies back to the sketch's timeline position BEFORE the
+     * solver loads: the rollback rebuild re-resolves the plane and the external
+     * refs against the capture-time geometry, so the solver seeds exactly the
+     * geometry the sketch was drawn on (later features stay hidden all session).
+     */
+    private applyTimelineRollback(): RollbackMap {
+        const rollback = computeSketchRollback(this.document, this.node);
+        const failed: ParametricBodyNode[] = [];
+        for (const [body, index] of rollback) {
+            // A throwing replay must be contained per body: escaping here would skip
+            // the map handoff to startSession's catch and strand every body already
+            // rolled back above.
+            let applied = false;
+            try {
+                applied = body.setRollbackIndex(index);
+            } catch {
+                // falls through as a failed replay
+            }
+            if (!applied) failed.push(body);
+        }
+        for (const body of failed) {
+            // the truncated replay failed — leaving the full chain displayed is
+            // more honest than letting plane/external-ref resolution read the
+            // later geometry as the sketch's timeline position
+            rollback.delete(body);
+            try {
+                body.setRollbackIndex(undefined);
+            } catch {
+                // best effort — the body keeps displaying its last good shape
+            }
+        }
+        if (failed.length > 0) PubSub.default.pub("statusBarTip", "sketch.rollbackFailed");
+        return rollback;
+    }
+
+    private createSessionSolver(): SketchSolver {
+        const data = this.node.data;
+        const solver = new SketchSolver(this.node.plane, data);
+        // the anchor of the face the sketch sits on outlives its boundary refs
+        solver.planeOwnerNodeId = this.node.planeRef?.nodeId;
+        this.loadAnchors(data);
+        return solver;
+    }
+
+    private captureCamera(): SavedCamera {
         const controller = this.view.cameraController;
-        this.savedCamera = {
+        return {
             position: controller.cameraPosition,
             target: controller.cameraTarget,
             up: controller.cameraUp,
             type: controller.cameraType,
         };
-        this.savedWorkplane = this.view.workplane;
-        this.savedHandler = document.visual.eventHandler;
-        this.lockCameraOntoPlane(this.view);
+    }
 
-        this.eventHandler = new SketchEventHandler(this);
-        document.visual.eventHandler = this.eventHandler;
-        this.setCanRotate(false);
+    private installEventHandler(): SketchEventHandler {
+        const handler = new SketchEventHandler(this);
         // drop the pre-sketch selection so its highlight doesn't linger in sketch mode
-        document.selection.clearSelection();
-        this.savedVisible = node.visible;
+        // (before the handler swap, so a throw here leaves the old handler in place)
+        this.document.selection.clearSelection();
+        this.document.visual.eventHandler = handler;
+        this.setCanRotate(false);
+        return handler;
+    }
+
+    /** Forces the sketch visible (and on top) for the session; returns the visibility to restore. */
+    private showSketchForSession(): boolean {
+        const visible = this.node.visible;
         this.setNodeVisibleSilently(true);
         // keep the sketch visible through occluding geometry for the session
-        document.visual.context.setNodeOnTop([node], true);
+        this.document.visual.context.setNodeOnTop([this.node], true);
+        return visible;
+    }
 
-        this.annotations = new SketchAnnotationManager(
+    private createAnnotations(): SketchAnnotationManager {
+        return new SketchAnnotationManager(
             this.view,
             this.solver,
             this.dimensionAnchors,
@@ -133,9 +299,6 @@ export class SketchEditor implements IDisposable {
             (id) => this.editDatum(id),
             () => this.commit(),
         );
-        node.onPropertyChanged(this.onNodeDataChanged);
-        this.solve(true);
-        PubSub.default.sub("activeViewChanged", this.onActiveViewChanged);
     }
 
     private readonly onActiveViewChanged = (view: IView | undefined) => {
@@ -157,11 +320,31 @@ export class SketchEditor implements IDisposable {
     private readonly onNodeDataChanged = (property: string) => {
         if (property !== "dataJson" || this.disposed) return;
         const history = this.document.history;
-        if (!history.isUndoing && !history.isRedoing) return;
-        this.solver.reset(this.node.data);
-        this.loadAnchors(this.node.data);
-        this.annotations.clearConstraintSelection();
-        this.solve(true);
+        if (history.isUndoing || history.isRedoing) {
+            const data = this.node.data;
+            this.solver.reset(data);
+            this.loadAnchors(data);
+            this.annotations.clearConstraintSelection();
+            this.refreshExternalDisplay();
+            this.solve(true);
+            return;
+        }
+        // A source-part rebuild re-resolves the external references on the node behind
+        // the solver's back (untransacted) — reseed the moved externals and re-solve.
+        // Unchanged refs (e.g. the editor's own commit) are a cheap no-op.
+        if (this.solver.syncExternalRefs(this.node.data.externalRefs ?? [])) {
+            // A type-flipped ref cascades its constraints away untransacted — drop
+            // their dimension anchors and surface the deletion instead of leaving
+            // orphan anchors and a silent constraint loss.
+            const removed = this.solver.lastRemovedConstraintIds;
+            if (removed.length > 0) {
+                for (const id of removed) this.dimensionAnchors.delete(id);
+                this.annotations.deselectConstraints(removed);
+                PubSub.default.pub("statusBarTip", "sketch.externalRefTypeChanged");
+            }
+            this.refreshExternalDisplay();
+            this.solve(true);
+        }
     };
 
     /** Orthographic top-down view onto the sketch plane; the plane becomes the workplane. */
@@ -284,22 +467,37 @@ export class SketchEditor implements IDisposable {
         this.commit();
     }
 
-    /** Deletes entities with their constraints and anchors, then commits (undoable). */
+    /**
+     * Deletes entities and/or external references in one transaction: every constraint
+     * referencing them is removed (with its dimension anchor), then the change commits
+     * (undoable — the refs serialize through `dataJson`, so undo restores them via the
+     * solver's `reset`).
+     */
     deleteEntities(entityIds: Iterable<number>): void {
         if (this.disposed) return;
         const ids = [...entityIds];
         if (ids.length === 0) return;
         const removedConstraints: number[] = [];
         for (const entityId of ids) {
-            for (const constraintId of this.solver.removeEntity(entityId)) {
+            // external references are not regular solver entities — they remove through their own flow
+            const removed = isExternalEntityId(entityId)
+                ? this.solver.removeExternalEntity(entityId)
+                : this.solver.removeEntity(entityId);
+            for (const constraintId of removed) {
                 this.dimensionAnchors.delete(constraintId);
                 removedConstraints.push(constraintId);
             }
         }
         this.annotations.deselectConstraints(removedConstraints);
         this.annotations.setHighlightedEntities([]);
+        if (ids.some(isExternalEntityId)) this.refreshExternalDisplay();
         this.solve(true);
         this.commit();
+    }
+
+    /** Re-renders the external-reference display (called after refs are added/removed). */
+    refreshExternalDisplay(): void {
+        this.eventHandler.refreshExternalRefs();
     }
 
     commit(): void {
@@ -311,6 +509,9 @@ export class SketchEditor implements IDisposable {
         Transaction.execute(this.document, "edit sketch", () => {
             this.node.setDataEmitShapeChanged(data);
         });
+        // toData re-derives external-ref roles from the constraints — a flip
+        // (dashed ↔ solid) shows up only when the session display re-renders
+        this.refreshExternalDisplay();
         this.document.visual.update();
     }
 
@@ -442,22 +643,40 @@ export class SketchEditor implements IDisposable {
         this.disposed = true;
         this.cancelPick();
         this.document.visual.context.setNodeOnTop([this.node], false);
+        this.node.setEditingSession(false);
         this.node.removePropertyChanged(this.onNodeDataChanged);
-        this.eventHandler.dispose();
-        this.annotations.dispose();
-        this.document.visual.eventHandler = this.savedHandler;
-        if (!this.view.isClosed) {
-            this.view.workplane = this.savedWorkplane;
-            const controller = this.view.cameraController;
-            if (this.savedCamera.position && this.savedCamera.target && this.savedCamera.up) {
-                controller.lookAt(this.savedCamera.position, this.savedCamera.target, this.savedCamera.up);
+        // Restoring the full chain is an ordinary source-node rebuild for the
+        // sketch: with the session flag already cleared, refs that later features
+        // moved re-resolve and pull their followers — the off-session follow
+        // semantics resume exactly where the rollback paused them. A body deleted
+        // mid-session is skipped (replaying it would leak a shape on the disposed
+        // node), and a failing replay must not strand the teardown below —
+        // `disposed` is already set, so there is no retry.
+        try {
+            for (const body of this.rollback.keys()) {
+                if (this.document.modelManager.findNode((n) => n === body) === undefined) continue;
+                body.setRollbackIndex(undefined);
             }
-            controller.cameraType = this.savedCamera.type;
+        } finally {
+            this.eventHandler.dispose();
+            this.annotations.dispose();
+            this.document.visual.eventHandler = this.savedHandler;
+            this.restoreViewState();
+            this.setCanRotate(true);
+            this.solver.dispose();
+            PubSub.default.pub("clearStatusBarTip");
+            PubSub.default.remove("activeViewChanged", this.onActiveViewChanged);
         }
-        this.setCanRotate(true);
-        this.solver.dispose();
-        PubSub.default.pub("clearStatusBarTip");
-        PubSub.default.remove("activeViewChanged", this.onActiveViewChanged);
+    }
+
+    private restoreViewState(): void {
+        if (this.view.isClosed) return;
+        this.view.workplane = this.savedWorkplane;
+        const controller = this.view.cameraController;
+        if (this.savedCamera.position && this.savedCamera.target && this.savedCamera.up) {
+            controller.lookAt(this.savedCamera.position, this.savedCamera.target, this.savedCamera.up);
+        }
+        controller.cameraType = this.savedCamera.type;
     }
 
     private startPick<T>(

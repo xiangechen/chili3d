@@ -4,7 +4,7 @@
 import { ShapeTypes } from "@chili3d/core";
 import { Box3, Mesh, MeshBasicMaterial, Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
-import { defaultEdgeMaterial } from "../src/materials";
+import { defaultEdgeMaterial, edgeMaterialOfWidth } from "../src/materials";
 import { ThreeGeometry } from "../src/threeGeometry";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
 import { createTestGeometryNode, createThreeMockVisualContext } from "./mocks";
@@ -153,6 +153,19 @@ describe("ThreeGeometry", () => {
             geo.removeTemperaryMaterial();
             expect(geo.faces()?.material).toBe(originalFaceMat);
             expect(geo.edges()?.material).toBe(defaultEdgeMaterial);
+        });
+
+        test("edges use a lineWidth-matched material and restore to it", () => {
+            const node = createTestGeometryNode({ edgeLineWidth: 2 });
+            const geo = new ThreeGeometry(node, context);
+            const wideMaterial = edgeMaterialOfWidth(2);
+
+            expect(geo.edges()?.material).toBe(wideMaterial);
+            expect(geo.edges()?.material).not.toBe(defaultEdgeMaterial);
+
+            geo.setEdgesMateiralTemperary({ isLineMaterial: true } as any);
+            geo.removeTemperaryMaterial();
+            expect(geo.edges()?.material).toBe(wideMaterial);
         });
     });
 
