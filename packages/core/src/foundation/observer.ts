@@ -85,7 +85,16 @@ export class Observable implements IPropertyChanged {
     }
 
     protected emitPropertyChanged<K extends keyof this>(property: K, oldValue: this[K]) {
-        Array.from(this.propertyChangedHandlers).forEach((cb) => cb(property, this, oldValue));
+        Array.from(this.propertyChangedHandlers).forEach((cb) => {
+            try {
+                cb(property, this, oldValue);
+            } catch (error) {
+                console.error(
+                    `${this.constructor.name}: an observer of property "${String(property)}" threw`,
+                    error,
+                );
+            }
+        });
     }
 
     onPropertyChanged<K extends keyof this>(handler: PropertyChangedHandler<this, K>) {

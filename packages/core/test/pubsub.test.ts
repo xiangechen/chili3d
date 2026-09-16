@@ -271,6 +271,71 @@ describe("PubSub class", () => {
         });
     });
 
+    describe("subscriber exception isolation", () => {
+        afterEach(() => {
+            rs.restoreAllMocks();
+        });
+
+        test("a throwing subscriber does not skip later subscribers of the same event", () => {
+            const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+            const error = new Error("subscriber exploded");
+            pubsub.sub("displayError" as any, () => {
+                throw error;
+            });
+            const later = rs.fn(() => {});
+            pubsub.sub("displayError" as any, later);
+
+            pubsub.pub("displayError" as any, "error");
+
+            expect(later).toHaveBeenCalledTimes(1);
+            expect(consoleError).toHaveBeenCalledWith('PubSub: a subscriber of "displayError" threw', error);
+        });
+
+        test("pub returns normally when a subscriber throws", () => {
+            const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+            pubsub.sub("displayError" as any, () => {
+                throw new Error("subscriber exploded");
+            });
+
+            let reachedAfterPub = false;
+            pubsub.pub("displayError" as any, "error");
+            reachedAfterPub = true;
+
+            expect(reachedAfterPub).toBe(true);
+            expect(consoleError).toHaveBeenCalledTimes(1);
+        });
+
+        test("a throwing subscriber of one event does not affect other events", () => {
+            const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+            pubsub.sub("displayError" as any, () => {
+                throw new Error("subscriber exploded");
+            });
+            const toastListener = rs.fn(() => {});
+            pubsub.sub("showToast" as any, toastListener);
+
+            pubsub.pub("displayError" as any, "error");
+            pubsub.pub("showToast" as any, "toast" as any);
+
+            expect(toastListener).toHaveBeenCalledTimes(1);
+            expect(consoleError).toHaveBeenCalledTimes(1);
+        });
+
+        test("a throwing subscriber does not skip later pubs of the same event", () => {
+            const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+            let calls = 0;
+            pubsub.sub("displayError" as any, () => {
+                calls++;
+                throw new Error(`explosion ${calls}`);
+            });
+
+            pubsub.pub("displayError" as any, "error");
+            pubsub.pub("displayError" as any, "error");
+
+            expect(calls).toBe(2);
+            expect(consoleError).toHaveBeenCalledTimes(2);
+        });
+    });
+
     describe("default instance singleton", () => {
         test("should be the same reference", () => {
             expect(PubSub.default).toBe(PubSub.default);

@@ -73,7 +73,13 @@ export class PubSub implements IDisposable {
             return;
         }
 
-        this.events.get(event)?.forEach((callback) => callback(...args));
+        this.events.get(event)?.forEach((callback) => {
+            try {
+                callback(...args);
+            } catch (error) {
+                console.error(`PubSub: a subscriber of "${String(event)}" threw`, error);
+            }
+        });
     }
 
     remove<K extends keyof PubSubEventMap>(event: K, callback: PubSubEventMap[K]): void {

@@ -1,7 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { rs } from "@rstest/core";
 import { DeepObserver, type IPropertyChanged, Observable } from "../src";
+
+afterEach(() => {
+    rs.restoreAllMocks();
+});
 
 class TestClassA extends Observable {
     get propA() {
@@ -95,4 +100,56 @@ test("deep observer", () => {
     expect(targetProperty).toBe("propC.propB");
     a.propA = 2;
     expect(targetProperty).toBe("propC.propB.propA");
+});
+
+describe("observer exception isolation", () => {
+    test("a throwing observer does not skip later observers of the same property", () => {
+        const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+        const error = new Error("observer exploded");
+        const t = new TestClassA();
+        t.onPropertyChanged(() => {
+            throw error;
+        });
+        const later = rs.fn((_property: string, _source: unknown, _oldValue: unknown) => {});
+        t.onPropertyChanged(later);
+
+        t.propA = 2;
+
+        expect(later).toHaveBeenCalledTimes(1);
+        expect(later).toHaveBeenCalledWith("propA", t, 1);
+        expect(consoleError).toHaveBeenCalledWith('TestClassA: an observer of property "propA" threw', error);
+    });
+
+    test("the set completes when an observer throws", () => {
+        const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+        const t = new TestClassA();
+        t.onPropertyChanged(() => {
+            throw new Error("observer exploded");
+        });
+
+        let reachedAfterSet = false;
+        t.propA = 2;
+        reachedAfterSet = true;
+
+        expect(reachedAfterSet).toBe(true);
+        expect(t.propA).toBe(2);
+        expect(consoleError).toHaveBeenCalledTimes(1);
+    });
+
+    test("a throwing observer does not affect later property changes", () => {
+        const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+        const t = new TestClassA();
+        const observed: string[] = [];
+        t.onPropertyChanged(() => {
+            throw new Error("observer exploded");
+        });
+        t.onPropertyChanged((property) => observed.push(property));
+
+        t.propA = 2;
+        t.propA = 3;
+
+        expect(observed).toEqual(["propA", "propA"]);
+        expect(t.propA).toBe(3);
+        expect(consoleError).toHaveBeenCalledTimes(2);
+    });
 });
