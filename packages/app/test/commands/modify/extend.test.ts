@@ -69,6 +69,8 @@ interface TempEdgeSpec {
     intersections?: { point: XYZ; parameter: number }[];
     /** `parameter(point)` of the temporary (maximal) edge's curve. */
     curveParameter?: (point: XYZ) => number | undefined;
+    /** Return undefined from `trim`, the kernel's answer to an empty parameter window. */
+    trimUndefined?: boolean;
 }
 
 /**
@@ -97,6 +99,7 @@ function curveEdgeData(
         endPoint: () => c.value(c.lastParameter()),
         trim: (...args: unknown[]) => {
             trims.push(args);
+            if (spec.trimUndefined) return undefined;
             const edge = mockShape({
                 shapeType: ShapeTypes.edge,
                 parent,
@@ -185,7 +188,7 @@ const Y_CURVE = () => lineCurve(new XYZ({ x: 3, y: 1, z: 0 }), XYZ.unitY, 1, 2);
  * `findSubShapes` returns `allEdges`, where index 1 and 2 match the selected
  * sub-edges via `isEqual`.
  */
-function buildWireCommand(opts: { curves?: [unknown, unknown] } = {}) {
+function buildWireCommand(opts: { curves?: [unknown, unknown]; specs?: [TempEdgeSpec, TempEdgeSpec] } = {}) {
     const cmd = new ExtendCommand();
     const { doc } = wireCommand(cmd);
     const parent = doc.modelManager.rootNode as unknown as TrackingParent;
@@ -196,8 +199,8 @@ function buildWireCommand(opts: { curves?: [unknown, unknown] } = {}) {
     const [curve1, curve2] = opts.curves ?? [X_CURVE(), Y_CURVE()];
     const node = edgeNode("wire0", parent, wire, doc);
     seedStepDatas(cmd, [
-        shapeStepResult([{ shape: curveEdgeData(wire, curve1, trims[0], created), node }]),
-        shapeStepResult([{ shape: curveEdgeData(wire, curve2, trims[1], created), node }]),
+        shapeStepResult([{ shape: curveEdgeData(wire, curve1, trims[0], created, opts.specs?.[0]), node }]),
+        shapeStepResult([{ shape: curveEdgeData(wire, curve2, trims[1], created, opts.specs?.[1]), node }]),
     ]);
 
     const sel0 = (cmd as any).stepDatas[0].shapes[0].shape;
@@ -633,6 +636,57 @@ describe("ExtendCommand", () => {
             const { cmd, parent } = buildStandaloneCommand();
             // strip the line direction so the basis curve is no longer a line
             (cmd as any).stepDatas[0].shapes[0].shape.curve.basisCurve = {};
+
+            const pubsub = capturePubSub();
+            try {
+                (cmd as any).executeMainTask();
+
+                expect(pubsub.pubs.some((args) => args[0] === "displayError")).toBe(true);
+                expect(parent.added).toHaveLength(0);
+                expect(parent.removed).toHaveLength(0);
+            } finally {
+                pubsub.restore();
+            }
+        });
+
+        test("should report an error when the corner lands on the anchored end of a wire edge", () => {
+            // the vertical boundary crosses X exactly at X's shared first end (0,0):
+            // the free end cannot move there without the edge shrinking to a point
+            const yAtOrigin = lineCurve(new XYZ({ x: 0, y: -1, z: 0 }), XYZ.unitY, -1, 2);
+            const { cmd, parent, trims } = buildWireCommand({
+                curves: [X_CURVE(), yAtOrigin],
+                specs: [{ trimUndefined: true }, {}],
+            });
+
+            const pubsub = capturePubSub();
+            try {
+                (cmd as any).executeMainTask();
+
+                expect(trims[0]).toEqual([[0, 0]]); // the empty window was attempted
+                expect(
+                    pubsub.pubs.some(
+                        (args) => args[0] === "displayError" && String(args[1]).includes("shrink to a point"),
+                    ),
+                ).toBe(true);
+                expect(parent.added).toHaveLength(0);
+                expect(parent.removed).toHaveLength(0);
+            } finally {
+                pubsub.restore();
+            }
+        });
+
+        test("should report an error when a maximal extent cannot be built", () => {
+            const center = new XYZ({ x: 2, y: 4, z: 0 });
+            const { cmd, parent } = buildStandaloneCommand({
+                shapes: [
+                    (ctx) =>
+                        curveEdgeData(ctx.body, X_CURVE(), ctx.trims, ctx.created, { trimUndefined: true }),
+                    (ctx) =>
+                        curveEdgeData(ctx.body, arcCurve(center, 5, -1.2, 0), ctx.trims, ctx.created, {
+                            curveParameter: circleParameter(center, -1.2),
+                        }),
+                ],
+            });
 
             const pubsub = capturePubSub();
             try {

@@ -50,6 +50,10 @@ void addPointToPosition(const gp_Pnt& pnt, std::optional<gp_Pnt>& prePnt, std::v
 
 void pointByGCTangential(const TopoDS_Edge& edge, double lineDeflection, std::vector<float>& position)
 {
+    // BRepAdaptor_Curve raises on an edge with neither a 3D curve nor a pcurve.
+    if (!BRep_Tool::IsGeometric(edge)) {
+        return;
+    }
     BRepAdaptor_Curve curve(edge);
     GCPnts_TangentialDeflection pnts(curve, ANGLE_DEFLECTION, lineDeflection);
 
@@ -206,10 +210,18 @@ public:
         BRepTools::UVBounds(face, aUmin, aUmax, aVmin, aVmax);
         dUmax = (aUmax - aUmin);
         dVmax = (aVmax - aVmin);
+        // Triangulation without UV nodes (e.g. an STL-imported face) raises on UVNode,
+        // and a zero UV span divides by zero; emit zero UVs for those nodes.
+        bool hasUsableUv = handlePoly->HasUVNodes() && dUmax > 0.0 && dVmax > 0.0;
         for (int index = 0; index < handlePoly->NbNodes(); index++) {
-            auto uv = handlePoly->UVNode(index + 1);
-            this->uv.push_back((uv.X() - aUmin) / dUmax);
-            this->uv.push_back((uv.Y() - aVmin) / dVmax);
+            if (hasUsableUv) {
+                auto uv = handlePoly->UVNode(index + 1);
+                this->uv.push_back((uv.X() - aUmin) / dUmax);
+                this->uv.push_back((uv.Y() - aVmin) / dVmax);
+            } else {
+                this->uv.push_back(0.0f);
+                this->uv.push_back(0.0f);
+            }
         }
     }
 };

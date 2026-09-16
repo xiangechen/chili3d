@@ -81,7 +81,12 @@ export interface IEdge extends IShape {
     endPoint(): XYZ;
     ends(): [start: XYZ, end: XYZ];
     offset(distance: number, dir: XYZ): Result<IEdge>;
-    trim(start: number, end: number): IEdge;
+    /**
+     * Trims the edge to the parameter window [start, end]. Returns `undefined`
+     * when the window is empty within tolerance — the kernel reports that as a
+     * null edge instead of raising.
+     */
+    trim(start: number, end: number): IEdge | undefined;
     hasContinuity(face1: IFace, face2: IFace): boolean;
     continuity(face1: IFace, face2: IFace): Continuity;
 }

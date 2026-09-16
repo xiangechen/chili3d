@@ -73,6 +73,10 @@ public:
     {
         Bnd_Box obx;
         BRepBndLib::Add(shape, obx, useTriangulation);
+        // A shape without geometry (e.g. an empty compound) leaves a void box, whose corners raise.
+        if (obx.IsVoid()) {
+            return BoundingBox { Vector3 { 0.0, 0.0, 0.0 }, Vector3 { 0.0, 0.0, 0.0 } };
+        }
 
         return BoundingBox {
             Vector3::fromPnt(obx.CornerMin()),
@@ -84,6 +88,10 @@ public:
     {
         Bnd_OBB obb;
         BRepBndLib::AddOBB(shape, obb, useTriangulation);
+        // A shape without geometry leaves a void OBB with undefined axes.
+        if (obb.IsVoid()) {
+            return OrientedBoundingBox { Ax3::fromAx3(gp_Ax3()), Vector3 { 0.0, 0.0, 0.0 } };
+        }
 
         return OrientedBoundingBox {
             Ax3::fromAx3(obb.Position()),
@@ -176,6 +184,10 @@ public:
     static double extremaDistance(const TopoDS_Shape& shape, const TopoDS_Shape& otherShape)
     {
         BRepExtrema_DistShapeShape extrema(shape, otherShape);
+        // No solution (e.g. a shape without geometry): Value() raises StdFail_NotDone.
+        if (!extrema.IsDone()) {
+            return -1.0;
+        }
         return extrema.Value();
     }
 
@@ -383,40 +395,62 @@ public:
 
     static double firstParameter(const TopoDS_Edge& edge)
     {
+        // BRepAdaptor_Curve raises on an edge with neither a 3D curve nor a pcurve.
+        if (!BRep_Tool::IsGeometric(edge)) {
+            return 0.0;
+        }
         BRepAdaptor_Curve adaptor(edge);
         return adaptor.FirstParameter();
     }
 
     static double lastParameter(const TopoDS_Edge& edge)
     {
+        if (!BRep_Tool::IsGeometric(edge)) {
+            return 0.0;
+        }
         BRepAdaptor_Curve adaptor(edge);
         return adaptor.LastParameter();
     }
 
     static Vector3 pointAt(const TopoDS_Edge& edge, double parameter)
     {
+        if (!BRep_Tool::IsGeometric(edge)) {
+            // A degenerate edge collapses to its vertex point.
+            ShapeAnalysis_Edge analysis;
+            TopoDS_Vertex vertex = analysis.FirstVertex(edge);
+            return vertex.IsNull() ? Vector3 { 0.0, 0.0, 0.0 } : Vector3::fromPnt(BRep_Tool::Pnt(vertex));
+        }
         BRepAdaptor_Curve adaptor(edge);
         return Vector3::fromPnt(adaptor.Value(parameter));
+    }
+
+    static Vector3 pointOfVertex(const TopoDS_Vertex& vertex)
+    {
+        // An edge built on an infinite curve has no vertices; BRep_Tool::Pnt raises on a null vertex.
+        if (vertex.IsNull()) {
+            return Vector3 { 0.0, 0.0, 0.0 };
+        }
+        return Vector3::fromPnt(BRep_Tool::Pnt(vertex));
     }
 
     static Vector3 startPoint(const TopoDS_Edge& edge)
     {
         ShapeAnalysis_Edge analysis;
-        return Vector3::fromPnt(BRep_Tool::Pnt(analysis.FirstVertex(edge)));
+        return pointOfVertex(analysis.FirstVertex(edge));
     }
 
     static Vector3 endPoint(const TopoDS_Edge& edge)
     {
         ShapeAnalysis_Edge analysis;
-        return Vector3::fromPnt(BRep_Tool::Pnt(analysis.LastVertex(edge)));
+        return pointOfVertex(analysis.LastVertex(edge));
     }
 
     static Vector3Array ends(const TopoDS_Edge& edge)
     {
         ShapeAnalysis_Edge analysis;
         std::vector<Vector3> points = {
-            Vector3::fromPnt(BRep_Tool::Pnt(analysis.FirstVertex(edge))),
-            Vector3::fromPnt(BRep_Tool::Pnt(analysis.LastVertex(edge))),
+            pointOfVertex(analysis.FirstVertex(edge)),
+            pointOfVertex(analysis.LastVertex(edge)),
         };
         return Vector3Array(val::array(points));
     }
@@ -424,7 +458,12 @@ public:
     static Handle(Geom_TrimmedCurve) curve(const TopoDS_Edge& edge)
     {
         double start(0.0), end(0.0);
-        auto curve = BRep_Tool::Curve(edge, start, end);
+        Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, start, end);
+        if (curve.IsNull()) {
+            // A degenerate edge has no 3D curve to wrap. A C++ raise would abort the WASM
+            // module (exceptions are disabled), so report as a catchable JS Error instead.
+            val::global("Error").new_(std::string("Edge.curve: degenerate edge has no 3D curve")).throw_();
+        }
         Handle(Geom_TrimmedCurve) trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
         return trimmedCurve;
     }
@@ -433,6 +472,9 @@ public:
     {
         double u1(0.0), u2(0.0);
         Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, u1, u2);
+        if (curve.IsNull()) {
+            return TopoDS_Edge();
+        }
         // A Geom_OffsetCurve on a trimmed basis is bounded by the basis trim range,
         // rebase it on the untrimmed basis so trimming beyond the edge range works.
         Handle(Geom_OffsetCurve) offsetCurve = Handle(Geom_OffsetCurve)::DownCast(curve);
@@ -452,7 +494,10 @@ public:
     static TopoDS_Edge offset(const TopoDS_Edge& edge, const gp_Dir& dir, double offset)
     {
         double start(0.0), end(0.0);
-        auto curve = BRep_Tool::Curve(edge, start, end);
+        Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, start, end);
+        if (curve.IsNull()) {
+            return TopoDS_Edge();
+        }
         Handle(Geom_TrimmedCurve) trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
         Handle(Geom_OffsetCurve) offsetCurve = new Geom_OffsetCurve(trimmedCurve, offset, dir);
         BRepBuilderAPI_MakeEdge builder(offsetCurve);
@@ -552,6 +597,10 @@ public:
 
     static bool containsPoint(const TopoDS_Face& face, const Vector3& point, bool containsEdge, double tolerance)
     {
+        // A face without a geometric surface (e.g. an STL-imported face) contains nothing.
+        if (BRep_Tool::Surface(face).IsNull()) {
+            return false;
+        }
         gp_Pnt pnt(point.x, point.y, point.z);
 
         auto aPuv = pointToFaceUV(face, pnt, tolerance);
@@ -569,6 +618,9 @@ public:
 
     static std::optional<Vector3> intersectLine(const TopoDS_Face& face, const Vector3& point, const Vector3& direction, double tolerance)
     {
+        if (BRep_Tool::Surface(face).IsNull()) {
+            return std::nullopt;
+        }
         gp_Lin line(gp_Pnt(point.x, point.y, point.z), gp_Dir(direction.x, direction.y, direction.z));
 
         IntCurvesFace_Intersector anIntersector(face, tolerance);
@@ -581,6 +633,10 @@ public:
 
     static void normal(const TopoDS_Face& face, double u, double v, gp_Pnt& point, gp_Vec& normal)
     {
+        // A face without a geometric surface has no normal; leave the zero-initialized outputs.
+        if (BRep_Tool::Surface(face).IsNull()) {
+            return;
+        }
         BRepGProp_Face gpProp(face);
         gpProp.Normal(u, v, point, normal);
     }

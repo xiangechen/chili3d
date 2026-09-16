@@ -30,7 +30,12 @@ export interface ICurve extends IGeometry {
     project(point: XYZLike): XYZ[];
     value(parameter: number): XYZ;
     isCN(n: number): boolean;
-    trim(u1: number, u2: number): ITrimmedCurve;
+    /**
+     * Trims the curve to the parameter window [u1, u2]. Returns `undefined` when the
+     * window is invalid (empty within tolerance, or outside a non-periodic curve's
+     * range) — the kernel reports those as a null handle instead of raising.
+     */
+    trim(u1: number, u2: number): ITrimmedCurve | undefined;
     d0(u: number): XYZ;
     d1(u: number): { point: XYZ; vec: XYZ };
     d2(u: number): { point: XYZ; vec1: XYZ; vec2: XYZ };
@@ -130,6 +135,12 @@ export interface IBSplineCurve extends IBoundedCurve {
 
 export interface ITrimmedCurve extends IBoundedCurve {
     get basisCurve(): ICurve;
+    /**
+     * Retrims the curve in place. Throws when the window is empty within
+     * tolerance or outside a non-periodic basis curve's range — the kernel
+     * raises there, which the WASM build cannot survive, so the check is
+     * enforced JS-side.
+     */
     setTrim(u1: number, u2: number): void;
 }
 

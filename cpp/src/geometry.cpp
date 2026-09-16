@@ -13,7 +13,10 @@
 #include <Geom_Line.hxx>
 #include <Geom_Surface.hxx>
 #include <Geom_TrimmedCurve.hxx>
+#include <Precision.hxx>
 #include <Standard_Handle.hxx>
+#include <algorithm>
+#include <cmath>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 #include <optional>
@@ -43,8 +46,28 @@ public:
 
     static Handle(Geom_TrimmedCurve) trim(const Geom_Curve* curve, double start, double end)
     {
-        Handle(Geom_TrimmedCurve) trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
-        return trimmedCurve;
+        // Geom_TrimmedCurve raises Standard_ConstructionError on an empty parameter
+        // window or on a window outside a non-periodic basis curve's range, and a
+        // raise aborts the module with exception catching disabled. Mirror those
+        // checks and return a null handle (the failure sentinel of the
+        // handle-returning bindings, like an empty TopoDS_Edge) instead.
+        if (curve == nullptr || std::abs(end - start) <= Precision::PConfusion()) {
+            return Handle(Geom_TrimmedCurve)();
+        }
+        // The constructor trims the untrimmed basis, so check the range against it.
+        const Geom_Curve* basis = curve;
+        while (const Geom_TrimmedCurve* trimmed = dynamic_cast<const Geom_TrimmedCurve*>(basis)) {
+            basis = trimmed->BasisCurve().get();
+        }
+        if (!basis->IsPeriodic()) {
+            double u1 = std::min(start, end);
+            double u2 = std::max(start, end);
+            if (basis->FirstParameter() - u1 > Precision::PConfusion()
+                || u2 - basis->LastParameter() > Precision::PConfusion()) {
+                return Handle(Geom_TrimmedCurve)();
+            }
+        }
+        return new Geom_TrimmedCurve(curve, start, end);
     }
 
     static Vector3Array projects(const Geom_Curve* curve, const Vector3& point)
@@ -81,13 +104,24 @@ public:
     {
         GeomAdaptor_Curve adaptorCurve(curve);
         GCPnts_UniformAbscissa uniformAbscissa(adaptorCurve, length);
+        // Not done for a zero-length curve or a zero abscissa; NbPoints() would raise.
+        if (!uniformAbscissa.IsDone()) {
+            return Vector3Array(val::array());
+        }
         return getPoints(uniformAbscissa, curve);
     }
 
     static Vector3Array uniformAbscissaWithCount(const Geom_Curve* curve, int nbPoints)
     {
+        // Fewer than 2 points raises Standard_ConstructionError.
+        if (nbPoints < 2) {
+            return Vector3Array(val::array());
+        }
         GeomAdaptor_Curve adaptorCurve(curve);
         GCPnts_UniformAbscissa uniformAbscissa(adaptorCurve, nbPoints);
+        if (!uniformAbscissa.IsDone()) {
+            return Vector3Array(val::array());
+        }
         return getPoints(uniformAbscissa, curve);
     }
 

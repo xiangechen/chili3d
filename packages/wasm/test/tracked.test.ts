@@ -35,6 +35,52 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.prismTracked(rect, XYZ.zero);
             expect(result.isOk).toBe(false);
         });
+
+        test("should report the top face through capFaces", () => {
+            const rect = unwrapOk(factory.rect(Plane.XY, 10, 20));
+            const result = factory.prismTracked(rect, new XYZ({ x: 0, y: 0, z: 30 }));
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) return;
+            // Exactly one cap face, and the history maps do not cover it — the same
+            // face the unique-history-less heuristic used to find.
+            const capFaces = result.value.capFaces ?? [];
+            expect(capFaces).toHaveLength(1);
+            const index = capFaces[0];
+            expect(result.value.faceMap[index]).toBe(-1);
+            expect(result.value.faceEdgeMap?.[index] ?? -1).toBe(-1);
+            // It is the geometric top (the profile translated by the sweep vector).
+            const face = result.value.shape.findSubShapes(ShapeTypes.face)[index] as IFace;
+            const box = face.boundingBox();
+            expect((box.min.x + box.max.x) / 2).toBeCloseTo(5);
+            expect((box.min.y + box.max.y) / 2).toBeCloseTo(10);
+            expect((box.min.z + box.max.z) / 2).toBeCloseTo(30);
+        });
+
+        test("should report the top face of a holed profile through capFaces", () => {
+            // 20x20 rect with a circular through-hole — the hole's side face competes
+            // with the top in any history-less-face heuristic.
+            const corners = [
+                new XYZ({ x: 0, y: 0, z: 0 }),
+                new XYZ({ x: 20, y: 0, z: 0 }),
+                new XYZ({ x: 20, y: 20, z: 0 }),
+                new XYZ({ x: 0, y: 20, z: 0 }),
+            ];
+            const lines = corners.map((start, i) =>
+                unwrapOk(factory.line(start, corners[(i + 1) % corners.length])),
+            );
+            const outer = unwrapOk(factory.wire(lines));
+            const circle = unwrapOk(factory.circle(XYZ.unitZ, new XYZ({ x: 10, y: 10, z: 0 }), 4));
+            const hole = unwrapOk(factory.wire([circle]));
+            const profile = unwrapOk(factory.face([outer, hole])) as IFace;
+            const result = factory.prismTracked(profile, new XYZ({ x: 0, y: 0, z: 15 }));
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) return;
+            const capFaces = result.value.capFaces ?? [];
+            expect(capFaces).toHaveLength(1);
+            const face = result.value.shape.findSubShapes(ShapeTypes.face)[capFaces[0]] as IFace;
+            const box = face.boundingBox();
+            expect((box.min.z + box.max.z) / 2).toBeCloseTo(15);
+        });
     });
 
     describe("revolveTracked", () => {
@@ -46,6 +92,37 @@ describe("ShapeFactory — tracked (face history)", () => {
             if (!result.isOk) return;
             expect(result.value.faceMap.length).toBe(faceCount(result.value.shape));
             expect(result.value.faceMap.length).toBeGreaterThan(0);
+        });
+
+        test("should report a partial revolve's end cap through capFaces", () => {
+            const rect = unwrapOk(factory.rect(Plane.XY, 10, 20));
+            const axis = new Line({ point: XYZ.zero, direction: XYZ.unitZ });
+            const result = factory.revolveTracked(rect, axis, 270);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) return;
+            const capFaces = result.value.capFaces ?? [];
+            expect(capFaces).toHaveLength(1);
+            const index = capFaces[0];
+            // The cap has no history — it is neither the identical start face nor an
+            // edge-generated side face.
+            expect(result.value.faceMap[index]).toBe(-1);
+            expect(result.value.faceEdgeMap?.[index] ?? -1).toBe(-1);
+            // The rect's center (5,10,0) rotated 270° about Z lands at (10,-5,0).
+            const face = result.value.shape.findSubShapes(ShapeTypes.face)[index] as IFace;
+            const box = face.boundingBox();
+            expect((box.min.x + box.max.x) / 2).toBeCloseTo(10);
+            expect((box.min.y + box.max.y) / 2).toBeCloseTo(-5);
+            expect((box.min.z + box.max.z) / 2).toBeCloseTo(0);
+        });
+
+        test("should report no cap for a full turn (first/last shapes coincide)", () => {
+            const rect = unwrapOk(factory.rect(Plane.XY, 10, 20));
+            const axis = new Line({ point: XYZ.zero, direction: XYZ.unitZ });
+            const result = factory.revolveTracked(rect, axis, 360);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) return;
+            // At exactly 360° the rings keep the geometric probe on the TS side.
+            expect(result.value.capFaces ?? []).toHaveLength(0);
         });
     });
 

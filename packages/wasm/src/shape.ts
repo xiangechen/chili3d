@@ -522,8 +522,12 @@ export class OccEdge extends OccShape implements IEdge {
         });
     }
 
-    trim(start: number, end: number): IEdge {
+    trim(start: number, end: number): IEdge | undefined {
         const newEdge = wasm.Edge.trim(this.edge, start, end);
+        // Edge::trim returns a null edge for an empty (within tolerance) parameter
+        // window instead of raising — surface that as undefined rather than
+        // wrapping a null shape, like OccCurve.trim does for a null handle.
+        if (newEdge.isNull()) return undefined;
         return new OccEdge({ shape: newEdge });
     }
 
@@ -628,12 +632,20 @@ export class OccFace extends OccShape implements IFace {
         return toXYZ(int);
     }
     outerWire(): IWire {
-        return new OccWire({ shape: wasm.Face.outerWire(this.face) });
+        const wire = wasm.Face.outerWire(this.face);
+        if (wire.isNull()) {
+            throw new Error("Face.outerWire: face has no outer wire");
+        }
+        return new OccWire({ shape: wire });
     }
     surface(): ISurface {
         return gc((c) => {
             const handleSurface = c(wasm.Face.surface(this.face));
-            return OccSurface.wrap(handleSurface.get()!);
+            const surface = handleSurface.get();
+            if (surface === null) {
+                throw new Error("Face.surface: face has no geometric surface");
+            }
+            return OccSurface.wrap(surface);
         });
     }
     segmentsOfEdgeOnFace(edge: IEdge): undefined | { start: number; end: number } {

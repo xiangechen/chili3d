@@ -139,6 +139,27 @@ describe("Break", () => {
             expect(parent.removed).toHaveLength(0);
         });
 
+        test("should early-return without changes when the pick lands on the curve's start", () => {
+            const { cmd, parent, curve } = buildBreakCommand({ parameter: () => 0 });
+
+            (cmd as any).executeMainTask();
+
+            expect(curve.calls.get("trim")).toBeUndefined();
+            expect(curve.calls.get("setTrim")).toBeUndefined();
+            expect(parent.insertedAfter).toHaveLength(0);
+            expect(parent.removed).toHaveLength(0);
+        });
+
+        test("should proceed when the pick is just beyond the start tolerance", () => {
+            const { cmd, parent, curve } = buildBreakCommand({ parameter: () => 1e-8 });
+
+            (cmd as any).executeMainTask();
+
+            expect(curve.calls.get("setTrim")).toHaveLength(1);
+            expect(parent.insertedAfter).toHaveLength(2);
+            expect(parent.removed).toHaveLength(1);
+        });
+
         test("should call curve.parameter with the picked point in local space", () => {
             const { cmd, curve } = buildBreakCommand();
 

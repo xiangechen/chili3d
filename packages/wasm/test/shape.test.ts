@@ -559,23 +559,24 @@ describe("OccEdge", () => {
         const curve = edge.curve;
         const mid = (curve.firstParameter() + curve.lastParameter()) / 2;
         const trimmed = edge.trim(curve.firstParameter(), mid);
-        expect(trimmed.shapeType).toBe(ShapeTypes.edge);
+        expect(trimmed).toBeDefined();
+        expect(trimmed!.shapeType).toBe(ShapeTypes.edge);
     });
 
     test("trim extends an offset edge beyond its original range", () => {
         const line = unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }))) as OccEdge;
         const offset = unwrapOk(line.offset(5, XYZ.unitZ)) as OccEdge;
         const extended = offset.trim(-5, 15);
-        expect(extended.isNull()).toBe(false);
-        expect(extended.length()).toBeCloseTo(20, 6);
+        expect(extended).toBeDefined();
+        expect(extended!.length()).toBeCloseTo(20, 6);
     });
 
-    test("trim returns a null edge when the range exceeds the bounded basis curve", () => {
+    test("trim returns undefined when the range exceeds the bounded basis curve", () => {
         const bezier = unwrapOk(
             factory.bezier([XYZ.zero, new XYZ({ x: 10, y: 20, z: 0 }), new XYZ({ x: 20, y: 0, z: 0 })]),
         ) as OccEdge;
         const offset = unwrapOk(bezier.offset(5, XYZ.unitZ)) as OccEdge;
-        expect(offset.trim(-1, 2).isNull()).toBe(true);
+        expect(offset.trim(-1, 2)).toBeUndefined();
     });
 
     test("intersect with a crossing edge returns the intersection point", () => {

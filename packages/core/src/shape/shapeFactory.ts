@@ -42,6 +42,16 @@ export interface TrackedShape {
     faceAncestors?: number[];
     /** The edge counterpart of `faceAncestors` — emitted alongside it, not yet consumed. */
     edgeAncestors?: number[];
+    /**
+     * Output face indexes (findSubShapes order) of a sweep's end cap, reported
+     * directly by the kernel (LastShape): a prism's top face, a PARTIAL revolve's
+     * end cap. Empty for non-sweeps and full-turn revolves (first/last shapes
+     * coincide — those keep the geometric probe). Deliberately separate from
+     * `faceMap`: the cap must not claim the profile face's derivation and collide
+     * with the identical bottom/start face. Absent when the kernel predates this
+     * channel — callers then fall back to the history-less-face heuristic.
+     */
+    capFaces?: number[];
 }
 
 export interface IShapeFactory {

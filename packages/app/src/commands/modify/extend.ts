@@ -122,7 +122,7 @@ function normalizeToRange(p: number, support: SupportCurve): number {
  * reach, since the intersection of a line and a circle lies within the
  * circle's projection onto the line.
  */
-function maximalEdge(edge: IEdge, support: SupportCurve, other: SupportCurve): IEdge {
+function maximalEdge(edge: IEdge, support: SupportCurve, other: SupportCurve): IEdge | undefined {
     if (support.period > 0) {
         return edge.trim(support.first, support.first + support.period);
     }
@@ -188,6 +188,11 @@ function curveIntersection(
     const temp1 = maximalEdge(edge1, s1, s2);
     const temp2 = maximalEdge(edge2, s2, s1);
     try {
+        // a maximal window is never empty by construction; treat a missing
+        // extent as "no intersection" rather than crashing on undefined
+        if (temp1 === undefined || temp2 === undefined) {
+            return Result.err("Edges do not intersect when extended");
+        }
         const candidates = temp1.intersect(temp2).flatMap((x): IntersectionCandidate[] => {
             const p2 = temp2.curve.parameter(x.point, Precision.Distance);
             return p2 === undefined
@@ -205,8 +210,8 @@ function curveIntersection(
         candidates.sort((a, b) => missed(a) - missed(b) || cost(a) - cost(b));
         return Result.ok(candidates[0]);
     } finally {
-        temp1.dispose();
-        temp2.dispose();
+        temp1?.dispose();
+        temp2?.dispose();
     }
 }
 
@@ -271,7 +276,9 @@ function edgeThroughParameter(
     if (support.period > 0 && last - first >= support.period - Precision.Angle) {
         return Result.err("Arc would become a full circle");
     }
-    return Result.ok(edge.trim(first, last));
+    const trimmed = edge.trim(first, last);
+    // a corner within tolerance of the anchored end leaves an empty window
+    return trimmed === undefined ? Result.err("Edge would shrink to a point") : Result.ok(trimmed);
 }
 
 /**

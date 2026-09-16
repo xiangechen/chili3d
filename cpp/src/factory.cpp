@@ -42,6 +42,7 @@
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepPrimAPI_MakeRevol.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepPrimAPI_MakeSweep.hxx>
 #include <BRepProj_Projection.hxx>
 #include <BRepTools.hxx>
 #include <BRepTools_ReShape.hxx>
@@ -131,6 +132,13 @@ struct TrackedShapeResult {
     // are a boolean phenomenon); empty for sweeps/fillets, where the maps suffice.
     std::vector<int> faceAncestors = {};
     std::vector<int> edgeAncestors = {};
+    // Output face indexes (same MapShapes order as the maps) of a sweep's end cap —
+    // BRepPrimAPI's LastShape(): a prism's top face, a PARTIAL revolve's end cap. A
+    // separate channel on purpose: the cap must not go through faceMap's derivation
+    // (it would claim the profile face's index and collide with the identical
+    // bottom/start face). Empty for non-sweeps and for a full 360° revolve, where the
+    // first and last shapes coincide and there is no distinct cap.
+    std::vector<int> capFaces = {};
 };
 
 // Marks output sub-shapes identical to or derived (Modified/Generated — guarded, some
@@ -230,6 +238,30 @@ static std::vector<int> faceFromEdgeHistory(BRepBuilderAPI_MakeShape& algo, cons
         }
     }
     return map;
+}
+
+// Face indexes (MapShapes order on `output`, matching the history maps) of a sweep's
+// end shape — BRepPrimAPI's LastShape(): a prism's top face, a partial revolve's end
+// cap. Empty when the sweep has no distinct end shape: a null LastShape (degenerate
+// input) or a full 360° revolve, whose first and last shapes coincide (LastShape
+// returns the start shape there, so the IsSame check filters it out). Faces of the
+// end shape that are not in the output are skipped.
+static std::vector<int> sweepCapFaces(BRepPrimAPI_MakeSweep& sweep, const TopoDS_Shape& output)
+{
+    std::vector<int> capFaces;
+    const TopoDS_Shape lastShape = sweep.LastShape();
+    if (lastShape.IsNull() || lastShape.IsSame(sweep.FirstShape())) {
+        return capFaces;
+    }
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outFaces;
+    TopExp::MapShapes(output, TopAbs_FACE, outFaces);
+    for (TopExp_Explorer explorer(lastShape, TopAbs_FACE); explorer.More(); explorer.Next()) {
+        int outIndex = outFaces.FindIndex(explorer.Current());
+        if (outIndex > 0) {
+            capFaces.push_back(outIndex - 1);
+        }
+    }
+    return capFaces;
 }
 
 // Compute the plane formed by two edges at their shared vertex from their tangent vectors.
@@ -710,8 +742,10 @@ public:
         if (!revol.IsDone()) {
             return TrackedShapeResult { TopoDS_Shape(), false, "Failed to revolve profile", {}, {} };
         }
-        return TrackedShapeResult { revol.Shape(), true, "", faceHistory(revol, profile, revol.Shape()),
+        TrackedShapeResult result { revol.Shape(), true, "", faceHistory(revol, profile, revol.Shape()),
             edgeHistory(revol, profile, revol.Shape()), faceFromEdgeHistory(revol, profile, revol.Shape()) };
+        result.capFaces = sweepCapFaces(revol, revol.Shape());
+        return result;
     }
 
     static ShapeResult prism(const TopoDS_Shape& profile, const Vector3& vec)
@@ -731,8 +765,10 @@ public:
         if (!prism.IsDone()) {
             return TrackedShapeResult { TopoDS_Shape(), false, "Failed to create prism", {}, {} };
         }
-        return TrackedShapeResult { prism.Shape(), true, "", faceHistory(prism, profile, prism.Shape()),
+        TrackedShapeResult result { prism.Shape(), true, "", faceHistory(prism, profile, prism.Shape()),
             edgeHistory(prism, profile, prism.Shape()), faceFromEdgeHistory(prism, profile, prism.Shape()) };
+        result.capFaces = sweepCapFaces(prism, prism.Shape());
+        return result;
     }
 
     static ShapeResult pushPull(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase, const Vector3& vec)
@@ -1826,7 +1862,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("edgeMap", &TrackedShapeResult::edgeMap)
         .property("faceEdgeMap", &TrackedShapeResult::faceEdgeMap)
         .property("faceAncestors", &TrackedShapeResult::faceAncestors)
-        .property("edgeAncestors", &TrackedShapeResult::edgeAncestors);
+        .property("edgeAncestors", &TrackedShapeResult::edgeAncestors)
+        .property("capFaces", &TrackedShapeResult::capFaces);
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)

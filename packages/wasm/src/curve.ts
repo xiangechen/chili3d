@@ -21,6 +21,7 @@ import {
     type ITrimmedCurve,
     Line,
     type Matrix4,
+    Precision,
     XYZ,
     type XYZLike,
 } from "@chili3d/core";
@@ -112,10 +113,15 @@ export class OccCurve extends OccGeometry implements ICurve, IDisposable {
         return wasm.Curve.curveLength(this.curve);
     }
 
-    trim(u1: number, u2: number): ITrimmedCurve {
+    trim(u1: number, u2: number): ITrimmedCurve | undefined {
         return gc((c) => {
             const trimCurve = c(wasm.Curve.trim(this.curve, u1, u2));
-            return new OccTrimmedCurve(trimCurve.get()!);
+            // Curve::trim returns a null handle for an invalid parameter window
+            // (empty within tolerance, or outside a non-periodic basis curve's
+            // range) instead of raising — surface that as undefined rather than
+            // wrapping a null pointer in a poisoned OccTrimmedCurve.
+            const curve = trimCurve.get();
+            return curve === null ? undefined : new OccTrimmedCurve(curve);
         });
     }
 
@@ -435,6 +441,23 @@ export class OccTrimmedCurve extends OccBoundedCurve implements ITrimmedCurve {
     }
 
     setTrim(u1: number, u2: number): void {
+        // Geom_TrimmedCurve::SetTrim raises Standard_ConstructionError on an
+        // empty window or on one outside a non-periodic basis curve's range,
+        // and a raise aborts the WASM module with exception catching disabled.
+        // Mirror the Curve::trim guards and fail with a catchable JS Error.
+        if (Math.abs(u1 - u2) <= Precision.PConfusion) {
+            throw new Error("setTrim: empty parameter window");
+        }
+        const basis = this.basisCurve;
+        if (!basis.isPeriodic()) {
+            const [lo, hi] = u1 < u2 ? [u1, u2] : [u2, u1];
+            if (
+                basis.firstParameter() - lo > Precision.PConfusion ||
+                hi - basis.lastParameter() > Precision.PConfusion
+            ) {
+                throw new Error("setTrim: parameter window outside the basis curve's range");
+            }
+        }
         this.trimmedCurve.setTrim(u1, u2, true, true);
     }
 

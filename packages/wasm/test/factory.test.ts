@@ -289,6 +289,7 @@ describe("ShapeFactory — curves & wires", () => {
             const p1 = curve.parameter({ x: 78, y: 12, z: 0 }, curve.length() * 0.5);
             const p2 = curve.parameter({ x: 200, y: 12, z: 0 }, curve.length());
             const inner = offseted.value.trim(p1!, p2!);
+            if (inner === undefined) throw new Error("trim failed");
             return [
                 bottom,
                 lineEdge(200, 0, 200, 12),

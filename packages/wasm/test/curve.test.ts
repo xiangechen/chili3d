@@ -87,7 +87,8 @@ describe("OccCurve — core methods", () => {
 
     test("trimmed curve length is consistent with trim range", () => {
         const t = line.trim(0, 0.5);
-        expect(t.length()).toBeCloseTo(0.5);
+        expect(t).toBeDefined();
+        expect(t!.length()).toBeCloseTo(0.5);
     });
 
     test("isClosed returns true for circle, false for line", () => {
@@ -212,7 +213,8 @@ describe("OccCurve — core methods", () => {
     test("uniformAbscissaByLength on bounded trimmed curve returns points", () => {
         // Geom_Line is infinite → uniformAbscissaByLength fails. Use trimmed curve.
         const t = line.trim(0, 1);
-        const pts = t.uniformAbscissaByLength(0.25);
+        expect(t).toBeDefined();
+        const pts = t!.uniformAbscissaByLength(0.25);
         expect(pts.length).toBeGreaterThanOrEqual(3);
     });
 
@@ -225,7 +227,7 @@ describe("OccCurve — core methods", () => {
     test("trim creates trimmed curve with the expected length", () => {
         const t = line.trim(0.3, 0.7);
         expect(t).toBeDefined();
-        expect(t.length()).toBeCloseTo(0.4);
+        expect(t!.length()).toBeCloseTo(0.4);
     });
 });
 

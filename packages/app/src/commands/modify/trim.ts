@@ -70,6 +70,8 @@ export class Trim extends CancelableCommand {
         const materialId = (model as GeometryNode)?.materialId;
         selected.segments.retainSegments.forEach((segment) => {
             const curve = selected.curve.trim(segment.start, segment.end);
+            // a degenerate retain segment (coincident intersections) yields no curve
+            if (curve === undefined) return;
             const newEdge = shapeFactory.edge(curve);
             this.document.modelManager.addNode(
                 new EditableShapeNode({
@@ -129,7 +131,10 @@ export class PickTrimEdgeEventHandler extends ShapeSelectionHandler {
         this.releaseStack.add(edge);
 
         const segments = findSegments(edge.curve, edge, edges, detecteds);
-        const mesh = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end).mesh.edges!;
+        const trimmed = edge.trim(segments.deleteSegment.start, segments.deleteSegment.end);
+        // a degenerate delete segment (near-coincident intersections) yields no edge
+        if (trimmed === undefined) return;
+        const mesh = trimmed.mesh.edges!;
         mesh.color = VisualConfig.highlightEdgeColor;
         mesh.lineWidth = 3;
         this.highlightedEdge = view.document.visual.highlighter.highlightMesh(mesh);
@@ -185,7 +190,9 @@ function findSegments(curve: ITrimmedCurve, edge: IEdge, otherEdges: IEdge[], de
 
     if (intersections.length === 2) return allSegment(intersections);
 
-    const parameter = curve.parameter(detecteds[0].point!, 5)!;
+    const parameter = curve.parameter(detecteds[0].point!, 5);
+    // projection failure: fall back to treating the whole edge as the delete segment
+    if (parameter === undefined) return allSegment(intersections);
     for (let i = 1; i < intersections.length; i++) {
         if (parameter < intersections[i]) {
             if (i === 1) {

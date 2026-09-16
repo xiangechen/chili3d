@@ -247,6 +247,46 @@ describe("PickTrimEdgeEventHandler", () => {
         intersectsSpy.mockRestore();
     });
 
+    test("highlightDetecteds should not highlight when the delete segment trims to nothing", () => {
+        const { doc, highlighter, context } = makeDoc();
+        const handler = new PickTrimEdgeEventHandler(doc, new AsyncController());
+        const view = makeView(doc);
+
+        const curve = {
+            firstParameter: () => 0,
+            lastParameter: () => 10,
+            parameter: rs.fn(() => 5),
+        };
+        const edge = {
+            shapeType: ShapeTypes.edge,
+            curve,
+            // the kernel reports a degenerate (sub-tolerance) window as undefined
+            trim: rs.fn(() => undefined),
+            dispose: rs.fn(),
+            transformedMul: rs.fn(function (this: any) {
+                return this;
+            }),
+        } as unknown as IEdge;
+
+        const intersectsSpy = rs.spyOn(GeometryUtils, "intersects").mockImplementation(() => []);
+        context.boundingBoxIntersectFilter = rs.fn(() => []);
+
+        const detected = {
+            shape: edge,
+            owner: { boundingBox: () => BoundingBox.zero },
+            transform: Matrix4.identity(),
+            point: new XYZ({ x: 5, y: 0, z: 0 }),
+        } as unknown as VisualShapeData;
+
+        (handler as any).highlightDetecteds(view, [detected]);
+
+        expect(edge.trim).toHaveBeenCalledTimes(1);
+        expect(highlighter.highlightMesh).not.toHaveBeenCalled();
+        expect((handler as any).highlight).toBeUndefined();
+
+        intersectsSpy.mockRestore();
+    });
+
     test("highlightDetecteds should bail out when multiple detecteds are passed", () => {
         const { doc, highlighter } = makeDoc();
         const handler = new PickTrimEdgeEventHandler(doc, new AsyncController());
@@ -319,7 +359,7 @@ describe("findSegments (via highlightDetecteds)", () => {
      */
     function driveHighlightWithIntersections(
         intersectionParams: number[],
-        clickParam: number,
+        clickParam: number | undefined,
     ): { highlight: TrimEdgeSubset } {
         const { doc, highlighter: _highlighter, context } = makeDoc();
         const handler = new PickTrimEdgeEventHandler(doc, new AsyncController());
@@ -352,7 +392,7 @@ describe("findSegments (via highlightDetecteds)", () => {
             shape: edge,
             owner: { boundingBox: () => BoundingBox.zero },
             transform: Matrix4.identity(),
-            point: new XYZ({ x: clickParam, y: 0, z: 0 }),
+            point: new XYZ({ x: clickParam ?? 0, y: 0, z: 0 }),
         } as unknown as VisualShapeData;
 
         // biome-ignore lint/suspicious/noExplicitAny: protected members accessed via test helper
@@ -428,5 +468,12 @@ describe("findSegments (via highlightDetecteds)", () => {
             expect(highlight.segments.retainSegments[index].start).toBe(segment.start);
             expect(highlight.segments.retainSegments[index].end).toBe(segment.end);
         });
+    });
+
+    test("should fall back to the whole segment when parameter projection fails", () => {
+        const { highlight } = driveHighlightWithIntersections([2, 5, 8], undefined);
+        expect(highlight).not.toBeNull();
+        expect(highlight.segments.deleteSegment).toEqual({ start: 0, end: 10 });
+        expect(highlight.segments.retainSegments).toHaveLength(0);
     });
 });

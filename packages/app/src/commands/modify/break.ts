@@ -10,6 +10,7 @@ import {
     type ITrimmedCurve,
     MultistepCommand,
     PointOnCurveStep,
+    Precision,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
@@ -33,7 +34,14 @@ export class Break extends MultistepCommand {
             const parameter = curve.parameter(point, 1e-3);
             if (parameter === undefined) return;
 
+            // a pick at (or within tolerance of) the curve's start leaves no first
+            // piece — bail before mutating the original edge
+            if (parameter - curve.firstParameter() <= Precision.PConfusion) return;
+
             const curve2 = curve.trim(parameter, curve.lastParameter());
+            // a pick at (or within tolerance of) the curve's end leaves no second
+            // piece — bail before mutating the original edge
+            if (curve2 === undefined) return;
             curve.setTrim(curve.firstParameter(), parameter);
             shape.update(curve);
 
