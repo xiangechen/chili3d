@@ -44,6 +44,10 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
             ? [feature.sketchId]
             : [feature.sketchId, feature.axisSource.nodeId],
 
+    // The axis source stays out of the row: it is a host body the tree already
+    // shows, and the revolve's own door is the section sketch.
+    references: (feature) => [{ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId }],
+
     parameters: (feature) => [{ key: "angle", display: "common.angle", value: feature.angle }],
 
     setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
@@ -98,7 +102,7 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
  *   `ShapeTracking.resolvedEdges`).
  * - **Self-source.** When the axis edge lives on an earlier feature of the host body, it
  *   resolves against the feature's INPUT — the shape entering this feature in the current run
- *   (same contract as `resolveSourceFaces` in pressPull.ts). The committed shape is the pre-run
+ *   (same contract as `resolveSourceFaces` in sourceFaceMatcher.ts). The committed shape is the pre-run
  *   result mid-rebuild, so resolving there would sweep around the stale axis, and a downstream
  *   feature failing on that geometry would wedge the chain with no catch-up pass ever running.
  *   The input's own tracked ids drive the id channel; the node's describe its final shape only.

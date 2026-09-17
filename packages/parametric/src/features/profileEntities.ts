@@ -184,10 +184,23 @@ export function registerProfileEntities(face: IFace, entities: number[]): void {
     profileEntities.set(face, entities);
 }
 
-/** The entity set registered for `face` or an ancestor in its sub-shape parent chain. */
-export function registeredEntities(face: IFace): number[] | undefined {
+/**
+ * How far `profileEntityIds` walks up the sub-shape `parent` chain. One step is what the
+ * mesh path needs (`OccSubFaceShape.parent` is the registered face); the rest is slack
+ * for any deeper wrapping. The bound is what ends the walk in the pathological case —
+ * `parent` is a bare object reference, so only an `undefined` parent stops it naturally
+ * and a self-referencing shape would otherwise spin forever.
+ */
+const MAX_SUB_SHAPE_DEPTH = 4;
+
+/**
+ * The entity-id set `sketchProfiles` registered for `face` or for an ancestor in its
+ * sub-shape chain: a viewport pick hands over the mesh range's sub-shape wrapper rather
+ * than the registered region face, so the lookup walks up (see `MAX_SUB_SHAPE_DEPTH`).
+ */
+export function profileEntityIds(face: IFace): number[] | undefined {
     let current: IShape = face;
-    for (let depth = 0; depth < 4; depth++) {
+    for (let depth = 0; depth < MAX_SUB_SHAPE_DEPTH; depth++) {
         const entities = profileEntities.get(current as IFace);
         if (entities !== undefined) return entities;
         const parent = (current as Partial<ISubShape>).parent;
@@ -195,11 +208,6 @@ export function registeredEntities(face: IFace): number[] | undefined {
         current = parent;
     }
     return undefined;
-}
-
-/** The entity-id set registered for `face` (or an ancestor), when `sketchProfiles` attached one. */
-export function profileEntityIds(face: IFace): number[] | undefined {
-    return registeredEntities(face);
 }
 
 /**

@@ -31,7 +31,6 @@ rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
     expanderIcon: "tig-expander",
     toolExpanderIcon: "tig-tool-expander",
     hide: "tig-hide",
-    reference: "tig-reference",
 }));
 
 rs.mock("../src/project/tree/treeModel.module.css", () => ({
@@ -83,15 +82,11 @@ Object.setPrototypeOf(MockNode.prototype, VisualNode.prototype);
 
 /** A parametric-body-like node: linked list plus the real feature-list contract. */
 class MockBodyNode extends MockNode {
-    refs: MockNode[] = [];
     featureItems() {
         return [];
     }
     setFeatureParameter() {}
     removeFeature() {}
-    referencedNodes() {
-        return this.refs;
-    }
 }
 
 function withId(node: MockNode, id: string) {
@@ -466,86 +461,5 @@ describe("Tree", () => {
             expect(fixture.groupA.move).not.toHaveBeenCalled();
             expect(body.move).not.toHaveBeenCalled();
         });
-    });
-});
-
-describe("Tree reference rows", () => {
-    let fixture: Fixture;
-    let originalScrollIntoView: unknown;
-
-    beforeEach(() => {
-        originalScrollIntoView = Element.prototype.scrollIntoView;
-        Element.prototype.scrollIntoView = () => {};
-    });
-
-    afterEach(() => {
-        Element.prototype.scrollIntoView = originalScrollIntoView as typeof Element.prototype.scrollIntoView;
-        fixture?.tree.remove();
-        fixture?.tree.dispose();
-        document.body.innerHTML = "";
-    });
-
-    function addBodyWithRefs(refs: MockNode[]) {
-        const body = new MockBodyNode("body");
-        body.isGroup = true;
-        body.parent = fixture.root;
-        body.refs = refs;
-        fixture.doc.emitNodeChanged([{ node: body, newParent: fixture.root } as unknown as NodeRecord]);
-        const bodyEl = fixture.tree.treeItem(body as unknown as INode) as TreeGroup;
-        expect(bodyEl).toBeInstanceOf(TreeGroup);
-        return { body, bodyEl };
-    }
-
-    test("should render a mirror row under the body for each referenced node", () => {
-        fixture = createFixture();
-        const sketch = withId(new MockNode("sketch"), "sketch-1");
-        const { bodyEl } = addBodyWithRefs([sketch]);
-
-        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(1);
-    });
-
-    test("should not register the mirror row in the node map", () => {
-        fixture = createFixture();
-        const sketch = withId(new MockNode("sketch"), "sketch-1");
-        addBodyWithRefs([sketch]);
-
-        expect(fixture.tree.treeItem(sketch as unknown as INode)).toBeUndefined();
-    });
-
-    test("double-clicking a mirror row should publish nodeDoubleClicked with the referenced node", () => {
-        fixture = createFixture();
-        const sketch = withId(new MockNode("sketch"), "sketch-1");
-        const { bodyEl } = addBodyWithRefs([sketch]);
-        const row = bodyEl.querySelector("tree-reference") as HTMLElement;
-        expect(row).not.toBeNull();
-
-        row.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-
-        expect(getPubSubPubs().at(-1)).toEqual({ topic: "nodeDoubleClicked", args: [sketch] });
-    });
-
-    test("should drop the mirror row when the referenced node is removed", () => {
-        fixture = createFixture();
-        const sketch = withId(new MockNode("sketch"), "sketch-1");
-        const { body, bodyEl } = addBodyWithRefs([sketch]);
-
-        body.refs = [];
-        fixture.doc.emitNodeChanged([{ node: sketch, newParent: undefined } as unknown as NodeRecord]);
-
-        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(0);
-    });
-
-    test("should rebuild mirror rows when the body emits a property change", () => {
-        fixture = createFixture();
-        const sketch = withId(new MockNode("sketch"), "sketch-1");
-        const { body, bodyEl } = addBodyWithRefs([]);
-        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(0);
-
-        body.refs = [sketch];
-        (body as unknown as { handlers: Set<(p: string, m: unknown) => void> }).handlers.forEach((h) =>
-            h("featuresJson", body),
-        );
-
-        expect(bodyEl.querySelectorAll("tree-reference").length).toBe(1);
     });
 });

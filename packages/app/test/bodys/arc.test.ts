@@ -29,7 +29,7 @@ describe("ArcNode", () => {
 
         test("should set name from display()", () => {
             const node = new ArcNode({ document: doc, normal, center, start, angle: 90 });
-            expect(node.name).toBe("body.arc");
+            expect(node.name).toBe("body.arc1");
         });
     });
 

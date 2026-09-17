@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { I18nKeys, IDocument, IEventHandler, IPicker, IVisual } from "@chili3d/core";
+import type { I18nKeys, IDocument, IEventHandler, IPicker, IVisual, VisualShapeData } from "@chili3d/core";
 import { AsyncController, PubSub, ShapeTypes, VisualStates } from "@chili3d/core";
 import {
     createMockDocument,
@@ -337,6 +337,19 @@ describe("Picker", () => {
             await picker.pickShape("common.ok" as I18nKeys, controller, { canFinish });
 
             expect(handler.canFinish).toBe(canFinish);
+        });
+
+        test("should wire sortDetected onto the selection handler", async () => {
+            let handler: any;
+            picker.pickAsync = async (...args: any[]) => {
+                handler = args[0];
+            };
+
+            const controller = new AsyncController();
+            const sortDetected = (detected: VisualShapeData[]) => detected;
+            await picker.pickShape("common.ok" as I18nKeys, controller, { sortDetected });
+
+            expect(handler.sortDetected).toBe(sortDetected);
         });
 
         test("should default to filled-face states when picking faces", async () => {

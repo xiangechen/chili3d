@@ -1,10 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { command, Dimensions, type IStep, type PointSnapData, type XYZ } from "@chili3d/core";
-import { toUV } from "../sketchModel";
+import { command, Dimensions, type IStep, type XYZ } from "@chili3d/core";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
-import { SketchPointStep } from "./sketchPointStep";
+import { type SketchPointSnapData, SketchPointStep } from "./sketchPointStep";
+
+/** Line params in sketch uv for the endpoints `start` and `end`. */
+function lineParams(start: [number, number], end: [number, number]): [number, number, number, number] {
+    return [start[0], start[1], end[0], end[1]];
+}
 
 @command({ key: "sketch.line", icon: "icon-line" })
 export class SketchLineCommand extends SketchMultistepCommand {
@@ -16,16 +20,14 @@ export class SketchLineCommand extends SketchMultistepCommand {
     }
 
     protected executeMainTask(): void {
-        const plane = this.editor.node.plane;
-        const [u1, v1] = toUV(plane, this.stepDatas[0].point!);
-        const [u2, v2] = toUV(plane, this.stepDatas[1].point!);
-        this.commitNewEntity(this.editor.solver.addLine(u1, v1, u2, v2));
+        this.commitNewEntity(this.editor.solver.addLine(...lineParams(this.uvOf(0), this.uvOf(1))));
     }
 
-    private readonly getSecondPointData = (): PointSnapData => ({
+    private readonly getSecondPointData = (): SketchPointSnapData => ({
         refPoint: () => this.stepDatas[0].point!,
         dimension: Dimensions.D1D2,
         preview: this.linePreview,
+        tentative: (probe) => ({ type: "line", params: lineParams(this.uvOf(0), probe) }),
     });
 
     private readonly linePreview = (point: XYZ | undefined) => {

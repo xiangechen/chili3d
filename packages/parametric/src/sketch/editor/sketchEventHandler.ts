@@ -12,7 +12,13 @@ import {
     type ShapeMeshData,
     VisualConfig,
 } from "@chili3d/core";
-import { applyDragAutoConstraints, type DragSnap, dragSnapPosition } from "../autoConstraints";
+import {
+    applyDragAutoConstraints,
+    type DragSnap,
+    dragSnapPosition,
+    snapConstraintKind,
+    snapTargetEntityId,
+} from "../autoConstraints";
 import {
     arcAngles,
     ConstraintKind,
@@ -45,6 +51,8 @@ const EXTERNAL_REF_COLOR = 0x9b59b6;
 const EXTERNAL_DANGLING_COLOR = 0xdd4444;
 /** Live-snap target accent — distinct from the green hover/selection and blue dimensions. */
 const SNAP_HIGHLIGHT_COLOR = 0xff9800;
+/** Entity point markers (endpoints, centers) — a neutral grey against either theme's background. */
+const ENTITY_POINT_COLOR = 0x8c9aa8;
 
 /**
  * Viewport event handler active while a sketch is being edited:
@@ -64,6 +72,7 @@ export class SketchEventHandler implements IEventHandler {
     private constraintMeshId?: number;
     private datumDisplayId?: number;
     private externalDisplayId?: number;
+    private pointDisplayId?: number;
     private snapTargetMeshId?: number;
     private snapHintItem?: IDisposable;
     private controller?: AsyncController;
@@ -73,6 +82,7 @@ export class SketchEventHandler implements IEventHandler {
     constructor(private readonly editor: SketchEditor) {
         this.showDatum();
         this.showExternalRefs();
+        this.showEntityPoints();
     }
 
     setController(view: IView, controller: AsyncController | undefined) {
@@ -133,15 +143,43 @@ export class SketchEventHandler implements IEventHandler {
         this.externalDisplayId = view.document.visual.context.displayMesh(meshes, { onTop: true });
     }
 
-    /** Re-renders the external references after they were added, removed or re-resolved. */
-    refreshExternalRefs(): void {
+    /**
+     * Re-renders the session's geometry overlays — the external references and the
+     * entity point markers — after the geometry behind them was added, removed,
+     * moved or re-resolved.
+     */
+    refreshGeometryOverlays(): void {
         const view = this.editor.document.application.activeView;
-        if (view !== undefined && this.externalDisplayId !== undefined) {
-            view.document.visual.context.removeMesh(this.externalDisplayId);
-            this.externalDisplayId = undefined;
+        if (view !== undefined) {
+            for (const id of [this.externalDisplayId, this.pointDisplayId]) {
+                if (id !== undefined) view.document.visual.context.removeMesh(id);
+            }
         }
+        this.externalDisplayId = undefined;
+        this.pointDisplayId = undefined;
         this.showExternalRefs();
+        this.showEntityPoints();
         view?.update();
+    }
+
+    /**
+     * Session-persistent markers on every entity point — line endpoints, circle and
+     * arc centers, arc start and end. They are what drawing snaps to and what
+     * dragging grabs, so they are worth seeing before the cursor reaches them.
+     */
+    private showEntityPoints(): void {
+        const view = this.editor.document.application.activeView;
+        if (view === undefined) return;
+        const meshes = entityPointMeshes(this.editor);
+        if (meshes.length === 0) return;
+        this.pointDisplayId = view.document.visual.context.displayMesh(meshes, { onTop: true });
+    }
+
+    private clearEntityPoints(view: IView): void {
+        if (this.pointDisplayId !== undefined) {
+            view.document.visual.context.removeMesh(this.pointDisplayId);
+            this.pointDisplayId = undefined;
+        }
     }
 
     /** Half-length of the drawn axis lines: 1.5× the sketch extent, at least 100, and always spanning the visible viewport. */
@@ -319,6 +357,9 @@ export class SketchEventHandler implements IEventHandler {
     private beginPointDrag(view: IView, ref: SketchPointRef): void {
         this.draggingRef = ref;
         this.clearHover(view);
+        // the drag preview carries the markers while dragging; the persistent ones
+        // would otherwise sit at the pre-drag positions
+        this.clearEntityPoints(view);
         const group = this.editor.solver.coincidentGroup(ref);
         this.editor.solver.beginDrag(group);
         // keep the dragged entities' constraint symbols visible during the drag
@@ -480,6 +521,7 @@ export class SketchEventHandler implements IEventHandler {
                 view.document.visual.context.removeMesh(this.externalDisplayId);
                 this.externalDisplayId = undefined;
             }
+            this.clearEntityPoints(view);
         }
         this.selectedEntities.clear();
         this.draggingRef = undefined;
@@ -620,9 +662,12 @@ export class SketchEventHandler implements IEventHandler {
 
     private updateDragPreview(view: IView): void {
         this.clearDragPreview(view);
-        this.dragPreviewId = view.document.visual.context.displayMesh(sketchEntityMeshes(this.editor), {
-            onTop: true,
-        });
+        // the markers ride along with the dragged geometry; the persistent overlay
+        // was dropped when the drag began, and comes back on the commit that ends it
+        this.dragPreviewId = view.document.visual.context.displayMesh(
+            [...sketchEntityMeshes(this.editor), ...entityPointMeshes(this.editor)],
+            { onTop: true },
+        );
     }
 
     private clearDragPreview(view: IView): void {
@@ -640,24 +685,25 @@ export class SketchEventHandler implements IEventHandler {
         this.snapHintItem = this.displaySnapHint(view, snap);
     }
 
-    /** Displays the highlighted snap target (a point marker or a line/axis highlight); returns its mesh id. */
+    /** Displays the highlighted snap target (a point marker or a curve highlight); returns its mesh id. */
     private displaySnapTarget(view: IView, snap: DragSnap): number | undefined {
         const plane = this.editor.node.plane;
+        const targetId = snapTargetEntityId(snap);
         const mesh =
-            snap.kind === "point"
+            targetId === undefined
                 ? MeshDataUtils.createVertexMesh(
                       toWorld(plane, snap.position[0], snap.position[1]),
                       VisualConfig.editVertexSize,
                       SNAP_HIGHLIGHT_COLOR,
                   )
-                : this.snapLineHighlight(snap.lineRefs[0].entityId, SNAP_HIGHLIGHT_COLOR);
+                : this.snapEntityHighlight(targetId, SNAP_HIGHLIGHT_COLOR);
         return mesh === undefined
             ? undefined
             : view.document.visual.context.displayMesh([mesh], { onTop: true });
     }
 
-    /** Highlight mesh for a line/axis snap target, or undefined. */
-    private snapLineHighlight(targetId: number, color: number): ShapeMeshData | undefined {
+    /** Highlight mesh for a line/axis/circle/arc snap target, or undefined. */
+    private snapEntityHighlight(targetId: number, color: number): ShapeMeshData | undefined {
         if (targetId === SKETCH_X_AXIS_ID || targetId === SKETCH_Y_AXIS_ID) {
             return this.datumAxisMesh(targetId, color);
         }
@@ -693,6 +739,25 @@ export function sketchEntityMeshes(editor: SketchEditor): ShapeMeshData[] {
     return editor.solver.entities().map((entity) => sketchEntityMesh(editor, entity));
 }
 
+/** Vertex meshes at every entity point of the constraint targets — see `showEntityPoints`. */
+function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
+    const plane = editor.node.plane;
+    const meshes: ShapeMeshData[] = [];
+    for (const entity of constraintTargetEntities(editor.solver)) {
+        for (let pointIndex = 0; pointIndex < entityPointCount(entity.type); pointIndex++) {
+            const [u, v] = editor.solver.pointOf({ entityId: entity.id, pointIndex });
+            meshes.push(
+                MeshDataUtils.createVertexMesh(
+                    toWorld(plane, u, v),
+                    VisualConfig.editVertexSize,
+                    ENTITY_POINT_COLOR,
+                ),
+            );
+        }
+    }
+    return meshes;
+}
+
 export function sketchEntityMesh(
     editor: SketchEditor,
     entity: SketchEntityData,
@@ -716,8 +781,8 @@ export function sketchEntityMesh(
 
 /** Icon (and fallback label) for the constraint a snap release would add. */
 function snapHintSymbol(snap: DragSnap): BadgeSymbol {
-    const kind = snap.kind === "point" ? ConstraintKind.P2PCoincident : ConstraintKind.PointOnLine;
-    return badgeSymbol(kind) ?? { label: snap.kind === "point" ? "◇" : "⊙" };
+    const kind = snapConstraintKind(snap);
+    return badgeSymbol(kind) ?? { label: kind === ConstraintKind.P2PCoincident ? "◇" : "⊙" };
 }
 
 /**

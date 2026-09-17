@@ -25,7 +25,7 @@ export interface ElementMockOptions {
     realEvents?: boolean;
 }
 
-const EVENT_PROPS = ["onclick", "onchange", "onkeydown", "onblur"] as const;
+const EVENT_PROPS = ["onclick", "ondblclick", "onchange", "onkeydown", "onblur"] as const;
 
 // biome-ignore lint/suspicious/noExplicitAny: test mock for DOM element factory
 function applyProps(el: HTMLElement, props: any, opts: ElementMockOptions): void {

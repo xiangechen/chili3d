@@ -70,9 +70,9 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
         this.activeHandler?.refreshArrow();
         if (!Number.isFinite(this.value) || this.value <= 0) return;
 
-        const targets = this.previewTargets();
-        if (targets === undefined) return;
-        const { node, edges } = targets;
+        const picked = this.pickedEdgesOnBody();
+        if (picked === undefined) return;
+        const { node, edges } = picked;
 
         const meshes = this.buildPreviewMeshes(node, edges);
         if (meshes === undefined) return;
@@ -87,12 +87,12 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
         this.document.visual.update();
     };
 
-    /** The body whose edges are picked, with the picked edges themselves. */
-    private previewTargets(): { node: ParametricBodyNode; edges: VisualShapeData[] } | undefined {
-        const picked = this.document.selection.getSelectedShapes();
-        const node = picked.at(0)?.owner.node;
+    /** The picked edges that all sit on one parametric body, plus that body. */
+    private pickedEdgesOnBody(): { node: ParametricBodyNode; edges: VisualShapeData[] } | undefined {
+        const selected = this.document.selection.getSelectedShapes();
+        const node = selected.at(0)?.owner.node;
         if (!(node instanceof ParametricBodyNode) || !node.shape.isOk) return undefined;
-        const edges = picked.filter((x) => x.owner.node === node && x.shape.shapeType === ShapeTypes.edge);
+        const edges = selected.filter((x) => x.owner.node === node && x.shape.shapeType === ShapeTypes.edge);
         if (edges.length === 0) return undefined;
         return { node, edges };
     }

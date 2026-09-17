@@ -1,18 +1,36 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    command,
-    Dimensions,
-    type IStep,
-    type PointSnapData,
-    Precision,
-    PubSub,
-    type XYZ,
-} from "@chili3d/core";
+import { command, Dimensions, type IStep, Precision, PubSub, type XYZ } from "@chili3d/core";
+import type { TentativeEntity } from "../autoConstraints";
 import { arcAngles, rawArcSweep, toUV } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
-import { SketchPointStep } from "./sketchPointStep";
+import { type SketchPointSnapData, SketchPointStep } from "./sketchPointStep";
+
+/** Arc params in sketch uv, the end projected onto the circle center/start define. */
+function arcParams(
+    center: [number, number],
+    start: [number, number],
+    end: [number, number],
+): [number, number, number, number, number, number] | undefined {
+    const [cx, cy] = center;
+    const endDistance = Math.hypot(end[0] - cx, end[1] - cy);
+    if (endDistance < Precision.Distance) return undefined;
+    // project the end onto the circle so the PointOnArc constraint does not move
+    // it (and with it the whole arc) on the first solve
+    const scale = Math.hypot(start[0] - cx, start[1] - cy) / endDistance;
+    return [cx, cy, start[0], start[1], cx + (end[0] - cx) * scale, cy + (end[1] - cy) * scale];
+}
+
+/** The arc the probe would complete, or undefined while its end is still on the center. */
+function tentativeArc(
+    center: [number, number],
+    start: [number, number],
+    end: [number, number],
+): TentativeEntity | undefined {
+    const params = arcParams(center, start, end);
+    return params === undefined ? undefined : { type: "arc", params };
+}
 
 /** Three-point arc: center → start (radius + start angle) → end (counter-clockwise sweep). */
 @command({ key: "sketch.arc", icon: "icon-arc" })
@@ -26,35 +44,27 @@ export class SketchArcCommand extends SketchMultistepCommand {
     }
 
     protected executeMainTask(): void {
-        const plane = this.editor.node.plane;
-        const [cx, cy] = toUV(plane, this.stepDatas[0].point!);
-        const [sx, sy] = toUV(plane, this.stepDatas[1].point!);
-        const [ex, ey] = toUV(plane, this.stepDatas[2].point!);
-        const radius = Math.hypot(sx - cx, sy - cy);
-        const endDistance = Math.hypot(ex - cx, ey - cy);
-        if (endDistance < Precision.Distance) {
+        const params = arcParams(this.uvOf(0), this.uvOf(1), this.uvOf(2));
+        if (params === undefined) {
             PubSub.default.pub("displayError", "Arc end point is too close to the center");
             return;
         }
         // an end on the start ray (within angular tolerance, end = start included)
         // fixes no sweep direction — the preview shows "no arc" there, so reject
         // with feedback instead of committing an arc generateShape would refuse
-        if (Math.abs(rawArcSweep([cx, cy, sx, sy, ex, ey])) <= Precision.Angle) {
+        if (Math.abs(rawArcSweep(params)) <= Precision.Angle) {
             PubSub.default.pub("displayError", "Arc end point is on the start ray (zero sweep)");
             return;
         }
-        // project the end onto the circle so the PointOnArc constraint does not
-        // move it (and with it the whole arc) on the first solve
-        const scale = radius / endDistance;
-        this.commitNewEntity(
-            this.editor.solver.addArc(cx, cy, sx, sy, cx + (ex - cx) * scale, cy + (ey - cy) * scale),
-        );
+        this.commitNewEntity(this.editor.solver.addArc(...params));
     }
 
-    private readonly getStartData = (): PointSnapData => ({
+    private readonly getStartData = (): SketchPointSnapData => ({
         refPoint: () => this.stepDatas[0].point!,
         dimension: Dimensions.D1,
         preview: this.startPreview,
+        // the sweep is still open here, so the arc is its whole circle (start = end)
+        tentative: (probe) => tentativeArc(this.uvOf(0), probe, probe),
     });
 
     private readonly startPreview = (point: XYZ | undefined) => {
@@ -70,9 +80,10 @@ export class SketchArcCommand extends SketchMultistepCommand {
         ];
     };
 
-    private readonly getEndData = (): PointSnapData => ({
+    private readonly getEndData = (): SketchPointSnapData => ({
         refPoint: () => this.stepDatas[1].point!,
         preview: this.endPreview,
+        tentative: (probe) => tentativeArc(this.uvOf(0), this.uvOf(1), probe),
     });
 
     private readonly endPreview = (point: XYZ | undefined) => {

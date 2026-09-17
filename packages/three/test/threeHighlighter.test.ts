@@ -2,9 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import type { EdgeMeshData, FaceMeshData } from "@chili3d/core";
-import { ShapeTypes, VisualStates } from "@chili3d/core";
+import { ShapeTypes, VisualStates, VisualStateUtils } from "@chili3d/core";
+import type { Mesh } from "three";
+import type { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import type { IHighlightable } from "../src/highlightable";
-import { defaultEdgeMaterial, hilightEdgeMaterial, selectedEdgeMaterial } from "../src/materials";
+import {
+    defaultEdgeMaterial,
+    faceTransparentMaterial,
+    hilightEdgeMaterial,
+    selectedEdgeMaterial,
+} from "../src/materials";
 import { ThreeGeometry } from "../src/threeGeometry";
 import { ThreeHighlighter } from "../src/threeHighlighter";
 import type { ThreeVisualObject } from "../src/threeVisualObject";
@@ -483,6 +490,11 @@ describe("GeometryState with ThreeGeometry", () => {
     let context: ReturnType<typeof createThreeMockVisualContext>;
     let highlighter: ThreeHighlighter;
     let geo: ThreeGeometry;
+    /** A ghosted face that also shows its boundary — what the extrude pick selects. */
+    const GHOSTED_OUTLINED_FACE = VisualStateUtils.addState(
+        VisualStates.faceTransparent,
+        VisualStates.edgeSelected,
+    );
 
     beforeEach(() => {
         context = createThreeMockVisualContext();
@@ -552,5 +564,40 @@ describe("GeometryState with ThreeGeometry", () => {
 
         expect(highlighter.container.children.length).toBe(beforeCount + 1);
         expect(highlighter.getState(geo, ShapeTypes.edge, 0)).toBe(VisualStates.edgeHighlight);
+    });
+
+    test("a state carrying a fill and an outline draws both for a face", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, GHOSTED_OUTLINED_FACE, ShapeTypes.face, 0);
+
+        // the transparent fill and the boundary outline are two objects — the face's
+        // outline comes from the face's own mesh, the caller never names its edges
+        const drawn = highlighter.container.children.slice(beforeCount);
+        expect(drawn).toHaveLength(2);
+        expect((drawn[0] as Mesh).material).toBe(faceTransparentMaterial);
+        expect((drawn[1] as LineSegments2).material).toBe(selectedEdgeMaterial);
+        expect(highlighter.getState(geo, ShapeTypes.face, 0)).toBe(GHOSTED_OUTLINED_FACE);
+    });
+
+    test("dropping the outline flag leaves the fill in place", () => {
+        highlighter.addState(geo, GHOSTED_OUTLINED_FACE, ShapeTypes.face, 0);
+        const beforeCount = highlighter.container.children.length;
+
+        highlighter.removeState(geo, VisualStates.edgeSelected, ShapeTypes.face, 0);
+
+        const drawn = highlighter.container.children.slice(beforeCount - 2);
+        expect(drawn).toHaveLength(1);
+        expect((drawn[0] as Mesh).material).toBe(faceTransparentMaterial);
+        expect(highlighter.getState(geo, ShapeTypes.face, 0)).toBe(VisualStates.faceTransparent);
+    });
+
+    test("removing every flag takes both objects away", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, GHOSTED_OUTLINED_FACE, ShapeTypes.face, 0);
+
+        highlighter.removeState(geo, GHOSTED_OUTLINED_FACE, ShapeTypes.face, 0);
+
+        expect(highlighter.container.children.length).toBe(beforeCount);
+        expect(highlighter.getState(geo, ShapeTypes.face, 0)).toBeUndefined();
     });
 });

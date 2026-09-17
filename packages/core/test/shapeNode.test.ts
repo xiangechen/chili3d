@@ -179,19 +179,20 @@ describe("shapeNode", () => {
     });
 
     describe("ParameterShapeNode", () => {
-        let node: any;
+        class TestParameterShapeNode extends ShapeNodeClasses.ParameterShapeNode {
+            protected generateShape(): Result<IShape> {
+                return Result.ok(new MockShape());
+            }
+
+            display(): any {
+                return "test.parameterShape";
+            }
+        }
+
+        let node: TestParameterShapeNode;
 
         beforeEach(() => {
-            node = class extends ShapeNodeClasses.ParameterShapeNode {
-                protected generateShape(): Result<IShape> {
-                    return Result.ok(new MockShape());
-                }
-
-                display(): any {
-                    return "test.parameterShape";
-                }
-            };
-            node = new node({ document: doc });
+            node = new TestParameterShapeNode({ document: doc });
         });
 
         test("should generate shape on first access", () => {
@@ -232,8 +233,12 @@ describe("shapeNode", () => {
             }).not.toThrow();
         });
 
-        test("should initialize with translated name", () => {
-            expect((node as any).name).not.toBeNull();
+        test("should name the node after its display name and the next free index", () => {
+            expect(node.name).toBe("test.parameterShape1");
+
+            doc.modelManager.addNode(node);
+            const second = new TestParameterShapeNode({ document: doc });
+            expect(second.name).toBe("test.parameterShape2");
         });
     });
 

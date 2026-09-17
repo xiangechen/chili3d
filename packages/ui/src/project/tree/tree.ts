@@ -93,8 +93,6 @@ export class Tree extends HTMLElement {
             ele?.remove();
             if (!ele || !record.newParent) {
                 this.refreshGroupExpander(record.oldParent);
-                // A removed node may be a sketch referenced by a body — drop its mirror rows.
-                if (!record.newParent) this.refreshReferenceRows();
                 return;
             }
 
@@ -112,12 +110,6 @@ export class Tree extends HTMLElement {
     private refreshGroupExpander(parent: INodeLinkedList | undefined) {
         const group = parent === undefined ? undefined : this.nodeMap.get(parent);
         if (group instanceof TreeGroup) group.refreshExpander();
-    }
-
-    private refreshReferenceRows() {
-        this.nodeMap.forEach((item) => {
-            if (item instanceof TreeGroup) item.refreshReferences();
-        });
     }
 
     private createAndMapParent(newParent: INode) {

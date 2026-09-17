@@ -119,6 +119,22 @@
     margin-top: 6px;
 }
 
+/* A referenced node's name is a link into that node: click selects, double-click edits. */
+.reference {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--primary-color);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
 /* Floating "⋯" menu, appended to document.body and anchored to the button. */
 .menu {
     position: fixed;

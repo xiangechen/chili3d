@@ -4,6 +4,7 @@
 import {
     type AsyncController,
     type FeatureItem,
+    type FeatureReference,
     type I18nKeys,
     type IDocument,
     type IEqualityComparer,
@@ -13,7 +14,9 @@ import {
     type IShape,
     isPropertyChanged,
     NodeChildList,
+    type NodeRecord,
     ParameterShapeNode,
+    PubSub,
     Result,
     ShapeNode,
     serializable,
@@ -203,6 +206,7 @@ export class ParametricBodyNode
     constructor(options: ParametricBodyNodeOptions) {
         super({ document: options.document, id: options.id });
         this.setPrivateValue("featuresJson", options.featuresJson ?? JSON.stringify(options.features ?? []));
+        this.document.modelManager.addNodeObserver(this.handleReferencedNodeChanged);
     }
 
     setFeaturesEmitShapeChanged(features: FeatureData[]): void {
@@ -283,26 +287,42 @@ export class ParametricBodyNode
                 error: this._featureErrors.get(feature.id),
                 warning: this._featureWarnings.get(feature.id),
                 reselectable: handler?.reselectable === true,
+                references: this.featureReferences(feature),
                 parameters: handler?.parameters(feature) ?? [],
             };
         });
     }
 
     /**
-     * Sketch nodes referenced by extrude/revolve features, in feature order. Boolean
-     * tools never resolve as sketches, so they are excluded — the tree already lists
-     * them as consumed children. One sketch may serve several features (deduped here)
-     * and several bodies, so these are references, never real children.
+     * The feature's declared references resolved to nodes, dangles dropped — a
+     * deleted sketch leaves the feature's rebuild error as the only trace, same as
+     * it did when the tree held the reference rows.
      */
-    referencedNodes(): INode[] {
-        const sketches = new Map<string, SketchNode>();
-        for (const feature of this.features) {
-            for (const id of featureHandler(feature.type)?.nodeIds(feature) ?? []) {
-                const sketch = findSketch(this.document, id);
-                if (sketch !== undefined) sketches.set(sketch.id, sketch);
-            }
-        }
-        return [...sketches.values()];
+    private featureReferences(feature: FeatureData): FeatureReference[] | undefined {
+        const refs = (featureHandler(feature.type)?.references?.(feature) ?? []).flatMap((ref) => {
+            const node = this.referenceNode(feature, ref.key);
+            return node === undefined ? [] : [{ key: ref.key, display: ref.display, node }];
+        });
+        return refs.length > 0 ? refs : undefined;
+    }
+
+    /** Resolves one declared reference by key; undefined when it was deleted. */
+    private referenceNode(feature: FeatureData, key: string): INode | undefined {
+        const declared = featureHandler(feature.type)?.references?.(feature);
+        const nodeId = declared?.find((ref) => ref.key === key)?.nodeId;
+        return nodeId === undefined ? undefined : this.document.modelManager.findNode((n) => n.id === nodeId);
+    }
+
+    /**
+     * Opens the node a feature's reference points at, by publishing the same
+     * `nodeDoubleClicked` the tree and viewport do — what "opening" means is the
+     * node's business (a sketch enters its editing session; see `sketch/index.ts`).
+     */
+    activateReference(featureId: string, key: string): void {
+        const feature = this.features.find((x) => x.id === featureId);
+        if (feature === undefined) return;
+        const node = this.referenceNode(feature, key);
+        if (node !== undefined) PubSub.default.pub("nodeDoubleClicked", node);
     }
 
     setFeatureParameter(featureId: string, key: string, value: number | string | boolean): void {
@@ -385,6 +405,7 @@ export class ParametricBodyNode
         Transaction.execute(this.document, "reselect edges", () => {
             const features = this.features.map((x) => (x.id === featureId ? { ...x, edges } : x));
             this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
             this.document.visual.update();
         });
     }
@@ -521,6 +542,19 @@ export class ParametricBodyNode
         return this._timeline.stateAt(index);
     }
 
+    /**
+     * The first boolean taking `nodeId` as a tool — where this body swallowed that node's
+     * geometry. `consumeTools: false` still counts: it only keeps the tool in the tree, the
+     * fused shape (and so the circularity) is the same.
+     */
+    consumingFeatureIndex(nodeId: string): number | undefined {
+        const index = this.features.findIndex(
+            (feature): feature is BooleanFeatureData =>
+                feature.type === "boolean" && feature.toolIds.includes(nodeId),
+        );
+        return index < 0 ? undefined : index;
+    }
+
     // ------------------------------------------------------------------ Chain evaluation
 
     /**
@@ -556,6 +590,7 @@ export class ParametricBodyNode
                 const feature = features[index];
                 if (feature.suppressed) continue;
                 this.followReferencedSketches(feature, followedSketches);
+                this.refreshConsumedTools(feature);
                 const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
                 if (!step.isOk) {
                     this._featureErrors.set(feature.id, String(step.error));
@@ -589,6 +624,84 @@ export class ParametricBodyNode
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
         if (input === undefined) return shapeFactory.combine([]);
         return Result.ok(input);
+    }
+
+    /**
+     * Re-solve the tools this boolean is about to read, when they are themselves derived
+     * from this body — the press-pull-onto-yourself pattern (body B is swept off a face of
+     * body A, then fused back into A). Those tools are circular by construction: the boolean
+     * needs the tool's shape, while the tool's refs resolve against this body's chain state
+     * up to that very boolean (`sourceFaceMatcher.ts`). Solving the tool HERE — after the
+     * state entering this feature was pushed, so `timelineStateAt` already describes it —
+     * hands the boolean the current tool instead of the previous revision's, and this body's
+     * `_evaluating` flag keeps the tool's shape change from bouncing back into this run.
+     *
+     * Without it the two bodies trade revisions: each rebuild reads the other's stale shape
+     * and hands back a new one, hundreds of rounds of kernel work per edit.
+     */
+    private refreshConsumedTools(feature: FeatureData): void {
+        if (feature.type !== "boolean") return;
+        for (const toolId of feature.toolIds) {
+            const node = this.document.modelManager.findNode((n) => n.id === toolId);
+            if (node === this || !(node instanceof ParametricBodyNode)) continue;
+            if (!node.references(this.id)) continue;
+            node.refreshForConsumer();
+        }
+    }
+
+    /** True when any feature of this body names `nodeId` — a sketch or a press-pull source. */
+    private references(nodeId: string): boolean {
+        return this.features.some((feature) =>
+            (featureHandler(feature.type)?.nodeIds(feature) ?? []).includes(nodeId),
+        );
+    }
+
+    /** Every node id the feature list reads, watched or not — a missing one is never watched. */
+    private referencedIds(): Set<string> {
+        return new Set(
+            this.features.flatMap((feature) => featureHandler(feature.type)?.nodeIds(feature) ?? []),
+        );
+    }
+
+    /**
+     * A node this body's features read entering or leaving the document: a sketch or a
+     * boolean tool deleted, or either coming back through undo.
+     *
+     * The watch set cannot see this. It reacts to a node's property changes, and a removed
+     * node emits none — so without this the features would report nothing and keep the
+     * stale shape (a deleted tool's geometry still fused into the result), and the user
+     * would have no way to tell the reference had gone.
+     */
+    private readonly handleReferencedNodeChanged = (records: NodeRecord[]) => {
+        if (this._evaluating) return;
+        const wanted = this.referencedIds();
+        if (!records.some((record) => wanted.has(record.node.id))) return;
+
+        const result = this.generateShape();
+        if (result.isOk) this.shape = result;
+        this.emitPropertyChanged("featuresJson", this.featuresJson);
+    };
+
+    /** True when a body this node watches takes it as a boolean tool (see `refreshConsumedTools`). */
+    private isConsumedByWatched(): boolean {
+        for (const node of this._watched.values()) {
+            if (node instanceof ParametricBodyNode && node.consumingFeatureIndex(this.id) !== undefined) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Re-runs the chain for the body that consumes this one and installs the result; a
+     * failed rebuild keeps the last shape silently, exactly as a watch-triggered rebuild
+     * does. Re-entrant calls are dropped — two bodies that consume each other would
+     * otherwise recurse.
+     */
+    private refreshForConsumer(): void {
+        if (this._evaluating) return;
+        const result = this.generateShape();
+        if (result.isOk) this.shape = result;
     }
 
     // ------------------------------------------------------------------ Following referenced sketches
@@ -877,6 +990,13 @@ export class ParametricBodyNode
         for (const node of this._watched.values()) {
             if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) return;
         }
+        // A watched body that CONSUMES this one owns this rebuild instead: it re-solves us
+        // right before its boolean, against the chain state we actually anchor to
+        // (`refreshConsumedTools`). Reacting here as well would make the two trade revisions
+        // forever — its shape is rebuilt from ours, so every round invalidates the other's
+        // cached evaluation. The consumed body's placement of its own features still
+        // rebuilds it directly, and so does the consumer once it stops consuming us.
+        if (this.isConsumedByWatched()) return;
 
         const result = this.generateShape();
         if (result.isOk) {
@@ -890,6 +1010,7 @@ export class ParametricBodyNode
         // Drop session rollback state so a stale editor-side reference never triggers
         // a replay that would leak a shape onto this disposed node.
         this._rollbackIndex = undefined;
+        this.document.modelManager.removeNodeObserver(this.handleReferencedNodeChanged);
         for (const node of this._watched.values()) {
             if (isPropertyChanged(node)) node.removePropertyChanged(this.handleWatchedNodeChanged);
         }

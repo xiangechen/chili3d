@@ -13,7 +13,6 @@ import {
     type INode,
     type INodeVisual,
     type IShape,
-    type ISolid,
     type IStep,
     type IView,
     Matrix4,
@@ -27,31 +26,26 @@ import {
     type SnapResult,
     Transaction,
     type VisualShapeData,
-    VisualStates,
     XYZ,
 } from "@chili3d/core";
 import type { BooleanOperation, ExtrudeFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { captureProfileRef } from "../features/profileRef";
-import { fuseProfiles } from "../features/sweep";
+import { fuseProfiles } from "../features/sweepGeometry";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
+import { ARROW_COLOR, ARROW_HOVER_COLOR, ARROW_LENGTH, arrowMeshes } from "./arrowHandle";
 import {
-    ARROW_LENGTH,
     type ExtrudeDragHandler,
     type ExtrudeDragState,
     ExtrudeDragStep,
     type ExtrudePreview,
     extrudeArrowSegment,
     planeOfPickedFace,
+    SELECTED_PROFILE_STATE,
 } from "./extrudeDragStep";
-
-/** Blue handle color, distinct from the green highlight/selection tints. */
-const ARROW_COLOR = 0x3b82f6;
-
-/** Lighter blue shown while the pointer hovers the arrow. */
-const ARROW_HOVER_COLOR = 0x93c5fd;
+import { prioritizeSketchFaces } from "./profileFaceSort";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -132,12 +126,12 @@ export class SelectSketchProfilesStep implements IStep {
         controller.success();
         // Show the profiles as selected, exactly as if the user had picked them.
         if (faces.length > 0) {
-            document.selection.setSelectedShapes(faces, VisualStates.faceSelected, false);
+            document.selection.setSelectedShapes(faces, SELECTED_PROFILE_STATE, false);
         }
         return { view, shapes: faces, nodes: [selectedSketch], type: "shape" };
     }
 
-    /** Interactive pick: planar faces of allowed nodes only. */
+    /** Interactive pick: planar faces of allowed nodes only, sketches before solid faces. */
     private async pickFace(
         document: IDocument,
         view: IView,
@@ -148,6 +142,8 @@ export class SelectSketchProfilesStep implements IStep {
             shapeFilter: { allow: (shape) => (shape as IFace).surface().isPlanar() },
             multi: false,
             nodeFilter: { allow: this.allowNode },
+            selectedState: SELECTED_PROFILE_STATE,
+            sortDetected: prioritizeSketchFaces,
         });
         if (shapes.length === 0) return undefined;
         return { view, shapes, nodes: [shapes[0].owner.node], type: "shape" };
@@ -290,7 +286,8 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
      * body. Multiple profiles go through the same `fuseProfiles` merge as the feature
      * (touching prisms become one solid), so the preview matches the committed result.
      * Symmetric extrusion previews both directions. A join/cut/intersect operation
-     * previews the boolean result against the intersecting target body (rendered on top).
+     * previews the boolean result against the intersecting target body, standing in for
+     * that body's display for the duration of the drag.
      */
     private readonly buildPreview = (state: ExtrudeDragState): ExtrudePreview => {
         if (Math.abs(state.dist) < Precision.Float) return { meshes: [] };
@@ -308,7 +305,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             if (faceMesh === undefined) throw new Error("Failed to mesh the extrude preview");
             return {
                 meshes: edges === undefined ? [faceMesh] : [faceMesh, edges],
-                onTop: preview.onTop,
+                hide: preview.target === undefined ? undefined : [preview.target],
             };
         } finally {
             owned.forEach((x) => x.dispose());
@@ -317,18 +314,20 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
 
     /**
      * Applies the operation's boolean to the preview prism: join/cut/intersect against
-     * the intersecting target body (the result renders on top of it); "new", or no
-     * intersecting target, keeps the prism. The returned shape is owned by the caller.
+     * the intersecting target body, which the result stands in for — the same `target`
+     * the commit appends the feature to, so the preview and the committed body agree on
+     * what is being modified. "new", or no intersecting target, keeps the prism. The
+     * returned shape is owned by the caller.
      */
-    private applyOperationPreview(prism: IShape): { shape: IShape; onTop: boolean } {
+    private applyOperationPreview(prism: IShape): { shape: IShape; target?: ParametricBodyNode } {
         const operation = EXTRUDE_OPERATIONS[this.operation];
-        if (operation === undefined) return { shape: prism, onTop: false };
+        if (operation === undefined) return { shape: prism };
         const target = this.findIntersectingNode(prism.boundingBox());
-        if (target === undefined) return { shape: prism, onTop: false };
+        if (target === undefined) return { shape: prism };
         const result = this.booleanPreview(operation, target, prism);
-        if (!result.isOk) return { shape: prism, onTop: false };
+        if (!result.isOk) return { shape: prism };
         prism.dispose();
-        return { shape: result.value, onTop: true };
+        return { shape: result.value, target };
     }
 
     /** The boolean of the preview prism against the target body's current shape. */
@@ -452,7 +451,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         const key = `${dir.x},${dir.y},${dir.z},${color}`;
         let meshes = this._arrowCache.get(key);
         if (meshes === undefined) {
-            meshes = this.buildArrow(dir, color);
+            meshes = arrowMeshes(XYZ.zero, dir, ARROW_LENGTH, color);
             this._arrowCache.set(key, meshes);
         }
         const scale = (state.arrowLength ?? ARROW_LENGTH) / ARROW_LENGTH;
@@ -461,31 +460,6 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             position: ExtrudeFeatureCommand.transform(mesh.position, start, scale),
         }));
     };
-
-    /** Solid cylinder shaft + cone head, based at the origin and pointing along `dir`. */
-    private buildArrow(dir: XYZ, color: number): ShapeMeshData[] {
-        const headLength = Math.max(ARROW_LENGTH * 0.45, 8);
-        const shaftLength = ARROW_LENGTH - headLength;
-        const shaft = this.solidMesh(
-            shapeFactory.cylinder(dir, XYZ.zero, headLength * 0.1, shaftLength),
-            color,
-        );
-        const headCenter = dir.multiply(shaftLength);
-        const head = this.solidMesh(
-            shapeFactory.cone(dir, headCenter, headLength * 0.3, 0, headLength),
-            color,
-        );
-        return [shaft, head];
-    }
-
-    private solidMesh(shape: Result<ISolid>, color: number): ShapeMeshData {
-        if (!shape.isOk) throw shape.error;
-
-        const mesh = shape.value.mesh.faces!;
-        mesh.color = color;
-        shape.value.dispose();
-        return mesh;
-    }
 
     /** Uniformly scales the canonical geometry and translates it to `offset`. */
     private static transform(data: Float32Array, offset: XYZ, scale: number): Float32Array {
@@ -548,7 +522,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
                       // re-splitting is indistinguishable by fingerprint alone). The
                       // splitPiece stamp records a pick of one piece of an already split
                       // face (id shared at capture time), so the sweep never widens back
-                      // to the whole span (see `narrowToPickedPiece` in features/pressPull.ts).
+                      // to the whole span (see `narrowToPickedPiece` in sourceFaceMatcher.ts).
                       source: {
                           nodeId: node.id,
                           profiles: worldFaces.map((face, index) => {

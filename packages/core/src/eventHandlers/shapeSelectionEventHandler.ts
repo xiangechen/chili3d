@@ -18,6 +18,9 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     /** In multi mode, finish the pick automatically once this returns true. */
     canFinish?: (selected: VisualShapeData[]) => boolean;
 
+    /** Reorders what the pointer detects; index 0 is what gets highlighted and picked. */
+    sortDetected?: (detected: VisualShapeData[]) => VisualShapeData[];
+
     constructor(
         document: IDocument,
         readonly shapeType: ShapeType,
@@ -45,13 +48,14 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
                 this.nodeFilter,
             );
         }
-        this._detectAtMouse = view.detectShapes(
+        const detecteds = view.detectShapes(
             this.shapeType,
             event.offsetX,
             event.offsetY,
             this.shapefilter,
             this.nodeFilter,
         );
+        this._detectAtMouse = this.sortDetected?.(detecteds) ?? detecteds;
         const detected = this.getDetecting();
         return detected ? [detected] : [];
     }

@@ -95,6 +95,29 @@ export class NodeUtils {
         return (node as INodeLinkedList).add !== undefined;
     }
 
+    /**
+     * A name of the form `<baseName><n>` for a node about to be created, where n is one
+     * past the highest index already used by a node of that base name in the document —
+     * the first box of a document is `Box1`, the next `Box2`. Existing names without an
+     * index (`Box`, `Box_copy`, a user rename) take part only as far as they block the
+     * bare base name: they carry no index to continue from.
+     */
+    static generateName(document: IDocument, baseName: string): string {
+        const pattern = new RegExp(`^${NodeUtils.escapeRegExp(baseName)}(\\d+)$`);
+        let max = 0;
+        for (const node of document.modelManager.findNodes()) {
+            const index = pattern.exec(node.name)?.[1];
+            if (index !== undefined) {
+                max = Math.max(max, Number(index));
+            }
+        }
+        return `${baseName}${max + 1}`;
+    }
+
+    private static escapeRegExp(value: string): string {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
     static getNodesBetween(node1: INode, node2: INode): INode[] {
         if (node1 === node2) return [node1];
         const nodes: INode[] = [];

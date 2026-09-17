@@ -20,10 +20,6 @@ rs.mock("../src/project/tree/treeModel.module.css", () => ({
     panel: "tm-panel",
 }));
 
-rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
-    reference: "tig-reference",
-}));
-
 // Mock core: no-op Binding, immediate Transaction
 import "./_helpers/mockCoreBinding";
 
@@ -31,7 +27,6 @@ import "./_helpers/mockCoreBinding";
 import "./_helpers/mockElement";
 
 import { FolderNode, I18n } from "@chili3d/core";
-import { TreeItemReference } from "../src/project/tree/treeItemReference";
 import { TreeModel } from "../src/project/tree/treeModel";
 
 type PropertyHandler = (property: string, model: unknown) => void;
@@ -258,17 +253,6 @@ describe("TreeModel (TreeItem)", () => {
             node.warningCount = 0;
             node.emit("warningCount");
             expect(item.warningBadge.classList.contains("ti-hidden")).toBe(true);
-        });
-
-        test("should show the badge on a body's reference mirror row too", () => {
-            createItem();
-            const mirror = new TreeItemReference(doc, node as unknown as INode);
-            expect(mirror.warningBadge.classList.contains("ti-hidden")).toBe(true);
-
-            node.warningCount = 1;
-            node.warningTooltip = "sketch.externalRefsLost{0}";
-            const warned = new TreeItemReference(doc, node as unknown as INode);
-            expect(warned.warningBadge.classList.contains("ti-hidden")).toBe(false);
         });
     });
 });

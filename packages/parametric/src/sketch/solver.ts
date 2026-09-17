@@ -249,6 +249,22 @@ export class SketchSolver implements ExternalEntityHost {
             .map((c) => c.kind);
     }
 
+    /**
+     * Whether a constraint of one of `kinds` pins `ref` to geometry outside its own
+     * entity. An arc's structural PointOnArc refers to that arc alone, so it is no
+     * incidence: it keeps the arc on its own circle without pinning the point to
+     * anything else.
+     */
+    hasIncidenceOn(ref: SketchPointRef, kinds: readonly ConstraintKind[]): boolean {
+        const key = pointRefKey(ref);
+        return [...this.constraints.values()].some(
+            (c) =>
+                kinds.includes(c.kind) &&
+                c.refs.some((r) => pointRefKey(r) === key) &&
+                c.refs.some((r) => r.entityId !== ref.entityId),
+        );
+    }
+
     /** Whether an identical constraint (same kind and refs, order-insensitive) already exists. */
     hasConstraint(kind: ConstraintKind, refs: SketchPointRef[]): boolean {
         const key = refs.map(pointRefKey).sort().join("|");

@@ -4,6 +4,7 @@
 import {
     type AsyncController,
     debounce,
+    type I18nKeys,
     type IDocument,
     type IEdge,
     type IFace,
@@ -11,7 +12,9 @@ import {
     type INodeVisual,
     type IShape,
     Matrix4,
+    PubSub,
     Result,
+    type ShapeType,
     ShapeTypes,
     type VisualShapeData,
     VisualStates,
@@ -59,6 +62,84 @@ export interface ReselectHost extends INode, IBodyTrackingNode {
 }
 
 /**
+ * What a re-pick session has to supply; the scaffold around it — selection and history
+ * handling, the pick call, the preview subscription and the teardown — is shared (see
+ * `runReselectSession`).
+ */
+interface ReselectPickSpec<TRef> {
+    prompt: I18nKeys;
+    shapeType: ShapeType;
+    /** The pick is restricted to this node. */
+    targetNode: INode;
+    /** Session state to open before the pick, ahead of the preview subscription. */
+    setup?(): void;
+    /** Runs on every selection change while the session is open. */
+    preview(selected: VisualShapeData[]): void;
+    /** Runs after the preview subscription: a preselect in here previews immediately. */
+    preselect?(): void;
+    /** Maps what was picked to the refs the caller stores; runs before `teardown`. */
+    capture(picked: VisualShapeData[]): TRef[];
+    /** Undoes `setup` and drops anything the session displayed. */
+    teardown?(): void;
+    /**
+     * Whether an empty pick cancels. Edges: yes, there is no "no edges" answer. Profiles:
+     * no — an empty confirmation means "every profile", which the caller stores as none.
+     */
+    emptyIsCancel: boolean;
+    /**
+     * Runs when the user confirms without picking anything and `emptyIsCancel` turns that
+     * into a cancel — the place to say why nothing happened. Confirming is reachable with
+     * nothing selected (the selection control only counts, it does not gate the button),
+     * so this is a real path, not a defensive one.
+     */
+    onEmptyPick?(): void;
+}
+
+/**
+ * Drives one re-pick session end to end. The node selection goes first because a selected
+ * node tints every edge and would drown the pick highlight; history is disabled for the
+ * session so a re-pick does not land in the undo stack on its own.
+ *
+ * `capture` deliberately runs before `teardown`: the edge session has to read its refs
+ * while the rolled-back cache still describes the shape the user picked from.
+ */
+async function runReselectSession<TRef>(
+    host: ReselectHost,
+    controller: AsyncController,
+    spec: ReselectPickSpec<TRef>,
+): Promise<TRef[] | undefined> {
+    const selection = host.document.selection;
+    selection.clearSelection();
+    const history = host.document.history;
+    const historyWasDisabled = history.disabled;
+    history.disabled = true;
+    let cancelled = false;
+    const preview = (selected: VisualShapeData[]) => spec.preview(selected);
+    try {
+        spec.setup?.();
+        selection.onShapeChanged.sub(preview);
+        spec.preselect?.();
+        controller.onCancelled(() => (cancelled = true));
+        const picked = await host.document.picker.pickShape(spec.prompt, controller, {
+            shapeType: spec.shapeType,
+            multi: true,
+            nodeFilter: { allow: (node) => node === spec.targetNode },
+        });
+        if (cancelled) return undefined;
+        if (spec.emptyIsCancel && picked.length === 0) {
+            spec.onEmptyPick?.();
+            return undefined;
+        }
+        return spec.capture(picked);
+    } finally {
+        selection.onShapeChanged.remove(preview);
+        spec.teardown?.();
+        history.disabled = historyWasDisabled;
+        selection.setSelectedNodes([host], false);
+    }
+}
+
+/**
  * Re-picks the edges of a fillet/chamfer and returns the replacement refs, or undefined when
  * the user cancels or picks nothing.
  *
@@ -82,15 +163,7 @@ export class EdgeReselectSession {
         featureIndex: number,
         controller: AsyncController,
     ): Promise<EdgeRef[] | undefined> {
-        // Clear the node selection first: a selected node tints every edge, which
-        // would drown the pick highlight.
-        const selection = this.host.document.selection;
-        selection.clearSelection();
         const original = this.host.features;
-        const history = this.host.document.history;
-        const historyWasDisabled = history.disabled;
-        history.disabled = true;
-        let cancelled = false;
         let active = true;
         const preview = debounce((selected: VisualShapeData[]) => {
             if (active) this.previewSelection(original, featureIndex, selected);
@@ -98,49 +171,49 @@ export class EdgeReselectSession {
         const owner = this.host.document.visual.context.getVisual(this.host);
         const shape = this.host.shape;
         const shapeType = shape.isOk ? shape.value.shapeType : undefined;
-        try {
-            // Deliberately ignores the boolean: a failed rollback replay keeps the
-            // full chain displayed (discarding keeps shape and cache consistent),
-            // so the pick simply proceeds against the unrolled shape.
-            this.host.setRollbackIndex(featureIndex);
-            if (owner !== undefined && shapeType !== undefined) {
-                this.host.document.visual.highlighter.addState(
-                    owner,
-                    VisualStates.faceTransparent,
-                    shapeType,
-                );
-            }
-            // Subscribed before the preselect, so the session opens with the preview
+
+        return runReselectSession(this.host, controller, {
+            prompt: "prompt.select.edges",
+            shapeType: ShapeTypes.edge,
+            targetNode: this.host,
+            // Nothing picked is nothing to re-pick.
+            emptyIsCancel: true,
+            onEmptyPick: () => PubSub.default.pub("showToast", "toast.select.noSelected"),
+            preview,
+            setup: () => {
+                // Deliberately ignores the boolean: a failed rollback replay keeps the
+                // full chain displayed (discarding keeps shape and cache consistent),
+                // so the pick simply proceeds against the unrolled shape.
+                this.host.setRollbackIndex(featureIndex);
+                if (owner !== undefined && shapeType !== undefined) {
+                    this.host.document.visual.highlighter.addState(
+                        owner,
+                        VisualStates.faceTransparent,
+                        shapeType,
+                    );
+                }
+            },
+            // Runs after the preview subscription, so the session opens with the preview
             // of the current edges already shown.
-            selection.onShapeChanged.sub(preview);
-            this.preselect(feature);
-            controller.onCancelled(() => (cancelled = true));
-            const picked = await this.host.document.picker.pickShape("prompt.select.edges", controller, {
-                shapeType: ShapeTypes.edge,
-                multi: true,
-                nodeFilter: { allow: (node) => node === this.host },
-            });
-            if (cancelled || picked.length === 0) return undefined;
-            // Capture refs (including the stable edge id) NOW, while the rolled-back
-            // cache still describes the shape the user picked from — after `finally`
-            // restores the full chain, edgeIdAt would index the filleted shape,
-            // whose edge order differs from the pre-feature one.
-            return picked.map((x) => this.captureRef(x));
-        } finally {
-            active = false;
-            selection.onShapeChanged.remove(preview);
-            this.clearPreview();
-            if (owner !== undefined && shapeType !== undefined) {
-                this.host.document.visual.highlighter.removeState(
-                    owner,
-                    VisualStates.faceTransparent,
-                    shapeType,
-                );
-            }
-            this.host.setRollbackIndex(undefined);
-            history.disabled = historyWasDisabled;
-            selection.setSelectedNodes([this.host], false);
-        }
+            preselect: () => this.preselect(feature),
+            // Capture refs (including the stable edge id) while the rolled-back cache
+            // still describes the shape the user picked from — after the teardown
+            // restores the full chain, edgeIdAt would index the filleted shape, whose
+            // edge order differs from the pre-feature one.
+            capture: (picked) => picked.map((x) => this.captureRef(x)),
+            teardown: () => {
+                active = false;
+                this.clearPreview();
+                if (owner !== undefined && shapeType !== undefined) {
+                    this.host.document.visual.highlighter.removeState(
+                        owner,
+                        VisualStates.faceTransparent,
+                        shapeType,
+                    );
+                }
+                this.host.setRollbackIndex(undefined);
+            },
+        });
     }
 
     /** The ref of one picked edge, warning when its tracked id went missing. */
@@ -243,32 +316,24 @@ export class ProfileReselectSession {
         sketch: SketchNode,
         controller: AsyncController,
     ): Promise<ProfileRef[] | undefined> {
-        const selection = this.host.document.selection;
-        selection.clearSelection();
         const original = this.host.features;
-        const history = this.host.document.history;
-        const historyWasDisabled = history.disabled;
-        history.disabled = true;
-        let cancelled = false;
-        const preview = (selected: VisualShapeData[]) => this.preview(feature, sketch, selected);
-        try {
-            this.host.document.visual.update();
-            this.preselect(feature, sketch);
-            selection.onShapeChanged.sub(preview);
-            controller.onCancelled(() => (cancelled = true));
-            const picked = await this.host.document.picker.pickShape("prompt.select.faces", controller, {
-                shapeType: ShapeTypes.face,
-                multi: true,
-                nodeFilter: { allow: (node) => node === sketch },
-            });
-            if (cancelled) return undefined;
-            return picked.map((x) => captureProfileRef(x.shape as unknown as IFace));
-        } finally {
-            selection.onShapeChanged.remove(preview);
-            this.host.setFeaturesEmitShapeChanged(original);
-            history.disabled = historyWasDisabled;
-            selection.setSelectedNodes([this.host], false);
-        }
+        return runReselectSession(this.host, controller, {
+            prompt: "prompt.select.faces",
+            shapeType: ShapeTypes.face,
+            targetNode: sketch,
+            // An empty confirmation means "extrude every profile", which the caller
+            // stores as no `profiles` at all.
+            emptyIsCancel: false,
+            preview: (selected) => this.preview(feature, sketch, selected),
+            // Ahead of the preview subscription: preselecting here must not fire a
+            // preview of the profiles it just selected.
+            setup: () => {
+                this.host.document.visual.update();
+                this.preselect(feature, sketch);
+            },
+            capture: (picked) => picked.map((x) => captureProfileRef(x.shape as unknown as IFace)),
+            teardown: () => this.host.setFeaturesEmitShapeChanged(original),
+        });
     }
 
     /**

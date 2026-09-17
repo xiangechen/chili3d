@@ -9,32 +9,22 @@ import {
     type IView,
     Line,
     PubSub,
-    type ShapeMeshData,
     ShapeTypes,
     ShapeTypeUtils,
     type SnapResult,
     SubshapeSelectionHandler,
     type VisualShapeData,
-    type XY,
     type XYZ,
 } from "@chili3d/core";
-
-/** Blue handle color, distinct from the green highlight/selection tints. */
-const ARROW_COLOR = 0x3b82f6;
-
-/** Lighter blue shown while the pointer hovers the arrow. */
-const ARROW_HOVER_COLOR = 0x93c5fd;
-
-const ARROW_HOVER_TOLERANCE = 10; // px, screen-space distance to the arrow shaft
-
-/** Target on-screen arrow length (px); the world length adapts so zooming never resizes the arrow. */
-const ARROW_LENGTH_PX = 80;
-
-/** Fallback world length before the first scale measurement. */
-const ARROW_LENGTH_FALLBACK = 40;
-
-/** Baseline (world units) for the px/mm measurement; long enough to beat worldToScreen rounding. */
-const SCALE_MEASURE_BASELINE = 100;
+import {
+    ARROW_COLOR,
+    ARROW_HOVER_COLOR,
+    ARROW_HOVER_TOLERANCE,
+    ARROW_LENGTH,
+    arrowMeshes,
+    distanceToSegment,
+    pxSizedArrowLength,
+} from "./arrowHandle";
 
 /** Smallest value the drag can produce; zero-radius fillets/chamfers are invalid. */
 const MIN_DRAG_VALUE = 0.1;
@@ -52,36 +42,6 @@ export interface EdgeCornerPickCallbacks {
     /** Undefined while no edge is selected — no arrow is shown then. */
     arrowData(): EdgeCornerArrowData | undefined;
     setValue(value: number): void;
-}
-
-/** Solid cylinder shaft + cone head, starting at `start` and pointing along `direction`. */
-function arrowMeshes(start: XYZ, direction: XYZ, length: number, color: number): ShapeMeshData[] {
-    const headLength = Math.max(length * 0.45, 8);
-    const shaftLength = length - headLength;
-    return [
-        shapeFactory.cylinder(direction, start, headLength * 0.1, shaftLength),
-        shapeFactory.cone(
-            direction,
-            start.add(direction.multiply(shaftLength)),
-            headLength * 0.3,
-            0,
-            headLength,
-        ),
-    ].map((shape) => {
-        if (!shape.isOk) throw shape.error;
-        const mesh = shape.value.mesh.faces!;
-        mesh.color = color;
-        shape.value.dispose();
-        return mesh;
-    });
-}
-
-function distanceToSegment(x: number, y: number, a: XY, b: XY): number {
-    const abx = b.x - a.x;
-    const aby = b.y - a.y;
-    const lengthSq = abx * abx + aby * aby;
-    const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * abx + (y - a.y) * aby) / lengthSq));
-    return Math.hypot(x - a.x - t * abx, y - a.y - t * aby);
 }
 
 /**
@@ -160,7 +120,7 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
         const data = this.callbacks.arrowData();
         if (data !== undefined) {
             if (view !== undefined) this.updateArrowScale(view, data);
-            const length = this._arrowLength ?? ARROW_LENGTH_FALLBACK;
+            const length = this._arrowLength ?? ARROW_LENGTH;
             const start = data.anchor.add(data.direction.multiply(data.value));
             const color = this._hovered ? ARROW_HOVER_COLOR : ARROW_COLOR;
             for (const mesh of arrowMeshes(start, data.direction, length, color)) {
@@ -177,7 +137,7 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
         const data = this.callbacks.arrowData();
         if (data === undefined) return false;
         const start = data.anchor.add(data.direction.multiply(data.value));
-        const end = start.add(data.direction.multiply(this._arrowLength ?? ARROW_LENGTH_FALLBACK));
+        const end = start.add(data.direction.multiply(this._arrowLength ?? ARROW_LENGTH));
         const a = view.worldToScreen(start);
         const b = view.worldToScreen(end);
         return distanceToSegment(event.offsetX, event.offsetY, a, b) <= ARROW_HOVER_TOLERANCE;
@@ -193,15 +153,8 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
 
     /** Adapts the world-space arrow length so the arrow renders at a fixed pixel size. */
     private updateArrowScale(view: IView, data: EdgeCornerArrowData) {
-        // A screen-parallel unit vector: perpendicular to both the view and the arrow
-        // direction, falling back to the view's up when the arrow points at the camera.
-        const side = view.direction().cross(data.direction).normalize() ?? view.up();
-        const a = view.worldToScreen(data.anchor);
-        const b = view.worldToScreen(data.anchor.add(side.multiply(SCALE_MEASURE_BASELINE)));
-        const pxPerUnit = a.distanceTo(b) / SCALE_MEASURE_BASELINE;
-        if (pxPerUnit > 1e-6) {
-            this._arrowLength = ARROW_LENGTH_PX / pxPerUnit;
-        }
+        const length = pxSizedArrowLength(view, data.anchor, data.direction);
+        if (length !== undefined) this._arrowLength = length;
     }
 
     /**

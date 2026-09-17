@@ -20,6 +20,7 @@ export * from "./profileRef";
 export * from "./profileSeeds";
 export * from "./refGeometry";
 export * from "./revolve";
-export * from "./sweep";
+export * from "./sourceFaceMatcher";
+export * from "./sweepGeometry";
 export * from "./trackedId";
 export * from "./variable";

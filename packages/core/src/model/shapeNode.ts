@@ -171,6 +171,7 @@ export class MultiShapeNode extends GeometryNode {
 
 export interface ParameterShapeNodeOptions {
     document: IDocument;
+    name?: string;
     materialId?: string;
     id?: string;
 }
@@ -203,11 +204,10 @@ export abstract class ParameterShapeNode extends ShapeNode {
     constructor(options: ParameterShapeNodeOptions) {
         super({
             document: options.document,
-            name: undefined as any,
+            name: options.name,
             materialId: options.materialId,
             id: options.id,
         });
-        this.setPrivateValue("name", I18n.translate(this.display()));
     }
 
     protected abstract generateShape(): Result<IShape>;

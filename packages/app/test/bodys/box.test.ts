@@ -27,7 +27,7 @@ describe("BoxNode", () => {
 
         test("should set name from display() i18n key", () => {
             const node = new BoxNode({ document: doc, plane: defaultPlane(), dx: 1, dy: 1, dz: 1 });
-            expect(node.name).toBe("body.box");
+            expect(node.name).toBe("body.box1");
         });
 
         test("should accept negative dimensions", () => {

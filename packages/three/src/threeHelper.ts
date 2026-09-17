@@ -120,7 +120,7 @@ export class ThreeHelper {
         return new ThreePhysicalMaterial({
             color: material.color,
             side: DoubleSide,
-            transparent: true,
+            transparent: material.opacity < 1,
             name: material.name,
             opacity: material.opacity,
             map: ThreeHelper.loadTexture(material.map),
@@ -138,7 +138,7 @@ export class ThreeHelper {
         return new ThreePhoneMaterial({
             color: material.color,
             side: DoubleSide,
-            transparent: true,
+            transparent: material.opacity < 1,
             name: material.name,
             opacity: material.opacity,
             map: ThreeHelper.loadTexture(material.map),
@@ -153,7 +153,7 @@ export class ThreeHelper {
         return new ThreeLambertMaterial({
             color: material.color,
             side: DoubleSide,
-            transparent: true,
+            transparent: material.opacity < 1,
             name: material.name,
             opacity: material.opacity,
             map: ThreeHelper.loadTexture(material.map),

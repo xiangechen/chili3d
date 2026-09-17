@@ -31,8 +31,20 @@ import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import type { ThreeVisualContext } from "./threeVisualContext";
 import type { ThreeVisualObject } from "./threeVisualObject";
 
+/**
+ * State of one visual, whole or per sub-shape. A sub-shape keeps the fill and the
+ * outline it is drawn with as separate objects, so a single state can ask for both —
+ * a selected face that also shows its boundary — and dropping either flag takes that
+ * part's object away.
+ */
+interface SubGeometryState {
+    state: VisualState;
+    face?: Mesh;
+    edge?: LineSegments2;
+}
+
 export class GeometryState {
-    private readonly _states: Map<string, [VisualState, Mesh | undefined]> = new Map();
+    private readonly _states = new Map<string, SubGeometryState>();
 
     constructor(
         readonly highlighter: ThreeHighlighter,
@@ -41,7 +53,7 @@ export class GeometryState {
 
     getState(type: ShapeType, index?: number) {
         const key = this.state_key(type, index);
-        return this._states.get(key)?.[0];
+        return this._states.get(key)?.state;
     }
 
     private state_key(type: ShapeType, index?: number) {
@@ -64,23 +76,26 @@ export class GeometryState {
         }
     }
 
+    /**
+     * State of a whole visual. Its fill and its outline are independent, so each part
+     * the state asks for is applied on its own: `removeTemperaryMaterial` first puts
+     * every part back on its own material, and the wanted parts are set from there.
+     */
     private setWholeState(method: "add" | "remove", state: VisualState, type: ShapeType) {
         const key = this.state_key(type);
         const [_oldState, newState] = this.updateStates(key, method, state);
         if (this.visual instanceof ThreeGeometry) {
-            if (newState === VisualStates.normal) {
-                this.visual.removeTemperaryMaterial();
-            } else if (VisualStateUtils.hasState(newState, VisualStates.edgeHighlight)) {
+            this.visual.removeTemperaryMaterial();
+            if (VisualStateUtils.hasState(newState, VisualStates.edgeHighlight)) {
                 this.visual.setVertexsMateiralTemperary(highlightVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(hilightEdgeMaterial);
             } else if (VisualStateUtils.hasState(newState, VisualStates.edgeSelected)) {
                 this.visual.setVertexsMateiralTemperary(selectedVertexMaterial);
                 this.visual.setEdgesMateiralTemperary(selectedEdgeMaterial);
-            } else if (VisualStateUtils.hasState(newState, VisualStates.faceTransparent)) {
-                this.visual.removeTemperaryMaterial();
+            }
+            if (VisualStateUtils.hasState(newState, VisualStates.faceTransparent)) {
                 this.visual.setFacesMateiralTemperary(faceTransparentMaterial);
             } else if (VisualStateUtils.hasState(newState, VisualStates.faceHighlight)) {
-                this.visual.removeTemperaryMaterial();
                 this.visual.setFacesMateiralTemperary(highlightFaceMaterial);
             }
         } else if (isHighlightable(this.visual)) {
@@ -91,7 +106,7 @@ export class GeometryState {
             }
         }
 
-        this._states.set(key, [newState, undefined]);
+        this._states.set(key, { state: newState });
     }
 
     private updateStates(
@@ -99,7 +114,7 @@ export class GeometryState {
         method: "add" | "remove",
         state: VisualState,
     ): [VisualState | undefined, VisualState] {
-        const oldState = this._states.get(key)?.[0];
+        const oldState = this._states.get(key)?.state;
         let newState = oldState;
         if (newState === undefined) {
             if (method === "remove") return [undefined, VisualStates.normal];
@@ -136,67 +151,93 @@ export class GeometryState {
             const [oldState, newState] = this.updateStates(key, method, state);
             if (oldState !== undefined && newState === VisualStates.normal) {
                 shouldRemoved.push(key);
-            } else if (this.isFaceState(state, type)) {
-                this.addSubFaceState(type, key, i, newState);
             } else {
-                this.addSubEdgeState(type, key, i, newState);
+                this.applySubState(type, key, i, newState);
             }
         });
 
         shouldRemoved.forEach((key) => {
-            const item = this._states.get(key)?.[1];
-            if (item) {
-                this.highlighter.container.remove(item);
-                item.geometry?.dispose();
+            const item = this._states.get(key);
+            if (item !== undefined) {
+                this.removeSubObject(item.face);
+                this.removeSubObject(item.edge);
                 this._states.delete(key);
             }
         });
     }
 
-    private isFaceState(state: VisualState, type: ShapeType) {
+    /**
+     * Applies the fill and the outline the state asks for, each on an object of its own:
+     * a state carrying both — a selected face that also shows its boundary — gets both,
+     * and a part the state dropped is taken away. The outline of a face comes from the
+     * face's own mesh, so the caller never has to name its edges.
+     */
+    private applySubState(type: ShapeType, key: string, index: number, newState: VisualState) {
+        const previous = this._states.get(key);
+        const face = this.subFacePart(previous?.face, type, key, index, newState);
+        const edge = this.subEdgePart(previous?.edge, type, key, index, newState);
+        // a state nothing could be drawn for — a visual with no sub-shape geometry, or an
+        // index naming none — is not recorded
+        if (face === undefined && edge === undefined) {
+            this._states.delete(key);
+            return;
+        }
+        this._states.set(key, { state: newState, face, edge });
+    }
+
+    /** The fill object of the state: the one already there re-materialed, a new one, or none. */
+    private subFacePart(
+        existing: Mesh | undefined,
+        type: ShapeType,
+        key: string,
+        index: number,
+        state: VisualState,
+    ): Mesh | undefined {
+        if (!hasFaces(type) || !hasFaceState(state)) {
+            this.removeSubObject(existing);
+            return undefined;
+        }
+        const face = existing ?? this.createSubFace(type, key, index);
+        if (face === undefined) return undefined;
+        face.material = faceStateMaterial(state);
+        face.renderOrder = 999;
+        return face;
+    }
+
+    /** The outline object of the state: the one already there re-materialed, a new one, or none. */
+    private subEdgePart(
+        existing: LineSegments2 | undefined,
+        type: ShapeType,
+        key: string,
+        index: number,
+        state: VisualState,
+    ): LineSegments2 | undefined {
+        if (!this.wantsEdge(state, type)) {
+            this.removeSubObject(existing);
+            return undefined;
+        }
+        const edge = existing ?? this.createSubEdge(type, key, index);
+        if (edge === undefined) return undefined;
+        edge.material = VisualStateUtils.hasState(state, VisualStates.edgeHighlight)
+            ? hilightEdgeMaterial
+            : selectedEdgeMaterial;
+        return edge;
+    }
+
+    /** Outline target of a state: an edge or wire sub-shape, or the boundary of a face. */
+    private wantsEdge(state: VisualState, type: ShapeType): boolean {
         return (
-            !VisualStateUtils.hasState(VisualStates.edgeHighlight, state) &&
-            !VisualStateUtils.hasState(VisualStates.edgeSelected, state) &&
-            (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type))
+            (hasFaces(type) || ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type)) &&
+            (VisualStateUtils.hasState(state, VisualStates.edgeHighlight) ||
+                VisualStateUtils.hasState(state, VisualStates.edgeSelected))
         );
     }
 
-    private addSubEdgeState(type: ShapeType, key: string, i: number, newState: VisualState) {
-        const geometry = this.getOrCloneEdgeGeometry(type, key, i);
-        if (geometry && "material" in geometry) {
-            const material = VisualStateUtils.hasState(newState, VisualStates.edgeHighlight)
-                ? hilightEdgeMaterial
-                : selectedEdgeMaterial;
-            geometry.material = material;
-            this._states.set(key, [newState, geometry]);
-        }
-    }
-
-    private addSubFaceState(type: ShapeType, key: string, i: number, newState: VisualState) {
-        const geometry = this.getOrCloneFaceGeometry(type, key, i);
-        if (geometry && "material" in geometry) {
-            let material;
-            if (VisualStateUtils.hasState(newState, VisualStates.faceTransparent)) {
-                material = faceTransparentMaterial;
-            } else if (VisualStateUtils.hasState(newState, VisualStates.faceSelected)) {
-                material = selectedFaceColoredMaterial;
-            } else {
-                material = highlightFaceMaterial;
-            }
-            geometry.material = material;
-            geometry.renderOrder = 999;
-            this._states.set(key, [newState, geometry]);
-        }
-    }
-
-    private getOrCloneEdgeGeometry(type: ShapeType, key: string, index: number) {
+    private createSubEdge(type: ShapeType, key: string, index: number) {
         if (!(this.visual instanceof ThreeGeometry)) return undefined;
 
-        const geometry = this._states.get(key)?.[1];
-        if (geometry) return geometry;
-
         let points: Float32Array | undefined;
-        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type)) {
+        if (hasFaces(type)) {
             points = MeshUtils.subFaceOutlines(this.visual.geometryNode.mesh.faces!, index);
         }
         if (points === undefined && (ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type))) {
@@ -216,14 +257,11 @@ export class GeometryState {
         return segment;
     }
 
-    private getOrCloneFaceGeometry(type: ShapeType, key: string, index: number) {
+    private createSubFace(type: ShapeType, key: string, index: number) {
         if (!(this.visual instanceof ThreeGeometry)) return undefined;
 
-        const geometry = this._states.get(key)?.[1];
-        if (geometry) return geometry;
-
         let face: Mesh | undefined;
-        if (ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type)) {
+        if (hasFaces(type)) {
             face = this.visual.cloneSubFace(index);
         }
 
@@ -235,6 +273,33 @@ export class GeometryState {
         this.highlighter.container.add(face);
         return face;
     }
+
+    private removeSubObject(object: Mesh | LineSegments2 | undefined) {
+        if (object === undefined) return;
+        this.highlighter.container.remove(object);
+        object.geometry?.dispose();
+    }
+}
+
+/** Whether the type is drawn with faces: a face itself, a shell or a solid. */
+function hasFaces(type: ShapeType): boolean {
+    return ShapeTypeUtils.hasFace(type) || ShapeTypeUtils.hasShell(type) || ShapeTypeUtils.hasSolid(type);
+}
+
+/** Whether the state asks for a fill: a ghost, a hover highlight or a selection. */
+function hasFaceState(state: VisualState): boolean {
+    return (
+        VisualStateUtils.hasState(state, VisualStates.faceTransparent) ||
+        VisualStateUtils.hasState(state, VisualStates.faceHighlight) ||
+        VisualStateUtils.hasState(state, VisualStates.faceSelected)
+    );
+}
+
+/** Fill material of a state: the ghost tint, the selection colour, or the hover highlight. */
+function faceStateMaterial(state: VisualState) {
+    if (VisualStateUtils.hasState(state, VisualStates.faceTransparent)) return faceTransparentMaterial;
+    if (VisualStateUtils.hasState(state, VisualStates.faceSelected)) return selectedFaceColoredMaterial;
+    return highlightFaceMaterial;
 }
 
 export class ThreeHighlighter implements IHighlighter {

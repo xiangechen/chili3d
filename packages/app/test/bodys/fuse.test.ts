@@ -27,7 +27,7 @@ describe("FuseNode", () => {
 
         test("should set name from display()", () => {
             const node = new FuseNode({ document: doc, bottom, top });
-            expect(node.name).toBe("body.fuse");
+            expect(node.name).toBe("body.fuse1");
         });
     });
 

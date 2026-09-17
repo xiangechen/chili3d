@@ -3,11 +3,13 @@
 
 import type { IDocument } from "../document";
 import { Id, PropertyHistoryRecord, Transaction } from "../foundation";
+import { I18n } from "../i18n";
 import { BoundingBox } from "../math";
 import { property } from "../property";
 import { serializable, serialize } from "../serialize";
 import type { FaceMeshData, IShapeMeshData } from "../shape";
 import { MeshUtils } from "../shape/meshUtils";
+import { NodeUtils } from "./node";
 import { VisualNode } from "./visualNode";
 
 export interface FaceMaterialPairOptions {
@@ -30,10 +32,12 @@ export class FaceMaterialPair {
 
 export interface GeometryNodeOptions {
     document: IDocument;
-    name: string;
+    name?: string;
     materialId?: string | string[];
     id?: string;
 }
+
+const NoneName = "$$_NONE_$$";
 
 export abstract class GeometryNode extends VisualNode {
     @serialize()
@@ -58,11 +62,17 @@ export abstract class GeometryNode extends VisualNode {
     }
 
     constructor(options: GeometryNodeOptions) {
-        super(options.document, options.name, options.id ?? Id.generate());
+        super(options.document, options.name ?? NoneName, options.id ?? Id.generate());
         this.setPrivateValue(
             "materialId",
             options.materialId ?? options.document.modelManager.materials.at(0)?.id ?? "",
         );
+        if (this.name === NoneName) {
+            this.setPrivateValue(
+                "name",
+                NodeUtils.generateName(options.document, I18n.translate(this.display())),
+            );
+        }
     }
 
     protected _mesh: IShapeMeshData | undefined;

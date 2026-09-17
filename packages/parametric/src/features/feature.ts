@@ -260,6 +260,16 @@ export function completeTrackedHistory(
     };
 }
 
+/**
+ * A node reference a feature declares — the body resolves `nodeId` against the
+ * document to build the panel's link row (see `FeatureReference`).
+ */
+export interface FeatureNodeRef {
+    readonly key: string;
+    readonly display: I18nKeys;
+    readonly nodeId: string;
+}
+
 /** Per-feature-kind behavior. Implementations live next to their feature file. */
 export interface FeatureHandler<F extends FeatureData = any> {
     /** i18n key shown in the feature list; a function picks the key per feature (e.g. boolean operation). */
@@ -278,6 +288,13 @@ export interface FeatureHandler<F extends FeatureData = any> {
     evaluateParameters?(feature: F, scope: Map<string, number>): Result<void>;
     /** Ids of nodes this feature references — the body watches them for changes. */
     nodeIds(feature: F): string[];
+    /**
+     * Nodes the user is meant to reach from this feature (e.g. the sketch it
+     * consumes), shown as link rows in its panel row. A subset of `nodeIds` in
+     * practice: `nodeIds` is what the body must watch, this is what the user needs
+     * a door to. Dangles are dropped, not rendered.
+     */
+    references?(feature: F): FeatureNodeRef[];
     parameters(feature: F): FeatureParameter[];
     setParameter(feature: F, key: string, value: ParameterValue | boolean): F;
     /**

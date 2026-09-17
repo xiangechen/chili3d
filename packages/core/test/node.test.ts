@@ -119,4 +119,51 @@ describe("node utils", () => {
             expect(specialNodes).toContain(child4);
         });
     });
+
+    describe("NodeUtils.generateName", () => {
+        let doc: TestDocument;
+
+        beforeEach(() => {
+            doc = new TestDocument();
+        });
+
+        function addNode(name: string) {
+            const node = new FolderNode({ document: doc, name });
+            doc.modelManager.addNode(node);
+            return node;
+        }
+
+        test("should number from 1 when the document holds no node of that type", () => {
+            expect(NodeUtils.generateName(doc, "Box")).toBe("Box1");
+        });
+
+        test("should continue past the highest index in use", () => {
+            addNode("Box1");
+            addNode("Box3");
+
+            expect(NodeUtils.generateName(doc, "Box")).toBe("Box4");
+        });
+
+        test("should not reuse the index of a removed node", () => {
+            const box2 = addNode("Box2");
+            addNode("Box3");
+            doc.modelManager.rootNode.remove(box2);
+
+            expect(NodeUtils.generateName(doc, "Box")).toBe("Box4");
+        });
+
+        test("should ignore names that carry no index", () => {
+            addNode("Box");
+            addNode("Box_copy");
+            addNode("BoxA");
+
+            expect(NodeUtils.generateName(doc, "Box")).toBe("Box1");
+        });
+
+        test("should treat regex characters in the base name literally", () => {
+            addNode("AxB1");
+
+            expect(NodeUtils.generateName(doc, "A.B")).toBe("A.B1");
+        });
+    });
 });

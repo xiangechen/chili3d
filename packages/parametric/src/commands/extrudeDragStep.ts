@@ -10,6 +10,7 @@ import {
     type INode,
     type IStep,
     type IView,
+    type IVisualObject,
     Line,
     Plane,
     Precision,
@@ -20,23 +21,26 @@ import {
     type SnapResult,
     type VisualShapeData,
     VisualStates,
-    type XY,
+    VisualStateUtils,
     XYZ,
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { planeOfFace } from "../sketch/planeRef";
 import { SketchNode } from "../sketch/sketchNode";
+import { ARROW_HOVER_TOLERANCE, ARROW_LENGTH, distanceToSegment, pxSizedArrowLength } from "./arrowHandle";
+import { prioritizeSketchFaces } from "./profileFaceSort";
 
 const DRAG_THRESHOLD_SQ = 9; // px², below this a press-release is a click, not a drag
-const ARROW_HOVER_TOLERANCE = 10; // px, screen-space distance to the arrow shaft
-/** Baseline (world units) for the px/mm measurement; long enough to beat worldToScreen rounding. */
-const SCALE_MEASURE_BASELINE = 100;
 
-/** Canonical arrow length (mm); the cached geometry is built at this size and scaled on display. */
-export const ARROW_LENGTH = 40;
-
-/** Target on-screen arrow length (px); the world length adapts so zooming never resizes the arrow. */
-const ARROW_LENGTH_PX = 80;
+/**
+ * State of a profile face picked for the extrude: the translucent fill a selection
+ * usually gets, plus its boundary outlined, so the profile that will be swept reads
+ * apart from the faces that are merely hovered.
+ */
+export const SELECTED_PROFILE_STATE = VisualStateUtils.addState(
+    VisualStates.faceTransparent,
+    VisualStates.edgeSelected,
+);
 
 /**
  * The arrow's shaft segment in world space: base sits at the extrude's end face
@@ -73,8 +77,13 @@ export interface ExtrudeDragState {
 
 export interface ExtrudePreview {
     meshes: ShapeMeshData[];
-    /** True when the preview is a boolean result, rendered on top of the target body. */
-    onTop?: boolean;
+    /**
+     * Nodes whose display the preview replaces — hidden for as long as it is shown.
+     * A boolean preview *is* the target body with the operation applied, so the body
+     * has to come down: drawn together, the two overlap and the result reads as a
+     * ghost over the geometry it replaces instead of as the geometry itself.
+     */
+    hide?: INode[];
 }
 
 export interface ExtrudeDragData {
@@ -124,11 +133,17 @@ export class ExtrudeDragStep implements IStep {
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const data = this.handleStepData();
         const handler = new ExtrudeDragHandler(document, controller, data);
-        await document.picker.pickAsync(handler, this.tip, controller, false, "draw");
+        try {
+            await document.picker.pickAsync(handler, this.tip, controller, false, "draw");
+        } finally {
+            // Dispose first, always: the handler's cleanup is what puts back the nodes a
+            // boolean preview hid, and a body left invisible is a far louder failure than
+            // a stray preview mesh (a throwing pick subscriber must not cause either).
+            handler.dispose();
+        }
 
         const state = handler.state;
         const view = handler.commitView;
-        handler.dispose();
         if (controller.result?.status !== "success" || view === undefined) return undefined;
 
         return {
@@ -166,6 +181,10 @@ export class ExtrudeDragHandler implements IEventHandler {
     private _grabOffset = 0;
     private _arrowIds: number[] = [];
     private _previewIds: number[] = [];
+    /** Nodes the displayed preview hid (see `ExtrudePreview.hide`). */
+    private _hidden: INode[] = [];
+    /** Visual currently ghosted for the drag (see `syncSourceGhost`). */
+    private _ghosted: IVisualObject | undefined;
     private _hovered: VisualShapeData | undefined;
     /** The face the arrow is anchored to; re-detection yields new points, so track identity. */
     private _anchorFace: VisualShapeData | undefined;
@@ -395,7 +414,7 @@ export class ExtrudeDragHandler implements IEventHandler {
         // Refresh the arrow before syncing the selection: a throwing selection
         // subscriber must not leave the arrow at the stale position.
         this.refreshTempShapes(view);
-        this.document.selection.setSelectedShapes(this.state.faces, VisualStates.faceSelected, false);
+        this.document.selection.setSelectedShapes(this.state.faces, SELECTED_PROFILE_STATE, false);
         view.document.visual.update();
     }
 
@@ -469,9 +488,7 @@ export class ExtrudeDragHandler implements IEventHandler {
         const { start, end } = extrudeArrowSegment(this.state);
         const a = view.worldToScreen(start);
         const b = view.worldToScreen(end);
-        return (
-            ExtrudeDragHandler.distanceToSegment(event.offsetX, event.offsetY, a, b) <= ARROW_HOVER_TOLERANCE
-        );
+        return distanceToSegment(event.offsetX, event.offsetY, a, b) <= ARROW_HOVER_TOLERANCE;
     }
 
     private setArrowHover(view: IView, hovered: boolean) {
@@ -481,24 +498,14 @@ export class ExtrudeDragHandler implements IEventHandler {
         view.update();
     }
 
-    private static distanceToSegment(x: number, y: number, a: XY, b: XY): number {
-        const abx = b.x - a.x;
-        const aby = b.y - a.y;
-        const lengthSq = abx * abx + aby * aby;
-        const t =
-            lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((x - a.x) * abx + (y - a.y) * aby) / lengthSq));
-        return Math.hypot(x - a.x - t * abx, y - a.y - t * aby);
-    }
-
     /** Sketch profile faces, or planar faces of a parametric body (press-pull). */
     private detectProfileFace(view: IView, event: PointerEvent): VisualShapeData | undefined {
-        return view
-            .detectShapes(ShapeTypes.face, event.offsetX, event.offsetY)
-            .find(
-                (x) =>
-                    x.owner.node instanceof SketchNode ||
-                    (x.owner.node instanceof ParametricBodyNode && (x.shape as IFace).surface().isPlanar()),
-            );
+        const faces = prioritizeSketchFaces(view.detectShapes(ShapeTypes.face, event.offsetX, event.offsetY));
+        return faces.find(
+            (x) =>
+                x.owner.node instanceof SketchNode ||
+                (x.owner.node instanceof ParametricBodyNode && (x.shape as IFace).surface().isPlanar()),
+        );
     }
 
     private clearHover() {
@@ -532,18 +539,65 @@ export class ExtrudeDragHandler implements IEventHandler {
             this.document.visual.context.removeMesh(id);
         }
         this._previewIds = [];
+        this.restoreHiddenNodes();
         if (Math.abs(this.state.dist) >= Precision.Float) {
             const preview = this.data.buildPreview(this.state);
             for (const mesh of preview.meshes) {
-                this._previewIds.push(
-                    this.document.visual.context.displayMesh([mesh], {
-                        meshOpacity: 1,
-                        onTop: preview.onTop,
-                    }),
-                );
+                this._previewIds.push(this.document.visual.context.displayMesh([mesh], { meshOpacity: 1 }));
+            }
+            for (const node of preview.hide ?? []) {
+                this.document.visual.context.setVisible(node, false);
+                this._hidden.push(node);
             }
         }
+        this.syncSourceGhost();
         this.document.visual.update();
+    }
+
+    /**
+     * Ghosts a sketch the drag extrudes from. Its profile faces are real geometry in the
+     * node's mesh (`SketchNode.showProfileFaces`, what makes them pickable), so the
+     * transparent highlight lands on an opaque face and just tints it — the face has to
+     * go transparent too. Whole-visual state: the mesh's faces take the transparent
+     * material, its edges keep theirs, and picking is unaffected (it goes through the
+     * geometry, not the materials), so faces stay hoverable and toggleable mid-drag.
+     */
+    private syncSourceGhost() {
+        const node = this.state.node;
+        const visual = node instanceof SketchNode ? this.document.visual.context.getVisual(node) : undefined;
+        if (visual === this._ghosted) return;
+
+        this.clearSourceGhost();
+        if (visual === undefined) return;
+
+        // The drag owns the interaction: the picked profile faces are the selection that
+        // matters now, so the whole node comes out of the selection — a node-selected
+        // sketch would otherwise stay outlined edge to edge for the whole drag.
+        this.document.selection.setSelectedNodes([], false);
+        this.document.visual.highlighter.addState(visual, VisualStates.faceTransparent, ShapeTypes.shape);
+        this._ghosted = visual;
+    }
+
+    private clearSourceGhost() {
+        if (this._ghosted === undefined) return;
+        this.document.visual.highlighter.removeState(
+            this._ghosted,
+            VisualStates.faceTransparent,
+            ShapeTypes.shape,
+        );
+        this._ghosted = undefined;
+    }
+
+    /**
+     * Brings back the nodes the displayed preview hid. Each goes back to what its own
+     * flags say rather than to visible: `findIntersectingNode` filters on geometry only,
+     * so a hidden body can be the preview's target.
+     */
+    private restoreHiddenNodes() {
+        for (const node of this._hidden) {
+            this.document.visual.context.setVisible(node, node.visible && node.parentVisible);
+        }
+        this._hidden = [];
     }
 
     private refreshArrow(view?: IView) {
@@ -563,16 +617,8 @@ export class ExtrudeDragHandler implements IEventHandler {
     private updateArrowScale(view: IView) {
         // Measure at the fixed anchor, not at the moving extrude depth: under a
         // perspective camera the depth change would make the arrow pulsing while dragging.
-        const origin = this.state.anchor;
-        // A screen-parallel unit vector: perpendicular to both the view and the normal,
-        // falling back to the view's up when the normal points at the camera.
-        const side = view.direction().cross(this.state.normal).normalize() ?? view.up();
-        const a = view.worldToScreen(origin);
-        const b = view.worldToScreen(origin.add(side.multiply(SCALE_MEASURE_BASELINE)));
-        const pxPerUnit = a.distanceTo(b) / SCALE_MEASURE_BASELINE;
-        if (pxPerUnit > 1e-6) {
-            this.state.arrowLength = ARROW_LENGTH_PX / pxPerUnit;
-        }
+        const length = pxSizedArrowLength(view, this.state.anchor, this.state.normal);
+        if (length !== undefined) this.state.arrowLength = length;
     }
 
     /**
@@ -599,6 +645,7 @@ export class ExtrudeDragHandler implements IEventHandler {
         }
         this._arrowIds = [];
         this._previewIds = [];
+        this.restoreHiddenNodes();
     }
 
     private cleanup() {
@@ -607,6 +654,7 @@ export class ExtrudeDragHandler implements IEventHandler {
         this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
         this._cameraView = undefined;
         this.removeTempShapes();
+        this.clearSourceGhost();
         this.clearHover();
         PubSub.default.pub("clearInput");
         PubSub.default.pub("clearSelectionControl");

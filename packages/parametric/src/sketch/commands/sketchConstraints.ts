@@ -3,9 +3,15 @@
 
 import { AsyncController, CancelableCommand, command, PubSub } from "@chili3d/core";
 import { SketchEditor } from "../editor/sketchEditor";
-import { ConstraintKind, pointRefKey, type SketchEntityType, type SketchPointRef } from "../sketchModel";
+import { ConstraintKind, pointRefKey, type SketchPointRef } from "../sketchModel";
 import type { SketchSolver } from "../solver";
-import { allowsConstraintOnEntity } from "../solverEntities";
+import {
+    allowsConstraintOnEntity,
+    arcStartRef,
+    centerRef,
+    lineRefs,
+    tangentConstraintFor,
+} from "../solverEntities";
 
 function editorOrError(): SketchEditor | undefined {
     const editor = SketchEditor.getActive();
@@ -24,14 +30,6 @@ export abstract class SketchConstraintCommand extends CancelableCommand {
 
     protected abstract executeWithEditor(editor: SketchEditor): Promise<void>;
 }
-
-const lineRefs = (entityId: number): SketchPointRef[] => [
-    { entityId, pointIndex: 0 },
-    { entityId, pointIndex: 1 },
-];
-
-const centerRef = (entityId: number): SketchPointRef => ({ entityId, pointIndex: 0 });
-const arcStartRef = (entityId: number): SketchPointRef => ({ entityId, pointIndex: 1 });
 
 /** Same-kind constraint with the same ref set already exists — adding it would be redundant. */
 function hasDuplicate(solver: SketchSolver, kind: ConstraintKind, refs: SketchPointRef[]): boolean {
@@ -218,55 +216,6 @@ export class TangentConstraintCommand extends SketchConstraintCommand {
         }
         addAndCommit(editor, tangent.kind, tangent.refs);
     }
-}
-
-function tangentConstraintFor(
-    t1: SketchEntityType | undefined,
-    e1: number,
-    t2: SketchEntityType | undefined,
-    e2: number,
-): { kind: ConstraintKind; refs: SketchPointRef[] } | undefined {
-    const pair = [t1, t2].sort().join("+");
-    // normalize pick order so refs match the garlic params layout
-    if (pair === "circle+line") {
-        const [line, circle] = t1 === "line" ? [e1, e2] : [e2, e1];
-        return { kind: ConstraintKind.TangentLineCircle, refs: [...lineRefs(line), centerRef(circle)] };
-    }
-    if (pair === "arc+line") {
-        const [line, arc] = t1 === "line" ? [e1, e2] : [e2, e1];
-        return {
-            kind: ConstraintKind.TangentLineArc,
-            refs: [...lineRefs(line), centerRef(arc), arcStartRef(arc)],
-        };
-    }
-    return roundTangentConstraint(pair, t1, e1, e2);
-}
-
-/** The tangency kinds with no line in the pair — circles and arcs only. */
-function roundTangentConstraint(
-    pair: string,
-    t1: SketchEntityType | undefined,
-    e1: number,
-    e2: number,
-): { kind: ConstraintKind; refs: SketchPointRef[] } | undefined {
-    // refs match the garlic params layout, so the circle comes first here too
-    if (pair === "circle+circle") {
-        return { kind: ConstraintKind.TangentCircleCircle, refs: [centerRef(e1), centerRef(e2)] };
-    }
-    if (pair === "arc+arc") {
-        return {
-            kind: ConstraintKind.TangentArcArc,
-            refs: [centerRef(e1), arcStartRef(e1), centerRef(e2), arcStartRef(e2)],
-        };
-    }
-    if (pair === "arc+circle") {
-        const [circle, arc] = t1 === "circle" ? [e1, e2] : [e2, e1];
-        return {
-            kind: ConstraintKind.TangentCircleArc,
-            refs: [centerRef(circle), centerRef(arc), arcStartRef(arc)],
-        };
-    }
-    return undefined;
 }
 
 /** Picks a point and an entity (or a datum axis), constraining the point onto it. */

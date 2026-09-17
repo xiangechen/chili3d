@@ -17,6 +17,12 @@ export interface PickShapeOptions {
     highlightState?: VisualState;
     /** In multi mode, finish the pick automatically once this returns true. */
     canFinish?: (selected: VisualShapeData[]) => boolean;
+    /**
+     * Reorders what the pointer detects; the pick highlights and returns the first entry,
+     * so moving a shape to the front is how a caller expresses a preference between
+     * shapes that overlap in the viewport.
+     */
+    sortDetected?: (detected: VisualShapeData[]) => VisualShapeData[];
 }
 
 export interface PickNodeOptions {

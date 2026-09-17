@@ -26,7 +26,7 @@ describe("LineNode", () => {
 
         test("should set name from display()", () => {
             const node = new LineNode({ document: doc, start, end });
-            expect(node.name).toBe("body.line");
+            expect(node.name).toBe("body.line1");
         });
     });
 

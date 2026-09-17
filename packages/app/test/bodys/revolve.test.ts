@@ -41,7 +41,7 @@ describe("RevolvedNode", () => {
 
         test("should set name from display()", () => {
             const node = new RevolvedNode({ document: doc, profile, axis, angle: 90 });
-            expect(node.name).toBe("body.revol");
+            expect(node.name).toBe("body.revol1");
         });
 
         test("should accept partial angle", () => {

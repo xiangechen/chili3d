@@ -36,7 +36,7 @@ describe("SweepedNode", () => {
         test("should set name from display()", () => {
             const w: any = createMockWire();
             const node = new SweepedNode({ document: doc, profile: [w], path: w, round: false });
-            expect(node.name).toBe("body.sweep");
+            expect(node.name).toBe("body.sweep1");
         });
 
         test("should default round to false", () => {

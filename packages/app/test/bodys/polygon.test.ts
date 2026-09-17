@@ -29,7 +29,7 @@ describe("PolygonNode", () => {
 
         test("should set name from display()", () => {
             const node = new PolygonNode({ document: doc, points });
-            expect(node.name).toBe("body.polygon");
+            expect(node.name).toBe("body.polygon1");
         });
 
         test("isFace should default to false", () => {

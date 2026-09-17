@@ -5,13 +5,16 @@ import { BoundingBox, type IFace, type IShape, Matrix4, Precision, Result, type 
 import type { ResolvedProfile } from "./profileBuilder";
 
 /**
- * Sweeping faces into prisms and merging the ones that touch.
+ * The geometry behind a sweep: sweeping faces into prisms (`extrudePlain`, `sweepFaces`,
+ * `translateFace`) and merging the results into one solid (`fuseProfiles`,
+ * `combineShapes`, `anyPairTouches`).
  *
  * This is the **plain** path: it builds geometry and reports nothing about ids. Its
  * tracked counterparts — `sweepProfiles`, `sweepProfileTracked`, `fuseSweptPrisms` —
  * stay in `extrude.ts`, because they need the feature's own seeding and the
  * operation-id mappers, which are extrude's business. What is here is what both paths
- * share and what `commands/extrudeCommand.ts` reuses for its own preview.
+ * share, and the merge half is also what `commands/extrudeCommand.ts` reuses for its
+ * own preview.
  */
 
 /** Sweeps every profile along each direction and merges touching prisms (see `fuseProfiles`). */

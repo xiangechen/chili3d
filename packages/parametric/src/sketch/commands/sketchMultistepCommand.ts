@@ -4,6 +4,7 @@
 import { MultistepCommand, PubSub } from "@chili3d/core";
 import { applyAutoConstraints } from "../autoConstraints";
 import { SketchEditor } from "../editor/sketchEditor";
+import { toUV } from "../sketchModel";
 
 /**
  * Base class for in-sketch step commands: requires an active sketch editing session.
@@ -26,5 +27,10 @@ export abstract class SketchMultistepCommand extends MultistepCommand {
         applyAutoConstraints(this.editor.solver, entityId, { pointTolerance: this.editor.screenTolerance() });
         this.editor.solve(true);
         this.editor.commit();
+    }
+
+    /** Sketch (u, v) of the point picked by the step at `index`. */
+    protected uvOf(index: number): [number, number] {
+        return toUV(this.editor.node.plane, this.stepDatas[index].point!);
     }
 }

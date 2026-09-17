@@ -125,8 +125,7 @@ function evaluateTracked(
     toolShapes: IShape[],
     tracked: TrackedMethod,
 ): Result<IShape> {
-    const input = context.input;
-    const tracking = context.tracking;
+    const { input, tracking } = context;
     // Both are guaranteed by the caller's guards — the type just cannot see it.
     if (input === undefined || tracking === undefined) {
         return Result.err("boolean requires a preceding feature");

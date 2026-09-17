@@ -3,7 +3,9 @@
 
 import {
     AsyncController,
+    type INode,
     type IView,
+    type IVisualObject,
     Matrix4,
     Plane,
     PubSub,
@@ -28,6 +30,7 @@ import {
     ExtrudeDragHandler,
     ExtrudeDragStep,
     extrudeArrowSegment,
+    SELECTED_PROFILE_STATE,
 } from "../../src/commands/extrudeDragStep";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { SketchNode } from "../../src/sketch/sketchNode";
@@ -248,7 +251,7 @@ describe("ExtrudeDragHandler", () => {
         expect(handler.state.normal.isEqualTo(XYZ.unitX)).toBe(true);
         expect(handler.state.anchor.isEqualTo(new XYZ({ x: 0, y: 2, z: 2 }))).toBe(true);
         expect(handler.state.dist).toBe(0);
-        expect(setSelectedShapes).toHaveBeenCalledWith([face], VisualStates.faceSelected, false);
+        expect(setSelectedShapes).toHaveBeenCalledWith([face], SELECTED_PROFILE_STATE, false);
     });
 
     test("clicking a planar face of a parametric body switches the extrude target", () => {
@@ -282,7 +285,7 @@ describe("ExtrudeDragHandler", () => {
         expect(handler.state.normal.isEqualTo(XYZ.unitY)).toBe(true);
         expect(handler.state.origin.isEqualTo(new XYZ({ x: 0, y: 5, z: 0 }))).toBe(true);
         expect(handler.state.anchor.isEqualTo(new XYZ({ x: 1, y: 5, z: 2 }))).toBe(true);
-        expect(setSelectedShapes).toHaveBeenCalledWith([face], VisualStates.faceSelected, false);
+        expect(setSelectedShapes).toHaveBeenCalledWith([face], SELECTED_PROFILE_STATE, false);
     });
 
     test("clicking a non-planar face of a parametric body does nothing", () => {
@@ -297,6 +300,37 @@ describe("ExtrudeDragHandler", () => {
 
         expect(handler.state.node).toBe(sketch);
         expect(handler.state.faces).toEqual([]);
+    });
+
+    test("prefers the sketch profile over a coplanar solid face", () => {
+        doc.selection = createMockSelection();
+        const body = new ParametricBodyNode({ document: doc, features: [] });
+        const bodyFace = {
+            shape: {
+                shapeType: ShapeTypes.face,
+                surface: () => ({ isPlanar: () => true }),
+                transformedMul: () => ({
+                    normal: () => [new XYZ({ x: 0, y: 5, z: 0 }), XYZ.unitY],
+                    dispose: () => {},
+                }),
+            },
+            owner: { node: body },
+            transform: Matrix4.identity(),
+            indexes: [1],
+            point: new XYZ({ x: 1, y: 5, z: 2 }),
+        } as any;
+        const sketchFace = faceData(sketch, [2], new XYZ({ x: 1, y: 5, z: 2 }));
+        // Coplanar picks report the same depth, so the raycast order between them is
+        // arbitrary — the sketch has to win either way.
+        const view = createHandlerMockView({ document: doc, detectShapes: () => [bodyFace, sketchFace] });
+
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+        handler.pointerDown(view, createPointerEvent());
+        handler.pointerUp(view, createPointerEvent());
+
+        expect(handler.state.node).toBe(sketch);
+        expect(handler.state.faces).toEqual([sketchFace]);
+        expect(handler.state.normal.isEqualTo(XYZ.unitZ)).toBe(true);
     });
 
     test("shift-click toggles faces of the current sketch and keeps at least one", () => {
@@ -349,6 +383,109 @@ describe("ExtrudeDragHandler", () => {
         handler.pointerUp(viewB, up);
         expect(handler.state.faces).toEqual([faceA]);
         expect(handler.state.anchor).toBe(anchorA);
+    });
+
+    test("hides the node a boolean preview replaces, and restores it on teardown", () => {
+        const target = new ParametricBodyNode({ document: doc, features: [] });
+        const setVisible = rs.spyOn(doc.visual.context, "setVisible");
+        const data = dragData();
+        data.buildPreview = rs.fn((_state: any) => ({ meshes: [fakeMesh()], hide: [target] }));
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+
+        handler.setDepth(5);
+        expect(setVisible).toHaveBeenCalledWith(target, false);
+
+        handler.dispose();
+        expect(setVisible).toHaveBeenLastCalledWith(target, true);
+    });
+
+    test("a replaced node goes back to what its own flags say, not blindly to visible", () => {
+        const target = new ParametricBodyNode({ document: doc, features: [] });
+        target.visible = false;
+        const setVisible = rs.spyOn(doc.visual.context, "setVisible");
+        const data = dragData();
+        data.buildPreview = rs.fn((_state: any) => ({ meshes: [fakeMesh()], hide: [target] }));
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+
+        handler.setDepth(5);
+        handler.dispose();
+
+        expect(setVisible).toHaveBeenLastCalledWith(target, false);
+    });
+
+    test("drops the preview restores the node it had hidden", () => {
+        const target = new ParametricBodyNode({ document: doc, features: [] });
+        const setVisible = rs.spyOn(doc.visual.context, "setVisible");
+        const data = dragData();
+        data.buildPreview = rs.fn((_state: any) => ({ meshes: [fakeMesh()], hide: [target] }));
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+
+        handler.setDepth(5);
+        expect(setVisible).toHaveBeenCalledWith(target, false);
+
+        // Back to zero depth: no preview, so nothing stands in for the body any more.
+        handler.setDepth(0);
+        expect(setVisible).toHaveBeenLastCalledWith(target, true);
+    });
+
+    test("ghosts the extruded sketch so its opaque profile faces do not swallow the highlight", () => {
+        const { highlighter, addCalls, removeCalls } = createMockHighlighter();
+        const sketchVisual = { id: "sketch-visual" } as unknown as IVisualObject;
+        doc.visual = createMockVisualWithDocument(doc, {
+            highlighter,
+            context: { getVisual: () => sketchVisual },
+        });
+        const setSelectedNodes = rs.fn((_nodes: INode[], _toggle: boolean) => 0);
+        doc.selection = { ...createMockSelection(), setSelectedNodes } as any;
+
+        const handler = new ExtrudeDragHandler(doc, controller, dragData([faceData(sketch)]));
+
+        expect(addCalls).toEqual([
+            { shape: sketchVisual, state: VisualStates.faceTransparent, type: ShapeTypes.shape, indexes: [] },
+        ]);
+        // The sketch's own node selection would hold the same whole-visual state slot.
+        expect(setSelectedNodes).toHaveBeenCalledWith([], false);
+
+        handler.dispose();
+        expect(removeCalls).toEqual([
+            { shape: sketchVisual, state: VisualStates.faceTransparent, type: ShapeTypes.shape, indexes: [] },
+        ]);
+    });
+
+    test("moves the ghost when another sketch becomes the extrude source", () => {
+        const { highlighter, addCalls, removeCalls } = createMockHighlighter();
+        const visualOf = (node: unknown) => ({ node }) as unknown as IVisualObject;
+        doc.visual = createMockVisualWithDocument(doc, {
+            highlighter,
+            context: { getVisual: (node: INode) => visualOf(node) },
+        });
+        doc.selection = createMockSelection();
+        const otherFace = faceData(other, [0], new XYZ({ x: 1, y: 0, z: 0 }));
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+        const view = createHandlerMockView({ document: doc, detectShapes: () => [otherFace] });
+
+        handler.pointerDown(view, createPointerEvent());
+        handler.pointerUp(view, createPointerEvent());
+
+        expect(handler.state.node).toBe(other);
+        expect(addCalls.map((x) => x.shape)).toEqual([visualOf(sketch), visualOf(other)]);
+        expect(removeCalls.map((x) => x.shape)).toEqual([visualOf(sketch)]);
+    });
+
+    test("does not ghost the body a face is press-pulled from", () => {
+        const { highlighter, addCalls } = createMockHighlighter();
+        doc.visual = createMockVisualWithDocument(doc, {
+            highlighter,
+            context: { getVisual: () => ({}) as unknown as IVisualObject },
+        });
+        const body = new ParametricBodyNode({ document: doc, features: [] });
+        const data = dragData([faceData(body)]);
+        // Press-pull: the command hands over the body the face belongs to.
+        data.node = body;
+
+        new ExtrudeDragHandler(doc, controller, data);
+
+        expect(addCalls).toEqual([]);
     });
 
     test("hovering a sketch profile face highlights it", () => {

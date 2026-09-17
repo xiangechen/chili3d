@@ -3,7 +3,7 @@
 
 import { BoundingBox, type IEdge, type IFace, ShapeTypes, type XYZ } from "@chili3d/core";
 import { bestEdgeScore, captureEdgeRef, type EdgeRef } from "./edgeRef";
-import { registeredEntities } from "./profileEntities";
+import { profileEntityIds } from "./profileEntities";
 import { distance, type Vec3, vec3 } from "./refGeometry";
 
 /**
@@ -38,7 +38,7 @@ export interface ProfileRef {
      * MERGED from several faces combines their ids into a compound (`combineIds`), so an id hit
      * (`idsOverlap`) adopts every piece of a later re-split as well as a re-merge of the pieces —
      * mirroring EdgeRef's whole-span adoption. A ref captured from ONE piece of an already split
-     * face narrows to that piece instead (`matchSourceFaceIndexes` in pressPull.ts).
+     * face narrows to that piece instead (`matchSourceFaceIndexes` in sourceFaceMatcher.ts).
      */
     readonly id?: string;
     /**
@@ -69,20 +69,20 @@ export function captureProfileRef(
     captureNormal = false,
 ): ProfileRef {
     const edges = boundaryEdges(face).map((edge) => captureEdgeRef(edge));
-    const entities = registeredEntities(face);
-    const ref: ProfileRef = {
-        edges,
-        ...captureRegionFingerprint(face),
-        ...(id !== undefined ? { id } : {}),
-        // Set only when true: absent keeps the serialized shape of older refs.
-        ...(splitPiece === true ? { splitPiece: true } : {}),
-        ...(entities !== undefined ? { entities } : {}),
-    };
+    const entities = profileEntityIds(face);
+    let normal: Vec3 | undefined;
     if (captureNormal) {
-        const normal = face.normal(0, 0)[1].normalize();
-        if (normal !== undefined) return { ...ref, normal: vec3(normal) };
+        const xyz = face.normal(0, 0)[1].normalize();
+        if (xyz !== undefined) normal = vec3(xyz);
     }
-    return ref;
+    return {
+        edges,
+        entities,
+        splitPiece,
+        id,
+        normal,
+        ...captureRegionFingerprint(face),
+    };
 }
 
 /** Edges of the face's outer wire — the profile's identity; hole wires are incidental. */
@@ -94,7 +94,7 @@ function boundaryEdges(face: IFace): IEdge[] {
  * Sum of the ref's per-edge `bestEdgeScore`s; falls back to `regionScore` when the
  * boundary re-split into a different edge count (crossing sketches) or the curve
  * kinds changed. Also the scorer of the press-pull id-hit narrowing (see
- * `matchSourceFaceIndexes` in pressPull.ts). A ref carrying an outward `normal`
+ * `matchSourceFaceIndexes` in sourceFaceMatcher.ts). A ref carrying an outward `normal`
  * (source-face picks) rejects candidates facing away before any geometry is scored.
  */
 export function profileScore(face: IFace, ref: ProfileRef): number {

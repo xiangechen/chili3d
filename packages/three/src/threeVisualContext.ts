@@ -107,6 +107,9 @@ export class ThreeVisualContext implements IVisualContext {
             material.color.set(value);
         } else if (!path.includes(".")) {
             material[path] = value instanceof Texture ? ThreeHelper.loadTexture(value) : value;
+            if (path === "opacity") {
+                material["transparent"] = value < 1;
+            }
         } else {
             this.setTextureValue(source, material, path, value);
         }

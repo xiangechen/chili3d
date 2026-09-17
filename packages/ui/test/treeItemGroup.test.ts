@@ -24,7 +24,6 @@ rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
     expanderIcon: "tig-expander",
     toolExpanderIcon: "tig-tool-expander",
     hide: "tig-hide",
-    reference: "tig-reference",
 }));
 
 // Mock core: no-op Binding, immediate Transaction
@@ -51,46 +50,6 @@ class MockGroupNode {
     nextSibling: unknown;
     onPropertyChanged(_handler: unknown) {}
     removePropertyChanged(_handler: unknown) {}
-}
-
-type PropertyHandler = (property: string, model: unknown) => void;
-
-class MockRefNode {
-    visible = true;
-    parentVisible: boolean | undefined = true;
-    parent: unknown;
-    onPropertyChanged(_handler: unknown) {}
-    removePropertyChanged(_handler: unknown) {}
-
-    constructor(
-        readonly id: string,
-        readonly name: string,
-    ) {}
-}
-
-/** Satisfies the real `isFeatureListNode` guard from the partially-mocked core. */
-class MockFeatureListNode extends MockGroupNode {
-    refs: MockRefNode[] = [];
-    private handlers = new Set<PropertyHandler>();
-
-    override onPropertyChanged(handler: unknown) {
-        this.handlers.add(handler as PropertyHandler);
-    }
-    override removePropertyChanged(handler: unknown) {
-        this.handlers.delete(handler as PropertyHandler);
-    }
-    emitProperty(property: string) {
-        this.handlers.forEach((h) => h(property, this));
-    }
-
-    featureItems() {
-        return [];
-    }
-    setFeatureParameter() {}
-    removeFeature() {}
-    referencedNodes() {
-        return this.refs;
-    }
 }
 
 function makeDoc() {
@@ -297,126 +256,5 @@ describe("TreeGroup", () => {
             expect(group.items.children[1]).toBe(middle);
             expect(group.items.children[2]).toBe(last);
         });
-    });
-});
-
-describe("TreeGroup reference rows", () => {
-    afterEach(() => {
-        document.body.innerHTML = "";
-    });
-
-    const refA = () => new MockRefNode("sketch-1", "Sketch 1");
-    const refB = () => new MockRefNode("sketch-2", "Sketch 2");
-
-    function createFeatureGroup(node = new MockFeatureListNode()) {
-        return createGroup(node as unknown as INodeLinkedList);
-    }
-
-    function referenceRowsOf(group: TreeGroup): HTMLElement[] {
-        return Array.from(group.querySelectorAll("tree-reference")) as HTMLElement[];
-    }
-
-    test("should render one mirror row per referenced node", () => {
-        const node = new MockFeatureListNode();
-        node.refs = [refA(), refB()];
-        const { group } = createFeatureGroup(node);
-
-        const rows = referenceRowsOf(group);
-        expect(rows.length).toBe(2);
-        rows.forEach((row) => expect(row.classList.contains("tig-reference")).toBe(true));
-    });
-
-    test("should render mirror rows before real child rows", () => {
-        const node = new MockFeatureListNode();
-        node.refs = [refA()];
-        const { group } = createFeatureGroup(node);
-        const tool = new TreeModel(
-            makeDoc(),
-            new MockRefNode("tool-1", "tool") as unknown as INodeLinkedList,
-        );
-        group.appendChild(tool as unknown as Node);
-
-        const container = group.children[0];
-        const refContainer = referenceRowsOf(group)[0].parentElement!;
-        const order = Array.from(container.children);
-        expect(order.indexOf(refContainer)).toBeLessThan(order.indexOf(group.items));
-    });
-
-    test("should expose the real node on the mirror row and forbid dragging", () => {
-        const node = new MockFeatureListNode();
-        const sketch = refA();
-        node.refs = [sketch];
-        const { group } = createFeatureGroup(node);
-
-        const row = referenceRowsOf(group)[0] as unknown as TreeItem;
-        expect(row.node as unknown).toBe(sketch);
-        expect(row.draggable).toBe(false);
-    });
-
-    test("should render no mirror rows for a plain group", () => {
-        const { group } = createGroup();
-        expect(referenceRowsOf(group).length).toBe(0);
-    });
-
-    test("should show the expander for a childless body with references", () => {
-        const node = new MockFeatureListNode();
-        node.refs = [refA()];
-        const { group } = createFeatureGroup(node);
-        expect(group.expanderIcon.classList.contains("tig-hide")).toBe(false);
-    });
-
-    test("should keep the expander hidden for a childless body without references", () => {
-        const { group } = createFeatureGroup();
-        expect(group.expanderIcon.classList.contains("tig-hide")).toBe(true);
-    });
-
-    test("refreshReferences should rebuild rows when the referenced ids change", () => {
-        const node = new MockFeatureListNode();
-        node.refs = [refA()];
-        const { group } = createFeatureGroup(node);
-
-        node.refs = [refB()];
-        group.refreshReferences();
-
-        const rows = referenceRowsOf(group);
-        expect(rows.length).toBe(1);
-        expect((rows[0] as unknown as TreeItem).node.id).toBe("sketch-2");
-    });
-
-    test("refreshReferences should keep the rows when the referenced ids are unchanged", () => {
-        const node = new MockFeatureListNode();
-        const sketch = refA();
-        node.refs = [sketch];
-        const { group } = createFeatureGroup(node);
-        const before = referenceRowsOf(group)[0];
-
-        group.refreshReferences();
-
-        expect(referenceRowsOf(group)[0]).toBe(before);
-    });
-
-    test("should rebuild mirror rows when a connected body emits a property change", () => {
-        const node = new MockFeatureListNode();
-        node.refs = [refA()];
-        const { group } = createFeatureGroup(node);
-        document.body.appendChild(group);
-
-        node.refs = [refA(), refB()];
-        node.emitProperty("featuresJson");
-
-        expect(referenceRowsOf(group).length).toBe(2);
-    });
-
-    test("collapsing should hide the reference container too", () => {
-        const node = new MockFeatureListNode();
-        node.refs = [refA()];
-        const { group } = createFeatureGroup(node);
-        const container = referenceRowsOf(group)[0].parentElement!;
-
-        group.isExpanded = false;
-        expect(container.classList.contains("tig-hide")).toBe(true);
-
-        group.isExpanded = true;
-        expect(container.classList.contains("tig-hide")).toBe(false);
     });
 });

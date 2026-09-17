@@ -4,11 +4,13 @@
 import {
     type AsyncController,
     BoundingBox,
+    type I18nKeys,
     type INode,
     isCancelableCommand,
     Matrix4,
     NodeUtils,
     Plane,
+    PubSub,
     Result,
     Serializer,
     type ShapeType,
@@ -827,6 +829,27 @@ describe("ParametricBodyNode", () => {
         expect((body.features[0] as ExtrudeFeatureData).profiles).toBeUndefined();
     });
 
+    test("reselectShapes tells the user when an edge re-pick picks nothing", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        mockSelection();
+        // The selection control only counts, it does not disable the confirm button, so
+        // confirming with nothing picked is reachable — and was silent before.
+        doc.picker.pickShape = rs.fn(() => Promise.resolve([])) as any;
+        const onToast = rs.fn((_message: I18nKeys) => {});
+        PubSub.default.sub("showToast", onToast);
+        const undoCount = doc.history.undoCount();
+        try {
+            await body.reselectShapes("f2");
+        } finally {
+            PubSub.default.remove("showToast", onToast);
+        }
+
+        expect(onToast).toHaveBeenCalledWith("toast.select.noSelected");
+        expect(body.features[1]).toMatchObject({ edges: [EDGE_REF] });
+        expect(doc.history.undoCount()).toBe(undoCount);
+    });
+
     test("reselectShapes cancel keeps the extrude profiles unchanged", async () => {
         const extrude: ExtrudeFeatureData = {
             ...extrudeFeature(sketch.id),
@@ -839,12 +862,19 @@ describe("ParametricBodyNode", () => {
             return Promise.resolve([]);
         }) as any;
         const undoCount = doc.history.undoCount();
-
-        await body.reselectShapes("f1");
+        const onToast = rs.fn((_message: I18nKeys) => {});
+        PubSub.default.sub("showToast", onToast);
+        try {
+            await body.reselectShapes("f1");
+        } finally {
+            PubSub.default.remove("showToast", onToast);
+        }
 
         expect(body.features[0]).toMatchObject({ profiles: [{ edges: [EDGE_REF] }] });
         expect(doc.history.undoCount()).toBe(undoCount);
         expect(sketch.showProfileFaces).toBe(true);
+        // A cancel is not a failed pick: it stays silent.
+        expect(onToast).not.toHaveBeenCalled();
     });
 
     test("reselectShapes runs as the application's executing command", async () => {
@@ -1082,7 +1112,7 @@ describe("ParametricBodyNode", () => {
     });
 });
 
-describe("ParametricBodyNode.referencedNodes", () => {
+describe("ParametricBodyNode feature references", () => {
     let doc: TestDocument;
     let sketch: SketchNode;
     let mocks: ReturnType<typeof setupMocks>;
@@ -1114,24 +1144,39 @@ describe("ParametricBodyNode.referencedNodes", () => {
         };
     }
 
-    test("should return the sketch referenced by an extrude feature", () => {
+    test("should give an extrude feature its sketch as a reference", () => {
         const body = bodyWith([extrudeFeature(sketch.id)]);
-        expect(body.referencedNodes()).toEqual([sketch]);
+        expect(body.featureItems()[0].references).toEqual([
+            { key: "sketchId", display: "body.sketch", node: sketch },
+        ]);
     });
 
-    test("should return sketches of extrude and revolve features in feature order", () => {
-        const second = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
-        doc.modelManager.addNode(second);
-        const body = bodyWith([extrudeFeature(sketch.id), revolveFeature(second.id)]);
-        expect(body.referencedNodes()).toEqual([sketch, second]);
+    test("should give a revolve feature its sketch as a reference", () => {
+        const body = bodyWith([revolveFeature(sketch.id)]);
+        expect(body.featureItems()[0].references).toEqual([
+            { key: "sketchId", display: "body.sketch", node: sketch },
+        ]);
     });
 
-    test("should dedupe a sketch referenced by multiple features", () => {
+    test("should keep one reference per feature when a sketch serves several", () => {
         const body = bodyWith([extrudeFeature(sketch.id), revolveFeature(sketch.id)]);
-        expect(body.referencedNodes()).toEqual([sketch]);
+        const items = body.featureItems();
+        expect(items[0].references?.map((ref) => ref.node)).toEqual([sketch]);
+        expect(items[1].references?.map((ref) => ref.node)).toEqual([sketch]);
     });
 
-    test("should exclude boolean tool nodes", () => {
+    test("should give a press-pull extrude (source faces, no sketch) no reference", () => {
+        const feature: ExtrudeFeatureData = {
+            id: "f1",
+            type: "extrude",
+            depth: 5,
+            source: { nodeId: "body-1", profiles: [] },
+        };
+        const body = bodyWith([feature]);
+        expect(body.featureItems()[0].references).toBeUndefined();
+    });
+
+    test("should give a boolean feature no reference, its tools being real children", () => {
         const tool = bodyWith([extrudeFeature(sketch.id)]);
         const booleanFeature: BooleanFeatureData = {
             id: "f3",
@@ -1140,11 +1185,36 @@ describe("ParametricBodyNode.referencedNodes", () => {
             toolIds: [tool.id],
         };
         const body = bodyWith([extrudeFeature(sketch.id), booleanFeature]);
-        expect(body.referencedNodes()).toEqual([sketch]);
+        expect(body.featureItems()[1].references).toBeUndefined();
     });
 
-    test("should exclude references that no longer resolve to a sketch", () => {
+    test("should drop a reference that no longer resolves", () => {
         const body = bodyWith([extrudeFeature("missing-sketch")]);
-        expect(body.referencedNodes()).toEqual([]);
+        expect(body.featureItems()[0].references).toBeUndefined();
+    });
+
+    test("activating a reference opens the node, the way a tree double-click does", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            body.activateReference("f1", "sketchId");
+            expect(pub).toHaveBeenCalledWith("nodeDoubleClicked", sketch);
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("activating an unknown feature or key publishes nothing", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            // `source` is not a declared reference of this feature (it has none), and
+            // a feature id that is gone resolves to nothing.
+            body.activateReference("f1", "source");
+            body.activateReference("missing-feature", "sketchId");
+            expect(pub).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+        }
     });
 });

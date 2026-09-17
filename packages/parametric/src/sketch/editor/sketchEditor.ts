@@ -547,9 +547,13 @@ export class SketchEditor implements IDisposable {
         this.commit();
     }
 
-    /** Re-renders the external-reference display (called after refs are added/removed). */
+    /**
+     * Re-renders the session overlays that follow the solver's geometry — the
+     * external references and the entity point markers — after refs were added,
+     * removed or re-resolved.
+     */
     refreshExternalDisplay(): void {
-        this.eventHandler.refreshExternalRefs();
+        this.eventHandler.refreshGeometryOverlays();
     }
 
     commit(): void {

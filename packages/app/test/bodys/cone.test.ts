@@ -28,7 +28,7 @@ describe("ConeNode", () => {
 
         test("should set name from display()", () => {
             const node = new ConeNode({ document: doc, normal, center, radius: 1, dz: 1 });
-            expect(node.name).toBe("body.cone");
+            expect(node.name).toBe("body.cone1");
         });
     });
 

@@ -13,7 +13,8 @@
  * tracked id, and `matchSourceFaceIndexes` adopted EVERY id-overlapping face — one
  * pick on a piece swept its siblings too. The root fix mirrors `EdgeRef.splitPiece`
  * on `ProfileRef`: a pick whose id is already shared at capture time is stamped
- * `splitPiece` (the press-pull command), and `narrowToPickedPiece` (extrude.ts) never
+ * `splitPiece` (the press-pull command), and `narrowToPickedPiece` (sourceFaceMatcher.ts)
+ * never
  * widens such a ref — exactly one fingerprint-exact piece claims it, a stale
  * fingerprint adopts the clear nearest piece, and a tie fails "Face match is
  * ambiguous after rebuild". Legacy refs without the flag keep whole-span adoption.

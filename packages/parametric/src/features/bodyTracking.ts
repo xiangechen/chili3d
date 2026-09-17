@@ -58,6 +58,15 @@ export interface IBodyTimelineNode extends IBodyTrackingNode {
     readonly featureCount: number;
     timelineStateAt(index: number): FeatureTimelineState | undefined;
     /**
+     * Feature-list index of the boolean that consumes `nodeId` as a tool — the anchor a
+     * press-pull sourced on THIS body resolves against once this body has absorbed the
+     * press-pulling host: the host's geometry now sits inside the final shape (the picked
+     * face is buried in the fused solid), so matching is circular unless the refs are read
+     * off `timelineStateAt` just before that boolean — the shape this body still had when
+     * the host was separate. Undefined when no boolean here takes `nodeId` as a tool.
+     */
+    consumingFeatureIndex(nodeId: string): number | undefined;
+    /**
      * Feature-list index the chain is rolled back to for a session preview
      * (`ParametricBodyNode.setRollbackIndex`); undefined in normal operation. While
      * set, the node's shape and timeline are a transient preview that lacks every

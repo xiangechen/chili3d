@@ -26,7 +26,7 @@ describe("ExtrudeNode", () => {
 
         test("should set name from display()", () => {
             const node = new ExtrudeNode({ document: doc, section, length: 10 });
-            expect(node.name).toBe("body.extrude");
+            expect(node.name).toBe("body.extrude1");
         });
     });
 

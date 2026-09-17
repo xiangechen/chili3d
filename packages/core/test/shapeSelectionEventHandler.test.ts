@@ -348,6 +348,19 @@ describe("SubshapeSelectionHandler", () => {
             expect(passedShapeFilter).toBe(shapeFilter);
             expect(passedNodeFilter).toBe(nodeFilter);
         });
+
+        test("should highlight the first shape sortDetected moves to the front", () => {
+            const { handler, view, addCalls } = setupSubshapeSelectionHandler();
+            const first = createVisualShapeData({ indexes: [1] });
+            const second = createVisualShapeData({ indexes: [2] });
+            view.detectShapes = () => [first, second];
+            handler.sortDetected = (detected: VisualShapeData[]) => [...detected].reverse();
+
+            handler.pointerMove(view, createPointerEvent());
+
+            expect(addCalls).toHaveLength(1);
+            expect(addCalls[0].indexes).toEqual([2]);
+        });
     });
 
     describe("highlightNext (Tab cycling)", () => {

@@ -24,8 +24,7 @@ import {
  *   to the closest unambiguous edge instead.
  * - **`splitPiece`** records that the id was already shared by several edges at capture time —
  *   a boolean had split the original edge and the pick is just one piece. `matchEdgesAnchored`
- *   uses it to never widen such a ref to the whole span. Absent on older documents, where refs
- *   keep the whole-span adoption.
+ *   uses it to never widen such a ref to the whole span.
  */
 export type EdgeRef =
     | { kind: "line"; start: Vec3; end: Vec3; edgeId?: string; splitPiece?: boolean }

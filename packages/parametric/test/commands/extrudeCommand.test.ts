@@ -16,6 +16,7 @@ import {
 import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ExtrudeFeatureCommand } from "../../src/commands/extrudeCommand";
+import { SELECTED_PROFILE_STATE } from "../../src/commands/extrudeDragStep";
 import type { ExtrudeFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import type { SketchData } from "../../src/sketch/sketchModel";
@@ -206,7 +207,7 @@ describe("ExtrudeFeatureCommand profile step", () => {
             expect(face.point).toEqual(new XYZ({ x: 0.5, y: 0.5, z: 0 }));
             expect(setSelectedShapes).toHaveBeenCalledTimes(1);
             expect(setSelectedShapes.mock.calls[0][0]).toEqual(result!.shapes);
-            expect(setSelectedShapes.mock.calls[0][1]).toBe(VisualStates.faceSelected);
+            expect(setSelectedShapes.mock.calls[0][1]).toBe(SELECTED_PROFILE_STATE);
         } finally {
             restoreFactory();
         }
@@ -250,6 +251,11 @@ describe("ExtrudeFeatureCommand profile step", () => {
         expect(options.shapeFilter.allow(curved, Matrix4.identity())).toBe(false);
         expect(result!.nodes![0]).toBe(sketch);
         expect(result!.shapes).toBe(picked);
+        // A sketch drawn on a solid face is coplanar with it, so the viewport reports the
+        // two in an order that flips as the pointer moves: the sketch has to lead.
+        const bodyFace = faceData(new ParametricBodyNode({ document: doc, features: [] }));
+        const sketchFace = faceData(sketch);
+        expect(options.sortDetected([bodyFace, sketchFace])).toEqual([sketchFace, bodyFace]);
     });
 
     test("the interactive filter allows sketches and parametric bodies", async () => {
@@ -309,7 +315,8 @@ describe("ExtrudeFeatureCommand consumption", () => {
             const meshes = (cmd as any).buildPreview(state);
 
             expect(meshes.meshes).toEqual([faceMesh, edgeMesh]);
-            expect(meshes.onTop).toBe(false);
+            // No operation: nothing to stand in for, so nothing is hidden.
+            expect(meshes.hide).toBeUndefined();
             expect(prismFn).toHaveBeenCalledWith(face, new XYZ({ x: 0, y: 0, z: 5 }));
             expect(prism.dispose).toHaveBeenCalled();
         } finally {
@@ -445,7 +452,9 @@ describe("ExtrudeFeatureCommand consumption", () => {
             const preview = (cmd as any).buildPreview(state);
 
             expect(fuseFn).toHaveBeenCalledTimes(1);
-            expect(preview.onTop).toBe(true);
+            // The result stands in for the body it was built from: the drag step hides
+            // that node, so the preview is not drawn over geometry it duplicates.
+            expect(preview.hide).toEqual([target]);
             expect(preview.meshes).toEqual([faceMesh]);
             expect(prism.dispose).toHaveBeenCalled();
             expect(booleanResult.dispose).toHaveBeenCalled();

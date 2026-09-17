@@ -24,7 +24,7 @@ describe("BooleanNode", () => {
 
         test("should set name from display()", () => {
             const node = new BooleanNode({ document: doc, booleanShape });
-            expect(node.name).toBe("body.bolean");
+            expect(node.name).toBe("body.bolean1");
         });
     });
 

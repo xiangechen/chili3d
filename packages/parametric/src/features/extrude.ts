@@ -30,7 +30,7 @@ import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { profileEdgeEntityIds, registerProfileEdgeEntities } from "./profileEntities";
 import { captureProfileRef } from "./profileRef";
 import { profileEdgeSeeds } from "./profileSeeds";
-import { anyPairTouches, combineShapes, extrudePlain, translateFace } from "./sweep";
+import { anyPairTouches, combineShapes, extrudePlain, translateFace } from "./sweepGeometry";
 
 export function findSketch(document: IDocument, id: string): SketchNode | undefined {
     const node = document.modelManager.findNode((n) => n.id === id);
@@ -44,6 +44,13 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
 
     nodeIds: (feature) =>
         [feature.sketchId, feature.source?.nodeId].filter((x): x is string => x !== undefined),
+
+    // Only the sketch: `source` is the body being press-pulled, which the tree
+    // already shows and the feature row does not need a second door to.
+    references: (feature) =>
+        feature.sketchId === undefined
+            ? []
+            : [{ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId }],
 
     parameters: (feature) => [
         { key: "depth", display: "option.command.depth", value: feature.depth },

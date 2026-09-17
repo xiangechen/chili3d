@@ -46,7 +46,7 @@ describe("FaceNode", () => {
 
         test("should set name from display()", () => {
             const node = new FaceNode({ document: doc, shapes: [createMockEdge()] as any });
-            expect(node.name).toBe("body.face");
+            expect(node.name).toBe("body.face1");
         });
 
         test("should accept empty shapes array", () => {

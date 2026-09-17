@@ -27,7 +27,7 @@ describe("RectNode", () => {
 
         test("should set name from display()", () => {
             const node = new RectNode({ document: doc, plane, dx: 10, dy: 20 });
-            expect(node.name).toBe("body.rect");
+            expect(node.name).toBe("body.rect1");
         });
 
         test("isFace should default to false", () => {

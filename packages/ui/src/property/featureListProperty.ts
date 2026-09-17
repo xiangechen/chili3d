@@ -2,8 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Binding,
     type FeatureItem,
     type FeatureParameter,
+    type FeatureReference,
     I18n,
     type I18nKeys,
     type IDocument,
@@ -128,7 +130,26 @@ export class FeatureListProperty extends HTMLElement {
         return div(
             { className: style.body },
             ...(message === undefined ? [] : [message]),
+            ...(item.references ?? []).map((ref) => this.referenceRow(item, ref)),
             ...item.parameters.map((param) => this.parameterRow(item, param)),
+        );
+    }
+
+    /**
+     * A node this feature holds (e.g. its sketch). The name is the door: click
+     * selects the node, double-click opens it (the node decides what opening means —
+     * for a sketch, entering its editing session).
+     */
+    private referenceRow(item: FeatureItem, ref: FeatureReference) {
+        return div(
+            { className: style.param },
+            span({ className: commonStyle.propertyName, textContent: new Localize(ref.display) }),
+            span({
+                className: style.reference,
+                textContent: new Binding(ref.node, "name"),
+                onclick: () => this.document.selection.setSelectedNodes([ref.node], false),
+                ondblclick: () => this.node.activateReference?.(item.id, ref.key),
+            }),
         );
     }
 

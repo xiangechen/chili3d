@@ -27,7 +27,7 @@ describe("CircleNode", () => {
 
         test("should set name from display()", () => {
             const node = new CircleNode({ document: doc, normal, center, radius: 5 });
-            expect(node.name).toBe("body.circle");
+            expect(node.name).toBe("body.circle1");
         });
 
         test("isFace should default to false", () => {

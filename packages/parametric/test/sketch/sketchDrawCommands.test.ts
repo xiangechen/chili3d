@@ -4,6 +4,9 @@
 import { Plane, PubSub, XYZ } from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { SketchArcCommand } from "../../src/sketch/commands/sketchArc";
+import { SketchCircleCommand } from "../../src/sketch/commands/sketchCircle";
+import { SketchLineCommand } from "../../src/sketch/commands/sketchLine";
+import type { SketchPointSnapData } from "../../src/sketch/commands/sketchPointStep";
 import { SketchRectangleCommand } from "../../src/sketch/commands/sketchRectangle";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { ConstraintKind, originRef } from "../../src/sketch/sketchModel";
@@ -33,6 +36,64 @@ function runCommand(command: object, editor: FakeEditor, points: [number, number
         getActive.mockRestore();
     }
 }
+
+/** The entity the step at `index` would build for a probe at `probe` (both in sketch uv). */
+function tentativeOf(command: object, points: [number, number][], index: number, probe: [number, number]) {
+    const editor = fakeEditor();
+    const getActive = rs.spyOn(SketchEditor, "getActive").mockReturnValue(editor as any);
+    try {
+        (command as any).stepDatas = points.map(([x, y]) => ({ point: new XYZ({ x, y, z: 0 }) }));
+        const step = (command as any).getSteps()[index];
+        return (step.handleStepData() as SketchPointSnapData).tentative?.(probe);
+    } finally {
+        getActive.mockRestore();
+        editor.solver.dispose();
+    }
+}
+
+describe("step tentatives", () => {
+    test("the line step completes the segment from the first endpoint", () => {
+        expect(tentativeOf(new SketchLineCommand(), [[2, 3]], 1, [10, 3])).toEqual({
+            type: "line",
+            params: [2, 3, 10, 3],
+        });
+    });
+
+    test("the circle step takes its radius from the probe", () => {
+        expect(tentativeOf(new SketchCircleCommand(), [[3, 4]], 1, [9, 4])).toEqual({
+            type: "circle",
+            params: [3, 4, 6],
+        });
+    });
+
+    test("the arc start step reads as the whole circle until the sweep is picked", () => {
+        expect(tentativeOf(new SketchArcCommand(), [[0, 0]], 1, [10, 0])).toEqual({
+            type: "arc",
+            params: [0, 0, 10, 0, 10, 0],
+        });
+    });
+
+    test("the arc step has no tentative while the probe sits on the center", () => {
+        expect(tentativeOf(new SketchArcCommand(), [[0, 0]], 1, [0, 0])).toBeUndefined();
+    });
+
+    test("the arc end step projects the probe onto the circle", () => {
+        expect(
+            tentativeOf(
+                new SketchArcCommand(),
+                [
+                    [0, 0],
+                    [10, 0],
+                ],
+                2,
+                [0, 20],
+            ),
+        ).toEqual({
+            type: "arc",
+            params: [0, 0, 10, 0, 0, 10],
+        });
+    });
+});
 
 describe("SketchArcCommand", () => {
     test("adds an arc entity from center, start and end points", () => {

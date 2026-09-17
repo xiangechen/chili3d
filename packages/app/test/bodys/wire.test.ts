@@ -24,7 +24,7 @@ describe("WireNode", () => {
 
         test("should set name from display()", () => {
             const node = new WireNode({ document: doc, edges: [createMockEdge() as any] });
-            expect(node.name).toBe("body.wire");
+            expect(node.name).toBe("body.wire1");
         });
     });
 

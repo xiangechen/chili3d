@@ -25,7 +25,7 @@ describe("SphereNode", () => {
 
         test("should set name from display()", () => {
             const node = new SphereNode({ document: doc, center, radius: 5 });
-            expect(node.name).toBe("body.sphere");
+            expect(node.name).toBe("body.sphere1");
         });
 
         test("should accept zero radius", () => {

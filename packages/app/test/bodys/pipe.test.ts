@@ -53,7 +53,7 @@ describe("PipeNode", () => {
         test("should set name from display()", () => {
             const path: any = createMockWireWithEdgeLoop();
             const node = new PipeNode({ document: doc, radius: 5, path });
-            expect(node.name).toBe("body.pipe");
+            expect(node.name).toBe("body.pipe1");
         });
     });
 

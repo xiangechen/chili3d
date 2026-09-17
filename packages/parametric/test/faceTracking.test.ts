@@ -20,8 +20,8 @@ import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/
 import { rs } from "@rstest/core";
 import type { EdgeRef } from "../src/features/edgeRef";
 import { type ExtrudeFeatureData, type FeatureData, featureHandler } from "../src/features/feature";
-import { matchSourceFaceIndexes } from "../src/features/pressPull";
 import type { ProfileRef } from "../src/features/profileRef";
+import { matchSourceFaceIndexes } from "../src/features/sourceFaceMatcher";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { type SketchData, SketchNode } from "../src/sketch";
 import { resolveFacePlane } from "../src/sketch/planeRef";

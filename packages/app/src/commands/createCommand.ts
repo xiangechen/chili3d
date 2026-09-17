@@ -11,8 +11,6 @@ import {
     Transaction,
 } from "@chili3d/core";
 
-const count = 1;
-
 /**
  * Nodes whose whole shape was selected — the selected shape's type matches the
  * node's own shape type (e.g. an edge picked from an edge node). Sub-shape

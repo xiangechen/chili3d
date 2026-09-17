@@ -28,7 +28,7 @@ describe("CylinderNode", () => {
 
         test("should set name from display()", () => {
             const node = new CylinderNode({ document: doc, normal, center, radius: 1, dz: 1 });
-            expect(node.name).toBe("body.cylinder");
+            expect(node.name).toBe("body.cylinder1");
         });
     });
 

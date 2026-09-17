@@ -38,17 +38,3 @@
     flex-direction: row;
     align-items: center;
 }
-
-.reference {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    border-radius: 2px;
-    padding: 4px;
-    color: var(--foreground-muted-color);
-    font-style: italic;
-}
-
-.reference:hover {
-    background-color: var(--hover-background-color);
-}

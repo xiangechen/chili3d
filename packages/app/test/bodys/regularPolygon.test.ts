@@ -44,7 +44,7 @@ describe("RegularPolygonNode", () => {
                 radius: 10,
                 sides: 5,
             });
-            expect(node.name).toBe("body.regularPolygon");
+            expect(node.name).toBe("body.regularPolygon1");
         });
 
         test("isFace should default to false", () => {

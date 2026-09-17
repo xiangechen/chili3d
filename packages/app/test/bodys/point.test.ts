@@ -24,7 +24,7 @@ describe("PointNode", () => {
 
         test("should set name from display()", () => {
             const node = new PointNode({ document: doc, position });
-            expect(node.name).toBe("body.point");
+            expect(node.name).toBe("body.point1");
         });
     });
 
