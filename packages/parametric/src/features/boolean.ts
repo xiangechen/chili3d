@@ -12,16 +12,16 @@ import {
     ShapeTypes,
     type TrackedShape,
 } from "@chili3d/core";
-import { isBodyTrackingNode } from "./bodyTracking";
 import {
     type BooleanFeatureData,
     type BooleanOperation,
     completeTrackedHistory,
     type FeatureContext,
     type FeatureHandler,
+    type IShapeHost,
     registerFeature,
 } from "./feature";
-import { mapAncestorIds } from "./trackedId";
+import { mapBooleanIds } from "./operationIds";
 
 const DISPLAYS: Record<BooleanOperation, I18nKeys> = {
     fuse: "command.feature.fuse",
@@ -83,7 +83,7 @@ const booleanHandler: FeatureHandler<BooleanFeatureData> = {
  * shape by hostWorld⁻¹ · toolWorld — a moved copy cuts where it is displayed, not
  * where its shape was generated. Identity mappings reuse the raw shape.
  */
-function toolShapesInHostSpace(tools: ShapeNode[], host: ShapeNode): IShape[] {
+function toolShapesInHostSpace(tools: ShapeNode[], host: IShapeHost): IShape[] {
     const hostInvert = host.worldTransform().invert();
     if (hostInvert === undefined) return tools.map((x) => x.shape.unchecked()!);
     const identity = Matrix4.identity();
@@ -135,7 +135,7 @@ function evaluateTracked(
     if (!result.isOk) return Result.err(result.error);
     const { edgeMap, faceMap } = completeTrackedHistory([input, ...toolShapes], result.value);
     tracking.outputFaceIds = mapBooleanIds(
-        feature,
+        feature.id,
         input,
         tracking.inputFaceIds,
         tools,
@@ -144,7 +144,7 @@ function evaluateTracked(
         result.value.faceAncestors,
     );
     tracking.outputEdgeIds = mapBooleanIds(
-        feature,
+        feature.id,
         input,
         tracking.inputEdgeIds,
         tools,
@@ -153,67 +153,6 @@ function evaluateTracked(
         result.value.edgeAncestors,
     );
     return Result.ok(result.value.shape);
-}
-
-/**
- * Maps boolean history to stable ids. The kernel enumerates the main body's sub-shapes
- * first, then each tool's in order: main-body hits keep their id, tool hits inherit the
- * tool's own tracked id (parametric tools) or a tool-scoped positional id, and
- * boolean-born sub-shapes (e.g. intersection edges) get feature-scoped ids.
- * The main/tool boundary is the tracked-id count when available, else the input
- * shape's own sub-shape count: when upstream tracking was lost (`inputIds` empty),
- * main-body sub-shapes would otherwise leak into the tool ranges and get bogus
- * tool ids.
- *
- * The kernel's full derivation pairs (`ancestors`) extend the single-valued map: a
- * sub-shape MERGED from several inputs (a face unified with a coplanar neighbor, an
- * edge fused with a collinear one) combines every ancestor's id into a compound
- * (`combineIds`), so pieces of a later re-split still intersect the stored id.
- */
-function mapBooleanIds(
-    feature: BooleanFeatureData,
-    input: IShape,
-    inputIds: readonly string[],
-    tools: ShapeNode[],
-    map: number[],
-    type: (typeof ShapeTypes)["face" | "edge"],
-    ancestors?: number[],
-): string[] {
-    // The boundary is the tracked-id count when available, else the input shape's
-    // own sub-shape count (upstream tracking lost): without it, main-body sub-shapes
-    // would leak into the tool ranges and get bogus tool ids.
-    const mainCount = Math.max(inputIds.length, input.findSubShapes(type).length);
-    let start = mainCount;
-    const ranges = tools.map((node) => {
-        const count = node.shape.unchecked()!.findSubShapes(type).length;
-        const range = { node, start, count };
-        start += count;
-        return range;
-    });
-    const idOfInput = (inputIndex: number, outputIndex: number): string => {
-        if (inputIndex >= 0 && inputIndex < inputIds.length) return inputIds[inputIndex];
-        // Untracked main-body hit or boolean-born sub-shape: stable feature-scoped id.
-        if (inputIndex < mainCount) return `${feature.id}:${outputIndex}`;
-        const range = ranges.find((x) => inputIndex >= x.start && inputIndex < x.start + x.count);
-        if (range === undefined) return `${feature.id}:${outputIndex}`;
-        const local = inputIndex - range.start;
-        const node = range.node;
-        const toolId = isBodyTrackingNode(node)
-            ? type === ShapeTypes.face
-                ? node.faceIdAt(local)
-                : node.edgeIdAt(local)
-            : undefined;
-        if (toolId === undefined) return `tool:${node.id}:${local}`;
-        // A parametric tool's id may already be a compound (`combineIds` over a merge).
-        // Prefix EVERY leaf: prefixing only the first leaks the rest into the host's id
-        // space as bare ids, colliding with the seeds a direct boolean against those
-        // bodies generates (`idsOverlap` would then match unrelated sub-shapes).
-        return toolId
-            .split("|")
-            .map((x) => `tool:${node.id}:${x}`)
-            .join("|");
-    };
-    return mapAncestorIds(feature.id, map, ancestors, idOfInput);
 }
 
 registerFeature("boolean", booleanHandler);

@@ -217,28 +217,40 @@ function offsetLoci(curve: ICurve, normal: XYZ, radius: number): CurveLocus[] {
 }
 
 function intersectLoci(a: CurveLocus, b: CurveLocus, normal: XYZ): XYZ[] {
-    if (a.kind === "line" && b.kind === "line") {
-        const denominator = a.direction.cross(b.direction).dot(normal);
-        if (Math.abs(denominator) < Precision.Float) return [];
-        const w = b.point.sub(a.point);
-        const t = w.cross(b.direction).dot(normal) / denominator;
-        return [a.point.add(a.direction.multiply(t))];
-    }
+    if (a.kind === "line" && b.kind === "line") return intersectLines(a, b, normal);
+    if (a.kind === "circle" && b.kind === "circle") return intersectCircles(a, b, normal);
+    return intersectLineCircle(a, b);
+}
 
-    if (a.kind === "circle" && b.kind === "circle") {
-        const between = b.center.sub(a.center);
-        const distance = between.length();
-        if (distance < Precision.Float) return [];
-        if (distance > a.radius + b.radius + COPLANAR_TOLERANCE) return [];
-        if (distance < Math.abs(a.radius - b.radius) - COPLANAR_TOLERANCE) return [];
-        const along = (a.radius * a.radius - b.radius * b.radius + distance * distance) / (2 * distance);
-        const height = Math.sqrt(Math.max(0, a.radius * a.radius - along * along));
-        const unit = between.divided(distance)!;
-        const side = normal.cross(unit);
-        const base = a.center.add(unit.multiply(along));
-        return dedupePoints([base.add(side.multiply(height)), base.add(side.multiply(-height))]);
-    }
+type LineLocus = Extract<CurveLocus, { kind: "line" }>;
+type CircleLocus = Extract<CurveLocus, { kind: "circle" }>;
 
+/** Crossing of two in-plane lines: the one point where both directions agree on `normal`. */
+function intersectLines(a: LineLocus, b: LineLocus, normal: XYZ): XYZ[] {
+    const denominator = a.direction.cross(b.direction).dot(normal);
+    if (Math.abs(denominator) < Precision.Float) return [];
+    const w = b.point.sub(a.point);
+    const t = w.cross(b.direction).dot(normal) / denominator;
+    return [a.point.add(a.direction.multiply(t))];
+}
+
+/** Standard two-circle intersection, mirrored across the line joining the centres. */
+function intersectCircles(a: CircleLocus, b: CircleLocus, normal: XYZ): XYZ[] {
+    const between = b.center.sub(a.center);
+    const distance = between.length();
+    if (distance < Precision.Float) return [];
+    if (distance > a.radius + b.radius + COPLANAR_TOLERANCE) return [];
+    if (distance < Math.abs(a.radius - b.radius) - COPLANAR_TOLERANCE) return [];
+    const along = (a.radius * a.radius - b.radius * b.radius + distance * distance) / (2 * distance);
+    const height = Math.sqrt(Math.max(0, a.radius * a.radius - along * along));
+    const unit = between.divided(distance)!;
+    const side = normal.cross(unit);
+    const base = a.center.add(unit.multiply(along));
+    return dedupePoints([base.add(side.multiply(height)), base.add(side.multiply(-height))]);
+}
+
+/** Where a line meets a circle, resolved as a quadratic along the line's direction. */
+function intersectLineCircle(a: CurveLocus, b: CurveLocus): XYZ[] {
     const [line, circle] = a.kind === "line" ? [a, b] : [b, a];
     if (line.kind !== "line" || circle.kind !== "circle") return [];
     const f = line.point.sub(circle.center);

@@ -68,6 +68,8 @@ export class SketchEventHandler implements IEventHandler {
     private snapHintItem?: IDisposable;
     private controller?: AsyncController;
 
+    // ------------------------------------------------------------------ Session setup and the datum / external display
+
     constructor(private readonly editor: SketchEditor) {
         this.showDatum();
         this.showExternalRefs();
@@ -165,6 +167,8 @@ export class SketchEventHandler implements IEventHandler {
         return Math.max(100, extent * 1.5, visible);
     }
 
+    // ------------------------------------------------------------------ Hit testing
+
     pointerToUV(view: IView, event: PointerEvent): [number, number] | undefined {
         const point = this.editor.node.plane.intersectRay(view.rayAt(event.offsetX, event.offsetY));
         return point === undefined ? undefined : toUV(this.editor.node.plane, point);
@@ -235,6 +239,8 @@ export class SketchEventHandler implements IEventHandler {
         return best;
     }
 
+    // ------------------------------------------------------------------ Pointer and keyboard input
+
     pointerMove(view: IView, event: PointerEvent): void {
         if (!this.isEnabled) return;
         // a dimension label drag is tracked on window by the annotation manager;
@@ -273,14 +279,7 @@ export class SketchEventHandler implements IEventHandler {
             return;
         }
         // pick handling first: a right-click must be able to cancel an active pick
-        if (this.editor.handlePickPointerDown(view, event)) {
-            // the pick consumed the click; drop the pre-click hover highlight and
-            // force a repaint so it disappears even if the mouse stays put
-            this.clearHover(view);
-            this.syncAnnotationHighlights();
-            view.update();
-            return;
-        }
+        if (this.consumePickClick(view, event)) return;
         if (event.button !== 0) return;
 
         const ref = this.hitTestPoint(view, event);
@@ -290,7 +289,23 @@ export class SketchEventHandler implements IEventHandler {
             return;
         }
 
-        // no point hit: left-click selects the entity under the cursor
+        this.selectEntityAtPointer(view, event);
+    }
+
+    /** Hands the click to an active pick; returns whether the pick consumed it. */
+    private consumePickClick(view: IView, event: PointerEvent): boolean {
+        if (!this.editor.handlePickPointerDown(view, event)) return false;
+
+        // the pick consumed the click; drop the pre-click hover highlight and
+        // force a repaint so it disappears even if the mouse stays put
+        this.clearHover(view);
+        this.syncAnnotationHighlights();
+        view.update();
+        return true;
+    }
+
+    /** No point hit: left-click selects the entity under the cursor. */
+    private selectEntityAtPointer(view: IView, event: PointerEvent): void {
         const entityId = this.hitTestEntity(view, event);
         if (entityId === undefined) {
             // blank click drops both the constraint-badge and entity selections
@@ -401,6 +416,8 @@ export class SketchEventHandler implements IEventHandler {
         this.editor.deleteEntities(ids);
     }
 
+    // ------------------------------------------------------------------ Constraint highlighting
+
     /** Highlights the entities a hovered/selected constraint badge refers to. */
     highlightConstraintEntities(entityIds: number[]): void {
         const view = this.editor.document.application.activeView;
@@ -467,6 +484,8 @@ export class SketchEventHandler implements IEventHandler {
         this.selectedEntities.clear();
         this.draggingRef = undefined;
     }
+
+    // ------------------------------------------------------------------ Hover, drag and snap feedback
 
     /** Pick tolerance converted to sketch-plane units at the event position. */
     private worldTolerance(view: IView, event: PointerEvent): number | undefined {

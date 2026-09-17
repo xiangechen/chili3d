@@ -8,7 +8,6 @@ import {
     type IEdge,
     type IFace,
     type ILine,
-    type INode,
     type IShape,
     type IShapeFilter,
     type IStep,

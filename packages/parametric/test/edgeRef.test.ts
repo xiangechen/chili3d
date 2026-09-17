@@ -2,17 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IEdge, type IShape, Result, type ShapeType, ShapeTypes, XYZ } from "@chili3d/core";
+import { matchEdgeIndexes, matchEdgesAnchored } from "../src/features/edgeMatcher";
 import {
     bestEdgeScore,
     captureEdgeRef,
-    completeEdgeHistory,
     type EdgeRef,
     edgeMatchesRefInvariant,
-    idIsShared,
-    matchEdgeIndexes,
-    matchEdgesAnchored,
     refScore,
 } from "../src/features/edgeRef";
+import { completeEdgeHistory } from "../src/features/historyCompletion";
+import { idIsShared } from "../src/features/trackedId";
 
 /** Indexes-only projection of `matchEdgesAnchored` — the matching rules are asserted through it. */
 function matchEdgeIndexesTracked(shape: IShape, refs: EdgeRef[], inputEdgeIds: readonly string[]) {

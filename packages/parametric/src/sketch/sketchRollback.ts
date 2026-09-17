@@ -7,15 +7,17 @@ import { ParametricBodyNode } from "../parametricBodyNode";
 import type { SketchNode } from "./sketchNode";
 
 /**
- * Fusion-style session rollback: while a sketch is edited, every body whose shape
- * depends on the sketch is shown at the sketch's timeline position — the state the
- * body had when the sketch was created against it, with the current parameters of
- * the features that already existed then. The feature consuming the sketch and
- * everything after it stays hidden for the session, so the sketch plane and the
- * external references resolve against the same geometry they were captured from
- * (a later fillet rounding a referenced edge cannot move or dangle it mid-session).
- * The rollback is runtime-only (`ParametricBodyNode.setRollbackIndex`): nothing is
- * serialized or transacted, and the full chain re-evaluates when the session ends.
+ * Fusion-style session rollback: while a sketch is edited, every body whose shape depends on it
+ * is shown at the sketch's timeline position.
+ *
+ * - **Which state that is:** the state the body had when the sketch was created against it,
+ *   with the CURRENT parameters of the features that already existed then.
+ * - **Why:** the feature consuming the sketch and everything after it stays hidden for the
+ *   session, so the sketch plane and the external references resolve against the same geometry
+ *   they were captured from — a later fillet rounding a referenced edge cannot move or dangle
+ *   it mid-session.
+ * - **Runtime-only** (`ParametricBodyNode.setRollbackIndex`): nothing is serialized or
+ *   transacted, and the full chain re-evaluates when the session ends.
  */
 
 /**
@@ -37,27 +39,41 @@ export function computeSketchRollback(
 }
 
 /**
- * The reverse of the propagation pass, for restoring the map on session exit:
- * sources before the bodies consuming them. The map is in seed-then-propagation
- * insertion order, which can place a consumer before a source it references (a
- * consumer seeded on its own before the source propagated in) — restoring in that
- * order re-evaluates the consumer against the source's session preview, a
- * transient wrong (or failing) shape that only the source's later restore
- * notification fixes up. Restoring sources first takes no detour at all.
+ * The reverse of the propagation pass, for restoring the map on session exit: sources before
+ * the bodies consuming them.
  *
- * Edges come from the same place the rollback itself did — feature `nodeIds`,
- * restricted to bodies inside the map (a referenced body that never rolled back
- * already shows its full chain). Kahn's algorithm scans in insertion order, so
- * unrelated bodies keep their relative order. A dependency cycle — not
- * constructible through the UI — cannot loop: its members append in insertion
- * order, where the per-body restore guards absorb the mis-ordering.
+ * - **Why the reverse is needed.** The map is in seed-then-propagation insertion order, which
+ *   can place a consumer before a source it references (a consumer seeded on its own before the
+ *   source propagated in). Restoring in that order re-evaluates the consumer against the
+ *   source's session preview — a transient wrong (or failing) shape that only the source's
+ *   later restore notification fixes up. Restoring sources first takes no detour at all.
+ * - **Edges** come from the same place the rollback itself did — feature `nodeIds`, restricted
+ *   to bodies inside the map (a referenced body that never rolled back already shows its full
+ *   chain).
+ * - **Ordering.** Kahn's algorithm scans in insertion order, so unrelated bodies keep their
+ *   relative order. A dependency cycle — not constructible through the UI — cannot loop: its
+ *   members append in insertion order, where the per-body restore guards absorb the mis-ordering.
  */
 export function rollbackRestoreOrder(
     rollback: ReadonlyMap<ParametricBodyNode, number>,
 ): ParametricBodyNode[] {
     const bodies = [...rollback.keys()];
     const byId = new Map(bodies.map((body) => [body.id, body]));
-    // A body restores after every rolled-back source its features reference.
+    const pending = collectRestoreDependencies(bodies, byId);
+    const order = drainReadyBodies(bodies, pending);
+    // Cycle fallback (see the doc comment): whatever never emitted hangs off a
+    // dependency cycle — insertion order, and the guards take care of it.
+    for (const body of bodies) {
+        if (pending.has(body)) order.push(body);
+    }
+    return order;
+}
+
+/** A body restores after every rolled-back source its features reference. */
+function collectRestoreDependencies(
+    bodies: ParametricBodyNode[],
+    byId: ReadonlyMap<string, ParametricBodyNode>,
+): Map<ParametricBodyNode, Set<ParametricBodyNode>> {
     const pending = new Map<ParametricBodyNode, Set<ParametricBodyNode>>();
     for (const body of bodies) {
         const deps = new Set<ParametricBodyNode>();
@@ -71,6 +87,14 @@ export function rollbackRestoreOrder(
         }
         pending.set(body, deps);
     }
+    return pending;
+}
+
+/** Kahn's algorithm: emits each body once every dependency of its has been emitted. */
+function drainReadyBodies(
+    bodies: ParametricBodyNode[],
+    pending: Map<ParametricBodyNode, Set<ParametricBodyNode>>,
+): ParametricBodyNode[] {
     const order: ParametricBodyNode[] = [];
     let progressed = true;
     while (pending.size > 0 && progressed) {
@@ -86,11 +110,6 @@ export function rollbackRestoreOrder(
             order.push(body);
             progressed = true;
         }
-    }
-    // Cycle fallback (see the doc comment): whatever never emitted hangs off a
-    // dependency cycle — insertion order, and the guards take care of it.
-    for (const body of bodies) {
-        if (pending.has(body)) order.push(body);
     }
     return order;
 }

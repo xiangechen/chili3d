@@ -232,15 +232,26 @@ function tangentConstraintFor(
         const [line, circle] = t1 === "line" ? [e1, e2] : [e2, e1];
         return { kind: ConstraintKind.TangentLineCircle, refs: [...lineRefs(line), centerRef(circle)] };
     }
-    if (pair === "circle+circle") {
-        return { kind: ConstraintKind.TangentCircleCircle, refs: [centerRef(e1), centerRef(e2)] };
-    }
     if (pair === "arc+line") {
         const [line, arc] = t1 === "line" ? [e1, e2] : [e2, e1];
         return {
             kind: ConstraintKind.TangentLineArc,
             refs: [...lineRefs(line), centerRef(arc), arcStartRef(arc)],
         };
+    }
+    return roundTangentConstraint(pair, t1, e1, e2);
+}
+
+/** The tangency kinds with no line in the pair — circles and arcs only. */
+function roundTangentConstraint(
+    pair: string,
+    t1: SketchEntityType | undefined,
+    e1: number,
+    e2: number,
+): { kind: ConstraintKind; refs: SketchPointRef[] } | undefined {
+    // refs match the garlic params layout, so the circle comes first here too
+    if (pair === "circle+circle") {
+        return { kind: ConstraintKind.TangentCircleCircle, refs: [centerRef(e1), centerRef(e2)] };
     }
     if (pair === "arc+arc") {
         return {

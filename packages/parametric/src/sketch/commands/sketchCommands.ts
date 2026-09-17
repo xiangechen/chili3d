@@ -93,35 +93,46 @@ export function captureBoundaryExternalRefs(
 function resolvePlane(document: IDocument, result: PlanePickResult | undefined): PickedPlane | undefined {
     if (result === undefined) return undefined;
     if (result.kind === "datum") return { plane: result.plane };
+
     const face = result.data.shape.transformedMul(result.data.transform) as IFace;
     const plane = sketchPlaneOfFace(face);
     const owner = document.visual.context.getNode(result.data.owner);
-    let planeRef: PlaneFaceRef | undefined;
-    let externalRefs: ExternalRefData[] | undefined;
-    let refPositions: Record<string, number> | undefined;
-    if (owner !== undefined) {
-        planeRef = captureFaceRef(owner.id, face);
-        // Faces of a parametric body carry a stable id across rebuilds — store it so
-        // the sketch tracks the face exactly instead of re-matching geometrically.
-        if (owner instanceof ParametricBodyNode) {
-            const faceId = owner.faceIdAt(result.data.indexes[0]);
-            if (faceId !== undefined) {
-                planeRef.faceId = faceId;
-            } else {
-                reportSilentIdLoss(owner, "face", "the sketch-plane face has no tracked id");
-            }
-            // anchor the sketch's timeline position: the features that exist now are
-            // the state the sketch was created against (see computeSketchRollback).
-            // On a rollback preview (a fillet/chamfer reselect pick) that state IS the
-            // preview — `features.length` would read as "no rollback" to
-            // seedRollbackIndices and resolve the boundary refs against later geometry
-            // the user never saw (same correction as sketch.projectEdges).
-            refPositions = { [owner.id]: owner.rollbackIndex ?? owner.features.length };
-        }
-        externalRefs = captureBoundaryExternalRefs(owner, result, plane);
-    }
+    const picked = owner === undefined ? undefined : capturePlaneOwner(owner, result, face, plane);
     face.dispose();
-    return { plane, planeRef, externalRefs, refPositions };
+    return { plane, ...picked };
+}
+
+/** The plane ref, boundary refs and timeline anchor captured for a face picked on `owner`. */
+function capturePlaneOwner(
+    owner: INode,
+    result: Extract<PlanePickResult, { kind: "face" }>,
+    face: IFace,
+    plane: Plane,
+): Omit<PickedPlane, "plane"> {
+    const planeRef = captureFaceRef(owner.id, face);
+    let refPositions: Record<string, number> | undefined;
+    // Faces of a parametric body carry a stable id across rebuilds — store it so
+    // the sketch tracks the face exactly instead of re-matching geometrically.
+    if (owner instanceof ParametricBodyNode) {
+        const faceId = owner.faceIdAt(result.data.indexes[0]);
+        if (faceId !== undefined) {
+            planeRef.faceId = faceId;
+        } else {
+            reportSilentIdLoss(owner, "face", "the sketch-plane face has no tracked id");
+        }
+        // anchor the sketch's timeline position: the features that exist now are
+        // the state the sketch was created against (see computeSketchRollback).
+        // On a rollback preview (a fillet/chamfer reselect pick) that state IS the
+        // preview — `features.length` would read as "no rollback" to
+        // seedRollbackIndices and resolve the boundary refs against later geometry
+        // the user never saw (same correction as sketch.projectEdges).
+        refPositions = { [owner.id]: owner.rollbackIndex ?? owner.features.length };
+    }
+    return {
+        planeRef,
+        externalRefs: captureBoundaryExternalRefs(owner, result, plane),
+        refPositions,
+    };
 }
 
 async function pickPlane(document: IDocument, controller: AsyncController): Promise<PickedPlane | undefined> {

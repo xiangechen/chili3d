@@ -18,17 +18,7 @@ export class TreeGroup extends TreeItem {
 
     constructor(document: IDocument, node: INodeLinkedList) {
         super(document, node);
-        // A parametric body is a linked list of consumed boolean tools, not a folder —
-        // give its expander a distinct, muted look.
-        const expanderClass =
-            node instanceof FolderNode
-                ? style.expanderIcon
-                : `${style.expanderIcon} ${style.toolExpanderIcon}`;
-        this.expanderIcon = svg({
-            icon: this.getExpanderIcon(),
-            className: expanderClass,
-            onclick: this.handleExpanderClick,
-        });
+        this.expanderIcon = this.createExpanderIcon(node);
         this.header = div(
             { className: `${style.row} ${style.header}` },
             this.expanderIcon,
@@ -39,16 +29,32 @@ export class TreeGroup extends TreeItem {
         if (isFeatureListNode(node) && node.referencedNodes !== undefined) {
             this.refItems = div({ className: `${style.container} ${style.left16px}` });
         }
-        super.append(
-            div(
-                { className: style.container },
-                this.header,
-                ...(this.refItems ? [this.refItems] : []),
-                this.items,
-            ),
-        );
+        super.append(this.createRootContainer());
         this.refreshReferences();
         this.refreshExpander();
+    }
+
+    private createExpanderIcon(node: INodeLinkedList): SVGSVGElement {
+        // A parametric body is a linked list of consumed boolean tools, not a folder —
+        // give its expander a distinct, muted look.
+        const expanderClass =
+            node instanceof FolderNode
+                ? style.expanderIcon
+                : `${style.expanderIcon} ${style.toolExpanderIcon}`;
+        return svg({
+            icon: this.getExpanderIcon(),
+            className: expanderClass,
+            onclick: this.handleExpanderClick,
+        });
+    }
+
+    private createRootContainer(): HTMLDivElement {
+        return div(
+            { className: style.container },
+            this.header,
+            ...(this.refItems ? [this.refItems] : []),
+            this.items,
+        );
     }
 
     /** Folders always show the expander; a body shows it only with tools or references inside. */

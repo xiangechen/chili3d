@@ -491,7 +491,10 @@ describe("resolveExternalRefs", () => {
         doc.modelManager.addNode(body);
         const shape = solidWithEdges(lineBasisEdge(3, 0, 13, 0));
         (body as any)._shape = Result.ok(shape);
-        (body as any)._cache = [{ json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:0"] }];
+        (body as any)._timeline.commit(
+            [{ json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:0"] }],
+            [],
+        );
         const ref: ExternalRefData = {
             entityId: -100,
             nodeId: body.id,
@@ -525,9 +528,10 @@ describe("resolveExternalRefs", () => {
         // purely geometric match — only the tracked id still identifies the edge.
         const shape = solidWithEdges(lineBasisEdge(0, 0, 10, 0), lineBasisEdge(0, 30, 10, 30));
         (body as any)._shape = Result.ok(shape);
-        (body as any)._cache = [
-            { json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:bottom", "e1:top"] },
-        ];
+        (body as any)._timeline.commit(
+            [{ json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:bottom", "e1:top"] }],
+            [],
+        );
         const ref: ExternalRefData = {
             entityId: -100,
             nodeId: body.id,
@@ -563,9 +567,10 @@ describe("resolveExternalRefs", () => {
         // edge still exists and must win geometrically.
         const shape = solidWithEdges(lineBasisEdge(0, 0, 10, 0), lineBasisEdge(0, 0, 0, 10));
         (body as any)._shape = Result.ok(shape);
-        (body as any)._cache = [
-            { json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:x", "e1:y"] },
-        ];
+        (body as any)._timeline.commit(
+            [{ json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:x", "e1:y"] }],
+            [],
+        );
         const ref: ExternalRefData = {
             entityId: -100,
             nodeId: body.id,
@@ -723,9 +728,10 @@ describe("resolveExternalRefs", () => {
         doc.modelManager.addNode(body);
         const shape = solidWithEdges(lineBasisEdge(0, 0, 5, 0), lineBasisEdge(5, 0, 10, 0));
         (body as any)._shape = Result.ok(shape);
-        (body as any)._cache = [
-            { json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:a", "e1:b"] },
-        ];
+        (body as any)._timeline.commit(
+            [{ json: "", input: undefined, refs: new Map(), shape, edgeIds: ["e1:a", "e1:b"] }],
+            [],
+        );
         const ref: ExternalRefData = {
             entityId: -100,
             nodeId: body.id,

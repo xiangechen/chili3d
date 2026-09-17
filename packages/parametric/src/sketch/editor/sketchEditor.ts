@@ -4,7 +4,6 @@
 import {
     type AsyncController,
     type CameraType,
-    I18n,
     type I18nKeys,
     type IDisposable,
     type IDocument,
@@ -26,9 +25,37 @@ import {
 import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
 import { SketchSolver, type SolveOutcome } from "../solver";
+import * as datumPrompt from "./datumPrompt";
 import { type DimensionAnchor, toDisplayDatum, toStorageDatum } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
 import { SketchEventHandler } from "./sketchEventHandler";
+
+/**
+ * One sketch editing session, and the only thing that owns it.
+ *
+ * The object is created by `SketchEditor.enter(node)` and disposed by `exit()`; at most one is
+ * live at a time (`getActive`). It owns the `SketchSolver`, swaps the view's event handler for
+ * `SketchEventHandler`, locks the camera onto the sketch plane, and drives
+ * `SketchAnnotationManager`. It is also the layer the sketch COMMANDS talk to — they call
+ * `pickPoint`/`pickEntity`, `solve`, `commit`, `promptDatum`, and read `isPicking`.
+ *
+ * The session's four phases, in order:
+ *
+ * 1. **Enter** (`enter` → `startSession`, `createSessionSolver`, `installEventHandler`,
+ *    `createAnnotations`, `lockCameraOntoPlane`). `applyTimelineRollback` rolls every dependent
+ *    body back to this sketch's timeline position first — see `sketch/sketchRollback.ts` and §3
+ *    of `docs/parametric.md`.
+ * 2. **Editing** — picking (`pickPoint`/`pickEntity`/`pickPosition`, plus
+ *    `handlePickPointerDown`), solving (`solve`), and the datum value dialogs
+ *    (`promptDatum`/`promptDatumPair`/`editDatum`).
+ * 3. **Commit** (`commit`) — writes the solved data back to the node.
+ * 4. **Exit** (`exit` → `teardownSession`, `restoreRolledBackBodies`, `restoreViewState`,
+ *    `dispose`) — unwinds the rollback in `rollbackRestoreOrder`, restores the camera and the
+ *    pre-edit visibility, and clears the active-editor reference.
+ *
+ * The heavy lifting lives next door: `sketchEventHandler.ts` (pointer/keyboard), and
+ * `sketchAnnotations.ts` (constraint badges and dimension graphics).
+ */
 
 export type SketchPickKind = "point" | "entity" | "position";
 
@@ -57,10 +84,7 @@ interface SavedCamera {
 /** Bodies rolled back for the session and their timeline positions (see `computeSketchRollback`). */
 type RollbackMap = ReturnType<typeof computeSketchRollback>;
 
-/**
- * One sketch editing session: owns the solver, swaps the view's event handler,
- * locks the camera onto the sketch plane and renders constraint annotations.
- */
+/** The live sketch session — see the module header for its lifecycle and ownership. */
 export class SketchEditor implements IDisposable {
     readonly solver: SketchSolver;
     readonly annotations: SketchAnnotationManager;
@@ -89,6 +113,8 @@ export class SketchEditor implements IDisposable {
      */
     private static activeEditor?: SketchEditor;
 
+    // ------------------------------------------------------------------ Static entry points — at most one session is live
+
     static getActive(): SketchEditor | undefined {
         return SketchEditor.activeEditor;
     }
@@ -110,9 +136,12 @@ export class SketchEditor implements IDisposable {
         }
     }
 
+    /** Closes the live session, if any — the instance counterpart is `exit` below. */
     static exit(): void {
         SketchEditor.activeEditor?.exit();
     }
+
+    // ------------------------------------------------------------------ Construction
 
     constructor(
         readonly document: IDocument,
@@ -174,6 +203,8 @@ export class SketchEditor implements IDisposable {
             throw error;
         }
     }
+
+    // ------------------------------------------------------------------ Session lifecycle: enter, rollback, teardown
 
     /**
      * Claims the session state (editing flag, timeline rollback, solver), unwinding
@@ -377,6 +408,8 @@ export class SketchEditor implements IDisposable {
 
     readonly view: IView;
 
+    // ------------------------------------------------------------------ Picking — the surface the sketch commands drive
+
     get isPicking(): boolean {
         return this.pickRequest !== undefined;
     }
@@ -455,6 +488,8 @@ export class SketchEditor implements IDisposable {
         return true;
     }
 
+    // ------------------------------------------------------------------ Solving, commit and deletion
+
     solve(fine: boolean): SolveOutcome {
         const outcome = this.solver.solve(fine);
         this.annotations.refresh();
@@ -532,10 +567,12 @@ export class SketchEditor implements IDisposable {
         this.document.visual.update();
     }
 
+    // ------------------------------------------------------------------ Datum value dialogs
+
     /**
-     * Shows the datum input in a modal dialog; a valid confirm runs `apply`,
-     * re-solves and commits. Invalid input keeps the dialog open with an error
-     * message; cancelling keeps the current value and runs `onCancel`.
+     * Shows the datum input in a modal dialog; a valid confirm runs `apply`, re-solves and
+     * commits. Invalid input keeps the dialog open with an error message; cancelling keeps the
+     * current value and runs `onCancel`. The dialog itself is `datumPrompt.ts`.
      */
     promptDatum(
         initial: number,
@@ -543,69 +580,18 @@ export class SketchEditor implements IDisposable {
         onCancel?: () => void,
         options?: { positiveOnly?: boolean },
     ): void {
-        const textbox = document.createElement("input");
-        textbox.value = initial.toFixed(2);
-        textbox.autofocus = true;
-        const error = document.createElement("label");
-        error.style.cssText = "color: red; font-size: 11px; display: none;";
-        const content = document.createElement("div");
-        content.append(textbox, error);
-        PubSub.default.pub("showDialog", "dialog.title.enterValue", content, [
-            {
-                content: "common.confirm",
-                // validation lives in shouldClose: the dialog runs onclick even when
-                // shouldClose vetoes closing, so applying there would apply invalid values
-                shouldClose: () => {
-                    const value = Number(textbox.value);
-                    if (!Number.isFinite(value) || (options?.positiveOnly !== false && value <= 0)) {
-                        error.textContent = I18n.translate("error.input.invalidNumber") ?? "invalid number";
-                        error.style.display = "";
-                        return false;
-                    }
-                    apply(value);
-                    this.solve(true);
-                    this.commit();
-                    return true;
-                },
-                onclick: () => {},
-            },
-            { content: "common.cancel", onclick: () => onCancel?.() },
-        ]);
-        setTimeout(() => textbox.select());
+        datumPrompt.promptDatum(initial, apply, () => this.applyDatum(), onCancel, options);
     }
 
     /** Two-value variant of `promptDatum` for multi-datum constraints (Fix = X, Y). */
     promptDatumPair(initial: [number, number], apply: (x: number, y: number) => void): void {
-        const inputX = document.createElement("input");
-        const inputY = document.createElement("input");
-        inputX.value = initial[0].toFixed(2);
-        inputY.value = initial[1].toFixed(2);
-        inputX.autofocus = true;
-        const error = document.createElement("label");
-        error.style.cssText = "color: red; font-size: 11px; display: none;";
-        const content = document.createElement("div");
-        content.append(inputX, inputY, error);
-        PubSub.default.pub("showDialog", "dialog.title.enterValue", content, [
-            {
-                content: "common.confirm",
-                shouldClose: () => {
-                    const x = Number(inputX.value);
-                    const y = Number(inputY.value);
-                    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-                        error.textContent = I18n.translate("error.input.invalidNumber") ?? "invalid number";
-                        error.style.display = "";
-                        return false;
-                    }
-                    apply(x, y);
-                    this.solve(true);
-                    this.commit();
-                    return true;
-                },
-                onclick: () => {},
-            },
-            { content: "common.cancel", onclick: () => {} },
-        ]);
-        setTimeout(() => inputX.select());
+        datumPrompt.promptDatumPair(initial, apply, () => this.applyDatum());
+    }
+
+    /** What a confirmed datum does to the session, whatever the dialog looked like. */
+    private applyDatum(): void {
+        this.solve(true);
+        this.commit();
     }
 
     /** Re-opens the datum dialog of an existing dimension constraint (double-click edit). */
@@ -631,6 +617,8 @@ export class SketchEditor implements IDisposable {
             { positiveOnly: !signed },
         );
     }
+
+    // ------------------------------------------------------------------ Exit and view restoration
 
     /** Commits and disposes this session; clears the active-editor reference. */
     exit(): void {
@@ -666,35 +654,47 @@ export class SketchEditor implements IDisposable {
         this.document.visual.context.setNodeOnTop([this.node], false);
         this.node.setEditingSession(false);
         this.node.removePropertyChanged(this.onNodeDataChanged);
-        // Restoring the full chain is an ordinary source-node rebuild for the
-        // sketch: with the session flag already cleared, refs that later features
-        // moved re-resolve and pull their followers — the off-session follow
-        // semantics resume exactly where the rollback paused them. Sources restore
-        // before the bodies consuming them (`rollbackRestoreOrder`), so no body
-        // re-evaluates against another's session preview. A body deleted
-        // mid-session is skipped (replaying it would leak a shape on the disposed
-        // node), and a failing replay must strand neither the bodies after it
-        // (per-body isolation, like startSession/unwindSession) nor the teardown
-        // below — `disposed` is already set, so there is no retry.
         try {
-            for (const body of rollbackRestoreOrder(this.rollback)) {
-                if (this.document.modelManager.findNode((n) => n === body) === undefined) continue;
-                try {
-                    body.setRollbackIndex(undefined);
-                } catch {
-                    // best effort — the body keeps displaying its last good shape
-                }
-            }
+            this.restoreRolledBackBodies();
         } finally {
-            this.eventHandler.dispose();
-            this.annotations.dispose();
-            this.document.visual.eventHandler = this.savedHandler;
-            this.restoreViewState();
-            this.setCanRotate(true);
-            this.solver.dispose();
-            PubSub.default.pub("clearStatusBarTip");
-            PubSub.default.remove("activeViewChanged", this.onActiveViewChanged);
+            this.teardownSession();
         }
+    }
+
+    /**
+     * Restoring the full chain. For the sketch this is an ordinary source-node rebuild: with
+     * the session flag already cleared, refs that later features moved re-resolve and pull
+     * their followers, so the off-session follow semantics resume exactly where the rollback
+     * paused them.
+     *
+     * - **Order.** Sources restore before the bodies consuming them (`rollbackRestoreOrder`),
+     *   so no body re-evaluates against another's session preview.
+     * - **A body deleted mid-session is skipped** — replaying it would leak a shape on the
+     *   disposed node.
+     * - **A failing replay** must strand neither the bodies after it (per-body isolation, like
+     *   `startSession`/`unwindSession`) nor the teardown. `disposed` is already set, so there is
+     *   no retry.
+     */
+    private restoreRolledBackBodies(): void {
+        for (const body of rollbackRestoreOrder(this.rollback)) {
+            if (this.document.modelManager.findNode((n) => n === body) === undefined) continue;
+            try {
+                body.setRollbackIndex(undefined);
+            } catch {
+                // best effort — the body keeps displaying its last good shape
+            }
+        }
+    }
+
+    private teardownSession(): void {
+        this.eventHandler.dispose();
+        this.annotations.dispose();
+        this.document.visual.eventHandler = this.savedHandler;
+        this.restoreViewState();
+        this.setCanRotate(true);
+        this.solver.dispose();
+        PubSub.default.pub("clearStatusBarTip");
+        PubSub.default.remove("activeViewChanged", this.onActiveViewChanged);
     }
 
     private restoreViewState(): void {

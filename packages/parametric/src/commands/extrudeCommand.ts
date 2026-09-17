@@ -30,11 +30,11 @@ import {
     VisualStates,
     XYZ,
 } from "@chili3d/core";
-import { fuseProfiles } from "../features/extrude";
 import type { BooleanOperation, ExtrudeFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { captureProfileRef } from "../features/profileRef";
+import { fuseProfiles } from "../features/sweep";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
 import {
@@ -548,7 +548,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
                       // re-splitting is indistinguishable by fingerprint alone). The
                       // splitPiece stamp records a pick of one piece of an already split
                       // face (id shared at capture time), so the sweep never widens back
-                      // to the whole span (see `narrowToPickedPiece` in features/extrude.ts).
+                      // to the whole span (see `narrowToPickedPiece` in features/pressPull.ts).
                       source: {
                           nodeId: node.id,
                           profiles: worldFaces.map((face, index) => {

@@ -3,15 +3,20 @@
 
 import type { Plane } from "@chili3d/core";
 import type { WasmSystem } from "../../lib/garlic";
+import { INCIDENCE_TOLERANCE } from "../features/refGeometry";
+import { ENTITY_PARAM_KINDS, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH } from "./entityLayout";
+import {
+    type EntityTables,
+    type ExternalEntityHost,
+    ExternalEntityRegistry,
+    type ExternalPins,
+} from "./externalEntities";
 import { newGarlicSystem } from "./garlic";
 import {
     ConstraintKind,
     datumEntityData,
     datumPoint,
     type ExternalRefData,
-    entityPointCount,
-    FIRST_EXTERNAL_ENTITY_ID,
-    INCIDENCE_TOLERANCE,
     isDatumEntityId,
     isExternalEntityId,
     nextSketchId,
@@ -35,9 +40,6 @@ function findRoot(parent: Map<string, string>, key: string): string {
     return root;
 }
 
-const PARAM_KIND_COORDINATE = 0;
-const PARAM_KIND_LENGTH = 1;
-
 function projectOntoCircle(
     center: [number, number],
     radius: number,
@@ -49,33 +51,6 @@ function projectOntoCircle(
     const distance = Math.hypot(dx, dy);
     if (distance < 1e-12) return undefined;
     return [center[0] + (dx / distance) * radius, center[1] + (dy / distance) * radius];
-}
-
-/** garlic param kinds per entity type: line = 2 points, circle = center + radius, arc = 3 points. */
-const ENTITY_PARAM_KINDS: Record<SketchEntityType, number[]> = {
-    line: [PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE],
-    circle: [PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH],
-    arc: [
-        PARAM_KIND_COORDINATE,
-        PARAM_KIND_COORDINATE,
-        PARAM_KIND_COORDINATE,
-        PARAM_KIND_COORDINATE,
-        PARAM_KIND_COORDINATE,
-        PARAM_KIND_COORDINATE,
-    ],
-};
-
-/**
- * Pads/truncates a snapshot to the entity type's param layout. Hand-edited or
- * legacy data can carry a truncated snapshot — normalizing beats throwing from a
- * property-listener path (updateExternalEntity's length guard), seeding garlic
- * with a short param array, or feeding NaN coordinates to shape building. Unknown
- * types and already-matching lengths pass through unchanged (same array identity).
- */
-export function normalizeSnapshot(type: SketchEntityType, snapshot: number[]): number[] {
-    const count = ENTITY_PARAM_KINDS[type]?.length;
-    if (count === undefined || snapshot.length === count) return snapshot;
-    return Array.from({ length: count }, (_, index) => snapshot[index] ?? 0);
 }
 
 export interface SolveOutcome {
@@ -92,27 +67,18 @@ interface ConstraintRecord {
 }
 
 /**
- * Internal structural pins of one seeded external entity (a Fix per point, plus a
- * Radius for circles): `datumParamIds[i]` is the structural datum pinning the
- * entity's `entityParams[i]`, so the net dofs contribution is zero and
- * `updateExternalEntity` can move the entity by rewriting both sides. The
- * structural constraints stay out of `this.constraints`, so they are never
- * serialized, annotated or removable. The entity itself lives in the regular
- * entity tables (`entityTypes`/`entityParams`/`entityCache`) marked fixed.
- */
-interface ExternalPins {
-    datumParamIds: number[];
-    constraintIds: number[];
-}
-
-/**
  * Wraps one garlic `WasmSystem` for a sketch on a given plane.
  * Entity/constraint ids exposed here are stable and owned by this class;
  * garlic ParamId/ConstraintId handles stay internal.
  */
-export class SketchSolver {
+export class SketchSolver implements ExternalEntityHost {
     readonly plane: Plane;
-    private system: WasmSystem;
+    /**
+     * The garlic system every param and constraint is created in. Public because the
+     * external-entity registry (`externalEntities.ts`) is a peer collaborator that
+     * places params in it — see `ExternalEntityHost`. Replaced wholesale by `reset`.
+     */
+    system: WasmSystem;
     /** Entity tables holding real AND external entities (externals under reserved negative ids). */
     private readonly entityTypes = new Map<number, SketchEntityType>();
     private readonly entityParams = new Map<number, number[]>();
@@ -127,31 +93,16 @@ export class SketchSolver {
      * param-edited: the datum (origin, X/Y axes) and every seeded external entity.
      */
     private readonly fixedEntities = new Set<number>();
-    /** Internal structural pins of the seeded external entities, keyed by their reserved negative ids. */
-    private readonly externalPins = new Map<number, ExternalPins>();
-    /** External refs carried through `toData`; the sketch node owns their persistent state. */
-    private externalRefs: ExternalRefData[] = [];
-    /** Timeline anchors carried through `toData` like `externalRefs` (see SketchData.refPositions). */
-    private refPositions: Record<string, number> | undefined;
-    /**
-     * Node id of the sketch plane's face owner (SketchNode.planeRef), set by the
-     * editor — the solver never sees the node-level planeRef. That anchor has a
-     * second consumer beyond the refs (`computeSketchRollback` seeds from it even
-     * when no feature references the sketch), so it is exempt from the last-ref
-     * prune in `removeExternalEntity`: deleting every auto-captured boundary ref
-     * must not stop the session rollback of the body the sketch still sits on.
-     * Node-level, not data-level — survives `reset`.
-     */
-    planeOwnerNodeId: string | undefined;
+    /** The pinned external entities and the refs they came from — see `externalEntities.ts`. */
+    private readonly external = new ExternalEntityRegistry(this);
     private draggedParamIds: number[] = [];
     /**
      * Monotonic id allocation, serialized as SketchData.entityIdSeq/externalIdSeq:
      * freed ids are never reused, so a stale ProfileRef fingerprint (keyed on entity
      * ids) can never match a geometrically different region. Real ids count up from
-     * 1, external ids count down from FIRST_EXTERNAL_ENTITY_ID.
+     * 1, external ids count down from FIRST_EXTERNAL_ENTITY_ID (the registry's).
      */
     private entityIdSeq = 1;
-    private externalIdSeq = FIRST_EXTERNAL_ENTITY_ID;
     /**
      * Counter emission gate: `toData` writes the counters only when the loaded data
      * carried them or an allocation happened since — a no-op session on a
@@ -160,8 +111,6 @@ export class SketchSolver {
      */
     private idCountersPersisted = false;
     private idAllocatedSinceLoad = false;
-    /** Constraint ids cascaded away by the latest `syncExternalRefs` (type-flip reseed or drop). */
-    private removedConstraintIds: number[] = [];
 
     constructor(plane: Plane, data?: SketchData) {
         this.plane = plane;
@@ -171,6 +120,8 @@ export class SketchSolver {
             this.loadData(data);
         }
     }
+
+    // ------------------------------------------------------------------ Entity and constraint editing
 
     addLine(x1: number, y1: number, x2: number, y2: number): number {
         return this.registerEntity("line", this.addEntityParams("line", [x1, y1, x2, y2]));
@@ -242,109 +193,9 @@ export class SketchSolver {
         return removedConstraints;
     }
 
-    /**
-     * Seeds an external reference into the regular entity tables under its reserved
-     * negative id, marked fixed and pinned like the datum: every point is pinned by
-     * an internal Fix (circles also pin the radius), so the net dofs contribution
-     * is zero. The ref joins the carried list that `toData` preserves.
-     */
-    addExternalEntity(ref: ExternalRefData): void {
-        if (this.externalPins.has(ref.entityId)) {
-            throw new Error(`External reference already seeded: ${ref.entityId}`);
-        }
-        this.seedExternalEntity(ref.entityId, ref.type, normalizeSnapshot(ref.type, ref.snapshot));
-        // the counter stays below every seeded id, even one allocated outside it
-        this.externalIdSeq = Math.min(this.externalIdSeq, ref.entityId - 1);
-        this.externalRefs.push(ref);
-    }
-
-    /**
-     * Allocates the next external entity id from the monotonic session counter
-     * (counts down from FIRST_EXTERNAL_ENTITY_ID, never reissuing a freed id).
-     * Command/editor-side allocation — the id is then seeded with addExternalEntity.
-     */
-    allocateExternalEntityId(): number {
-        this.idAllocatedSinceLoad = true;
-        return this.externalIdSeq--;
-    }
-
     /** Whether the entity is fixed (datum or external): targetable, but never movable/deletable/editable. */
     isFixed(entityId: number): boolean {
         return this.fixedEntities.has(entityId);
-    }
-
-    /**
-     * Ids of the user constraints the latest `syncExternalRefs` cascaded away —
-     * through a type-flip reseed (their entity's param layout changed, so they could
-     * not survive) or through a dropped ref (their target geometry no longer exists).
-     * Both are reported so the editor can drop the constraints' dimension anchors:
-     * an unreported removal would leave orphan anchors in `SketchData.anchors`.
-     * Cleared at the start of every `syncExternalRefs` call.
-     */
-    get lastRemovedConstraintIds(): readonly number[] {
-        return this.removedConstraintIds;
-    }
-
-    /**
-     * Anchors a newly referenced body's timeline position (its current feature
-     * count). The first reference anchors it; later references to the same body
-     * keep the anchor — the sketch's timeline position does not move.
-     */
-    recordRefPosition(nodeId: string, featureCount: number): void {
-        if (this.refPositions?.[nodeId] !== undefined) return;
-        if (this.refPositions === undefined) this.refPositions = {};
-        this.refPositions[nodeId] = featureCount;
-    }
-
-    /**
-     * Removes an external reference and every constraint referencing it; returns
-     * the removed constraint ids. The structural pins, their datum params and the
-     * entity params are removed from garlic (constraints first — params in use
-     * cannot be removed).
-     */
-    removeExternalEntity(id: number): number[] {
-        const pins = this.externalPins.get(id);
-        if (pins === undefined) {
-            throw new Error(`Unknown external reference: ${id}`);
-        }
-        const removedConstraints = this.removeConstraintsOn(id);
-        for (const constraintId of pins.constraintIds) {
-            this.system.remove_constraint(constraintId);
-        }
-        for (const paramId of pins.datumParamIds) {
-            this.system.remove_param(paramId);
-        }
-        for (const paramId of this.entityParams.get(id)!) {
-            this.system.remove_param(paramId);
-        }
-        this.externalPins.delete(id);
-        this.fixedEntities.delete(id);
-        this.entityTypes.delete(id);
-        this.entityParams.delete(id);
-        this.entityCache.delete(id);
-        const nodeId = this.externalRefs.find((ref) => ref.entityId === id)?.nodeId;
-        this.externalRefs = this.externalRefs.filter((ref) => ref.entityId !== id);
-        this.pruneRefPosition(nodeId);
-        return removedConstraints;
-    }
-
-    /**
-     * The last ref to a source node takes its timeline anchor with it — a stale
-     * anchor would keep rolling that body back on every edit session
-     * (computeSketchRollback), hiding features the sketch no longer relates to.
-     * The plane owner's anchor is exempt: it also anchors the face the sketch
-     * sits on, which outlives the auto-captured boundary refs.
-     */
-    private pruneRefPosition(nodeId: string | undefined): void {
-        if (nodeId === undefined || nodeId === this.planeOwnerNodeId || this.refPositions === undefined) {
-            return;
-        }
-        if (this.externalRefs.some((ref) => ref.nodeId === nodeId)) {
-            return;
-        }
-        delete this.refPositions[nodeId];
-        // a fully pruned map goes back to absent for a byte-identical round-trip
-        if (Object.keys(this.refPositions).length === 0) this.refPositions = undefined;
     }
 
     /** Removes every constraint referencing the entity; returns removed constraint ids. */
@@ -357,91 +208,6 @@ export class SketchSolver {
             }
         }
         return removed;
-    }
-
-    /**
-     * Moves a seeded external entity to newly resolved geometry: rewrites both the
-     * entity params and the structural datum params pinning them (the JS-side cache
-     * follows, so reads never cross wasm). Callers run a fine solve afterwards so
-     * the attached geometry follows.
-     */
-    updateExternalEntity(id: number, params: number[]): void {
-        const pins = this.externalPins.get(id);
-        const paramIds = this.entityParams.get(id);
-        if (pins === undefined || paramIds === undefined) {
-            throw new Error(`Unknown external reference: ${id}`);
-        }
-        if (params.length !== paramIds.length) {
-            throw new Error(`External reference ${id} expects ${paramIds.length} params`);
-        }
-        const cache = this.entityCache.get(id)!;
-        for (let i = 0; i < params.length; i++) {
-            this.system.set_param(paramIds[i], params[i]);
-            this.system.set_param(pins.datumParamIds[i], params[i]);
-            cache[i] = params[i];
-        }
-    }
-
-    /**
-     * Reconciles the seeded external entities with `refs` (the node re-resolved
-     * them behind the solver's back): seeds new ones, removes dropped ones (with
-     * their constraints), moves ones whose snapshot changed. A type flip reseeds
-     * the entity — its constraints cannot survive the param-layout change and are
-     * removed. Both cascades are exposed via `lastRemovedConstraintIds` so the
-     * editor can drop the removed constraints' dimension anchors. Returns whether
-     * anything changed.
-     */
-    syncExternalRefs(refs: ExternalRefData[]): boolean {
-        this.removedConstraintIds = [];
-        let changed = false;
-        for (const id of [...this.externalPins.keys()]) {
-            if (!refs.some((ref) => ref.entityId === id)) {
-                // a dropped ref's constraints die with it — report them like a type
-                // flip does, or their dimension anchors stay behind as orphans
-                this.removedConstraintIds.push(...this.removeExternalEntity(id));
-                changed = true;
-            }
-        }
-        for (const ref of refs) {
-            if (!this.externalPins.has(ref.entityId)) {
-                this.addExternalEntity(ref);
-                changed = true;
-                continue;
-            }
-            if (this.entityTypes.get(ref.entityId) !== ref.type) {
-                this.reseedExternalEntity(ref);
-                changed = true;
-                continue;
-            }
-            const current = this.entityCache.get(ref.entityId)!;
-            // hand-edited/legacy snapshots can carry the wrong length; normalize
-            // instead of letting updateExternalEntity throw from this listener path
-            const snapshot = normalizeSnapshot(ref.type, ref.snapshot);
-            if (current.some((value, index) => value !== snapshot[index])) {
-                this.updateExternalEntity(ref.entityId, snapshot);
-                changed = true;
-            }
-        }
-        this.externalRefs = refs;
-        return changed;
-    }
-
-    /**
-     * Type-flip reseed: constraints cannot survive the param-layout change, so the
-     * entity is removed (cascading its constraints, exposed via
-     * `lastRemovedConstraintIds`) and re-seeded. The source node's timeline anchor
-     * is preserved across the removal.
-     */
-    private reseedExternalEntity(ref: ExternalRefData): void {
-        const anchor = this.refPositions?.[ref.nodeId];
-        this.removedConstraintIds.push(...this.removeExternalEntity(ref.entityId));
-        this.addExternalEntity(ref);
-        // the removal above prunes the anchor when this was the node's last ref
-        // (and can empty the whole map) — restore it either way
-        if (anchor !== undefined) {
-            if (this.refPositions === undefined) this.refPositions = {};
-            this.refPositions[ref.nodeId] = anchor;
-        }
     }
 
     setDatum(constraintId: number, value: number, index = 0): void {
@@ -490,6 +256,8 @@ export class SketchSolver {
             (c) => c.kind === kind && c.refs.map(pointRefKey).sort().join("|") === key,
         );
     }
+
+    // ------------------------------------------------------------------ Solving
 
     solve(fine: boolean): SolveOutcome {
         this.syncAngleDatumSide();
@@ -607,6 +375,8 @@ export class SketchSolver {
         return this.system.dofs();
     }
 
+    // ------------------------------------------------------------------ Queries
+
     /** Data of every real (editable) entity; fixed datum/external entities are excluded. */
     entities(): SketchEntityData[] {
         return [...this.entityCache.entries()]
@@ -616,29 +386,6 @@ export class SketchSolver {
                 type: this.entityTypes.get(id)!,
                 params: [...params],
             }));
-    }
-
-    /**
-     * Current data of every seeded external reference, mirroring `entities()` for the
-     * real geometry and served from the same JS-side cache (no wasm crossing).
-     * Externals are pinned snap/constraint targets — never editable — so a snapped
-     * constraint onto one is always satisfiable from the sketch side.
-     */
-    externalEntitiesData(): SketchEntityData[] {
-        return [...this.externalPins.keys()].map((id) => ({
-            id,
-            type: this.entityTypes.get(id)!,
-            params: [...this.entityCache.get(id)!],
-        }));
-    }
-
-    /**
-     * The external refs carried through `toData`, roles and dangling flags included.
-     * During an editor session this is the live truth — `node.data` lags behind until
-     * the next commit, so session displays and pick lists read the refs from here.
-     */
-    externalRefsData(): ExternalRefData[] {
-        return [...this.externalRefs];
     }
 
     /** Current data of one entity, or undefined when unknown. Datum axes answer synthetic line data. */
@@ -715,6 +462,8 @@ export class SketchSolver {
         return parent;
     }
 
+    // ------------------------------------------------------------------ Dragging
+
     beginDrag(refs: SketchPointRef[]): void {
         const paramIds = new Set<number>();
         for (const ref of refs) {
@@ -753,8 +502,33 @@ export class SketchSolver {
         return this.solve(true);
     }
 
+    // ------------------------------------------------------------------ Serialization and lifecycle
+
     toData(): SketchData {
-        const constraints: SketchConstraintData[] = [...this.constraints.values()].map((record) => {
+        const constraints = this.constraintsData();
+        const result: SketchData = { entities: this.entities(), constraints };
+        // external refs live in SketchData, not in the entity list — preserve them
+        if (this.external.refs.length > 0) {
+            result.externalRefs = JSON.parse(JSON.stringify(this.external.refs)) as ExternalRefData[];
+            // roles derive from the constraints referencing each ref (pinned refs keep theirs)
+            syncExternalRoles(result);
+        }
+        // timeline anchors are capture-time metadata the solver never derives — carry them
+        if (this.external.refPositions !== undefined) {
+            result.refPositions = { ...this.external.refPositions };
+        }
+        // monotonic id counters — carried so a freed id is never reused across
+        // sessions; emitted only once they mean something (see the field comment)
+        if (this.idCountersPersisted || this.idAllocatedSinceLoad) {
+            result.entityIdSeq = this.entityIdSeq;
+            result.externalIdSeq = this.external.idSeq;
+        }
+        return result;
+    }
+
+    /** Every constraint record, with the current datum parameter values folded back in. */
+    private constraintsData(): SketchConstraintData[] {
+        return [...this.constraints.values()].map((record) => {
             const data: SketchConstraintData = {
                 id: record.id,
                 kind: record.kind,
@@ -770,24 +544,6 @@ export class SketchSolver {
             }
             return data;
         });
-        const result: SketchData = { entities: this.entities(), constraints };
-        // external refs live in SketchData, not in the entity list — preserve them
-        if (this.externalRefs.length > 0) {
-            result.externalRefs = JSON.parse(JSON.stringify(this.externalRefs)) as ExternalRefData[];
-            // roles derive from the constraints referencing each ref (pinned refs keep theirs)
-            syncExternalRoles(result);
-        }
-        // timeline anchors are capture-time metadata the solver never derives — carry them
-        if (this.refPositions !== undefined) {
-            result.refPositions = { ...this.refPositions };
-        }
-        // monotonic id counters — carried so a freed id is never reused across
-        // sessions; emitted only once they mean something (see the field comment)
-        if (this.idCountersPersisted || this.idAllocatedSinceLoad) {
-            result.entityIdSeq = this.entityIdSeq;
-            result.externalIdSeq = this.externalIdSeq;
-        }
-        return result;
     }
 
     dispose(): void {
@@ -803,16 +559,14 @@ export class SketchSolver {
         this.entityCache.clear();
         this.constraints.clear();
         this.fixedEntities.clear();
-        this.externalPins.clear();
-        this.externalRefs = [];
-        this.refPositions = undefined;
+        this.external.clear();
         this.entityIdSeq = 1;
-        this.externalIdSeq = FIRST_EXTERNAL_ENTITY_ID;
-        this.removedConstraintIds = [];
         this.draggedParamIds = [];
         this.seedDatum();
         this.loadData(data);
     }
+
+    // ------------------------------------------------------------------ Datum seeding (see `solverEntities` / `sketchModel` for the reserved ids)
 
     /**
      * Creates the datum entities (origin at (0,0), X axis (0,0)-(1,0), Y axis
@@ -837,13 +591,112 @@ export class SketchSolver {
         seed(SKETCH_Y_AXIS_ID, [0, 0, 0, 1]);
     }
 
+    // ------------------------------------------------------------------ External entities
+
+    // The registry in `externalEntities.ts` owns which externals exist and where they
+    // came from; these are the two halves of the seam. First the `ExternalEntityHost`
+    // operations it borrows — the entity tables and the garlic system, expressed as
+    // named operations rather than handed over as fields. Then one-line delegations,
+    // which are the reason nothing outside this class had to change.
+
+    /** `ExternalEntityHost`: creates `type`'s params and registers them as one entity. */
+    seedEntity(type: SketchEntityType, values: number[], id?: number): number[] {
+        const paramIds = this.addEntityParams(type, values);
+        this.registerEntity(type, paramIds, id);
+        return paramIds;
+    }
+
+    /** `ExternalEntityHost`: the entity's tables in one view; `cache` is the live array. */
+    entityTablesOf(id: number): EntityTables | undefined {
+        const type = this.entityTypes.get(id);
+        const params = this.entityParams.get(id);
+        const cache = this.entityCache.get(id);
+        return type === undefined || params === undefined || cache === undefined
+            ? undefined
+            : { type, params, cache };
+    }
+
+    /** `ExternalEntityHost`: drops the entity's rows; its garlic params are the caller's. */
+    forgetEntity(id: number): void {
+        this.entityTypes.delete(id);
+        this.entityParams.delete(id);
+        this.entityCache.delete(id);
+    }
+
+    setFixed(id: number, fixed: boolean): void {
+        if (fixed) this.fixedEntities.add(id);
+        else this.fixedEntities.delete(id);
+    }
+
+    /** `ExternalEntityHost`: the serialization gate — see `idAllocatedSinceLoad`. */
+    markIdAllocated(): void {
+        this.idAllocatedSinceLoad = true;
+    }
+
+    addExternalEntity(ref: ExternalRefData): void {
+        this.external.addExternalEntity(ref);
+    }
+
+    allocateExternalEntityId(): number {
+        return this.external.allocateExternalEntityId();
+    }
+
+    recordRefPosition(nodeId: string, featureCount: number): void {
+        this.external.recordRefPosition(nodeId, featureCount);
+    }
+
+    /** Removes the ref and every constraint referencing it; returns the removed constraint ids. */
+    removeExternalEntity(id: number): number[] {
+        return this.external.removeExternalEntity(id);
+    }
+
+    updateExternalEntity(id: number, params: number[]): void {
+        this.external.updateExternalEntity(id, params);
+    }
+
+    syncExternalRefs(refs: ExternalRefData[]): boolean {
+        return this.external.syncExternalRefs(refs);
+    }
+
+    externalEntitiesData(): SketchEntityData[] {
+        return this.external.externalEntitiesData();
+    }
+
+    externalRefsData(): ExternalRefData[] {
+        return this.external.externalRefsData();
+    }
+
+    /**
+     * Ids of the user constraints the latest `syncExternalRefs` cascaded away —
+     * through a type-flip reseed (their entity's param layout changed, so they could
+     * not survive) or through a dropped ref (their target geometry no longer exists).
+     * Both are reported so the editor can drop the constraints' dimension anchors:
+     * an unreported removal would leave orphan anchors in `SketchData.anchors`.
+     */
+    get lastRemovedConstraintIds(): readonly number[] {
+        return this.external.removedConstraintIds;
+    }
+
+    /**
+     * Node id of the sketch plane's face owner (`SketchNode.planeRef`), set by the
+     * editor — the solver never sees the node-level planeRef. Node-level, not
+     * data-level: it survives `reset` (see the registry's field comment).
+     */
+    get planeOwnerNodeId(): string | undefined {
+        return this.external.planeOwnerNodeId;
+    }
+
+    set planeOwnerNodeId(value: string | undefined) {
+        this.external.planeOwnerNodeId = value;
+    }
+
     /**
      * Pins every (x, y) point param pair of `paramIds` with an internal Fix
      * constraint to a datum param holding the point's current value — the shared
      * core of `seedDatum` and `seedExternalEntity`. `values` parallels `paramIds`
      * and supplies the pinned coordinates.
      */
-    private pinPoints(paramIds: readonly number[], values: readonly number[]): ExternalPins {
+    pinPoints(paramIds: readonly number[], values: readonly number[]): ExternalPins {
         const datumParamIds: number[] = [];
         const constraintIds: number[] = [];
         for (let i = 0; i < paramIds.length; i += 2) {
@@ -863,38 +716,7 @@ export class SketchSolver {
         return { datumParamIds, constraintIds };
     }
 
-    /**
-     * Seeds one external entity into the regular entity tables (marked fixed): raw
-     * garlic params in the entity layout, every point pinned by an internal Fix
-     * constraint (circles additionally pin the radius with an internal Radius
-     * constraint). Net dofs contribution is zero; the structural constraints stay
-     * out of `this.constraints`.
-     */
-    private seedExternalEntity(entityId: number, type: SketchEntityType, params: number[]): void {
-        const paramIds = this.addEntityParams(type, params);
-        this.registerEntity(type, paramIds, entityId);
-        // Only the point params are pinned here — a circle's radius param is not a
-        // coordinate pair and gets its own Radius pin below.
-        const { datumParamIds, constraintIds } = this.pinPoints(
-            paramIds.slice(0, entityPointCount(type) * 2),
-            params,
-        );
-        if (type === "circle") {
-            const radiusDatum = this.createDatumParam(params[2]);
-            datumParamIds.push(radiusDatum);
-            constraintIds.push(
-                this.system.add_constraint(
-                    ConstraintKind.Radius,
-                    new Uint32Array([paramIds[2], radiusDatum]),
-                    null,
-                    true,
-                    0,
-                ),
-            );
-        }
-        this.fixedEntities.add(entityId);
-        this.externalPins.set(entityId, { datumParamIds, constraintIds });
-    }
+    // ------------------------------------------------------------------ Constraint-parameter plumbing
 
     private registerEntity(type: SketchEntityType, paramIds: number[], id?: number): number {
         let entityId: number;
@@ -1098,7 +920,7 @@ export class SketchSolver {
         return { params: [...params, ...datumParamIds], datumParamIds };
     }
 
-    private createDatumParam(value: number): number {
+    createDatumParam(value: number): number {
         return Number(
             this.system.add_params(new Uint8Array([PARAM_KIND_LENGTH]), new Float64Array([value]))[0],
         );
@@ -1213,6 +1035,8 @@ export class SketchSolver {
         return this.pointOf(b)[axis] - this.pointOf(a)[axis];
     }
 
+    // ------------------------------------------------------------------ Load and param cache
+
     private refreshCache(): void {
         const all: number[] = [];
         for (const ids of this.entityParams.values()) {
@@ -1228,10 +1052,10 @@ export class SketchSolver {
     }
 
     private loadData(data: SketchData): void {
-        this.refPositions = data.refPositions === undefined ? undefined : { ...data.refPositions };
+        this.external.refPositions = data.refPositions === undefined ? undefined : { ...data.refPositions };
         // external refs seed before the constraints that may reference them
         for (const ref of data.externalRefs ?? []) {
-            this.addExternalEntity(ref);
+            this.external.addExternalEntity(ref);
         }
         for (const entity of data.entities) {
             this.registerEntity(entity.type, this.addEntityParams(entity.type, entity.params), entity.id);
@@ -1243,13 +1067,13 @@ export class SketchSolver {
         // initializes from the current max+1 / min-1 via the seeding above
         if (data.entityIdSeq !== undefined) this.entityIdSeq = Math.max(this.entityIdSeq, data.entityIdSeq);
         if (data.externalIdSeq !== undefined) {
-            this.externalIdSeq = Math.min(this.externalIdSeq, data.externalIdSeq);
+            this.external.idSeq = Math.min(this.external.idSeq, data.externalIdSeq);
         }
         this.idCountersPersisted = data.entityIdSeq !== undefined || data.externalIdSeq !== undefined;
         this.idAllocatedSinceLoad = false;
         // normalize roles for documents written before role derivation (and for
         // hand-edited data): an unpinned ref any constraint references is a profile
-        syncExternalRoles({ constraints: data.constraints, externalRefs: this.externalRefs });
+        syncExternalRoles({ constraints: data.constraints, externalRefs: [...this.external.refs] });
         this.solve(true);
     }
 

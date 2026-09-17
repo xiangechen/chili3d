@@ -677,8 +677,7 @@ test("a mid-chain read with an uninitialized shape resolves refs at the timeline
     // sketch2 dangling on the first read and persist it without self-healing.
     (body as any)._shape = Result.err("Shape not initialized");
     (body as any)._evaluated = false;
-    (body as any)._cache = [];
-    (body as any)._timeline = [];
+    (body as any)._timeline.dispose();
 
     // The first read re-runs the chain; at the cut feature the chain re-resolves
     // sketch2's refs — mid-chain. The anchor path serves them from the in-flight

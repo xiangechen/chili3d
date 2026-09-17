@@ -116,6 +116,23 @@ const MAX_REF_TOKENS = 40;
  */
 export function summarizeRefIds(refs: Map<string, LocalRef>): string {
     if (refs.size === 0) return I18n.translate("ai.error.noRefs");
+    const { groups, tokens } = bucketRefIdsByPrefix(refs);
+    for (const [prefix, nums] of groups) {
+        for (const token of collapseNumericRun(prefix, nums)) {
+            tokens.push(token);
+        }
+    }
+    if (tokens.length > MAX_REF_TOKENS) {
+        return `${tokens.slice(0, MAX_REF_TOKENS).join(", ")} … (+${tokens.length - MAX_REF_TOKENS} more)`;
+    }
+    return tokens.join(", ");
+}
+
+/** Buckets `e12`-style ids by their non-numeric prefix; ids without one stay verbatim. */
+function bucketRefIdsByPrefix(refs: Map<string, LocalRef>): {
+    groups: Map<string, number[]>;
+    tokens: string[];
+} {
     const groups = new Map<string, number[]>();
     const tokens: string[] = [];
     for (const id of refs.keys()) {
@@ -128,23 +145,24 @@ export function summarizeRefIds(refs: Map<string, LocalRef>): string {
         nums.push(Number(m[2]));
         groups.set(m[1], nums);
     }
-    for (const [prefix, nums] of groups) {
-        nums.sort((a, b) => a - b);
-        let start = 0;
-        for (let i = 1; i <= nums.length; i++) {
-            if (i < nums.length && nums[i] === nums[i - 1] + 1) continue;
-            if (i - start >= 3) {
-                tokens.push(`${prefix}${nums[start]}..${prefix}${nums[i - 1]}`);
-            } else {
-                for (let j = start; j < i; j++) tokens.push(`${prefix}${nums[j]}`);
-            }
-            start = i;
+    return { groups, tokens };
+}
+
+/** Renders sorted numbers as `p0..p9` runs of 3+, listing anything shorter out in full. */
+function collapseNumericRun(prefix: string, nums: number[]): string[] {
+    nums.sort((a, b) => a - b);
+    const tokens: string[] = [];
+    let start = 0;
+    for (let i = 1; i <= nums.length; i++) {
+        if (i < nums.length && nums[i] === nums[i - 1] + 1) continue;
+        if (i - start >= 3) {
+            tokens.push(`${prefix}${nums[start]}..${prefix}${nums[i - 1]}`);
+        } else {
+            for (let j = start; j < i; j++) tokens.push(`${prefix}${nums[j]}`);
         }
+        start = i;
     }
-    if (tokens.length > MAX_REF_TOKENS) {
-        return `${tokens.slice(0, MAX_REF_TOKENS).join(", ")} … (+${tokens.length - MAX_REF_TOKENS} more)`;
-    }
-    return tokens.join(", ");
+    return tokens;
 }
 
 /**
@@ -530,40 +548,51 @@ function readMember(target: unknown, name: string): unknown {
  */
 function deriveTargetEntry(cap: QueryCapability, entry: LocalRef): LocalRef {
     if (cap.returnKind === "mutate") return entry;
-    let derived = entry;
-    if (derived.kind === "shape") {
-        const shapeType = (derived.value as IShape).shapeType;
-        const member =
-            cap.family === "curve" && shapeType === ShapeTypes.edge
-                ? "curve"
-                : cap.family === "surface" && shapeType === ShapeTypes.face
-                  ? "surface"
-                  : undefined;
-        if (member !== undefined) {
-            const value = readMember(derived.value, member);
-            if (value === undefined || value === null) return entry;
-            derived = {
-                nodeId: derived.nodeId,
-                kind: cap.family as RefKind,
-                value,
-                parent: derived,
-                name: member,
-            };
-        }
+    const unwrapped = unwrapFamilyMember(cap, entry);
+    if (cap.family !== "curve" || cap.runtimeType === undefined || cap.runtimeType === "trimmedCurve") {
+        return unwrapped;
     }
-    if (cap.family === "curve" && cap.runtimeType !== undefined && cap.runtimeType !== "trimmedCurve") {
-        while (
-            (derived.value as { curveType?: string }).curveType === "trimmedCurve" &&
-            (derived.value as Record<string, unknown>)["basisCurve"] != null
-        ) {
-            derived = {
-                nodeId: derived.nodeId,
-                kind: "curve",
-                value: readMember(derived.value, "basisCurve"),
-                parent: derived,
-                name: "basisCurve",
-            };
-        }
+    return unwrapTrimmedCurves(unwrapped);
+}
+
+/** Replaces an edge/face shape ref with the curve/surface the query family wants to read. */
+function unwrapFamilyMember(cap: QueryCapability, entry: LocalRef): LocalRef {
+    if (entry.kind !== "shape") return entry;
+
+    const shapeType = (entry.value as IShape).shapeType;
+    const member =
+        cap.family === "curve" && shapeType === ShapeTypes.edge
+            ? "curve"
+            : cap.family === "surface" && shapeType === ShapeTypes.face
+              ? "surface"
+              : undefined;
+    if (member === undefined) return entry;
+
+    const value = readMember(entry.value, member);
+    if (value === undefined || value === null) return entry;
+    return {
+        nodeId: entry.nodeId,
+        kind: cap.family as RefKind,
+        value,
+        parent: entry,
+        name: member,
+    };
+}
+
+/** Repeats `trimmedCurve -> basisCurve` until the ref holds an untrimmed curve. */
+function unwrapTrimmedCurves(entry: LocalRef): LocalRef {
+    let derived = entry;
+    while (
+        (derived.value as { curveType?: string }).curveType === "trimmedCurve" &&
+        (derived.value as Record<string, unknown>)["basisCurve"] != null
+    ) {
+        derived = {
+            nodeId: derived.nodeId,
+            kind: "curve",
+            value: readMember(derived.value, "basisCurve"),
+            parent: derived,
+            name: "basisCurve",
+        };
     }
     return derived;
 }
@@ -723,35 +752,56 @@ async function runProgram(ops: Op[]): Promise<string> {
     const nullSnapshot = new Set(nullRefs);
     try {
         Transaction.execute(doc, "AI program", () => {
-            for (const op of ops) {
-                try {
-                    runOp(op, doc, factory, localRefs, created, removed, results);
-                } catch (e) {
-                    const message = e instanceof Error ? e.message : String(e);
-                    const where =
-                        op.target !== undefined ? `target "${String(op.target)}"` : `id "${op.id ?? ""}"`;
-                    throw new Error(`op "${op.method}" (${where}) failed: ${message}`);
-                }
-            }
+            runOps(ops, doc, factory, localRefs, created, removed, results);
             doc.visual.update();
         });
     } catch (e) {
-        for (const key of [...localRefs.keys()]) {
-            if (!refSnapshot.has(key)) localRefs.delete(key);
-        }
-        for (const [key, entry] of refSnapshot) {
-            if (!localRefs.has(key)) localRefs.set(key, entry);
-        }
-        for (const key of [...nullRefs]) {
-            if (!nullSnapshot.has(key)) nullRefs.delete(key);
-        }
-        for (const key of nullSnapshot) {
-            if (!localRefs.has(key)) nullRefs.add(key);
-        }
+        restoreRefRegistries(localRefs, nullRefs, refSnapshot, nullSnapshot);
         throw e;
     }
 
     return JSON.stringify({ created, removed, results });
+}
+
+/** Runs every op in order, restating any failure as an error naming the offending op. */
+function runOps(
+    ops: Op[],
+    doc: IDocument,
+    factory: unknown,
+    localRefs: Map<string, LocalRef>,
+    created: CreatedNode[],
+    removed: RemovedNode[],
+    results: Record<string, unknown>,
+): void {
+    for (const op of ops) {
+        try {
+            runOp(op, doc, factory, localRefs, created, removed, results);
+        } catch (e) {
+            const message = e instanceof Error ? e.message : String(e);
+            const where = op.target !== undefined ? `target "${String(op.target)}"` : `id "${op.id ?? ""}"`;
+            throw new Error(`op "${op.method}" (${where}) failed: ${message}`);
+        }
+    }
+}
+
+function restoreRefRegistries(
+    localRefs: Map<string, LocalRef>,
+    nullRefs: Set<string>,
+    refSnapshot: Map<string, LocalRef>,
+    nullSnapshot: Set<string>,
+): void {
+    for (const key of [...localRefs.keys()]) {
+        if (!refSnapshot.has(key)) localRefs.delete(key);
+    }
+    for (const [key, entry] of refSnapshot) {
+        if (!localRefs.has(key)) localRefs.set(key, entry);
+    }
+    for (const key of [...nullRefs]) {
+        if (!nullSnapshot.has(key)) nullRefs.delete(key);
+    }
+    for (const key of nullSnapshot) {
+        if (!localRefs.has(key)) nullRefs.add(key);
+    }
 }
 
 /**
@@ -916,41 +966,50 @@ function runProgramParameters(): JsonSchema {
         properties: {
             ops: {
                 type: "array",
-                items: {
-                    type: "object",
-                    properties: {
-                        id: {
-                            type: "string",
-                            description: "Optional name for this op's result; later ops reference it",
-                        },
-                        method: {
-                            type: "string",
-                            enum: [
-                                ...shapeCapabilities.map((c) => c.method),
-                                ...queryCapabilities.map((c) => c.method),
-                                ...EXTRA_OP_METHODS,
-                            ],
-                        },
-                        args: {
-                            type: "object",
-                            description: "Method parameters, per the system prompt's JSON encoding",
-                        },
-                        target: {
-                            type: "string",
-                            description:
-                                "Query ops only: the ref (op id, node id, sub-shape or curve/surface ref) to inspect",
-                        },
-                        name: {
-                            type: "string",
-                            description: "Optional display name for the resulting node",
-                        },
-                    },
-                    required: ["method"],
-                },
+                items: runProgramOpSchema(),
             },
         },
         required: ["ops"],
     };
+}
+
+function runProgramOpSchema(): JsonSchema {
+    return {
+        type: "object",
+        properties: {
+            id: {
+                type: "string",
+                description: "Optional name for this op's result; later ops reference it",
+            },
+            method: {
+                type: "string",
+                enum: allOpMethods(),
+            },
+            args: {
+                type: "object",
+                description: "Method parameters, per the system prompt's JSON encoding",
+            },
+            target: {
+                type: "string",
+                description:
+                    "Query ops only: the ref (op id, node id, sub-shape or curve/surface ref) to inspect",
+            },
+            name: {
+                type: "string",
+                description: "Optional display name for the resulting node",
+            },
+        },
+        required: ["method"],
+    };
+}
+
+/** Every method the model may name in an op: creation capabilities, queries and the extra ops. */
+function allOpMethods(): string[] {
+    return [
+        ...shapeCapabilities.map((c) => c.method),
+        ...queryCapabilities.map((c) => c.method),
+        ...EXTRA_OP_METHODS,
+    ];
 }
 
 function handleRunProgram(args: Record<string, unknown>): Promise<string> {

@@ -113,33 +113,37 @@ function transformNodeTool(): Tool {
         description:
             "Move, rotate, scale, or mirror a node in world space. Pass any combination of translate, rotate, scale, mirror; they compose in mirror → scale → rotate → translate order and multiply onto the node's current transform. rotate: axis (non-zero), angle in degrees, optional center (defaults to the world origin). scale: a uniform number or {x, y, z}. mirror: plane origin + normal.",
         parameters: TRANSFORM_NODE_PARAMETERS,
-        handler: async (args) => {
-            const doc = requireDocument();
-            if (typeof doc === "string") return doc;
-            const id = args["id"] as string;
-            const node = requireNode(doc, id);
-            if (typeof node === "string") return node;
-            if (!("transform" in node) || !((node as { transform: unknown }).transform instanceof Matrix4)) {
-                return JSON.stringify({ error: `node has no transform: ${id}` });
-            }
-            if (isConsumedTool(node)) {
-                return JSON.stringify({
-                    error: `node is a consumed boolean tool owned by a parametric body: ${id}`,
-                });
-            }
-            const matrix = buildTransformMatrix(args);
-            if (typeof matrix === "string") return JSON.stringify({ error: matrix });
-            Transaction.execute(doc, "AI transform node", () => {
-                const visual = node as { transform: Matrix4 };
-                visual.transform = visual.transform.multiply(matrix);
-            });
-            doc.visual.update();
-            const transform = (node as { transform: Matrix4 }).transform
-                .toArray()
-                .map((v) => Math.round(v * 1000) / 1000);
-            return JSON.stringify({ id, transform });
-        },
+        handler: transformNodeHandler,
     };
+}
+
+const transformNodeHandler: Tool["handler"] = async (args) => {
+    const doc = requireDocument();
+    if (typeof doc === "string") return doc;
+    const id = args["id"] as string;
+    const node = requireNode(doc, id);
+    if (typeof node === "string") return node;
+    if (!("transform" in node) || !((node as { transform: unknown }).transform instanceof Matrix4)) {
+        return JSON.stringify({ error: `node has no transform: ${id}` });
+    }
+    if (isConsumedTool(node)) {
+        return JSON.stringify({
+            error: `node is a consumed boolean tool owned by a parametric body: ${id}`,
+        });
+    }
+    const matrix = buildTransformMatrix(args);
+    if (typeof matrix === "string") return JSON.stringify({ error: matrix });
+    Transaction.execute(doc, "AI transform node", () => {
+        const visual = node as { transform: Matrix4 };
+        visual.transform = visual.transform.multiply(matrix);
+    });
+    doc.visual.update();
+    return JSON.stringify({ id, transform: roundedTransform(node) });
+};
+
+function roundedTransform(node: unknown): number[] {
+    const transform = (node as { transform: Matrix4 }).transform;
+    return transform.toArray().map((v) => Math.round(v * 1000) / 1000);
 }
 
 function undoTool(): Tool {

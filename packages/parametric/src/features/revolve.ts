@@ -15,13 +15,8 @@ import {
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
-import {
-    captureEdgeRef,
-    type EdgeRef,
-    MATCH_TOLERANCE,
-    matchEdgeIndexes,
-    matchEdgesAnchored,
-} from "./edgeRef";
+import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
+import { captureEdgeRef, type EdgeRef } from "./edgeRef";
 import { resolveNumber } from "./expression";
 import { findSketch } from "./extrude";
 import {
@@ -34,8 +29,10 @@ import {
     trackedFaceIds,
     trackedIds,
 } from "./feature";
-import { profileEdgeSeeds, type ResolvedProfile, resolveProfiles } from "./profileBuilder";
+import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { captureProfileRef } from "./profileRef";
+import { profileEdgeSeeds } from "./profileSeeds";
+import { MATCH_TOLERANCE } from "./refGeometry";
 import { combineIds } from "./trackedId";
 
 const revolveHandler: FeatureHandler<RevolveFeatureData> = {
@@ -92,41 +89,63 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
 };
 
 /**
- * The axis as a live reference: the fingerprinted edge is re-matched against the
- * source node's current shape, so editing the picked axis line moves the revolve.
- * Falls back to the world-space snapshot when the source is gone, shows a
- * session-rollback preview, or no longer matches a single line edge. A live match
- * also returns the refreshed ref anchor for the body's write-back (see
- * `ShapeTracking.resolvedEdges`).
+ * The axis as a live reference: the fingerprinted edge is re-matched against the source node's
+ * current shape, so editing the picked axis line moves the revolve.
  *
- * A self-source (the axis edge lives on an earlier feature of the host body)
- * resolves against the feature's INPUT — the shape entering this feature in the
- * current run (same contract as `resolveSourceFaces` in extrude.ts): the committed
- * shape is the pre-run result mid-rebuild, so resolving there sweeps around the
- * stale axis, and a downstream feature failing on that geometry would wedge the
- * chain with no catch-up pass ever running. The input's own tracked ids drive the
- * id channel — the node's describe its final shape only. No rollback guard on this
- * path: during a session preview the input IS the timeline-correct shape.
+ * - **Fallback.** The world-space snapshot, when the source is gone, shows a session-rollback
+ *   preview, or no longer matches a single line edge.
+ * - **Write-back.** A live match also returns the refreshed ref anchor (see
+ *   `ShapeTracking.resolvedEdges`).
+ * - **Self-source.** When the axis edge lives on an earlier feature of the host body, it
+ *   resolves against the feature's INPUT — the shape entering this feature in the current run
+ *   (same contract as `resolveSourceFaces` in pressPull.ts). The committed shape is the pre-run
+ *   result mid-rebuild, so resolving there would sweep around the stale axis, and a downstream
+ *   feature failing on that geometry would wedge the chain with no catch-up pass ever running.
+ *   The input's own tracked ids drive the id channel; the node's describe its final shape only.
+ *   No rollback guard on this path: during a session preview the input IS the timeline-correct
+ *   shape.
  */
 function resolveAxis(feature: RevolveFeatureData, context: FeatureContext): { axis: Line; anchor?: EdgeRef } {
-    const fallback = {
+    const fallback = snapshotAxis(feature);
+    const source = feature.axisSource;
+    if (source === undefined) return fallback;
+
+    return source.nodeId === context.host.id
+        ? axisFromInput(context, source.edge, fallback)
+        : axisFromSourceNode(source.nodeId, source.edge, context, fallback);
+}
+
+/** The world-space axis captured at pick time, used whenever the live ref cannot resolve. */
+function snapshotAxis(feature: RevolveFeatureData): { axis: Line } {
+    return {
         axis: new Line({
             point: new XYZ(feature.axis.point),
             direction: new XYZ(feature.axis.direction),
         }),
     };
-    const source = feature.axisSource;
-    if (source === undefined) return fallback;
+}
 
-    if (source.nodeId === context.host.id) {
-        if (context.input === undefined) return fallback;
-        const edges = context.input.findSubShapes(ShapeTypes.edge) as IEdge[];
-        const tracked = context.tracking?.inputEdgeIds;
-        const ids = tracked !== undefined && tracked.length === edges.length ? tracked : undefined;
-        return matchAxis(context.input, edges, ids, source.edge, context.host.worldTransform(), fallback);
-    }
+/** Self-source: the axis edge belongs to an earlier feature, so match it on this feature's input. */
+function axisFromInput(
+    context: FeatureContext,
+    ref: EdgeRef,
+    fallback: { axis: Line },
+): { axis: Line; anchor?: EdgeRef } {
+    if (context.input === undefined) return fallback;
+    const edges = context.input.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const tracked = context.tracking?.inputEdgeIds;
+    const ids = tracked !== undefined && tracked.length === edges.length ? tracked : undefined;
+    return matchAxis(context.input, edges, ids, ref, context.host.worldTransform(), fallback);
+}
 
-    const node = context.document.modelManager.findNode((n) => n.id === source.nodeId);
+/** Axis on another node: matched on that node's current shape. */
+function axisFromSourceNode(
+    nodeId: string,
+    ref: EdgeRef,
+    context: FeatureContext,
+    fallback: { axis: Line },
+): { axis: Line; anchor?: EdgeRef } {
+    const node = context.document.modelManager.findNode((n) => n.id === nodeId);
     if (!(node instanceof ShapeNode) || !node.shape.isOk) return fallback;
     // A rolled-back source shows a transient session-preview shape lacking every
     // edge born from a hidden feature: the axis must not follow (nor re-anchor
@@ -141,7 +160,7 @@ function resolveAxis(feature: RevolveFeatureData, context: FeatureContext): { ax
     // fingerprint geometrically. The id channel needs the full id array — a
     // partially tracked source stays on the geometric path.
     const ids = isBodyTrackingNode(node) ? edges.map((_, index) => node.edgeIdAt(index)) : undefined;
-    return matchAxis(node.shape.value, edges, ids, source.edge, node.worldTransform(), fallback);
+    return matchAxis(node.shape.value, edges, ids, ref, node.worldTransform(), fallback);
 }
 
 /** Re-matches the axis edge on `shape` (id channel first, geometric fallback) and builds the world-space axis line. */
@@ -250,19 +269,20 @@ function revolveProfileTracked(
 }
 
 /**
- * The kernel's revolve history never reports the end cap of a partial revolve, and
- * drops the end rings of a full turn (the flange faces an axis-perpendicular profile
- * edge sweeps at 360°) — both would otherwise get positional ids that realign onto
- * another face when the profile's structure changes. The kernel reports a partial
- * revolve's end cap directly through `capFaces` (the sweep's LastShape) —
- * authoritative, so nothing else runs when it is present. Without it (a full turn
- * reports nothing: first and last shapes coincide; or a kernel predating the
- * channel), seed from the profile geometry instead: the single history-less face of
- * a partial revolve is the end cap; otherwise each face takes the seeds of the
- * profile edges lying on its surface (a full-turn ring contains the input edge that
- * swept it), compounding when a merged ring carries several. Only the edge midpoint
- * is probed — the endpoints are shared with the neighboring edge's surface. Faces no
- * edge claims keep the positional fallback.
+ * Seeds the faces the kernel's revolve history does not report. Two are missing by construction:
+ * a partial revolve's end cap, and a full turn's end rings (the flange faces an
+ * axis-perpendicular profile edge sweeps at 360°). Left alone they would take positional ids
+ * that realign onto another face when the profile's structure changes.
+ *
+ * - **Authoritative first.** The kernel reports a partial revolve's end cap directly through
+ *   `capFaces` (the sweep's LastShape), so nothing else runs when it is present.
+ * - **Otherwise seed from the profile geometry.** A full turn reports nothing (first and last
+ *   shapes coincide), and a kernel predating the channel reports nothing either. Then: the
+ *   single history-less face of a partial revolve is the end cap; otherwise each face takes the
+ *   seeds of the profile edges lying on its surface (a full-turn ring contains the input edge
+ *   that swept it), compounding when a merged ring carries several. Only the edge midpoint is
+ *   probed — the endpoints are shared with the neighboring edge's surface.
+ * - **Faces no edge claims** keep the positional fallback.
  */
 function seedHistoryLessFaces(
     faces: IFace[],

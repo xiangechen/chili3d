@@ -44,25 +44,11 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
             if (opts.signal?.aborted) break;
             const { text, toolCalls, thinking } = await streamTurn(provider, opts);
 
-            opts.messages.push({
-                role: "assistant",
-                content: text,
-                toolCalls: toolCalls.length ? toolCalls : undefined,
-                thinking: thinking.length ? thinking : undefined,
-            });
+            opts.messages.push(assistantMessage(text, toolCalls, thinking));
             if (text) producedText = true;
             if (toolCalls.length === 0) break;
 
-            const results = await runToolCalls(opts, toolCalls);
-            opts.messages.push(
-                ...results.map((r) => ({
-                    role: "tool" as const,
-                    toolCallId: r.toolCallId,
-                    name: r.name,
-                    content: r.content,
-                    images: r.images,
-                })),
-            );
+            appendToolResults(opts, await runToolCalls(opts, toolCalls));
 
             if (opts.signal?.aborted) break;
             if (iteration + 1 >= MAX_AGENT_ITERATIONS) {
@@ -75,6 +61,27 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
         if (opts.signal?.aborted) return;
         throw err;
     }
+}
+
+function assistantMessage(text: string, toolCalls: ToolCall[], thinking: ThinkingBlock[]): ChatMessage {
+    return {
+        role: "assistant",
+        content: text,
+        toolCalls: toolCalls.length ? toolCalls : undefined,
+        thinking: thinking.length ? thinking : undefined,
+    };
+}
+
+function appendToolResults(opts: RunAgentOptions, results: ToolOutput[]): void {
+    opts.messages.push(
+        ...results.map((r) => ({
+            role: "tool" as const,
+            toolCallId: r.toolCallId,
+            name: r.name,
+            content: r.content,
+            images: r.images,
+        })),
+    );
 }
 
 /** Streams one model turn, forwarding text deltas to the UI and collecting tool calls. */

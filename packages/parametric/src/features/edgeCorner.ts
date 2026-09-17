@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { type I18nKeys, type IShape, Result, type TrackedShape } from "@chili3d/core";
-import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeRef";
+import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
 import { resolveNumber } from "./expression";
 import {
     type ChamferFeatureData,

@@ -19,9 +19,9 @@ import {
     serializable,
     serialize,
 } from "@chili3d/core";
-import { isBodyTimelineNode } from "../features/bodyTracking";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { syncNodeWatches } from "../nodeWatch";
+import { normalizeSnapshot } from "./entityLayout";
 import { resolveExternalRefs } from "./externalRef";
 import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
 import {
@@ -35,7 +35,7 @@ import {
     type SketchEntityData,
     toWorld,
 } from "./sketchModel";
-import { normalizeSnapshot, SketchSolver } from "./solver";
+import { SketchSolver } from "./solver";
 
 export interface SketchNodeOptions {
     document: IDocument;
@@ -204,10 +204,26 @@ export class SketchNode extends ParameterShapeNode {
         // refresh never changes ref nodeIds, so watching post-refresh refs is equal.
         const data = this.data;
         this.syncExternalRefWatch(data.externalRefs ?? []);
+
+        const edges = this.buildEdges(data);
+        if (!edges.isOk) return Result.err(edges.error);
+        // A sketch is a set of possibly disjoint entities; a wire requires connected
+        // edges (shapeFactory.wire fails with DisconnectedWire otherwise), so entities
+        // are combined into a compound — empty when every entity was deleted, which
+        // keeps the visual in sync instead of leaving a stale ghost behind.
+        // Use convert.toWire/toFace downstream when a closed profile is needed.
+        if (edges.value.length === 1) {
+            return Result.ok(edges.value[0]);
+        }
+        return shapeFactory.combine(edges.value);
+    }
+
+    /** The sketch's own entity edges, followed by the profile-role external refs. */
+    private buildEdges(data: SketchData): Result<IEdge[]> {
         const edges: IEdge[] = [];
         for (const entity of data.entities) {
             const edge = this.entityEdge(entity);
-            if (!edge.isOk) return edge;
+            if (!edge.isOk) return Result.err(edge.error);
             edges.push(edge.value);
         }
         // Profile-role external refs join the shape as real edges, after the sketch's
@@ -215,18 +231,10 @@ export class SketchNode extends ParameterShapeNode {
         // the crossing path. Reference-role externals never enter shape building.
         for (const ref of profileExternalRefs(data)) {
             const edge = this.entityEdge({ id: ref.entityId, type: ref.type, params: ref.snapshot });
-            if (!edge.isOk) return edge;
+            if (!edge.isOk) return Result.err(edge.error);
             edges.push(edge.value);
         }
-        // A sketch is a set of possibly disjoint entities; a wire requires connected
-        // edges (shapeFactory.wire fails with DisconnectedWire otherwise), so entities
-        // are combined into a compound — empty when every entity was deleted, which
-        // keeps the visual in sync instead of leaving a stale ghost behind.
-        // Use convert.toWire/toFace downstream when a closed profile is needed.
-        if (edges.length === 1) {
-            return Result.ok(edges[0]);
-        }
-        return shapeFactory.combine(edges);
+        return Result.ok(edges);
     }
 
     private entityEdge(entity: SketchEntityData): Result<IEdge> {
@@ -295,43 +303,32 @@ export class SketchNode extends ParameterShapeNode {
     };
 
     /**
-     * Re-resolves the plane against the referenced face, anchored to the sketch's
-     * timeline position (`SketchData.refPositions`) like the external references:
-     * the plane belongs to the source's shape AT the anchor, so a downstream
-     * feature moving or splitting the captured face does not drag the sketch
-     * along. Persisted untransacted (derived state, refreshExternalRefs-style) —
-     * every trigger path (mid-chain follow, source watch, transform watch)
-     * re-derives it, so an undo replays through the same resolution.
+     * Re-resolves the plane against the referenced face, anchored to the sketch's timeline
+     * position (`SketchData.refPositions`) like the external references.
      *
-     * Must run BEFORE `refreshExternalRefs` (ref snapshots are plane-local UVs).
-     * It is also the ONLY plane follow that runs mid-chain: a ref edge sliding
-     * along the plane normal keeps its UV snapshot, so the ref resolution alone
-     * reports "unchanged" and the sketch would regenerate at its stale world
-     * position — a cut through it turns into a no-op, a downstream feature fails
-     * the chain, the source never emits a shape change, and the plane stays
-     * wedged at the old spot for good.
+     * - **Anchored, not live.** The plane belongs to the source's shape AT the anchor, so a
+     *   downstream feature moving or splitting the captured face does not drag the sketch along.
+     * - **Derived state.** Persisted untransacted (refreshExternalRefs-style): every trigger path
+     *   — mid-chain follow, source watch, transform watch — re-derives it, so an undo replays
+     *   through the same resolution.
+     * - **Ordering.** Must run BEFORE `refreshExternalRefs`, whose ref snapshots are plane-local UVs.
+     * - **Why it is the only plane follow that runs mid-chain.** A ref edge sliding along the
+     *   plane normal keeps its UV snapshot, so the ref resolution alone reports "unchanged" and
+     *   the sketch would regenerate at its stale world position: a cut through it turns into a
+     *   no-op, a downstream feature fails the chain, the source never emits a shape change, and
+     *   the plane stays wedged at the old spot for good.
      */
     private followPlaneRef(): boolean {
         const ref = this.planeRef;
         if (ref === undefined) return false;
-        const node = this.document.modelManager.findNode((n) => n.id === ref.nodeId);
-        if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) {
-            // A rolled-back body shows a transient preview shape lacking every face
-            // born from a later feature; bystander sketches never resolve against
-            // it. The session owner does — the rollback reveals the capture-time
-            // geometry — but only while the rollback still reaches the sketch's
-            // timeline anchor: an undercutting rollback (propagated from a body the
-            // source consumes) shows an EARLIER state than capture time, so the
-            // captured face can be hidden and resolving would hop the plane to the
-            // nearest same-normal face. Freeze exactly like the external refs
-            // (sourceEdges in externalRef.ts); the restore on session exit
-            // re-resolves with the flag already cleared.
-            if (!this._editingSession) return false;
-            const anchor = this.data.refPositions?.[ref.nodeId];
-            if (anchor === undefined || node.rollbackIndex < anchor) return false;
-        }
-        // The face can be gone mid-rebuild; keep the last plane then.
-        const plane = resolveFacePlane(this.document, ref, this.data.refPositions);
+        // A frozen source (a transient rollback preview, see `isFrozenSource`) yields no
+        // plane, exactly like a face that is gone mid-rebuild — the sketch keeps the
+        // last one. The session owner passes `includeRolledBackSources` so an
+        // undercutting rollback still freezes; the restore on session exit re-resolves
+        // with the flag already cleared.
+        const plane = resolveFacePlane(this.document, ref, this.data.refPositions, {
+            includeRolledBackSources: this._editingSession,
+        });
         if (plane === undefined || this.isSamePlane(plane)) return false;
         const history = this.document.history;
         const disabled = history.disabled;
@@ -375,24 +372,24 @@ export class SketchNode extends ParameterShapeNode {
     private _externalRefsFresh = false;
 
     /**
-     * Re-resolves the external references against their source nodes and persists
-     * the result untransacted (refreshProfileRefs-style: derived state, no shape
-     * change of its own). Parametric-body sources are read at the sketch's
-     * timeline anchor (`SketchData.refPositions`), so a downstream feature
-     * consuming the referenced edge (a cut into it) never dangles or re-anchors
-     * the ref — the resolution mirrors what the sketch editor's rollback shows.
-     * Hand-edited or legacy snapshots of the wrong length are normalized first,
-     * so the persisted data self-heals on the next write. Called from
-     * `generateShape`, so every evaluation works on fresh geometry.
+     * Re-resolves the external references against their source nodes, persists the result, and
+     * returns whether the sketch shape is stale afterwards.
      *
-     * Constraints targeting an external reference must follow its geometry, but the
-     * solver only lives during an editor session — so a geometry change also runs an
-     * off-session solve (the equivalent of entering and leaving the editor) and the
-     * solved entity params are persisted the same untransacted way.
+     * - **Derived state.** Persisted untransacted (refreshProfileRefs-style; no shape change of
+     *   its own). Called from `generateShape`, so every evaluation works on fresh geometry.
+     * - **Anchored sources.** A parametric-body source is read at the sketch's timeline anchor
+     *   (`SketchData.refPositions`), so a downstream feature consuming the referenced edge (a cut
+     *   into it) never dangles or re-anchors the ref — the resolution mirrors what the sketch
+     *   editor's rollback shows.
+     * - **Self-healing snapshots.** Hand-edited or legacy snapshots of the wrong length are
+     *   normalized first, so the persisted data heals on the next write.
+     * - **Constraints follow the geometry.** A constraint targeting an external reference must
+     *   track its geometry, but the solver only lives during an editor session — so a geometry
+     *   change also runs an off-session solve (the equivalent of entering and leaving the
+     *   editor), its solved entity params persisted the same untransacted way.
      *
-     * Returns whether the sketch shape is stale afterwards: entities moved in the
-     * re-solve, or a profile-role ref's geometry changed (reference-role geometry
-     * never enters the shape).
+     * "Stale" means entities moved in that off-session solve, or a profile-role ref's geometry
+     * changed. Reference-role geometry never enters the shape, so it cannot make it stale.
      */
     private refreshExternalRefs(): boolean {
         const data = this.data;
@@ -509,15 +506,15 @@ export class SketchNode extends ParameterShapeNode {
     }
 
     /**
-     * Re-resolves the external references and regenerates when anything visible
-     * changed (the resolution and the off-session solve run inside
-     * `refreshExternalRefs`). Shared by the source-watch handler and by a consuming
-     * parametric body: the body's chain calls it before evaluating a feature that
-     * reads this sketch, so the first pass already works on post-edit geometry —
-     * the watch handler's catch-up pass only runs after a successful chain, and a
-     * stale first pass that fails (e.g. a cut whose sketch no longer intersects the
-     * rebuilt body) would otherwise wedge the chain with the error surfacing on the
-     * wrong feature.
+     * Re-resolves the external references and regenerates when anything visible changed. The
+     * resolution and its off-session solve both run inside `refreshExternalRefs`.
+     *
+     * Two callers, one reason: the source-watch handler, and a consuming parametric body —
+     * which calls it BEFORE evaluating a feature that reads this sketch, so the first pass
+     * already works on post-edit geometry. The watch handler's catch-up pass only runs after a
+     * successful chain, so without the body's call a stale first pass that fails (e.g. a cut
+     * whose sketch no longer intersects the rebuilt body) would wedge the chain with the error
+     * surfacing on the wrong feature.
      */
     followExternalRefs(): void {
         // Plane first: ref snapshots are plane-local UVs, so a moved plane changes

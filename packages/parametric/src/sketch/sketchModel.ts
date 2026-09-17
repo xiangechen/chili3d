@@ -10,13 +10,6 @@ export { ConstraintKind };
 /** Screen-pixel line width of sketch geometry (entity edges, in and out of the editor). */
 export const SKETCH_EDGE_LINE_WIDTH = 2;
 
-/**
- * Shared tolerance for incidence residuals (a point left off its line/circle after a coarse
- * solve). The solver's repair pass uses it; profileBuilder's endpoint-on-interior probe matches
- * it so the two layers agree on what "on the edge" means.
- */
-export const INCIDENCE_TOLERANCE = 1e-4;
-
 export type SketchEntityType = "line" | "circle" | "arc";
 
 /**

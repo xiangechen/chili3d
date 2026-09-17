@@ -90,20 +90,9 @@ function addRectangle(
     const right = solver.addLine(u2, v2, u2, v1);
     const bottom = solver.addLine(u2, v1, u1, v1);
     const left = solver.addLine(u1, v1, u1, v2);
-    for (const [from, to] of [
-        [top, right],
-        [right, bottom],
-        [bottom, left],
-        [left, top],
-    ] as const) {
-        solver.addConstraint({
-            kind: ConstraintKind.P2PCoincident,
-            refs: [
-                { entityId: from, pointIndex: 1 },
-                { entityId: to, pointIndex: 0 },
-            ],
-        });
-    }
+
+    // Each edge's endpoint 1 meets the next edge's endpoint 0.
+    joinLoop(solver, [top, right, bottom, left]);
     // the corners are already axis-aligned, so these only keep the rectangle rigid
     for (const [entityId, kind] of [
         [top, ConstraintKind.Horizontal],
@@ -120,4 +109,19 @@ function addRectangle(
         });
     }
     return [top, right, bottom, left];
+}
+
+/** Coincides each entity's end point with the start point of the next, closing the loop. */
+function joinLoop(solver: SketchSolver, entities: number[]): void {
+    for (let i = 0; i < entities.length; i++) {
+        const from = entities[i];
+        const to = entities[(i + 1) % entities.length];
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: from, pointIndex: 1 },
+                { entityId: to, pointIndex: 0 },
+            ],
+        });
+    }
 }

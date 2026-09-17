@@ -1,10 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, type IFace, type Matrix4, Plane, ShapeNode, ShapeTypes, XYZ } from "@chili3d/core";
-import { isBodyTimelineNode, isBodyTrackingNode } from "../features/bodyTracking";
-import { indexesOfOverlappingId, type Vec3 } from "../features/edgeRef";
+import { type IDocument, type IFace, type Matrix4, Plane, ShapeTypes, XYZ } from "@chili3d/core";
+import { isBodyTrackingNode } from "../features/bodyTracking";
+import type { Vec3 } from "../features/refGeometry";
+import { indexesOfOverlappingId } from "../features/trackedId";
 import { type ShapeSource, shapeSourceOf } from "./shapeSource";
+import {
+    ROLLED_BACK_SOURCE,
+    resolveTimelineSource,
+    SOURCE_UNAVAILABLE,
+    type TimelineSourceOptions,
+} from "./sourceTimeline";
 
 /**
  * Identifies the planar face a sketch plane was captured from, in a rebuild-tolerant
@@ -59,26 +66,27 @@ export function captureFaceRef(nodeId: string, face: IFace): PlaneFaceRef {
 }
 
 /**
- * Re-resolves the sketch plane on the referenced node's current shape. A stored
- * `faceId` (kernel shape history, set for nodes that track faces) is the precise
- * path; `normal` + `offset` (the geometric fingerprint) is the fallback for nodes
- * without tracking — see `matchFace`.
+ * Re-resolves the sketch plane on the referenced node's current shape.
  *
- * A parametric-body source is read at the sketch's timeline anchor (`anchors` —
- * `SketchData.refPositions`), mirroring the external-reference sources
- * (`sourceEdges` in externalRef.ts): the plane belongs to the body's shape at the
- * sketch's timeline position, so a downstream feature moving or consuming the
- * captured face does not drag the sketch's plane along. A missing timeline state
- * (body not evaluated that far yet) falls back to the final shape. Returns
- * undefined when the node or a matching face no longer exists; callers keep the
- * last plane then.
+ * - **Two matching paths.** A stored `faceId` (kernel shape history, set for nodes that track
+ *   faces) is the precise one; `normal` + `offset` (the geometric fingerprint) is the fallback
+ *   for nodes without tracking — see `matchFace`.
+ * - **Anchored sources.** A parametric-body source is read at the sketch's timeline anchor
+ *   (`anchors` — `SketchData.refPositions`), mirroring the external-reference sources
+ *   (`sourceEdges` in externalRef.ts): the plane belongs to the body's shape at the sketch's
+ *   timeline position, so a downstream feature moving or consuming the captured face does not
+ *   drag the sketch's plane along. A missing timeline state (the body not evaluated that far
+ *   yet) falls back to the final shape.
+ * - **Undefined means "keep the last plane".** Returned when the node or a matching face no
+ *   longer exists — including when the source is frozen (`TimelineSourceOptions`).
  */
 export function resolveFacePlane(
     document: IDocument,
     ref: PlaneFaceRef,
     anchors?: Record<string, number>,
+    options?: TimelineSourceOptions,
 ): Plane | undefined {
-    const source = planeFaceSource(document, ref.nodeId, anchors);
+    const source = planeFaceSource(document, ref.nodeId, anchors, options);
     if (source === undefined) return undefined;
     const faces = source.shape.findSubShapes(ShapeTypes.face) as IFace[];
     const face = matchFace(faces, source.transform, ref, source.indexById, source.indexesOfId);
@@ -99,42 +107,39 @@ interface PlaneSource extends ShapeSource {
 
 /**
  * The plane-ref counterpart of `sourceEdges` (externalRef.ts), re-based on faces.
- * The timeline stand-in carries its own face-id lookups (the node's tracked ids
- * describe its final shape only); it is tried FIRST, before the node's own shape,
- * which a mid-chain read may only have as the pre-run result — an error right
- * after deserialization ("Shape not initialized") gates just the final-shape
- * fallback.
+ * Which shape to read — a timeline stand-in, the final shape, or nothing because the
+ * source is frozen — is settled by `resolveTimelineSource`; this only supplies the
+ * face-id lookups that go with the winner. A stand-in carries its own (the node's
+ * tracked ids describe its final shape only).
  */
 function planeFaceSource(
     document: IDocument,
     nodeId: string,
     anchors: Record<string, number> | undefined,
+    options: TimelineSourceOptions | undefined,
 ): PlaneSource | undefined {
-    const node = document.modelManager.findNode((n) => n.id === nodeId);
-    if (!(node instanceof ShapeNode)) return undefined;
-    const shape = node.shape.isOk ? node.shape.unchecked()! : undefined;
-    const anchor = anchors?.[nodeId];
-    if (anchor !== undefined && isBodyTimelineNode(node) && anchor < node.featureCount) {
-        const state = node.timelineStateAt(anchor);
-        if (state?.shape !== undefined && state.shape !== shape) {
-            const ids = state.faceIds;
-            return {
-                ...shapeSourceOf(document, node, state.shape),
-                indexById:
-                    ids === undefined
-                        ? undefined
-                        : (id) => {
-                              const index = ids.indexOf(id);
-                              return index < 0 ? undefined : index;
-                          },
-                indexesOfId: ids === undefined ? undefined : (id) => indexesOfOverlappingId(ids, id),
-            };
-        }
+    const source = resolveTimelineSource(document, nodeId, anchors?.[nodeId], options);
+    if (source === ROLLED_BACK_SOURCE || source === SOURCE_UNAVAILABLE) return undefined;
+
+    const base = shapeSourceOf(document, source.node, source.shape);
+    if (source.standIn) {
+        const ids = source.faceIds;
+        return {
+            ...base,
+            indexById:
+                ids === undefined
+                    ? undefined
+                    : (id) => {
+                          const index = ids.indexOf(id);
+                          return index < 0 ? undefined : index;
+                      },
+            indexesOfId: ids === undefined ? undefined : (id) => indexesOfOverlappingId(ids, id),
+        };
     }
-    if (shape === undefined) return undefined;
+    const node = source.node;
     const tracked = isBodyTrackingNode(node);
     return {
-        ...shapeSourceOf(document, node, shape),
+        ...base,
         indexById: tracked ? (id) => node.faceIndexById(id) : undefined,
         indexesOfId: tracked ? (id) => node.faceIndexesOfId(id) : undefined,
     };

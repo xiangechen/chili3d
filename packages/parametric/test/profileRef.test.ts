@@ -2,12 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import { BoundingBox, type IEdge, type IFace, type ShapeType, ShapeTypes, XYZ } from "@chili3d/core";
-import {
-    captureProfileRef,
-    matchProfileIndexes,
-    type ProfileRef,
-    registerProfileEntities,
-} from "../src/features/profileRef";
+import { registerProfileEntities } from "../src/features/profileEntities";
+import { matchProfileIndexes } from "../src/features/profileMatcher";
+import { captureProfileRef, type ProfileRef } from "../src/features/profileRef";
 
 function lineEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
     return {

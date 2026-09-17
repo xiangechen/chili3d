@@ -151,6 +151,20 @@ function toIntArray(vector: IntVector): number[] {
     return array;
 }
 
+/** The edges a fillet removal produced, skipping nulls, non-edges and already-seen handles. */
+function filletResultEdges(edges: TopoDS_Shape[]): OccEdge[] {
+    const newEdges: OccEdge[] = [];
+    const visited = new Set();
+    for (let i = 0; i < edges.length; i++) {
+        const ts = edges[i];
+        if (!ts || ts.shapeType() !== wasm.TopAbs_ShapeEnum.TopAbs_EDGE || visited.has(wasm.Shape.ptr(ts)))
+            continue;
+
+        newEdges.push(OccShape.wrap(ts) as OccEdge);
+    }
+    return newEdges;
+}
+
 export class ShapeFactory implements IShapeFactory {
     readonly kernelName = "opencascade";
 
@@ -313,24 +327,9 @@ export class ShapeFactory implements IShapeFactory {
             return Result.err("Can not remove fillet");
         }
 
-        const newEdges: OccEdge[] = [];
-        const visited = new Set();
-        const edges = result.newEdges;
-        for (let i = 0; i < edges.length; i++) {
-            const ts = edges[i];
-            if (
-                !ts ||
-                ts.shapeType() !== wasm.TopAbs_ShapeEnum.TopAbs_EDGE ||
-                visited.has(wasm.Shape.ptr(ts))
-            )
-                continue;
-
-            newEdges.push(OccShape.wrap(ts) as OccEdge);
-        }
-
         return Result.ok({
             shape: OccShape.wrap(result.shape),
-            newEdges,
+            newEdges: filletResultEdges(result.newEdges),
         });
     }
 

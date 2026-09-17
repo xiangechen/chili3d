@@ -105,7 +105,10 @@ describe("resolveFacePlane", () => {
             doc.modelManager.addNode(body);
             const shape = solidWith(...faces);
             (body as any)._shape = Result.ok(shape);
-            (body as any)._cache = [{ json: "", input: undefined, refs: new Map(), shape, faceIds }];
+            (body as any)._timeline.commit(
+                [{ json: "", input: undefined, refs: new Map(), shape, faceIds }],
+                [],
+            );
             return { doc, body };
         }
 

@@ -164,32 +164,8 @@ export class NodeChildList {
 
     /** Moves `child` (currently owned by this list) into the list of `newParent`. */
     move(child: INode, newParent: INodeLinkedList, previousSibling?: INode): void {
-        if (!this.validateChild(child)) return;
-
-        if (previousSibling === child) {
-            Logger.warn(`Cannot move ${child.name} relative to itself`);
-            return;
-        }
-
-        let ancestor: INode | undefined = newParent;
-        while (ancestor !== undefined) {
-            if (ancestor === child) {
-                Logger.warn(`Cannot move ${child.name} into itself or its descendant`);
-                return;
-            }
-            ancestor = ancestor.parent;
-        }
-
-        if (previousSibling && previousSibling.parent !== newParent) {
-            Logger.warn(`${previousSibling.name} is not a child node of the ${newParent.name} node`);
-            return;
-        }
-
-        const target = NodeChildList.of(newParent);
-        if (target === undefined) {
-            Logger.warn(`${newParent.name} is not a linked-list node`);
-            return;
-        }
+        const target = this.validateMove(child, newParent, previousSibling);
+        if (target === undefined) return;
 
         const record = {
             action: "move",
@@ -201,6 +177,46 @@ export class NodeChildList {
         } satisfies NodeRecord;
 
         this.removeNode(child, false);
+        this.attachChild(target, child, previousSibling);
+
+        this.notify([record]);
+    }
+
+    /** Returns the destination list, or undefined (after warning) when the move is illegal. */
+    private validateMove(
+        child: INode,
+        newParent: INodeLinkedList,
+        previousSibling?: INode,
+    ): NodeChildList | undefined {
+        if (!this.validateChild(child)) return undefined;
+
+        if (previousSibling === child) {
+            Logger.warn(`Cannot move ${child.name} relative to itself`);
+            return undefined;
+        }
+
+        let ancestor: INode | undefined = newParent;
+        while (ancestor !== undefined) {
+            if (ancestor === child) {
+                Logger.warn(`Cannot move ${child.name} into itself or its descendant`);
+                return undefined;
+            }
+            ancestor = ancestor.parent;
+        }
+
+        if (previousSibling && previousSibling.parent !== newParent) {
+            Logger.warn(`${previousSibling.name} is not a child node of the ${newParent.name} node`);
+            return undefined;
+        }
+
+        const target = NodeChildList.of(newParent);
+        if (target === undefined) {
+            Logger.warn(`${newParent.name} is not a linked-list node`);
+        }
+        return target;
+    }
+
+    private attachChild(target: NodeChildList, child: INode, previousSibling?: INode): void {
         if (target.initNode(child)) {
             if (!previousSibling) {
                 target.insertAsFirst(child);
@@ -211,8 +227,6 @@ export class NodeChildList {
             }
         }
         target._count++;
-
-        this.notify([record]);
     }
 
     /** Disposes every child; each child cascades to its own children via disposeInternal. */

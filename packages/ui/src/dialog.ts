@@ -28,53 +28,61 @@ function renderDialog(
     content: HTMLElement,
     combinedButtons: DialogButton[],
 ) {
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Enter") {
-            const confirmBtn = combinedButtons.find(
-                (btn) => btn.onclick && btn.shouldClose?.() !== false && btn.content !== "common.cancel",
-            );
-            if (confirmBtn) {
-                confirmBtn.onclick?.();
-                closeDialog();
-            }
-        } else if (e.key === "Escape") {
-            e.preventDefault();
-            const cancelBtn = combinedButtons.find((btn) => btn.content === "common.cancel");
-            if (cancelBtn) {
-                cancelBtn.onclick?.();
-                closeDialog();
-            }
-        }
-    };
     const closeDialog = () => {
         dialog.removeEventListener("keydown", handleKeyDown);
         dialog.remove();
     };
+    const handleKeyDown = (e: KeyboardEvent) => handleDialogKeyDown(e, combinedButtons, closeDialog);
     dialog.addEventListener("keydown", handleKeyDown);
-    dialog.append(
-        div(
-            { className: style.root },
-            div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
-            div({ className: style.content }, content),
-            div(
-                { className: style.buttons },
-                ...combinedButtons.map((btn) =>
-                    button({
-                        textContent: I18n.translate(btn.content),
-                        onclick: async () => {
-                            if (btn.shouldClose?.() !== false) {
-                                closeDialog();
-                            }
+    dialog.append(createDialogContent(title, content, combinedButtons, closeDialog));
+}
 
-                            if (btn.onclick) {
-                                await btn?.onclick();
-                            }
-                        },
-                    }),
-                ),
-            ),
-        ),
+function handleDialogKeyDown(e: KeyboardEvent, buttons: DialogButton[], closeDialog: () => void) {
+    if (e.key === "Enter") {
+        const confirmBtn = buttons.find(
+            (btn) => btn.onclick && btn.shouldClose?.() !== false && btn.content !== "common.cancel",
+        );
+        if (confirmBtn) {
+            confirmBtn.onclick?.();
+            closeDialog();
+        }
+    } else if (e.key === "Escape") {
+        e.preventDefault();
+        const cancelBtn = buttons.find((btn) => btn.content === "common.cancel");
+        if (cancelBtn) {
+            cancelBtn.onclick?.();
+            closeDialog();
+        }
+    }
+}
+
+function createDialogContent(
+    title: I18nKeys,
+    content: HTMLElement,
+    buttons: DialogButton[],
+    closeDialog: () => void,
+) {
+    return div(
+        { className: style.root },
+        div({ className: style.title }, I18n.translate(title) ?? "chili3d"),
+        div({ className: style.content }, content),
+        div({ className: style.buttons }, ...buttons.map((btn) => createDialogButton(btn, closeDialog))),
     );
+}
+
+function createDialogButton(btn: DialogButton, closeDialog: () => void) {
+    return button({
+        textContent: I18n.translate(btn.content),
+        onclick: async () => {
+            if (btn.shouldClose?.() !== false) {
+                closeDialog();
+            }
+
+            if (btn.onclick) {
+                await btn.onclick();
+            }
+        },
+    });
 }
 
 function combineButtons(buttons?: DialogButton[] | (() => void)): DialogButton[] {

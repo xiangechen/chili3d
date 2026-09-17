@@ -74,36 +74,37 @@ function pickShapesTool(): Tool {
                 },
             },
         },
-        handler: async (args, signal) => {
-            const view = globalThis.app.activeView;
-            const doc = view?.document;
-            if (!doc || !view.dom) {
-                return JSON.stringify({ error: "no active viewport — picking needs a visible view" });
-            }
-            if (signal?.aborted) {
-                return JSON.stringify({ cancelled: true, picked: [] });
-            }
-            const controller = new AsyncController();
-            // Cancelling the chat aborts the signal — end the viewport picker the same way its
-            // own cancel button would, so the view never stays stuck in pick mode.
-            const onAbort = () => controller.cancel();
-            signal?.addEventListener("abort", onAbort, { once: true });
-            try {
-                const shapes = await doc.picker.pickShape("prompt.select.shape", controller, {
-                    shapeType:
-                        args["shapeType"] === undefined ? ShapeTypes.face : shapeTypeOf(args["shapeType"]),
-                    multi: args["multi"] === true,
-                });
-                if (controller.result?.status === "cancel") {
-                    return JSON.stringify({ cancelled: true, picked: [] });
-                }
-                return JSON.stringify({ picked: shapes.map(summarizeShape) });
-            } finally {
-                signal?.removeEventListener("abort", onAbort);
-            }
-        },
+        handler: pickShapesHandler,
     };
 }
+
+const pickShapesHandler: Tool["handler"] = async (args, signal) => {
+    const view = globalThis.app.activeView;
+    const doc = view?.document;
+    if (!doc || !view.dom) {
+        return JSON.stringify({ error: "no active viewport — picking needs a visible view" });
+    }
+    if (signal?.aborted) {
+        return JSON.stringify({ cancelled: true, picked: [] });
+    }
+    const controller = new AsyncController();
+    // Cancelling the chat aborts the signal — end the viewport picker the same way its
+    // own cancel button would, so the view never stays stuck in pick mode.
+    const onAbort = () => controller.cancel();
+    signal?.addEventListener("abort", onAbort, { once: true });
+    try {
+        const shapes = await doc.picker.pickShape("prompt.select.shape", controller, {
+            shapeType: args["shapeType"] === undefined ? ShapeTypes.face : shapeTypeOf(args["shapeType"]),
+            multi: args["multi"] === true,
+        });
+        if (controller.result?.status === "cancel") {
+            return JSON.stringify({ cancelled: true, picked: [] });
+        }
+        return JSON.stringify({ picked: shapes.map(summarizeShape) });
+    } finally {
+        signal?.removeEventListener("abort", onAbort);
+    }
+};
 
 function clickViewTool(): Tool {
     return {
@@ -128,38 +129,42 @@ function clickViewTool(): Tool {
             },
             required: ["x", "y"],
         },
-        handler: async (args) => {
-            const view = globalThis.app.activeView;
-            const doc = view?.document;
-            if (!doc || !view.dom) {
-                return JSON.stringify({ error: "no active viewport — clicking needs a visible view" });
-            }
-            const [nx, ny] = [args["x"], args["y"]].map(Number);
-            if (![nx, ny].every((v) => Number.isFinite(v) && v >= 0 && v <= 1)) {
-                return JSON.stringify({
-                    error: `x and y must be numbers in [0,1], got [${args["x"]}, ${args["y"]}]`,
-                });
-            }
-            const shapeType =
-                args["shapeType"] === undefined ? ShapeTypes.face : shapeTypeOf(args["shapeType"]);
-            const px = nx * view.width;
-            const py = ny * view.height;
-            const hits = view.detectShapes(shapeType, px, py);
-
-            let selected: unknown;
-            if (args["action"] === "select" && hits.length > 0) {
-                const state =
-                    shapeType === ShapeTypes.face ? VisualStates.faceSelected : VisualStates.edgeSelected;
-                doc.selection.setSelectedShapes([hits[0]], state, false);
-                selected = summarizeShape(hits[0]);
-            }
-            return JSON.stringify({
-                pixel: { x: Math.round(px), y: Math.round(py) },
-                hits: hits.map(summarizeShape),
-                selected,
-            });
-        },
+        handler: clickViewHandler,
     };
+}
+
+const clickViewHandler: Tool["handler"] = async (args) => {
+    const view = globalThis.app.activeView;
+    const doc = view?.document;
+    if (!doc || !view.dom) {
+        return JSON.stringify({ error: "no active viewport — clicking needs a visible view" });
+    }
+    const [nx, ny] = [args["x"], args["y"]].map(Number);
+    if (![nx, ny].every((v) => Number.isFinite(v) && v >= 0 && v <= 1)) {
+        return JSON.stringify({
+            error: `x and y must be numbers in [0,1], got [${args["x"]}, ${args["y"]}]`,
+        });
+    }
+    const shapeType = args["shapeType"] === undefined ? ShapeTypes.face : shapeTypeOf(args["shapeType"]);
+    const px = nx * view.width;
+    const py = ny * view.height;
+    const hits = view.detectShapes(shapeType, px, py);
+
+    const selected = args["action"] === "select" ? selectHitShape(doc, hits[0], shapeType) : undefined;
+    return JSON.stringify({
+        pixel: { x: Math.round(px), y: Math.round(py) },
+        hits: hits.map(summarizeShape),
+        selected,
+    });
+};
+
+/** Selects the hit shape and returns its summary; undefined when there was nothing to hit. */
+function selectHitShape(doc: IDocument, hit: VisualShapeData | undefined, shapeType: ShapeType): unknown {
+    if (hit === undefined) return undefined;
+
+    const state = shapeType === ShapeTypes.face ? VisualStates.faceSelected : VisualStates.edgeSelected;
+    doc.selection.setSelectedShapes([hit], state, false);
+    return summarizeShape(hit);
 }
 
 function selectNodesTool(): Tool {
@@ -182,17 +187,23 @@ function selectNodesTool(): Tool {
             const doc = getDocument();
             if (!doc) return JSON.stringify({ error: "no active document" });
             const ids = Array.isArray(args["nodeIds"]) ? args["nodeIds"].map(String) : [];
-            const nodes: INode[] = [];
-            const missing: string[] = [];
-            for (const id of ids) {
-                const node = doc.modelManager.findNodes((n) => n.id === id)[0];
-                if (node) nodes.push(node);
-                else missing.push(id);
-            }
+            const { nodes, missing } = findNodesByIds(doc, ids);
             doc.selection.setSelectedNodes(nodes, false);
             return JSON.stringify({ selected: nodes.map(summarizeNode), missing });
         },
     };
+}
+
+/** Splits `ids` into the nodes that still exist and the ids that no longer resolve. */
+function findNodesByIds(doc: IDocument, ids: string[]): { nodes: INode[]; missing: string[] } {
+    const nodes: INode[] = [];
+    const missing: string[] = [];
+    for (const id of ids) {
+        const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+        if (node) nodes.push(node);
+        else missing.push(id);
+    }
+    return { nodes, missing };
 }
 
 export function buildSelectionTools(): Tool[] {

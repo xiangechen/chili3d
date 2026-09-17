@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IFace, XYZ } from "@chili3d/core";
-import { captureFaceFingerprint, completeFaceHistory } from "../src/features/faceRef";
+import { captureFaceFingerprint, completeFaceHistory } from "../src/features/historyCompletion";
 
 function xyz(x: number, y: number, z: number) {
     return new XYZ({ x, y, z });

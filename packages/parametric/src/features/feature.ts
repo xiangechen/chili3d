@@ -8,15 +8,16 @@ import {
     type IEdge,
     type IFace,
     type IShape,
+    type Matrix4,
     Result,
-    type ShapeNode,
     ShapeTypes,
     type TrackedShape,
 } from "@chili3d/core";
-import { completeEdgeHistory, type EdgeRef, type Vec3 } from "./edgeRef";
+import type { EdgeRef } from "./edgeRef";
 import type { ParameterValue } from "./expression";
-import { completeFaceHistory } from "./faceRef";
+import { completeEdgeHistory, completeFaceHistory } from "./historyCompletion";
 import type { ProfileRef } from "./profileRef";
+import type { Vec3 } from "./refGeometry";
 
 export interface FeatureBase {
     readonly id: string;
@@ -125,10 +126,21 @@ export interface VariableFeatureData extends FeatureBase {
     readonly expression: string;
 }
 
+/**
+ * What a feature may ask of the body replaying it: its identity (to recognise a
+ * self-reference, e.g. an extrude sourced on the host's own face) and its world
+ * transform (boolean tools are mapped into the body's local space). Deliberately
+ * narrower than `ShapeNode` so a caller driving a chain — the re-pick preview
+ * evaluator, which is not a shape node — need only provide these two.
+ */
+export interface IShapeHost {
+    readonly id: string;
+    worldTransform(): Matrix4;
+}
+
 export interface FeatureContext {
     readonly document: IDocument;
-    /** The body node replaying this chain — boolean tools are mapped into its local space. */
-    readonly host: ShapeNode;
+    readonly host: IShapeHost;
     /** Output of the previous feature; undefined for the first (profile) feature. */
     readonly input?: IShape;
     /** Variables defined by `variable` features earlier in the list. */

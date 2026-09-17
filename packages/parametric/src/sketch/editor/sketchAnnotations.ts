@@ -146,24 +146,27 @@ export type DimensionPreview =
 
 /**
  * Renders constraint symbols (toolbar constraint icons) and datum dimensions (extension lines,
- * arrows, value text) anchored to sketch geometry. Recreated wholesale on each
- * refresh — sketches are small, so this stays simple. Dimension graphics use
- * pixel-relative sizes, so the camera controller is subscribed to re-render on zoom.
- * Constraint symbols are shown while one of their referenced entities is highlighted
- * (hovered, dragged or selected), or while the badge itself is hovered/selected;
- * they are suppressed entirely while a pick is active so they cannot occlude the
- * geometry being picked. Datum dimensions stay visible. Symbol badges are offset a
- * screen-constant distance from their geometry so they never cover the clickable
- * line/point; multi-entity constraints (parallel, tangent, ...) get one badge per
- * referenced entity, so each badge stays next to — and reachable from — its own
- * geometry however far apart the entities are. The event handler keeps the entity
- * hover alive while the cursor crosses the gap to a badge (`isNearVisibleBadge`). Badges are interactive: hovering
- * one highlights its referenced entities, clicking a symbol badge selects it,
- * selected constraints can be deleted, and double-clicking a datum badge re-opens
- * its value input. Datum badges are repositioned by dragging: either press-drag-release,
- * or click to pick the label up (it then follows the cursor) and click again —
- * on the canvas or on the label itself — to drop it; Escape cancels, restoring the
- * previous anchor. The new anchor is committed (undoable) on drop.
+ * arrows, value text) anchored to sketch geometry.
+ *
+ * - **Lifecycle.** Recreated wholesale on each refresh — sketches are small, so this stays
+ *   simple. Dimension graphics use pixel-relative sizes, so the camera controller is subscribed
+ *   to re-render on zoom.
+ * - **When symbols are visible.** While one of their referenced entities is highlighted
+ *   (hovered, dragged or selected), or while the badge itself is hovered/selected. They are
+ *   suppressed entirely while a pick is active, so they cannot occlude the geometry being
+ *   picked. Datum dimensions stay visible regardless.
+ * - **Placement.** Symbol badges sit a screen-constant distance from their geometry so they
+ *   never cover the clickable line/point. A multi-entity constraint (parallel, tangent, …) gets
+ *   one badge per referenced entity, so each stays next to — and reachable from — its own
+ *   geometry however far apart the entities are. The event handler keeps the entity hover alive
+ *   while the cursor crosses the gap to a badge (`isNearVisibleBadge`).
+ * - **Interaction.** Hovering a badge highlights its referenced entities; clicking a symbol
+ *   badge selects it; selected constraints can be deleted; double-clicking a datum badge
+ *   re-opens its value input.
+ * - **Dragging a datum badge.** Either press-drag-release, or click to pick the label up (it
+ *   then follows the cursor) and click again — on the canvas or on the label itself — to drop
+ *   it. Escape cancels and restores the previous anchor. The new anchor is committed (undoable)
+ *   on drop.
  */
 export class SketchAnnotationManager implements IDisposable {
     private items: IDisposable[] = [];
@@ -193,6 +196,8 @@ export class SketchAnnotationManager implements IDisposable {
     };
     private dragCleanup?: () => void;
     private readonly onCameraChanged = debounce(() => this.refresh(), 20);
+
+    // ------------------------------------------------------------------ Selection and refresh
 
     constructor(
         private readonly view: IView,
@@ -284,6 +289,8 @@ export class SketchAnnotationManager implements IDisposable {
         }
         this.view.update();
     }
+
+    // ------------------------------------------------------------------ Constraint badges and dimension geometry
 
     private addConstraintGraphics(px: number, segments: DimensionGeometry["segments"]): void {
         const coincidentGroups = new Set<string>();
@@ -526,6 +533,8 @@ export class SketchAnnotationManager implements IDisposable {
         );
     }
 
+    // ------------------------------------------------------------------ Live dimension previews
+
     private addPreviewGraphics(px: number, segments: DimensionGeometry["segments"]): void {
         const preview = this.dimensionPreview;
         if (preview === undefined) return;
@@ -635,6 +644,8 @@ export class SketchAnnotationManager implements IDisposable {
         const cos = Math.max(-1, Math.min(1, (d1[0] * d2[0] + d1[1] * d2[1]) / (len1 * len2)));
         this.addPreviewBadge(`${((Math.acos(cos) * 180) / Math.PI).toFixed(1)}°`, geometry.textPosition);
     }
+
+    // ------------------------------------------------------------------ Visibility, graphics helpers and disposal
 
     dispose(): void {
         if (this.disposed) return;
@@ -769,6 +780,8 @@ export class SketchAnnotationManager implements IDisposable {
         );
     }
 
+    // ------------------------------------------------------------------ Badge hit-testing and label dragging
+
     /**
      * True while the cursor is close enough to a visible badge of this entity to
      * reach it — the event handler uses this to keep the entity hover (and thus
@@ -785,15 +798,17 @@ export class SketchAnnotationManager implements IDisposable {
     }
 
     /**
-     * Repositions a datum label by dragging its badge. Both gestures are supported:
-     * press-drag-release, and click-move-click (a press released without travel picks
-     * the label up; it then follows the cursor and the next click — anywhere, even on
-     * the label itself — drops it). The anchor is recomputed from the pointer on every
-     * move; the refresh rebuilds the badge mid-drag, so the session listens on window.
-     * The window listeners use the capture phase: interactive badges stopPropagation
-     * pointerdown/up (threeView), and since the label follows the cursor the release
-     * usually lands on the badge — a bubble-phase listener would never see it and the
-     * drag would stick.
+     * Repositions a datum label by dragging its badge.
+     *
+     * - **Both gestures work:** press-drag-release, and click-move-click — a press released
+     *   without travel picks the label up, it then follows the cursor, and the next click
+     *   (anywhere, even on the label itself) drops it.
+     * - **The anchor is recomputed** from the pointer on every move. The refresh rebuilds the
+     *   badge mid-drag, so the session listens on window rather than on the badge.
+     * - **Why the window listeners use the capture phase.** Interactive badges
+     *   `stopPropagation` on pointerdown/up (threeView), and since the label follows the cursor
+     *   the release usually lands on the badge — a bubble-phase listener would never see it and
+     *   the drag would stick.
      */
     private beginLabelDrag(constraintId: number, event: PointerEvent): void {
         if (event.button !== 0 || this.disposed) return;
@@ -919,6 +934,8 @@ export class SketchAnnotationManager implements IDisposable {
                 return undefined;
         }
     }
+
+    // ------------------------------------------------------------------ Selection bookkeeping
 
     private toggleSelection(id: number, additive: boolean): void {
         if (additive) {

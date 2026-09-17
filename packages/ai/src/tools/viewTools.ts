@@ -89,28 +89,36 @@ function setMaterialTool(): Tool {
             },
             required: ["id", "color"],
         },
-        handler: async (args) => {
-            const doc = getDocument();
-            if (!doc) return textResult({ error: I18n.translate("ai.error.noDocument") });
-            const id = args["id"] as string;
-            const node = doc.modelManager.findNodes((n) => n.id === id)[0];
-            if (!node || !("materialId" in node)) {
-                return textResult({ error: `node not found or has no material: ${id}` });
-            }
-            const color = parseColor(args["color"]);
-            // Material.color is number | string; normalize both sides before comparing.
-            let material = doc.modelManager.materials.find((m) => parseColor(m.color) === color);
-            if (!material) {
-                material = new Material({ document: doc, name: `AI ${color.toString(16)}`, color });
-                doc.modelManager.materials.push(material);
-            }
-            Transaction.execute(doc, "AI set material", () => {
-                (node as { materialId: string | string[] }).materialId = material.id;
-            });
-            doc.visual.update();
-            return textResult({ id, color, materialId: material.id });
-        },
+        handler: setMaterialHandler,
     };
+}
+
+const setMaterialHandler: Tool["handler"] = async (args) => {
+    const doc = getDocument();
+    if (!doc) return textResult({ error: I18n.translate("ai.error.noDocument") });
+    const id = args["id"] as string;
+    const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+    if (!node || !("materialId" in node)) {
+        return textResult({ error: `node not found or has no material: ${id}` });
+    }
+    const color = parseColor(args["color"]);
+    const material = ensureMaterial(doc, color);
+    Transaction.execute(doc, "AI set material", () => {
+        (node as { materialId: string | string[] }).materialId = material.id;
+    });
+    doc.visual.update();
+    return textResult({ id, color, materialId: material.id });
+};
+
+/** Finds the document's material with this color, creating one when none matches. */
+function ensureMaterial(doc: IDocument, color: number): Material {
+    // Material.color is number | string; normalize both sides before comparing.
+    const existing = doc.modelManager.materials.find((m) => parseColor(m.color) === color);
+    if (existing) return existing;
+
+    const material = new Material({ document: doc, name: `AI ${color.toString(16)}`, color });
+    doc.modelManager.materials.push(material);
+    return material;
 }
 
 function fitContentTool(): Tool {
@@ -145,32 +153,34 @@ function isolateViewTool(): Tool {
             },
             required: ["ids"],
         },
-        handler: async (args) => {
-            const doc = getDocument();
-            const view = globalThis.app.activeView;
-            if (!doc || !view) {
-                return textResult({ error: I18n.translate("ai.error.noDocument") });
-            }
-            const ids = (args as { ids?: unknown }).ids;
-            if (!Array.isArray(ids)) {
-                return textResult({ error: "ids must be an array of node ids" });
-            }
-            if (ids.length === 0) {
-                view.unisolate();
-                view.update();
-                return textResult({ ok: true, isolated: [] });
-            }
-            const nodes = ids.map((id) => doc.modelManager.findNodes((n) => n.id === String(id))[0]);
-            const missing = ids.filter((_, i) => !nodes[i]);
-            if (missing.length) {
-                return textResult({ error: `nodes not found: ${missing.join(", ")}` });
-            }
-            view.isolate(nodes);
-            view.update();
-            return textResult({ ok: true, isolated: ids });
-        },
+        handler: isolateViewHandler,
     };
 }
+
+const isolateViewHandler: Tool["handler"] = async (args) => {
+    const doc = getDocument();
+    const view = globalThis.app.activeView;
+    if (!doc || !view) {
+        return textResult({ error: I18n.translate("ai.error.noDocument") });
+    }
+    const ids = (args as { ids?: unknown }).ids;
+    if (!Array.isArray(ids)) {
+        return textResult({ error: "ids must be an array of node ids" });
+    }
+    if (ids.length === 0) {
+        view.unisolate();
+        view.update();
+        return textResult({ ok: true, isolated: [] });
+    }
+    const nodes = ids.map((id) => doc.modelManager.findNodes((n) => n.id === String(id))[0]);
+    const missing = ids.filter((_, i) => !nodes[i]);
+    if (missing.length) {
+        return textResult({ error: `nodes not found: ${missing.join(", ")}` });
+    }
+    view.isolate(nodes);
+    view.update();
+    return textResult({ ok: true, isolated: ids });
+};
 
 function rotateViewTool(): Tool {
     return {
@@ -192,41 +202,55 @@ function rotateViewTool(): Tool {
                 elevation: { type: "number", description: "Relative vertical orbit in degrees" },
             },
         },
-        handler: async (args) => {
-            const view = globalThis.app.activeView;
-            if (!view) return textResult({ error: "no active view" });
-            const a = args as { view?: string; azimuth?: number; elevation?: number };
-
-            const camera = view.cameraController;
-            const target = camera.cameraTarget;
-            const position = camera.cameraPosition;
-            const dx = position.x - target.x;
-            const dy = position.y - target.y;
-            const dz = position.z - target.z;
-            const distance = Math.hypot(dx, dy, dz) || 1;
-
-            let eye: XYZLike;
-            let up: XYZLike = Z_UP;
-            if (a.view !== undefined) {
-                const preset = VIEW_PRESETS[a.view];
-                if (!preset) {
-                    return textResult({
-                        error: `unknown view "${a.view}", expected one of ${Object.keys(VIEW_PRESETS).join("|")}`,
-                    });
-                }
-                ({ eye, up } = presetEye(preset, target, distance));
-            } else {
-                if (a.azimuth === undefined && a.elevation === undefined) {
-                    return textResult({ error: "provide view or azimuth/elevation" });
-                }
-                eye = orbitEye(a, dx, dy, dz, target, distance);
-            }
-
-            camera.lookAt(eye, target, up);
-            view.update();
-            return textResult({ ok: true, eye: toPlainPoint(eye) });
-        },
+        handler: rotateViewHandler,
     };
+}
+
+const rotateViewHandler: Tool["handler"] = async (args) => {
+    const view = globalThis.app.activeView;
+    if (!view) return textResult({ error: "no active view" });
+
+    const camera = view.cameraController;
+    const target = camera.cameraTarget;
+    const position = camera.cameraPosition;
+    const dx = position.x - target.x;
+    const dy = position.y - target.y;
+    const dz = position.z - target.z;
+    const distance = Math.hypot(dx, dy, dz) || 1;
+
+    const orientation = resolveOrientation(
+        args as { view?: string; azimuth?: number; elevation?: number },
+        target,
+        { x: dx, y: dy, z: dz },
+        distance,
+    );
+    if (typeof orientation === "string") return textResult({ error: orientation });
+
+    camera.lookAt(orientation.eye, target, orientation.up);
+    view.update();
+    return textResult({ ok: true, eye: toPlainPoint(orientation.eye) });
+};
+
+type CameraOrientation = { eye: XYZLike; up: XYZLike };
+
+/** Resolves a preset or relative orbit; returns the message to report when the args are unusable. */
+function resolveOrientation(
+    a: { view?: string; azimuth?: number; elevation?: number },
+    target: XYZLike,
+    offset: XYZLike,
+    distance: number,
+): CameraOrientation | string {
+    if (a.view !== undefined) {
+        const preset = VIEW_PRESETS[a.view];
+        if (!preset) {
+            return `unknown view "${a.view}", expected one of ${Object.keys(VIEW_PRESETS).join("|")}`;
+        }
+        return presetEye(preset, target, distance);
+    }
+    if (a.azimuth === undefined && a.elevation === undefined) {
+        return "provide view or azimuth/elevation";
+    }
+    return { eye: orbitEye(a, offset.x, offset.y, offset.z, target, distance), up: Z_UP };
 }
 
 function setCameraTypeTool(): Tool {
@@ -244,23 +268,24 @@ function setCameraTypeTool(): Tool {
                 },
             },
         },
-        handler: async (args) => {
-            const view = globalThis.app.activeView;
-            if (!view) return textResult({ error: "no active view" });
-            const camera = view.cameraController;
-            const type = args["type"] as string | undefined;
-            if (type !== undefined && type !== "perspective" && type !== "orthographic") {
-                return textResult({
-                    error: `unknown camera type "${type}", expected perspective|orthographic`,
-                });
-            }
-            camera.cameraType =
-                type ?? (camera.cameraType === "perspective" ? "orthographic" : "perspective");
-            view.update();
-            return textResult({ ok: true, cameraType: camera.cameraType });
-        },
+        handler: setCameraTypeHandler,
     };
 }
+
+const setCameraTypeHandler: Tool["handler"] = async (args) => {
+    const view = globalThis.app.activeView;
+    if (!view) return textResult({ error: "no active view" });
+    const camera = view.cameraController;
+    const type = args["type"] as string | undefined;
+    if (type !== undefined && type !== "perspective" && type !== "orthographic") {
+        return textResult({
+            error: `unknown camera type "${type}", expected perspective|orthographic`,
+        });
+    }
+    camera.cameraType = type ?? (camera.cameraType === "perspective" ? "orthographic" : "perspective");
+    view.update();
+    return textResult({ ok: true, cameraType: camera.cameraType });
+};
 
 function presetEye(
     preset: { dir: [number, number, number]; up: XYZLike },

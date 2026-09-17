@@ -71,3 +71,29 @@ export function mapAncestorIds(
         return combineIds(inputs.map((x) => idOfInput(x, outputIndex)));
     });
 }
+
+/**
+ * True when the id overlaps more than one entry — pieces of a split sub-shape.
+ * Overlap is component-wise (`idsOverlap`), not textual: a piece that merged with a
+ * collinear neighbor carries a compound like `A|B` while its untouched sibling keeps
+ * `A`, and both pieces are the same logical split edge. Exact duplicates — the only
+ * case a textual comparison sees — are a subset of this.
+ */
+export function idIsShared(ids: readonly string[], id: string | undefined): boolean {
+    return id !== undefined && indexesOfOverlappingId(ids, id).length > 1;
+}
+
+/**
+ * Indexes of every id overlapping `id` (`idsOverlap`) — the shared scan behind
+ * `IBodyTrackingNode.faceIndexesOfId`/`edgeIndexesOfId`, the sketch external-ref
+ * stand-in lookup and the press-pull face matching. An undefined entry (tracking
+ * lapsed for that sub-shape) never matches.
+ */
+export function indexesOfOverlappingId(ids: readonly (string | undefined)[], id: string): number[] {
+    const indexes: number[] = [];
+    for (let i = 0; i < ids.length; i++) {
+        const value = ids[i];
+        if (value !== undefined && idsOverlap(value, id)) indexes.push(i);
+    }
+    return indexes;
+}

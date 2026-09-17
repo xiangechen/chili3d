@@ -6,7 +6,8 @@
 // it against a freshly rebuilt prism (what the parametric rebuild does).
 
 import { type IEdge, type IShape, Plane, ShapeTypes, XYZ } from "@chili3d/core";
-import { captureEdgeRef, matchEdgeIndexes } from "../../parametric/src/features/edgeRef";
+import { matchEdgeIndexes } from "../../parametric/src/features/edgeMatcher";
+import { captureEdgeRef } from "../../parametric/src/features/edgeRef";
 import { createTestFactory, unwrapOk } from "./helpers";
 import "./setup";
 

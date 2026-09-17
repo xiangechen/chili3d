@@ -12,13 +12,15 @@ import {
     type IStep,
     MultistepCommand,
     property,
+    type ShapeMeshData,
     ShapeTypes,
     Transaction,
     type VisualShapeData,
     VisualStates,
     XYZ,
 } from "@chili3d/core";
-import { captureEdgeRef, type EdgeRef, matchEdgeIndexes } from "../features/edgeRef";
+import { matchEdgeIndexes } from "../features/edgeMatcher";
+import { captureEdgeRef, type EdgeRef } from "../features/edgeRef";
 import type { ChamferFeatureData, FilletFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { ParametricBodyNode } from "../parametricBodyNode";
@@ -68,26 +70,12 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
         this.activeHandler?.refreshArrow();
         if (!Number.isFinite(this.value) || this.value <= 0) return;
 
-        const picked = this.document.selection.getSelectedShapes();
-        const node = picked.at(0)?.owner.node;
-        if (!(node instanceof ParametricBodyNode) || !node.shape.isOk) return;
-        const edges = picked.filter((x) => x.owner.node === node && x.shape.shapeType === ShapeTypes.edge);
-        if (edges.length === 0) return;
+        const targets = this.previewTargets();
+        if (targets === undefined) return;
+        const { node, edges } = targets;
 
-        const shape = node.shape.value;
-        const indexes = matchEdgeIndexes(
-            shape,
-            edges.map((x) => captureEdgeRef(x.shape as unknown as IEdge)),
-        );
-        if (!indexes.isOk) return;
-
-        const result = shapeFactory[this.featureType](shape, indexes.value, this.value);
-        if (!result.isOk) return;
-        const world = result.value.transformedMul(edges[0].transform);
-        result.value.dispose();
-        const { faces, edges: outlines } = world.mesh;
-        world.dispose();
-        if (faces === undefined) return;
+        const meshes = this.buildPreviewMeshes(node, edges);
+        if (meshes === undefined) return;
 
         this.previewOwner = edges[0].owner;
         this.document.visual.highlighter.addState(
@@ -95,12 +83,41 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
             VisualStates.faceTransparent,
             ShapeTypes.shape,
         );
-        this.previewId = this.document.visual.context.displayMesh(
-            [faces, outlines].filter((x) => x !== undefined),
-            { meshOpacity: 1 },
-        );
+        this.previewId = this.document.visual.context.displayMesh(meshes, { meshOpacity: 1 });
         this.document.visual.update();
     };
+
+    /** The body whose edges are picked, with the picked edges themselves. */
+    private previewTargets(): { node: ParametricBodyNode; edges: VisualShapeData[] } | undefined {
+        const picked = this.document.selection.getSelectedShapes();
+        const node = picked.at(0)?.owner.node;
+        if (!(node instanceof ParametricBodyNode) || !node.shape.isOk) return undefined;
+        const edges = picked.filter((x) => x.owner.node === node && x.shape.shapeType === ShapeTypes.edge);
+        if (edges.length === 0) return undefined;
+        return { node, edges };
+    }
+
+    /** The corner result's mesh in the picked faces' world placement, or undefined on failure. */
+    private buildPreviewMeshes(
+        node: ParametricBodyNode,
+        edges: VisualShapeData[],
+    ): ShapeMeshData[] | undefined {
+        const shape = node.shape.value;
+        const indexes = matchEdgeIndexes(
+            shape,
+            edges.map((x) => captureEdgeRef(x.shape as unknown as IEdge)),
+        );
+        if (!indexes.isOk) return undefined;
+
+        const result = shapeFactory[this.featureType](shape, indexes.value, this.value);
+        if (!result.isOk) return undefined;
+        const world = result.value.transformedMul(edges[0].transform);
+        result.value.dispose();
+        const { faces, edges: outlines } = world.mesh;
+        world.dispose();
+        if (faces === undefined) return undefined;
+        return [faces, outlines].filter((x) => x !== undefined);
+    }
 
     private removePreview() {
         if (this.previewOwner !== undefined) {

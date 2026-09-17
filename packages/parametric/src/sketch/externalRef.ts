@@ -11,27 +11,29 @@ import {
     type Plane,
     Precision,
     type Result,
-    ShapeNode,
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
-import { isBodyTimelineNode, isBodyTrackingNode } from "../features/bodyTracking";
+import { isBodyTrackingNode } from "../features/bodyTracking";
+import { edgeListMatcher } from "../features/edgeMatcher";
 import {
     captureEdgeRef,
-    directionsParallel,
     type EdgeRef,
-    edgeListMatcher,
     edgeMatchesRefInvariant,
-    indexesOfOverlappingId,
     isClearWinner,
-    MATCH_TOLERANCE,
     refScore,
     sameEdgeFingerprint,
-    type Vec3,
-    vec3,
 } from "../features/edgeRef";
+import { directionsParallel, MATCH_TOLERANCE, type Vec3, vec3 } from "../features/refGeometry";
+import { indexesOfOverlappingId } from "../features/trackedId";
 import { type ShapeSource, shapeSourceOf } from "./shapeSource";
 import { type ExternalRefData, type SketchEntityType, toUV } from "./sketchModel";
+import {
+    ROLLED_BACK_SOURCE,
+    resolveTimelineSource,
+    SOURCE_UNAVAILABLE,
+    type TimelineSourceOptions,
+} from "./sourceTimeline";
 
 /** Resolved sketch-plane geometry of an external edge. */
 export interface ExternalSnapshot {
@@ -112,38 +114,24 @@ export function captureExternalRef(
 }
 
 /**
- * Re-resolves every external reference against its source node, mutating the refs
- * in place (untransacted, refreshProfileRefs-style: snapshots and re-anchored
- * fingerprints are derived state). A ref whose edge can no longer be matched or
- * represented keeps its last snapshot and is marked `dangling`; a recovered ref
- * clears the flag.
+ * Re-resolves every external reference against its source node, mutating the refs in place
+ * (untransacted, refreshProfileRefs-style: snapshots and re-anchored fingerprints are derived
+ * state).
  *
- * A source that is a parametric body is read at the ref's timeline anchor
- * (`anchors` — `SketchData.refPositions`, the body's feature count when the sketch
- * first referenced it) whenever the anchor predates the body's current feature
- * count: a downstream feature may have consumed the referenced edge (a cut into
- * it), and resolving against the final shape would dangle — or worse, re-anchor
- * the ref to a surviving split piece, breaking the sketch's profile loops. At the
- * anchor the edge still exists, Onshape-style. An edge lost AT the anchor (the
- * upstream geometry was edited away) genuinely dangles; one shortened there
- * re-anchors to its new span. A missing timeline state (body not evaluated yet)
- * falls back to the final shape.
+ * - **Dangling.** A ref whose edge can no longer be matched or represented keeps its last
+ *   snapshot and is marked `dangling`; a recovered ref clears the flag.
+ * - **Anchored sources.** A parametric-body source is read at the ref's timeline anchor
+ *   (`anchors` — `SketchData.refPositions`, the body's feature count when the sketch first
+ *   referenced it) whenever that anchor predates the body's current feature count. A downstream
+ *   feature may have consumed the referenced edge (a cut into it), and resolving against the
+ *   final shape would dangle — or worse, re-anchor the ref to a surviving split piece, breaking
+ *   the sketch's profile loops. At the anchor the edge still exists, Onshape-style: one lost AT
+ *   the anchor (its upstream geometry edited away) genuinely dangles, while one merely shortened
+ *   there re-anchors to its new span.
+ * - **Fallback.** A missing timeline state (the body not evaluated that far yet) falls back to
+ *   the final shape.
  */
-export interface ExternalResolveOptions {
-    /**
-     * Resolve even against sources showing a transient session-rollback shape —
-     * only the sketch owning the editing session should pass this (its refs must
-     * follow the capture-time geometry the rollback reveals). Bystander sketches
-     * keep their stored refs untouched: the rolled-back shape lacks every edge born
-     * from a later feature, so resolving against it flaps refs dangling or
-     * re-anchors them onto wrong geometry — and the follow-up off-session re-solve
-     * then drags the sketch's entities along with the corruption. The session
-     * owner's refs freeze the same way when the rollback undercuts the sketch's
-     * timeline anchor (a propagated rollback): the capture-time geometry is
-     * unreachable then, so there is nothing legitimate to resolve against.
-     */
-    includeRolledBackSources?: boolean;
-}
+export interface ExternalResolveOptions extends TimelineSourceOptions {}
 
 export function resolveExternalRefs(
     document: IDocument,
@@ -222,17 +210,17 @@ function adoptResolvedEdge(
 }
 
 /**
- * Split-piece coverage holds: keep the stored span; only the dead kernel edgeId is
- * dropped. Dropping the id is the ONLY viable choice here — e.g. a full circle cut
- * into two arcs: the id now names two pieces, and neither may claim the ref alone.
- * What bounces an id hit on the next pass differs by curve kind: a LINE piece fails
- * the span check (`idStillIdentifiesEdge` rejects strict sub-spans — lines only),
- * while a circle piece passes it (`refScore`'s circle branch is span-blind: center,
- * radius, axis), so same-circle pieces tie 0-0 and fail as ambiguous — the coverage
- * fallback owns the case either way. The erasure is also permanent: a later
- * `adoptResolvedEdge` re-captures with the ref's stored id, which is undefined from
- * here on, so no pass can ever bring the id back. The fingerprint plus coverage
- * carries the identity.
+ * Split-piece coverage holds: keep the stored span and drop only the dead kernel edgeId.
+ *
+ * - **Why the id must go.** Dropping it is the only viable choice here — a full circle cut
+ *   into two arcs leaves the id naming two pieces, and neither may claim the ref alone.
+ * - **What bounces the next id hit differs by curve kind.** A LINE piece fails the span check
+ *   (`idStillIdentifiesEdge` rejects strict sub-spans — lines only); a circle piece passes it
+ *   (`refScore`'s circle branch is span-blind: center, radius, axis), so same-circle pieces tie
+ *   0-0 and fail as ambiguous. The coverage fallback owns the case either way.
+ * - **The erasure is permanent.** A later `adoptResolvedEdge` re-captures with the ref's stored
+ *   id — undefined from here on — so no pass can bring the id back. The fingerprint plus coverage
+ *   carries the identity from then on.
  */
 function keepSplitCoverage(ref: ExternalRefData): ExternalResolveResult {
     const geometryChanged = ref.dangling === true;
@@ -283,15 +271,16 @@ function resolveEdge(source: SourceEdges, ref: ExternalRefData): ResolvedEdge | 
 }
 
 /**
- * Narrows the id hits to the one edge the ref belongs to. Several edges can carry
- * the id — the pieces of a boolean-split edge share it, a collinear merge compounds
- * it — so a bare first hit can realign the ref onto a sibling piece. Every hit that
- * still carries the fingerprint's span competes by span proximity: an exact span
- * wins outright; otherwise a sole candidate or a clear nearest keeps a rigid move
- * following (the pieces move together). A genuine tie is handed to the geometric
- * match. Hits failing the span/invariant check fall through as before — a strict
- * sub-span means a boolean split the referenced edge, which the caller's
- * split-piece coverage owns.
+ * Narrows the id hits to the one edge the ref belongs to.
+ *
+ * Several edges can carry the id — the pieces of a boolean-split edge share it, a collinear
+ * merge compounds it — so a bare first hit can realign the ref onto a sibling piece. Every hit
+ * that still carries the fingerprint's span therefore competes by span proximity: an exact span
+ * wins outright, otherwise a sole candidate or a clear nearest keeps a rigid move following (the
+ * pieces move together), and a genuine tie is handed to the geometric match.
+ *
+ * Hits failing the span/invariant check fall through as before: a strict sub-span means a
+ * boolean split the referenced edge, which the caller's split-piece coverage owns.
  */
 function resolveByEdgeId(
     ref: EdgeRef,
@@ -433,24 +422,16 @@ interface SourceEdges extends ShapeSource {
     indexesOfId?: (id: string) => number[];
 }
 
-/**
- * Marks a source that shows a transient session-rollback shape (see
- * `ExternalResolveOptions.includeRolledBackSources`): refs pointing at it are left
- * completely untouched — neither re-anchored nor marked dangling.
- */
-const ROLLED_BACK_SOURCE = Symbol("rolledBackSource");
-
 type SourceLookup = SourceEdges | undefined | typeof ROLLED_BACK_SOURCE;
 
 /**
  * The source node with its resolution shape, edges and world transform, or
- * undefined when unavailable. A parametric body whose feature count has grown past
- * the sketch's anchor is read at that anchor's timeline state (see
- * `resolveExternalRefs`) — tried FIRST, before the node's own shape: the stand-in
- * re-bases everything (edges, id lookup), so it never needs `node.shape`, which a
- * mid-chain read may only have as the pre-run result — an error right after
- * deserialization ("Shape not initialized"). Falling back to the final shape when
- * the anchor's state is unavailable keeps the old contract.
+ * undefined when unavailable. Which shape that is — a timeline stand-in, the final
+ * shape, or nothing at all because the source is frozen — is settled by
+ * `resolveTimelineSource`; this only re-bases the winner onto edges.
+ *
+ * A stand-in carries its own id lookup: the node's tracked ids describe its final
+ * shape only, so they must never index into the stand-in's edges.
  */
 function sourceEdges(
     document: IDocument,
@@ -458,65 +439,27 @@ function sourceEdges(
     anchors: Record<string, number> | undefined,
     options: ExternalResolveOptions | undefined,
 ): SourceLookup {
-    const node = document.modelManager.findNode((n) => n.id === nodeId);
-    if (!(node instanceof ShapeNode)) return undefined;
-    if (
-        options?.includeRolledBackSources !== true &&
-        isBodyTimelineNode(node) &&
-        node.rollbackIndex !== undefined
-    ) {
-        return ROLLED_BACK_SOURCE;
-    }
-    const anchor = anchors?.[nodeId];
-    // A session rollback that undercuts this sketch's anchor (propagated from a
-    // body the source boolean-consumes) makes the anchor's timeline state
-    // unreachable: the truncated replay never reaches it, and the rolled-back shape
-    // is an EARLIER state than the capture-time one — geometry from the hidden
-    // features [rollback, anchor) is gone, so resolving there dangles (or
-    // re-anchors) refs and persists the corruption until the session ends. Freeze
-    // exactly like a bystander; the post-session restore resolves normally. At or
-    // above the anchor the rolled-back state IS the capture-time geometry and the
-    // session owner must keep resolving against it.
-    if (
-        isBodyTimelineNode(node) &&
-        node.rollbackIndex !== undefined &&
-        (anchor === undefined || node.rollbackIndex < anchor)
-    ) {
-        return ROLLED_BACK_SOURCE;
-    }
-    // One shape read: the getter may evaluate (off-chain) or return the pre-run
-    // result (mid-chain) — an error gates only the final-shape fallback below.
-    const shapeResult = node.shape;
-    const shape = shapeResult.isOk ? shapeResult.unchecked()! : undefined;
-    if (anchor !== undefined && isBodyTimelineNode(node) && anchor < node.featureCount) {
-        const state = node.timelineStateAt(anchor);
-        const anchored =
-            state?.shape === undefined
-                ? undefined
-                : withShape(shapeSourceOf(document, node, state.shape), state.shape, state.edgeIds, shape);
-        if (anchored !== undefined) return anchored;
-    }
-    if (shape === undefined) return undefined;
-    return withShape(shapeSourceOf(document, node, shape), shape, undefined, shape);
+    const source = resolveTimelineSource(document, nodeId, anchors?.[nodeId], {
+        includeRolledBackSources: options?.includeRolledBackSources,
+        usable: hasEdges,
+    });
+    if (source === ROLLED_BACK_SOURCE) return ROLLED_BACK_SOURCE;
+    if (source === SOURCE_UNAVAILABLE) return undefined;
+
+    const edges = source.shape.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const base = shapeSourceOf(document, source.node, source.shape);
+    if (!source.standIn) return { ...base, edges };
+    const ids = source.edgeIds;
+    return {
+        ...base,
+        edges,
+        indexesOfId: (id: string) => (ids === undefined ? [] : indexesOfOverlappingId(ids, id)),
+    };
 }
 
-/**
- * `source` re-based on `shape` (its own edge list and, for a stand-in, id lookup).
- * `finalShape` is the node's committed shape when it has one: a stand-in that IS
- * that shape keeps the node's own id lookup, while any other stand-in must use the
- * timeline state's ids — the node's tracked ids describe its final shape only.
- */
-function withShape(
-    source: ShapeSource,
-    shape: IShape,
-    edgeIds: string[] | undefined,
-    finalShape: IShape | undefined,
-): SourceEdges | undefined {
-    const edges = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
-    if (edges.length === 0) return undefined;
-    if (shape === finalShape) return { ...source, edges };
-    const indexesOfId = (id: string) => (edgeIds === undefined ? [] : indexesOfOverlappingId(edgeIds, id));
-    return { ...source, shape, edges, indexesOfId };
+/** A stand-in with nothing to match against is worse than the final shape. */
+function hasEdges(shape: IShape): boolean {
+    return (shape.findSubShapes(ShapeTypes.edge) as IEdge[]).length > 0;
 }
 
 /** `sourceEdges` memoized per pass — several refs (and the coverage fallback) share a source. */
