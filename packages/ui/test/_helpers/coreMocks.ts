@@ -11,9 +11,16 @@
 // File-specific overrides (PubSub recorders, PropertyUtils, Config, ...) stay in
 // the individual test files.
 
-/** I18n stub: `translate` returns the key itself. */
+/** I18n stub: `translate` returns the key itself (with any `{n}` args substituted). */
 export const I18nMock = {
-    translate: (key: unknown, ..._args: unknown[]) => String(key),
+    translate: (key: unknown, ...args: unknown[]) =>
+        String(key).replace(/\{(\d+)\}/g, (match, index) =>
+            args[index] === undefined ? match : String(args[index]),
+        ),
+    /** Mirror of `I18n.set`: assigns the translated key to `dom[path]`. */
+    set: (dom: Record<string, unknown>, path: string, key: unknown, ...args: unknown[]) => {
+        dom[path] = I18nMock.translate(key, ...args);
+    },
 };
 
 /** Localize stub: `toString` returns the key itself. */
@@ -55,6 +62,12 @@ export function isFeatureListNodeMock(node: unknown): boolean {
         typeof candidate?.setFeatureParameter === "function" &&
         typeof candidate?.removeFeature === "function"
     );
+}
+
+/** Mirror of core's real guard (the mid-init snapshot can miss function exports). */
+export function isNodeWarningMock(node: unknown): boolean {
+    const candidate = node as { warningCount?: unknown; warningTooltip?: unknown };
+    return typeof candidate?.warningCount === "number" && typeof candidate?.warningTooltip === "string";
 }
 
 /** No-op PubSub stub. */

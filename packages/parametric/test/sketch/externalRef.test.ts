@@ -795,6 +795,123 @@ describe("resolveExternalRefs", () => {
         });
     });
 
+    test("a rollback undercutting the sketch's anchor freezes the session owner's refs", () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                { id: "e1", type: "extrude", sketchId: "s1", depth: 20 },
+                { id: "e2", type: "extrude", sketchId: "s2", depth: -10, operation: "cut" },
+                { id: "e3", type: "extrude", sketchId: "s3", depth: -3, operation: "cut" },
+            ],
+        });
+        doc.modelManager.addNode(body);
+        // the rolled-back preview's edge moved — resolving against it would drag
+        // the ref onto geometry it never referenced
+        (body as any)._shape = Result.ok(solidWithEdges(lineBasisEdge(0, 5, 10, 5)));
+        // a propagated rollback sits at 1, below the sketch's timeline anchor (2):
+        // the anchor's timeline state is unreachable (the truncated replay never
+        // reaches it) and the rolled-back shape predates the capture-time one
+        (body as any)._rollbackIndex = 1;
+        const ref: ExternalRefData = {
+            entityId: -100,
+            nodeId: body.id,
+            edge: { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+            role: "reference",
+            snapshot: [0, 0, 10, 0],
+            type: "line",
+        };
+
+        const [result] = resolveExternalRefs(
+            doc,
+            Plane.XY,
+            [ref],
+            { [body.id]: 2 },
+            {
+                includeRolledBackSources: true,
+            },
+        );
+
+        // frozen like a bystander: no resolution, no dangling flag, nothing persisted
+        expect(result.mutated).toBe(false);
+        expect(result.geometryChanged).toBe(false);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([0, 0, 10, 0]);
+    });
+
+    test("a rollback freezes the session owner's anchorless refs as well", () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                { id: "e1", type: "extrude", sketchId: "s1", depth: 20 },
+                { id: "e2", type: "extrude", sketchId: "s2", depth: -10, operation: "cut" },
+            ],
+        });
+        doc.modelManager.addNode(body);
+        // the rolled-back preview's edge moved — resolving against it would drag
+        // the ref onto geometry it never referenced
+        (body as any)._shape = Result.ok(solidWithEdges(lineBasisEdge(0, 5, 10, 5)));
+        (body as any)._rollbackIndex = 1;
+        const ref: ExternalRefData = {
+            entityId: -100,
+            nodeId: body.id,
+            edge: { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+            role: "reference",
+            snapshot: [0, 0, 10, 0],
+            type: "line",
+        };
+
+        // no anchor recorded for this source: resolution would fall through to the
+        // rolled-back preview — freeze instead
+        const [result] = resolveExternalRefs(doc, Plane.XY, [ref], undefined, {
+            includeRolledBackSources: true,
+        });
+
+        expect(result.mutated).toBe(false);
+        expect(result.geometryChanged).toBe(false);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([0, 0, 10, 0]);
+    });
+
+    test("a rollback at the sketch's anchor still resolves the session owner's refs", () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                { id: "e1", type: "extrude", sketchId: "s1", depth: 20 },
+                { id: "e2", type: "extrude", sketchId: "s2", depth: -10, operation: "cut" },
+            ],
+        });
+        doc.modelManager.addNode(body);
+        (body as any)._shape = Result.ok(solidWithEdges(lineBasisEdge(0, 5, 10, 5)));
+        // rolled back TO the sketch's anchor: the rolled-back shape IS the
+        // capture-time state, so the session owner keeps resolving against it
+        (body as any)._rollbackIndex = 1;
+        const ref: ExternalRefData = {
+            entityId: -100,
+            nodeId: body.id,
+            edge: { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+            role: "reference",
+            snapshot: [0, 0, 10, 0],
+            type: "line",
+        };
+
+        const [result] = resolveExternalRefs(
+            doc,
+            Plane.XY,
+            [ref],
+            { [body.id]: 1 },
+            {
+                includeRolledBackSources: true,
+            },
+        );
+
+        expect(result.geometryChanged).toBe(true);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([0, 5, 10, 5]);
+    });
+
     test("refs sharing a source node resolve it once per pass", () => {
         const edge = lineBasisEdge(0, 0, 10, 0);
         const { doc, source } = setup(edge);
@@ -813,6 +930,35 @@ describe("resolveExternalRefs", () => {
         } finally {
             findNode.mockRestore();
         }
+    });
+
+    test("refs sharing a source node enumerate and capture its edges once per pass", () => {
+        const edgeA = lineBasisEdge(0, 0, 10, 0);
+        const edgeB = lineBasisEdge(0, 5, 10, 5);
+        const findSubShapes = rs.fn((type: ShapeType) => (type === ShapeTypes.edge ? [edgeA, edgeB] : []));
+        const doc = new TestDocument({ application: createMockApplication() });
+        const source = new EditableShapeNode({
+            document: doc,
+            name: "src",
+            shape: Result.ok({
+                shapeType: ShapeTypes.solid,
+                findSubShapes,
+                isEqual: () => false,
+                dispose: rs.fn(),
+            } as unknown as IShape),
+        });
+        doc.modelManager.addNode(source);
+        // Both refs take the geometric fallback (no edgeId, an untracked source).
+        const refs = [
+            captureExternalRef(-100, source.id, Plane.XY, edgeA, undefined, "reference")!,
+            captureExternalRef(-101, source.id, Plane.XY, edgeB, undefined, "reference")!,
+        ];
+        findSubShapes.mockClear();
+
+        const results = resolveExternalRefs(doc, Plane.XY, refs);
+
+        expect(results.map((r) => r.mutated)).toEqual([false, false]);
+        expect(findSubShapes).toHaveBeenCalledTimes(1);
     });
 
     test("the transformed world copy is disposed after resolution", () => {
@@ -1077,6 +1223,183 @@ describe("SketchNode external references", () => {
             expect(node.data.externalRefs![0].snapshot).toEqual([5, 7, 8, 10]);
             expect(node.data.externalRefs![0].dangling).toBeUndefined();
         } finally {
+            restore();
+        }
+    });
+});
+
+describe("SketchNode dangling-ref warning", () => {
+    function setupWithSource(...edges: IEdge[]) {
+        const doc = new TestDocument({ application: createMockApplication() });
+        const source = new EditableShapeNode({
+            document: doc,
+            name: "src",
+            shape: Result.ok(solidWithEdges(...edges)),
+        });
+        doc.modelManager.addNode(source);
+        return { doc, source };
+    }
+
+    function mockSketchFactory() {
+        const line = rs.fn((start: XYZ, end: XYZ) =>
+            Result.ok({
+                startPoint: () => start,
+                endPoint: () => end,
+                isEqual: () => false,
+                dispose: rs.fn(),
+            }),
+        );
+        const combine = rs.fn((edges: any[]) => Result.ok({ edges, isEqual: () => false, dispose: rs.fn() }));
+        return mockShapeFactory({ line, combine });
+    }
+
+    function pinnedProfileRef(entityId: number, source: EditableShapeNode, edge: IEdge): ExternalRefData {
+        // pinned: with no constraints referencing the ref, role derivation would
+        // otherwise revert the profile role on an off-session pass
+        return {
+            ...captureExternalRef(entityId, source.id, Plane.XY, edge, undefined, "profile")!,
+            pinned: true,
+        };
+    }
+
+    function sketchWith(doc: TestDocument, refs: ExternalRefData[]) {
+        return new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [], externalRefs: refs },
+        });
+    }
+
+    test("the first loss toasts once, repeats stay silent, and a full recovery re-arms", () => {
+        const { doc, source } = setupWithSource(lineBasisEdge(5, 5, 8, 8));
+        const restore = mockSketchFactory();
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            const node = sketchWith(doc, [pinnedProfileRef(-100, source, lineBasisEdge(5, 5, 8, 8))]);
+            const properties: string[] = [];
+            node.onPropertyChanged((property: string) => properties.push(property));
+            const toasts = () => pub.mock.calls.filter((call) => call[0] === "showToast");
+
+            // lazy first evaluation resolves the ref — no badge, no toast
+            expect(node.shape.isOk).toBe(true);
+            expect(node.warningCount).toBe(0);
+            expect(toasts()).toEqual([]);
+
+            // the referenced edge disappears from the source: badge + one toast
+            source.shape = Result.ok(solidWithEdges());
+            expect(node.data.externalRefs![0].dangling).toBe(true);
+            expect(node.warningCount).toBe(1);
+            expect(properties).toContain("warningCount");
+            expect(toasts()).toEqual([["showToast", "sketch.externalRefsLost{0}", 1]]);
+
+            // re-resolving the same dangling set stays silent
+            node.followExternalRefs();
+            expect(toasts().length).toBe(1);
+
+            // a full recovery is silent and clears the badge
+            source.shape = Result.ok(solidWithEdges(lineBasisEdge(5, 5, 8, 8)));
+            expect(node.data.externalRefs![0].dangling).toBeUndefined();
+            expect(node.warningCount).toBe(0);
+            expect(toasts().length).toBe(1);
+
+            // a later loss notifies again
+            source.shape = Result.ok(solidWithEdges());
+            expect(node.warningCount).toBe(1);
+            expect(toasts().length).toBe(2);
+        } finally {
+            pub.mockRestore();
+            restore();
+        }
+    });
+
+    test("a grown dangling set re-notifies with the new total", () => {
+        const { doc, source } = setupWithSource(lineBasisEdge(5, 5, 8, 8));
+        const source2 = new EditableShapeNode({
+            document: doc,
+            name: "src2",
+            shape: Result.ok(solidWithEdges(lineBasisEdge(15, 15, 18, 18))),
+        });
+        doc.modelManager.addNode(source2);
+        const restore = mockSketchFactory();
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            const node = sketchWith(doc, [
+                pinnedProfileRef(-100, source, lineBasisEdge(5, 5, 8, 8)),
+                pinnedProfileRef(-101, source2, lineBasisEdge(15, 15, 18, 18)),
+            ]);
+            const toasts = () => pub.mock.calls.filter((call) => call[0] === "showToast");
+            expect(node.shape.isOk).toBe(true);
+            expect(node.warningCount).toBe(0);
+
+            source.shape = Result.ok(solidWithEdges());
+            expect(node.warningCount).toBe(1);
+            expect(toasts()).toEqual([["showToast", "sketch.externalRefsLost{0}", 1]]);
+
+            source2.shape = Result.ok(solidWithEdges());
+            expect(node.warningCount).toBe(2);
+            expect(toasts()).toEqual([
+                ["showToast", "sketch.externalRefsLost{0}", 1],
+                ["showToast", "sketch.externalRefsLost{0}", 2],
+            ]);
+        } finally {
+            pub.mockRestore();
+            restore();
+        }
+    });
+
+    test("a dangling reference-role ref neither badges nor toasts", () => {
+        const { doc, source } = setupWithSource(lineBasisEdge(5, 5, 8, 8));
+        const restore = mockSketchFactory();
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            const node = sketchWith(doc, [
+                captureExternalRef(
+                    -100,
+                    source.id,
+                    Plane.XY,
+                    lineBasisEdge(5, 5, 8, 8),
+                    undefined,
+                    "reference",
+                )!,
+            ]);
+            const toasts = () => pub.mock.calls.filter((call) => call[0] === "showToast");
+            expect(node.shape.isOk).toBe(true);
+
+            source.shape = Result.ok(solidWithEdges());
+            expect(node.data.externalRefs![0].dangling).toBe(true);
+            expect(node.warningCount).toBe(0);
+            expect(toasts()).toEqual([]);
+        } finally {
+            pub.mockRestore();
+            restore();
+        }
+    });
+
+    test("a sketch restored with already-dangling refs badges immediately but does not re-toast", () => {
+        const { doc } = setupWithSource(lineBasisEdge(5, 5, 8, 8));
+        const restore = mockSketchFactory();
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            const restored: ExternalRefData = {
+                entityId: -100,
+                nodeId: "missing",
+                edge: { kind: "line", start: { x: 5, y: 5, z: 0 }, end: { x: 8, y: 8, z: 0 } },
+                role: "profile",
+                pinned: true,
+                snapshot: [5, 5, 8, 8],
+                type: "line",
+                dangling: true,
+            };
+            const node = sketchWith(doc, [restored]);
+            const toasts = () => pub.mock.calls.filter((call) => call[0] === "showToast");
+
+            // the badge state is seeded from the restored data — before any evaluation
+            expect(node.warningCount).toBe(1);
+            expect(node.shape.isOk).toBe(true);
+            expect(node.data.externalRefs![0].dangling).toBe(true);
+            expect(toasts()).toEqual([]);
+        } finally {
+            pub.mockRestore();
             restore();
         }
     });

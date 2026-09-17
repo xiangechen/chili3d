@@ -1,13 +1,28 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Binding, FolderNode, type IDocument, type INode, Transaction } from "@chili3d/core";
-import { label, setSVGIcon, svg } from "@chili3d/element";
+import {
+    Binding,
+    FolderNode,
+    I18n,
+    type IDocument,
+    type INode,
+    isNodeWarning,
+    Transaction,
+} from "@chili3d/core";
+import { label, setSVGIcon, span, svg } from "@chili3d/element";
 import style from "./treeItem.module.css";
 
 export abstract class TreeItem extends HTMLElement {
     readonly name: HTMLLabelElement;
     readonly visibleIcon: SVGSVGElement;
+    /**
+     * SolidWorks-FeatureManager-style warning mark, shown while the node reports
+     * warnings through the `INodeWarning` contract (e.g. a sketch whose external
+     * references lost their source); its tooltip carries the count. Rows place it
+     * after the eye icon.
+     */
+    readonly warningBadge: HTMLElement;
 
     private _node: INode;
     get node() {
@@ -30,8 +45,13 @@ export abstract class TreeItem extends HTMLElement {
             icon: this.getVisibleIcon(),
             onclick: this.onVisibleIconClick,
         });
+        this.warningBadge = span({
+            className: `${style.warning} ${style.hidden}`,
+            textContent: "!",
+        });
         this.setVisibleStyle(node.parentVisible);
         this.refreshVisibleIcon();
+        this.refreshWarningBadge();
     }
 
     /**
@@ -52,13 +72,26 @@ export abstract class TreeItem extends HTMLElement {
         this.node.removePropertyChanged(this.onPropertyChanged);
     }
 
-    private readonly onPropertyChanged = (property: keyof INode, model: INode) => {
+    private readonly onPropertyChanged = (property: string, model: INode) => {
         if (property === "visible") {
             setSVGIcon(this.visibleIcon, this.getVisibleIcon());
         } else if (property === "parentVisible") {
-            this.setVisibleStyle(model[property]);
+            this.setVisibleStyle(model.parentVisible);
+        } else if (property === "warningCount") {
+            this.refreshWarningBadge();
         }
     };
+
+    /** Syncs the badge with the node's `INodeWarning` state; plain nodes keep it hidden. */
+    private refreshWarningBadge() {
+        const node = this.node;
+        const warning = isNodeWarning(node) ? node : undefined;
+        const count = warning?.warningCount ?? 0;
+        this.warningBadge.classList.toggle(style.hidden, count === 0);
+        if (warning !== undefined && count > 0) {
+            I18n.set(this.warningBadge, "title", warning.warningTooltip, count);
+        }
+    }
 
     private setVisibleStyle(parentVisible?: boolean) {
         if (parentVisible === true) {

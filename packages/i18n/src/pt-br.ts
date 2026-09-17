@@ -125,6 +125,8 @@ export default {
         "sketch.conflicting": "Restrições conflitantes",
         "sketch.constraintExists": "Restrição já existe",
         "sketch.externalRefAssociativeOnly": "Referências externas aceitam apenas restrições associativas",
+        "sketch.externalRefsLost{0}":
+            "{0} referências externas do esboço perderam a origem; os perfis usam a geometria congelada",
         "sketch.externalRefTypeChanged":
             "O tipo da referência externa mudou — suas restrições foram removidas",
         "sketch.fullyConstrained": "Totalmente restrito",
@@ -147,6 +149,7 @@ export default {
         "command.feature.cut": "Cortar",
         "command.feature.common": "Interseção",
         "command.feature.variable": "Variável",
+        "command.feature.reselect": "Reselecionar",
         "command.create.folder": "Criar Pasta",
         "command.create.group": "Agrupar",
         "command.create.helix": "Hélice",

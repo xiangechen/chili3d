@@ -20,6 +20,7 @@ import {
 } from "@chili3d/core";
 import { captureEdgeRef, type EdgeRef, matchEdgeIndexes } from "../features/edgeRef";
 import type { ChamferFeatureData, FilletFeatureData } from "../features/feature";
+import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import {
     type EdgeCornerArrowData,
@@ -181,6 +182,9 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     protected override executeMainTask(): void {
         const edges = this.stepDatas[0].shapes.map((data) => {
             const edgeId = this.body.edgeIdAt(data.indexes[0]);
+            if (edgeId === undefined) {
+                reportSilentIdLoss(this.body, "edge", "a picked fillet/chamfer edge has no tracked id");
+            }
             return captureEdgeRef(data.shape as unknown as IEdge, edgeId, this.body.edgeIdIsShared(edgeId));
         });
         Transaction.execute(this.document, `excute ${this.featureType}`, () => {

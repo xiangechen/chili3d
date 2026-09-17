@@ -8,7 +8,7 @@ import style from "./treeModel.module.css";
 export class TreeModel extends TreeItem {
     constructor(document: IDocument, node: INode) {
         super(document, node);
-        this.append(this.name, this.visibleIcon);
+        this.append(this.name, this.visibleIcon, this.warningBadge);
         this.classList.add(style.panel);
     }
 

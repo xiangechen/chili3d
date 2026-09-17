@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { INode } from "@chili3d/core";
+import type { I18nKeys, INode } from "@chili3d/core";
 // test-utils must load BEFORE the core-mock helper so the real core module is
 // fully cached by the time `rs.mock("@chili3d/core")` registers.
 import { createMockDocument } from "@chili3d/core/test-utils";
@@ -13,10 +13,15 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     icon: "ti-icon",
     "parent-hidden": "ti-parent-hidden",
     hidden: "ti-hidden",
+    warning: "ti-warning",
 }));
 
 rs.mock("../src/project/tree/treeModel.module.css", () => ({
     panel: "tm-panel",
+}));
+
+rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
+    reference: "tig-reference",
 }));
 
 // Mock core: no-op Binding, immediate Transaction
@@ -25,7 +30,8 @@ import "./_helpers/mockCoreBinding";
 // Mock element helpers
 import "./_helpers/mockElement";
 
-import { FolderNode } from "@chili3d/core";
+import { FolderNode, I18n } from "@chili3d/core";
+import { TreeItemReference } from "../src/project/tree/treeItemReference";
 import { TreeModel } from "../src/project/tree/treeModel";
 
 type PropertyHandler = (property: string, model: unknown) => void;
@@ -35,6 +41,9 @@ class MockNode {
     visible = true;
     parentVisible: boolean | undefined = true;
     parent: MockNode | undefined;
+    /** Present only on warning-capable nodes (the `isNodeWarning` guard needs both). */
+    warningCount?: number;
+    warningTooltip?: string;
     private handlers = new Set<PropertyHandler>();
 
     onPropertyChanged(handler: PropertyHandler) {
@@ -209,6 +218,57 @@ describe("TreeModel (TreeItem)", () => {
             node.visible = false;
             node.emit("visible");
             expect(item.visibleIcon.getAttribute("icon")).toBe("icon-eye");
+        });
+    });
+
+    describe("warning badge", () => {
+        test("should render a hidden badge after the visible icon for a node without warnings", () => {
+            const item = createItem();
+            expect(item.warningBadge.textContent).toBe("!");
+            expect(item.warningBadge.classList.contains("ti-warning")).toBe(true);
+            expect(item.warningBadge.classList.contains("ti-hidden")).toBe(true);
+            expect(item.children[2]).toBe(item.warningBadge);
+        });
+
+        test("should show the badge with a count tooltip when the node reports warnings", () => {
+            const item = createItem({ warningCount: 2, warningTooltip: "sketch.externalRefsLost{0}" });
+            expect(item.warningBadge.classList.contains("ti-hidden")).toBe(false);
+            expect(item.warningBadge.title).toBe(I18n.translate("sketch.externalRefsLost{0}" as I18nKeys, 2));
+        });
+
+        test("a warning count without a tooltip key fails the guard and stays hidden", () => {
+            const item = createItem({ warningCount: 2 });
+            expect(item.warningBadge.classList.contains("ti-hidden")).toBe(true);
+        });
+
+        test("should toggle the badge and refresh the tooltip on warningCount property changes", () => {
+            const item = createItem({ warningCount: 0, warningTooltip: "sketch.externalRefsLost{0}" });
+            document.body.appendChild(item);
+            expect(item.warningBadge.classList.contains("ti-hidden")).toBe(true);
+
+            node.warningCount = 1;
+            node.emit("warningCount");
+            expect(item.warningBadge.classList.contains("ti-hidden")).toBe(false);
+            expect(item.warningBadge.title).toBe(I18n.translate("sketch.externalRefsLost{0}" as I18nKeys, 1));
+
+            node.warningCount = 3;
+            node.emit("warningCount");
+            expect(item.warningBadge.title).toBe(I18n.translate("sketch.externalRefsLost{0}" as I18nKeys, 3));
+
+            node.warningCount = 0;
+            node.emit("warningCount");
+            expect(item.warningBadge.classList.contains("ti-hidden")).toBe(true);
+        });
+
+        test("should show the badge on a body's reference mirror row too", () => {
+            createItem();
+            const mirror = new TreeItemReference(doc, node as unknown as INode);
+            expect(mirror.warningBadge.classList.contains("ti-hidden")).toBe(true);
+
+            node.warningCount = 1;
+            node.warningTooltip = "sketch.externalRefsLost{0}";
+            const warned = new TreeItemReference(doc, node as unknown as INode);
+            expect(warned.warningBadge.classList.contains("ti-hidden")).toBe(false);
         });
     });
 });

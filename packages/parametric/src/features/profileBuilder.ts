@@ -16,10 +16,14 @@ import {
 } from "@chili3d/core";
 import { INCIDENCE_TOLERANCE, shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
+import type { Vec3 } from "./edgeRef";
 import {
+    captureRegionFingerprint,
     matchProfileIndexes,
     type ProfileRef,
+    profileEdgeEntityIds,
     profileEntityIds,
+    registerProfileEdgeEntities,
     registerProfileEntities,
 } from "./profileRef";
 
@@ -46,13 +50,13 @@ export interface SketchProfileSet {
      * region's primary identity for `ProfileRef.entities` and for sketch-scoped seed
      * ids (geometric fingerprints cannot tell adjacent regions of a crossing sketch
      * apart, they share segments of the same entities, and positional indexes drift
-     * when profiles are added or removed). Populated on every path; `undefined`
-     * entries appear only where entity ids are unavailable (e.g. test mocks). The
-     * whole array is undefined only for legacy callers.
+     * when profiles are added or removed). Populated on every path (explicitly empty
+     * where there are no such profiles); `undefined` entries appear only where
+     * entity ids are unavailable (e.g. test mocks).
      */
-    readonly outerEntities?: (number[] | undefined)[];
+    readonly outerEntities: (number[] | undefined)[];
     /** Same as `outerEntities`, parallel to `inner`. */
-    readonly innerEntities?: (number[] | undefined)[];
+    readonly innerEntities: (number[] | undefined)[];
 }
 
 /** A loop approximated as a 2D polygon in sketch-plane coordinates. */
@@ -110,7 +114,7 @@ function splitProfiles(
     sketch: SketchNode,
 ): Result<SketchProfileSet> {
     const simpleGroups = groups.filter((group) => !hasBranchVertex(group));
-    const empty: SketchProfileSet = { outer: [], inner: [] };
+    const empty: SketchProfileSet = { outer: [], inner: [], outerEntities: [], innerEntities: [] };
     const simple =
         simpleGroups.length === 0
             ? Result.ok(empty)
@@ -119,40 +123,171 @@ function splitProfiles(
 
     const branchEdges = branchGroups.flat();
     // Same lookup guarantee as buildWires: idByEdge covers every collected edge, so
-    // the entity id cannot be missing on healthy data (the `!` mirrors the filter
-    // there — see its comment).
-    const branch = crossingProfiles(
-        branchEdges,
-        branchEdges.map((edge) => idByEdge.get(edge)!),
-        sketch,
-    );
+    // the entity id cannot be missing on healthy data. A miss means the entity-id
+    // list ran shorter than the edge list — undefined must not flow into the kernel
+    // path's identity sets, so the misses are reported here (see
+    // reportMissingEntityId) and crossingProfiles skips them.
+    const branchEntityIds = branchEdges.map((edge) => idByEdge.get(edge));
+    const missing = branchEntityIds.filter((id) => id === undefined).length;
+    if (missing > 0) {
+        reportMissingEntityId(sketch, `${missing} of ${branchEdges.length} branch edges have no entity id`);
+    }
+    const branch = crossingProfiles(branchEdges, branchEntityIds, sketch);
     if (!branch.isOk) return Result.err(branch.error);
 
     return Result.ok({
         outer: [...simple.value.outer, ...branch.value.outer],
         inner: simple.value.inner,
-        outerEntities: [
-            ...(simple.value.outerEntities ?? simple.value.outer.map(() => undefined)),
-            ...(branch.value.outerEntities ?? []),
-        ],
+        outerEntities: [...simple.value.outerEntities, ...branch.value.outerEntities],
         innerEntities: simple.value.innerEntities,
     });
 }
 
+/**
+ * Makes a missing entity id loud, in the spirit of `reportSilentIdLoss`
+ * (features/idDiagnostics.ts): the edge list and the entity-id list are parallel on
+ * every healthy path (generateShape builds one edge per entity, then the
+ * profile-role external refs), so a miss means the kernel's source report and the
+ * sketch have diverged. Silently stuffing undefined into a region's identity set
+ * would degrade its ProfileRef to geometric matching only after a serialization
+ * round-trip (undefined → null), far from the cause.
+ */
+function reportMissingEntityId(sketch: SketchNode, what: string): void {
+    console.warn(
+        `[chili3d] profile entity loss: ${what} (sketch ${sketch.id}) — the profile identity degrades to geometric matching. Please report this scenario.`,
+    );
+}
+
 /** Kernel path: splits `edges` at their intersections and returns every minimal region. */
-function crossingProfiles(edges: IEdge[], entityIds: number[], sketch: SketchNode): Result<SketchProfileSet> {
+function crossingProfiles(
+    edges: IEdge[],
+    entityIds: readonly (number | undefined)[],
+    sketch: SketchNode,
+): Result<SketchProfileSet> {
     const regions = shapeFactory.facesFromEdges(edges, sketch.plane);
     if (!regions.isOk) return Result.err(regions.error);
     const { faces, sources } = regions.value;
     // Input edge i corresponds to shapeEntityIds[i] (generateShape combines one edge
     // per entity in `data.entities` order, then the profile-role external refs) — map
     // the kernel's source indexes to the entity ids, which survive endpoint drags and
-    // re-splits.
-    const outerEntities = sources.map((set) => set.map((index) => entityIds[index]).sort((a, b) => a - b));
+    // re-splits. An index outside the entity list would stuff undefined into the
+    // region's identity set: skip it (loudly) instead. An in-range miss was already
+    // reported where the lookup dropped it (see splitProfiles).
+    const outerEntities = sources.map((set) =>
+        set
+            .flatMap((index) => {
+                if (index < 0 || index >= entityIds.length) {
+                    reportMissingEntityId(
+                        sketch,
+                        `the kernel reported source edge ${index}, beyond the ${entityIds.length} entity ids`,
+                    );
+                    return [];
+                }
+                const id = entityIds[index];
+                return id === undefined ? [] : [id];
+            })
+            .sort((a, b) => a - b),
+    );
     for (const [index, face] of faces.entries()) {
         registerProfileEntities(face, outerEntities[index]);
+        // A region's boundary edges are pieces the splitter cut from its source
+        // edges — attribute each to the source entity it lies on.
+        const candidates = sources[index].map((i) => edges[i]);
+        registerProfileEdgeEntities(
+            face,
+            attributeFaceEdges(
+                face,
+                candidates,
+                entityIdByEdge(candidates, entityIds, sources[index], sketch),
+            ),
+        );
     }
-    return Result.ok({ outer: faces, inner: [], outerEntities });
+    return Result.ok({ outer: faces, inner: [], outerEntities, innerEntities: [] });
+}
+
+/** Candidate edge → entity id lookup for `attributeFaceEdges`. */
+function entityIdByEdge(
+    candidates: IEdge[],
+    entityIds: readonly (number | undefined)[],
+    sourceIndexes: number[],
+    sketch: SketchNode,
+): Map<IEdge, number> {
+    const map = new Map<IEdge, number>();
+    for (const [k, edge] of candidates.entries()) {
+        const index = sourceIndexes[k];
+        if (index < 0 || index >= entityIds.length) {
+            reportMissingEntityId(
+                sketch,
+                `the kernel reported source edge ${index}, beyond the ${entityIds.length} entity ids`,
+            );
+            continue;
+        }
+        const id = entityIds[index];
+        // An in-range miss was already reported where the lookup dropped it (see
+        // splitProfiles); the edge keeps the positional seed fallback.
+        if (id === undefined) continue;
+        map.set(edge, id);
+    }
+    return map;
+}
+
+/**
+ * The entity id each boundary edge of `face` was generated from, parallel to the
+ * face's edge enumeration: an exact `isSame` hit first (a face shares the TShapes
+ * of the edges it was built from; the kernel splitter also keeps untouched edges),
+ * then an on-curve probe for split pieces (region edges are new TShapes cut from
+ * the input edges). Undefined where neither matches — the seed falls back to the
+ * positional ordinal there.
+ */
+function attributeFaceEdges(
+    face: IFace,
+    candidates: IEdge[],
+    idByEdge: Map<IEdge, number>,
+): (number | undefined)[] {
+    let faceEdges: IEdge[];
+    try {
+        faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
+    } catch {
+        // A mocked face without sub-shape access — no attribution, no seeds.
+        return [];
+    }
+    return faceEdges.map((edge) => {
+        const match =
+            candidates.find((candidate) => safeIsSame(edge, candidate)) ??
+            candidates.find((candidate) => safeLiesOn(edge, candidate));
+        return match === undefined ? undefined : idByEdge.get(match);
+    });
+}
+
+/** `edge.isSame(candidate)`, false when either side cannot be probed (a degenerate or mocked edge). */
+function safeIsSame(edge: IEdge, candidate: IEdge): boolean {
+    try {
+        return edge.isSame(candidate);
+    } catch {
+        return false;
+    }
+}
+
+/** `edgeLiesOn(edge, candidate)`, false when either side cannot be probed. */
+function safeLiesOn(edge: IEdge, candidate: IEdge): boolean {
+    try {
+        return edgeLiesOn(edge, candidate);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * True when `piece` lies on `whole`'s trimmed curve (start/mid/end within
+ * INCIDENCE_TOLERANCE — the solver's incidence-repair scale, so both layers agree
+ * on "on the edge"). Probing the trimmed curve also rejects a collinear candidate
+ * whose span does not reach the piece.
+ */
+function edgeLiesOn(piece: IEdge, whole: IEdge): boolean {
+    const [t0, t1] = [piece.firstParameter(), piece.lastParameter()];
+    return [t0, (t0 + t1) / 2, t1].every(
+        (t) => whole.curve.nearestFromPoint(piece.pointAt(t)).distance < INCIDENCE_TOLERANCE,
+    );
 }
 
 /** Wire-based profiles via endpoint connectivity and even-odd nesting. */
@@ -163,14 +298,14 @@ function connectivityProfiles(
 ): Result<SketchProfileSet> {
     const loops = buildWires(groups, plane, idByEdge);
     if (!loops.isOk) return Result.err(loops.error);
-    const { wires, polygons, wireEntities } = loops.value;
+    const { wires, polygons, wireEntities, wireEdges } = loops.value;
 
     // containedIn[i][j] = loop j contains loop i; depth = number of containing loops.
     const containedIn = polygons.map((poly, i) =>
         polygons.map((other, j) => i !== j && loopContains(other, poly)),
     );
     const depth = containedIn.map((row) => row.filter(Boolean).length);
-    return buildFaces(wires, wireEntities, containedIn, depth);
+    return buildFaces(wires, wireEntities, wireEdges, idByEdge, containedIn, depth);
 }
 
 /**
@@ -182,16 +317,18 @@ function buildWires(
     groups: IEdge[][],
     plane: Plane,
     idByEdge: Map<IEdge, number>,
-): Result<{ wires: IWire[]; polygons: Polygon[]; wireEntities: number[][] }> {
+): Result<{ wires: IWire[]; polygons: Polygon[]; wireEntities: number[][]; wireEdges: IEdge[][] }> {
     const wires: IWire[] = [];
     const polygons: Polygon[] = [];
     const wireEntities: number[][] = [];
+    const wireEdges: IEdge[][] = [];
     for (const group of groups) {
         const wire = shapeFactory.wire(group);
         if (!wire.isOk) return Result.err(wire.error);
         if (!wire.value.isClosed()) continue;
         wires.push(wire.value);
         polygons.push(sampleLoop(group, plane));
+        wireEdges.push(group);
         // The sorted unique entity ids of the loop's edges — the profile's identity,
         // stable across reordering and geometry edits (entity ids are never reused).
         // The filter only guards pathological data (an entity-id list shorter than
@@ -206,13 +343,15 @@ function buildWires(
         );
     }
     if (wires.length === 0) return Result.err("Sketch profile is not closed");
-    return Result.ok({ wires, polygons, wireEntities });
+    return Result.ok({ wires, polygons, wireEntities, wireEdges });
 }
 
 /** Even-depth loops become profiles with their direct child loops as holes; odd-depth loops stay solid faces. */
 function buildFaces(
     wires: IWire[],
     wireEntities: number[][],
+    wireEdges: IEdge[][],
+    idByEdge: Map<IEdge, number>,
     containedIn: boolean[][],
     depth: number[],
 ): Result<SketchProfileSet> {
@@ -222,13 +361,22 @@ function buildFaces(
     const innerEntities: number[][] = [];
     for (const [index, wire] of wires.entries()) {
         const isHole = depth[index] % 2 === 1;
-        const holeWires = isHole
+        const holeIndexes = isHole
             ? []
-            : wires.filter((_, j) => depth[j] === depth[index] + 1 && containedIn[j][index]);
-        const face = shapeFactory.face([wire, ...holeWires]);
+            : wires.flatMap((_, j) => (depth[j] === depth[index] + 1 && containedIn[j][index] ? [j] : []));
+        const face = shapeFactory.face([wire, ...holeIndexes.map((j) => wires[j])]);
         if (!face.isOk) return Result.err(face.error);
         // The outer wire's entities are the profile's identity; hole wires are incidental.
         registerProfileEntities(face.value, wireEntities[index]);
+        // Boundary edges of the outer AND hole wires are the face's seed candidates.
+        registerProfileEdgeEntities(
+            face.value,
+            attributeFaceEdges(
+                face.value,
+                [index, ...holeIndexes].flatMap((j) => wireEdges[j]),
+                idByEdge,
+            ),
+        );
         if (isHole) {
             inner.push(face.value);
             innerEntities.push(wireEntities[index]);
@@ -277,18 +425,62 @@ export function resolveProfiles(sketch: SketchNode, profiles?: ProfileRef[]): Re
  * Seed keys parallel to `all`: `e{id.id...}` of the sorted bounding entity ids,
  * falling back to the positional index when entity ids are unknown. Profiles bounded
  * by the same entity set (crossing-path lens regions) are told apart by an occurrence
- * suffix — kernel region order is deterministic for unchanged geometry, so the
- * suffix is stable. Computed over the FULL profile list: the occurrence suffix of a
- * duplicated entity set must not depend on which profiles the feature selected.
+ * suffix assigned in region-fingerprint order — content-derived, so the suffix
+ * follows the region rather than the kernel's enumeration order. Computed over the
+ * FULL profile list: the occurrence suffix of a duplicated entity set must not depend
+ * on which profiles the feature selected.
  */
 function profileSeeds(all: IFace[]): string[] {
-    const seen = new Map<string, number>();
-    return all.map((face, index) => {
+    const groups = new Map<string, number[]>();
+    all.forEach((face, index) => {
         const entities = profileEntityIds(face);
         const key = entities === undefined ? `${index}` : `e${entities.join(".")}`;
-        const occurrence = seen.get(key) ?? 0;
-        seen.set(key, occurrence + 1);
-        return occurrence === 0 ? key : `${key}~${occurrence}`;
+        const group = groups.get(key);
+        if (group === undefined) groups.set(key, [index]);
+        else group.push(index);
+    });
+    const seeds = new Array<string>(all.length);
+    for (const [key, group] of groups) {
+        if (group.length === 1) {
+            seeds[group[0]] = key;
+            continue;
+        }
+        // Fingerprints are captured once per face — the comparator must stay pure,
+        // and each capture is two kernel queries.
+        const ranked = group
+            .map((index) => ({ index, region: captureRegionFingerprint(all[index]) }))
+            .sort((a, b) => compareRegionFingerprints(a.region, b.region));
+        ranked.forEach(({ index }, occurrence) => {
+            seeds[index] = occurrence === 0 ? key : `${key}~${occurrence}`;
+        });
+    }
+    return seeds;
+}
+
+/** Region-fingerprint order (bbox center, then area) — the tiebreak recipe of `matchProfileIndexes`. */
+function compareRegionFingerprints(
+    a: { center: Vec3; area: number },
+    b: { center: Vec3; area: number },
+): number {
+    return a.center.x - b.center.x || a.center.y - b.center.y || a.center.z - b.center.z || a.area - b.area;
+}
+
+/**
+ * Sketch-scoped seeds of a profile face's boundary edges for swept sub-shape ids:
+ * `ent<entityId>` of the sketch entity that generated the edge — entity ids survive
+ * wire re-enumeration, where positional ordinals silently realign onto another edge
+ * when a mirrored or rewound profile permutes the edge order. The ordinal remains
+ * the fallback where entity attribution is unavailable (e.g. test mocks).
+ *
+ * `edges` must be the face's OWN `findSubShapes(ShapeTypes.edge)` enumeration in
+ * the same order — the registered entity attribution (`profileEdgeEntityIds`) runs
+ * parallel to it.
+ */
+export function profileEdgeSeeds(face: IFace, baseSeed: string, edges: IEdge[]): string[] {
+    const entities = profileEdgeEntityIds(face);
+    return edges.map((_, index) => {
+        const entity = entities?.[index];
+        return entity === undefined ? `${baseSeed}:e${index}` : `${baseSeed}:ent${entity}`;
     });
 }
 
@@ -297,16 +489,9 @@ export function allProfiles(profileSet: SketchProfileSet): IFace[] {
     return [...profileSet.outer, ...profileSet.inner];
 }
 
-/**
- * The entity-id sets parallel to `allProfiles`, or undefined for legacy callers
- * without entity tracking.
- */
-export function profileEntitiesOf(profileSet: SketchProfileSet): (number[] | undefined)[] | undefined {
-    if (profileSet.outerEntities === undefined) return undefined;
-    return [
-        ...profileSet.outerEntities,
-        ...(profileSet.innerEntities ?? profileSet.inner.map(() => undefined)),
-    ];
+/** The entity-id sets parallel to `allProfiles`. */
+export function profileEntitiesOf(profileSet: SketchProfileSet): (number[] | undefined)[] {
+    return [...profileSet.outerEntities, ...profileSet.innerEntities];
 }
 
 /**

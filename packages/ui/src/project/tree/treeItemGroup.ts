@@ -34,6 +34,7 @@ export class TreeGroup extends TreeItem {
             this.expanderIcon,
             this.name,
             this.visibleIcon,
+            this.warningBadge,
         );
         if (isFeatureListNode(node) && node.referencedNodes !== undefined) {
             this.refItems = div({ className: `${style.container} ${style.left16px}` });

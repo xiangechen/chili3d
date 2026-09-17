@@ -32,6 +32,7 @@ import {
 } from "@chili3d/core";
 import { fuseProfiles } from "../features/extrude";
 import type { BooleanOperation, ExtrudeFeatureData } from "../features/feature";
+import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { captureProfileRef } from "../features/profileRef";
 import { ParametricBodyNode } from "../parametricBodyNode";
@@ -544,12 +545,19 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
                 : {
                       // Press-pull: pair each fingerprint with the picked face's tracked
                       // id so rebuilds re-match by identity, not geometry (a merged face
-                      // re-splitting is indistinguishable by fingerprint alone).
+                      // re-splitting is indistinguishable by fingerprint alone). The
+                      // splitPiece stamp records a pick of one piece of an already split
+                      // face (id shared at capture time), so the sweep never widens back
+                      // to the whole span (see `narrowToPickedPiece` in features/extrude.ts).
                       source: {
                           nodeId: node.id,
-                          profiles: worldFaces.map((face, index) =>
-                              captureProfileRef(face, node.faceIdAt(this.dragData.shapes[index].indexes[0])),
-                          ),
+                          profiles: worldFaces.map((face, index) => {
+                              const faceId = node.faceIdAt(this.dragData.shapes[index].indexes[0]);
+                              if (faceId === undefined) {
+                                  reportSilentIdLoss(node, "face", "a press-pull face has no tracked id");
+                              }
+                              return captureProfileRef(face, faceId, node.faceIdIsShared(faceId), true);
+                          }),
                       },
                   }),
         };

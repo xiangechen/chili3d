@@ -16,6 +16,7 @@ import { applyDragAutoConstraints, type DragSnap, dragSnapPosition } from "../au
 import {
     arcAngles,
     ConstraintKind,
+    entityPointCount,
     isDatumEntityId,
     isExternalEntityId,
     originRef,
@@ -692,10 +693,6 @@ export function sketchEntityMesh(
     }
     mesh.lineWidth = SKETCH_EDGE_LINE_WIDTH;
     return mesh;
-}
-
-function entityPointCount(type: SketchEntityType): number {
-    return type === "line" ? 2 : type === "arc" ? 3 : 1;
 }
 
 /** Icon (and fallback label) for the constraint a snap release would add. */

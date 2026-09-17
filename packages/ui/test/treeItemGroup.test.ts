@@ -13,6 +13,7 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     icon: "ti-icon",
     "parent-hidden": "ti-parent-hidden",
     hidden: "ti-hidden",
+    warning: "ti-warning",
 }));
 
 rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
@@ -126,6 +127,18 @@ describe("TreeGroup", () => {
             expect(group.header.children[0]).toBe(group.expanderIcon);
             expect(group.header.children[1]).toBe(group.name);
             expect(group.header.children[2]).toBe(group.visibleIcon);
+        });
+
+        test("should badge the header when the group node reports warnings", () => {
+            const node = new MockGroupNode();
+            const { group } = createGroup(node);
+            expect(group.header.children[3]).toBe(group.warningBadge);
+            expect(group.warningBadge.classList.contains("ti-hidden")).toBe(true);
+
+            (node as any).warningCount = 1;
+            (node as any).warningTooltip = "sketch.externalRefsLost{0}";
+            const warned = createGroup(node);
+            expect(warned.group.warningBadge.classList.contains("ti-hidden")).toBe(false);
         });
 
         test("should render items container with indentation classes", () => {

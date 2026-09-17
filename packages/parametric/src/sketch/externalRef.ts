@@ -10,6 +10,8 @@ import {
     Matrix4,
     type Plane,
     Precision,
+    type Result,
+    ShapeNode,
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
@@ -18,12 +20,17 @@ import {
     captureEdgeRef,
     directionsParallel,
     type EdgeRef,
+    edgeListMatcher,
     edgeMatchesRefInvariant,
+    indexesOfOverlappingId,
+    isClearWinner,
     MATCH_TOLERANCE,
-    matchEdgeIndexes,
+    refScore,
+    sameEdgeFingerprint,
     type Vec3,
+    vec3,
 } from "../features/edgeRef";
-import { resolveShapeSource, type ShapeSource } from "./shapeSource";
+import { type ShapeSource, shapeSourceOf } from "./shapeSource";
 import { type ExternalRefData, type SketchEntityType, toUV } from "./sketchModel";
 
 /** Resolved sketch-plane geometry of an external edge. */
@@ -122,27 +129,48 @@ export function captureExternalRef(
  * re-anchors to its new span. A missing timeline state (body not evaluated yet)
  * falls back to the final shape.
  */
+export interface ExternalResolveOptions {
+    /**
+     * Resolve even against sources showing a transient session-rollback shape —
+     * only the sketch owning the editing session should pass this (its refs must
+     * follow the capture-time geometry the rollback reveals). Bystander sketches
+     * keep their stored refs untouched: the rolled-back shape lacks every edge born
+     * from a later feature, so resolving against it flaps refs dangling or
+     * re-anchors them onto wrong geometry — and the follow-up off-session re-solve
+     * then drags the sketch's entities along with the corruption. The session
+     * owner's refs freeze the same way when the rollback undercuts the sketch's
+     * timeline anchor (a propagated rollback): the capture-time geometry is
+     * unreachable then, so there is nothing legitimate to resolve against.
+     */
+    includeRolledBackSources?: boolean;
+}
+
 export function resolveExternalRefs(
     document: IDocument,
     plane: Plane,
     refs: ExternalRefData[],
     anchors?: Record<string, number>,
+    options?: ExternalResolveOptions,
 ): ExternalResolveResult[] {
     // Each source node is resolved once per pass (findNode + findSubShapes are the
     // expensive part) and shared by every ref pointing at it — and by the split-piece
-    // fallback, which needs the same edges resolveEdge just matched against.
-    const sources = new Map<string, SourceEdges | undefined>();
-    return refs.map((ref) => resolveExternalRef(document, plane, ref, sources, anchors));
+    // fallback, which needs the same edges resolveEdge just matched against. The
+    // geometric fallback's edge fingerprints are likewise captured once per source
+    // (SourceEdges.matchRefs), not once per ref.
+    const sources = new Map<string, SourceLookup>();
+    return refs.map((ref) => resolveExternalRef(document, plane, ref, sources, anchors, options));
 }
 
 function resolveExternalRef(
     document: IDocument,
     plane: Plane,
     ref: ExternalRefData,
-    sources: Map<string, SourceEdges | undefined>,
+    sources: Map<string, SourceLookup>,
     anchors: Record<string, number> | undefined,
+    options: ExternalResolveOptions | undefined,
 ): ExternalResolveResult {
-    const source = sourceEdgesCached(document, ref.nodeId, sources, anchors);
+    const source = sourceEdgesCached(document, ref.nodeId, sources, anchors, options);
+    if (source === ROLLED_BACK_SOURCE) return { ref, mutated: false, geometryChanged: false };
     if (source === undefined) return markDangling(ref);
     const resolved = resolveEdge(source, ref);
     if (resolved === undefined) {
@@ -193,7 +221,19 @@ function adoptResolvedEdge(
     }
 }
 
-/** Split-piece coverage holds: keep the stored span; only the dead kernel edgeId is dropped. */
+/**
+ * Split-piece coverage holds: keep the stored span; only the dead kernel edgeId is
+ * dropped. Dropping the id is the ONLY viable choice here — e.g. a full circle cut
+ * into two arcs: the id now names two pieces, and neither may claim the ref alone.
+ * What bounces an id hit on the next pass differs by curve kind: a LINE piece fails
+ * the span check (`idStillIdentifiesEdge` rejects strict sub-spans — lines only),
+ * while a circle piece passes it (`refScore`'s circle branch is span-blind: center,
+ * radius, axis), so same-circle pieces tie 0-0 and fail as ambiguous — the coverage
+ * fallback owns the case either way. The erasure is also permanent: a later
+ * `adoptResolvedEdge` re-captures with the ref's stored id, which is undefined from
+ * here on, so no pass can ever bring the id back. The fingerprint plus coverage
+ * carries the identity.
+ */
 function keepSplitCoverage(ref: ExternalRefData): ExternalResolveResult {
     const geometryChanged = ref.dangling === true;
     const fingerprintChanged = ref.edge.edgeId !== undefined;
@@ -211,21 +251,7 @@ function markDangling(ref: ExternalRefData): ExternalResolveResult {
 
 /** Field-exact fingerprint comparison — the change signal the old JSON round-trip computed. */
 function sameEdgeRef(a: EdgeRef, b: EdgeRef): boolean {
-    if (a.kind !== b.kind || a.edgeId !== b.edgeId) return false;
-    if (a.kind === "line" && b.kind === "line") {
-        return sameVec(a.start, b.start) && sameVec(a.end, b.end);
-    }
-    if (a.kind === "circle" && b.kind === "circle") {
-        return sameVec(a.center, b.center) && a.radius === b.radius && sameVec(a.axis, b.axis);
-    }
-    if (a.kind === "other" && b.kind === "other") {
-        return sameVec(a.mid, b.mid) && a.length === b.length;
-    }
-    return false;
-}
-
-function sameVec(a: Vec3, b: Vec3): boolean {
-    return a.x === b.x && a.y === b.y && a.z === b.z;
+    return a.edgeId === b.edgeId && sameEdgeFingerprint(a, b);
 }
 
 interface ResolvedEdge {
@@ -242,30 +268,76 @@ interface ResolvedEdge {
 
 /** The referenced edge on the source's shape, in world coordinates. */
 function resolveEdge(source: SourceEdges, ref: ExternalRefData): ResolvedEdge | undefined {
-    const { node, shape, edges, transform } = source;
+    const { node, edges, transform } = source;
     // A timeline stand-in carries its own id lookup: the node's tracked ids describe
     // its final shape, never the stand-in's edges.
-    const indexById =
-        source.indexById ?? (isBodyTrackingNode(node) ? (id: string) => node.edgeIndexById(id) : undefined);
-    if (ref.edge.edgeId !== undefined && indexById !== undefined) {
-        const hit = indexById(ref.edge.edgeId);
-        if (hit !== undefined) {
-            const local = edges[hit];
-            const byId = worldEdge(local, transform);
-            // Trust the id while the edge still carries the fingerprint's span: a rigid
-            // move (an extrude length edit) only changes position, which is deliberately
-            // not checked — moving IS the edit (same contract as resolveFacePlane, which
-            // checks the face's normal but not its offset). A direction change means the
-            // id realigned onto another edge; a strict sub-span means a boolean split the
-            // edge — both fall through to the geometric match or, failing that, to the
-            // caller's split-piece coverage.
-            if (idStillIdentifiesEdge(byId, ref.edge)) {
-                return { edge: byId, owned: byId !== local, subSpan: false };
-            }
-            if (byId !== local) byId.dispose();
-        }
+    const indexesOfId =
+        source.indexesOfId ??
+        (isBodyTrackingNode(node) ? (id: string) => node.edgeIndexesOfId(id) : undefined);
+    const edgeId = ref.edge.edgeId;
+    if (edgeId !== undefined && indexesOfId !== undefined) {
+        const resolved = resolveByEdgeId(ref.edge, edgeId, edges, transform, indexesOfId);
+        if (resolved !== undefined) return resolved;
     }
-    return geometricEdgeMatch(shape, edges, transform, ref.edge);
+    return geometricEdgeMatch(source, ref.edge);
+}
+
+/**
+ * Narrows the id hits to the one edge the ref belongs to. Several edges can carry
+ * the id — the pieces of a boolean-split edge share it, a collinear merge compounds
+ * it — so a bare first hit can realign the ref onto a sibling piece. Every hit that
+ * still carries the fingerprint's span competes by span proximity: an exact span
+ * wins outright; otherwise a sole candidate or a clear nearest keeps a rigid move
+ * following (the pieces move together). A genuine tie is handed to the geometric
+ * match. Hits failing the span/invariant check fall through as before — a strict
+ * sub-span means a boolean split the referenced edge, which the caller's
+ * split-piece coverage owns.
+ */
+function resolveByEdgeId(
+    ref: EdgeRef,
+    edgeId: string,
+    edges: IEdge[],
+    transform: Matrix4,
+    indexesOfId: (id: string) => number[],
+): ResolvedEdge | undefined {
+    const candidates: { edge: IEdge; owned: boolean; score: number }[] = [];
+    for (const hit of indexesOfId(edgeId)) {
+        const local = edges[hit];
+        if (local === undefined) continue;
+        const byId = worldEdge(local, transform);
+        // Trust the id while the edge still carries the fingerprint's span: a rigid
+        // move (an extrude length edit) only changes position, which is deliberately
+        // not checked — moving IS the edit (same contract as resolveFacePlane, which
+        // checks the face's normal but not its offset). A direction change means the
+        // id realigned onto another edge.
+        if (!idStillIdentifiesEdge(byId, ref)) {
+            if (byId !== local) byId.dispose();
+            continue;
+        }
+        let score: number;
+        try {
+            score = refScore(ref, byId);
+        } catch {
+            // A degenerate edge cannot claim the ref.
+            if (byId !== local) byId.dispose();
+            continue;
+        }
+        candidates.push({ edge: byId, owned: byId !== local, score });
+    }
+    if (candidates.length === 0) return undefined;
+    candidates.sort((a, b) => a.score - b.score);
+    const best = candidates[0]!;
+    const exact = candidates.filter((candidate) => candidate.score <= MATCH_TOLERANCE);
+    const winner =
+        exact.length === 1
+            ? exact[0]!
+            : exact.length === 0 && isClearWinner(best.score, candidates[1]?.score)
+              ? best
+              : undefined;
+    for (const candidate of candidates) {
+        if (candidate !== winner && candidate.owned) candidate.edge.dispose();
+    }
+    return winner === undefined ? undefined : { edge: winner.edge, owned: winner.owned, subSpan: false };
 }
 
 function worldEdge(edge: IEdge, transform: Matrix4): IEdge {
@@ -273,13 +345,14 @@ function worldEdge(edge: IEdge, transform: Matrix4): IEdge {
     return edge.transformedMul(transform) as IEdge;
 }
 
-function geometricEdgeMatch(
-    shape: IShape,
-    edges: IEdge[],
-    transform: Matrix4,
-    ref: EdgeRef,
-): ResolvedEdge | undefined {
-    const matched = matchEdgeIndexes(shape, [localFingerprint(ref, transform)]);
+function geometricEdgeMatch(source: SourceEdges, ref: EdgeRef): ResolvedEdge | undefined {
+    const { edges, transform } = source;
+    // The matcher hangs off the per-pass source entry: N refs taking the geometric
+    // fallback on the same source share one edge enumeration (the pass's cached
+    // list) and one fingerprint capture, instead of re-enumerating and
+    // re-capturing per ref.
+    source.matchRefs ??= edgeListMatcher(edges);
+    const matched = source.matchRefs([localFingerprint(ref, transform)]);
     if (!matched.isOk) return undefined;
     const local = edges[matched.value[0]];
     const edge = worldEdge(local, transform);
@@ -316,10 +389,6 @@ function localFingerprint(ref: EdgeRef, transform: Matrix4): EdgeRef {
     return { kind: "other", mid: vec3(inverse.ofPoint(ref.mid)), length: ref.length, edgeId: ref.edgeId };
 }
 
-function vec3(xyz: XYZ): Vec3 {
-    return { x: xyz.x, y: xyz.y, z: xyz.z };
-}
-
 /**
  * Whether an id-tracked edge still is the fingerprint's edge: the rigid-move
  * invariants hold (`edgeMatchesRefInvariant` — direction/axis/length, position
@@ -350,62 +419,115 @@ function isSubSpanOf(edge: IEdge, ref: { start: Vec3; end: Vec3 }): boolean {
 interface SourceEdges extends ShapeSource {
     edges: IEdge[];
     /**
+     * Lazily-built reusable matcher over `edges` (`edgeListMatcher`): every ref
+     * taking the geometric fallback on this source shares one fingerprint capture
+     * per pass instead of capturing (and enumerating) per ref.
+     */
+    matchRefs?: (refs: EdgeRef[]) => Result<number[]>;
+    /**
      * Id lookup of a timeline stand-in shape (set whenever the source is read at a
      * sketch's anchor instead of its final shape): built from the stand-in's own
-     * tracked ids, returning undefined for every id when tracking is unavailable —
+     * tracked ids, returning empty for every id when tracking is unavailable —
      * the node's final-shape ids must never index into the stand-in's edges.
      */
-    indexById?: (id: string) => number | undefined;
+    indexesOfId?: (id: string) => number[];
 }
+
+/**
+ * Marks a source that shows a transient session-rollback shape (see
+ * `ExternalResolveOptions.includeRolledBackSources`): refs pointing at it are left
+ * completely untouched — neither re-anchored nor marked dangling.
+ */
+const ROLLED_BACK_SOURCE = Symbol("rolledBackSource");
+
+type SourceLookup = SourceEdges | undefined | typeof ROLLED_BACK_SOURCE;
 
 /**
  * The source node with its resolution shape, edges and world transform, or
  * undefined when unavailable. A parametric body whose feature count has grown past
  * the sketch's anchor is read at that anchor's timeline state (see
- * `resolveExternalRefs`), falling back to the final shape when the state is
- * unavailable.
+ * `resolveExternalRefs`) — tried FIRST, before the node's own shape: the stand-in
+ * re-bases everything (edges, id lookup), so it never needs `node.shape`, which a
+ * mid-chain read may only have as the pre-run result — an error right after
+ * deserialization ("Shape not initialized"). Falling back to the final shape when
+ * the anchor's state is unavailable keeps the old contract.
  */
 function sourceEdges(
     document: IDocument,
     nodeId: string,
     anchors: Record<string, number> | undefined,
-): SourceEdges | undefined {
-    const source = resolveShapeSource(document, nodeId);
-    if (source === undefined) return undefined;
+    options: ExternalResolveOptions | undefined,
+): SourceLookup {
+    const node = document.modelManager.findNode((n) => n.id === nodeId);
+    if (!(node instanceof ShapeNode)) return undefined;
+    if (
+        options?.includeRolledBackSources !== true &&
+        isBodyTimelineNode(node) &&
+        node.rollbackIndex !== undefined
+    ) {
+        return ROLLED_BACK_SOURCE;
+    }
     const anchor = anchors?.[nodeId];
-    if (anchor !== undefined && isBodyTimelineNode(source.node) && anchor < source.node.featureCount) {
-        const state = source.node.timelineStateAt(anchor);
+    // A session rollback that undercuts this sketch's anchor (propagated from a
+    // body the source boolean-consumes) makes the anchor's timeline state
+    // unreachable: the truncated replay never reaches it, and the rolled-back shape
+    // is an EARLIER state than the capture-time one — geometry from the hidden
+    // features [rollback, anchor) is gone, so resolving there dangles (or
+    // re-anchors) refs and persists the corruption until the session ends. Freeze
+    // exactly like a bystander; the post-session restore resolves normally. At or
+    // above the anchor the rolled-back state IS the capture-time geometry and the
+    // session owner must keep resolving against it.
+    if (
+        isBodyTimelineNode(node) &&
+        node.rollbackIndex !== undefined &&
+        (anchor === undefined || node.rollbackIndex < anchor)
+    ) {
+        return ROLLED_BACK_SOURCE;
+    }
+    // One shape read: the getter may evaluate (off-chain) or return the pre-run
+    // result (mid-chain) — an error gates only the final-shape fallback below.
+    const shapeResult = node.shape;
+    const shape = shapeResult.isOk ? shapeResult.unchecked()! : undefined;
+    if (anchor !== undefined && isBodyTimelineNode(node) && anchor < node.featureCount) {
+        const state = node.timelineStateAt(anchor);
         const anchored =
-            state?.shape === undefined ? undefined : withShape(source, state.shape, state.edgeIds);
+            state?.shape === undefined
+                ? undefined
+                : withShape(shapeSourceOf(document, node, state.shape), state.shape, state.edgeIds, shape);
         if (anchored !== undefined) return anchored;
     }
-    return withShape(source, source.shape, undefined);
+    if (shape === undefined) return undefined;
+    return withShape(shapeSourceOf(document, node, shape), shape, undefined, shape);
 }
 
-/** `source` re-based on `shape` (its own edge list and, for a stand-in, id lookup). */
+/**
+ * `source` re-based on `shape` (its own edge list and, for a stand-in, id lookup).
+ * `finalShape` is the node's committed shape when it has one: a stand-in that IS
+ * that shape keeps the node's own id lookup, while any other stand-in must use the
+ * timeline state's ids — the node's tracked ids describe its final shape only.
+ */
 function withShape(
     source: ShapeSource,
     shape: IShape,
     edgeIds: string[] | undefined,
+    finalShape: IShape | undefined,
 ): SourceEdges | undefined {
     const edges = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
     if (edges.length === 0) return undefined;
-    if (shape === source.shape) return { ...source, edges };
-    const indexById = (id: string) => {
-        const index = edgeIds?.indexOf(id) ?? -1;
-        return index < 0 ? undefined : index;
-    };
-    return { ...source, shape, edges, indexById };
+    if (shape === finalShape) return { ...source, edges };
+    const indexesOfId = (id: string) => (edgeIds === undefined ? [] : indexesOfOverlappingId(edgeIds, id));
+    return { ...source, shape, edges, indexesOfId };
 }
 
 /** `sourceEdges` memoized per pass — several refs (and the coverage fallback) share a source. */
 function sourceEdgesCached(
     document: IDocument,
     nodeId: string,
-    cache: Map<string, SourceEdges | undefined>,
+    cache: Map<string, SourceLookup>,
     anchors: Record<string, number> | undefined,
-): SourceEdges | undefined {
-    if (!cache.has(nodeId)) cache.set(nodeId, sourceEdges(document, nodeId, anchors));
+    options: ExternalResolveOptions | undefined,
+): SourceLookup {
+    if (!cache.has(nodeId)) cache.set(nodeId, sourceEdges(document, nodeId, anchors, options));
     return cache.get(nodeId);
 }
 

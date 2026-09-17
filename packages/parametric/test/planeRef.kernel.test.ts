@@ -70,8 +70,8 @@ function sideFaceRef(doc: TestDocument, body: ParametricBodyNode): PlaneFaceRef 
     const sideIndex = faces.findIndex((face) => face.normal(0, 0)[1].x > 0.9);
     expect(sideIndex).toBeGreaterThanOrEqual(0);
     const faceId = body.faceIdAt(sideIndex);
-    // side faces are seeded by the generating profile edge, not by face order
-    expect(faceId).toMatch(/^sketch:.+:e[\d.]+:e\d+$/);
+    // side faces are seeded by the generating sketch entity, not by face order
+    expect(faceId).toMatch(/^sketch:.+:e[\d.]+:ent\d+$/);
     return { ...captureFaceRef(body.id, faces[sideIndex]), faceId };
 }
 

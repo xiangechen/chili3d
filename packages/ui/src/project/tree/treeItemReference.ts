@@ -14,7 +14,7 @@ export class TreeItemReference extends TreeItem {
     constructor(document: IDocument, node: INode) {
         super(document, node);
         this.draggable = false;
-        this.append(this.name, this.visibleIcon);
+        this.append(this.name, this.visibleIcon, this.warningBadge);
         this.classList.add(style.reference);
     }
 

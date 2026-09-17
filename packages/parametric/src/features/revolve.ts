@@ -3,22 +3,30 @@
 
 import {
     CurveUtils,
-    type IDocument,
     type IEdge,
     type IFace,
     type IShape,
     Line,
+    type Matrix4,
     Result,
     ShapeNode,
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
-import { completeEdgeHistory, MATCH_TOLERANCE, matchEdgeIndexes } from "./edgeRef";
+import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
+import {
+    captureEdgeRef,
+    type EdgeRef,
+    MATCH_TOLERANCE,
+    matchEdgeIndexes,
+    matchEdgesAnchored,
+} from "./edgeRef";
 import { resolveNumber } from "./expression";
 import { findSketch } from "./extrude";
 import {
-    combineIds,
+    completeTrackedHistory,
+    type FeatureContext,
     type FeatureHandler,
     type RevolveFeatureData,
     registerFeature,
@@ -26,7 +34,9 @@ import {
     trackedFaceIds,
     trackedIds,
 } from "./feature";
-import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
+import { profileEdgeSeeds, type ResolvedProfile, resolveProfiles } from "./profileBuilder";
+import { captureProfileRef } from "./profileRef";
+import { combineIds } from "./trackedId";
 
 const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     display: "command.feature.revolve",
@@ -41,16 +51,33 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
 
     setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
 
+    applyResolvedRefs: (feature, { resolvedProfiles, resolvedEdges }) => {
+        let next = feature;
+        if (resolvedProfiles !== undefined) next = { ...next, profiles: resolvedProfiles };
+        const axis = resolvedEdges?.[0];
+        if (axis !== undefined && next.axisSource !== undefined) {
+            next = { ...next, axisSource: { ...next.axisSource, edge: axis } };
+        }
+        return next;
+    },
+
     evaluate(feature, context): Result<IShape> {
         const sketch = findSketch(context.document, feature.sketchId);
         if (sketch === undefined) return Result.err("Sketch not found");
 
         const angle = resolveNumber(feature.angle, context.scope);
         if (!angle.isOk) return Result.err(angle.error);
-        const axis = resolveAxis(feature, context.document);
+        const { axis, anchor } = resolveAxis(feature, context);
         const profiles = resolveProfiles(sketch, feature.profiles);
         if (!profiles.isOk) return Result.err(profiles.error);
         const tracking = context.tracking;
+        if (tracking !== undefined) {
+            // Re-anchored refs for the body's write-back (see ShapeTracking).
+            if (anchor !== undefined) tracking.resolvedEdges = [anchor];
+            if (feature.profiles !== undefined && feature.profiles.length > 0) {
+                tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
+            }
+        }
         if (tracking === undefined || shapeFactory.revolveTracked === undefined) {
             const shapes: IShape[] = [];
             for (const { face } of profiles.value) {
@@ -67,33 +94,92 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
 /**
  * The axis as a live reference: the fingerprinted edge is re-matched against the
  * source node's current shape, so editing the picked axis line moves the revolve.
- * Falls back to the world-space snapshot when the source is gone or no longer
- * matches a single line edge.
+ * Falls back to the world-space snapshot when the source is gone, shows a
+ * session-rollback preview, or no longer matches a single line edge. A live match
+ * also returns the refreshed ref anchor for the body's write-back (see
+ * `ShapeTracking.resolvedEdges`).
+ *
+ * A self-source (the axis edge lives on an earlier feature of the host body)
+ * resolves against the feature's INPUT — the shape entering this feature in the
+ * current run (same contract as `resolveSourceFaces` in extrude.ts): the committed
+ * shape is the pre-run result mid-rebuild, so resolving there sweeps around the
+ * stale axis, and a downstream feature failing on that geometry would wedge the
+ * chain with no catch-up pass ever running. The input's own tracked ids drive the
+ * id channel — the node's describe its final shape only. No rollback guard on this
+ * path: during a session preview the input IS the timeline-correct shape.
  */
-function resolveAxis(feature: RevolveFeatureData, document: IDocument): Line {
-    const fallback = new Line({
-        point: new XYZ(feature.axis.point),
-        direction: new XYZ(feature.axis.direction),
-    });
+function resolveAxis(feature: RevolveFeatureData, context: FeatureContext): { axis: Line; anchor?: EdgeRef } {
+    const fallback = {
+        axis: new Line({
+            point: new XYZ(feature.axis.point),
+            direction: new XYZ(feature.axis.direction),
+        }),
+    };
     const source = feature.axisSource;
     if (source === undefined) return fallback;
 
-    const node = document.modelManager.findNode((n) => n.id === source.nodeId);
+    if (source.nodeId === context.host.id) {
+        if (context.input === undefined) return fallback;
+        const edges = context.input.findSubShapes(ShapeTypes.edge) as IEdge[];
+        const tracked = context.tracking?.inputEdgeIds;
+        const ids = tracked !== undefined && tracked.length === edges.length ? tracked : undefined;
+        return matchAxis(context.input, edges, ids, source.edge, context.host.worldTransform(), fallback);
+    }
+
+    const node = context.document.modelManager.findNode((n) => n.id === source.nodeId);
     if (!(node instanceof ShapeNode) || !node.shape.isOk) return fallback;
+    // A rolled-back source shows a transient session-preview shape lacking every
+    // edge born from a hidden feature: the axis must not follow (nor re-anchor
+    // onto) geometry the session is about to discard. resolveAxis degrades to the
+    // snapshot rather than failing the feature, so the fallback carries no
+    // anchor — the live match resumes on the rebuild after the source restores.
+    if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) return fallback;
 
     const edges = node.shape.value.findSubShapes(ShapeTypes.edge) as IEdge[];
-    const matched = matchEdgeIndexes(node.shape.value, [source.edge]);
-    if (!matched.isOk) return fallback;
+    // A tracked source resolves the axis edge through its stable id first (same
+    // contract as every other tracked reference); anything else matches the
+    // fingerprint geometrically. The id channel needs the full id array — a
+    // partially tracked source stays on the geometric path.
+    const ids = isBodyTrackingNode(node) ? edges.map((_, index) => node.edgeIdAt(index)) : undefined;
+    return matchAxis(node.shape.value, edges, ids, source.edge, node.worldTransform(), fallback);
+}
 
-    const edge = edges[matched.value[0]];
+/** Re-matches the axis edge on `shape` (id channel first, geometric fallback) and builds the world-space axis line. */
+function matchAxis(
+    shape: IShape,
+    edges: IEdge[],
+    ids: readonly (string | undefined)[] | undefined,
+    ref: EdgeRef,
+    world: Matrix4,
+    fallback: { axis: Line },
+): { axis: Line; anchor?: EdgeRef } {
+    let index: number;
+    let anchor: EdgeRef;
+    if (ids !== undefined && ids.every((id) => id !== undefined)) {
+        const anchored = matchEdgesAnchored(shape, [ref], ids as string[]);
+        if (!anchored.isOk) return fallback;
+        index = anchored.value.indexes[0];
+        anchor = anchored.value.anchors[0];
+    } else {
+        const matched = matchEdgeIndexes(shape, [ref]);
+        if (!matched.isOk) return fallback;
+        index = matched.value[0];
+        // The geometric path reports no anchors — re-capture from the matched edge
+        // (an untracked source has no id to carry), the same re-anchoring contract.
+        anchor = captureEdgeRef(edges[index]);
+    }
+
+    const edge = edges[index];
     const basis = edge.curve.basisCurve;
     if (!CurveUtils.isLine(basis)) return fallback;
 
-    const world = node.worldTransform();
-    return new Line({
-        point: world.ofPoint(edge.startPoint()),
-        direction: world.ofVector(basis.direction),
-    });
+    return {
+        axis: new Line({
+            point: world.ofPoint(edge.startPoint()),
+            direction: world.ofVector(basis.direction),
+        }),
+        anchor,
+    };
 }
 
 function revolveTracked(
@@ -136,30 +222,25 @@ function revolveProfileTracked(
     if (!result.isOk) return Result.err(result.error);
     const seed = `sketch:${sketch.id}:${profile.seed}`;
     const faceEdges = profile.face.findSubShapes(ShapeTypes.edge) as IEdge[];
-    const edgeSeeds = faceEdges.map((_, edgeIndex) => `${seed}:e${edgeIndex}`);
-    // Revolve edge history is sparse; geometry-identical completion recovers the
-    // unchanged edges it missed, the rest get feature-scoped ids.
-    const edgeMap = completeEdgeHistory(
-        faceEdges,
-        result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-        result.value.edgeMap,
-    );
+    // Entity-derived edge seeds survive wire re-enumeration (see profileEdgeSeeds).
+    const edgeSeeds = profileEdgeSeeds(profile.face, seed, faceEdges);
+    // Revolve edge history is sparse; the completed face map feeds both
+    // trackedFaceIds and the history-less seeding below.
+    const { edgeMap, faceMap, outputFaces } = completeTrackedHistory([profile.face], result.value, {
+        inputEdges: faceEdges,
+        inputFaces: [profile.face],
+    });
     // Side faces generated from profile edges take the edge's seed (see extrude).
-    const faceIds = trackedFaceIds(
-        feature.id,
-        [seed],
-        edgeSeeds,
-        result.value.faceMap,
-        result.value.faceEdgeMap,
-    );
+    const faceIds = trackedFaceIds(feature.id, [seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
     seedHistoryLessFaces(
-        result.value.shape.findSubShapes(ShapeTypes.face) as IFace[],
+        outputFaces,
         faceIds,
-        result.value.faceMap,
+        faceMap,
         result.value.faceEdgeMap,
         faceEdges,
         edgeSeeds,
         seed,
+        result.value.capFaces,
     );
     return Result.ok({
         shape: result.value.shape,
@@ -172,13 +253,16 @@ function revolveProfileTracked(
  * The kernel's revolve history never reports the end cap of a partial revolve, and
  * drops the end rings of a full turn (the flange faces an axis-perpendicular profile
  * edge sweeps at 360°) — both would otherwise get positional ids that realign onto
- * another face when the profile's structure changes. Seed them from the profile
- * geometry instead: the single history-less face of a partial revolve is the end
- * cap; otherwise each face takes the seeds of the profile edges lying on its surface
- * (a full-turn ring contains the input edge that swept it), compounding when a
- * merged ring carries several. Only the edge midpoint is probed — the endpoints are
- * shared with the neighboring edge's surface. Faces no edge claims keep the
- * positional fallback.
+ * another face when the profile's structure changes. The kernel reports a partial
+ * revolve's end cap directly through `capFaces` (the sweep's LastShape) —
+ * authoritative, so nothing else runs when it is present. Without it (a full turn
+ * reports nothing: first and last shapes coincide; or a kernel predating the
+ * channel), seed from the profile geometry instead: the single history-less face of
+ * a partial revolve is the end cap; otherwise each face takes the seeds of the
+ * profile edges lying on its surface (a full-turn ring contains the input edge that
+ * swept it), compounding when a merged ring carries several. Only the edge midpoint
+ * is probed — the endpoints are shared with the neighboring edge's surface. Faces no
+ * edge claims keep the positional fallback.
  */
 function seedHistoryLessFaces(
     faces: IFace[],
@@ -188,7 +272,14 @@ function seedHistoryLessFaces(
     faceEdges: IEdge[],
     edgeSeeds: string[],
     seed: string,
+    capFaces?: number[],
 ): void {
+    if (capFaces !== undefined && capFaces.length > 0) {
+        for (const index of capFaces) {
+            if (index >= 0 && index < faceIds.length) faceIds[index] = `${seed}:cap`;
+        }
+        return;
+    }
     const candidates = faceIds.flatMap((_, index) =>
         faceMap[index] < 0 && (faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
     );

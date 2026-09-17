@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
+    type AsyncController,
     debounce,
     type FeatureItem,
     type I18nKeys,
@@ -28,19 +28,31 @@ import {
     type VisualShapeData,
     VisualStates,
 } from "@chili3d/core";
+import { ReselectFeatureCommand } from "./commands/reselectCommand";
 import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
-import type { FeatureTimelineState, IBodyTimelineNode } from "./features/bodyTracking";
-import { captureEdgeRef, type EdgeRef, matchEdgeIndexes } from "./features/edgeRef";
-import { findSketch } from "./features/extrude";
 import {
-    type BooleanFeatureData,
-    type ChamferFeatureData,
-    type ExtrudeFeatureData,
-    type FilletFeatureData,
-    idsOverlap,
+    type FeatureTimelineState,
+    type IBodyTimelineNode,
+    isBodyTimelineNode,
+} from "./features/bodyTracking";
+import {
+    captureEdgeRef,
+    type EdgeRef,
+    idIsShared,
+    indexesOfOverlappingId,
+    matchEdgeIndexes,
+} from "./features/edgeRef";
+import { findSketch } from "./features/extrude";
+import type {
+    BooleanFeatureData,
+    ChamferFeatureData,
+    ExtrudeFeatureData,
+    FilletFeatureData,
 } from "./features/feature";
+import { reportSilentIdLoss } from "./features/idDiagnostics";
 import { allProfiles, profileEntitiesOf, sketchProfiles } from "./features/profileBuilder";
 import { captureProfileRef, matchProfileIndexes, type ProfileRef } from "./features/profileRef";
+import { syncNodeWatches } from "./nodeWatch";
 import { danglingProfileRefs, SketchNode } from "./sketch/sketchNode";
 
 /** Snapshot of one referenced node used for cache invalidation. */
@@ -79,6 +91,8 @@ interface FeatureStepOutput {
     readonly edgeIds?: string[];
     /** Fingerprints the feature actually matched this run — re-anchored into the feature. */
     readonly resolvedProfiles?: ProfileRef[];
+    /** Edge anchors the feature actually matched this run — re-anchored into the feature. */
+    readonly resolvedEdges?: EdgeRef[];
 }
 
 export interface ParametricBodyNodeOptions {
@@ -183,6 +197,7 @@ export class ParametricBodyNode
      */
     private _rollbackIndex: number | undefined;
 
+    /** The active session-rollback position (`IBodyTimelineNode.rollbackIndex`). */
     get rollbackIndex(): number | undefined {
         return this._rollbackIndex;
     }
@@ -355,23 +370,35 @@ export class ParametricBodyNode
 
     /**
      * Re-picks the shapes a feature references and replaces its stored refs — edges of
-     * a fillet/chamfer, profiles of an extrude. For edge features the list is rolled
-     * back to just before the feature for the duration of the pick: the stored refs
-     * were captured from that pre-feature geometry, and the filleted/chamfered edges
-     * no longer exist in the final shape. The rollback is restored in `finally` and
-     * never transacted, so undo stays one step. The currently referenced shapes start
-     * out selected (visible, toggleable); selection changes preview the rebuilt result
-     * live, confirming keeps the remaining selection, cancelling keeps the feature
-     * unchanged. The body node is re-selected afterwards so the feature panel stays
-     * open.
+     * a fillet/chamfer, profiles of an extrude. The pick runs as a
+     * `ReselectFeatureCommand` registered as the application's executing command, so
+     * starting any other command mid-pick cancels this session through the command
+     * service's normal lifecycle — its cleanup (restoring the rollback preview and
+     * re-enabling the history) always completes before the new command runs.
      */
     async reselectShapes(featureId: string): Promise<void> {
+        await ReselectFeatureCommand.start(this, featureId);
+    }
+
+    /**
+     * The pick session of `reselectShapes`, driven by `ReselectFeatureCommand` with
+     * the command's controller — cancelling the command cancels this pick. For edge
+     * features the list is rolled back to just before the feature for the duration
+     * of the pick: the stored refs were captured from that pre-feature geometry, and
+     * the filleted/chamfered edges no longer exist in the final shape. The rollback
+     * is restored in `finally` and never transacted, so undo stays one step. The
+     * currently referenced shapes start out selected (visible, toggleable); selection
+     * changes preview the rebuilt result live, confirming keeps the remaining
+     * selection, cancelling keeps the feature unchanged. The body node is re-selected
+     * afterwards so the feature panel stays open.
+     */
+    async reselectSession(featureId: string, controller: AsyncController): Promise<void> {
         const featureIndex = this.features.findIndex((x) => x.id === featureId);
         const feature = this.features[featureIndex];
-        if (feature?.type === "extrude") return this.reselectProfiles(feature);
+        if (feature?.type === "extrude") return this.reselectProfiles(feature, controller);
         if (feature?.type !== "fillet" && feature?.type !== "chamfer") return;
 
-        const edges = await this.pickFeatureEdges(feature, featureIndex);
+        const edges = await this.pickFeatureEdges(feature, featureIndex, controller);
         if (edges === undefined) return;
 
         Transaction.execute(this.document, "reselect edges", () => {
@@ -388,14 +415,14 @@ export class ParametricBodyNode
      * live. Confirming with nothing selected clears `profiles` — back to extruding
      * every profile of the sketch.
      */
-    private async reselectProfiles(feature: ExtrudeFeatureData): Promise<void> {
+    private async reselectProfiles(feature: ExtrudeFeatureData, controller: AsyncController): Promise<void> {
         // Body-face extrudes (`source`) re-match by fingerprint; re-picking is only
         // supported for sketch profiles.
         if (feature.sketchId === undefined) return;
         const sketch = findSketch(this.document, feature.sketchId);
         if (sketch === undefined) return;
 
-        const profiles = await this.pickFeatureProfiles(feature, sketch);
+        const profiles = await this.pickFeatureProfiles(feature, sketch, controller);
         if (profiles === undefined) return;
 
         Transaction.execute(this.document, "reselect profiles", () => {
@@ -417,6 +444,7 @@ export class ParametricBodyNode
     private async pickFeatureProfiles(
         feature: ExtrudeFeatureData,
         sketch: SketchNode,
+        controller: AsyncController,
     ): Promise<ProfileRef[] | undefined> {
         const selection = this.document.selection;
         selection.clearSelection();
@@ -430,7 +458,6 @@ export class ParametricBodyNode
             this.document.visual.update();
             this.preselectCurrentProfiles(feature, sketch);
             selection.onShapeChanged.sub(preview);
-            const controller = new AsyncController();
             controller.onCancelled(() => (cancelled = true));
             const picked = await this.document.picker.pickShape("prompt.select.faces", controller, {
                 shapeType: ShapeTypes.face,
@@ -494,7 +521,7 @@ export class ParametricBodyNode
     }
 
     /**
-     * The rolled-back pick session of `reselectShapes`; returns undefined when the user
+     * The rolled-back pick session of `reselectSession`; returns undefined when the user
      * cancels or picks nothing. The rollback is the runtime-only `setRollbackIndex`
      * (the sketch editor's session mechanism): the feature list and the undo history
      * stay untouched, and only the final edge replacement is transacted. Selection
@@ -506,6 +533,7 @@ export class ParametricBodyNode
     private async pickFeatureEdges(
         feature: FilletFeatureData | ChamferFeatureData,
         featureIndex: number,
+        controller: AsyncController,
     ): Promise<EdgeRef[] | undefined> {
         // Clear the node selection first: a selected node tints every edge, which
         // would drown the pick highlight.
@@ -534,7 +562,6 @@ export class ParametricBodyNode
             // of the current edges already shown.
             selection.onShapeChanged.sub(preview);
             this.preselectCurrentEdges(feature);
-            const controller = new AsyncController();
             controller.onCancelled(() => (cancelled = true));
             const picked = await this.document.picker.pickShape("prompt.select.edges", controller, {
                 shapeType: ShapeTypes.edge,
@@ -548,6 +575,9 @@ export class ParametricBodyNode
             // whose edge order differs from the pre-feature one.
             return picked.map((x) => {
                 const edgeId = this.edgeIdAt(x.indexes[0]);
+                if (edgeId === undefined) {
+                    reportSilentIdLoss(this, "edge", "a re-picked fillet/chamfer edge has no tracked id");
+                }
                 return captureEdgeRef(x.shape as unknown as IEdge, edgeId, this.edgeIdIsShared(edgeId));
             });
         } finally {
@@ -589,6 +619,9 @@ export class ParametricBodyNode
             .filter((x) => x.owner.node === this && x.shape.shapeType === ShapeTypes.edge)
             .map((x) => {
                 const edgeId = this.edgeIdAt(x.indexes[0]);
+                if (edgeId === undefined) {
+                    reportSilentIdLoss(this, "edge", "a re-picked fillet/chamfer edge has no tracked id");
+                }
                 return captureEdgeRef(x.shape as unknown as IEdge, edgeId, this.edgeIdIsShared(edgeId));
             });
         if (edges.length > 0) {
@@ -747,12 +780,7 @@ export class ParametricBodyNode
     /** Face indexes whose tracked id overlaps `id` — see `IBodyTrackingNode.faceIndexesOfId`. */
     faceIndexesOfId(id: string): number[] {
         const ids = this._cache.at(-1)?.faceIds;
-        if (ids === undefined) return [];
-        const indexes: number[] = [];
-        for (let i = 0; i < ids.length; i++) {
-            if (idsOverlap(ids[i], id)) indexes.push(i);
-        }
-        return indexes;
+        return ids === undefined ? [] : indexesOfOverlappingId(ids, id);
     }
 
     /** Stable id of the n-th edge of the final shape, same contract as `faceIdAt`. */
@@ -766,11 +794,22 @@ export class ParametricBodyNode
         return index < 0 ? undefined : index;
     }
 
+    /** Edge indexes whose tracked id overlaps `id` — see `IBodyTrackingNode.edgeIndexesOfId`. */
+    edgeIndexesOfId(id: string): number[] {
+        const ids = this._cache.at(-1)?.edgeIds;
+        return ids === undefined ? [] : indexesOfOverlappingId(ids, id);
+    }
+
+    /** True when several faces carry the same tracked id — pieces of a boolean-split face. */
+    faceIdIsShared(id: string | undefined): boolean {
+        const ids = this._cache.at(-1)?.faceIds;
+        return ids !== undefined && idIsShared(ids, id);
+    }
+
     /** True when several edges carry the same tracked id — pieces of a boolean-split edge. */
     edgeIdIsShared(id: string | undefined): boolean {
-        if (id === undefined) return false;
         const ids = this._cache.at(-1)?.edgeIds;
-        return ids !== undefined && ids.indexOf(id) !== ids.lastIndexOf(id);
+        return ids !== undefined && idIsShared(ids, id);
     }
 
     get featureCount(): number {
@@ -808,8 +847,14 @@ export class ParametricBodyNode
         const scope = new Map<string, number>();
         const nextCache: FeatureCacheEntry[] = [];
         const resolvedProfiles = new Map<string, ProfileRef[]>();
+        const resolvedEdges = new Map<string, EdgeRef[]>();
         const features = this.features;
         const stop = this._rollbackIndex ?? features.length;
+        // Sketches already re-resolved this run (see followReferencedSketches): a
+        // sketch referenced by N features was followed — re-parsed, re-scanned —
+        // N times per run, while one resolution already writes fresh snapshots
+        // back for every later feature.
+        const followedSketches = new Set<string>();
         // Chain state entering each feature-list index — the timeline sketch
         // external refs anchor to (see `timelineStateAt`). Exposed as the in-flight
         // timeline for the run's duration so mid-chain ref resolutions see it.
@@ -820,7 +865,7 @@ export class ParametricBodyNode
                 timeline.push({ shape: input, faceIds, edgeIds });
                 const feature = features[index];
                 if (feature.suppressed) continue;
-                this.followReferencedSketches(feature);
+                this.followReferencedSketches(feature, followedSketches);
                 const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
                 if (!step.isOk) {
                     this._featureErrors.set(feature.id, String(step.error));
@@ -840,12 +885,15 @@ export class ParametricBodyNode
                 if (step.value.resolvedProfiles !== undefined) {
                     resolvedProfiles.set(feature.id, step.value.resolvedProfiles);
                 }
+                if (step.value.resolvedEdges !== undefined) {
+                    resolvedEdges.set(feature.id, step.value.resolvedEdges);
+                }
             }
         } finally {
             this._inflightTimeline = undefined;
         }
         this.replaceCache(nextCache, timeline);
-        this.refreshProfileRefs(resolvedProfiles);
+        this.refreshAnchoredRefs(resolvedProfiles, resolvedEdges);
         this.markUnresolvedExternalRefs(features);
         // An empty feature list (user removed every feature) is an empty compound, so
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
@@ -865,13 +913,46 @@ export class ParametricBodyNode
      * against the in-flight timeline (`_inflightTimeline`) is what makes the fresh
      * state available this early. A sketch owned by a live editor session is left
      * alone — the session's solver reconciles its refs itself.
+     *
+     * `followedSketches` memoizes the run (one Set per `evaluateChain`): a sketch
+     * referenced by several features is re-resolved once, not once per feature —
+     * the first follow already persists fresh snapshots for every later feature,
+     * and a repeat would only re-pay the parse/scan. One narrow exception: a
+     * sketch referencing THIS body whose timeline anchor (`SketchData.refPositions`)
+     * the in-flight replay has not reached yet resolves against the final-shape
+     * fallback (`timelineStateAt` is not ready at that point), so that first
+     * result must NOT be pinned for the rest of the run — a later feature at or
+     * past the anchor can still follow with the anchored state, and memoizing
+     * would freeze the fallback resolution for the whole run.
      */
-    private followReferencedSketches(feature: FeatureData): void {
+    private followReferencedSketches(feature: FeatureData, followedSketches: Set<string>): void {
         for (const id of featureHandler(feature.type)?.nodeIds(feature) ?? []) {
-            if (id === this.id) continue;
+            if (id === this.id || followedSketches.has(id)) continue;
             const node = this.document.modelManager.findNode((n) => n.id === id);
-            if (node instanceof SketchNode && !node.editingSession) node.followExternalRefs();
+            if (!(node instanceof SketchNode) || node.editingSession) {
+                // Nothing to follow now or later this run (a session cannot start
+                // mid-run) — memoize to skip the repeat lookup as well.
+                followedSketches.add(id);
+                continue;
+            }
+            node.followExternalRefs();
+            if (!this.anchorStatePending(node)) followedSketches.add(id);
         }
+    }
+
+    /**
+     * True when `sketch` anchors an external reference to this body
+     * (`SketchData.refPositions`) at a timeline position the in-flight replay has
+     * not produced yet, so the follow that just ran used the final-shape fallback
+     * and must not be memoized (see `followReferencedSketches`). The gate mirrors
+     * `sourceEdges`: an anchor at or past the feature count never consults the
+     * timeline, so no fallback is involved and the memo applies.
+     */
+    private anchorStatePending(sketch: SketchNode): boolean {
+        const anchor = sketch.data.refPositions?.[this.id];
+        return (
+            anchor !== undefined && anchor < this.featureCount && this.timelineStateAt(anchor) === undefined
+        );
     }
 
     /**
@@ -968,6 +1049,7 @@ export class ParametricBodyNode
             faceIds: tracking.outputFaceIds.length > 0 ? tracking.outputFaceIds : undefined,
             edgeIds: tracking.outputEdgeIds.length > 0 ? tracking.outputEdgeIds : undefined,
             resolvedProfiles: tracking.resolvedProfiles,
+            resolvedEdges: tracking.resolvedEdges,
         };
         nextCache.push({
             json: key,
@@ -1049,23 +1131,28 @@ export class ParametricBodyNode
     }
 
     /**
-     * Re-anchors stored profile fingerprints to the geometry matched in the last
-     * evaluation: refs captured at pick time would otherwise measure drift from the
-     * original position on every edit, and the accumulated drift of several moved
-     * profiles can make the match ambiguous. Runs only after a fully successful
-     * chain; the rewrite is derived state (like the shape), so it is neither
-     * transacted nor shape-changing.
+     * Re-anchors stored shape references to what the last evaluation actually
+     * matched: each feature handler writes its matched profile fingerprints and
+     * edge anchors back into the feature JSON (`FeatureHandler.applyResolvedRefs`).
+     * Refs captured at pick time would otherwise measure drift from the original
+     * position on every edit — and an edge ref whose id died keeps paying
+     * fingerprint matching with a stale anchor on every rebuild. Runs only after a
+     * fully successful chain; the rewrite is derived state (like the shape), so it
+     * is neither transacted nor shape-changing.
      */
-    private refreshProfileRefs(resolved: ReadonlyMap<string, ProfileRef[]>): void {
-        if (resolved.size === 0) return;
+    private refreshAnchoredRefs(
+        profiles: ReadonlyMap<string, ProfileRef[]>,
+        edges: ReadonlyMap<string, EdgeRef[]>,
+    ): void {
+        if (profiles.size === 0 && edges.size === 0) return;
         let changed = false;
         const features = this.features.map((feature) => {
-            const refs = resolved.get(feature.id);
-            if (refs === undefined || feature.type !== "extrude") return feature;
-            const next =
-                feature.source === undefined
-                    ? { ...feature, profiles: refs }
-                    : { ...feature, source: { ...feature.source, profiles: refs } };
+            const next = featureHandler(feature.type)?.applyResolvedRefs?.(feature, {
+                resolvedProfiles: profiles.get(feature.id),
+                resolvedEdges: edges.get(feature.id),
+            });
+            // Untouched features skip the stringify pair — the common case.
+            if (next === undefined || next === feature) return feature;
             if (JSON.stringify(next) === JSON.stringify(feature)) return feature;
             changed = true;
             return next;
@@ -1083,11 +1170,7 @@ export class ParametricBodyNode
         }
     }
 
-    /**
-     * Watches the current feature references and drops stale ones. Ids that fail to
-     * resolve (e.g. a deleted sketch) are retried on the next evaluation, so a
-     * restored node is picked up again.
-     */
+    /** Watches the current feature references and drops stale ones (see `syncNodeWatches`). */
     private syncWatchedNodes(): void {
         const wanted = new Set(
             this.features
@@ -1096,20 +1179,7 @@ export class ParametricBodyNode
                 // sourced on the body's own face) would re-evaluate on every rebuild.
                 .filter((id) => id !== this.id),
         );
-        for (const [id, node] of this._watched) {
-            if (!wanted.has(id)) {
-                if (isPropertyChanged(node)) node.removePropertyChanged(this.handleWatchedNodeChanged);
-                this._watched.delete(id);
-            }
-        }
-        for (const id of wanted) {
-            if (this._watched.has(id)) continue;
-            const node = this.document.modelManager.findNode((n) => n.id === id);
-            if (node !== undefined && isPropertyChanged(node)) {
-                node.onPropertyChanged(this.handleWatchedNodeChanged);
-                this._watched.set(id, node);
-            }
-        }
+        syncNodeWatches(this.document, this._watched, wanted, this.handleWatchedNodeChanged);
     }
 
     // The referenced node assigns its new shape before notifying (setProperty order),
@@ -1122,6 +1192,14 @@ export class ParametricBodyNode
         // Skip while evaluating: a referenced node (e.g. the sketch) may generate its
         // shape lazily mid-evaluation and notify — the in-flight pass reads it fresh.
         if ((property !== "shape" && property !== "transform") || this._evaluating) return;
+        // A rolled-back source (a sketch-session preview) must not re-evaluate
+        // bystanders: the preview hides later features' geometry, the rebuilt shape
+        // would be wrong, and the run would re-anchor refs onto the preview and
+        // persist them. The session exit clears the flag BEFORE restoring the
+        // shape, so the restore notification passes this guard and rebuilds.
+        for (const node of this._watched.values()) {
+            if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) return;
+        }
 
         const result = this.generateShape();
         if (result.isOk) {

@@ -120,18 +120,19 @@ describe("revolve face-id seeding (real kernel)", () => {
         const ringIds = before.map((index) => body.faceIdAt(index)!);
         // The kernel drops both rings at 360°; geometric attribution seeds them from
         // the profile edges that swept them, not positional `r1:1` / `r1:3`.
-        for (const id of ringIds) expect(id).toMatch(/^sketch:.+:e[\d.]+:e\d+$/);
+        for (const id of ringIds) expect(id).toMatch(/^sketch:.+:e[\d.]+:ent\d+$/);
         expect(new Set(ringIds).size).toBe(2);
 
         sketch.setDataEmitShapeChanged(rectMirrored(10, 0, 20, 30));
 
-        // The mirrored rebuild re-enumerates the profile wire, so a seed may attach
-        // to a different wire index — what must hold is that both rings still carry
-        // edge seeds (never positional `r1:N`) and each id resolves to a ring face.
+        // The mirrored rebuild re-enumerates the profile wire, but seeds attach by
+        // entity attribution, not wire position — what must hold is that both rings
+        // still carry edge seeds (never positional `r1:N`) and each id resolves to
+        // a ring face.
         const after = ringIndexes(body);
         expect(after).toHaveLength(2);
         const afterIds = after.map((index) => body.faceIdAt(index)!);
-        for (const id of afterIds) expect(id).toMatch(/^sketch:.+:e[\d.]+:e\d+$/);
+        for (const id of afterIds) expect(id).toMatch(/^sketch:.+:e[\d.]+:ent\d+$/);
         expect(new Set(afterIds).size).toBe(2);
         for (const id of afterIds) expect(after).toContain(body.faceIndexById(id));
     });

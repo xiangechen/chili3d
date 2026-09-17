@@ -79,6 +79,43 @@ describe("SketchArcCommand", () => {
             editor.solver.dispose();
         }
     });
+
+    test.each([
+        { name: "equals the start point", end: [10, 0] as [number, number] },
+        { name: "lies within the angular wedge of the start ray", end: [10, 0.005] as [number, number] },
+    ])("rejects an end that $name, with feedback and no entity", ({ end }) => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            runCommand(new SketchArcCommand(), editor, [[0, 0], [10, 0], end]);
+
+            expect(pub).toHaveBeenCalledWith(
+                "displayError",
+                "Arc end point is on the start ray (zero sweep)",
+            );
+            expect(editor.solver.entities()).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("creates an arc when the end is just outside the start-ray wedge", () => {
+        const editor = fakeEditor();
+        runCommand(new SketchArcCommand(), editor, [
+            [0, 0],
+            [10, 0],
+            // ~0.002 rad clockwise of the start ray — a near-full-circle arc
+            [10, -0.02],
+        ]);
+
+        const entities = editor.solver.entities();
+        expect(entities.length).toBe(1);
+        expect(entities[0].type).toBe("arc");
+        expect(editor.commit).toHaveBeenCalledTimes(1);
+        editor.solver.dispose();
+    });
 });
 
 describe("SketchRectangleCommand", () => {

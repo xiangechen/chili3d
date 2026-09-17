@@ -4,5 +4,6 @@
 import "./booleanCommand";
 import "./edgeCornerCommand";
 import "./extrudeCommand";
+import "./reselectCommand";
 import "./revolveCommand";
 import "./variableCommand";

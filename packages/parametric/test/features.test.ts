@@ -30,6 +30,7 @@ import type {
     FeatureData,
     FilletFeatureData,
     RevolveFeatureData,
+    ShapeTracking,
     VariableFeatureData,
 } from "../src/features/feature";
 import { featureHandler } from "../src/features/feature";
@@ -325,6 +326,46 @@ describe("feature evaluation", () => {
         const [, axis] = mocks.revolve.mock.calls.at(-1) as unknown as [any, Line, number];
         expect([axis.point.x, axis.point.y, axis.point.z]).toEqual([0, 0, 0]);
         expect([axis.direction.x, axis.direction.y, axis.direction.z]).toEqual([0, 1, 0]);
+    });
+
+    test("revolve falls back to the snapshot axis while the axis source shows a session preview", () => {
+        const sourceBody = bodyWith([
+            { id: "e0", type: "extrude", sketchId: sketch.id, depth: 2 },
+            { id: "e1", type: "extrude", sketchId: sketch.id, depth: 3 },
+        ]);
+        // The restore-order window of a sketch-session exit: the source is still
+        // rolled back (its shape is the truncated preview) while a consumer rebuilds.
+        expect(sourceBody.setRollbackIndex(1)).toBe(true);
+        const feature: RevolveFeatureData = {
+            id: "r4",
+            type: "revolve",
+            sketchId: sketch.id,
+            axis: AXIS,
+            axisSource: { nodeId: sourceBody.id, edge: EDGE_REF },
+            angle: 90,
+        };
+        const tracking: ShapeTracking = {
+            inputFaceIds: [],
+            outputFaceIds: [],
+            inputEdgeIds: [],
+            outputEdgeIds: [],
+        };
+        const result = featureHandler("revolve")!.evaluate(feature, {
+            document: doc,
+            host: sourceBody,
+            scope: new Map(),
+            tracking,
+        });
+
+        expect(result.isOk).toBe(true);
+        // The preview DOES carry an edge matching EDGE_REF (the mock prism edge,
+        // direction +X) — the guard, not a failed match, chose the snapshot axis…
+        const [, axis] = mocks.revolve.mock.calls.at(-1) as unknown as [any, Line, number];
+        expect([axis.point.x, axis.point.y, axis.point.z]).toEqual([0, 0, 0]);
+        expect([axis.direction.x, axis.direction.y, axis.direction.z]).toEqual([0, 1, 0]);
+        // …and reported no anchor, so the body cannot persist a re-anchor onto
+        // preview geometry (see ShapeTracking.resolvedEdges).
+        expect(tracking.resolvedEdges).toBeUndefined();
     });
 
     test("fillet re-matches edge refs against the rebuilt input", () => {
@@ -1205,6 +1246,40 @@ describe("feature evaluation", () => {
 
             expect(body.shape.isOk).toBe(false);
             expect(body.featureItems()[0].error).toBe("Extrude source body not found");
+        });
+
+        test("a source body showing a session preview fails transiently, then self-heals on restore", () => {
+            const face = topFace(2);
+            prismWithTopFace(face);
+            const sourceBody = bodyWith([
+                { id: "e0", type: "extrude", sketchId: sketch.id, depth: 2 },
+                { id: "e1", type: "extrude", sketchId: sketch.id, depth: 3 },
+            ]);
+            // The restore-order window of a sketch-session exit: the source is still
+            // rolled back (its shape is the truncated preview) while a consumer
+            // rebuilds against it.
+            expect(sourceBody.setRollbackIndex(1)).toBe(true);
+            const feature: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: sourceBody.id, profiles: [captureProfileRef(face as any)] },
+                depth: 5,
+            };
+            const body = bodyWith([feature]);
+
+            // The preview DOES expose a matching face — the guard, not a failed
+            // match, produces the transient error; without it the run would
+            // re-anchor (and untransacted persist) the profile refs onto the preview.
+            expect(body.shape.isOk).toBe(false);
+            expect(body.featureItems()[0].error).toBe(
+                "Extrude source body is rolled back for a sketch session",
+            );
+
+            // Once the source restores the full chain, the watch-triggered rebuild
+            // resolves normally — the transient error heals itself.
+            expect(sourceBody.setRollbackIndex(undefined)).toBe(true);
+            expect(body.shape.isOk).toBe(true);
+            expect(body.featureItems()[0].error).toBeUndefined();
         });
 
         test("nodeIds reference the sketch or the source node", () => {

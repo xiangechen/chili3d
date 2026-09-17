@@ -359,7 +359,7 @@ describe("lastRemovedConstraintIds", () => {
         }
     });
 
-    test("cleared at the start of every sync; unchanged refs and drops leave it empty", () => {
+    test("cleared at the start of every sync; unchanged refs leave it empty", () => {
         const solver = new SketchSolver(Plane.XY, dataWith(EXT_LINE));
         try {
             const line = solver.addLine(5, 5, 20, 5);
@@ -381,10 +381,62 @@ describe("lastRemovedConstraintIds", () => {
             expect(solver.syncExternalRefs([flipped])).toBe(false);
             expect(solver.lastRemovedConstraintIds).toEqual([]);
 
-            // a drop is not a type flip: it changes the sketch but reports no flip casualties
+            // A drop reports exactly like a type flip: the dropped ref's constraints
+            // die with it, and the editor drops their dimension anchors off this
+            // list — an unreported removal would leave orphan anchors in
+            // SketchData.anchors.
+            const onFlipped = solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: line, pointIndex: 1 },
+                    { entityId: EXT_LINE.entityId, pointIndex: 0 },
+                ],
+                datum: 5,
+            });
+            expect(solver.syncExternalRefs([])).toBe(true);
+            expect(solver.lastRemovedConstraintIds).toEqual([onFlipped]);
+            expect(solver.entity(EXT_LINE.entityId)).toBeUndefined();
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a drop reports exactly the dropped ref's constraints (and nothing for a constraint-free ref)", () => {
+        const solver = new SketchSolver(Plane.XY, dataWith(EXT_LINE, EXT_CIRCLE));
+        try {
+            const line = solver.addLine(5, 5, 20, 5);
+            const coincident = solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: EXT_LINE.entityId, pointIndex: 0 },
+                ],
+            });
+            const distance = solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: line, pointIndex: 1 },
+                    { entityId: EXT_LINE.entityId, pointIndex: 1 },
+                ],
+                datum: 10,
+            });
+            // a constraint that does not touch the dropped ref survives unreported
+            const horizontal = solver.addConstraint({
+                kind: ConstraintKind.Horizontal,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                ],
+            });
+            solver.solve(true);
+
+            expect(solver.syncExternalRefs([{ ...EXT_CIRCLE }])).toBe(true);
+            expect([...solver.lastRemovedConstraintIds].sort()).toEqual([coincident, distance].sort());
+            expect(solver.toData().constraints.map((c) => c.id)).toEqual([horizontal]);
+
+            // dropping the constraint-free circle reports nothing
             expect(solver.syncExternalRefs([])).toBe(true);
             expect(solver.lastRemovedConstraintIds).toEqual([]);
-            expect(solver.entity(EXT_LINE.entityId)).toBeUndefined();
         } finally {
             solver.dispose();
         }

@@ -16,6 +16,7 @@ import {
     ShapeTypes,
     Transaction,
 } from "@chili3d/core";
+import { reportSilentIdLoss } from "../../features/idDiagnostics";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import { SketchEditor } from "../editor/sketchEditor";
 import { captureExternalRef } from "../externalRef";
@@ -45,7 +46,7 @@ interface PickedPlane {
  * circle are skipped silently. `localFace` is in the owner's coordinates; the world
  * transform projects them onto the new sketch plane.
  */
-function captureBoundaryExternalRefs(
+export function captureBoundaryExternalRefs(
     owner: INode,
     result: PlanePickResult & { kind: "face" },
     plane: Plane,
@@ -63,8 +64,20 @@ function captureBoundaryExternalRefs(
         try {
             let edgeId: string | undefined;
             if (owner instanceof ParametricBodyNode) {
-                const index = ownerEdges.findIndex((edge) => edge.isEqual(localEdge));
+                // isSame, not isEqual: wire exploration may decorate the edge with a
+                // reversed orientation, which IsEqual rejects — boolean-born faces
+                // (a groove's floor) would otherwise lose their tracked ids here.
+                const index = ownerEdges.findIndex((edge) => edge.isSame(localEdge));
                 edgeId = index < 0 ? undefined : owner.edgeIdAt(index);
+                if (edgeId === undefined) {
+                    reportSilentIdLoss(
+                        owner,
+                        "edge",
+                        index < 0
+                            ? "a boundary edge of the picked face was not found on the source body"
+                            : "a boundary edge of the picked face has no tracked id",
+                    );
+                }
             }
             const ref = captureExternalRef(nextId, owner.id, plane, worldEdge, edgeId, "reference");
             if (ref === undefined) continue;
@@ -92,10 +105,18 @@ function resolvePlane(document: IDocument, result: PlanePickResult | undefined):
         // the sketch tracks the face exactly instead of re-matching geometrically.
         if (owner instanceof ParametricBodyNode) {
             const faceId = owner.faceIdAt(result.data.indexes[0]);
-            if (faceId !== undefined) planeRef.faceId = faceId;
-            // anchor the sketch's timeline position: the features that exist now
-            // are the state the sketch was created against (see computeSketchRollback)
-            refPositions = { [owner.id]: owner.features.length };
+            if (faceId !== undefined) {
+                planeRef.faceId = faceId;
+            } else {
+                reportSilentIdLoss(owner, "face", "the sketch-plane face has no tracked id");
+            }
+            // anchor the sketch's timeline position: the features that exist now are
+            // the state the sketch was created against (see computeSketchRollback).
+            // On a rollback preview (a fillet/chamfer reselect pick) that state IS the
+            // preview — `features.length` would read as "no rollback" to
+            // seedRollbackIndices and resolve the boundary refs against later geometry
+            // the user never saw (same correction as sketch.projectEdges).
+            refPositions = { [owner.id]: owner.rollbackIndex ?? owner.features.length };
         }
         externalRefs = captureBoundaryExternalRefs(owner, result, plane);
     }
@@ -123,11 +144,14 @@ function sketchDataFromPick(picked: PickedPlane): SketchData | undefined {
         // FIRST_EXTERNAL_ENTITY_ID down before the solver existed —
         // persist the counter so the no-reuse invariant is explicit
         // instead of relying on the load-time Math.min recovery
-        // (undefined drops out of the serialized JSON)
+        // (undefined drops out of the serialized JSON). The next counter
+        // derives from the actual refs; it is never read on an empty list
+        // (captureBoundaryExternalRefs returns undefined for one), so the
+        // Math.min spread cannot see an empty array.
         externalIdSeq:
             picked.externalRefs === undefined
                 ? undefined
-                : FIRST_EXTERNAL_ENTITY_ID - picked.externalRefs.length,
+                : Math.min(...picked.externalRefs.map((ref) => ref.entityId)) - 1,
     };
 }
 

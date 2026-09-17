@@ -10,7 +10,7 @@ import {
     PubSub,
     type XYZ,
 } from "@chili3d/core";
-import { arcAngles, toUV } from "../sketchModel";
+import { arcAngles, rawArcSweep, toUV } from "../sketchModel";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
 import { SketchPointStep } from "./sketchPointStep";
 
@@ -34,6 +34,13 @@ export class SketchArcCommand extends SketchMultistepCommand {
         const endDistance = Math.hypot(ex - cx, ey - cy);
         if (endDistance < Precision.Distance) {
             PubSub.default.pub("displayError", "Arc end point is too close to the center");
+            return;
+        }
+        // an end on the start ray (within angular tolerance, end = start included)
+        // fixes no sweep direction — the preview shows "no arc" there, so reject
+        // with feedback instead of committing an arc generateShape would refuse
+        if (Math.abs(rawArcSweep([cx, cy, sx, sy, ex, ey])) <= Precision.Angle) {
+            PubSub.default.pub("displayError", "Arc end point is on the start ray (zero sweep)");
             return;
         }
         // project the end onto the circle so the PointOnArc constraint does not

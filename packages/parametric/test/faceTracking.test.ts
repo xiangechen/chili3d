@@ -19,7 +19,9 @@ import {
 import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import type { EdgeRef } from "../src/features/edgeRef";
-import type { FeatureData } from "../src/features/feature";
+import { matchSourceFaceIndexes } from "../src/features/extrude";
+import { type ExtrudeFeatureData, type FeatureData, featureHandler } from "../src/features/feature";
+import type { ProfileRef } from "../src/features/profileRef";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { type SketchData, SketchNode } from "../src/sketch";
 import { resolveFacePlane } from "../src/sketch/planeRef";
@@ -220,6 +222,8 @@ describe("ParametricBodyNode face tracking", () => {
 
     beforeEach(() => {
         doc = new TestDocument({ application: createMockApplication() });
+        // ReselectFeatureCommand.execute requires an active view to run against.
+        doc.application.activeView = { document: doc } as any;
         mocks = setupTrackedMocks();
         sketch = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
         doc.modelManager.addNode(sketch);
@@ -259,10 +263,86 @@ describe("ParametricBodyNode face tracking", () => {
 
         expect(body.shape.isOk).toBe(true);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
-        expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:e1.2.3.4:e3`);
-        // the top face has no kernel history and is seeded from the profile by hand
+        expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
+        expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent4`);
+        // the top face has no sweep history; with no cap channel in this mock the
+        // unique-history-less-face fallback seeds it
         expect(body.faceIdAt(5)).toBe(`sketch:${sketch.id}:e1.2.3.4:top`);
+    });
+
+    test("the kernel-reported top face wins over an ambiguous history-less heuristic", () => {
+        mocks.prismTracked.mockImplementation((_face: any, _vec: XYZ) =>
+            Result.ok({
+                shape: mocks.prismShape,
+                // Only the bottom has history: five history-less faces are ambiguous
+                // to the heuristic, but the kernel's cap channel names the top.
+                faceMap: [0, -1, -1, -1, -1, -1],
+                edgeMap: [0, -1, -1, -1],
+                capFaces: [5],
+            }),
+        );
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
+
+        expect(body.shape.isOk).toBe(true);
+        expect(body.faceIdAt(5)).toBe(`sketch:${sketch.id}:e1.2.3.4:top`);
+        expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4:top`)).toBe(5);
+        // The other history-less faces keep positional ids — the heuristic did not run.
+        expect(body.faceIdAt(1)).toBe("f1:1");
+    });
+
+    test("an empty cap channel keeps the history-less heuristic and its ambiguity guard", () => {
+        mocks.prismTracked.mockImplementation((_face: any, _vec: XYZ) =>
+            Result.ok({
+                shape: mocks.prismShape,
+                faceMap: [0, -1, -1, -1, -1, -1],
+                edgeMap: [0, -1, -1, -1],
+                // A kernel predating the channel reports nothing: five history-less
+                // faces stay ambiguous, so no :top is seeded (positional fallback).
+                capFaces: [],
+            }),
+        );
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
+
+        expect(body.shape.isOk).toBe(true);
+        expect(body.faceIdAt(5)).toBe("f1:5");
+    });
+
+    test("revolve: the kernel-reported end cap wins over the history-less heuristic", () => {
+        mocks.restore();
+        const revolvedShape = {
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            dispose: rs.fn(),
+            findSubShapes: () => [],
+            mesh: { edges: { range: [] } },
+        } as unknown as IShape;
+        const revolveTracked = rs.fn((_face: any, _axis: any, _angle: number) =>
+            Result.ok({
+                shape: revolvedShape,
+                // The start face is identical to the profile; the four remaining
+                // faces are new — ambiguous to the history-less heuristic.
+                faceMap: [0, -1, -1, -1, -1],
+                edgeMap: [0, -1, -1, -1],
+                capFaces: [4],
+            }),
+        );
+        mocks = setupTrackedMocks([], { revolveTracked });
+        const body = bodyWith([
+            {
+                id: "r1",
+                type: "revolve",
+                sketchId: sketch.id,
+                axis: { point: { x: 0, y: 0, z: 0 }, direction: { x: 0, y: 0, z: 1 } },
+                angle: 90,
+            },
+        ]);
+
+        expect(body.shape.isOk).toBe(true);
+        expect(revolveTracked).toHaveBeenCalledTimes(1);
+        expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
+        expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:e1.2.3.4:cap`);
+        // The other new faces keep positional ids — the heuristic did not run.
+        expect(body.faceIdAt(1)).toBe("r1:1");
     });
 
     test("fillet propagates input ids and adds a feature-scoped id for the new face", () => {
@@ -364,11 +444,11 @@ describe("ParametricBodyNode face tracking", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         // The kernel history reported only edge 0; geometric identity completion
         // recovered the other bottom edges, so they keep the sketch-scoped ids too.
-        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:e1`);
-        expect(body.edgeIndexById(`sketch:${sketch.id}:e1.2.3.4:e1`)).toBe(1);
+        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent2`);
+        expect(body.edgeIndexById(`sketch:${sketch.id}:e1.2.3.4:ent2`)).toBe(1);
         expect(body.edgeIndexById("unknown")).toBeUndefined();
     });
 
@@ -379,8 +459,8 @@ describe("ParametricBodyNode face tracking", () => {
         ]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
-        expect(body.edgeIdAt(3)).toBe(`sketch:${sketch.id}:e1.2.3.4:e3`);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
+        expect(body.edgeIdAt(3)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent4`);
         expect(body.edgeIdAt(4)).toBe("f2:4");
     });
 
@@ -427,8 +507,8 @@ describe("ParametricBodyNode face tracking", () => {
         await body.reselectShapes("f2");
 
         // Edge 1 of the pre-fillet shape carries the sketch-scoped id; the permuted
-        // fillet list would have produced ":e2" for the same index.
-        expect(body.features[1]).toMatchObject({ edges: [{ edgeId: `sketch:${sketch.id}:e1.2.3.4:e1` }] });
+        // fillet list would have produced ":ent3" for the same index.
+        expect(body.features[1]).toMatchObject({ edges: [{ edgeId: `sketch:${sketch.id}:e1.2.3.4:ent2` }] });
         // And the re-evaluated fillet is applied to that exact edge (id hit), not a
         // fingerprint guess.
         const [, indexes] = permutedFilletTracked.mock.calls.at(-1) as unknown as [any, number[], number];
@@ -469,7 +549,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(1)).toBe(`tool:${tool.id}:0`);
         expect(body.faceIdAt(2)).toBe("f2:2");
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         expect(body.edgeIdAt(1)).toBe("f2:1");
     });
 
@@ -559,8 +639,8 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(2)).toBe("f2:1");
         expect(body.faceIdAt(3)).toBe("f2:3");
-        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
-        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:e0`);
+        expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
+        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         expect(body.edgeIdAt(2)).toBe("f2:2");
     });
 
@@ -661,7 +741,7 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.faceIdAt(1)).toBe(`sketch:${two.id}:e1.2.3.4:top`);
             expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:e5.6.7.8`);
             expect(body.faceIdAt(3)).toBe("f1:3");
-            expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4:e0`);
+            expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4:ent1`);
             expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:e5.6.7.8:e0`);
             expect(body.edgeIdAt(2)).toBe("f1:2");
             // The fuse copies the geometry; the intermediate prisms are disposed.
@@ -726,9 +806,128 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.faceIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:top`);
             expect(body.faceIdAt(2)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg`);
             expect(body.faceIdAt(3)).toBe("f1:3");
-            expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4:e0`);
-            expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg:e0`);
+            expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4:ent1`);
+            expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg:ent1`);
             expect(body.edgeIdAt(2)).toBe("f1:2");
         });
+    });
+});
+
+describe("matchSourceFaceIndexes (press-pull face claiming)", () => {
+    /** A rect piece of a split face: x∈[0,40], y∈[y0,y1] on the z=40 plane, 4 boundary edges. */
+    function rectPiece(y0: number, y1: number): IFace {
+        const corners = [
+            new XYZ({ x: 0, y: y0, z: 40 }),
+            new XYZ({ x: 40, y: y0, z: 40 }),
+            new XYZ({ x: 40, y: y1, z: 40 }),
+            new XYZ({ x: 0, y: y1, z: 40 }),
+        ];
+        const edges = [
+            mockLine(corners[0], corners[1]),
+            mockLine(corners[1], corners[2]),
+            mockLine(corners[2], corners[3]),
+            mockLine(corners[3], corners[0]),
+        ];
+        return {
+            boundingBox: () => ({ min: corners[0], max: corners[2] }),
+            area: () => 40 * (y1 - y0),
+            outerWire: () => ({ findSubShapes: () => edges }),
+        } as unknown as IFace;
+    }
+
+    /** The press-pull ref of `rectPiece(y0, y1)` — edge fingerprints + region + tracked id. */
+    function pieceRef(y0: number, y1: number, id: string): ProfileRef {
+        return {
+            edges: [
+                { kind: "line", start: { x: 0, y: y0, z: 40 }, end: { x: 40, y: y0, z: 40 } },
+                { kind: "line", start: { x: 40, y: y0, z: 40 }, end: { x: 40, y: y1, z: 40 } },
+                { kind: "line", start: { x: 40, y: y1, z: 40 }, end: { x: 0, y: y1, z: 40 } },
+                { kind: "line", start: { x: 0, y: y1, z: 40 }, end: { x: 0, y: y0, z: 40 } },
+            ],
+            center: { x: 20, y: (y0 + y1) / 2, z: 40 },
+            area: 40 * (y1 - y0),
+            id,
+        };
+    }
+
+    function claimed(faces: IFace[], ids: (string | undefined)[], refs: ProfileRef[]): number[] {
+        const matched = matchSourceFaceIndexes(faces, ids, refs);
+        expect(matched.isOk).toBe(true);
+        return matched.unchecked()!.indexes;
+    }
+
+    test("several id hits narrow to the one piece matching the fingerprint", () => {
+        const faces = [rectPiece(0, 10), rectPiece(30, 40), rectPiece(50, 60)];
+        expect(claimed(faces, ["top", "top", "top"], [pieceRef(0, 10, "top")])).toEqual([0]);
+    });
+
+    test("a stale fingerprint keeps the whole-span adoption (zero exact pieces)", () => {
+        const faces = [rectPiece(0, 10), rectPiece(30, 40), rectPiece(50, 60)];
+        expect(claimed(faces, ["top", "top", "top"], [pieceRef(5, 15, "top")])).toEqual([0, 1, 2]);
+    });
+
+    test("several exact pieces keeps the whole-span adoption (coincident pieces)", () => {
+        const faces = [rectPiece(0, 10), rectPiece(0, 10), rectPiece(30, 40)];
+        expect(claimed(faces, ["top", "top", "top"], [pieceRef(0, 10, "top")])).toEqual([0, 1, 2]);
+    });
+
+    test("per-piece refs each adopt their own piece", () => {
+        const faces = [rectPiece(0, 10), rectPiece(30, 40)];
+        const refs = [pieceRef(0, 10, "top"), pieceRef(30, 40, "top")];
+        const matched = matchSourceFaceIndexes(faces, ["top", "top"], refs);
+        expect(matched.isOk).toBe(true);
+        expect(matched.unchecked()!.indexes).toEqual([0, 1]);
+        // Each adopted face carries the position of the ref that adopted it, so the
+        // re-anchor can keep that ref's `splitPiece`.
+        expect(matched.unchecked()!.refIndexes).toEqual([0, 1]);
+    });
+
+    test("a single id hit is adopted without fingerprint scoring", () => {
+        const faces = [rectPiece(0, 10), rectPiece(30, 40)];
+        expect(claimed(faces, ["top", "other"], [pieceRef(0, 10, "top")])).toEqual([0]);
+    });
+
+    test("a flagged ref narrows to the one piece matching the fingerprint", () => {
+        const faces = [rectPiece(0, 10), rectPiece(30, 40), rectPiece(50, 60)];
+        const ref: ProfileRef = { ...pieceRef(0, 10, "top"), splitPiece: true };
+        expect(claimed(faces, ["top", "top", "top"], [ref])).toEqual([0]);
+    });
+
+    test("a flagged ref with a stale fingerprint adopts the clear nearest piece", () => {
+        const faces = [rectPiece(0, 10), rectPiece(30, 40)];
+        const ref: ProfileRef = { ...pieceRef(5, 15, "top"), splitPiece: true };
+        expect(claimed(faces, ["top", "top"], [ref])).toEqual([0]);
+    });
+
+    test("a flagged ref with several exact pieces fails ambiguous", () => {
+        const faces = [rectPiece(0, 10), rectPiece(0, 10)];
+        const ref: ProfileRef = { ...pieceRef(0, 10, "top"), splitPiece: true };
+        const result = matchSourceFaceIndexes(faces, ["top", "top"], [ref]);
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Face match is ambiguous after rebuild");
+    });
+
+    test("a flagged ref with an evenly mirrored stale fingerprint fails ambiguous", () => {
+        // rectPiece(10, 20) is exactly between the two pieces (a ±10 y-translate of
+        // each), so both score the same — no clear nearest piece to adopt.
+        const faces = [rectPiece(0, 10), rectPiece(20, 30)];
+        const ref: ProfileRef = { ...pieceRef(10, 20, "top"), splitPiece: true };
+        const result = matchSourceFaceIndexes(faces, ["top", "top"], [ref]);
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Face match is ambiguous after rebuild");
+    });
+
+    test("applyResolvedRefs keeps the flag on the re-anchored source profiles", () => {
+        const feature: FeatureData = {
+            id: "e3",
+            type: "extrude",
+            depth: 5,
+            source: { nodeId: "body", profiles: [pieceRef(0, 10, "top")] },
+        };
+        const flagged: ProfileRef = { ...pieceRef(0, 10, "top"), splitPiece: true };
+        const updated = featureHandler("extrude")!.applyResolvedRefs!(feature, {
+            resolvedProfiles: [flagged],
+        }) as ExtrudeFeatureData;
+        expect(updated.source?.profiles[0]?.splitPiece).toBe(true);
     });
 });

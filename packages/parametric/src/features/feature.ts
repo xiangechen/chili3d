@@ -5,12 +5,17 @@ import {
     type FeatureParameter,
     type I18nKeys,
     type IDocument,
+    type IEdge,
+    type IFace,
     type IShape,
     Result,
     type ShapeNode,
+    ShapeTypes,
+    type TrackedShape,
 } from "@chili3d/core";
-import type { EdgeRef, Vec3 } from "./edgeRef";
+import { completeEdgeHistory, type EdgeRef, type Vec3 } from "./edgeRef";
 import type { ParameterValue } from "./expression";
+import { completeFaceHistory } from "./faceRef";
 import type { ProfileRef } from "./profileRef";
 
 export interface FeatureBase {
@@ -148,6 +153,13 @@ export interface ShapeTracking {
      * the next edit measures drift from the latest match, not the original pick.
      */
     resolvedProfiles?: ProfileRef[];
+    /**
+     * Set by an edge-matching handler to the per-ref anchors it actually matched
+     * this run (`matchEdgesAnchored`, or a re-capture from the matched edge on the
+     * untracked path): fillet/chamfer edges and revolve's axis edge. The body writes
+     * them back into the feature, same re-anchoring contract as `resolvedProfiles`.
+     */
+    resolvedEdges?: EdgeRef[];
 }
 
 /**
@@ -164,48 +176,6 @@ export function trackedIds(featureId: string, inputIds: readonly string[], map: 
             ? inputIds[inputIndex]
             : `${featureId}:${outputIndex}`,
     );
-}
-
-/** Separator between the components of a compound tracked id (see `combineIds`). */
-const ID_COMPONENT_SEPARATOR = "|";
-
-/**
- * Combines the ids of every input sub-shape an output sub-shape derives from into one
- * stable id. A single ancestor keeps its id unchanged (bit-for-bit the pre-compound
- * behavior); several ancestors — a boolean MERGED their sub-shapes into one — form a
- * sorted, flattened, deduped compound, so a later piece of the merge or a re-merge of
- * the pieces still intersects it (`idsOverlap`). Flattening keeps the genealogy a set
- * of leaf ids: a merged face merging again contributes its components, not its string.
- */
-export function combineIds(ids: readonly string[]): string {
-    const components = new Set(ids.flatMap((id) => id.split(ID_COMPONENT_SEPARATOR)));
-    return [...components].sort().join(ID_COMPONENT_SEPARATOR);
-}
-
-/**
- * True when two tracked ids share at least one component — i.e. one's genealogy set
- * intersects the other's (a piece of a split merge, or a face that merged further).
- */
-export function idsOverlap(a: string, b: string): boolean {
-    const components = new Set(a.split(ID_COMPONENT_SEPARATOR));
-    return b.split(ID_COMPONENT_SEPARATOR).some((x) => components.has(x));
-}
-
-/**
- * Per-output lists of input sub-shape indexes: seeded from the single-valued `map`,
- * extended with the kernel's full derivation pairs when present (`faceAncestors`,
- * booleans). An output MERGED from several inputs ends up with all of them.
- */
-export function ancestorInputs(map: readonly number[], ancestors?: readonly number[]): number[][] {
-    const perOutput: number[][] = map.map((inputIndex) => (inputIndex < 0 ? [] : [inputIndex]));
-    if (ancestors === undefined) return perOutput;
-    for (let i = 0; i + 1 < ancestors.length; i += 2) {
-        const [output, input] = [ancestors[i], ancestors[i + 1]];
-        if (output >= 0 && output < perOutput.length && !perOutput[output].includes(input)) {
-            perOutput[output].push(input);
-        }
-    }
-    return perOutput;
 }
 
 /**
@@ -229,6 +199,55 @@ export function trackedFaceIds(
     });
 }
 
+/** The completed maps of `completeTrackedHistory`, plus the enumerated output sub-shapes for reuse. */
+export interface CompletedTrackedHistory {
+    readonly edgeMap: number[];
+    readonly faceMap: number[];
+    /** `result.shape`'s sub-shapes in findSubShapes order — reused by callers for seed generation. */
+    readonly outputEdges: IEdge[];
+    readonly outputFaces: IFace[];
+}
+
+/**
+ * Geometry-identical completion of BOTH sub-shape kinds of a tracked kernel
+ * history (`completeEdgeHistory`/`completeFaceHistory`): recovers the unchanged
+ * sub-shapes a sparse kernel history missed, so they keep the input's stable id
+ * instead of a feature-scoped one. Kernel geometry is read eagerly — call
+ * before disposing any input shape.
+ *
+ * ORDERING CONTRACT (load-bearing): the kernel's history input enumerates the
+ * MAIN shape's sub-shapes first, then each tool's in order, and the map indexes
+ * point into that enumeration. Pass `inputs` in that same order — the consumers
+ * of the completed maps (`mapOperationIds`' main/tool boundary, `mapFusedIds`,
+ * `mapBooleanIds`) all interpret the indexes against it.
+ *
+ * `enumerated` hands over input sub-shape lists the caller already enumerated
+ * (the sweep sites keep the profile's edges for seed generation), skipping the
+ * repeat `findSubShapes`; the returned output lists are the enumerated result
+ * sub-shapes, for the same reuse.
+ */
+export function completeTrackedHistory(
+    inputs: readonly IShape[],
+    result: TrackedShape,
+    enumerated?: {
+        readonly inputEdges?: readonly IEdge[];
+        readonly inputFaces?: readonly IFace[];
+    },
+): CompletedTrackedHistory {
+    const inputEdges =
+        enumerated?.inputEdges ?? inputs.flatMap((shape) => shape.findSubShapes(ShapeTypes.edge) as IEdge[]);
+    const inputFaces =
+        enumerated?.inputFaces ?? inputs.flatMap((shape) => shape.findSubShapes(ShapeTypes.face) as IFace[]);
+    const outputEdges = result.shape.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const outputFaces = result.shape.findSubShapes(ShapeTypes.face) as IFace[];
+    return {
+        edgeMap: completeEdgeHistory(inputEdges, outputEdges, result.edgeMap),
+        faceMap: completeFaceHistory(inputFaces, outputFaces, result.faceMap),
+        outputEdges,
+        outputFaces,
+    };
+}
+
 /** Per-feature-kind behavior. Implementations live next to their feature file. */
 export interface FeatureHandler<F extends FeatureData = any> {
     /** i18n key shown in the feature list; a function picks the key per feature (e.g. boolean operation). */
@@ -249,6 +268,13 @@ export interface FeatureHandler<F extends FeatureData = any> {
     nodeIds(feature: F): string[];
     parameters(feature: F): FeatureParameter[];
     setParameter(feature: F, key: string, value: ParameterValue | boolean): F;
+    /**
+     * Writes the refs the last evaluation actually matched back into the feature
+     * (re-anchoring — see `ShapeTracking.resolvedProfiles`/`resolvedEdges`). Each
+     * handler knows where its refs live; a feature whose entry is absent is
+     * returned unchanged.
+     */
+    applyResolvedRefs?(feature: F, refs: { resolvedProfiles?: ProfileRef[]; resolvedEdges?: EdgeRef[] }): F;
 }
 
 const handlers = new Map<string, FeatureHandler>();

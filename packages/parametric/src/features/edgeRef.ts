@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { CurveUtils, type IEdge, type IShape, Result, ShapeTypes, XYZ } from "@chili3d/core";
-import { idsOverlap } from "./feature";
+import { ID_COMPONENT_SEPARATOR, idsOverlap } from "./trackedId";
 
 export type Vec3 = { x: number; y: number; z: number };
 
@@ -18,7 +18,7 @@ export type Vec3 = { x: number; y: number; z: number };
  *
  * `splitPiece` records that the id was already shared by several edges at capture
  * time — a boolean had split the original edge and the pick is just one piece.
- * `matchEdgeIndexesTracked` uses it to never widen such a ref to the whole span.
+ * `matchEdgesAnchored` uses it to never widen such a ref to the whole span.
  * Absent on older documents, where refs keep the whole-span adoption.
  */
 export type EdgeRef =
@@ -53,6 +53,29 @@ export function captureEdgeRef(edge: IEdge, edgeId?: string, splitPiece?: boolea
 
 /** Dot-product tolerance for direction parallelism (|dot| ≥ 1 − 1e-6). */
 const PARALLEL_TOLERANCE = 1e-6;
+
+/**
+ * Fingerprint equality, field by field — JSON.stringify equality is key-order
+ * sensitive. The kernel `edgeId` is NOT compared (it identifies the edge, not the
+ * geometry); callers needing it compare it themselves.
+ */
+export function sameEdgeFingerprint(a: EdgeRef, b: EdgeRef): boolean {
+    if (a.kind !== b.kind) return false;
+    if (a.kind === "line" && b.kind === "line") {
+        return sameVec(a.start, b.start) && sameVec(a.end, b.end);
+    }
+    if (a.kind === "circle" && b.kind === "circle") {
+        return sameVec(a.center, b.center) && a.radius === b.radius && sameVec(a.axis, b.axis);
+    }
+    if (a.kind === "other" && b.kind === "other") {
+        return sameVec(a.mid, b.mid) && a.length === b.length;
+    }
+    return false;
+}
+
+function sameVec(a: Vec3, b: Vec3): boolean {
+    return a.x === b.x && a.y === b.y && a.z === b.z;
+}
 
 /**
  * Rigid-move invariant of an id-resolved edge: the curve kind matches the
@@ -102,6 +125,53 @@ export function directionsParallel(a: XYZ | undefined, b: XYZ | undefined): bool
 }
 
 /**
+ * The matched edge indexes of `matchEdgesAnchored`, plus per-ref anchors refreshed
+ * to what each ref actually matched this run. A ref whose stored id is GONE from
+ * the rebuilt shape (or never had one) and recovered geometrically is re-captured
+ * from the matched edge (fresh fingerprint, the edge's current id, `splitPiece`
+ * when that id is shared by several edges) — the body writes it back untransacted,
+ * so a later rebuild resolves by id again instead of re-paying (and risking)
+ * fingerprint matching with a dead id. This is the `resolvedProfiles` re-anchoring
+ * contract applied to edge refs. Two kinds of refs pass through unchanged:
+ * id-hit refs (a live id is already the freshest anchor, and rewriting it to an
+ * overlapping compound id — the edge merged with another — would silently widen
+ * the ref beyond its picked span when the merge re-splits) and refs whose id is
+ * still ALIVE but failed the invariant check this run (e.g. a merged free-form
+ * curve whose length changed): rewriting those would sever the ref from its
+ * original edge — which can claim it back once the invariant holds again — and
+ * could stamp a `splitPiece` the user never picked.
+ */
+export interface AnchoredEdgeMatch {
+    /** Matched edge indexes (a set) for `shapeFactory.fillet`/`chamfer`. */
+    readonly indexes: number[];
+    /** Per-ref anchors, parallel to the input refs. */
+    readonly anchors: EdgeRef[];
+}
+
+/**
+ * A captured edge fingerprint paired with the edge's original index. Degenerate
+ * edges (zero length, no curve) throw on capture and are skipped, so positions in
+ * this list do NOT parallel `edges` — scoring reports the stored index.
+ */
+interface CapturedEdgeRef {
+    readonly index: number;
+    readonly ref: EdgeRef;
+}
+
+/** Captures every edge's fingerprint once; a degenerate edge never matches. */
+function captureEdgeRefs(edges: readonly IEdge[]): CapturedEdgeRef[] {
+    const captured: CapturedEdgeRef[] = [];
+    for (const [index, edge] of edges.entries()) {
+        try {
+            captured.push({ index, ref: captureEdgeRef(edge) });
+        } catch {
+            // Degenerate edge — excluded from matching.
+        }
+    }
+    return captured;
+}
+
+/**
  * Like `matchEdgeIndexes`, but refs carrying an `edgeId` resolve through the stable id
  * first: every input edge whose id intersects the ref's (`idsOverlap`) AND keeps the
  * fingerprint's rigid-move invariants (`edgeMatchesRefInvariant`) is adopted. Several
@@ -125,51 +195,131 @@ export function directionsParallel(a: XYZ | undefined, b: XYZ | undefined): bool
  * the clearly closest piece (`isClearWinner`, the same rule moved-geometry
  * fingerprint matching uses), and a tie fails as ambiguous.
  */
-export function matchEdgeIndexesTracked(
+export function matchEdgesAnchored(
     shape: IShape,
     refs: EdgeRef[],
     inputEdgeIds: readonly string[],
-): Result<number[]> {
+): Result<AnchoredEdgeMatch> {
     const edges = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
     const byId = resolveById(edges, refs, inputEdgeIds);
     if (!byId.isOk) return Result.err(byId.error);
     const { resolved, remaining } = byId.value;
-    if (remaining.length === 0) return Result.ok([...resolved]);
-    const matched = matchEdgeIndexes(shape, remaining);
-    if (!matched.isOk) return Result.err(matched.error);
-    for (const index of matched.value) {
-        if (resolved.has(index)) return Result.err("Edge match is ambiguous after rebuild");
-        resolved.add(index);
+    const anchors: (EdgeRef | undefined)[] = refs.map((ref, index) =>
+        remaining.includes(index) ? undefined : ref,
+    );
+    if (remaining.length > 0) {
+        if (edges.length === 0) return Result.err("Shape has no edges");
+        // Captured once: every remaining ref is scored against every capturable
+        // edge; each entry keeps its edge's original index.
+        const captured = captureEdgeRefs(edges);
+        const perRef = matchCapturedRefs(
+            captured,
+            remaining.map((index) => refs[index]),
+        );
+        if (!perRef.isOk) return Result.err(perRef.error);
+        for (const [k, refIndex] of remaining.entries()) {
+            const edgeIndex = perRef.value[k];
+            if (resolved.has(edgeIndex)) return Result.err("Edge match is ambiguous after rebuild");
+            resolved.add(edgeIndex);
+            anchors[refIndex] = reanchorRecoveredRef(
+                refs[refIndex],
+                edges[edgeIndex],
+                inputEdgeIds,
+                edgeIndex,
+            );
+        }
     }
-    return Result.ok([...resolved]);
+    return Result.ok({ indexes: [...resolved], anchors: anchors as EdgeRef[] });
 }
 
 /**
- * Resolves every ref through its stable id (see `matchEdgeIndexesTracked`):
- * adopted indexes plus the refs that missed and demote to fingerprint matching.
+ * Fresh anchor for a fingerprint-recovered ref — but only when the stored id is
+ * GONE from the rebuilt shape (or the ref never had one): a live id whose invariant
+ * check failed this run (e.g. a merged free-form curve's length changed) keeps the
+ * user's ref untouched, so the original edge can claim it back once the invariant
+ * holds again (see `AnchoredEdgeMatch`). `inputEdgeIds` parallels `edges`; an
+ * out-of-range entry (an untracked upstream) yields an id-less anchor rather than
+ * a fabricated one.
+ */
+function reanchorRecoveredRef(
+    ref: EdgeRef,
+    edge: IEdge,
+    inputEdgeIds: readonly string[],
+    edgeIndex: number,
+): EdgeRef {
+    const storedId = ref.edgeId;
+    if (storedId !== undefined && inputEdgeIds.some((id) => idsOverlap(id, storedId))) return ref;
+    const recoveredId = edgeIndex < inputEdgeIds.length ? inputEdgeIds[edgeIndex] : undefined;
+    try {
+        return captureEdgeRef(
+            edge,
+            recoveredId,
+            recoveredId !== undefined && idIsShared(inputEdgeIds, recoveredId),
+        );
+    } catch {
+        // Degenerate matched edge — keep the user's ref rather than fabricate an anchor.
+        return ref;
+    }
+}
+
+/**
+ * True when the id overlaps more than one entry — pieces of a split sub-shape.
+ * Overlap is component-wise (`idsOverlap`), not textual: a piece that merged with a
+ * collinear neighbor carries a compound like `A|B` while its untouched sibling keeps
+ * `A`, and both pieces are the same logical split edge. Exact duplicates — the only
+ * case a textual comparison sees — are a subset of this.
+ */
+export function idIsShared(ids: readonly string[], id: string | undefined): boolean {
+    return id !== undefined && indexesOfOverlappingId(ids, id).length > 1;
+}
+
+/**
+ * Indexes of every id overlapping `id` (`idsOverlap`) — the shared scan behind
+ * `IBodyTrackingNode.faceIndexesOfId`/`edgeIndexesOfId`, the sketch external-ref
+ * stand-in lookup and the press-pull face matching. An undefined entry (tracking
+ * lapsed for that sub-shape) never matches.
+ */
+export function indexesOfOverlappingId(ids: readonly (string | undefined)[], id: string): number[] {
+    const indexes: number[] = [];
+    for (let i = 0; i < ids.length; i++) {
+        const value = ids[i];
+        if (value !== undefined && idsOverlap(value, id)) indexes.push(i);
+    }
+    return indexes;
+}
+
+/**
+ * Resolves every ref through its stable id (see `matchEdgesAnchored`): adopted
+ * indexes plus the INDEXES of refs that missed and demote to fingerprint matching.
  */
 function resolveById(
     edges: IEdge[],
     refs: EdgeRef[],
     inputEdgeIds: readonly string[],
-): Result<{ resolved: Set<number>; remaining: EdgeRef[] }> {
+): Result<{ resolved: Set<number>; remaining: number[] }> {
     const resolved = new Set<number>();
-    const remaining: EdgeRef[] = [];
-    for (const ref of refs) {
+    const remaining: number[] = [];
+    // Component → input indexes, built lazily on the first id-carrying ref: a bare
+    // `idsOverlap` scan would re-split every input id (plus a Set each) once per
+    // ref, while this index splits each id once and answers overlap by component
+    // lookup. Bounded to `edges.length` exactly like the scan it replaces — the
+    // unbounded overlap checks (`indexesOfOverlappingId`, `reanchorRecoveredRef`,
+    // exported and called independently) deliberately keep their own scans rather
+    // than paying for a second, unbounded index that runs at most once per
+    // recovered ref.
+    let byComponent: Map<string, number[]> | undefined;
+    for (const [refIndex, ref] of refs.entries()) {
         const hits: number[] = [];
         if (ref.edgeId !== undefined) {
-            for (const [index, id] of inputEdgeIds.entries()) {
-                if (
-                    index < edges.length &&
-                    idsOverlap(id, ref.edgeId) &&
-                    edgeMatchesRefInvariant(edges[index], ref)
-                ) {
+            byComponent ??= indexByIdComponent(inputEdgeIds, edges.length);
+            for (const index of overlappingIndexes(byComponent, ref.edgeId)) {
+                if (keepsInvariant(edges[index], ref)) {
                     hits.push(index);
                 }
             }
         }
         if (hits.length === 0) {
-            remaining.push(ref);
+            remaining.push(refIndex);
             continue;
         }
         const adopted = singleExactHit(hits, edges, ref);
@@ -182,6 +332,47 @@ function resolveById(
         }
     }
     return Result.ok({ resolved, remaining });
+}
+
+/**
+ * Component → indexes of every input id (below `bound`) containing it — the
+ * `idsOverlap` scan precomputed.
+ */
+function indexByIdComponent(ids: readonly string[], bound: number): Map<string, number[]> {
+    const byComponent = new Map<string, number[]>();
+    for (let index = 0; index < ids.length && index < bound; index++) {
+        for (const component of ids[index].split(ID_COMPONENT_SEPARATOR)) {
+            const list = byComponent.get(component);
+            if (list === undefined) byComponent.set(component, [index]);
+            else list.push(index);
+        }
+    }
+    return byComponent;
+}
+
+/**
+ * Indexes overlapping `id` (component-wise set intersection, like `idsOverlap`),
+ * in the ascending order the replaced scan produced — a compound id's components
+ * each contribute their own ascending list, so the union is re-sorted.
+ */
+function overlappingIndexes(byComponent: Map<string, number[]>, id: string): number[] {
+    const union = new Set<number>();
+    for (const component of id.split(ID_COMPONENT_SEPARATOR)) {
+        for (const index of byComponent.get(component) ?? []) union.add(index);
+    }
+    return [...union].sort((a, b) => a - b);
+}
+
+/**
+ * `edgeMatchesRefInvariant` that treats a degenerate edge as failing the invariant:
+ * its kernel queries throw, and a throwing edge is never a hit.
+ */
+function keepsInvariant(edge: IEdge, ref: EdgeRef): boolean {
+    try {
+        return edgeMatchesRefInvariant(edge, ref);
+    } catch {
+        return false;
+    }
 }
 
 /**
@@ -205,38 +396,63 @@ function singleExactHit(hits: number[], edges: IEdge[], ref: EdgeRef): Result<nu
 }
 
 /**
- * Fills the -1 entries of a kernel edge-history map by exact geometric identity: an
- * unmapped output edge inherits the input index of a fingerprint-identical input edge
- * (score within MATCH_TOLERANCE, the next rival at least MATCH_TOLERANCE farther, one
+ * Fills the -1 entries of a kernel history map by exact geometric identity: an
+ * unmapped output inherits the input index of a fingerprint-identical input (score
+ * within MATCH_TOLERANCE, the next rival at least MATCH_TOLERANCE farther, one
  * claim per input). Parametric rebuilds leave most sub-shapes unchanged, which is
- * exactly the part sparse kernel histories (e.g. revolve edges) fail to report.
- * Inputs already claimed by the map are not stolen. Face maps are left to the kernel:
- * populating them needs surface fingerprints, not just curve data. Completion is
- * best-effort: an edge whose kernel queries fail (a degenerate edge) simply never
- * claims or gets claimed.
+ * exactly the part sparse kernel histories fail to report. Inputs already claimed
+ * by the map are not stolen. Completion is best-effort: a sub-shape whose kernel
+ * queries fail (a degenerate edge or face) simply never claims or gets claimed.
+ * Fingerprints are captured once per candidate — unclaimed inputs and unmapped
+ * outputs only, and a fully mapped history returns without any capture: scoring a
+ * live sub-shape per candidate pair would pay several kernel queries each, and the
+ * same output is scored against every unclaimed input.
  */
-export function completeEdgeHistory(
-    inputs: readonly IEdge[],
-    outputs: readonly IEdge[],
+export function completeHistory<TShape, TRef>(
+    inputs: readonly TShape[],
+    outputs: readonly TShape[],
     map: readonly number[],
+    capture: (shape: TShape) => TRef,
+    score: (a: TRef, b: TRef) => number,
 ): number[] {
     const completed = [...map];
+    // Nothing to complete: skip every fingerprint capture.
+    if (!completed.some((index) => index < 0)) return completed;
     const claimed = new Set(completed.filter((index) => index >= 0));
-    // Fingerprints are captured once per edge: scoring a live IEdge per candidate
-    // pair would pay several kernel queries each (endpoints, curve data), and the
-    // same output edge is scored against every unclaimed input.
-    const inputRefs = captureRefs(inputs);
+    const inputRefs: { index: number; ref: TRef }[] = [];
+    for (const [index, input] of inputs.entries()) {
+        // Claimed inputs are skipped at scoring time — don't pay for their capture.
+        if (claimed.has(index)) continue;
+        try {
+            inputRefs.push({ index, ref: capture(input) });
+        } catch {
+            // Degenerate input — it never claims an output.
+        }
+    }
     for (const [outputIndex, output] of outputs.entries()) {
         if (completed[outputIndex] === undefined || completed[outputIndex] >= 0) continue;
-        let outputRef: EdgeRef;
+        let outputRef: TRef;
         try {
-            outputRef = captureEdgeRef(output);
+            outputRef = capture(output);
         } catch {
-            // Degenerate output edge — its entry stays unmapped.
+            // Degenerate output — its entry stays unmapped.
             continue;
         }
-        const best = bestUnclaimedInput(outputRef, inputRefs, claimed);
-        if (best >= 0) {
+        let best = -1;
+        let bestScore = Infinity;
+        let secondScore = Infinity;
+        for (const { index, ref } of inputRefs) {
+            if (claimed.has(index)) continue;
+            const candidateScore = score(ref, outputRef);
+            if (candidateScore < bestScore) {
+                secondScore = bestScore;
+                bestScore = candidateScore;
+                best = index;
+            } else if (candidateScore < secondScore) {
+                secondScore = candidateScore;
+            }
+        }
+        if (best >= 0 && bestScore <= MATCH_TOLERANCE && secondScore - bestScore >= MATCH_TOLERANCE) {
             completed[outputIndex] = best;
             claimed.add(best);
         }
@@ -245,44 +461,16 @@ export function completeEdgeHistory(
 }
 
 /**
- * Best unclaimed input for `outputRef`: within MATCH_TOLERANCE and at least
- * MATCH_TOLERANCE ahead of the next rival, else -1.
+ * Edge specialization of `completeHistory` (see it for the claiming rules): the
+ * fingerprint is the `EdgeRef`, the score the fingerprint distance. Recovers the
+ * unchanged edges sparse kernel histories (e.g. revolve edges) fail to report.
  */
-function bestUnclaimedInput(
-    outputRef: EdgeRef,
-    inputRefs: { index: number; ref: EdgeRef }[],
-    claimed: Set<number>,
-): number {
-    let best = -1;
-    let bestScore = Infinity;
-    let secondScore = Infinity;
-    for (const { index, ref } of inputRefs) {
-        if (claimed.has(index)) continue;
-        const score = refScoreRefs(ref, outputRef);
-        if (score < bestScore) {
-            secondScore = bestScore;
-            bestScore = score;
-            best = index;
-        } else if (score < secondScore) {
-            secondScore = score;
-        }
-    }
-    return best >= 0 && bestScore <= MATCH_TOLERANCE && secondScore - bestScore >= MATCH_TOLERANCE
-        ? best
-        : -1;
-}
-
-/** Captures every capturable edge's fingerprint once, keeping its original index. */
-function captureRefs(edges: readonly IEdge[]): { index: number; ref: EdgeRef }[] {
-    const refs: { index: number; ref: EdgeRef }[] = [];
-    for (const [index, edge] of edges.entries()) {
-        try {
-            refs.push({ index, ref: captureEdgeRef(edge) });
-        } catch {
-            // Degenerate edge — it never claims an output.
-        }
-    }
-    return refs;
+export function completeEdgeHistory(
+    inputs: readonly IEdge[],
+    outputs: readonly IEdge[],
+    map: readonly number[],
+): number[] {
+    return completeHistory(inputs, outputs, map, captureEdgeRef, refScoreRefs);
 }
 
 /** `refScore` for two captured fingerprints — pure geometry, no kernel queries. */
@@ -312,13 +500,43 @@ function refScoreRefs(a: EdgeRef, b: EdgeRef): number {
  */
 export function matchEdgeIndexes(shape: IShape, refs: EdgeRef[]): Result<number[]> {
     const edges = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
-    if (edges.length === 0) return Result.err("Shape has no edges");
-    // Captured once up front: scoring a live edge per (ref, edge) pair would pay
-    // several kernel queries each. An uncapturable (degenerate) edge throws at the
-    // same point refScore would have thrown before.
-    const captured = edges.map((edge) => captureEdgeRef(edge));
+    return matchEdgesInEdges(edges, refs);
+}
 
-    const indexes = new Set<number>();
+/**
+ * `matchEdgeIndexes` against an already-enumerated edge list — callers caching
+ * the shape's edges themselves (the sketch external-ref resolver keeps them per
+ * source and pass) skip the repeat `findSubShapes` enumeration.
+ */
+export function matchEdgesInEdges(edges: readonly IEdge[], refs: EdgeRef[]): Result<number[]> {
+    return edgeListMatcher(edges)(refs);
+}
+
+/**
+ * `matchEdgesInEdges` split into capture and match: the fingerprints of a fixed
+ * edge list are captured once and every returned match call reuses them, so
+ * several refs geometrically matched against ONE edge list (a sketch resolving
+ * its external refs on a single source) pay the per-edge capture once per
+ * matcher instead of once per ref.
+ */
+export function edgeListMatcher(edges: readonly IEdge[]): (refs: EdgeRef[]) => Result<number[]> {
+    if (edges.length === 0) return () => Result.err("Shape has no edges");
+    // Captured once up front: scoring a live edge per (ref, edge) pair would pay
+    // several kernel queries each. A degenerate edge fails the capture and is
+    // skipped — it never matches.
+    const captured = captureEdgeRefs(edges);
+    return (refs) => {
+        const perRef = matchCapturedRefs(captured, refs);
+        return perRef.isOk ? Result.ok([...new Set(perRef.value)]) : Result.err(perRef.error);
+    };
+}
+
+/**
+ * The per-ref matched edge index (parallel to `refs`) — the scoring core of
+ * `matchEdgeIndexes`/`matchEdgesAnchored`.
+ */
+function matchCapturedRefs(captured: CapturedEdgeRef[], refs: EdgeRef[]): Result<number[]> {
+    const perRef: number[] = [];
     for (const ref of refs) {
         const [best, second] = bestTwo(captured, ref);
         if (best === undefined) return Result.err("Edge not found after rebuild");
@@ -329,10 +547,10 @@ export function matchEdgeIndexes(shape: IShape, refs: EdgeRef[]): Result<number[
         } else if (!isClearWinner(best.score, second?.score)) {
             return Result.err("Edge not found after rebuild");
         }
-        if (indexes.has(best.index)) return Result.err("Edge match is ambiguous after rebuild");
-        indexes.add(best.index);
+        if (perRef.includes(best.index)) return Result.err("Edge match is ambiguous after rebuild");
+        perRef.push(best.index);
     }
-    return Result.ok([...indexes]);
+    return Result.ok(perRef);
 }
 
 /**
@@ -340,16 +558,16 @@ export function matchEdgeIndexes(shape: IShape, refs: EdgeRef[]): Result<number[
  * A sole candidate wins by default — unless its score is infinite, which means its
  * curve type does not match the ref at all.
  */
-function isClearWinner(bestScore: number, secondScore: number | undefined): boolean {
+export function isClearWinner(bestScore: number, secondScore: number | undefined): boolean {
     if (!Number.isFinite(bestScore)) return false;
     return secondScore === undefined || secondScore > 1.5 * bestScore + MATCH_TOLERANCE;
 }
 
-function bestTwo(captured: EdgeRef[], ref: EdgeRef) {
+function bestTwo(captured: CapturedEdgeRef[], ref: EdgeRef) {
     let best: { index: number; score: number } | undefined;
     let second: { index: number; score: number } | undefined;
-    for (let index = 0; index < captured.length; index++) {
-        const score = refScoreRefs(ref, captured[index]);
+    for (const { index, ref: candidate } of captured) {
+        const score = refScoreRefs(ref, candidate);
         if (best === undefined || score < best.score) {
             second = best;
             best = { index, score };
@@ -362,8 +580,9 @@ function bestTwo(captured: EdgeRef[], ref: EdgeRef) {
 
 /**
  * Best (lowest) score of `ref` against `edges` — Infinity when no edge's curve type
- * matches at all. Unlike `matchEdgeIndexes` this never accepts a "sole candidate":
- * callers comparing several candidate shapes need comparable scores, not a winner.
+ * matches at all (a degenerate edge scores Infinity too, see `refScore`). Unlike
+ * `matchEdgeIndexes` this never accepts a "sole candidate": callers comparing
+ * several candidate shapes need comparable scores, not a winner.
  */
 export function bestEdgeScore(edges: IEdge[], ref: EdgeRef): number {
     let best = Infinity;
@@ -373,16 +592,24 @@ export function bestEdgeScore(edges: IEdge[], ref: EdgeRef): number {
     return best;
 }
 
-/** Scores a live edge by capturing its fingerprint first — the single scoring formula lives in `refScoreRefs`. */
-function refScore(ref: EdgeRef, edge: IEdge): number {
-    return refScoreRefs(ref, captureEdgeRef(edge));
+/**
+ * Scores a live edge by capturing its fingerprint first — the single scoring
+ * formula lives in `refScoreRefs`. A degenerate edge (the capture throws) scores
+ * Infinity: it never wins a scoring contest.
+ */
+export function refScore(ref: EdgeRef, edge: IEdge): number {
+    try {
+        return refScoreRefs(ref, captureEdgeRef(edge));
+    } catch {
+        return Infinity;
+    }
 }
 
-function vec3(xyz: XYZ): Vec3 {
+export function vec3(xyz: XYZ): Vec3 {
     return { x: xyz.x, y: xyz.y, z: xyz.z };
 }
 
-function distance(a: Vec3, b: Vec3): number {
+export function distance(a: Vec3, b: Vec3): number {
     return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 

@@ -24,7 +24,7 @@ import {
     worldPerPixel,
 } from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
-import { computeSketchRollback } from "../sketchRollback";
+import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
 import { SketchSolver, type SolveOutcome } from "../solver";
 import { type DimensionAnchor, toDisplayDatum, toStorageDatum } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
@@ -191,10 +191,23 @@ export class SketchEditor implements IDisposable {
             rollback = this.applyTimelineRollback();
             return { rollback, solver: this.createSessionSolver() };
         } catch (error) {
-            if (rollback !== undefined) {
-                for (const body of rollback.keys()) body.setRollbackIndex(undefined);
+            try {
+                if (rollback !== undefined) {
+                    for (const body of rollbackRestoreOrder(rollback)) {
+                        // per-body isolation like unwindSession/dispose: a throwing
+                        // restore must not strand the bodies after it
+                        try {
+                            body.setRollbackIndex(undefined);
+                        } catch {
+                            // best effort — the body keeps displaying its last good shape
+                        }
+                    }
+                }
+            } finally {
+                // … and nothing above may skip this — a sketch left session-owned
+                // stops following its external references for good
+                this.node.setEditingSession(false);
             }
-            this.node.setEditingSession(false);
             throw error;
         }
     }
@@ -205,7 +218,7 @@ export class SketchEditor implements IDisposable {
      * dispose() will never run to release any of this.
      */
     private unwindSession(): void {
-        for (const body of this.rollback.keys()) {
+        for (const body of rollbackRestoreOrder(this.rollback)) {
             try {
                 body.setRollbackIndex(undefined);
             } catch {
@@ -248,7 +261,11 @@ export class SketchEditor implements IDisposable {
                 // best effort — the body keeps displaying its last good shape
             }
         }
-        if (failed.length > 0) PubSub.default.pub("statusBarTip", "sketch.rollbackFailed");
+        if (failed.length > 0) {
+            // PubSub.pub isolates subscriber exceptions, so this tip cannot escape
+            // and skip the rollback-map handoff to startSession.
+            PubSub.default.pub("statusBarTip", "sketch.rollbackFailed");
+        }
         return rollback;
     }
 
@@ -619,11 +636,15 @@ export class SketchEditor implements IDisposable {
     exit(): void {
         if (this.disposed) return;
         if (SketchEditor.activeEditor === this) SketchEditor.activeEditor = undefined;
-        this.commit();
-        this.node.setShowProfileFaces(true);
-        this.setNodeVisibleSilently(this.savedVisible);
-        this.node.document.application.mainWindow?.ribbon.closeTab("ribbon.tab.sketch");
-        this.dispose();
+        try {
+            this.commit();
+        } finally {
+            // a commit failure must not strand the session teardown
+            this.node.setShowProfileFaces(true);
+            this.setNodeVisibleSilently(this.savedVisible);
+            this.node.document.application.mainWindow?.ribbon.closeTab("ribbon.tab.sketch");
+            this.dispose();
+        }
     }
 
     /** Sets the sketch's visibility without recording an undo history record. */
@@ -648,14 +669,21 @@ export class SketchEditor implements IDisposable {
         // Restoring the full chain is an ordinary source-node rebuild for the
         // sketch: with the session flag already cleared, refs that later features
         // moved re-resolve and pull their followers — the off-session follow
-        // semantics resume exactly where the rollback paused them. A body deleted
+        // semantics resume exactly where the rollback paused them. Sources restore
+        // before the bodies consuming them (`rollbackRestoreOrder`), so no body
+        // re-evaluates against another's session preview. A body deleted
         // mid-session is skipped (replaying it would leak a shape on the disposed
-        // node), and a failing replay must not strand the teardown below —
-        // `disposed` is already set, so there is no retry.
+        // node), and a failing replay must strand neither the bodies after it
+        // (per-body isolation, like startSession/unwindSession) nor the teardown
+        // below — `disposed` is already set, so there is no retry.
         try {
-            for (const body of this.rollback.keys()) {
+            for (const body of rollbackRestoreOrder(this.rollback)) {
                 if (this.document.modelManager.findNode((n) => n === body) === undefined) continue;
-                body.setRollbackIndex(undefined);
+                try {
+                    body.setRollbackIndex(undefined);
+                } catch {
+                    // best effort — the body keeps displaying its last good shape
+                }
             }
         } finally {
             this.eventHandler.dispose();

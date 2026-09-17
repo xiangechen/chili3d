@@ -9,6 +9,7 @@ import {
     datumEntityData,
     datumPoint,
     type ExternalRefData,
+    entityPointCount,
     FIRST_EXTERNAL_ENTITY_ID,
     INCIDENCE_TOLERANCE,
     isDatumEntityId,
@@ -159,7 +160,7 @@ export class SketchSolver {
      */
     private idCountersPersisted = false;
     private idAllocatedSinceLoad = false;
-    /** Constraint ids cascaded away by the latest `syncExternalRefs` type-flip reseed. */
+    /** Constraint ids cascaded away by the latest `syncExternalRefs` (type-flip reseed or drop). */
     private removedConstraintIds: number[] = [];
 
     constructor(plane: Plane, data?: SketchData) {
@@ -202,9 +203,10 @@ export class SketchSolver {
 
     removeConstraint(id: number): void {
         const record = this.constraints.get(id);
-        if (record === undefined) {
-            throw new Error(`Unknown sketch constraint: ${id}`);
-        }
+        // Deletion stays idempotent: the UI can carry a dead id (e.g. an annotation
+        // whose constraint was cascaded away untransacted by syncExternalRefs), and
+        // a no-op beats throwing from a delete handler.
+        if (record === undefined) return;
         this.system.remove_constraint(record.garlicId);
         for (const datumParamId of record.datumParamIds ?? []) {
             this.system.remove_param(datumParamId);
@@ -272,9 +274,12 @@ export class SketchSolver {
     }
 
     /**
-     * Ids of the user constraints the latest `syncExternalRefs` cascaded away through
-     * a type-flip reseed (their entity's param layout changed, so they could not
-     * survive). Cleared at the start of every `syncExternalRefs` call.
+     * Ids of the user constraints the latest `syncExternalRefs` cascaded away —
+     * through a type-flip reseed (their entity's param layout changed, so they could
+     * not survive) or through a dropped ref (their target geometry no longer exists).
+     * Both are reported so the editor can drop the constraints' dimension anchors:
+     * an unreported removal would leave orphan anchors in `SketchData.anchors`.
+     * Cleared at the start of every `syncExternalRefs` call.
      */
     get lastRemovedConstraintIds(): readonly number[] {
         return this.removedConstraintIds;
@@ -382,15 +387,18 @@ export class SketchSolver {
      * them behind the solver's back): seeds new ones, removes dropped ones (with
      * their constraints), moves ones whose snapshot changed. A type flip reseeds
      * the entity — its constraints cannot survive the param-layout change and are
-     * removed (their ids are exposed via `lastRemovedConstraintIds`). Returns
-     * whether anything changed.
+     * removed. Both cascades are exposed via `lastRemovedConstraintIds` so the
+     * editor can drop the removed constraints' dimension anchors. Returns whether
+     * anything changed.
      */
     syncExternalRefs(refs: ExternalRefData[]): boolean {
         this.removedConstraintIds = [];
         let changed = false;
         for (const id of [...this.externalPins.keys()]) {
             if (!refs.some((ref) => ref.entityId === id)) {
-                this.removeExternalEntity(id);
+                // a dropped ref's constraints die with it — report them like a type
+                // flip does, or their dimension anchors stay behind as orphans
+                this.removedConstraintIds.push(...this.removeExternalEntity(id));
                 changed = true;
             }
         }
@@ -821,22 +829,38 @@ export class SketchSolver {
             const ids = Array.from(this.system.add_params(kinds, new Float64Array(coords)));
             this.datumParams.set(entityId, ids);
             this.fixedEntities.add(entityId);
-            for (let i = 0; i < ids.length; i += 2) {
-                const x0 = this.createDatumParam(coords[i]);
-                const y0 = this.createDatumParam(coords[i + 1]);
-                const garlicId = this.system.add_constraint(
-                    ConstraintKind.Fix,
-                    new Uint32Array([ids[i], ids[i + 1], x0, y0]),
-                    null,
-                    true,
-                    0,
-                );
-                this.structuralConstraintIds.push(garlicId);
-            }
+            const { constraintIds } = this.pinPoints(ids, coords);
+            this.structuralConstraintIds.push(...constraintIds);
         };
         seed(SKETCH_ORIGIN_ID, [0, 0]);
         seed(SKETCH_X_AXIS_ID, [0, 0, 1, 0]);
         seed(SKETCH_Y_AXIS_ID, [0, 0, 0, 1]);
+    }
+
+    /**
+     * Pins every (x, y) point param pair of `paramIds` with an internal Fix
+     * constraint to a datum param holding the point's current value — the shared
+     * core of `seedDatum` and `seedExternalEntity`. `values` parallels `paramIds`
+     * and supplies the pinned coordinates.
+     */
+    private pinPoints(paramIds: readonly number[], values: readonly number[]): ExternalPins {
+        const datumParamIds: number[] = [];
+        const constraintIds: number[] = [];
+        for (let i = 0; i < paramIds.length; i += 2) {
+            const x0 = this.createDatumParam(values[i]);
+            const y0 = this.createDatumParam(values[i + 1]);
+            datumParamIds.push(x0, y0);
+            constraintIds.push(
+                this.system.add_constraint(
+                    ConstraintKind.Fix,
+                    new Uint32Array([paramIds[i], paramIds[i + 1], x0, y0]),
+                    null,
+                    true,
+                    0,
+                ),
+            );
+        }
+        return { datumParamIds, constraintIds };
     }
 
     /**
@@ -849,23 +873,12 @@ export class SketchSolver {
     private seedExternalEntity(entityId: number, type: SketchEntityType, params: number[]): void {
         const paramIds = this.addEntityParams(type, params);
         this.registerEntity(type, paramIds, entityId);
-        const datumParamIds: number[] = [];
-        const constraintIds: number[] = [];
-        const pointCount = type === "circle" ? 1 : type === "line" ? 2 : 3;
-        for (let point = 0; point < pointCount; point++) {
-            const x0 = this.createDatumParam(params[point * 2]);
-            const y0 = this.createDatumParam(params[point * 2 + 1]);
-            datumParamIds.push(x0, y0);
-            constraintIds.push(
-                this.system.add_constraint(
-                    ConstraintKind.Fix,
-                    new Uint32Array([paramIds[point * 2], paramIds[point * 2 + 1], x0, y0]),
-                    null,
-                    true,
-                    0,
-                ),
-            );
-        }
+        // Only the point params are pinned here — a circle's radius param is not a
+        // coordinate pair and gets its own Radius pin below.
+        const { datumParamIds, constraintIds } = this.pinPoints(
+            paramIds.slice(0, entityPointCount(type) * 2),
+            params,
+        );
         if (type === "circle") {
             const radiusDatum = this.createDatumParam(params[2]);
             datumParamIds.push(radiusDatum);

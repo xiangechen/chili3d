@@ -14,17 +14,21 @@ import {
     ParameterShapeNode,
     type Plane,
     Precision,
+    PubSub,
     Result,
     serializable,
     serialize,
 } from "@chili3d/core";
+import { isBodyTimelineNode } from "../features/bodyTracking";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
+import { syncNodeWatches } from "../nodeWatch";
 import { resolveExternalRefs } from "./externalRef";
 import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
 import {
     arcAngles,
     type ExternalRefData,
     profileExternalRefs,
+    rawArcSweep,
     SKETCH_EDGE_LINE_WIDTH,
     type SketchConstraintData,
     type SketchData,
@@ -100,6 +104,27 @@ export class SketchNode extends ParameterShapeNode {
 
     private _planeRefNode: INode | undefined;
 
+    /**
+     * Derived, runtime-only warning state behind `INodeWarning` (the model-tree
+     * badge) and the one-shot loss toast. Both are keyed off the dangling
+     * profile-role refs after each resolution pass; the constructor seeds them from
+     * the restored data so opening a document with already-dangling refs badges the
+     * row immediately without replaying the "lost their source" toast — the loss is
+     * not news, it was saved that way.
+     */
+    private _danglingProfileCount: number;
+    private _danglingSignature: string;
+
+    /** INodeWarning: dangling profile-role external references badge the model-tree row. */
+    get warningCount(): number {
+        return this._danglingProfileCount;
+    }
+
+    /** INodeWarning: badge tooltip (and loss toast) — `{0}` takes `warningCount`. */
+    get warningTooltip(): I18nKeys {
+        return "sketch.externalRefsLost{0}";
+    }
+
     constructor(options: SketchNodeOptions) {
         super({ document: options.document, id: options.id });
         this.setPrivateValue("plane", options.plane);
@@ -112,6 +137,9 @@ export class SketchNode extends ParameterShapeNode {
             "dataJson",
             options.dataJson ?? JSON.stringify(options.data ?? { entities: [], constraints: [] }),
         );
+        const danglingIds = danglingProfileRefIds(this.data.externalRefs ?? []);
+        this._danglingProfileCount = danglingIds.length;
+        this._danglingSignature = danglingIds.join(",");
     }
 
     setDataEmitShapeChanged(data: SketchData): void {
@@ -160,10 +188,13 @@ export class SketchNode extends ParameterShapeNode {
     }
 
     generateShape(): Result<IShape> {
+        // Take-and-clear FIRST: the flag belongs to this one evaluation — a throw
+        // further down must not leak it into the next evaluation, which would then
+        // wrongly skip refreshExternalRefs.
+        const refsFresh = this._externalRefsFresh;
+        this._externalRefsFresh = false;
         this.syncPlaneRefWatch();
-        if (this._externalRefsFresh) {
-            this._externalRefsFresh = false;
-        } else {
+        if (!refsFresh) {
             this.refreshExternalRefs();
         }
         // Read AFTER refreshExternalRefs (which persists re-resolved refs untransacted)
@@ -216,10 +247,15 @@ export class SketchNode extends ParameterShapeNode {
         if (Math.hypot(sx - cx, sy - cy) < Precision.Distance) {
             return Result.err("Arc radius is too small");
         }
-        const [, sweep] = arcAngles(params);
-        if (Math.abs(sweep - Math.PI * 2) < Precision.Angle) {
-            return Result.err("Arc sweep angle is too small");
+        // Only a raw sweep of [0, Precision.Angle] is degenerate (start and end on
+        // the same ray, within angular tolerance). A small NEGATIVE raw sweep is a
+        // legitimate near-full-circle arc — arcAngles normalizes it to just under
+        // 2π — and must build.
+        const rawSweep = rawArcSweep(params);
+        if (rawSweep >= 0 && rawSweep <= Precision.Angle) {
+            return Result.err("Arc is degenerate (zero sweep)");
         }
+        const [, sweep] = arcAngles(params);
         return shapeFactory.arc(
             this.plane.normal,
             toWorld(this.plane, cx, cy),
@@ -246,13 +282,68 @@ export class SketchNode extends ParameterShapeNode {
     /** Follows the referenced face: a source rebuild or a move carries the sketch plane with it. */
     private readonly handlePlaneRefNodeChanged = (property: string) => {
         if (property !== "shape" && property !== "transform") return;
-        const ref = this.planeRef;
-        if (ref === undefined) return;
-        // The face can be gone mid-rebuild; keep the last plane then.
-        const plane = resolveFacePlane(this.document, ref);
-        if (plane === undefined || this.isSamePlane(plane)) return;
-        this.plane = plane;
+        const history = this.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            if (this.followPlaneRef()) {
+                this.setShape(this.generateShape());
+            }
+        } finally {
+            history.disabled = disabled;
+        }
     };
+
+    /**
+     * Re-resolves the plane against the referenced face, anchored to the sketch's
+     * timeline position (`SketchData.refPositions`) like the external references:
+     * the plane belongs to the source's shape AT the anchor, so a downstream
+     * feature moving or splitting the captured face does not drag the sketch
+     * along. Persisted untransacted (derived state, refreshExternalRefs-style) —
+     * every trigger path (mid-chain follow, source watch, transform watch)
+     * re-derives it, so an undo replays through the same resolution.
+     *
+     * Must run BEFORE `refreshExternalRefs` (ref snapshots are plane-local UVs).
+     * It is also the ONLY plane follow that runs mid-chain: a ref edge sliding
+     * along the plane normal keeps its UV snapshot, so the ref resolution alone
+     * reports "unchanged" and the sketch would regenerate at its stale world
+     * position — a cut through it turns into a no-op, a downstream feature fails
+     * the chain, the source never emits a shape change, and the plane stays
+     * wedged at the old spot for good.
+     */
+    private followPlaneRef(): boolean {
+        const ref = this.planeRef;
+        if (ref === undefined) return false;
+        const node = this.document.modelManager.findNode((n) => n.id === ref.nodeId);
+        if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) {
+            // A rolled-back body shows a transient preview shape lacking every face
+            // born from a later feature; bystander sketches never resolve against
+            // it. The session owner does — the rollback reveals the capture-time
+            // geometry — but only while the rollback still reaches the sketch's
+            // timeline anchor: an undercutting rollback (propagated from a body the
+            // source consumes) shows an EARLIER state than capture time, so the
+            // captured face can be hidden and resolving would hop the plane to the
+            // nearest same-normal face. Freeze exactly like the external refs
+            // (sourceEdges in externalRef.ts); the restore on session exit
+            // re-resolves with the flag already cleared.
+            if (!this._editingSession) return false;
+            const anchor = this.data.refPositions?.[ref.nodeId];
+            if (anchor === undefined || node.rollbackIndex < anchor) return false;
+        }
+        // The face can be gone mid-rebuild; keep the last plane then.
+        const plane = resolveFacePlane(this.document, ref, this.data.refPositions);
+        if (plane === undefined || this.isSamePlane(plane)) return false;
+        const history = this.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            // setProperty (not the shape-changing variant): the caller regenerates.
+            this.setProperty("plane", plane);
+        } finally {
+            history.disabled = disabled;
+        }
+        return true;
+    }
 
     private isSamePlane(plane: Plane): boolean {
         return plane.origin.isEqualTo(this.plane.origin) && plane.normal.isEqualTo(this.plane.normal);
@@ -277,8 +368,9 @@ export class SketchNode extends ParameterShapeNode {
      * Edge-triggered handoff from `handleExternalRefNodeChanged`: the handler resolves
      * first (it needs the staleness verdict) and then regenerates — the flag keeps the
      * immediately following `generateShape` from paying for a whole second resolution
-     * (findSubShapes + fingerprint matching per ref). Set ONLY there: a flag left over
-     * from a `generateShape`-triggered resolution would skip every second evaluation.
+     * (findSubShapes + fingerprint matching per ref). Set ONLY there, and consumed
+     * take-and-clear at `generateShape` entry, so a throw mid-evaluation cannot leak
+     * it into the next one (a leftover would skip that evaluation's resolution).
      */
     private _externalRefsFresh = false;
 
@@ -305,7 +397,11 @@ export class SketchNode extends ParameterShapeNode {
     private refreshExternalRefs(): boolean {
         const data = this.data;
         const refs = data.externalRefs ?? [];
-        if (refs.length === 0) return false;
+        if (refs.length === 0) {
+            // The last ref may have been deleted while the warning state was set.
+            this.updateDanglingWarning(refs);
+            return false;
+        }
         let mutated = false;
         for (const ref of refs) {
             const snapshot = normalizeSnapshot(ref.type, ref.snapshot);
@@ -314,7 +410,12 @@ export class SketchNode extends ParameterShapeNode {
                 mutated = true;
             }
         }
-        const results = resolveExternalRefs(this.document, this.plane, refs, data.refPositions);
+        const results = resolveExternalRefs(this.document, this.plane, refs, data.refPositions, {
+            // The session owner's refs must follow the rolled-back body (the editor
+            // seeds the capture-time geometry from them); bystanders skip it.
+            includeRolledBackSources: this._editingSession,
+        });
+        this.updateDanglingWarning(refs);
         let shapeStale = false;
         const movedEntityIds = new Set<number>();
         for (const result of results) {
@@ -343,6 +444,31 @@ export class SketchNode extends ParameterShapeNode {
     }
 
     /**
+     * Syncs the derived warning state after a resolution pass. The tree badge is a
+     * plain propertyChanged emission (the rows already listen to node properties —
+     * no new channel); the toast is transition-triggered: it fires only when the
+     * dangling profile set changed into a NEW non-empty set, so repeated
+     * resolutions of the same set stay silent, a grown set re-notifies, and a full
+     * recovery (empty set) resets the signature so a later loss notifies again.
+     * Reference-role refs never count — only profile roles degrade built geometry
+     * to the frozen snapshot.
+     */
+    private updateDanglingWarning(refs: ExternalRefData[]): void {
+        const danglingIds = danglingProfileRefIds(refs);
+        const signature = danglingIds.join(",");
+        const setChanged = signature !== this._danglingSignature;
+        this._danglingSignature = signature;
+        if (this._danglingProfileCount !== danglingIds.length) {
+            const oldCount = this._danglingProfileCount;
+            this._danglingProfileCount = danglingIds.length;
+            this.emitPropertyChanged("warningCount", oldCount);
+        }
+        if (setChanged && signature !== "") {
+            PubSub.default.pub("showToast", this.warningTooltip, danglingIds.length);
+        }
+    }
+
+    /**
      * Off-session re-solve of the sketch against moved external geometry, returning
      * the solved data when any entity moved (undefined when nothing moved, while a
      * live editor session owns the re-solve, or when the data cannot be loaded — a
@@ -354,9 +480,11 @@ export class SketchNode extends ParameterShapeNode {
         if (this._editingSession) return undefined;
         let solved: SketchData;
         try {
+            // No explicit solve here: the constructor's loadData already ends with the
+            // full solve that pulls constrained entities onto the moved external
+            // geometry — a second solve(true) on unchanged state is a no-op.
             const solver = new SketchSolver(this.plane, data);
             try {
-                solver.solve(true);
                 solved = solver.toData();
             } finally {
                 solver.dispose();
@@ -372,20 +500,12 @@ export class SketchNode extends ParameterShapeNode {
 
     /** Watches every distinct external-reference source node; dropped refs unwatch. */
     private syncExternalRefWatch(refs: ReadonlyArray<{ nodeId: string }>): void {
-        const nodeIds = new Set(refs.map((ref) => ref.nodeId));
-        for (const [nodeId, node] of this._externalRefNodes) {
-            if (nodeIds.has(nodeId)) continue;
-            if (isPropertyChanged(node)) node.removePropertyChanged(this.handleExternalRefNodeChanged);
-            this._externalRefNodes.delete(nodeId);
-        }
-        for (const nodeId of nodeIds) {
-            if (this._externalRefNodes.has(nodeId)) continue;
-            const node = this.document.modelManager.findNode((n) => n.id === nodeId);
-            if (node !== undefined && isPropertyChanged(node)) {
-                node.onPropertyChanged(this.handleExternalRefNodeChanged);
-                this._externalRefNodes.set(nodeId, node);
-            }
-        }
+        syncNodeWatches(
+            this.document,
+            this._externalRefNodes,
+            new Set(refs.map((ref) => ref.nodeId)),
+            this.handleExternalRefNodeChanged,
+        );
     }
 
     /**
@@ -400,10 +520,26 @@ export class SketchNode extends ParameterShapeNode {
      * wrong feature.
      */
     followExternalRefs(): void {
-        if (this.refreshExternalRefs()) {
-            // the immediately following generateShape inherits this resolution
-            this._externalRefsFresh = true;
-            this.setShape(this.generateShape());
+        // Plane first: ref snapshots are plane-local UVs, so a moved plane changes
+        // what the refs resolve to — and a plane move alone never shows up in the
+        // ref resolution at all (see followPlaneRef).
+        // Everything here is derived state (refs, plane, shape all re-resolve from
+        // the persisted dataJson/planeRefJson), so nothing may enter the undo
+        // history: a recorded sketch shape would be restored BEFORE the causative
+        // edit's own record (records undo in reverse), re-evaluating the body in a
+        // mixed state that never existed.
+        const history = this.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            const planeStale = this.followPlaneRef();
+            if (this.refreshExternalRefs() || planeStale) {
+                // the immediately following generateShape inherits this resolution
+                this._externalRefsFresh = true;
+                this.setShape(this.generateShape());
+            }
+        } finally {
+            history.disabled = disabled;
         }
     }
 
@@ -436,6 +572,18 @@ export class SketchNode extends ParameterShapeNode {
  */
 export function danglingProfileRefs(sketch: SketchNode): ExternalRefData[] {
     return (sketch.data.externalRefs ?? []).filter((ref) => ref.role === "profile" && ref.dangling === true);
+}
+
+/**
+ * Sorted entity ids of the dangling profile-role refs — the join of this list is the
+ * set signature the loss toast dedups on (sorted so resolution order cannot fake a
+ * set change).
+ */
+function danglingProfileRefIds(refs: ExternalRefData[]): number[] {
+    return refs
+        .filter((ref) => ref.role === "profile" && ref.dangling === true)
+        .map((ref) => ref.entityId)
+        .sort((a, b) => a - b);
 }
 
 /** True when any constraint references one of the given entity ids. */

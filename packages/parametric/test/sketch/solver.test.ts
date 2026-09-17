@@ -187,6 +187,27 @@ describe("SketchSolver", () => {
             solver.removeConstraint(id);
             expect(solver.dofs()).toBe(constrained + 1);
         });
+
+        test("removeConstraint on a dead id is a no-op", () => {
+            // Deletion is idempotent: the editor can carry a stale id (e.g. an
+            // annotation whose constraint was cascaded away untransacted), so an
+            // unknown id must not throw — and must not touch the surviving state.
+            const solver = new SketchSolver(Plane.XY);
+            const line = solver.addLine(0, 0, 10, 0);
+            const id = solver.addConstraint({
+                kind: ConstraintKind.Horizontal,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                ],
+            });
+            solver.removeConstraint(id);
+            const before = solver.toData();
+
+            expect(() => solver.removeConstraint(id)).not.toThrow();
+            expect(() => solver.removeConstraint(999)).not.toThrow();
+            expect(solver.toData()).toEqual(before);
+        });
     });
 
     describe("serialization", () => {

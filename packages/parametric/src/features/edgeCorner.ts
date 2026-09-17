@@ -1,11 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type I18nKeys, type IEdge, type IShape, Result, ShapeTypes, type TrackedShape } from "@chili3d/core";
-import { completeEdgeHistory, matchEdgeIndexes, matchEdgeIndexesTracked } from "./edgeRef";
+import { type I18nKeys, type IShape, Result, type TrackedShape } from "@chili3d/core";
+import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeRef";
 import { resolveNumber } from "./expression";
 import {
     type ChamferFeatureData,
+    completeTrackedHistory,
     type FeatureContext,
     type FeatureHandler,
     type FilletFeatureData,
@@ -48,6 +49,9 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
 
         setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
 
+        applyResolvedRefs: (feature, { resolvedEdges }) =>
+            resolvedEdges === undefined ? feature : { ...feature, edges: resolvedEdges },
+
         evaluate(feature, context: FeatureContext): Result<IShape> {
             if (context.input === undefined) {
                 return Result.err(`${feature.type} requires a preceding feature`);
@@ -55,17 +59,24 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
             const parameter = resolveNumber(feature[options.parameterKey] as number | string, context.scope);
             if (!parameter.isOk) return Result.err(parameter.error);
             const tracking = context.tracking;
-            const indexes =
-                tracking === undefined
-                    ? matchEdgeIndexes(context.input, feature.edges)
-                    : matchEdgeIndexesTracked(context.input, feature.edges, tracking.inputEdgeIds);
-            if (!indexes.isOk) return Result.err(indexes.error);
+            let indexes: number[];
+            if (tracking === undefined) {
+                const matched = matchEdgeIndexes(context.input, feature.edges);
+                if (!matched.isOk) return Result.err(matched.error);
+                indexes = matched.value;
+            } else {
+                const matched = matchEdgesAnchored(context.input, feature.edges, tracking.inputEdgeIds);
+                if (!matched.isOk) return Result.err(matched.error);
+                indexes = matched.value.indexes;
+                // Re-anchored refs for the body's write-back (see ShapeTracking.resolvedEdges).
+                tracking.resolvedEdges = matched.value.anchors;
+            }
             const tracked =
                 options.method === "fillet" ? shapeFactory.filletTracked : shapeFactory.chamferTracked;
             if (tracking === undefined || tracked === undefined) {
-                return shapeFactory[options.method](context.input, indexes.value, parameter.value);
+                return shapeFactory[options.method](context.input, indexes, parameter.value);
             }
-            const result = tracked(context.input, indexes.value, parameter.value);
+            const result = tracked(context.input, indexes, parameter.value);
             if (!result.isOk) return Result.err(result.error);
             return trackEdgeCorner(feature.id, tracking, context.input, result.value);
         },
@@ -79,14 +90,8 @@ function trackEdgeCorner(
     input: IShape,
     result: TrackedShape,
 ): Result<IShape> {
-    // Geometry-identical completion recovers unchanged edges the kernel history
-    // missed, the rest get feature-scoped ids.
-    const edgeMap = completeEdgeHistory(
-        input.findSubShapes(ShapeTypes.edge) as IEdge[],
-        result.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-        result.edgeMap,
-    );
-    tracking.outputFaceIds = trackedIds(featureId, tracking.inputFaceIds, result.faceMap);
+    const { edgeMap, faceMap } = completeTrackedHistory([input], result);
+    tracking.outputFaceIds = trackedIds(featureId, tracking.inputFaceIds, faceMap);
     tracking.outputEdgeIds = trackedIds(featureId, tracking.inputEdgeIds, edgeMap);
     return Result.ok(result.shape);
 }

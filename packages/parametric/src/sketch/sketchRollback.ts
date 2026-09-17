@@ -37,6 +37,65 @@ export function computeSketchRollback(
 }
 
 /**
+ * The reverse of the propagation pass, for restoring the map on session exit:
+ * sources before the bodies consuming them. The map is in seed-then-propagation
+ * insertion order, which can place a consumer before a source it references (a
+ * consumer seeded on its own before the source propagated in) — restoring in that
+ * order re-evaluates the consumer against the source's session preview, a
+ * transient wrong (or failing) shape that only the source's later restore
+ * notification fixes up. Restoring sources first takes no detour at all.
+ *
+ * Edges come from the same place the rollback itself did — feature `nodeIds`,
+ * restricted to bodies inside the map (a referenced body that never rolled back
+ * already shows its full chain). Kahn's algorithm scans in insertion order, so
+ * unrelated bodies keep their relative order. A dependency cycle — not
+ * constructible through the UI — cannot loop: its members append in insertion
+ * order, where the per-body restore guards absorb the mis-ordering.
+ */
+export function rollbackRestoreOrder(
+    rollback: ReadonlyMap<ParametricBodyNode, number>,
+): ParametricBodyNode[] {
+    const bodies = [...rollback.keys()];
+    const byId = new Map(bodies.map((body) => [body.id, body]));
+    // A body restores after every rolled-back source its features reference.
+    const pending = new Map<ParametricBodyNode, Set<ParametricBodyNode>>();
+    for (const body of bodies) {
+        const deps = new Set<ParametricBodyNode>();
+        for (const feature of body.features) {
+            for (const id of featureHandler(feature.type)?.nodeIds(feature) ?? []) {
+                // a self-reference (press-pull on an own face) carries no dependency
+                if (id === body.id) continue;
+                const source = byId.get(id);
+                if (source !== undefined) deps.add(source);
+            }
+        }
+        pending.set(body, deps);
+    }
+    const order: ParametricBodyNode[] = [];
+    let progressed = true;
+    while (pending.size > 0 && progressed) {
+        progressed = false;
+        for (const body of bodies) {
+            const deps = pending.get(body);
+            if (deps === undefined) continue; // already in `order`
+            for (const dep of deps) {
+                if (!pending.has(dep)) deps.delete(dep); // restores earlier in `order`
+            }
+            if (deps.size > 0) continue;
+            pending.delete(body);
+            order.push(body);
+            progressed = true;
+        }
+    }
+    // Cycle fallback (see the doc comment): whatever never emitted hangs off a
+    // dependency cycle — insertion order, and the guards take care of it.
+    for (const body of bodies) {
+        if (pending.has(body)) order.push(body);
+    }
+    return order;
+}
+
+/**
  * Phase 1: seed each body with its own rollback point — the first feature
  * referencing the sketch, capped by the timeline anchor recorded at capture time
  * (`SketchData.refPositions`). An anchor at the feature count hides nothing

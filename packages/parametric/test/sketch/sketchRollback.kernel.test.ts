@@ -43,6 +43,10 @@ beforeAll(async () => {
     });
 });
 
+afterEach(() => {
+    rs.restoreAllMocks();
+});
+
 const RECT: SketchData = {
     entities: [
         { id: 1, type: "line", params: [-20, -20, 20, -20] },
@@ -312,7 +316,6 @@ test("a source edit mid-session re-resolves the refs and re-seeds the live solve
             (call) => (call[0] as unknown as PropertyHistoryRecord).object === sketch2,
         );
         expect(followRecords.length).toBe(0);
-        add.mockRestore();
     } finally {
         editor.exit();
     }

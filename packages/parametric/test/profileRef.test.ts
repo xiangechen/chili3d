@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, type IEdge, type IFace, type ShapeType, ShapeTypes, type XYZ } from "@chili3d/core";
+import { BoundingBox, type IEdge, type IFace, type ShapeType, ShapeTypes, XYZ } from "@chili3d/core";
 import {
     captureProfileRef,
     matchProfileIndexes,
@@ -18,7 +18,13 @@ function lineEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
     } as unknown as IEdge;
 }
 
-function faceOf(edges: IEdge[], holes: IEdge[] = [], box?: BoundingBox, area?: number): IFace {
+function faceOf(
+    edges: IEdge[],
+    holes: IEdge[] = [],
+    box?: BoundingBox,
+    area?: number,
+    normalVec?: { x: number; y: number; z: number },
+): IFace {
     return {
         shapeType: ShapeTypes.face,
         findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [...edges, ...holes] : []),
@@ -26,6 +32,7 @@ function faceOf(edges: IEdge[], holes: IEdge[] = [], box?: BoundingBox, area?: n
             shapeType: ShapeTypes.wire,
             findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
         }),
+        normal: () => [XYZ.zero, new XYZ(normalVec ?? { x: 0, y: 0, z: 1 })],
         // Zero defaults disable the region-similarity fallback in matching.
         boundingBox: () => box ?? BoundingBox.zero,
         area: () => area ?? 0,
@@ -364,5 +371,98 @@ describe("entity-set matching (crossing sketches)", () => {
         const result = matchProfileIndexes([faceOf([...SQUARE_A]), faceOf([...SQUARE_B])], [ref], [[9], [8]]);
 
         expect(result).toMatchObject({ isOk: true, value: [1] });
+    });
+});
+
+describe("source-face normal gate (press-pull refs)", () => {
+    const UP = { x: 0, y: 0, z: 1 };
+    const DOWN = { x: 0, y: 0, z: -1 };
+
+    test("captureProfileRef records the outward normal only when asked", () => {
+        const ref = captureProfileRef(
+            faceOf(SQUARE_A, [], undefined, undefined, UP),
+            undefined,
+            undefined,
+            true,
+        );
+        expect(ref.normal).toEqual(UP);
+        // Sketch-side captures (no flag) keep the older serialized ref shape.
+        expect(captureProfileRef(faceOf(SQUARE_A)).normal).toBeUndefined();
+    });
+
+    test("a candidate facing the opposite way is not the moved face", () => {
+        // The groove ceiling (-z) consumed by a deeper cut: its floor (+z) has the
+        // same boundary fingerprint and must not claim the ref.
+        const ref = captureProfileRef(
+            faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, DOWN),
+            "face:1",
+            undefined,
+            true,
+        );
+
+        const result = matchProfileIndexes([faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, UP)], [ref]);
+
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Sketch profile not found after rebuild");
+    });
+
+    test("the gate disambiguates otherwise identical candidates", () => {
+        const ref = captureProfileRef(
+            faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, UP),
+            "face:1",
+            undefined,
+            true,
+        );
+        const faces = [
+            faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, DOWN),
+            faceOf([...SQUARE_B], [], boxOf(5, 5, 7, 7), 4, UP),
+        ];
+
+        const result = matchProfileIndexes(faces, [ref]);
+
+        expect(result).toMatchObject({ isOk: true, value: [1] });
+    });
+
+    test("a perpendicular face is rejected; a draft-angle tilt passes", () => {
+        const ref = captureProfileRef(
+            faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, UP),
+            undefined,
+            undefined,
+            true,
+        );
+
+        const wall = matchProfileIndexes(
+            [faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, { x: 1, y: 0, z: 0 })],
+            [ref],
+        );
+        expect(wall.isOk).toBe(false);
+
+        const tilted = matchProfileIndexes(
+            [faceOf(SQUARE_B, [], boxOf(5, 5, 7, 7), 4, { x: 0, y: 0.5, z: Math.sqrt(0.75) })],
+            [ref],
+        );
+        expect(tilted).toMatchObject({ isOk: true, value: [0] });
+    });
+});
+
+describe("the allow predicate (dead-id refs vs live-id faces)", () => {
+    test("a ref whose candidates are all disallowed is not found", () => {
+        const ref = captureProfileRef(faceOf(SQUARE_B));
+
+        const result = matchProfileIndexes([faceOf([...SQUARE_B])], [ref], undefined, () => false);
+
+        expect(result.isOk).toBe(false);
+        expect(result.error).toBe("Sketch profile not found after rebuild");
+    });
+
+    test("a disallowed exact hit is skipped, not claimed", () => {
+        // The press-pull fallback lets a dead-id ref compete only for faces without
+        // a live id: the exact face is out of bounds, the id-less leftover claims it.
+        const ref = captureProfileRef(faceOf(SQUARE_B));
+        const faces = [faceOf([...SQUARE_A]), faceOf([...SQUARE_B])];
+
+        const result = matchProfileIndexes(faces, [ref], undefined, (_ref, face) => face === 0);
+
+        expect(result).toMatchObject({ isOk: true, value: [0] });
     });
 });

@@ -108,6 +108,20 @@ function faceOf(edges: IEdge[]): IFace {
     } as unknown as IFace;
 }
 
+/** A kernel-path region with a real region fingerprint (bbox center + area). */
+function regionFace(cx: number, cy: number, size: number): IFace {
+    return {
+        shapeType: ShapeTypes.face,
+        findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [] : []),
+        outerWire: () => ({ findSubShapes: () => [] }),
+        area: () => size * size,
+        boundingBox: () => ({
+            min: new XYZ({ x: cx - size / 2, y: cy - size / 2, z: 0 }),
+            max: new XYZ({ x: cx + size / 2, y: cy + size / 2, z: 0 }),
+        }),
+    } as unknown as IFace;
+}
+
 /** wire() keeps its edges; face() exposes the boundary edges of all its wires. */
 function setup(closed = true) {
     const wire = rs.fn((edges: IEdge[]) =>
@@ -520,6 +534,98 @@ describe("sketchProfiles with crossing edges", () => {
     });
 });
 
+describe("kernel source-index guards", () => {
+    test("an out-of-range kernel source index is skipped with a warning, not stuffed into the entity set", () => {
+        const regions = [faceOf([])];
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({ faces: regions, sources: [[0, 1, 99, -1]] }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
+            const result = sketchProfiles(sketchWith(edges));
+
+            expect(result.isOk).toBe(true);
+            // 99 and -1 are outside the 8 entity ids: dropped, not undefined in the set.
+            expect(result.unchecked()!.outerEntities).toEqual([[1, 2]]);
+            expect(captureProfileRef(regions[0]).entities).toEqual([1, 2]);
+            expect(warn).toHaveBeenCalled();
+            const messages = warn.mock.calls.map((call) => String(call[0]));
+            expect(messages.some((message) => message.includes("99"))).toBe(true);
+        } finally {
+            warn.mockRestore();
+            restore();
+        }
+    });
+
+    test("entity ids shorter than the edge list skip the tail indexes with a warning", () => {
+        const regions = [faceOf([])];
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({ faces: regions, sources: [[0, 1, 2, 3]] }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            // Pathological input: 8 edges in the shape but only 2 entities in the
+            // data — the kernel's source indexes 2 and 3 fall beyond the id list.
+            const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
+            const compound = {
+                shapeType: ShapeTypes.compound,
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            };
+            const sketch = {
+                shape: Result.ok(compound),
+                plane: Plane.XY,
+                data: {
+                    entities: [
+                        { id: 10, type: "line", params: [] },
+                        { id: 11, type: "line", params: [] },
+                    ],
+                },
+            } as unknown as SketchNode;
+            const result = sketchProfiles(sketch);
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outerEntities).toEqual([[10, 11]]);
+            expect(warn).toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+            restore();
+        }
+    });
+
+    test("a branch-group edge without an entity id is reported once and skipped downstream", () => {
+        const a = square(0, 0, 1, 1);
+        const b = square(1, 1, 2, 2);
+        const faces = [faceOf(a), faceOf(b)];
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({
+                faces,
+                sources: [
+                    [0, 1, 2, 3],
+                    [4, 5, 6, 7],
+                ],
+            }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            // The corner-touching squares form one branch group of 8 edges, but
+            // only 4 entity ids exist — the misses must not reach the identity
+            // sets, and the report happens once at the lookup, not again per use.
+            const result = sketchProfiles(sketchWithIds([...a, ...b], [1, 2, 3, 4]));
+
+            expect(result.isOk).toBe(true);
+            expect(result.unchecked()!.outerEntities).toEqual([[1, 2, 3, 4], []]);
+            expect(warn).toHaveBeenCalledTimes(1);
+        } finally {
+            warn.mockRestore();
+            restore();
+        }
+    });
+});
+
 describe("resolveProfiles", () => {
     const OUTER = square(0, 0, 10, 10);
     const HOLE = square(2, 2, 3, 3);
@@ -783,6 +889,31 @@ describe("profile topology defects", () => {
             const profiles = resolveProfiles(sketchWith(edges)).unchecked()!;
 
             expect(profiles.map((p) => p.seed)).toEqual(["e1.2", "e1.2~1"]);
+        } finally {
+            restore();
+        }
+    });
+
+    test("occurrence suffixes follow the region fingerprint, not the enumeration order", () => {
+        const near = regionFace(0, 0, 2);
+        const far = regionFace(10, 0, 2);
+        // The kernel reports the far region FIRST — enumeration order disagrees with
+        // fingerprint order, and the suffix must follow the region.
+        const facesFromEdges = rs.fn((_edges: IEdge[], _plane: Plane) =>
+            Result.ok({
+                faces: [far, near],
+                sources: [
+                    [0, 1],
+                    [1, 0],
+                ],
+            }),
+        );
+        const restore = mockShapeFactory({ facesFromEdges });
+        try {
+            const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
+            const profiles = resolveProfiles(sketchWith(edges)).unchecked()!;
+
+            expect(profiles.map((p) => p.seed)).toEqual(["e1.2~1", "e1.2"]);
         } finally {
             restore();
         }

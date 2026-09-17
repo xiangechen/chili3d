@@ -15,6 +15,7 @@ import {
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import type { FeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { captureFaceRef, type PlaneFaceRef, planeOfFace, resolveFacePlane } from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
@@ -258,5 +259,128 @@ describe("SketchNode plane follow", () => {
         } finally {
             restore();
         }
+    });
+
+    describe("session rollback", () => {
+        function bodyShowing(shape: IShape, featureCount: number) {
+            const doc = new TestDocument({ application: createMockApplication() });
+            const features: FeatureData[] = Array.from({ length: featureCount }, (_, index) => ({
+                id: `v${index}`,
+                type: "variable",
+                name: `v${index}`,
+                expression: "1",
+            }));
+            const body = new ParametricBodyNode({ document: doc, features });
+            doc.modelManager.addNode(body);
+            (body as any)._shape = Result.ok(shape);
+            return { doc, body };
+        }
+
+        function sketchAnchoredTo(doc: TestDocument, body: ParametricBodyNode, z: number, anchor?: number) {
+            const sketch = new SketchNode({
+                document: doc,
+                plane: Plane.XY.translateTo(new XYZ({ x: 0, y: 0, z })),
+                planeRef: { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: z },
+                data: {
+                    entities: [],
+                    constraints: [],
+                    ...(anchor === undefined ? {} : { refPositions: { [body.id]: anchor } }),
+                },
+            });
+            doc.modelManager.addNode(sketch);
+            // Lazy first generation installs the watch.
+            expect(sketch.shape.isOk).toBe(true);
+            return sketch;
+        }
+
+        /** Mirrors setRollbackIndex's ordering: the flag flips first, then the shape change notifies. */
+        function showPreview(body: ParametricBodyNode, index: number | undefined, shape: IShape) {
+            (body as any)._rollbackIndex = index;
+            body.shape = Result.ok(shape);
+        }
+
+        test("the session owner's plane freezes while the rollback undercuts its anchor", () => {
+            const restore = mockCombine();
+            try {
+                const { doc, body } = bodyShowing(
+                    solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)),
+                    3,
+                );
+                const sketch = sketchAnchoredTo(doc, body, 5, 2);
+                sketch.setEditingSession(true);
+
+                // The preview at index 1 hides the captured face — the only same-normal
+                // face left sits at z=10, so resolving would hop the plane there.
+                showPreview(body, 1, solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 10 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(5);
+
+                // The restore re-resolves against the full chain (flag already cleared).
+                showPreview(body, undefined, solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(5);
+
+                // The watch is not wedged: a later rebuild carries the plane again.
+                sketch.setEditingSession(false);
+                body.shape = Result.ok(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 8 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(8);
+            } finally {
+                restore();
+            }
+        });
+
+        test("a session owner without an anchor freezes on any rollback of the source", () => {
+            const restore = mockCombine();
+            try {
+                const { doc, body } = bodyShowing(
+                    solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)),
+                    3,
+                );
+                const sketch = sketchAnchoredTo(doc, body, 5);
+                sketch.setEditingSession(true);
+
+                showPreview(body, 0, solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 10 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(5);
+            } finally {
+                restore();
+            }
+        });
+
+        test("the session owner's plane follows a rollback that reaches its anchor", () => {
+            const restore = mockCombine();
+            try {
+                const { doc, body } = bodyShowing(
+                    solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)),
+                    3,
+                );
+                const sketch = sketchAnchoredTo(doc, body, 5, 2);
+                // A later parameter edit moved the face and the plane followed.
+                body.shape = Result.ok(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 7 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(7);
+
+                sketch.setEditingSession(true);
+                // The preview at the anchor IS the capture-time geometry: the plane
+                // must follow it back, not freeze on the edited position.
+                showPreview(body, 2, solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(5);
+            } finally {
+                restore();
+            }
+        });
+
+        test("an anchor at the feature count hides nothing — rebuilds carry the plane mid-session", () => {
+            const restore = mockCombine();
+            try {
+                const { doc, body } = bodyShowing(
+                    solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)),
+                    2,
+                );
+                const sketch = sketchAnchoredTo(doc, body, 5, 2);
+                sketch.setEditingSession(true);
+
+                body.shape = Result.ok(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 9 }), XYZ.unitZ)));
+                expect(sketch.plane.origin.z).toBe(9);
+            } finally {
+                restore();
+            }
+        });
     });
 });

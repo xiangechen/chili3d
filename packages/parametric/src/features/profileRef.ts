@@ -43,9 +43,29 @@ export interface ProfileRef {
      * survive rebuilds: a face split by a later cut shares one id across its pieces, and a face
      * MERGED from several faces combines their ids into a compound (`combineIds`), so an id hit
      * (`idsOverlap`) adopts every piece of a later re-split as well as a re-merge of the pieces —
-     * mirroring EdgeRef's whole-span adoption.
+     * mirroring EdgeRef's whole-span adoption. A ref captured from ONE piece of an already split
+     * face narrows to that piece instead (`matchSourceFaceIndexes` in extrude.ts).
      */
     readonly id?: string;
+    /**
+     * `splitPiece` records that the id was already shared by several faces at capture
+     * time — a boolean had split the original face and the pick is just one piece.
+     * `matchSourceFaceIndexes` uses it to never widen such a ref to the whole span:
+     * a stale fingerprint resolves to the clear nearest piece or fails "Face match is
+     * ambiguous after rebuild". Absent on older documents, where refs keep the
+     * whole-span adoption.
+     */
+    readonly splitPiece?: boolean;
+    /**
+     * Outward normal of the picked solid face — captured ONLY for source-face refs
+     * (press-pull): a planar face's outward normal survives the rigid moves parameter
+     * edits cause, so `profileScore` rejects a candidate facing more than 60° away
+     * (a groove's down-facing ceiling vs its up-facing floor and its walls, which tie
+     * geometrically once the ceiling is consumed). Sketch-side refs deliberately lack
+     * it: a solver-mirrored wire rebuilds the region face with the flipped
+     * orientation, and the gate would reject the legitimate match.
+     */
+    readonly normal?: Vec3;
 }
 
 /** Region faces of the crossing path → their bounding sketch entity ids. */
@@ -79,16 +99,46 @@ export function profileEntityIds(face: IFace): number[] | undefined {
     return registeredEntities(face);
 }
 
-export function captureProfileRef(face: IFace, id?: string): ProfileRef {
+/**
+ * Profile faces → the entity id each boundary edge was generated from, parallel to
+ * the face's `findSubShapes(ShapeTypes.edge)` order (undefined entries where the
+ * attribution failed). Entity ids survive wire re-enumeration — a mirrored or
+ * rewound profile permutes the edge order — so sweep features seed edge ids from
+ * these instead of positional ordinals (see `profileEdgeSeeds`).
+ */
+const profileEdgeEntities = new WeakMap<IFace, (number | undefined)[]>();
+
+/** Records the per-edge entity attribution of a profile face (see `profileEdgeEntities`). */
+export function registerProfileEdgeEntities(face: IFace, entities: (number | undefined)[]): void {
+    profileEdgeEntities.set(face, entities);
+}
+
+/** The per-edge entity ids registered for `face`, when `sketchProfiles` attached them. */
+export function profileEdgeEntityIds(face: IFace): (number | undefined)[] | undefined {
+    return profileEdgeEntities.get(face);
+}
+
+export function captureProfileRef(
+    face: IFace,
+    id?: string,
+    splitPiece?: boolean,
+    captureNormal = false,
+): ProfileRef {
     const edges = boundaryEdges(face).map((edge) => captureEdgeRef(edge));
     const entities = registeredEntities(face);
-    return {
+    const ref: ProfileRef = {
         edges,
-        center: vec3(BoundingBox.center(face.boundingBox())),
-        area: face.area(),
+        ...captureRegionFingerprint(face),
         ...(id !== undefined ? { id } : {}),
+        // Set only when true: absent keeps the serialized shape of older refs.
+        ...(splitPiece === true ? { splitPiece: true } : {}),
         ...(entities !== undefined ? { entities } : {}),
     };
+    if (captureNormal) {
+        const normal = face.normal(0, 0)[1].normalize();
+        if (normal !== undefined) return { ...ref, normal: vec3(normal) };
+    }
+    return ref;
 }
 
 /** Edges of the face's outer wire — the profile's identity; hole wires are incidental. */
@@ -115,11 +165,16 @@ function boundaryEdges(face: IFace): IEdge[] {
  *    is accepted only when clearly closer than every other (same rule as `EdgeRef`
  *    moved geometry). Faces are scored jointly: a candidate's score is the sum of its
  *    per-edge `bestEdgeScore`s.
+ * `allow` restricts the geometric phases (1-2) to eligible (ref, face) pairs — the
+ * press-pull source matcher uses it to keep refs whose tracked id died away from
+ * faces that carry a live id of their own. Phase 0 is identity-based already and
+ * ignores it.
  */
 export function matchProfileIndexes(
     faces: IFace[],
     refs: ProfileRef[],
     entities?: (number[] | undefined)[],
+    allow?: (refIndex: number, faceIndex: number) => boolean,
 ): Result<number[]> {
     const indexes: (number | undefined)[] = refs.map(() => undefined);
     const taken = new Set<number>();
@@ -131,11 +186,11 @@ export function matchProfileIndexes(
         remaining = locked.value;
     }
 
-    const moved = lockExactMatches(faces, refs, indexes, taken, remaining);
+    const moved = lockExactMatches(faces, refs, indexes, taken, remaining, allow);
     if (!moved.isOk) return Result.err(moved.error);
 
     for (const refIndex of moved.value) {
-        const match = clearestRemainingFace(faces, refs[refIndex], taken);
+        const match = clearestRemainingFace(faces, refs, refIndex, taken, allow);
         if (match === undefined) return Result.err("Sketch profile not found after rebuild");
         if (match === -1) return Result.err("Sketch profile match is ambiguous after rebuild");
         taken.add(match);
@@ -201,12 +256,14 @@ function lockExactMatches(
     indexes: (number | undefined)[],
     taken: Set<number>,
     refIndexes: number[],
+    allow?: (refIndex: number, faceIndex: number) => boolean,
 ): Result<number[]> {
     const moved: number[] = [];
     for (const refIndex of refIndexes) {
         const ref = refs[refIndex];
         const exact: number[] = [];
         for (const [index, face] of faces.entries()) {
+            if (allow !== undefined && !allow(refIndex, index)) continue;
             if (profileScore(face, ref) <= MATCH_TOLERANCE * ref.edges.length) exact.push(index);
         }
         if (exact.length > 1 || (exact.length === 1 && taken.has(exact[0]))) {
@@ -223,22 +280,34 @@ function lockExactMatches(
 }
 
 /** Phase 2: the remaining face closest to a moved ref — undefined when none, -1 when ambiguous. */
-function clearestRemainingFace(faces: IFace[], ref: ProfileRef, taken: Set<number>): number | undefined {
+function clearestRemainingFace(
+    faces: IFace[],
+    refs: ProfileRef[],
+    refIndex: number,
+    taken: Set<number>,
+    allow?: (refIndex: number, faceIndex: number) => boolean,
+): number | undefined {
     const scored: { index: number; score: number }[] = [];
     for (const [index, face] of faces.entries()) {
         if (taken.has(index)) continue;
-        const score = profileScore(face, ref);
+        if (allow !== undefined && !allow(refIndex, index)) continue;
+        const score = profileScore(face, refs[refIndex]);
         if (Number.isFinite(score)) scored.push({ index, score });
     }
-    return pickClearWinner(scored, ref.edges.length);
+    return pickClearWinner(scored, refs[refIndex].edges.length);
 }
 
 /**
  * Sum of the ref's per-edge `bestEdgeScore`s; falls back to `regionScore` when the
  * boundary re-split into a different edge count (crossing sketches) or the curve
- * kinds changed.
+ * kinds changed. Also the scorer of the press-pull id-hit narrowing (see
+ * `matchSourceFaceIndexes` in extrude.ts). A ref carrying an outward `normal`
+ * (source-face picks) rejects candidates facing away before any geometry is scored.
  */
-function profileScore(face: IFace, ref: ProfileRef): number {
+export function profileScore(face: IFace, ref: ProfileRef): number {
+    if (ref.normal !== undefined && !normalsAgree(face.normal(0, 0)[1].normalize(), ref.normal)) {
+        return Infinity;
+    }
     const edges = boundaryEdges(face);
     if (edges.length === ref.edges.length) {
         let score = 0;
@@ -251,6 +320,28 @@ function profileScore(face: IFace, ref: ProfileRef): number {
 }
 
 /**
+ * Orientation slack for the `normal` gate: the outward normal of a planar face
+ * survives rigid moves exactly, so 60° (dot 0.5) never rejects a moved face, while
+ * the perpendicular walls and the opposite floor of a consumed groove are rejected.
+ * Draft-style edits tilt well below 60°.
+ */
+const NORMAL_MATCH_DOT = 0.5;
+
+function normalsAgree(candidate: XYZ | undefined, normal: Vec3): boolean {
+    if (candidate === undefined) return false;
+    return candidate.x * normal.x + candidate.y * normal.y + candidate.z * normal.z >= NORMAL_MATCH_DOT;
+}
+
+/**
+ * The region fingerprint shared by profile matching, profile-seed ordering and
+ * face history completion: bbox center + area. Captured once per face — both
+ * queries are kernel calls.
+ */
+export function captureRegionFingerprint(face: IFace): { center: Vec3; area: number } {
+    return { center: vec3(BoundingBox.center(face.boundingBox())), area: face.area() };
+}
+
+/**
  * Region similarity: center drift + area drift normalized by the profile's
  * characteristic length. Beyond twice that length the candidate is a different
  * region, not a moved one — Infinity, so a sole leftover face cannot silently claim
@@ -259,8 +350,8 @@ function profileScore(face: IFace, ref: ProfileRef): number {
 function regionScore(face: IFace, ref: ProfileRef): number {
     if (ref.center === undefined || ref.area === undefined || ref.area <= 0) return Infinity;
     const length = Math.sqrt(ref.area);
-    const center = BoundingBox.center(face.boundingBox());
-    const score = distance(vec3(center), ref.center) + Math.abs(face.area() - ref.area) / length;
+    const region = captureRegionFingerprint(face);
+    const score = distance(region.center, ref.center) + Math.abs(region.area - ref.area) / length;
     return score <= 2 * length ? score : Infinity;
 }
 

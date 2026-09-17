@@ -102,6 +102,10 @@ const DATA: SketchData = {
 };
 
 describe("SketchEditor session statics", () => {
+    afterEach(() => {
+        rs.restoreAllMocks();
+    });
+
     test("enter returns the editor and makes it the active editor", () => {
         const { app, doc, view, camera, restoreFactory } = setup();
         try {
@@ -124,6 +128,7 @@ describe("SketchEditor session statics", () => {
             expect((doc.visual.viewHandler as any).canRotate).toBe(false);
             editor.exit();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -137,6 +142,7 @@ describe("SketchEditor session statics", () => {
             expect(clearSelection).toHaveBeenCalledTimes(1);
             editor.exit();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -155,8 +161,8 @@ describe("SketchEditor session statics", () => {
             expect(SketchEditor.getActive()).toBe(second);
             expect(SketchEditor.getActive()).not.toBe(first);
             second.exit();
-            exitSpy.mockRestore();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -176,6 +182,7 @@ describe("SketchEditor session statics", () => {
             // The visibility round-trip of an edit session stays out of the undo history.
             expect(doc.history.undoCount()).toBe(undoCount);
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -191,6 +198,7 @@ describe("SketchEditor session statics", () => {
             editor.exit();
             expect(setNodeOnTop).toHaveBeenLastCalledWith([node], false);
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -213,6 +221,7 @@ describe("SketchEditor session statics", () => {
             expect(camera.lookAt).toHaveBeenCalledTimes(2);
             expect((doc.visual.viewHandler as any).canRotate).toBe(true);
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -224,6 +233,7 @@ describe("SketchEditor session statics", () => {
             SketchEditor.exit();
             expect(SketchEditor.getActive()).toBeUndefined();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -250,6 +260,7 @@ describe("SketchEditor session statics", () => {
             expect(reopened.dimensionAnchors.get(id)).toEqual({ kind: "offset", offset: 25 });
             reopened.exit();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -269,6 +280,7 @@ describe("SketchEditor session statics", () => {
             expect(editor.dimensionAnchors.size).toBe(0);
             editor.exit();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -299,6 +311,7 @@ describe("SketchEditor session statics", () => {
             expect(editor.dimensionAnchors.get(id)).toEqual({ kind: "offset", offset: 25 });
             editor.exit();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -361,9 +374,9 @@ describe("SketchEditor session statics", () => {
             expect(editor.solver.toData().constraints).toEqual([]);
             expect(editor.dimensionAnchors.size).toBe(0);
             expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.externalRefTypeChanged");
-            pub.mockRestore();
             editor.exit();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -391,10 +404,10 @@ describe("SketchEditor session statics", () => {
 
             expect(body.rollbackIndex).toBeUndefined();
             expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.rollbackFailed");
-            pub.mockRestore();
             editor.exit();
             expect(body.rollbackIndex).toBeUndefined();
         } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -435,11 +448,66 @@ describe("SketchEditor session statics", () => {
             expect(badCalls).toEqual([0, undefined]);
             expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.rollbackFailed");
             expect(node.editingSession).toBe(true);
-            pub.mockRestore();
 
             editor.exit();
             expect(goodCalls).toEqual([0, undefined]);
         } finally {
+            SketchEditor.exit();
+            restoreFactory();
+        }
+    });
+
+    test("a throwing statusBarTip subscriber does not strand the rollback handoff", () => {
+        const { doc, restoreFactory } = setup();
+        // PubSub.pub isolates subscriber exceptions globally: the rollbackFailed
+        // tip's subscriber throws here; pub must log the error, keep the other
+        // tips flowing, and return normally so the rollback map still reaches
+        // startSession.
+        const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
+        const subscriber = (tip: string) => {
+            if (tip === "sketch.rollbackFailed") throw new Error("subscriber exploded");
+        };
+        PubSub.default.sub("statusBarTip", subscriber);
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            doc.modelManager.addNode(node);
+            const makeBody = (id: string) => {
+                const body = new ParametricBodyNode({
+                    document: doc,
+                    features: [{ id: `${id}-e0`, type: "extrude", sketchId: node.id, depth: 10 }],
+                });
+                doc.modelManager.addNode(body);
+                return body;
+            };
+            const good = makeBody("good");
+            const bad = makeBody("bad");
+            const goodCalls: (number | undefined)[] = [];
+            good.setRollbackIndex = (index) => {
+                goodCalls.push(index);
+                return true;
+            };
+            bad.setRollbackIndex = (index) => {
+                if (index !== undefined) throw new Error("rebuild exploded");
+                return true;
+            };
+
+            // The failing body triggers the rollbackFailed tip; its subscriber throwing
+            // must not escape applyTimelineRollback — otherwise startSession's catch
+            // would see no rollback map and strand `good` in its truncated state.
+            const editor = SketchEditor.enter(node);
+
+            expect(goodCalls).toEqual([0]);
+            expect(node.editingSession).toBe(true);
+            expect(consoleError).toHaveBeenCalledWith(
+                'PubSub: a subscriber of "statusBarTip" threw',
+                expect.any(Error),
+            );
+
+            editor.exit();
+            expect(goodCalls).toEqual([0, undefined]);
+        } finally {
+            SketchEditor.exit();
+            PubSub.default.remove("statusBarTip", subscriber);
             restoreFactory();
         }
     });
@@ -448,7 +516,7 @@ describe("SketchEditor session statics", () => {
         const { doc, view, camera, oldHandler, setNodeOnTop, restoreFactory } = setup();
         // the editor's own solve is the last stateful constructor step (the solver's
         // internal initial solve happens earlier, inside startSession)
-        const solveSpy = rs.spyOn(SketchEditor.prototype, "solve").mockImplementation(() => {
+        rs.spyOn(SketchEditor.prototype, "solve").mockImplementation(() => {
             throw new Error("solver exploded");
         });
         try {
@@ -481,7 +549,7 @@ describe("SketchEditor session statics", () => {
             expect(setNodeOnTop).toHaveBeenLastCalledWith([node], false);
             expect(node.visible).toBe(false);
         } finally {
-            solveSpy.mockRestore();
+            SketchEditor.exit();
             restoreFactory();
         }
     });
@@ -496,6 +564,75 @@ describe("SketchEditor session statics", () => {
 
             expect(SketchEditor.getActive()).toBeUndefined();
         } finally {
+            SketchEditor.exit();
+            restoreFactory();
+        }
+    });
+
+    test("exit with a throwing commit still completes the session teardown", () => {
+        const { doc, oldHandler, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            node.visible = false; // a consumed sketch
+            const editor = SketchEditor.enter(node);
+            rs.spyOn(editor, "commit").mockImplementation(() => {
+                throw new Error("commit exploded");
+            });
+
+            expect(() => editor.exit()).toThrow("commit exploded");
+
+            // the teardown must not be stranded by the commit failure
+            expect(SketchEditor.getActive()).toBeUndefined();
+            expect((editor as any).disposed).toBe(true);
+            expect(node.editingSession).toBe(false);
+            expect(node.showProfileFaces).toBe(true);
+            expect(node.visible).toBe(false);
+            expect(doc.visual.eventHandler).toBe(oldHandler);
+        } finally {
+            SketchEditor.exit();
+            restoreFactory();
+        }
+    });
+
+    test("dispose restores later bodies when an earlier body's restore throws", () => {
+        const { doc, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
+            doc.modelManager.addNode(node);
+            const makeBody = (id: string) => {
+                const body = new ParametricBodyNode({
+                    document: doc,
+                    features: [{ id: `${id}-e0`, type: "extrude", sketchId: node.id, depth: 10 }],
+                });
+                doc.modelManager.addNode(body);
+                return body;
+            };
+            // restore order is insertion order for unrelated bodies, so bad
+            // restores first and its throw must not strand good
+            const bad = makeBody("bad");
+            const good = makeBody("good");
+            const badCalls: (number | undefined)[] = [];
+            const goodCalls: (number | undefined)[] = [];
+            bad.setRollbackIndex = (index) => {
+                badCalls.push(index);
+                if (index === undefined) throw new Error("restore exploded");
+                return true;
+            };
+            good.setRollbackIndex = (index) => {
+                goodCalls.push(index);
+                return true;
+            };
+
+            const editor = SketchEditor.enter(node);
+            expect(badCalls).toEqual([0]);
+            expect(goodCalls).toEqual([0]);
+
+            editor.exit();
+
+            expect(badCalls).toEqual([0, undefined]);
+            expect(goodCalls).toEqual([0, undefined]);
+        } finally {
+            SketchEditor.exit();
             restoreFactory();
         }
     });

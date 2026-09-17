@@ -19,8 +19,9 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { PlanePickHandler } from "../../src/sketch/commands/planePickHandler";
-import { EnterSketch } from "../../src/sketch/commands/sketchCommands";
+import { CreateSketch, EnterSketch } from "../../src/sketch/commands/sketchCommands";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { sketchPlaneOfFace } from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
@@ -248,6 +249,73 @@ describe("EnterSketch", () => {
             await new EnterSketch().execute(app);
 
             expect(enter).not.toHaveBeenCalled();
+        } finally {
+            enter.mockRestore();
+        }
+    });
+});
+
+describe("CreateSketch", () => {
+    function setup(rollbackIndex: number | undefined) {
+        const app = createMockApplication();
+        const clearSelection = rs.fn();
+        // a planar world face with no boundary edges: the pick resolves a plane and
+        // a face ref but no external refs, leaving refPositions as the only data
+        const worldFace = {
+            normal: () => [XYZ.zero, XYZ.unitZ],
+            dispose: rs.fn(),
+        } as unknown as IFace;
+        const pickedFace = {
+            transformedMul: () => worldFace,
+            findSubShapes: () => [],
+        } as unknown as IFace;
+        const data: VisualShapeData = {
+            shape: pickedFace,
+            owner: {} as any,
+            transform: Matrix4.identity(),
+            indexes: [0],
+        };
+        const pickAsync = rs.fn(async (handler: PlanePickHandler) => {
+            handler.result = { kind: "face", data };
+        });
+        const document = new TestDocument({
+            application: app,
+            selection: { clearSelection } as any,
+            picker: { pickAsync } as any,
+        });
+        let body!: ParametricBodyNode;
+        document.visual = createMockVisualWithDocument(document, {
+            context: { getNode: () => body },
+        }) as any;
+        body = new ParametricBodyNode({
+            document,
+            features: [
+                { id: "e0", type: "extrude", sketchId: "missing-sketch", depth: 10 },
+                { id: "e1", type: "extrude", sketchId: "missing-sketch", depth: 10 },
+            ],
+        });
+        if (rollbackIndex !== undefined) {
+            // the fillet/chamfer reselect pick previews the body at this position —
+            // a sketch created on it must anchor there, not at the full feature count
+            Object.defineProperty(body, "rollbackIndex", { value: rollbackIndex });
+        }
+        (app as any).activeView = { document };
+        const enter = rs.spyOn(SketchEditor, "enter").mockImplementation(() => ({}) as any);
+        return { app, body, enter };
+    }
+
+    test.each([
+        { name: "the live rollback position on a rollback preview", rollbackIndex: 1, expected: 1 },
+        { name: "the full feature count outside a rollback preview", rollbackIndex: undefined, expected: 2 },
+    ])("a face pick anchors refPositions to $name", async ({ rollbackIndex, expected }) => {
+        const { app, body, enter } = setup(rollbackIndex);
+        try {
+            await new CreateSketch().execute(app);
+
+            expect(enter).toHaveBeenCalledTimes(1);
+            const node = enter.mock.calls[0][0] as SketchNode;
+            expect(body.features.length).toBe(2);
+            expect(node.data.refPositions).toEqual({ [body.id]: expected });
         } finally {
             enter.mockRestore();
         }

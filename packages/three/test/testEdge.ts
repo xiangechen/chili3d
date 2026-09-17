@@ -67,7 +67,7 @@ export class TestEdge implements IEdge {
     update(curve: ICurve): void {
         throw new Error("Method not implemented.");
     }
-    trim(start: number, end: number): IEdge {
+    trim(start: number, end: number): IEdge | undefined {
         throw new Error("Method not implemented.");
     }
     isClosed(): boolean {

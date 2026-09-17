@@ -2,8 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AsyncController,
     BoundingBox,
     type INode,
+    isCancelableCommand,
     Matrix4,
     NodeUtils,
     Plane,
@@ -16,8 +18,15 @@ import {
     VisualStates,
     type XYZ,
 } from "@chili3d/core";
-import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
+import {
+    createMockApplication,
+    createMockCancelableCommand,
+    createMockCommand,
+    nearestOnSegment,
+    TestDocument,
+} from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { ReselectFeatureCommand } from "../src/commands/reselectCommand";
 import type { EdgeRef } from "../src/features/edgeRef";
 import type {
     BooleanFeatureData,
@@ -150,6 +159,8 @@ describe("ParametricBodyNode", () => {
 
     beforeEach(() => {
         doc = new TestDocument({ application: createMockApplication() });
+        // ReselectFeatureCommand.execute requires an active view to run against.
+        doc.application.activeView = { document: doc } as any;
         mocks = setupMocks();
         sketch = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
         doc.modelManager.addNode(sketch);
@@ -199,6 +210,30 @@ describe("ParametricBodyNode", () => {
         });
 
         expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("follows a sketch referenced by several features only once per chain run", () => {
+        const body = bodyWith([
+            { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
+            { id: "f2", type: "extrude", sketchId: sketch.id, depth: 3 },
+        ]);
+        expect(body.shape.isOk).toBe(true);
+        const follow = rs.spyOn(sketch, "followExternalRefs");
+        try {
+            sketch.setDataEmitShapeChanged({
+                entities: [
+                    { id: 1, type: "line", params: [0, 0, 2, 0] },
+                    { id: 2, type: "line", params: [2, 0, 2, 2] },
+                    { id: 3, type: "line", params: [2, 2, 0, 2] },
+                    { id: 4, type: "line", params: [0, 2, 0, 0] },
+                ],
+                constraints: [],
+            });
+
+            expect(follow).toHaveBeenCalledTimes(1);
+        } finally {
+            follow.mockRestore();
+        }
     });
 
     test("keeps the last good shape when a rebuild triggered by the sketch fails", () => {
@@ -487,10 +522,13 @@ describe("ParametricBodyNode", () => {
         await body.reselectShapes("f2");
 
         expect(body.features[1]).toMatchObject({
-            edges: [{ kind: "line", start: { x: 5, y: 5, z: 0 }, end: { x: 5, y: 6, z: 0 } }],
+            // The rebuilt prism's single edge is the only candidate, so the moved
+            // edge re-matches to it — and the stored ref is re-anchored to that
+            // match (ShapeTracking.resolvedEdges), the same contract as the
+            // profile re-anchoring below.
+            edges: [{ kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } }],
         });
-        // The rebuilt prism's single edge is the only candidate, so the moved edge
-        // re-matches to it and the fillet applies without an error row.
+        // ...and the fillet applies without an error row.
         expect(body.featureItems()[1].error).toBeUndefined();
         expect(mocks.fillet).toHaveBeenCalled();
         // Only the final edge replacement is recorded — the rollback preview is not.
@@ -809,6 +847,157 @@ describe("ParametricBodyNode", () => {
         expect(sketch.showProfileFaces).toBe(true);
     });
 
+    test("reselectShapes runs as the application's executing command", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        mockSelection();
+        let commandWhilePicking: unknown;
+        doc.picker.pickShape = rs.fn(() => {
+            commandWhilePicking = doc.application.executingCommand;
+            return Promise.resolve([]);
+        }) as any;
+
+        await body.reselectShapes("f2");
+
+        expect(commandWhilePicking).toBeInstanceOf(ReselectFeatureCommand);
+        expect(doc.application.executingCommand).toBeUndefined();
+    });
+
+    test("a command starting mid-pick cancels the reselect and restores rollback and history", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        mockSelection();
+        // Like the real picker, the pick promise resolves when the controller is cancelled.
+        doc.picker.pickShape = rs.fn(
+            (_prompt: any, controller: AsyncController) =>
+                new Promise<any[]>((resolve) => controller.onCancelled(() => resolve([]))),
+        ) as any;
+        const undoCount = doc.history.undoCount();
+
+        const session = body.reselectShapes("f2");
+
+        // The pick installs synchronously: the session holds the executing-command
+        // slot, the body shows the pre-feature rollback, and the history is disabled.
+        const running = doc.application.executingCommand;
+        expect(running).toBeInstanceOf(ReselectFeatureCommand);
+        // CommandService reaches the session's cancel through this exact predicate.
+        expect(isCancelableCommand(running as ReselectFeatureCommand)).toBe(true);
+        expect(body.rollbackIndex).toBe(1);
+        expect(doc.history.disabled).toBe(true);
+
+        // This is what CommandService.checking awaits when a ribbon command starts.
+        await (running as ReselectFeatureCommand).cancel();
+        await session;
+
+        // The cleanup completed before the (simulated) new command proceeds: the
+        // rollback preview is gone, the feature is unchanged, nothing was written
+        // while the history was disabled, and model changes are undoable again.
+        expect(body.rollbackIndex).toBeUndefined();
+        expect(doc.history.disabled).toBe(false);
+        expect(doc.application.executingCommand).toBeUndefined();
+        expect(body.features).toMatchObject([{ id: "f1" }, { id: "f2", edges: [EDGE_REF] }]);
+        expect(doc.history.undoCount()).toBe(undoCount);
+        Transaction.execute(doc, "edit feature", () => body.setFeatureSuppressed("f2", true));
+        expect(doc.history.undoCount()).toBe(undoCount + 1);
+    });
+
+    test("cancelling the reselect command mid profile-pick restores the feature and the history", async () => {
+        const extrude: ExtrudeFeatureData = {
+            ...extrudeFeature(sketch.id),
+            profiles: [{ edges: [EDGE_REF] }],
+        };
+        const body = bodyWith([extrude]);
+        mockSelection();
+        doc.picker.pickShape = rs.fn(
+            (_prompt: any, controller: AsyncController) =>
+                new Promise<any[]>((resolve) => controller.onCancelled(() => resolve([]))),
+        ) as any;
+        const undoCount = doc.history.undoCount();
+
+        const session = body.reselectShapes("f1");
+
+        const running = doc.application.executingCommand;
+        expect(running).toBeInstanceOf(ReselectFeatureCommand);
+        expect(doc.history.disabled).toBe(true);
+
+        await (running as ReselectFeatureCommand).cancel();
+        await session;
+
+        expect(body.features[0]).toMatchObject({ profiles: [{ edges: [EDGE_REF] }] });
+        expect(doc.history.disabled).toBe(false);
+        expect(doc.application.executingCommand).toBeUndefined();
+        expect(doc.history.undoCount()).toBe(undoCount);
+    });
+
+    test("reselectShapes cancels a running command before starting", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        mockSelection();
+        const cancel = rs.fn(async () => {});
+        doc.application.executingCommand = createMockCancelableCommand({ cancel });
+        doc.picker.pickShape = rs.fn(() => Promise.resolve([])) as any;
+
+        await body.reselectShapes("f2");
+
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(doc.application.executingCommand).toBeUndefined();
+    });
+
+    test("reselectShapes refuses to start while a non-cancelable command runs", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        mockSelection();
+        const blocker = createMockCommand();
+        doc.application.executingCommand = blocker;
+        const pickShape = rs.fn(() => Promise.resolve([]));
+        doc.picker.pickShape = pickShape as any;
+
+        await body.reselectShapes("f2");
+
+        expect(pickShape).not.toHaveBeenCalled();
+        expect(doc.application.executingCommand).toBe(blocker);
+    });
+
+    test("reselecting twice cancels the first session and keeps one executing command", async () => {
+        const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
+        const body = bodyWith([extrudeFeature(sketch.id), fillet]);
+        expect(body.shape.isOk).toBe(true);
+        mockSelection();
+        const sessions: AsyncController[] = [];
+        doc.picker.pickShape = rs.fn(
+            (_prompt: any, controller: AsyncController) =>
+                new Promise<any[]>((resolve) => {
+                    sessions.push(controller);
+                    controller.onCancelled(() => resolve([]));
+                }),
+        ) as any;
+
+        const first = body.reselectShapes("f2");
+        const firstCommand = doc.application.executingCommand;
+        expect(firstCommand).toBeInstanceOf(ReselectFeatureCommand);
+
+        // The second start must cancel the first session before its own pick opens.
+        const second = body.reselectShapes("f2");
+        await rs.waitFor(() => expect(sessions.length).toBe(2));
+        expect(sessions[0].result?.status).toBe("cancel");
+        const secondCommand = doc.application.executingCommand;
+        expect(secondCommand).toBeInstanceOf(ReselectFeatureCommand);
+        expect(secondCommand).not.toBe(firstCommand);
+        await first;
+
+        await (secondCommand as ReselectFeatureCommand).cancel();
+        await second;
+
+        expect(sessions[1].result?.status).toBe("cancel");
+        expect(doc.application.executingCommand).toBeUndefined();
+        expect(body.rollbackIndex).toBeUndefined();
+        expect(doc.history.disabled).toBe(false);
+    });
+
     test("editing a later feature reuses cached prefix results", () => {
         const fillet: FilletFeatureData = { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] };
         const body = bodyWith([extrudeFeature(sketch.id), fillet]);
@@ -900,6 +1089,8 @@ describe("ParametricBodyNode.referencedNodes", () => {
 
     beforeEach(() => {
         doc = new TestDocument({ application: createMockApplication() });
+        // ReselectFeatureCommand.execute requires an active view to run against.
+        doc.application.activeView = { document: doc } as any;
         mocks = setupMocks();
         sketch = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
         doc.modelManager.addNode(sketch);

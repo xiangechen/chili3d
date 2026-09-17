@@ -24,7 +24,9 @@ export function getPubSubPubs() {
 
 rs.mock("@chili3d/core", () => {
     const actual = rs.hoisted(() => require("@chili3d/core"));
-    const { BindingMock, TransactionMock, isFeatureListNodeMock } = rs.hoisted(() => require("./coreMocks"));
+    const { BindingMock, TransactionMock, I18nMock, isFeatureListNodeMock, isNodeWarningMock } = rs.hoisted(
+        () => require("./coreMocks"),
+    );
     class VisualNode {}
     class Annotation {}
     class NodeSelectionHandler {}
@@ -44,7 +46,9 @@ rs.mock("@chili3d/core", () => {
         Transaction: TransactionMock,
         // The hoisted `actual` snapshots core mid-initialization, so PubSub must be stubbed.
         PubSub: pubSubRecorder.stub,
+        I18n: I18nMock,
         isFeatureListNode: isFeatureListNodeMock,
+        isNodeWarning: isNodeWarningMock,
         VisualNode,
         Annotation,
         FolderNode,

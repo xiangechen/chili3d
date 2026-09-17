@@ -14,7 +14,8 @@ import {
     type VisualShapeData,
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "../../features/bodyTracking";
-import type { EdgeRef, Vec3 } from "../../features/edgeRef";
+import { sameEdgeFingerprint } from "../../features/edgeRef";
+import { reportSilentIdLoss } from "../../features/idDiagnostics";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import type { SketchEditor } from "../editor/sketchEditor";
 import { captureExternalRef, isEdgeCoplanarWithPlane } from "../externalRef";
@@ -22,25 +23,6 @@ import { type ExternalRefData, isExternalEntityId } from "../sketchModel";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 const ROLE_REFERENCE: I18nKeys = "option.command.externalRole.reference";
-
-function sameVec(a: Vec3, b: Vec3): boolean {
-    return a.x === b.x && a.y === b.y && a.z === b.z;
-}
-
-/** Fingerprint equality, field by field — JSON.stringify equality is key-order sensitive. */
-function sameEdgeFingerprint(a: EdgeRef, b: EdgeRef): boolean {
-    if (a.kind !== b.kind) return false;
-    if (a.kind === "line" && b.kind === "line") {
-        return sameVec(a.start, b.start) && sameVec(a.end, b.end);
-    }
-    if (a.kind === "circle" && b.kind === "circle") {
-        return sameVec(a.center, b.center) && a.radius === b.radius && sameVec(a.axis, b.axis);
-    }
-    if (a.kind === "other" && b.kind === "other") {
-        return sameVec(a.mid, b.mid) && a.length === b.length;
-    }
-    return false;
-}
 
 /** Same source edge: identical kernel edgeId when both carry one, else identical fingerprint. */
 function sameExternalEdge(a: ExternalRefData, b: ExternalRefData): boolean {
@@ -63,6 +45,9 @@ function projectEdge(
         if (!isEdgeCoplanarWithPlane(plane, worldEdge)) return false;
         const owner = picked.owner.node;
         const edgeId = isBodyTrackingNode(owner) ? owner.edgeIdAt(picked.indexes[0]) : undefined;
+        if (edgeId === undefined && isBodyTrackingNode(owner)) {
+            reportSilentIdLoss(owner, "edge", "a projected edge has no tracked id");
+        }
         // solver-side monotonic counter — deleted ids are never reissued
         const ref = captureExternalRef(
             editor.solver.allocateExternalEntityId(),
@@ -77,10 +62,14 @@ function projectEdge(
         // derivation would revert it while no constraint references the edge
         if (role === "profile") ref.pinned = true;
         editor.solver.addExternalEntity(ref);
-        // anchor the body's timeline position on its first reference —
-        // a body referenced for the first time is anchored as it is now
+        // anchor the body's timeline position on its first reference — a body
+        // referenced for the first time is anchored as it is now. Mid-session the
+        // body shows its rollback preview: the picked edge comes from the preview,
+        // so the anchor must be the rollback position — `features.length` would
+        // read as "no rollback" to both consumers and resolve the ref against
+        // geometry the user never saw.
         if (owner instanceof ParametricBodyNode) {
-            editor.solver.recordRefPosition(owner.id, owner.features.length);
+            editor.solver.recordRefPosition(owner.id, owner.rollbackIndex ?? owner.features.length);
         }
         existing.push(ref);
         return true;

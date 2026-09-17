@@ -16,24 +16,30 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
-import { isBodyTrackingNode } from "./bodyTracking";
+import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import { trackedBoolean } from "./boolean";
-import { completeEdgeHistory } from "./edgeRef";
+import { indexesOfOverlappingId, MATCH_TOLERANCE } from "./edgeRef";
 import { resolveNumber } from "./expression";
 import {
-    ancestorInputs,
-    combineIds,
+    completeTrackedHistory,
     type ExtrudeFeatureData,
     type FeatureContext,
     type FeatureHandler,
-    idsOverlap,
     registerFeature,
     type ShapeTracking,
     trackedFaceIds,
     trackedIds,
 } from "./feature";
-import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
-import { captureProfileRef, matchProfileIndexes, type ProfileRef } from "./profileRef";
+import { profileEdgeSeeds, type ResolvedProfile, resolveProfiles } from "./profileBuilder";
+import {
+    captureProfileRef,
+    matchProfileIndexes,
+    type ProfileRef,
+    profileEdgeEntityIds,
+    profileScore,
+    registerProfileEdgeEntities,
+} from "./profileRef";
+import { mapAncestorIds } from "./trackedId";
 
 export function findSketch(document: IDocument, id: string): SketchNode | undefined {
     const node = document.modelManager.findNode((n) => n.id === id);
@@ -58,6 +64,13 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
         key === "symmetric"
             ? { ...feature, symmetric: value === true || value === "true" }
             : { ...feature, [key]: value },
+
+    applyResolvedRefs: (feature, { resolvedProfiles }) =>
+        resolvedProfiles === undefined
+            ? feature
+            : feature.source === undefined
+              ? { ...feature, profiles: resolvedProfiles }
+              : { ...feature, source: { ...feature.source, profiles: resolvedProfiles } },
 
     evaluate(feature, context): Result<IShape> {
         const depth = resolveNumber(feature.depth, context.scope);
@@ -162,14 +175,17 @@ function resolveSketchProfiles(
  * claim the faces whose id intersects it (a face split by a later cut shares one id
  * across its pieces; a face MERGED from several faces combines their ids into a
  * compound, so a later re-split's pieces all intersect it — every piece is swept,
- * mirroring `EdgeRef`'s whole-span adoption); refs without an id (legacy documents)
- * or whose id vanished entirely (the face was consumed) re-match by geometric
- * fingerprint among the faces left over. Matching runs on the source node's current
- * shape — or on the feature's input when the source is the host body itself, whose
- * full shape already contains this feature's output. Each face sweeps along its own
- * live outward normal. The sweep itself stays plain (untracked); the operation
- * boolean combining it with the input is tracked when the capability exists
- * (`pressPullOperationTracked`).
+ * mirroring `EdgeRef`'s whole-span adoption — unless the ref was captured from ONE
+ * piece of an already split face: stamped `splitPiece` at the pick, it never widens,
+ * see `narrowToPickedPiece`); refs without an id (legacy documents) or whose id
+ * vanished entirely (the face was consumed) re-match by geometric fingerprint among
+ * the faces left over — with the outward `normal` of the pick rejecting candidates
+ * that face away (a consumed groove ceiling vs its floor and walls). Matching runs
+ * on the source node's current shape — or on the feature's input when the source is
+ * the host body itself, whose full shape already contains this feature's output.
+ * Each face sweeps along its own live outward normal.
+ * The sweep itself stays plain (untracked); the operation boolean combining it with
+ * the input is tracked when the capability exists (`pressPullOperationTracked`).
  */
 function extrudeFromSourceFaces(
     feature: ExtrudeFeatureData & { source: NonNullable<ExtrudeFeatureData["source"]> },
@@ -181,18 +197,25 @@ function extrudeFromSourceFaces(
     if (!resolved.isOk) return Result.err(resolved.error);
     const { worldFaces, faceIds, owned } = resolved.value;
     try {
-        const indexes = matchSourceFaceIndexes(worldFaces, faceIds, feature.source.profiles);
-        if (!indexes.isOk) return Result.err(indexes.error);
-        // Re-anchor on the faces actually swept — one ref per unique face, so a face
+        const matched = matchSourceFaceIndexes(worldFaces, faceIds, feature.source.profiles);
+        if (!matched.isOk) return Result.err(matched.error);
+        // Re-anchor on the faces actually swept — one ref per adopted face, so a face
         // split since the pick becomes one ref per piece — before the finally disposes
-        // worldFaces. Same drift-from-latest-match contract as the sketch path.
+        // worldFaces. Each re-anchored ref keeps the `splitPiece` of the ref that
+        // adopted it; re-anchoring never stamps the flag on a ref that lacked it.
+        // Same drift-from-latest-match contract as the sketch path.
         if (context.tracking !== undefined) {
-            context.tracking.resolvedProfiles = [...new Set(indexes.value)].map((index) =>
-                captureProfileRef(worldFaces[index], faceIds?.[index]),
+            context.tracking.resolvedProfiles = matched.value.indexes.map((faceIndex, k) =>
+                captureProfileRef(
+                    worldFaces[faceIndex],
+                    faceIds?.[faceIndex],
+                    feature.source.profiles[matched.value.refIndexes[k]].splitPiece,
+                    true,
+                ),
             );
         }
         return sweepFaces(
-            indexes.value.map((index) => worldFaces[index]),
+            matched.value.indexes.map((index) => worldFaces[index]),
             (face) => {
                 const vec = face.normal(0, 0)[1].multiply(depth);
                 return feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
@@ -205,50 +228,120 @@ function extrudeFromSourceFaces(
 }
 
 /**
+ * The faces a press-pull sweeps, plus the ref that adopted each — `indexes` and
+ * `refIndexes` are parallel (a position in the feature's `source.profiles`). The id
+ * path's `taken` guard and `matchProfileIndexes`' one-claim-per-ref keep `indexes`
+ * duplicate-free, so callers re-anchor exactly one ref per entry.
+ */
+export interface MatchedSourceFaces {
+    readonly indexes: number[];
+    readonly refIndexes: number[];
+}
+
+/**
  * Face indexes to sweep, one entry per adopted face: refs with a tracked face id claim
- * every face whose id intersects it (`idsOverlap` — pieces of a cut-split face share
+ * the faces whose id intersects it (`idsOverlap` — pieces of a cut-split face share
  * the id, and pieces of a re-split MERGE carry its components; hits already claimed by
  * an earlier ref with an overlapping id — produced when a split face was re-anchored
- * per piece — count as satisfied). Refs without a live id re-match geometrically among
+ * per piece — count as satisfied). Several hits narrow by `narrowToPickedPiece`: a ref
+ * stamped `splitPiece` at capture never widens to the whole span, an unflagged ref
+ * keeps it (the pinned heal case). Refs without a live id re-match geometrically among
  * the unclaimed faces.
  */
-function matchSourceFaceIndexes(
+export function matchSourceFaceIndexes(
     faces: IFace[],
     faceIds: readonly (string | undefined)[] | undefined,
     refs: ProfileRef[],
-): Result<number[]> {
+): Result<MatchedSourceFaces> {
     const adopted: number[] = [];
+    const adoptedBy: number[] = [];
     const taken = new Set<number>();
     const fingerprintRefs: number[] = [];
     for (const [refIndex, ref] of refs.entries()) {
         const refId = ref.id;
         const hits =
-            refId === undefined || faceIds === undefined
-                ? []
-                : faces.flatMap((_, index) => {
-                      const id = faceIds[index];
-                      return id !== undefined && idsOverlap(id, refId) ? [index] : [];
-                  });
+            refId === undefined || faceIds === undefined ? [] : indexesOfOverlappingId(faceIds, refId);
         if (hits.length === 0) {
             fingerprintRefs.push(refIndex);
             continue;
         }
-        for (const hit of hits) {
+        const narrowed = narrowToPickedPiece(faces, ref, hits);
+        if (!narrowed.isOk) return Result.err(narrowed.error);
+        for (const hit of narrowed.value) {
             if (!taken.has(hit)) {
                 taken.add(hit);
                 adopted.push(hit);
+                adoptedBy.push(refIndex);
             }
         }
     }
-    if (fingerprintRefs.length === 0) return Result.ok(adopted);
+    const result: MatchedSourceFaces = { indexes: adopted, refIndexes: adoptedBy };
+    if (fingerprintRefs.length === 0) return Result.ok(result);
 
     const remainingIndexes = faces.map((_, index) => index).filter((index) => !taken.has(index));
+    const remainingRefs = fingerprintRefs.map((index) => refs[index]);
     const matched = matchProfileIndexes(
         remainingIndexes.map((index) => faces[index]),
-        fingerprintRefs.map((index) => refs[index]),
+        remainingRefs,
+        undefined,
+        // A ref whose tracked id died competes only for faces WITHOUT a live id of
+        // their own: an id-carrying face already has an identity, and adopting one
+        // would silently sweep a stranger (a consumed groove ceiling "moving" onto
+        // the box bottom — same normal, same edge count, a finite edge score away).
+        // Id-less legacy refs keep the free geometric re-match.
+        (refIndex, faceIndex) =>
+            remainingRefs[refIndex].id === undefined || faceIds?.[remainingIndexes[faceIndex]] === undefined,
     );
-    if (!matched.isOk) return Result.err(matched.error);
-    return Result.ok([...adopted, ...matched.value.map((index) => remainingIndexes[index])]);
+    if (!matched.isOk) return Result.err(SOURCE_FACE_ERRORS[matched.error] ?? matched.error);
+    for (const [k, index] of matched.value.entries()) {
+        adopted.push(remainingIndexes[index]);
+        adoptedBy.push(fingerprintRefs[k]);
+    }
+    return Result.ok(result);
+}
+
+/**
+ * Face-worded rewrites of the fingerprint fallback's sketch-flavored messages — a
+ * press-pull ref names a solid face, so "Sketch profile …" misleads (the fallback
+ * shared with sketch profiles is an implementation detail).
+ */
+const SOURCE_FACE_ERRORS: Record<string, string> = {
+    "Sketch profile match is ambiguous after rebuild": "Face match is ambiguous after rebuild",
+    "Sketch profile not found after rebuild": "Face not found after rebuild",
+};
+
+/**
+ * Several id hits are the pieces of a face split since the pick (or of a re-split
+ * merge) — the face counterpart of `singleExactHit` in edgeRef.ts. Exactly one piece
+ * still matching the fingerprint within tolerance claims the ref (the pick was that
+ * piece). Otherwise an unflagged ref keeps the whole-span adoption: it covered the
+ * whole face (captured on a merged face that later re-split, the pinned heal case) or
+ * its fingerprint went stale. A ref stamped `splitPiece` never widens: a stale pick
+ * adopts the clear nearest piece (the runner-up at least MATCH_TOLERANCE farther, the
+ * `completeHistory` margin convention), and a tie or several exact pieces fails
+ * "Face match is ambiguous after rebuild" instead of silently sweeping siblings.
+ */
+function narrowToPickedPiece(faces: IFace[], ref: ProfileRef, hits: number[]): Result<number[]> {
+    if (hits.length === 1) return Result.ok(hits);
+    const exact = hits.filter(
+        (index) => profileScore(faces[index], ref) <= MATCH_TOLERANCE * ref.edges.length,
+    );
+    if (exact.length === 1) return Result.ok(exact);
+    if (ref.splitPiece !== true) return Result.ok(hits);
+    if (exact.length > 1) return Result.err("Face match is ambiguous after rebuild");
+    const scored = hits
+        .map((index) => ({ index, score: profileScore(faces[index], ref) }))
+        .sort((a, b) => a.score - b.score);
+    const best = scored[0];
+    const second = scored[1];
+    if (
+        best !== undefined &&
+        Number.isFinite(best.score) &&
+        (second === undefined || second.score - best.score >= MATCH_TOLERANCE)
+    ) {
+        return Result.ok([best.index]);
+    }
+    return Result.err("Face match is ambiguous after rebuild");
 }
 
 /**
@@ -257,7 +350,9 @@ function matchSourceFaceIndexes(
  * this feature's output. `faceIds` runs parallel to `worldFaces` with the source's
  * tracked face ids when available (undefined entries where tracking lapsed; wholly
  * undefined for non-parametric sources). `owned` holds the transformed copies for
- * the caller to dispose (empty when the source sits at the identity transform).
+ * the caller to dispose (empty when the source sits at the identity transform). A
+ * source showing a session-rollback preview is refused outright: the transient
+ * shape lacks later features' faces, and matching would persist anchors onto it.
  */
 function resolveSourceFaces(
     source: NonNullable<ExtrudeFeatureData["source"]>,
@@ -278,6 +373,15 @@ function resolveSourceFaces(
         const node = context.document.modelManager.findNode((n) => n.id === source.nodeId);
         if (!(node instanceof ShapeNode) || !node.shape.isOk) {
             return Result.err("Extrude source body not found");
+        }
+        // A rolled-back source shows a transient session-preview shape lacking every
+        // face born from a hidden feature: matching against it would re-anchor (and
+        // untransacted persist) the profile refs onto the preview. Fail instead — the
+        // feature keeps its old shape and self-heals on the watch-triggered rebuild
+        // once the source restores (the sketch-side refs guard the same way, see
+        // SketchNode.handlePlaneRefNodeChanged).
+        if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) {
+            return Result.err("Extrude source body is rolled back for a sketch session");
         }
         faces = node.shape.value.findSubShapes(ShapeTypes.face) as IFace[];
         faceIds = isBodyTrackingNode(node) ? faces.map((_, index) => node.faceIdAt(index)) : undefined;
@@ -431,16 +535,10 @@ function fuseSweptPrisms(
     }
     const fused = shapeFactory.booleanFuseTracked([shapes[0]], shapes.slice(1));
     if (!fused.isOk) return undefined;
-    // The fuse history input enumerates the args prism first, then each tool
-    // prism — the same order mapFusedIds maps back.
-    const edgeMap = completeEdgeHistory(
-        shapes.flatMap((shape) => shape.findSubShapes(ShapeTypes.edge) as IEdge[]),
-        fused.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-        fused.value.edgeMap,
-    );
+    const { edgeMap, faceMap } = completeTrackedHistory(shapes, fused.value);
     const merged = {
         shape: fused.value.shape,
-        faceIds: mapFusedIds(featureId, faceIds, fused.value.faceMap),
+        faceIds: mapFusedIds(featureId, faceIds, faceMap),
         edgeIds: mapFusedIds(featureId, edgeIds, edgeMap),
     };
     shapes.forEach((x) => {
@@ -483,13 +581,8 @@ function pressPullOperationTracked(
                 (_, index) => `${feature.id}:tool:e${index}`,
             ),
         };
-        // Same input-enumeration contract as extrudeOperationTracked.
-        const edgeMap = completeEdgeHistory(
-            [context.input, built.value].flatMap((shape) => shape.findSubShapes(ShapeTypes.edge) as IEdge[]),
-            result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-            result.value.edgeMap,
-        );
-        trackOperation(feature.id, context.input, tracking, tool, { ...result.value, edgeMap });
+        const { edgeMap, faceMap } = completeTrackedHistory([context.input, built.value], result.value);
+        trackOperation(feature.id, context.input, tracking, tool, { ...result.value, edgeMap, faceMap });
         return Result.ok(result.value.shape);
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
@@ -530,16 +623,12 @@ function extrudeOperationTracked(
     try {
         const result = tracked([context.input], [tool.value.shape]);
         if (!result.isOk) return Result.err(result.error);
-        // The boolean history input enumerates the main body's sub-shapes first, then
-        // the tool's (see mapOperationIds); completion runs before the tool is disposed.
-        const edgeMap = completeEdgeHistory(
-            [context.input, tool.value.shape].flatMap(
-                (shape) => shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-            ),
-            result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-            result.value.edgeMap,
-        );
-        trackOperation(feature.id, context.input, tracking, tool.value, { ...result.value, edgeMap });
+        const { edgeMap, faceMap } = completeTrackedHistory([context.input, tool.value.shape], result.value);
+        trackOperation(feature.id, context.input, tracking, tool.value, {
+            ...result.value,
+            edgeMap,
+            faceMap,
+        });
         return Result.ok(result.value.shape);
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
@@ -602,12 +691,7 @@ function mapOperationIds(
         if (inputIndex < mainCount || toolIndex >= toolIds.length) return `${featureId}:${outputIndex}`;
         return toolIds[toolIndex];
     };
-    const perOutput = ancestorInputs(map, ancestors);
-    return map.map((_, outputIndex) => {
-        const inputs = perOutput[outputIndex];
-        if (inputs.length === 0) return `${featureId}:${outputIndex}`;
-        return combineIds(inputs.map((x) => idOfInput(x, outputIndex)));
-    });
+    return mapAncestorIds(featureId, map, ancestors, idOfInput);
 }
 
 /**
@@ -615,10 +699,12 @@ function mapOperationIds(
  * edges seed sketch-scoped ids (the prism's bottom edges are identical to them); edges
  * the sweep history does not cover get feature-scoped ids. Each profile face seeds one
  * id, which prism history propagates to the bottom face (it is identical to the
- * profile); the TOP face has no kernel history (it is neither the identical bottom nor
- * an edge-generated side) and is seeded from the profile by hand — a positional
+ * profile); the TOP face has no sweep history (it is neither the identical bottom nor
+ * an edge-generated side) — the kernel reports it directly through `capFaces`
+ * (LastShape) and it takes the profile's synthetic `:top` seed, since a positional
  * feature-scoped id would realign onto another face when the sketch's structure
- * changes. Side faces are generated from profile edges and take that edge's seed, so
+ * changes; a kernel predating that channel falls back to the unique-history-less-face
+ * heuristic. Side faces are generated from profile edges and take that edge's seed, so
  * a rebuild that re-enumerates faces (e.g. a mirrored profile) cannot realign them.
  * `seedSuffix` keeps the mirrored half of a symmetric sweep from duplicating the
  * first half's ids.
@@ -634,33 +720,46 @@ function sweepProfileTracked(
     const owned: IFace[] = [];
     try {
         const face = translateFace(profile.face, offsetVec, owned);
+        // A translated copy is a fresh object: it is neither the WeakMap key of the
+        // original profile face nor in its sub-shape parent chain, so without
+        // re-registering, a start offset would demote every edge seed to a
+        // positional ordinal. The translation preserves the edge enumeration.
+        if (face !== profile.face) {
+            const entities = profileEdgeEntityIds(profile.face);
+            if (entities !== undefined) registerProfileEdgeEntities(face, entities);
+        }
         const result = shapeFactory.prismTracked!(face, vec);
         if (!result.isOk) return Result.err(result.error);
         const seed = `sketch:${sketch.id}:${profile.seed}${seedSuffix}`;
         const faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
-        const edgeSeeds = faceEdges.map((_, edgeIndex) => `${seed}:e${edgeIndex}`);
+        // Entity-derived edge seeds survive wire re-enumeration (see profileEdgeSeeds).
+        const edgeSeeds = profileEdgeSeeds(face, seed, faceEdges);
         const featureId = `${feature.id}${seedSuffix}`;
-        // Geometry-identical completion recovers unchanged edges the kernel history
-        // missed, the rest get feature-scoped ids.
-        const edgeMap = completeEdgeHistory(
-            faceEdges,
-            result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-            result.value.edgeMap,
-        );
-        const faceIds = trackedFaceIds(
-            featureId,
-            [seed],
-            edgeSeeds,
-            result.value.faceMap,
-            result.value.faceEdgeMap,
-        );
-        // The top face is the profile's other sweep image (see the doc above); seed
-        // it only when it is the unique history-less face, so an ambiguous kernel
-        // report keeps the positional fallback.
-        const topCandidates = faceIds.flatMap((_, index) =>
-            result.value.faceMap[index] < 0 && (result.value.faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
-        );
-        if (topCandidates.length === 1) faceIds[topCandidates[0]] = `${seed}:top`;
+        // The completed face map keeps the top-face seeding below unambiguous: a
+        // kernel-missed bottom face would otherwise look like a second history-less
+        // candidate.
+        const { edgeMap, faceMap } = completeTrackedHistory([face], result.value, {
+            inputEdges: faceEdges,
+            inputFaces: [face],
+        });
+        const faceIds = trackedFaceIds(featureId, [seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
+        // The top face is the profile's other sweep image (see the doc above). The
+        // kernel reports it directly (the sweep's LastShape) — authoritative, so the
+        // history-less heuristic must not run when a cap is reported (it misidentifies
+        // when several faces lack history). The heuristic remains for kernels
+        // predating the channel; it seeds only a unique history-less face, so an
+        // ambiguous report keeps the positional fallback.
+        const reported = result.value.capFaces ?? [];
+        if (reported.length > 0) {
+            for (const index of reported) {
+                if (index >= 0 && index < faceIds.length) faceIds[index] = `${seed}:top`;
+            }
+        } else {
+            const topCandidates = faceIds.flatMap((_, index) =>
+                faceMap[index] < 0 && (result.value.faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
+            );
+            if (topCandidates.length === 1) faceIds[topCandidates[0]] = `${seed}:top`;
+        }
         const edgeIds = trackedIds(featureId, edgeSeeds, edgeMap);
         return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
     } finally {

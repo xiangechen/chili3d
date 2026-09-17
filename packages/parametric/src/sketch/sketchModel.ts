@@ -39,6 +39,14 @@ export interface SketchPointRef {
     pointIndex: number;
 }
 
+/** Addressable points per entity type (the `pointIndex` layout of `SketchPointRef`). */
+const ENTITY_POINT_COUNTS: Record<SketchEntityType, number> = { circle: 1, line: 2, arc: 3 };
+
+/** Number of point refs an entity of `type` exposes (`pointIndex` runs 0..n−1). */
+export function entityPointCount(type: SketchEntityType): number {
+    return ENTITY_POINT_COUNTS[type];
+}
+
 export interface SketchConstraintData {
     id: number;
     kind: ConstraintKind;
@@ -252,14 +260,25 @@ export function cloneSketchData(data: SketchData): SketchData {
 }
 
 /**
+ * Raw counter-clockwise sweep of an arc entity's params [cx, cy, sx, sy, ex, ey],
+ * un-normalized, in (−2π, 2π): zero when start and end share a ray, negative when
+ * the end ray sits clockwise of the start ray (a near-full-circle arc).
+ * `arcAngles` normalizes this into (0, 2π].
+ */
+export function rawArcSweep(params: number[]): number {
+    const [cx, cy, sx, sy, ex, ey] = params;
+    return (Math.atan2(ey - cy, ex - cx) - Math.atan2(sy - cy, sx - cx)) % (Math.PI * 2);
+}
+
+/**
  * Start angle and counter-clockwise sweep (normalized to (0, 2π]) of an arc
  * entity's params [cx, cy, sx, sy, ex, ey]; the end point only fixes the angle,
  * the radius is always ‖s−c‖.
  */
 export function arcAngles(params: number[]): [number, number] {
-    const [cx, cy, sx, sy, ex, ey] = params;
+    const [cx, cy, sx, sy] = params;
     const a0 = Math.atan2(sy - cy, sx - cx);
-    const sweep = (Math.atan2(ey - cy, ex - cx) - a0) % (Math.PI * 2);
+    const sweep = rawArcSweep(params);
     return [a0, sweep > Precision.Angle ? sweep : sweep + Math.PI * 2];
 }
 

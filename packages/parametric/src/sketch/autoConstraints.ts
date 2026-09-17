@@ -10,6 +10,7 @@ import {
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
     type SketchConstraintData,
+    type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
 } from "./sketchModel";
@@ -122,15 +123,17 @@ export function snapPosition(
     probe: [number, number],
     options: AutoConstraintOptions,
 ): DragSnapResult {
+    // one enumeration per probe: the table is passed down to every snap helper
+    const entities = constraintTargetEntities(solver);
     let snap: DragSnap | undefined;
     if (options.pointTolerance > 0) {
-        const nearest = nearestCandidate(snapCandidates(solver), probe, options.pointTolerance);
+        const nearest = nearestCandidate(snapCandidates(solver, entities), probe, options.pointTolerance);
         if (nearest !== undefined) snap = { kind: "point", point: nearest.ref, position: nearest.position };
     }
 
     const lineTolerance = options.lineTolerance ?? options.pointTolerance;
     if (snap === undefined && lineTolerance > 0) {
-        const nearest = nearestLineOrAxisSnap(solver, undefined, probe, lineTolerance);
+        const nearest = nearestLineOrAxisSnap(solver, entities, undefined, probe, lineTolerance);
         if (nearest !== undefined)
             snap = { kind: "line", lineRefs: nearest.lineRefs, position: nearest.position };
     }
@@ -203,14 +206,17 @@ function findPointSnap(
     excludeEntityIds: ReadonlySet<number> | undefined,
     options: AutoConstraintOptions,
 ): DragSnap | undefined {
+    // one enumeration per probe (per pointer event during a drag): the helpers
+    // below only read the table, and positions are read live via solver.pointOf
+    const entities = constraintTargetEntities(solver);
     if (options.pointTolerance > 0) {
-        const snap = nearestPointSnap(solver, ref, probe, excludeEntityIds, options.pointTolerance);
+        const snap = nearestPointSnap(solver, entities, ref, probe, excludeEntityIds, options.pointTolerance);
         if (snap !== undefined) return { kind: "point", point: snap.ref, position: snap.position };
     }
 
     const lineTolerance = options.lineTolerance ?? options.pointTolerance;
     if (lineTolerance > 0 && !hasIncidence(solver, ref)) {
-        const snap = nearestLineOrAxisSnap(solver, excludeEntityIds, probe, lineTolerance);
+        const snap = nearestLineOrAxisSnap(solver, entities, excludeEntityIds, probe, lineTolerance);
         if (snap !== undefined) return { kind: "line", lineRefs: snap.lineRefs, position: snap.position };
     }
     return undefined;
@@ -228,7 +234,7 @@ function snapToExistingPoints(
     added: Omit<SketchConstraintData, "id">[],
 ): void {
     if (tolerance <= 0) return;
-    const candidates = snapCandidates(solver, refs[0].entityId);
+    const candidates = snapCandidates(solver, constraintTargetEntities(solver), refs[0].entityId);
 
     for (const ref of refs) {
         const nearest = nearestCandidate(candidates, solver.pointOf(ref), tolerance);
@@ -248,6 +254,9 @@ function snapToExistingLines(
     added: Omit<SketchConstraintData, "id">[],
 ): void {
     if (tolerance <= 0) return;
+    // the entity set cannot change inside the loop (only point positions move,
+    // and those are read live via solver.pointOf), so enumerate it once
+    const entities = constraintTargetEntities(solver);
     for (const ref of refs) {
         // a point snap (or an existing incidence) already anchors this point
         if (
@@ -256,7 +265,13 @@ function snapToExistingLines(
         ) {
             continue;
         }
-        const snap = nearestLineOrAxisSnap(solver, new Set([ref.entityId]), solver.pointOf(ref), tolerance);
+        const snap = nearestLineOrAxisSnap(
+            solver,
+            entities,
+            new Set([ref.entityId]),
+            solver.pointOf(ref),
+            tolerance,
+        );
         if (snap === undefined) continue;
 
         solver.setPointPosition(ref, snap.position[0], snap.position[1]);
@@ -270,8 +285,12 @@ function snapToExistingLines(
  * Snap targets: every snappable point of the other entities (real and external),
  * plus the origin (last, so a real point wins ties).
  */
-function snapCandidates(solver: SketchSolver, excludeEntityId?: number): SnapCandidate[] {
-    const candidates: SnapCandidate[] = constraintTargetEntities(solver)
+function snapCandidates(
+    solver: SketchSolver,
+    entities: SketchEntityData[],
+    excludeEntityId?: number,
+): SnapCandidate[] {
+    const candidates: SnapCandidate[] = entities
         .filter((e) => excludeEntityId === undefined || e.id !== excludeEntityId)
         .flatMap((e) =>
             snappablePointIndices(e.type).map((pointIndex) => {
@@ -289,6 +308,7 @@ function snapCandidates(solver: SketchSolver, excludeEntityId?: number): SnapCan
  */
 function nearestPointSnap(
     solver: SketchSolver,
+    entities: SketchEntityData[],
     ref: SketchPointRef,
     target: [number, number],
     excludeEntityIds: ReadonlySet<number> | undefined,
@@ -298,7 +318,7 @@ function nearestPointSnap(
     excluded.add(pointRefKey(ref));
 
     const candidates: SnapCandidate[] = [];
-    for (const entity of constraintTargetEntities(solver)) {
+    for (const entity of entities) {
         if (excludeEntityIds?.has(entity.id)) continue;
         for (const pointIndex of snappablePointIndices(entity.type)) {
             const candidateRef = { entityId: entity.id, pointIndex };
@@ -319,11 +339,12 @@ interface LineSnap {
 /** Closest line or datum axis within `tolerance` of the probe, real lines winning ties. */
 function nearestLineOrAxisSnap(
     solver: SketchSolver,
+    entities: SketchEntityData[],
     excludeEntityIds: ReadonlySet<number> | undefined,
     probe: [number, number],
     tolerance: number,
 ): LineSnap | undefined {
-    const line = nearestLineSnap(solver, excludeEntityIds, probe, tolerance);
+    const line = nearestLineSnap(solver, entities, excludeEntityIds, probe, tolerance);
     const axis = nearestAxisSnap(probe, tolerance);
     if (axis === undefined) return line;
     if (line === undefined) return axis;
@@ -333,12 +354,13 @@ function nearestLineOrAxisSnap(
 /** Closest line (real or external) whose segment passes within `tolerance` of the probe, or undefined. */
 function nearestLineSnap(
     solver: SketchSolver,
+    entities: SketchEntityData[],
     excludeEntityIds: ReadonlySet<number> | undefined,
     [u, v]: [number, number],
     tolerance: number,
 ): LineSnap | undefined {
     let nearest: LineSnap | undefined;
-    for (const entity of constraintTargetEntities(solver)) {
+    for (const entity of entities) {
         if (excludeEntityIds?.has(entity.id) || entity.type !== "line") continue;
         const lineRefs: [SketchPointRef, SketchPointRef] = [
             { entityId: entity.id, pointIndex: 0 },

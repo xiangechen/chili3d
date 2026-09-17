@@ -11,10 +11,12 @@ import {
 import { rs } from "@rstest/core";
 // side effect: registers the constraint commands so their decorator icons resolve
 import "../../src/sketch/commands/sketchConstraints";
+import { SketchAnnotationManager } from "../../src/sketch/editor/sketchAnnotations";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { ConstraintKind } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
+import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
 function setup() {
@@ -232,6 +234,49 @@ describe("SketchAnnotations visibility", () => {
             const iconHrefs = elements.map((el) => el.querySelector("use")?.getAttribute("href"));
             expect(iconHrefs).toContain("#icon-cHorizontal");
             editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("SketchAnnotationManager arc badge anchors", () => {
+    test("an arc with a sweep over 180° anchors its badge on the true mid-sweep side", () => {
+        const { view, restoreFactory } = setup();
+        try {
+            const badges: { text: string; x: number; y: number }[] = [];
+            (view as any).htmlText = rs.fn((text: string, point: XYZ) => {
+                badges.push({ text, x: point.x, y: point.y });
+                return { dispose: rs.fn() };
+            });
+            const solver = new SketchSolver(Plane.XY);
+            // 270° sweep from (10, 0) to (0, -10): the chord-midpoint direction
+            // (√2/2, −√2/2) is the antipode of the true mid-sweep (−√2/2, √2/2) —
+            // the old code placed the badge on the empty side of the arc
+            const arcId = solver.addArc(0, 0, 10, 0, 0, -10);
+            const otherId = solver.addArc(100, 100, 110, 100, 100, 110);
+            solver.addConstraint({
+                kind: ConstraintKind.EqualArcRadius,
+                refs: [
+                    { entityId: arcId, pointIndex: 0 },
+                    { entityId: arcId, pointIndex: 1 },
+                    { entityId: otherId, pointIndex: 0 },
+                    { entityId: otherId, pointIndex: 1 },
+                ],
+            });
+            const annotations = new SketchAnnotationManager(view, solver, new Map());
+
+            annotations.setHighlightedEntities([arcId]);
+
+            // px = 1 in the mock view: the badge floats 18 world units past the radius-10 arc
+            const badge = badges.find((b) => b.x < 0);
+            expect(badge).toBeDefined();
+            const found = badge as { text: string; x: number; y: number };
+            const radius = 10 + 18;
+            expect(found.x).toBeCloseTo(-radius * Math.SQRT1_2, 5);
+            expect(found.y).toBeCloseTo(radius * Math.SQRT1_2, 5);
+            annotations.dispose();
+            solver.dispose();
         } finally {
             restoreFactory();
         }

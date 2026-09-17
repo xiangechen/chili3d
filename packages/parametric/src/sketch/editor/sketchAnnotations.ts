@@ -10,6 +10,7 @@ import {
     type IView,
 } from "@chili3d/core";
 import {
+    arcAngles,
     ConstraintKind,
     entityRadius,
     isDatumEntityId,
@@ -414,11 +415,11 @@ export class SketchAnnotationManager implements IDisposable {
     private badgeRadialDirection(entity: SketchEntityData, hint: [number, number]): [number, number] {
         const [cx, cy] = entity.params;
         if (entity.type === "arc") {
-            // mid-sweep direction keeps the badge next to the visible arc stroke
-            const mx = (entity.params[2] + entity.params[4]) / 2 - cx;
-            const my = (entity.params[3] + entity.params[5]) / 2 - cy;
-            const length = Math.hypot(mx, my);
-            if (length > 1e-9) return [mx / length, my / length];
+            // true mid-sweep direction: the chord midpoint is the antipode of it once
+            // the sweep exceeds π (the badge would float on the empty side) and
+            // degenerates at exactly π — the angular midpoint is always a unit vector
+            const [a0, sweep] = arcAngles(entity.params);
+            return [Math.cos(a0 + sweep / 2), Math.sin(a0 + sweep / 2)];
         }
         const [du, dv] = [cx - hint[0], cy - hint[1]];
         const length = Math.hypot(du, dv);

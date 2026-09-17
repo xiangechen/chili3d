@@ -11,4 +11,5 @@ export * from "./feature";
 export * from "./profileBuilder";
 export * from "./profileRef";
 export * from "./revolve";
+export * from "./trackedId";
 export * from "./variable";

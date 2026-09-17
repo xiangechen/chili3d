@@ -4,7 +4,6 @@
 import {
     type I18nKeys,
     type IDocument,
-    type IEdge,
     type IShape,
     type IShapeFactory,
     Matrix4,
@@ -14,16 +13,15 @@ import {
     type TrackedShape,
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "./bodyTracking";
-import { completeEdgeHistory } from "./edgeRef";
 import {
-    ancestorInputs,
     type BooleanFeatureData,
     type BooleanOperation,
-    combineIds,
+    completeTrackedHistory,
     type FeatureContext,
     type FeatureHandler,
     registerFeature,
 } from "./feature";
+import { mapAncestorIds } from "./trackedId";
 
 const DISPLAYS: Record<BooleanOperation, I18nKeys> = {
     fuse: "command.feature.fuse",
@@ -135,19 +133,13 @@ function evaluateTracked(
     }
     const result = tracked([input], toolShapes);
     if (!result.isOk) return Result.err(result.error);
-    // The history input enumerates args then tools; geometry-identical completion
-    // recovers unchanged edges the kernel history missed (see mapBooleanIds).
-    const edgeMap = completeEdgeHistory(
-        [input, ...toolShapes].flatMap((shape) => shape.findSubShapes(ShapeTypes.edge) as IEdge[]),
-        result.value.shape.findSubShapes(ShapeTypes.edge) as IEdge[],
-        result.value.edgeMap,
-    );
+    const { edgeMap, faceMap } = completeTrackedHistory([input, ...toolShapes], result.value);
     tracking.outputFaceIds = mapBooleanIds(
         feature,
         input,
         tracking.inputFaceIds,
         tools,
-        result.value.faceMap,
+        faceMap,
         ShapeTypes.face,
         result.value.faceAncestors,
     );
@@ -211,14 +203,17 @@ function mapBooleanIds(
                 ? node.faceIdAt(local)
                 : node.edgeIdAt(local)
             : undefined;
-        return `tool:${node.id}:${toolId ?? local}`;
+        if (toolId === undefined) return `tool:${node.id}:${local}`;
+        // A parametric tool's id may already be a compound (`combineIds` over a merge).
+        // Prefix EVERY leaf: prefixing only the first leaks the rest into the host's id
+        // space as bare ids, colliding with the seeds a direct boolean against those
+        // bodies generates (`idsOverlap` would then match unrelated sub-shapes).
+        return toolId
+            .split("|")
+            .map((x) => `tool:${node.id}:${x}`)
+            .join("|");
     };
-    const perOutput = ancestorInputs(map, ancestors);
-    return map.map((_, outputIndex) => {
-        const inputs = perOutput[outputIndex];
-        if (inputs.length === 0) return `${feature.id}:${outputIndex}`;
-        return combineIds(inputs.map((x) => idOfInput(x, outputIndex)));
-    });
+    return mapAncestorIds(feature.id, map, ancestors, idOfInput);
 }
 
 registerFeature("boolean", booleanHandler);

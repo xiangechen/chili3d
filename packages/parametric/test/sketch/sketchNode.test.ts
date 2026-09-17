@@ -214,7 +214,50 @@ describe("SketchNode", () => {
         });
 
         expect(tinyRadius.generateShape().error).toBe("Arc radius is too small");
-        expect(zeroSweep.generateShape().error).toBe("Arc sweep angle is too small");
+        expect(zeroSweep.generateShape().error).toBe("Arc is degenerate (zero sweep)");
+        expect(arc).not.toHaveBeenCalled();
+    });
+
+    test("generateShape builds a near-full-circle arc (small negative raw sweep)", () => {
+        const arc = rs.fn((_normal: XYZ, _center: XYZ, _start: XYZ, _angle: number) =>
+            Result.ok(fakeShape("arc")),
+        );
+        restoreFactory = mockShapeFactory({ arc, combine: () => Result.ok(fakeShape("compound")) });
+        // end 0.0005 rad clockwise of the start: a legitimate ~359.97° arc that the
+        // old |sweep − 2π| check refused as "Arc sweep angle is too small"
+        const a = -0.0005;
+        const node = new SketchNode({
+            document: doc,
+            plane,
+            data: {
+                entities: [{ id: 1, type: "arc", params: [0, 0, 10, 0, 10 * Math.cos(a), 10 * Math.sin(a)] }],
+                constraints: [],
+            },
+        });
+
+        const result = node.generateShape();
+
+        expect(result.isOk).toBe(true);
+        expect(arc).toHaveBeenCalledTimes(1);
+        const angle = (arc.mock.calls[0] as unknown as [XYZ, XYZ, XYZ, number])[3];
+        expect(angle).toBeCloseTo(360 + (a * 180) / Math.PI, 6);
+    });
+
+    test("generateShape rejects an arc whose end is within angular tolerance CCW of the start", () => {
+        const arc = rs.fn(() => Result.ok(fakeShape("arc")));
+        restoreFactory = mockShapeFactory({ arc, combine: () => Result.ok(fakeShape("compound")) });
+        // raw sweep in (0, Precision.Angle]: indistinguishable from a zero-span arc
+        const a = 0.0005;
+        const node = new SketchNode({
+            document: doc,
+            plane,
+            data: {
+                entities: [{ id: 1, type: "arc", params: [0, 0, 10, 0, 10 * Math.cos(a), 10 * Math.sin(a)] }],
+                constraints: [],
+            },
+        });
+
+        expect(node.generateShape().error).toBe("Arc is degenerate (zero sweep)");
         expect(arc).not.toHaveBeenCalled();
     });
 

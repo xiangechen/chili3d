@@ -93,6 +93,7 @@ export default {
         "command.feature.cut": "Вычесть",
         "command.feature.common": "Пересечение",
         "command.feature.variable": "Переменная",
+        "command.feature.reselect": "Выбрать повторно",
         "command.create.folder": "Папка",
         "command.create.group": "Группа",
         "command.create.helix": "Спираль",

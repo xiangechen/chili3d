@@ -125,6 +125,7 @@ export default {
         "command.feature.cut": "Cut",
         "command.feature.common": "Intersect",
         "command.feature.variable": "Variable",
+        "command.feature.reselect": "Reselect",
         "command.create.folder": "Folder",
         "command.create.group": "Group",
         "command.create.helix": "Helix",
@@ -433,6 +434,8 @@ export default {
         "sketch.conflicting": "Conflicting constraints",
         "sketch.constraintExists": "Constraint already exists",
         "sketch.externalRefAssociativeOnly": "External references only accept associative constraints",
+        "sketch.externalRefsLost{0}":
+            "{0} sketch external references lost their source; profiles use frozen geometry",
         "sketch.externalRefTypeChanged": "External reference type changed — its constraints were removed",
         "sketch.fullyConstrained": "Fully constrained",
         "sketch.noProjectableEdges": "No coplanar edges could be projected",

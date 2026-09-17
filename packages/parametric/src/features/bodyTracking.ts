@@ -21,6 +21,13 @@ export interface IBodyTrackingNode {
     faceIndexesOfId(id: string): number[];
     edgeIdAt(index: number): string | undefined;
     edgeIndexById(id: string): number | undefined;
+    /**
+     * Indexes of every edge whose tracked id overlaps `id` — the edge counterpart of
+     * `faceIndexesOfId`: the pieces of a boolean-split edge share one id, and a
+     * collinear-merged edge carries a composite id. `edgeIndexById` returns only the
+     * first exact hit, which cannot tell the pieces apart.
+     */
+    edgeIndexesOfId(id: string): number[];
 }
 
 /** Structural check — `ParametricBodyNode` is the only node exposing `faceIdAt`. */
@@ -50,6 +57,15 @@ export interface FeatureTimelineState {
 export interface IBodyTimelineNode extends IBodyTrackingNode {
     readonly featureCount: number;
     timelineStateAt(index: number): FeatureTimelineState | undefined;
+    /**
+     * Feature-list index the chain is rolled back to for a session preview
+     * (`ParametricBodyNode.setRollbackIndex`); undefined in normal operation. While
+     * set, the node's shape and timeline are a transient preview that lacks every
+     * element born from a later feature: sketches not owning the session must not
+     * re-resolve references against it (the session owner must — the rollback
+     * reveals exactly the capture-time geometry it was drawn on).
+     */
+    readonly rollbackIndex?: number;
 }
 
 /** Structural check — `ParametricBodyNode` is the only node exposing `timelineStateAt`. */
