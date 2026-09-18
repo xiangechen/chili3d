@@ -14,18 +14,30 @@ export interface XYOptions {
 
 @serializable()
 export class XY {
-    static readonly zero = new XY({ x: 0, y: 0 });
-    static readonly unitX = new XY({ x: 1, y: 0 });
-    static readonly unitY = new XY({ x: 0, y: 1 });
+    static readonly zero = Object.freeze(new XY({ x: 0, y: 0 }));
+    static readonly unitX = Object.freeze(new XY({ x: 1, y: 0 }));
+    static readonly unitY = Object.freeze(new XY({ x: 0, y: 1 }));
 
     @serialize()
     readonly x: number;
     @serialize()
     readonly y: number;
 
-    constructor(options: XYOptions) {
-        this.x = options.x;
-        this.y = options.y;
+    /**
+     * Either the named options object, or the two components positionally — both are
+     * optional and read as 0 when omitted, so `new XY()` is the origin. An `XY` is
+     * itself an `XYOptions`, so `new XY(other)` copies. Same contract as `XYZ`.
+     */
+    constructor(options: XYOptions);
+    constructor(x?: number, y?: number);
+    constructor(options: XYOptions | number = 0, y = 0) {
+        if (typeof options === "number") {
+            this.x = options;
+            this.y = y;
+        } else {
+            this.x = options.x;
+            this.y = options.y;
+        }
     }
 
     cross(right: XY): number {

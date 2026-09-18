@@ -19,10 +19,27 @@ describe("XYZ class tests", () => {
             expect(XYZ.fromArray([5])).toEqual(new XYZ({ x: 5, y: 0, z: 0 }));
         });
 
+        test("should accept the three components positionally, defaulting an omitted one to 0", () => {
+            expect(new XYZ(1, 2, 3)).toEqual(new XYZ({ x: 1, y: 2, z: 3 }));
+            expect(new XYZ(5)).toEqual(new XYZ({ x: 5, y: 0, z: 0 }));
+            expect(new XYZ(5, 6)).toEqual(new XYZ({ x: 5, y: 6, z: 0 }));
+            expect(new XYZ(0, 0, 0)).toEqual(XYZ.zero);
+            expect(new XYZ()).toEqual(XYZ.zero);
+        });
+
+        test("should copy a vector passed as the options object", () => {
+            const source = new XYZ(1, 2, 3);
+            const copy = new XYZ(source);
+            expect(copy).toEqual(source);
+            expect(copy).not.toBe(source);
+        });
+
         test("should throw on NaN values", () => {
             expect(() => new XYZ({ x: NaN, y: 0, z: 0 })).toThrow("NaN in XYZ");
             expect(() => new XYZ({ x: 0, y: NaN, z: 0 })).toThrow("NaN in XYZ");
             expect(() => new XYZ({ x: 0, y: 0, z: NaN })).toThrow("NaN in XYZ");
+            expect(() => new XYZ(NaN, 0, 0)).toThrow("NaN in XYZ");
+            expect(() => new XYZ(0, 0, NaN)).toThrow("NaN in XYZ");
         });
 
         test("should have correct static properties", () => {

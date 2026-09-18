@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, XYZ } from "@chili3d/core";
+import { type IEdge, type IFace, XYZ, type XYZLike } from "@chili3d/core";
 import { captureEdgeRef, refScoreRefs } from "./edgeRef";
 import { captureRegionFingerprint } from "./profileRef";
-import { directionsParallel, distance, MATCH_TOLERANCE, type Vec3, vec3 } from "./refGeometry";
+import { directionsParallel, distance, MATCH_TOLERANCE, plainVec } from "./refGeometry";
 
 /**
  * Completing a kernel history map by geometric identity.
@@ -113,10 +113,10 @@ export function completeEdgeHistory(
  * PlaneFaceRef/ProfileRef do downstream).
  */
 export interface FaceFingerprint {
-    readonly center: Vec3;
+    readonly center: XYZLike;
     readonly area: number;
     /** Outward normal for planar faces only; either orientation describes the same plane. */
-    readonly normal?: Vec3;
+    readonly normal?: XYZLike;
 }
 
 /** Captures the fingerprint once per face — scoring a live face per pair would pay kernel queries each. */
@@ -124,7 +124,7 @@ export function captureFaceFingerprint(face: IFace): FaceFingerprint {
     const planar = face.surface().isPlanar();
     return {
         ...captureRegionFingerprint(face),
-        normal: planar ? vec3(face.normal(0, 0)[1]) : undefined,
+        normal: planar ? plainVec(face.normal(0, 0)[1]) : undefined,
     };
 }
 

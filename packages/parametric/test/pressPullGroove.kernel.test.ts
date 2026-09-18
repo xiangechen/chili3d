@@ -33,11 +33,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type IFace, Plane, Serializer, ShapeTypes, XYZ } from "@chili3d/core";
+import { type IFace, Plane, Serializer, ShapeTypes, XYZ, type XYZLike } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
 import { captureProfileRef, type ProfileRef } from "../src/features/profileRef";
-import type { Vec3 } from "../src/features/refGeometry";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { sketchPlaneOfFace } from "../src/sketch/planeRef";
 import { type SketchData, toUV } from "../src/sketch/sketchModel";
@@ -439,7 +438,7 @@ describe("(b2) open slot through the box splitting the top face", () => {
         // piece's y-span, so a moved box keeps it nearer its own piece), hence a
         // hand-crafted one: shift the fingerprint +15 in y onto the mirror axis
         // between the pieces (y∈[15,25]) — both score exactly the same.
-        const shiftY = (v: Vec3): Vec3 => ({ x: v.x, y: v.y + 15, z: v.z });
+        const shiftY = (v: XYZLike): XYZLike => ({ x: v.x, y: v.y + 15, z: v.z });
         const crafted: ProfileRef = {
             ...picked,
             center: shiftY(picked.center!),

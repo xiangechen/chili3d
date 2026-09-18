@@ -13,6 +13,7 @@ import {
     type Result,
     ShapeTypes,
     XYZ,
+    type XYZLike,
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "../features/bodyTracking";
 import { edgeListMatcher } from "../features/edgeMatcher";
@@ -24,7 +25,7 @@ import {
     refScore,
     sameEdgeFingerprint,
 } from "../features/edgeRef";
-import { directionsParallel, MATCH_TOLERANCE, type Vec3, vec3 } from "../features/refGeometry";
+import { directionsParallel, MATCH_TOLERANCE, plainVec } from "../features/refGeometry";
 import { indexesOfOverlappingId } from "../features/trackedId";
 import { type ShapeSource, shapeSourceOf } from "./shapeSource";
 import { type ExternalRefData, type SketchEntityType, toUV } from "./sketchModel";
@@ -361,21 +362,21 @@ function localFingerprint(ref: EdgeRef, transform: Matrix4): EdgeRef {
     if (ref.kind === "line") {
         return {
             kind: "line",
-            start: vec3(inverse.ofPoint(ref.start)),
-            end: vec3(inverse.ofPoint(ref.end)),
+            start: plainVec(inverse.ofPoint(ref.start)),
+            end: plainVec(inverse.ofPoint(ref.end)),
             edgeId: ref.edgeId,
         };
     }
     if (ref.kind === "circle") {
         return {
             kind: "circle",
-            center: vec3(inverse.ofPoint(ref.center)),
+            center: plainVec(inverse.ofPoint(ref.center)),
             radius: ref.radius,
-            axis: vec3(inverse.ofVector(ref.axis)),
+            axis: plainVec(inverse.ofVector(ref.axis)),
             edgeId: ref.edgeId,
         };
     }
-    return { kind: "other", mid: vec3(inverse.ofPoint(ref.mid)), length: ref.length, edgeId: ref.edgeId };
+    return { kind: "other", mid: plainVec(inverse.ofPoint(ref.mid)), length: ref.length, edgeId: ref.edgeId };
 }
 
 /**
@@ -392,7 +393,7 @@ function idStillIdentifiesEdge(edge: IEdge, ref: EdgeRef): boolean {
 }
 
 /** A split piece is collinear and strictly inside the stored span; a moved or extended edge is not. */
-function isSubSpanOf(edge: IEdge, ref: { start: Vec3; end: Vec3 }): boolean {
+function isSubSpanOf(edge: IEdge, ref: { start: XYZLike; end: XYZLike }): boolean {
     const start = new XYZ(ref.start);
     const direction = new XYZ(ref.end).sub(start);
     const length = direction.length();
@@ -501,7 +502,7 @@ function coveredBySplitPieces(
 }
 
 /** True when collinear pieces of `edges` together cover the stored line's span. */
-function lineSplitCovers(ref: { start: Vec3; end: Vec3 }, edges: IEdge[]): boolean {
+function lineSplitCovers(ref: { start: XYZLike; end: XYZLike }, edges: IEdge[]): boolean {
     const start = new XYZ(ref.start);
     const end = new XYZ(ref.end);
     const direction = end.sub(start).normalize();

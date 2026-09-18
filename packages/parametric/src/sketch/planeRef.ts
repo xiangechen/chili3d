@@ -1,9 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, type IFace, type Matrix4, Plane, ShapeTypes, XYZ } from "@chili3d/core";
+import {
+    type IDocument,
+    type IFace,
+    type Matrix4,
+    Plane,
+    ShapeTypes,
+    XYZ,
+    type XYZLike,
+} from "@chili3d/core";
 import { isBodyTrackingNode } from "../features/bodyTracking";
-import type { Vec3 } from "../features/refGeometry";
 import { indexesOfOverlappingId } from "../features/trackedId";
 import { type ShapeSource, shapeSourceOf } from "./shapeSource";
 import {
@@ -21,7 +28,7 @@ import {
  */
 export interface PlaneFaceRef {
     nodeId: string;
-    normal: Vec3;
+    normal: XYZLike;
     offset: number;
     faceId?: string;
 }

@@ -1,10 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IEdge, IFace } from "@chili3d/core";
+import type { IEdge, IFace, XYZLike } from "@chili3d/core";
 import { profileEdgeEntityIds, profileEntityIds } from "./profileEntities";
 import { captureRegionFingerprint } from "./profileRef";
-import type { Vec3 } from "./refGeometry";
 
 /**
  * Content-derived seed keys for profile regions and their boundary edges.
@@ -55,8 +54,8 @@ export function profileSeeds(all: IFace[]): string[] {
 
 /** Region-fingerprint order (bbox center, then area) — the tiebreak recipe of `matchProfileIndexes`. */
 function compareRegionFingerprints(
-    a: { center: Vec3; area: number },
-    b: { center: Vec3; area: number },
+    a: { center: XYZLike; area: number },
+    b: { center: XYZLike; area: number },
 ): number {
     return a.center.x - b.center.x || a.center.y - b.center.y || a.center.z - b.center.z || a.area - b.area;
 }

@@ -12,12 +12,12 @@ import {
     Result,
     ShapeTypes,
     type TrackedShape,
+    type XYZLike,
 } from "@chili3d/core";
 import type { EdgeRef } from "./edgeRef";
 import type { ParameterValue } from "./expression";
 import { completeEdgeHistory, completeFaceHistory } from "./historyCompletion";
 import type { ProfileRef } from "./profileRef";
-import type { Vec3 } from "./refGeometry";
 
 export interface FeatureBase {
     readonly id: string;
@@ -77,7 +77,7 @@ export interface RevolveFeatureData extends FeatureBase {
      * `axisSource` is set it is re-derived from the referenced edge on every rebuild
      * and this only serves as a fallback (e.g. the source node was deleted).
      */
-    readonly axis: { point: Vec3; direction: Vec3 };
+    readonly axis: { point: XYZLike; direction: XYZLike };
     /**
      * The axis as a reference: a line-edge fingerprint (`edgeRef.ts`) on another node,
      * re-matched against that node's current shape when it changes — moving the picked

@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, type IEdge, type IFace, ShapeTypes, type XYZ } from "@chili3d/core";
+import { BoundingBox, type IEdge, type IFace, ShapeTypes, type XYZ, type XYZLike } from "@chili3d/core";
 import { bestEdgeScore, captureEdgeRef, type EdgeRef } from "./edgeRef";
 import { profileEntityIds } from "./profileEntities";
-import { distance, type Vec3, vec3 } from "./refGeometry";
+import { distance, plainVec } from "./refGeometry";
 
 /**
  * A geometric fingerprint of a sketch profile (one closed loop): the fingerprints of its
@@ -27,7 +27,7 @@ import { distance, type Vec3, vec3 } from "./refGeometry";
  */
 export interface ProfileRef {
     readonly edges: EdgeRef[];
-    readonly center?: Vec3;
+    readonly center?: XYZLike;
     readonly area?: number;
     /** Sorted ids of the sketch entities bounding the region (crossing sketches only). */
     readonly entities?: number[];
@@ -59,7 +59,7 @@ export interface ProfileRef {
      * it: a solver-mirrored wire rebuilds the region face with the flipped
      * orientation, and the gate would reject the legitimate match.
      */
-    readonly normal?: Vec3;
+    readonly normal?: XYZLike;
 }
 
 export function captureProfileRef(
@@ -70,10 +70,10 @@ export function captureProfileRef(
 ): ProfileRef {
     const edges = boundaryEdges(face).map((edge) => captureEdgeRef(edge));
     const entities = profileEntityIds(face);
-    let normal: Vec3 | undefined;
+    let normal: XYZLike | undefined;
     if (captureNormal) {
         const xyz = face.normal(0, 0)[1].normalize();
-        if (xyz !== undefined) normal = vec3(xyz);
+        if (xyz !== undefined) normal = plainVec(xyz);
     }
     return {
         edges,
@@ -120,7 +120,7 @@ export function profileScore(face: IFace, ref: ProfileRef): number {
  */
 const NORMAL_MATCH_DOT = 0.5;
 
-function normalsAgree(candidate: XYZ | undefined, normal: Vec3): boolean {
+function normalsAgree(candidate: XYZ | undefined, normal: XYZLike): boolean {
     if (candidate === undefined) return false;
     return candidate.x * normal.x + candidate.y * normal.y + candidate.z * normal.z >= NORMAL_MATCH_DOT;
 }
@@ -130,8 +130,8 @@ function normalsAgree(candidate: XYZ | undefined, normal: Vec3): boolean {
  * face history completion: bbox center + area. Captured once per face — both
  * queries are kernel calls.
  */
-export function captureRegionFingerprint(face: IFace): { center: Vec3; area: number } {
-    return { center: vec3(BoundingBox.center(face.boundingBox())), area: face.area() };
+export function captureRegionFingerprint(face: IFace): { center: XYZLike; area: number } {
+    return { center: plainVec(BoundingBox.center(face.boundingBox())), area: face.area() };
 }
 
 /**

@@ -30,6 +30,19 @@ describe("XY class", () => {
             expect(xy.x).toBe(-1);
             expect(xy.y).toBe(-2);
         });
+
+        test("should accept the two components positionally, defaulting an omitted one to 0", () => {
+            expect(new XY(3, 4)).toEqual(new XY({ x: 3, y: 4 }));
+            expect(new XY(5)).toEqual(new XY({ x: 5, y: 0 }));
+            expect(new XY()).toEqual(XY.zero);
+        });
+
+        test("should copy a vector passed as the options object", () => {
+            const source = new XY(1, 2);
+            const copy = new XY(source);
+            expect(copy).toEqual(source);
+            expect(copy).not.toBe(source);
+        });
     });
 
     describe("cross", () => {

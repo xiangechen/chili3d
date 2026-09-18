@@ -51,10 +51,24 @@ export class XYZ {
     @serialize()
     readonly z: number;
 
-    constructor(options: XYZOptions) {
-        this.x = options.x;
-        this.y = options.y;
-        this.z = options.z;
+    /**
+     * Either the named options object, or the three components positionally — every
+     * component is optional and reads as 0 when omitted, as `fromArray` already does,
+     * so `new XYZ()` is the origin. An `XYZ` is itself an `XYZOptions`, so
+     * `new XYZ(other)` copies.
+     */
+    constructor(options: XYZOptions);
+    constructor(x?: number, y?: number, z?: number);
+    constructor(options: XYZOptions | number = 0, y = 0, z = 0) {
+        if (typeof options === "number") {
+            this.x = options;
+            this.y = y;
+            this.z = z;
+        } else {
+            this.x = options.x;
+            this.y = options.y;
+            this.z = options.z;
+        }
 
         if (Number.isNaN(this.x) || Number.isNaN(this.y) || Number.isNaN(this.z)) {
             throw new Error("NaN in XYZ");

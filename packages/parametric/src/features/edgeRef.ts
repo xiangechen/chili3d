@@ -1,15 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { CurveUtils, type IEdge, XYZ } from "@chili3d/core";
+import { CurveUtils, type IEdge, XYZ, type XYZLike } from "@chili3d/core";
 import {
     axisDistance,
     directionsParallel,
     distance,
     MATCH_TOLERANCE,
+    plainVec,
     sameVec,
-    type Vec3,
-    vec3,
 } from "./refGeometry";
 
 /**
@@ -27,9 +26,16 @@ import {
  *   uses it to never widen such a ref to the whole span.
  */
 export type EdgeRef =
-    | { kind: "line"; start: Vec3; end: Vec3; edgeId?: string; splitPiece?: boolean }
-    | { kind: "circle"; center: Vec3; radius: number; axis: Vec3; edgeId?: string; splitPiece?: boolean }
-    | { kind: "other"; mid: Vec3; length: number; edgeId?: string; splitPiece?: boolean };
+    | { kind: "line"; start: XYZLike; end: XYZLike; edgeId?: string; splitPiece?: boolean }
+    | {
+          kind: "circle";
+          center: XYZLike;
+          radius: number;
+          axis: XYZLike;
+          edgeId?: string;
+          splitPiece?: boolean;
+      }
+    | { kind: "other"; mid: XYZLike; length: number; edgeId?: string; splitPiece?: boolean };
 
 export function captureEdgeRef(edge: IEdge, edgeId?: string, splitPiece?: boolean): EdgeRef {
     const basis = edge.curve.basisCurve;
@@ -37,16 +43,16 @@ export function captureEdgeRef(edge: IEdge, edgeId?: string, splitPiece?: boolea
     if (CurveUtils.isCircle(basis)) {
         ref = {
             kind: "circle",
-            center: vec3(basis.center),
+            center: plainVec(basis.center),
             radius: basis.radius,
-            axis: vec3(basis.axis),
+            axis: plainVec(basis.axis),
             edgeId,
         };
     } else if (CurveUtils.isLine(basis)) {
-        ref = { kind: "line", start: vec3(edge.startPoint()), end: vec3(edge.endPoint()), edgeId };
+        ref = { kind: "line", start: plainVec(edge.startPoint()), end: plainVec(edge.endPoint()), edgeId };
     } else {
         const midParam = (edge.firstParameter() + edge.lastParameter()) / 2;
-        ref = { kind: "other", mid: vec3(edge.pointAt(midParam)), length: edge.length(), edgeId };
+        ref = { kind: "other", mid: plainVec(edge.pointAt(midParam)), length: edge.length(), edgeId };
     }
     // Set only when true: absent keeps the serialized shape of older refs.
     if (splitPiece === true) ref.splitPiece = true;
