@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AppGuideStore,
     CommandStore,
     Config,
     I18n,
@@ -420,6 +421,16 @@ describe("PluginManager", () => {
             expect(app.mainWindow!.ribbon!.combineRibbonTab).toHaveBeenCalledWith(ribbonContribution);
         });
 
+        test("should append a plugin's guide sections to the app manual", () => {
+            const { manager } = createManager();
+            const section = { name: "demo-plugin", content: "Press the Demo button." };
+
+            (manager as any).registerPlugin({ guide: [section] });
+
+            expect(AppGuideStore.getSections()).toContainEqual(section);
+            AppGuideStore.unregisterSection(section.name);
+        });
+
         test("should handle plugin without i18n, services, or ribbons", () => {
             const { manager } = createManager();
             // Should not throw
@@ -459,6 +470,19 @@ describe("PluginManager", () => {
             expect(unregisterSpy).toHaveBeenCalledWith("cmd.one");
             expect(unregisterSpy).toHaveBeenCalledWith("cmd.two");
             unregisterSpy.mockRestore();
+        });
+
+        test("should unregister the guide sections a plugin registered", () => {
+            const { manager } = createManager();
+            const section = { name: "demo-plugin", content: "Press the Demo button." };
+            const plugin: Plugin = { guide: [section] };
+
+            (manager as any).registerPlugin(plugin);
+            expect(AppGuideStore.getSections()).toContainEqual(section);
+
+            (manager as any).unregisterPlugin("demo-plugin", plugin);
+
+            expect(AppGuideStore.getSections()).not.toContainEqual(section);
         });
 
         test("should remove plugin CSS", () => {

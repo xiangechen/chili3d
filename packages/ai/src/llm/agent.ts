@@ -1,25 +1,42 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { I18n } from "@chili3d/core";
 import type { LLMConfig } from "../settings";
 import { AnthropicProvider } from "./anthropic";
 import { CompletionsProvider } from "./completions";
 import { ResponsesProvider } from "./responses";
-import type { ChatMessage, ImagePart, LLMProvider, ThinkingBlock, Tool, ToolCall } from "./types";
+import type {
+    ChatMessage,
+    ImagePart,
+    LLMProvider,
+    StreamEvent,
+    SystemPrompt,
+    ThinkingBlock,
+    TokenUsage,
+    Tool,
+    ToolCall,
+} from "./types";
 
 export interface ChatCallbacks {
     onTextDelta(text: string): void;
     onToolCall(call: { name: string; arguments: string; result?: string }): void;
 }
 
-/** Upper bound on model<->tool round trips per run, so a stuck tool loop cannot spin forever. */
-export const MAX_AGENT_ITERATIONS = 25;
-
-const STEP_LIMIT_NOTICE = "(Reached the maximum number of steps; stopping here.)";
+/**
+ * Upper bound on model<->tool round trips per run, so a stuck tool loop cannot spin forever.
+ *
+ * Both providers disable parallel tool calls (anthropic.ts's `disable_parallel_tool_use`,
+ * completions.ts's `parallel_tool_calls: false`), so a round trip is one tool call — and a
+ * verified edit is already ~6 of them (screenshot, click_view + verify, run_program, select,
+ * fit, screenshot). 25 aborted multi-part work in the middle of a plan; 50 keeps the guard
+ * against a spinning loop while leaving room for a build with a few retries.
+ */
+export const MAX_AGENT_ITERATIONS = 50;
 
 interface RunAgentOptions {
     config: LLMConfig;
-    system: string;
+    system: SystemPrompt;
     messages: ChatMessage[];
     tools: Tool[];
     callbacks: ChatCallbacks;
@@ -37,7 +54,6 @@ export function createProvider(config: LLMConfig): LLMProvider {
 
 export async function runAgent(opts: RunAgentOptions): Promise<void> {
     const provider = opts.provider ?? createProvider(opts.config);
-    let producedText = false;
 
     try {
         for (let iteration = 0; ; iteration++) {
@@ -45,14 +61,15 @@ export async function runAgent(opts: RunAgentOptions): Promise<void> {
             const { text, toolCalls, thinking } = await streamTurn(provider, opts);
 
             opts.messages.push(assistantMessage(text, toolCalls, thinking));
-            if (text) producedText = true;
             if (toolCalls.length === 0) break;
 
             appendToolResults(opts, await runToolCalls(opts, toolCalls));
 
             if (opts.signal?.aborted) break;
             if (iteration + 1 >= MAX_AGENT_ITERATIONS) {
-                if (!producedText) opts.callbacks.onTextDelta(STEP_LIMIT_NOTICE);
+                // Always say so: the run stops wherever the plan happened to be, and this message
+                // is the only thing telling the user it was a limit rather than a finished answer.
+                opts.callbacks.onTextDelta(I18n.translate("ai.stepLimit"));
                 break;
             }
         }
@@ -84,14 +101,40 @@ function appendToolResults(opts: RunAgentOptions, results: ToolOutput[]): void {
     );
 }
 
+/** What one streamed model turn produced. */
+interface TurnParts {
+    text: string;
+    toolCalls: ToolCall[];
+    thinking: ThinkingBlock[];
+}
+
+/** Fold one stream event into the turn, forwarding text deltas to the UI as they arrive. */
+function collectEvent(parts: TurnParts, ev: StreamEvent, callbacks: ChatCallbacks): void {
+    if (ev.type === "text") {
+        parts.text += ev.text;
+        callbacks.onTextDelta(ev.text);
+    } else if (ev.type === "tool_call") {
+        parts.toolCalls.push({ id: ev.id, name: ev.name, arguments: ev.arguments });
+    } else if (ev.type === "thinking") {
+        parts.thinking.push(ev.block);
+    }
+}
+
+/**
+ * One line per model turn: the cache counters are the only way to tell whether the stable
+ * prompt prefix is being reused (cacheRead > 0 after the first turn) or silently invalidated.
+ */
+function logTokenUsage(usage: TokenUsage): void {
+    console.debug(
+        `[ai] tokens: input=${usage.inputTokens} cacheRead=${usage.cacheReadTokens} ` +
+            `cacheWrite=${usage.cacheCreationTokens} output=${usage.outputTokens}`,
+    );
+}
+
 /** Streams one model turn, forwarding text deltas to the UI and collecting tool calls. */
-async function streamTurn(
-    provider: LLMProvider,
-    opts: RunAgentOptions,
-): Promise<{ text: string; toolCalls: ToolCall[]; thinking: ThinkingBlock[] }> {
-    let text = "";
-    const toolCalls: ToolCall[] = [];
-    const thinking: ThinkingBlock[] = [];
+async function streamTurn(provider: LLMProvider, opts: RunAgentOptions): Promise<TurnParts> {
+    const parts: TurnParts = { text: "", toolCalls: [], thinking: [] };
+    let usage: TokenUsage | undefined;
     for await (const ev of provider.streamChat({
         model: opts.config.model,
         system: opts.system,
@@ -99,16 +142,11 @@ async function streamTurn(
         tools: opts.tools,
         signal: opts.signal,
     })) {
-        if (ev.type === "text") {
-            text += ev.text;
-            opts.callbacks.onTextDelta(ev.text);
-        } else if (ev.type === "tool_call") {
-            toolCalls.push({ id: ev.id, name: ev.name, arguments: ev.arguments });
-        } else if (ev.type === "thinking") {
-            thinking.push(ev.block);
-        }
+        if (ev.type === "usage") usage = ev.usage;
+        else collectEvent(parts, ev, opts.callbacks);
     }
-    return { text, toolCalls, thinking };
+    if (usage) logTokenUsage(usage);
+    return parts;
 }
 
 // Runs tool calls sequentially: ref-chained ops (run_box -> run_fillet) depend on

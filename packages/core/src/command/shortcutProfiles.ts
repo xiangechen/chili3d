@@ -1,7 +1,48 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
 import type { Navigation3DType } from "../navigation";
 import type { CommandKeys } from "./commandKeys";
 
 type ShortcutMap = Partial<Record<CommandKeys, string | string[]>>;
+
+const MODIFIER_KEYS = new Set(["ctrl", "shift", "alt"]);
+
+/** Keys whose name is spelled out on screen rather than uppercased. */
+const NAMED_KEYS = new Map([
+    ["delete", "Delete"],
+    ["backspace", "Backspace"],
+    ["enter", "Enter"],
+    ["escape", "Escape"],
+    ["tab", "Tab"],
+    ["space", "Space"],
+]);
+
+function displayKey(key: string): string {
+    if (key === " ") return "Space";
+    const named = NAMED_KEYS.get(key.toLowerCase());
+    if (named !== undefined) return named;
+    return key.length > 1 ? key : key.toUpperCase();
+}
+
+/**
+ * Display form of one shortcut spec. A spec is leading modifiers plus a sequence of keys —
+ * "ctrl+s" is Ctrl with S, while "m+v" is M then V (Revit's move), and modifiers apply to the
+ * last key of a sequence.
+ */
+export function formatShortcutKey(key: string): string {
+    const segments = key.split("+");
+    const modifiers: string[] = [];
+    while (segments.length > 1 && MODIFIER_KEYS.has(segments[0].toLowerCase())) {
+        const modifier = segments.shift() ?? "";
+        modifiers.push(modifier[0].toUpperCase() + modifier.slice(1));
+    }
+
+    const keys = segments.map(displayKey);
+    const last = keys.pop() ?? "";
+    keys.push([...modifiers, last].join("+"));
+    return keys.join(" then ");
+}
 
 export const Chili3dShortcuts: ShortcutMap = {
     // System

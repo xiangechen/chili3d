@@ -5,12 +5,16 @@ import {
     EditableShapeNode,
     I18n,
     type IDocument,
+    type IEdge,
+    type IFace,
     type IShape,
+    type IWire,
     Line,
     Matrix4,
     Plane,
     Result,
     ShapeNode,
+    type ShapeType,
     ShapeTypes,
     Transaction,
     XYZ,
@@ -288,6 +292,25 @@ function refreshNodeValue(id: string, entry: LocalRef, doc: IDocument, consumed:
     }
 }
 
+/** The value a derived ref points at: the parent's member, called with the recorded arguments. */
+function evaluateMember(target: Record<string, unknown>, entry: LocalRef): unknown {
+    const member = target[entry.name ?? ""];
+    return typeof member === "function" ? member.apply(target, entry.args ?? []) : member;
+}
+
+/** Unwrap the member's Result and pick the recorded index, or fail as a stale ref. */
+function selectDerived(id: string, raw: unknown, index: number | undefined): unknown {
+    let value = index !== undefined ? (raw as unknown[] | undefined)?.[index] : raw;
+    if (value instanceof Result) {
+        if (!value.isOk) throw new Error(`ref "${id}" is no longer valid: ${String(value.error)}`);
+        value = value.value;
+    }
+    if (value === undefined || value === null) {
+        throw new Error(`ref "${id}" is no longer valid: its source shape changed`);
+    }
+    return value;
+}
+
 /** Derived refs (sub-shapes, curves, surfaces) re-run their query on the refreshed parent. */
 function rederiveFromParent(
     id: string,
@@ -304,22 +327,13 @@ function rederiveFromParent(
     // the parent only validates the source node still exists.
     if (entry.name === undefined) return;
     const target = parent.value as Record<string, unknown>;
-    const member = target[entry.name ?? ""];
-    const raw = typeof member === "function" ? member.apply(target, entry.args ?? []) : member;
+    const raw = evaluateMember(target, entry);
     // Void mutation steps (curve.reverse, ...): the mutated parent object stays the value.
     if (raw === undefined && entry.index === undefined) {
         entry.value = target;
         return;
     }
-    let value = entry.index !== undefined ? (raw as unknown[] | undefined)?.[entry.index] : raw;
-    if (value instanceof Result) {
-        if (!value.isOk) throw new Error(`ref "${id}" is no longer valid: ${String(value.error)}`);
-        value = value.value;
-    }
-    if (value === undefined || value === null) {
-        throw new Error(`ref "${id}" is no longer valid: its source shape changed`);
-    }
-    entry.value = value;
+    entry.value = selectDerived(id, raw, entry.index);
 }
 
 function resolveShape(
@@ -335,8 +349,40 @@ function resolveShape(
     return entry.value as IShape;
 }
 
+/** Plurals whose trimmed form is not just the key without its trailing "s". */
+const SHAPE_TYPE_ALIASES: Record<string, keyof typeof ShapeTypes> = {
+    vertices: "vertex",
+    vertexes: "vertex",
+};
+
+/**
+ * A shapeType argument, as given. The doc names the lower-case singletons (`edge`, `face`, …) but
+ * a model just as often writes the plural the UI uses ("edges", "faces"), so both forms resolve —
+ * anything else stays a hard error listing the accepted names.
+ */
+function parseShapeType(v: unknown): ShapeType | undefined {
+    if (typeof v !== "string") return undefined;
+    const raw = v.trim();
+    const exact = ShapeTypes[raw as keyof typeof ShapeTypes];
+    if (exact !== undefined) return exact;
+
+    const key = raw.toLowerCase();
+    const name =
+        SHAPE_TYPE_ALIASES[key] ??
+        Object.keys(ShapeTypes).find((k) => {
+            const lower = k.toLowerCase();
+            return lower === key || lower === key.replace(/s$/, "");
+        });
+    return name === undefined ? undefined : ShapeTypes[name as keyof typeof ShapeTypes];
+}
+
 /** Defaults for geometric params that are safe to omit. */
 function defaultValue(p: ShapeCapabilityParam): unknown | undefined {
+    // findSubShapes is nearly always "give me the edges" (the indices fillet/chamfer take), and a
+    // model that leaves the kind out otherwise loses the whole round trip to a required-parameter
+    // error — so the one method whose kind has an obvious answer gets that answer. Every other
+    // shapeType parameter must still be given.
+    if (p.kind === "shapeType" && p.name === "subshapeType") return ShapeTypes.edge;
     if (p.kind === "plane") return Plane.XY;
     if (p.kind === "xyz") {
         if (p.name === "center" || p.name === "origin") return XYZ.zero;
@@ -407,7 +453,7 @@ function coercePrimitive(p: ShapeCapabilityParam, v: unknown): unknown {
             }
             return v;
         case "shapeType": {
-            const t = ShapeTypes[v as keyof typeof ShapeTypes];
+            const t = parseShapeType(v);
             if (t === undefined) {
                 throw new Error(`${p.name} must be one of ${Object.keys(ShapeTypes).join("|")}`);
             }
@@ -494,8 +540,15 @@ function toPlain(v: unknown): unknown {
 }
 
 function shapeTypeName(value: unknown): string {
-    const actual = (value as IShape).shapeType;
-    return Object.keys(ShapeTypes).find((k) => ShapeTypes[k as keyof typeof ShapeTypes] === actual) ?? "?";
+    return nameOfShapeType((value as IShape).shapeType);
+}
+
+/**
+ * `ShapeType` is a bit flag at runtime (`ShapeTypes.solid === 4`), but the query doc hands the
+ * model the name union — decoding here is what makes `results.t === "solid"` work.
+ */
+function nameOfShapeType(type: ShapeType): string {
+    return Object.keys(ShapeTypes).find((k) => ShapeTypes[k as keyof typeof ShapeTypes] === type) ?? "?";
 }
 
 function checkQueryOwner(cap: QueryCapability, entry: LocalRef): void {
@@ -542,14 +595,18 @@ function readMember(target: unknown, name: string): unknown {
 /**
  * Convenience derivation for query targets: curve-family queries accept an edge shape ref
  * (its edge.curve becomes the target) and surface-family queries accept a face shape ref
- * (face.surface). Concrete curve owners (circle, line, ...) additionally unwrap a
- * trimmedCurve to its basisCurve. Mutation queries stay strict — they re-register the
- * target ref, which only makes sense for an explicit geometry ref.
+ * (face.surface). Every curve owner except the family root additionally unwraps a trimmedCurve
+ * to its basisCurve — `edge.curve` always yields a trimmedCurve, so without this no type-specific
+ * member (`circle.radius`, `conic.eccentricity`) would ever be readable from an edge ref. The
+ * two owners that must see the target itself are `curve` (its members report the target's own
+ * type, which is what makes `curve.curveType` the documented exception) and `trimmedCurve`
+ * (whose members describe the trimming itself). Mutation queries stay strict — they re-register
+ * the target ref, which only makes sense for an explicit geometry ref.
  */
 function deriveTargetEntry(cap: QueryCapability, entry: LocalRef): LocalRef {
     if (cap.returnKind === "mutate") return entry;
     const unwrapped = unwrapFamilyMember(cap, entry);
-    if (cap.family !== "curve" || cap.runtimeType === undefined || cap.runtimeType === "trimmedCurve") {
+    if (cap.family !== "curve" || cap.owner === "curve" || cap.owner === "trimmedCurve") {
         return unwrapped;
     }
     return unwrapTrimmedCurves(unwrapped);
@@ -597,6 +654,35 @@ function unwrapTrimmedCurves(entry: LocalRef): LocalRef {
     return derived;
 }
 
+/** The ref a query runs against, after the kind and owner checks that make a mismatch loud. */
+function resolveQueryTarget(
+    cap: QueryCapability,
+    target: unknown,
+    doc: IDocument,
+    localRefs: Map<string, LocalRef>,
+): LocalRef {
+    const entry = deriveTargetEntry(cap, resolveRefEntry(target, doc, localRefs, new Set()));
+    checkQueryOwner(cap, entry);
+
+    // A type-specific member is simply absent on a target of another kind. The owner checks above
+    // are curve-only (a surface carries no kind discriminator), so this is what makes every other
+    // mismatch loud — an undefined here would be dropped from the results and read as "no answer".
+    if (!(cap.name in (entry.value as Record<string, unknown>))) {
+        throw new Error(`${cap.method} does not apply to this target: it has no "${cap.name}"`);
+    }
+    return entry;
+}
+
+/** Call the target's member with the op's arguments, unwrapping the Result it may return. */
+function invokeMember(cap: QueryCapability, target: Record<string, unknown>, args: unknown[]): unknown {
+    const member = target[cap.name];
+    const raw =
+        typeof member === "function" ? (member as (...a: unknown[]) => unknown).apply(target, args) : member;
+    if (!(raw instanceof Result)) return raw;
+    if (!raw.isOk) throw new Error(String(raw.error));
+    return raw.value;
+}
+
 function runQuery(
     cap: QueryCapability,
     op: Op,
@@ -607,18 +693,10 @@ function runQuery(
     if (!op.id) throw new Error(`query op "${op.method}" requires an id to report its result`);
     if (op.target === undefined) throw new Error(`query op "${op.method}" requires a target`);
 
-    const entry = deriveTargetEntry(cap, resolveRefEntry(op.target, doc, localRefs, new Set()));
-    checkQueryOwner(cap, entry);
-
+    const entry = resolveQueryTarget(cap, op.target, doc, localRefs);
     const target = entry.value as Record<string, unknown>;
-    const member = target[cap.name];
     const args = cap.params.map((p) => coerce(p, op.args?.[p.name], doc, localRefs, new Set()));
-    let raw =
-        typeof member === "function" ? (member as (...a: unknown[]) => unknown).apply(target, args) : member;
-    if (raw instanceof Result) {
-        if (!raw.isOk) throw new Error(String(raw.error));
-        raw = raw.value;
-    }
+    const raw = invokeMember(cap, target, args);
 
     if (cap.returnKind === "mutate") {
         recordMutation(cap, op, entry, args, doc, localRefs, results);
@@ -665,6 +743,9 @@ function recordQueryResult(
     switch (cap.returnKind) {
         case "data":
             results[opId] = toPlain(raw);
+            break;
+        case "shapeType":
+            results[opId] = nameOfShapeType(raw as ShapeType);
             break;
         case "curveRef":
         case "surfaceRef":
@@ -753,6 +834,7 @@ async function runProgram(ops: Op[]): Promise<string> {
     try {
         Transaction.execute(doc, "AI program", () => {
             runOps(ops, doc, factory, localRefs, created, removed, results);
+            doc.selection.clearSelection();
             doc.visual.update();
         });
     } catch (e) {
@@ -872,6 +954,40 @@ function runQueryOp(
     runQuery(query, op, doc, localRefs, results);
 }
 
+/** The parameter each profile-sweeping op sweeps; everything else takes its args as given. */
+const PROFILE_PARAMS: Record<string, string> = { prism: "shape", revolve: "profile" };
+
+/**
+ * The model hands a `polygon` (a wire) or a `circle` (an edge) to prism/revolve about as often as
+ * it hands over a face, and the factory sweeps it as-is — into an open SHELL, silently, instead of
+ * a solid. The app's own extrude/revolve bodies close the profile into a face at their call sites
+ * for exactly this reason (`closedProfileToFace` in app's bodys/extrude.ts); this is that step for
+ * the ops. An open profile cannot become a face, so it is passed through unchanged.
+ */
+function closeProfileParam(cap: ShapeCapability, op: Op, params: unknown[], factory: unknown): void {
+    const name = PROFILE_PARAMS[op.method];
+    if (name === undefined) return;
+    const index = cap.params.findIndex((p) => p.name === name);
+    if (index < 0) return;
+
+    const profile = params[index] as IShape;
+    if (profile.shapeType !== ShapeTypes.wire && profile.shapeType !== ShapeTypes.edge) return;
+    if (!profile.isClosed()) return;
+
+    const f = factory as {
+        wire(edges: IEdge[]): Result<IWire>;
+        face(wires: IWire[]): Result<IFace>;
+    };
+    let wire = profile as IWire;
+    if (profile.shapeType === ShapeTypes.edge) {
+        const built = f.wire([profile as IEdge]);
+        if (!built.isOk) return;
+        wire = built.value;
+    }
+    const face = f.face([wire]);
+    if (face.isOk) params[index] = face.value;
+}
+
 function runShapeOp(
     cap: ShapeCapability,
     op: Op,
@@ -884,6 +1000,7 @@ function runShapeOp(
 ): void {
     const consumed = new Set<string>();
     const params = cap.params.map((p) => coerce(p, op.args?.[p.name], doc, localRefs, consumed));
+    closeProfileParam(cap, op, params, factory);
     const raw = (factory as unknown as Record<string, (...a: unknown[]) => unknown>)[op.method](...params);
     const result = raw instanceof Result ? raw : Result.ok(raw);
     if (!result.isOk) throw new Error(result.error);
@@ -979,7 +1096,8 @@ function runProgramOpSchema(): JsonSchema {
         properties: {
             id: {
                 type: "string",
-                description: "Optional name for this op's result; later ops reference it",
+                description:
+                    "Name for this op's result; later ops reference it. Optional for creation ops, required for query ops (they report their value under this id)",
             },
             method: {
                 type: "string",

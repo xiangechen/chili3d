@@ -7,30 +7,51 @@ import { buildTools } from "../src/tools";
 
 describe("buildSystemPrompt", () => {
     test("indexes every registered tool (the prompt can never drift from the registry)", () => {
-        const prompt = buildSystemPrompt();
+        const { stable } = buildSystemPrompt();
         for (const tool of buildTools()) {
-            expect(prompt).toContain(`- ${tool.name}: `);
+            expect(stable).toContain(`- ${tool.name}: `);
         }
+    });
+
+    test("index entries are whole sentences, never cut at an abbreviation", () => {
+        const { stable } = buildSystemPrompt();
+        const selectLine = stable.split("\n").find((line) => line.startsWith("- select_nodes: "));
+
+        // Splitting on the first ". " used to stop at this description's "— e.g." and leave the
+        // index showing a fragment; the sentence has to run to its end.
+        expect(selectLine).toContain("then call fit_content to focus them.");
+        expect(stable).not.toMatch(/^\s*- .*\be\.g\.$/m);
     });
 
     test("keeps the resident prompt compact", () => {
         // Resident prompt budget: guard against accidental bloat (~3.5k tokens at 3.5 chars/token).
-        expect(buildSystemPrompt().length).toBeLessThan(12000);
+        const { stable, volatile } = buildSystemPrompt();
+        expect(stable.length + volatile.length).toBeLessThan(12000);
     });
 
     test("lists every registered skill for on-demand loading", () => {
-        const prompt = buildSystemPrompt();
+        const { stable } = buildSystemPrompt();
         for (const skill of SKILLS) {
-            expect(prompt).toContain(skill.name);
+            expect(stable).toContain(skill.name);
         }
         expect(SKILLS.map((s) => s.name)).toEqual(
             expect.arrayContaining(["shape-query", "modeling-recipes", "error-recovery"]),
         );
     });
 
-    test("ends with a fresh document snapshot section", () => {
-        const prompt = buildSystemPrompt();
-        expect(prompt).toContain("Current document (snapshot taken when this run started");
-        expect(prompt).toContain('"hasActiveDocument":false');
+    test("holds the per-run document snapshot in the volatile half only", () => {
+        const { stable, volatile } = buildSystemPrompt();
+        expect(volatile).toContain("Current document (snapshot taken when this run started");
+        expect(volatile).toContain('"hasActiveDocument":false');
+        // The cache breakpoint sits at the end of the stable half: a per-run section inside it
+        // would invalidate the tool schemas and the rest of the prompt on every run.
+        expect(stable).not.toContain("Current document (snapshot");
+        expect(stable).not.toContain('"hasActiveDocument"');
+    });
+
+    test("builds the same stable half twice in a row", () => {
+        // Determinism is what lets the provider reuse the cached prefix; a timestamp or an id
+        // interpolated into a section would fail here.
+        expect(buildSystemPrompt().stable).toBe(buildSystemPrompt().stable);
     });
 });

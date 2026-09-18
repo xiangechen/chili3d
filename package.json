@@ -12,6 +12,7 @@
         "check": "biome check --write",
         "dev": "rspack dev",
         "format": "biome check --write . && npx clang-format --style=Webkit --sort-includes -i ./cpp/src/**",
+        "generate:capabilities": "node scripts/generate-shape-capabilities.mjs",
         "preview": "rspack preview",
         "release": "node scripts/release.mjs",
         "setup:wasm": "node scripts/setup_wasm_deps.mjs",

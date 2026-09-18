@@ -18,6 +18,15 @@ const DemoPlugin: Plugin = {
             ],
         },
     ],
+    // Appended to the manual the AI assistant reads, so it can tell the user what this
+    // button does instead of guessing from the name.
+    guide: [
+        {
+            name: "TS Plugin",
+            content:
+                "The “TS Plugin” button in the Manager tab shows a hello message. It is a demo plugin, not a modeling command.",
+        },
+    ],
     i18nResources: [
         {
             language: "en",

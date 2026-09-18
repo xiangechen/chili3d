@@ -664,6 +664,190 @@ describe("capabilityEngine", () => {
             }
         });
 
+        test("abstract curve owners (conic) auto-unwrap an edge ref too", async () => {
+            const edge = {
+                shapeType: ShapeTypes.edge,
+                curve: {
+                    curveType: "trimmedCurve",
+                    basisCurve: { curveType: "circle", axis: { x: 0, y: 0, z: 1 }, eccentricity: 0 },
+                },
+            };
+            const line = rs.fn(() => Result.ok(edge as unknown as IShape));
+            setup({ line });
+            try {
+                const result = await run([
+                    {
+                        id: "e",
+                        method: "line",
+                        args: { start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+                    },
+                    { id: "ax", method: "conic.axis", target: "e" },
+                    { id: "ec", method: "conic.eccentricity", target: "e" },
+                ]);
+
+                expect(result.results.ax).toEqual({ x: 0, y: 0, z: 1 });
+                expect(result.results.ec).toBe(0);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("findSubShapes defaults the sub-shape kind to edge, and takes the plural", async () => {
+            const edge = { shapeType: ShapeTypes.edge, index: 0 };
+            const findSubShapes = rs.fn((_type: number) => [edge]);
+            const solid = { shapeType: ShapeTypes.solid, findSubShapes };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+            try {
+                // The kind is left out: the model is asking for the edges fillet/chamfer take.
+                await run([
+                    { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                    { id: "e", method: "shape.findSubShapes", target: "b" },
+                ]);
+                expect(findSubShapes.mock.calls[0][0]).toBe(ShapeTypes.edge);
+                expect(findSubShapes.mock.calls[1]).toBeUndefined();
+
+                // …and the UI's plural spelling resolves to the same thing.
+                await run([
+                    { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                    { id: "f", method: "shape.findSubShapes", target: "b", args: { subshapeType: "faces" } },
+                ]);
+                expect(findSubShapes.mock.calls[1][0]).toBe(ShapeTypes.face);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("a shapeType value outside the enum is still an error listing the names", async () => {
+            const solid = { shapeType: ShapeTypes.solid, findSubShapes: rs.fn(() => []) };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+
+            const tool = buildCapabilityTools()[0];
+            await expect(
+                tool.handler({
+                    ops: [
+                        { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                        {
+                            id: "c",
+                            method: "shape.findSubShapes",
+                            target: "b",
+                            args: { subshapeType: "circle" },
+                        },
+                    ],
+                }),
+            ).rejects.toThrow(/subshapeType must be one of/);
+            rs.unstubAllGlobals();
+        });
+
+        test("prism closes a polygon wire into a face before sweeping it", async () => {
+            const wire = { shapeType: ShapeTypes.wire, isClosed: () => true };
+            const face = { shapeType: ShapeTypes.face };
+            const solid = { shapeType: ShapeTypes.solid };
+            const prism = rs.fn((..._args: unknown[]) => Result.ok(solid as unknown as IShape));
+            const polygon = rs.fn((..._args: unknown[]) => Result.ok(wire as unknown as IShape));
+            const faceFn = rs.fn((..._args: unknown[]) => Result.ok(face as unknown as IShape));
+            setup({ polygon, prism, face: faceFn });
+            try {
+                const result = await run([
+                    {
+                        id: "p",
+                        method: "polygon",
+                        args: {
+                            points: [
+                                { x: 0, y: 0, z: 0 },
+                                { x: 1, y: 0, z: 0 },
+                                { x: 1, y: 1, z: 0 },
+                            ],
+                        },
+                    },
+                    { id: "s", method: "prism", args: { shape: "p", vec: { x: 0, y: 0, z: 5 } } },
+                ]);
+
+                // The factory would sweep a bare wire into an open SHELL; the op hands it the face.
+                expect(faceFn.mock.calls[0][0]).toEqual([wire]);
+                expect(prism.mock.calls[0][0]).toBe(face);
+                expect(result.created[1].id).toBe("s");
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("prism closes a circular edge through a wire, and leaves an open profile alone", async () => {
+            const closedEdge = { shapeType: ShapeTypes.edge, isClosed: () => true };
+            const openWire = { shapeType: ShapeTypes.wire, isClosed: () => false };
+            const wire = { shapeType: ShapeTypes.wire };
+            const face = { shapeType: ShapeTypes.face };
+            const prism = rs.fn((..._args: unknown[]) =>
+                Result.ok({ shapeType: ShapeTypes.solid } as unknown as IShape),
+            );
+            const circle = rs.fn((..._a: unknown[]) => Result.ok(closedEdge as unknown as IShape));
+            const polygon = rs.fn((..._args: unknown[]) => Result.ok(openWire as unknown as IShape));
+            const wireFn = rs.fn((..._args: unknown[]) => Result.ok(wire as unknown as IShape));
+            const faceFn = rs.fn(() => Result.ok(face as unknown as IShape));
+            setup({ circle, polygon, prism, wire: wireFn, face: faceFn });
+            try {
+                await run([
+                    { id: "c", method: "circle", args: { center: { x: 0, y: 0, z: 0 }, radius: 5 } },
+                    { id: "s1", method: "prism", args: { shape: "c", vec: { x: 0, y: 0, z: 5 } } },
+                ]);
+                expect(wireFn.mock.calls[0][0]).toEqual([closedEdge]);
+                expect(prism.mock.calls[0][0]).toBe(face);
+
+                await run([
+                    { id: "p", method: "polygon", args: { points: [{ x: 0, y: 0, z: 0 }] } },
+                    { id: "s2", method: "prism", args: { shape: "p", vec: { x: 0, y: 0, z: 5 } } },
+                ]);
+                // An open profile cannot become a face; it keeps the old behaviour.
+                expect(prism.mock.calls[1][0]).toBe(openWire);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("shape.shapeType reports the name, not the numeric bit flag", async () => {
+            const solid = { shapeType: ShapeTypes.solid };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+            try {
+                const result = await run([
+                    { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                    { id: "t", method: "shape.shapeType", target: "b" },
+                ]);
+
+                expect(result.results.t).toBe("solid");
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("a member the target's kind does not have is an error, not an empty result", async () => {
+            const face = { shapeType: ShapeTypes.face, surface: () => ({ isPlanar: () => true }) };
+            const solid = { shapeType: ShapeTypes.solid, findSubShapes: rs.fn(() => [face]) };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+            try {
+                const tool = buildCapabilityTools()[0];
+                await expect(
+                    tool.handler({
+                        ops: [
+                            { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                            {
+                                id: "f",
+                                method: "shape.findSubShapes",
+                                target: "b",
+                                args: { subshapeType: "face" },
+                            },
+                            { id: "s", method: "face.surface", target: "f#0" },
+                            { id: "r", method: "cylindricalSurface.radius", target: "s" },
+                        ],
+                    }),
+                ).rejects.toThrow("does not apply to this target");
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
         test("surface queries auto-derive a face ref's surface", async () => {
             const bounds = rs.fn(() => "uv-bounds");
             const face = { shapeType: ShapeTypes.face, surface: { bounds } };

@@ -6,14 +6,18 @@ import { buildSkillTool } from "../skills";
 import { buildCapabilityTools } from "./capabilityEngine";
 import { buildFileTools } from "./fileTools";
 import { buildNodeTools } from "./nodeTools";
+import { buildPropertyTools } from "./propertyTools";
 import { buildReadTools } from "./readTools";
+import { buildRibbonTools } from "./ribbonTools";
 import { buildSelectionTools } from "./selectionTools";
 import { buildViewTools } from "./viewTools";
 
 export function buildTools(): Tool[] {
     return [
         ...buildReadTools(),
+        ...buildRibbonTools(),
         ...buildNodeTools(),
+        ...buildPropertyTools(),
         ...buildViewTools(),
         ...buildSelectionTools(),
         ...buildFileTools(),

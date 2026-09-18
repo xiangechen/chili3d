@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18N_KEYS, Navigation3DTypes, ShortcutProfiles } from "../src";
+import { formatShortcutKey, I18N_KEYS, Navigation3DTypes, ShortcutProfiles } from "../src";
 
 const MODIFIER_KEYS = new Set(["ctrl", "shift", "alt"]);
 
@@ -154,5 +154,30 @@ describe("ShortcutProfiles duplicate bindings", () => {
         // so HotkeyService silently overwrites the rect binding when loading this profile.
         const knownIssues = ['Blender: "r" -> create.rect, modify.rotate'];
         expect(duplicates, `duplicate shortcuts:\n${duplicates.join("\n")}`).toEqual(knownIssues);
+    });
+});
+
+describe("formatShortcutKey", () => {
+    test("spells out a single key, however the profile capitalises it", () => {
+        expect(formatShortcutKey("b")).toBe("B");
+        expect(formatShortcutKey("delete")).toBe("Delete");
+        expect(formatShortcutKey("Delete")).toBe("Delete");
+        expect(formatShortcutKey(" ")).toBe("Space");
+    });
+
+    test("uppercases and orders modifier combos", () => {
+        expect(formatShortcutKey("ctrl+s")).toBe("Ctrl+S");
+        expect(formatShortcutKey("ctrl+shift+z")).toBe("Ctrl+Shift+Z");
+    });
+
+    test("renders a key sequence as a sequence, not as a combo", () => {
+        // Revit binds move to "m+v": press M, then V — a combo reading would be "M+V", which
+        // tells the user to hold M, a key that cannot be held.
+        expect(formatShortcutKey("m+v")).toBe("M then V");
+        expect(formatShortcutKey("t+r")).toBe("T then R");
+    });
+
+    test("applies modifiers to the last key of a sequence", () => {
+        expect(formatShortcutKey("ctrl+m+v")).toBe("M then Ctrl+V");
     });
 });

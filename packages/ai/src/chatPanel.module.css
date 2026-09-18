@@ -119,10 +119,16 @@
     color: var(--foreground-color);
 }
 
-.emptyHint {
+.emptyHint,
+.emptyAsk {
     font-size: 11px;
     line-height: 1.6;
     max-width: 240px;
+}
+
+.emptyAsk {
+    padding-top: 6px;
+    border-top: 1px solid var(--border-color);
 }
 
 .user,

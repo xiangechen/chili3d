@@ -3,8 +3,12 @@
 
 import { I18n, type IDocument, Material, Transaction, type XYZLike } from "@chili3d/core";
 import type { Tool, ToolResult } from "../llm/types";
+import { getDocument } from "./documentContext";
 
 const Z_UP: XYZLike = { x: 0, y: 0, z: 1 };
+
+/** The gray a node shows when no colour was ever set. */
+const DEFAULT_MATERIAL_COLOR = 0xcccccc;
 
 /** Preset standard views: dir is the camera offset from the target (Z-up world). */
 const VIEW_PRESETS: Record<string, { dir: [number, number, number]; up: XYZLike }> = {
@@ -17,9 +21,17 @@ const VIEW_PRESETS: Record<string, { dir: [number, number, number]; up: XYZLike 
     iso: { dir: [1, -1, 1], up: Z_UP },
 };
 
-function getDocument(): IDocument | undefined {
-    return globalThis.app.activeView?.document;
-}
+const NAMED_COLORS: Record<string, number> = {
+    red: 0xff0000,
+    green: 0x00ff00,
+    blue: 0x0000ff,
+    white: 0xffffff,
+    black: 0x000000,
+    gray: 0x888888,
+    grey: 0x888888,
+    yellow: 0xffff00,
+    orange: 0xff8800,
+};
 
 export function parseColor(v: unknown): number {
     if (typeof v === "number") return v;
@@ -28,18 +40,23 @@ export function parseColor(v: unknown): number {
         return Number.parseInt([...s].map((c) => c + c).join(""), 16);
     }
     if (/^[0-9a-fA-F]{6}$/.test(s)) return Number.parseInt(s, 16);
-    const named: Record<string, number> = {
-        red: 0xff0000,
-        green: 0x00ff00,
-        blue: 0x0000ff,
-        white: 0xffffff,
-        black: 0x000000,
-        gray: 0x888888,
-        grey: 0x888888,
-        yellow: 0xffff00,
-        orange: 0xff8800,
-    };
-    return named[s.toLowerCase()] ?? 0xcccccc;
+    return NAMED_COLORS[s.toLowerCase()] ?? DEFAULT_MATERIAL_COLOR;
+}
+
+/**
+ * The tool's colour input, where an unrecognized value is an error rather than the silent gray
+ * `parseColor` falls back to (that fallback is for reading back colours already stored).
+ */
+export function parseToolColor(v: unknown): number | string {
+    const names = Object.keys(NAMED_COLORS).join(", ");
+    if (typeof v === "number") {
+        if (Number.isInteger(v) && v >= 0 && v <= 0xffffff) return v;
+        return "color as a number must be an integer in 0x000000..0xffffff";
+    }
+    const s = String(v).trim().replace(/^#/, "");
+    if (/^[0-9a-fA-F]{3}$/.test(s) || /^[0-9a-fA-F]{6}$/.test(s)) return parseColor(v);
+    if (NAMED_COLORS[s.toLowerCase()] !== undefined) return parseColor(v);
+    return `unknown color "${v}" — use a hex string ("#ff0000"), one of ${names}, or a number like 0xff0000`;
 }
 
 export function buildViewTools(): Tool[] {
@@ -51,6 +68,21 @@ export function buildViewTools(): Tool[] {
         rotateViewTool(),
         setCameraTypeTool(),
     ];
+}
+
+/**
+ * The viewport image as a tool result: the JSON payload plus the screenshot itself, so the model
+ * sees the result and the picture in one step. Shared with `click_view`, whose whole point after a
+ * select is to show the highlight.
+ */
+export function imageResult(view: { toImage(): string }, payload: Record<string, unknown>): ToolResult {
+    const dataUrl = view.toImage();
+    const comma = dataUrl.indexOf(",");
+    const mediaType = dataUrl.slice(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";")) || "image/png";
+    return {
+        content: JSON.stringify({ ...payload, mediaType }),
+        images: [{ mediaType, data: dataUrl.slice(comma + 1) }],
+    };
 }
 
 function textResult(value: unknown): ToolResult {
@@ -65,13 +97,7 @@ function captureScreenshotTool(): Tool {
         handler: async () => {
             const view = globalThis.app.activeView;
             if (!view) return textResult({ error: "no active view" });
-            const dataUrl = view.toImage();
-            const comma = dataUrl.indexOf(",");
-            const mediaType = dataUrl.slice(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";")) || "image/png";
-            return {
-                content: JSON.stringify({ ok: true, mediaType }),
-                images: [{ mediaType, data: dataUrl.slice(comma + 1) }],
-            };
+            return imageResult(view, { ok: true });
         },
     };
 }
@@ -80,14 +106,26 @@ function setMaterialTool(): Tool {
     return {
         name: "set_material",
         description:
-            "Set the material color of a node by id. color is a hex string (#ff0000), a name (red), or a number (0xff0000).",
+            "Set the appearance of a node by id: color, opacity and/or surface texture. Pass at least one of the three; the omitted ones keep their current value. Materials are shared between nodes, so a material with exactly these values is reused when one exists and created otherwise — the other nodes are never changed.",
         parameters: {
             type: "object",
             properties: {
                 id: { type: "string", description: "Node id" },
-                color: { type: "string", description: "Color, e.g. '#ff0000' or 'red'" },
+                color: {
+                    anyOf: [{ type: "string" }, { type: "number" }],
+                    description: `Color: "#ff0000", a name (${Object.keys(NAMED_COLORS).join("/")}), or 0xRRGGBB`,
+                },
+                opacity: {
+                    type: "number",
+                    description: "0 = fully transparent, 1 = opaque (0..1)",
+                },
+                texture: {
+                    type: "string",
+                    description:
+                        'Surface texture as an image data URL ("data:image/png;base64,..."), an http(s)/blob URL or a same-origin path; "" removes the texture',
+                },
             },
-            required: ["id", "color"],
+            required: ["id"],
         },
         handler: setMaterialHandler,
     };
@@ -101,22 +139,98 @@ const setMaterialHandler: Tool["handler"] = async (args) => {
     if (!node || !("materialId" in node)) {
         return textResult({ error: `node not found or has no material: ${id}` });
     }
-    const color = parseColor(args["color"]);
-    const material = ensureMaterial(doc, color);
+
+    const appearance = resolveAppearance(doc, node, args);
+    if (typeof appearance === "string") return textResult({ error: appearance });
+
+    const material = ensureMaterial(doc, appearance.color, appearance.opacity, appearance.texture);
     Transaction.execute(doc, "AI set material", () => {
         (node as { materialId: string | string[] }).materialId = material.id;
     });
     doc.visual.update();
-    return textResult({ id, color, materialId: material.id });
+    return textResult({
+        id,
+        ...appearance,
+        texture: appearance.texture === "" ? null : appearance.texture,
+        materialId: material.id,
+    });
 };
 
-/** Finds the document's material with this color, creating one when none matches. */
-function ensureMaterial(doc: IDocument, color: number): Material {
+/** color / opacity / texture to apply, or the message saying why the arguments do not work. */
+function resolveAppearance(
+    doc: IDocument,
+    node: unknown,
+    args: Record<string, unknown>,
+): { color: number; opacity: number; texture: string } | string {
+    if (args["color"] === undefined && args["opacity"] === undefined && args["texture"] === undefined) {
+        return "provide at least one of color, opacity, texture";
+    }
+    // An omitted field keeps what the node already has, so setting only the opacity does not
+    // silently reset the colour of a node that was styled before.
+    const current = materialOf(doc, node);
+    const color = resolveColor(args["color"], current);
+    if ("error" in color) return color.error;
+    const opacity = resolveOpacity(args["opacity"], current);
+    if ("error" in opacity) return opacity.error;
+    const texture = resolveTexture(args["texture"], current);
+    if ("error" in texture) return texture.error;
+    return { color: color.value, opacity: opacity.value, texture: texture.value };
+}
+
+type Resolved<T> = { value: T } | { error: string };
+
+function resolveColor(arg: unknown, current: Material | undefined): Resolved<number> {
+    if (arg !== undefined) {
+        const color = parseToolColor(arg);
+        return typeof color === "string" ? { error: color } : { value: color };
+    }
+    // An omitted colour keeps the node's own, in the numeric form ensureMaterial compares in.
+    return { value: current === undefined ? DEFAULT_MATERIAL_COLOR : parseColor(current.color) };
+}
+
+function resolveOpacity(arg: unknown, current: Material | undefined): Resolved<number> {
+    const opacity = arg === undefined ? (current?.opacity ?? 1) : arg;
+    return typeof opacity === "number" && Number.isFinite(opacity) && opacity >= 0 && opacity <= 1
+        ? { value: opacity }
+        : { error: `opacity must be a number in [0,1], got ${describe(opacity)}` };
+}
+
+function resolveTexture(arg: unknown, current: Material | undefined): Resolved<string> {
+    const texture = arg === undefined ? (current?.map.image ?? "") : arg;
+    if (typeof texture !== "string") return { error: "texture must be a string" };
+    if (texture === "" || isTextureSource(texture)) return { value: texture };
+    return {
+        error: `texture must be an image data URL ("data:image/png;base64,..."), an http(s)/blob URL, a path, or "" to remove it — got ${describe(texture)}`,
+    };
+}
+
+/** The material the node points at, so an omitted argument can keep its current value. */
+function materialOf(doc: IDocument, node: unknown): Material | undefined {
+    const materialId = (node as { materialId?: string | string[] }).materialId;
+    const first = Array.isArray(materialId) ? materialId[0] : materialId;
+    return doc.modelManager.materials.find((m) => m.id === first);
+}
+
+/** A string the texture loader can actually fetch; anything else is a typo the model should see. */
+function isTextureSource(texture: string): boolean {
+    return /^(data:image\/|https?:\/\/|blob:|\/|\.{1,2}\/)/.test(texture);
+}
+
+function describe(value: unknown): string {
+    return typeof value === "string" ? JSON.stringify(value) : String(value);
+}
+
+/** Finds the document's material with exactly these values, creating one when none matches. */
+function ensureMaterial(doc: IDocument, color: number, opacity: number, texture: string): Material {
     // Material.color is number | string; normalize both sides before comparing.
-    const existing = doc.modelManager.materials.find((m) => parseColor(m.color) === color);
+    const existing = doc.modelManager.materials.find(
+        (m) => parseColor(m.color) === color && m.opacity === opacity && m.map.image === texture,
+    );
     if (existing) return existing;
 
     const material = new Material({ document: doc, name: `AI ${color.toString(16)}`, color });
+    material.opacity = opacity;
+    material.map.image = texture;
     doc.modelManager.materials.push(material);
     return material;
 }
@@ -141,7 +255,7 @@ function isolateViewTool(): Tool {
     return {
         name: "isolate_view",
         description:
-            "Isolate nodes by id: hide everything else in the viewport without changing node visibility. Pass an empty array to clear the isolation and show everything again. Combine with fit_content to focus on the isolated nodes.",
+            "Show only the given nodes: hide everything else in the viewport without changing node visibility. Replaces any previous isolation, so pass just the set you want visible; an empty array clears the isolation and shows everything again.",
         parameters: {
             type: "object",
             properties: {
@@ -177,6 +291,9 @@ const isolateViewHandler: Tool["handler"] = async (args) => {
     if (missing.length) {
         return textResult({ error: `nodes not found: ${missing.join(", ")}` });
     }
+    // `view.isolate` accumulates (the viewport treats a second call as widening the isolation),
+    // but this tool is documented as "isolate these nodes", so each call replaces the set.
+    view.unisolate();
     view.isolate(nodes);
     view.update();
     return textResult({ ok: true, isolated: ids });

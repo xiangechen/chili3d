@@ -17,7 +17,7 @@ describe("openaiCompat toMessages", () => {
             { role: "tool", toolCallId: "c1", name: "shot", content: "captured", images: [IMAGE] },
         ];
 
-        const out = toMessages("sys", messages);
+        const out = toMessages({ stable: "sys", volatile: "" }, messages);
 
         expect(out[2]).toEqual({ role: "tool", tool_call_id: "c1", content: "captured" });
         expect(out[3]).toEqual({
@@ -36,10 +36,18 @@ describe("openaiCompat toMessages", () => {
             { role: "user", content: "next" },
         ];
 
-        const out = toMessages("sys", messages);
+        const out = toMessages({ stable: "sys", volatile: "" }, messages);
 
         expect(out.map((m) => m["role"])).toEqual(["system", "tool", "tool", "user", "user"]);
         expect(out[4]).toEqual({ role: "user", content: "next" });
+    });
+
+    test("sends the stable half before the per-run snapshot", () => {
+        // Prefix caching on OpenAI-compatible endpoints is automatic but still a prefix match:
+        // the per-run snapshot has to come last or nothing before it is reusable.
+        const out = toMessages({ stable: "STABLE", volatile: "SNAPSHOT" }, []);
+
+        expect(out[0]).toEqual({ role: "system", content: "STABLE\n\nSNAPSHOT" });
     });
 });
 

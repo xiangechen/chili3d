@@ -46,13 +46,41 @@ export type StreamEvent =
     | { type: "text"; text: string }
     | { type: "thinking"; block: ThinkingBlock }
     | { type: "tool_call"; id: string; name: string; arguments: string }
+    | { type: "usage"; usage: TokenUsage }
     | { type: "done"; stopReason: string };
+
+/** What one model turn cost. `cacheRead` > 0 is the proof that prompt caching is working. */
+export interface TokenUsage {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheCreationTokens: number;
+}
 
 export type ToolCallBuffer = Map<number, { id: string; name: string; args: string }>;
 
+/**
+ * The system prompt split at its stability boundary: `stable` is byte-identical for every request
+ * in a run, `volatile` is the per-run context (the document snapshot) appended after it.
+ *
+ * The split exists for prompt caching. The API matches a prefix in the order
+ * `tools` -> `system` -> `messages`, so a per-run section placed *inside* the system prompt makes
+ * everything after it uncacheable — breakpoints and all. Providers that support explicit
+ * breakpoints mark `stable`; the others concatenate the two halves back into one string.
+ */
+export interface SystemPrompt {
+    stable: string;
+    volatile: string;
+}
+
+/** The two halves as the single string the providers without explicit caching send. */
+export function flattenSystem(system: SystemPrompt): string {
+    return system.volatile ? `${system.stable}\n\n${system.volatile}` : system.stable;
+}
+
 export interface StreamChatOptions {
     model: string;
-    system: string;
+    system: SystemPrompt;
     messages: ChatMessage[];
     tools: Tool[];
     signal?: AbortSignal;

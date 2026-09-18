@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, Localize } from "@chili3d/core";
+import { I18n, type I18nKeys, Localize } from "@chili3d/core";
 import { button, div, form, img, input, option, select, span, svg, textarea } from "@chili3d/element";
 import { marked, type Tokens } from "marked";
 import style from "./chatPanel.module.css";
@@ -40,6 +40,32 @@ function renderMarkdown(raw: string): string {
 }
 
 /** Mutable state of the assistant text streaming in during one turn. */
+/** The parts of a tool result a chat card summarizes; anything else falls back to the raw text. */
+interface ToolResultSummary {
+    ref?: string;
+    created?: { nodeId?: string; name?: string }[];
+    removed?: { nodeId?: string; name?: string }[];
+    error?: string;
+}
+
+function summarizeResult(parsed: ToolResultSummary, fallback: string): string {
+    const names = (nodes: { nodeId?: string; name?: string }[]) =>
+        nodes
+            .map((n) => n.name ?? n.nodeId ?? "")
+            .filter(Boolean)
+            .join(", ");
+
+    const segments: string[] = [];
+    if (parsed.created?.length) {
+        segments.push(I18n.translate("ai.tool.created", names(parsed.created)));
+    }
+    if (parsed.removed?.length) {
+        segments.push(I18n.translate("ai.tool.removed", names(parsed.removed)));
+    }
+    if (segments.length) return segments.join("; ");
+    return parsed.ref ? I18n.translate("ai.tool.created", parsed.ref) : fallback;
+}
+
 interface StreamState {
     el: HTMLElement | null;
     raw: string;
@@ -158,39 +184,30 @@ export class ChatPanel extends HTMLElement {
         return this.titleEl;
     }
 
+    /** One header icon button; `title` is the tooltip key, omitted by the dock button. */
+    private headerButton(
+        icon: string,
+        title: I18nKeys | undefined,
+        onclick: () => void,
+        hidden = false,
+    ): HTMLButtonElement {
+        return button(
+            {
+                className: style.iconButton,
+                ...(title === undefined ? {} : { title: I18n.translate(title) }),
+                ...(hidden ? { style: "display: none" } : {}),
+                onclick,
+            },
+            svg({ className: style.buttonIcon, icon }),
+        );
+    }
+
     private createHeaderButtons(): HTMLElement {
-        this.closeButtonEl = button(
-            {
-                className: style.iconButton,
-                title: I18n.translate("ai.cancel"),
-                onclick: () => this.onClose?.(),
-            },
-            svg({ className: style.buttonIcon, icon: "icon-times" }),
-        );
-        this.dockButtonEl = button(
-            {
-                className: style.iconButton,
-                style: "display: none",
-                onclick: () => this.onDock?.(),
-            },
-            svg({ className: style.buttonIcon, icon: "icon-compress-alt" }),
-        );
-        this.settingsButtonEl = button(
-            {
-                className: style.iconButton,
-                title: I18n.translate("ai.settings"),
-                onclick: () => this.showSettings(),
-            },
-            svg({ className: style.buttonIcon, icon: "icon-cog" }),
-        );
-        this.clearButtonEl = button(
-            {
-                className: style.iconButton,
-                title: I18n.translate("ai.clear"),
-                onclick: () => this.clear(),
-            },
-            svg({ className: style.buttonIcon, icon: "icon-clear" }),
-        );
+        this.closeButtonEl = this.headerButton("icon-times", "ai.cancel", () => this.onClose?.());
+        this.dockButtonEl = this.headerButton("icon-compress-alt", undefined, () => this.onDock?.(), true);
+        this.settingsButtonEl = this.headerButton("icon-cog", "ai.settings", () => this.showSettings());
+        this.clearButtonEl = this.headerButton("icon-clear", "ai.clear", () => this.clear());
+
         this.headerButtons = div(
             { className: style.headerButtons },
             this.settingsButtonEl,
@@ -243,6 +260,7 @@ export class ChatPanel extends HTMLElement {
             div({ className: style.emptyTitle, textContent: new Localize("ai.emptyTitle") }),
             div({ className: style.emptyHint, textContent: new Localize("ai.emptyHint") }),
             div({ className: style.emptyHint, textContent: new Localize("ai.emptyExample") }),
+            div({ className: style.emptyAsk, textContent: new Localize("ai.emptyAsk") }),
         );
     }
 
@@ -333,14 +351,7 @@ export class ChatPanel extends HTMLElement {
     private createSettingsHeader(): HTMLElement {
         return div(
             { className: style.settingsHeader },
-            button(
-                {
-                    className: style.iconButton,
-                    title: I18n.translate("ai.cancel"),
-                    onclick: () => this.hideSettings(),
-                },
-                svg({ className: style.buttonIcon, icon: "icon-back" }),
-            ),
+            this.headerButton("icon-back", "ai.cancel", () => this.hideSettings()),
             div({ className: style.settingsTitle, textContent: new Localize("ai.settingsTitle") }),
         );
     }
@@ -363,20 +374,24 @@ export class ChatPanel extends HTMLElement {
                 this.settingsField(new Localize("ai.apiKey"), this.apiKeyInput),
                 div({ className: style.settingsHint, textContent: new Localize("ai.apiKeyHint") }),
             ),
-            div(
-                { className: style.settingsFooter },
-                button({
-                    className: style.cancelButton,
-                    type: "button",
-                    textContent: new Localize("ai.cancel"),
-                    onclick: () => this.hideSettings(),
-                }),
-                button({
-                    className: style.saveButton,
-                    type: "submit",
-                    textContent: new Localize("ai.save"),
-                }),
-            ),
+            this.settingsFooter(),
+        );
+    }
+
+    private settingsFooter(): HTMLElement {
+        return div(
+            { className: style.settingsFooter },
+            button({
+                className: style.cancelButton,
+                type: "button",
+                textContent: new Localize("ai.cancel"),
+                onclick: () => this.hideSettings(),
+            }),
+            button({
+                className: style.saveButton,
+                type: "submit",
+                textContent: new Localize("ai.save"),
+            }),
         );
     }
 
@@ -513,55 +528,78 @@ export class ChatPanel extends HTMLElement {
         if (this.sending) return;
         const text = this.input.value.trim();
         if (!text) return;
-        const config = this.currentConfig();
-        if (!config.apiKey) {
-            this.configured = false;
-            this.renderState();
-            this.showSettings();
-            return;
-        }
+        const config = this.configuredConfig();
+        if (!config) return;
 
         this.sending = true;
         this.abortController = new AbortController();
-        const signal = this.abortController.signal;
         this.beginTurn(text);
 
         const { assistantEl, thinkingEl } = this.appendAssistantPlaceholder();
         const stream: StreamState = { el: null, raw: "" };
         let showFooter = false;
         try {
-            await runAgent({
-                config,
-                system: buildSystemPrompt(),
-                messages: this.messages,
-                tools: buildTools(),
-                signal,
-                callbacks: {
-                    onTextDelta: (t) => this.handleTextDelta(t, stream, thinkingEl, assistantEl),
-                    onToolCall: (c) => {
-                        this.ensureWorkBlock(assistantEl);
-                        this.appendToolCard(c.name, c.arguments, c.result);
-                    },
-                },
-            });
-            if (!stream.el) {
-                thinkingEl.remove();
-                assistantEl.append(
-                    div({ className: style.noReply, textContent: I18n.translate("ai.noReply") }),
-                );
-            } else {
+            await this.runTurn(config, this.abortController.signal, stream, assistantEl, thinkingEl);
+            if (stream.el) {
                 showFooter = true;
+            } else {
+                this.appendNoReply(assistantEl, thinkingEl);
             }
         } catch (err) {
             showFooter = this.handleSendError(err, stream, thinkingEl, assistantEl);
         } finally {
-            if (showFooter && stream.el) assistantEl.append(this.messageFooter(stream.raw));
-            this.finalizeWorkBlock();
-            this.sending = false;
-            this.abortController = undefined;
-            this.setStopMode(false);
-            this.scrollToBottom();
+            this.endTurn(showFooter, stream, assistantEl);
         }
+    }
+
+    /** A turn that streamed no text still owes the user an answer, even a placeholder one. */
+    private appendNoReply(assistantEl: HTMLElement, thinkingEl: HTMLElement): void {
+        thinkingEl.remove();
+        assistantEl.append(div({ className: style.noReply, textContent: I18n.translate("ai.noReply") }));
+    }
+
+    /** Undo what beginTurn set up, once the reply has landed. */
+    private endTurn(showFooter: boolean, stream: StreamState, assistantEl: HTMLElement): void {
+        if (showFooter && stream.el) assistantEl.append(this.messageFooter(stream.raw));
+        this.finalizeWorkBlock();
+        this.sending = false;
+        this.abortController = undefined;
+        this.setStopMode(false);
+        this.scrollToBottom();
+    }
+
+    /** The config to run with, or undefined after sending the user to the settings overlay. */
+    private configuredConfig(): LLMConfig | undefined {
+        const config = this.currentConfig();
+        if (config.apiKey) return config;
+        this.configured = false;
+        this.renderState();
+        this.showSettings();
+        return undefined;
+    }
+
+    /** Stream one answer into the placeholder, wiring the callbacks that render it live. */
+    private async runTurn(
+        config: LLMConfig,
+        signal: AbortSignal,
+        stream: StreamState,
+        assistantEl: HTMLElement,
+        thinkingEl: HTMLElement,
+    ): Promise<void> {
+        await runAgent({
+            config,
+            system: buildSystemPrompt(),
+            messages: this.messages,
+            tools: buildTools(),
+            signal,
+            callbacks: {
+                onTextDelta: (t) => this.handleTextDelta(t, stream, thinkingEl, assistantEl),
+                onToolCall: (c) => {
+                    this.ensureWorkBlock(assistantEl);
+                    this.appendToolCard(c.name, c.arguments, c.result);
+                },
+            },
+        });
     }
 
     /** Lock the composer, record the user message and render its bubble. */
@@ -751,31 +789,11 @@ export class ChatPanel extends HTMLElement {
     /** Summarize a tool result JSON into one display line; non-JSON passes through verbatim. */
     private parseToolResult(result: string): { text: string; isError: boolean } {
         try {
-            const parsed = JSON.parse(result) as {
-                ref?: string;
-                created?: { nodeId?: string; name?: string }[];
-                removed?: { nodeId?: string; name?: string }[];
-                error?: string;
-            };
+            const parsed = JSON.parse(result) as ToolResultSummary;
             if (parsed.error) {
                 return { text: I18n.translate("ai.error.prefix", parsed.error), isError: true };
             }
-            const segments: string[] = [];
-            if (parsed.created?.length) {
-                const names = parsed.created.map((c) => c.name ?? c.nodeId ?? "").filter(Boolean);
-                segments.push(I18n.translate("ai.tool.created", names.join(", ")));
-            }
-            if (parsed.removed?.length) {
-                const names = parsed.removed.map((r) => r.name ?? r.nodeId ?? "").filter(Boolean);
-                segments.push(I18n.translate("ai.tool.removed", names.join(", ")));
-            }
-            if (segments.length) {
-                return { text: segments.join("; "), isError: false };
-            }
-            if (parsed.ref) {
-                return { text: I18n.translate("ai.tool.created", parsed.ref), isError: false };
-            }
-            return { text: result, isError: false };
+            return { text: summarizeResult(parsed, result), isError: false };
         } catch {
             return { text: result, isError: false };
         }

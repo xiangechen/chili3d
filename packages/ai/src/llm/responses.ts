@@ -3,7 +3,15 @@
 
 import OpenAI from "openai";
 import type { LLMConfig } from "../settings";
-import type { ChatMessage, ImagePart, LLMProvider, StreamChatOptions, StreamEvent, Tool } from "./types";
+import {
+    type ChatMessage,
+    flattenSystem,
+    type ImagePart,
+    type LLMProvider,
+    type StreamChatOptions,
+    type StreamEvent,
+    type Tool,
+} from "./types";
 
 type ResponseStreamEvent = OpenAI.Responses.ResponseStreamEvent;
 type ToolArgsBuffer = Map<string, string>;
@@ -37,7 +45,8 @@ export class ResponsesProvider implements LLMProvider {
         const stream = await this.client.responses.create(
             {
                 model: opts.model,
-                instructions: opts.system,
+                // One instruction string, stable half first — see `SystemPrompt`.
+                instructions: flattenSystem(opts.system),
                 input: input as any,
                 tools: opts.tools.map(toTool) as any,
                 stream: true,

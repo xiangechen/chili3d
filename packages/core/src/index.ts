@@ -10,6 +10,7 @@ export * from "./document";
 export * from "./editor";
 export * from "./eventHandlers";
 export * from "./foundation";
+export * from "./guide";
 export * from "./i18n";
 export * from "./material";
 export * from "./math";

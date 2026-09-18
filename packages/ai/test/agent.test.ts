@@ -2,7 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import { MAX_AGENT_ITERATIONS, runAgent } from "../src/llm/agent";
-import type { ChatMessage, LLMProvider, StreamEvent, Tool } from "../src/llm/types";
+import type { ChatMessage, LLMProvider, StreamEvent, SystemPrompt, Tool } from "../src/llm/types";
+
+/** The system prompt is irrelevant to these tests — one stable half, no snapshot. */
+const SYSTEM: SystemPrompt = { stable: "sys", volatile: "" };
 
 async function* fakeStream(events: StreamEvent[]): AsyncIterable<StreamEvent> {
     for (const e of events) yield e;
@@ -59,7 +62,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages,
             tools,
             callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
@@ -85,7 +88,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages,
             tools: [],
             callbacks: { onTextDelta: (t) => deltas.push(t), onToolCall: () => {} },
@@ -121,7 +124,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages,
             tools,
             callbacks: { onTextDelta: (t) => deltas.push(t), onToolCall: () => {} },
@@ -129,9 +132,45 @@ describe("runAgent", () => {
         });
 
         expect(handlerCalls).toBe(MAX_AGENT_ITERATIONS);
-        // No text was ever produced, so the UI gets a termination notice instead.
+        // No text was ever produced, so the notice is the only thing the user sees.
         expect(deltas.length).toBe(1);
-        expect(deltas[0]).toContain("maximum number of steps");
+        // The ai package's tests don't load the locale data, so a key comes back untranslated;
+        // this still pins which message the run ends with.
+        expect(deltas[0]).toBe("ai.stepLimit");
+    });
+
+    test("says the step limit was hit even when the model had been talking", async () => {
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                yield { type: "text", text: "tick" };
+                yield { type: "tool_call", id: "t", name: "loop_tool", arguments: "{}" };
+                yield { type: "done", stopReason: "tool_use" };
+            },
+        };
+        const tools: Tool[] = [
+            {
+                name: "loop_tool",
+                description: "",
+                parameters: { type: "object" },
+                handler: async () => JSON.stringify({ ok: true }),
+            },
+        ];
+        const deltas: string[] = [];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools,
+            callbacks: { onTextDelta: (t) => deltas.push(t), onToolCall: () => {} },
+            provider,
+        });
+
+        // The run stopped mid-plan, and that has to be said out loud — the model's own last
+        // words read like a finished answer.
+        expect(deltas.at(-1)).toBe("ai.stepLimit");
+        expect(deltas.length).toBe(MAX_AGENT_ITERATIONS + 1);
     });
 
     test("returns tool handler errors to the model as JSON and continues the loop", async () => {
@@ -161,7 +200,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages,
             tools,
             callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
@@ -192,7 +231,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages,
             tools: [],
             callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
@@ -214,7 +253,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages,
             tools: [],
             callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
@@ -234,7 +273,7 @@ describe("runAgent", () => {
         await expect(
             runAgent({
                 config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-                system: "sys",
+                system: SYSTEM,
                 messages: [],
                 tools: [],
                 callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
@@ -271,7 +310,7 @@ describe("runAgent", () => {
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
-            system: "sys",
+            system: SYSTEM,
             messages: [],
             tools,
             callbacks: { onTextDelta: () => {}, onToolCall: () => {} },

@@ -9,16 +9,34 @@ import type {
     LLMProvider,
     StreamChatOptions,
     StreamEvent,
+    SystemPrompt,
+    TokenUsage,
     Tool,
     ToolCallBuffer,
 } from "./types";
 
-type RawStreamEvent = { type: string; index?: number; content_block?: any; delta?: any };
+type RawUsage = {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+};
+
+type RawStreamEvent = {
+    type: string;
+    index?: number;
+    content_block?: any;
+    delta?: any;
+    message?: { usage?: RawUsage };
+    usage?: RawUsage;
+};
 
 export interface StreamState {
     toolBuf: ToolCallBuffer;
     thinkingBuf: Map<number, { thinking: string; signature: string }>;
     stopReason?: string;
+    /** Filled from message_start, completed from message_delta, reported as one usage event. */
+    usage?: TokenUsage;
 }
 
 export class AnthropicProvider implements LLMProvider {
@@ -34,13 +52,15 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     async *streamChat(opts: StreamChatOptions): AsyncIterable<StreamEvent> {
+        const messages = toMessages(opts.messages);
+        markConversationTail(messages);
         const stream = this.client.messages.stream(
             {
                 model: opts.model,
                 max_tokens: 64000,
                 thinking: { type: "adaptive" },
-                system: opts.system,
-                messages: toMessages(opts.messages) as any,
+                system: systemBlocks(opts.system),
+                messages: messages as any,
                 tools: opts.tools.map(toTool) as any,
                 disable_parallel_tool_use: true,
             },
@@ -54,6 +74,71 @@ export class AnthropicProvider implements LLMProvider {
     }
 }
 
+/**
+ * The stable half carries the first of the two cache breakpoints (the other is the conversation
+ * tail — see `markConversationTail`). Rendered order is `tools` -> `system` -> `messages` and
+ * caching is a prefix match, so this one marker covers the tool schemas and the stable prompt
+ * together; the per-run snapshot that follows stays outside the cached prefix, where it can only
+ * invalidate itself.
+ */
+export function systemBlocks(system: SystemPrompt): Anthropic.TextBlockParam[] {
+    const blocks: Anthropic.TextBlockParam[] = [
+        {
+            type: "text",
+            text: system.stable,
+            // An hour, because the gaps that matter here are human: inside a run the agent's turns
+            // are seconds apart and the default five minutes would do, but a user who answers
+            // twenty minutes later would otherwise re-pay for the whole prefix. Writes cost 2x
+            // instead of 1.25x, and any read refreshes the timer for free. An entry with a longer
+            // TTL must precede the shorter-lived ones, so this one stays ahead of the tail marker.
+            cache_control: { type: "ephemeral", ttl: "1h" },
+        },
+    ];
+    // The API rejects an empty text block.
+    if (system.volatile) blocks.push({ type: "text", text: system.volatile });
+    return blocks;
+}
+
+/** The conversation tail keeps the default 5-minute TTL: each turn appends and re-writes it. */
+const TAIL_CACHE_CONTROL: Anthropic.CacheControlEphemeral = { type: "ephemeral" };
+
+/**
+ * Mark the last block of the conversation, so every request reads the turns before it instead of
+ * re-processing them; within a run the agent appends a turn per iteration and the hits accrue as
+ * it grows. This is the second of the two breakpoints (the system prefix carries the first).
+ *
+ * Block-level `cache_control` rather than the request-level automatic field, which would place
+ * this marker for us: the automatic field is newer, and an older Anthropic-compatible gateway
+ * behind a custom `baseURL` may reject a request field it does not know, while an unknown block
+ * field is simply ignored.
+ */
+export function markConversationTail(messages: MessageParam[]): void {
+    const last = messages[messages.length - 1];
+    if (last === undefined) return;
+
+    if (typeof last.content === "string") {
+        // A plain string has no block for the marker to sit on; promote it. An empty one has
+        // nothing to promote and would be a rejected empty text block, so it is left alone.
+        if (last.content) {
+            last.content = [{ type: "text", text: last.content, cache_control: TAIL_CACHE_CONTROL }];
+        }
+        return;
+    }
+
+    const blocks = last.content as any[] | undefined;
+    if (!Array.isArray(blocks) || blocks.length === 0) return;
+    blocks[blocks.length - 1] = { ...blocks[blocks.length - 1], cache_control: TAIL_CACHE_CONTROL };
+}
+
+function toUsage(source: RawUsage | undefined): TokenUsage {
+    return {
+        inputTokens: source?.input_tokens ?? 0,
+        outputTokens: source?.output_tokens ?? 0,
+        cacheReadTokens: source?.cache_read_input_tokens ?? 0,
+        cacheCreationTokens: source?.cache_creation_input_tokens ?? 0,
+    };
+}
+
 export function* convertEvent(e: RawStreamEvent, state: StreamState): Iterable<StreamEvent> {
     if (e.type === "content_block_start") {
         yield* bufferBlockStart(e, state);
@@ -63,9 +148,16 @@ export function* convertEvent(e: RawStreamEvent, state: StreamState): Iterable<S
     } else if (e.type === "content_block_stop") {
         const event = finishBlock(e.index!, state);
         if (event) yield event;
+    } else if (e.type === "message_start") {
+        state.usage = toUsage(e.message?.usage);
     } else if (e.type === "message_delta") {
         // The real stop reason (end_turn / tool_use / max_tokens) only appears here.
         if (e.delta?.stop_reason) state.stopReason = e.delta.stop_reason;
+        // Output tokens are only final here; the input and cache counts came from message_start.
+        if (state.usage && typeof e.usage?.output_tokens === "number") {
+            state.usage.outputTokens = e.usage.output_tokens;
+        }
+        if (state.usage) yield { type: "usage", usage: state.usage };
     } else if (e.type === "message_stop") {
         yield { type: "done", stopReason: state.stopReason ?? "end_turn" };
     }

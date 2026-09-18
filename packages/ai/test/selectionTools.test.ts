@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type AsyncController, ShapeTypes, VisualStates } from "@chili3d/core";
+import { ShapeTypes, VisualStates } from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { buildSelectionTools } from "../src/tools/selectionTools";
 
@@ -25,74 +25,15 @@ afterEach(() => {
     rs.unstubAllGlobals();
 });
 
-describe("pick_shapes tool", () => {
-    test("returns picked sub-shapes with nodeId, shapeType and index", async () => {
-        const pickShape = rs.fn(
-            (_p: string, _c: AsyncController, _o?: { shapeType?: number; multi?: boolean }) =>
-                Promise.resolve([fakeShapeHit()]),
-        );
-        rs.stubGlobal("app", { activeView: { dom: {}, document: { picker: { pickShape } } } });
-
-        const result = JSON.parse((await getTool("pick_shapes").handler({ multi: true })) as string);
-
-        expect(pickShape).toHaveBeenCalledTimes(1);
-        expect(pickShape.mock.calls[0][1]).toBeDefined();
-        const options = pickShape.mock.calls[0][2] as { shapeType: number; multi: boolean };
-        expect(options.shapeType).toBe(ShapeTypes.face);
-        expect(options.multi).toBe(true);
-        expect(result.picked).toEqual([
-            { nodeId: "n1", nodeName: "box", shapeType: "edge", index: 3, point: { x: 1, y: 2, z: 3 } },
-        ]);
-    });
-
-    test("passes an explicit shapeType and reports cancellation", async () => {
-        const pickShape = rs.fn((_p: string, controller: AsyncController, _o?: { shapeType?: number }) => {
-            controller.cancel();
-            return Promise.resolve([] as unknown[]);
-        });
-        rs.stubGlobal("app", { activeView: { dom: {}, document: { picker: { pickShape } } } });
-
-        const result = JSON.parse((await getTool("pick_shapes").handler({ shapeType: "edge" })) as string);
-
-        expect((pickShape.mock.calls[0][2] as { shapeType: number }).shapeType).toBe(ShapeTypes.edge);
-        expect(result).toEqual({ cancelled: true, picked: [] });
-    });
-
-    test("rejects an unknown shapeType and reports a missing viewport", async () => {
-        rs.stubGlobal("app", { activeView: { dom: {}, document: { picker: {} } } });
-        await expect(getTool("pick_shapes").handler({ shapeType: "circle" })).rejects.toThrow(
-            /shapeType must be one of/,
-        );
-
-        rs.stubGlobal("app", { activeView: undefined });
-        const result = JSON.parse((await getTool("pick_shapes").handler({})) as string);
-        expect(result.error).toContain("no active viewport");
-    });
-
-    test("cancels the viewport picker when the chat abort signal fires", async () => {
-        const pickShape = rs.fn(
-            (_p: string, controller: AsyncController) =>
-                new Promise<unknown[]>((resolve) => controller.onCancelled(() => resolve([]))),
-        );
-        rs.stubGlobal("app", { activeView: { dom: {}, document: { picker: { pickShape } } } });
-
-        const abort = new AbortController();
-        const pending = getTool("pick_shapes").handler({}, abort.signal);
-        abort.abort();
-        const result = JSON.parse((await pending) as string);
-
-        expect(result).toEqual({ cancelled: true, picked: [] });
-    });
-});
-
 describe("click_view tool", () => {
-    function stubView(detectShapes: unknown, setSelectedShapes?: unknown) {
+    function stubView(detectShapes: unknown, setSelectedShapes?: unknown, toImage?: unknown) {
         rs.stubGlobal("app", {
             activeView: {
                 dom: {},
                 width: 800,
                 height: 600,
                 detectShapes,
+                toImage,
                 document: { selection: { setSelectedShapes } },
             },
         });
@@ -142,6 +83,44 @@ describe("click_view tool", () => {
         stubView(rs.fn(() => []));
         const result = JSON.parse((await getTool("click_view").handler({ x: 1.2, y: 0 })) as string);
         expect(result.error).toContain("must be numbers in [0,1]");
+    });
+
+    test("screenshot:true returns the viewport image with the select result", async () => {
+        const faceHit = fakeShapeHit({ shape: { shapeType: ShapeTypes.face, index: 1 }, indexes: [1] });
+        const toImage = rs.fn(() => "data:image/png;base64,AAAA");
+        stubView(
+            rs.fn(() => [faceHit]),
+            rs.fn(),
+            toImage,
+        );
+
+        const result = (await getTool("click_view").handler({
+            x: 0.5,
+            y: 0.5,
+            action: "select",
+            screenshot: true,
+        })) as { content: string; images?: { mediaType: string; data: string }[] };
+
+        expect(toImage).toHaveBeenCalledTimes(1);
+        expect(result.images).toEqual([{ mediaType: "image/png", data: "AAAA" }]);
+        const payload = JSON.parse(result.content);
+        expect(payload.screenshot).toBe(true);
+        expect(payload.mediaType).toBe("image/png");
+        expect(payload.selected.shapeType).toBe("face");
+    });
+
+    test("omits the image unless it is asked for", async () => {
+        const toImage = rs.fn(() => "data:image/png;base64,AAAA");
+        stubView(
+            rs.fn(() => [fakeShapeHit()]),
+            rs.fn(),
+            toImage,
+        );
+
+        const result = await getTool("click_view").handler({ x: 0.5, y: 0.5, action: "select" });
+
+        expect(toImage).not.toHaveBeenCalled();
+        expect(typeof result).toBe("string");
     });
 });
 

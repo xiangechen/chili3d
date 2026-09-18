@@ -3,15 +3,7 @@
 
 import type { IDocument, INode } from "@chili3d/core";
 import type { Tool } from "../llm/types";
-
-function getDocument(): IDocument | undefined {
-    try {
-        // globalThis.app is a core getter that throws before any Application exists.
-        return globalThis.app?.activeView?.document;
-    } catch {
-        return undefined;
-    }
-}
+import { getDocument } from "./documentContext";
 
 function summarizeNode(node: INode) {
     return { id: node.id, type: node.constructor.name, name: node.name };

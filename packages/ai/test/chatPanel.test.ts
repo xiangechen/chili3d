@@ -37,6 +37,7 @@ rs.mock("../src/chatPanel.module.css", () => ({
     emptyIcon: "emptyIcon",
     emptyTitle: "emptyTitle",
     emptyHint: "emptyHint",
+    emptyAsk: "emptyAsk",
     attachButton: "attachButton",
     attachIcon: "attachIcon",
     imageThumb: "imageThumb",

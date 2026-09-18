@@ -2,7 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    AsyncController,
     type IDocument,
     type INode,
     type IShape,
@@ -12,6 +11,7 @@ import {
     VisualStates,
 } from "@chili3d/core";
 import type { Tool } from "../llm/types";
+import { imageResult } from "./viewTools";
 
 const PICKABLE_SHAPE_TYPES = ["shape", "solid", "shell", "face", "wire", "edge", "vertex"] as const;
 
@@ -37,7 +37,7 @@ function shapeTypeName(shape: IShape): string {
 }
 
 /**
- * The sub-shape summary both pick_shapes and click_view report. `index` matches the order of
+ * The sub-shape summary click_view reports. `index` matches the order of
  * shape.findSubShapes on the owning node, so it can be fed to fillet/chamfer "edges" directly.
  */
 function summarizeShape(s: VisualShapeData) {
@@ -55,80 +55,36 @@ function summarizeNode(node: INode) {
     return { id: node.id, type: node.constructor.name, name: node.name };
 }
 
-function pickShapesTool(): Tool {
-    return {
-        name: "pick_shapes",
-        description:
-            "Ask the user to click shapes in the viewport (a picker with confirm/cancel appears). Returns the picked sub-shapes with nodeId, shapeType and index — index matches shape.findSubShapes order on that node and can be used directly as fillet/chamfer 'edges'. Use when the user refers to specific faces/edges ('this edge', 'that hole') that you cannot identify by name or query. Returns { cancelled: true } when the user cancels the picker.",
-        parameters: {
-            type: "object",
-            properties: {
-                shapeType: {
-                    type: "string",
-                    enum: [...PICKABLE_SHAPE_TYPES],
-                    description: "What to pick (default face)",
-                },
-                multi: {
-                    type: "boolean",
-                    description: "Allow picking multiple shapes (default false)",
-                },
-            },
+const CLICK_VIEW_PARAMETERS = {
+    type: "object",
+    properties: {
+        x: { type: "number", description: "Normalized horizontal position, 0=left, 1=right" },
+        y: { type: "number", description: "Normalized vertical position, 0=top, 1=bottom" },
+        shapeType: {
+            type: "string",
+            enum: [...PICKABLE_SHAPE_TYPES],
+            description: "What to hit-test (default face)",
         },
-        handler: pickShapesHandler,
-    };
-}
-
-const pickShapesHandler: Tool["handler"] = async (args, signal) => {
-    const view = globalThis.app.activeView;
-    const doc = view?.document;
-    if (!doc || !view.dom) {
-        return JSON.stringify({ error: "no active viewport — picking needs a visible view" });
-    }
-    if (signal?.aborted) {
-        return JSON.stringify({ cancelled: true, picked: [] });
-    }
-    const controller = new AsyncController();
-    // Cancelling the chat aborts the signal — end the viewport picker the same way its
-    // own cancel button would, so the view never stays stuck in pick mode.
-    const onAbort = () => controller.cancel();
-    signal?.addEventListener("abort", onAbort, { once: true });
-    try {
-        const shapes = await doc.picker.pickShape("prompt.select.shape", controller, {
-            shapeType: args["shapeType"] === undefined ? ShapeTypes.face : shapeTypeOf(args["shapeType"]),
-            multi: args["multi"] === true,
-        });
-        if (controller.result?.status === "cancel") {
-            return JSON.stringify({ cancelled: true, picked: [] });
-        }
-        return JSON.stringify({ picked: shapes.map(summarizeShape) });
-    } finally {
-        signal?.removeEventListener("abort", onAbort);
-    }
+        action: {
+            type: "string",
+            enum: ["detect", "select"],
+            description: "detect only reports hits (default); select also selects the first hit",
+        },
+        screenshot: {
+            type: "boolean",
+            description:
+                "Also return a fresh viewport screenshot in this same result (default false) — use it after a 'select' to see whether the highlight landed on the intended shape",
+        },
+    },
+    required: ["x", "y"],
 };
 
 function clickViewTool(): Tool {
     return {
         name: "click_view",
         description:
-            "Click a point in the viewport, like a mouse click. Coordinates are normalized [0,1] (x: 0=left/1=right, y: 0=top/1=bottom) and match the latest capture_screenshot image. action 'detect' (default) only reports what is hit; 'select' also selects the first hit (highlighted for follow-up operations like fillet or fit_content). Hits come back as candidates with nodeId, shapeType, index (usable as fillet/chamfer 'edges') and the world point. Faces are easy to hit; edges are a few pixels wide — after a select, verify the highlight with capture_screenshot before operating.",
-        parameters: {
-            type: "object",
-            properties: {
-                x: { type: "number", description: "Normalized horizontal position, 0=left, 1=right" },
-                y: { type: "number", description: "Normalized vertical position, 0=top, 1=bottom" },
-                shapeType: {
-                    type: "string",
-                    enum: [...PICKABLE_SHAPE_TYPES],
-                    description: "What to hit-test (default face)",
-                },
-                action: {
-                    type: "string",
-                    enum: ["detect", "select"],
-                    description: "detect only reports hits (default); select also selects the first hit",
-                },
-            },
-            required: ["x", "y"],
-        },
+            "Click a point in the viewport, like a mouse click. Coordinates are normalized [0,1] (x: 0=left/1=right, y: 0=top/1=bottom) and match the latest capture_screenshot image. action 'detect' (default) only reports what is hit; 'select' additionally highlights the first hit as a sub-shape — it does NOT change which nodes are selected, so fit_content still fits the whole model. Pass screenshot:true to get a fresh image back with the response, which is how a select is verified: the highlight must be visible on the shape you meant before you operate on it. The response is { pixel, hits: [{ nodeId, nodeName, shapeType, index, point }], selected }; each hit's index is usable as fillet/chamfer 'edges'. Faces are easy to hit; edges are only a few pixels wide.",
+        parameters: CLICK_VIEW_PARAMETERS,
         handler: clickViewHandler,
     };
 }
@@ -151,11 +107,16 @@ const clickViewHandler: Tool["handler"] = async (args) => {
     const hits = view.detectShapes(shapeType, px, py);
 
     const selected = args["action"] === "select" ? selectHitShape(doc, hits[0], shapeType) : undefined;
-    return JSON.stringify({
+    const payload = {
         pixel: { x: Math.round(px), y: Math.round(py) },
         hits: hits.map(summarizeShape),
         selected,
-    });
+    };
+    // A fresh screenshot in the same result is what closes the verify loop in one step: the model
+    // looks at the picture and checks the highlight landed on the shape it meant.
+    return args["screenshot"] === true
+        ? imageResult(view, { ...payload, screenshot: true })
+        : JSON.stringify(payload);
 };
 
 /** Selects the hit shape and returns its summary; undefined when there was nothing to hit. */
@@ -207,5 +168,5 @@ function findNodesByIds(doc: IDocument, ids: string[]): { nodes: INode[]; missin
 }
 
 export function buildSelectionTools(): Tool[] {
-    return [pickShapesTool(), clickViewTool(), selectNodesTool()];
+    return [clickViewTool(), selectNodesTool()];
 }

@@ -14,6 +14,7 @@ export default {
         "ai.cancel": "Cancel",
         "ai.clear": "Clear",
         "ai.copy": "Copy",
+        "ai.emptyAsk": "Or ask how to use Chili3D — e.g. “how do I chamfer an edge?”",
         "ai.emptyExample": "e.g. create a 10×20×5 box, then fillet 2mm",
         "ai.emptyHint": "Create and edit 3D models with natural language",
         "ai.emptyTitle": "AI Modeling Assistant",
@@ -34,6 +35,8 @@ export default {
         "ai.sendHint": "Send (Ctrl+Enter)",
         "ai.settings": "Settings",
         "ai.settingsTitle": "AI Assistant Settings",
+        "ai.stepLimit":
+            '(Step limit for this message reached — say "continue" and I will carry on from here.)',
         "ai.stop": "Stop",
         "ai.title": "AI Assistant",
         "ai.tool.created": "Created {0}",

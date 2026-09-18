@@ -3,14 +3,16 @@
 
 import OpenAI from "openai";
 import type { LLMConfig } from "../settings";
-import type {
-    ChatMessage,
-    ImagePart,
-    LLMProvider,
-    StreamChatOptions,
-    StreamEvent,
-    Tool,
-    ToolCallBuffer,
+import {
+    type ChatMessage,
+    flattenSystem,
+    type ImagePart,
+    type LLMProvider,
+    type StreamChatOptions,
+    type StreamEvent,
+    type SystemPrompt,
+    type Tool,
+    type ToolCallBuffer,
 } from "./types";
 
 /** OpenAI-compatible Chat Completions provider (GPT / DeepSeek / Kimi / any endpoint). */
@@ -91,33 +93,50 @@ function toTool(t: Tool) {
     };
 }
 
-export function toMessages(system: string, messages: ChatMessage[]): MessageParam[] {
-    const out: MessageParam[] = [{ role: "system", content: system }];
-    // OpenAI tool messages cannot carry images; collect them and forward in a follow-up user
-    // message once the tool-message run ends (a user message must not split consecutive tools).
-    const pendingImages: ImagePart[] = [];
-    const flushImages = () => {
-        if (!pendingImages.length) return;
-        out.push({
-            role: "user",
-            content: mixedContent("Images from the tool result above:", pendingImages),
-        });
-        pendingImages.length = 0;
-    };
-    for (const m of messages) {
-        if (m.role === "user") {
-            flushImages();
-            out.push(toUserMessage(m));
-        } else if (m.role === "assistant") {
-            flushImages();
-            const message = toAssistantMessage(m);
-            if (message) out.push(message);
-        } else {
-            out.push(toToolMessage(m));
-            if (m.images?.length) pendingImages.push(...m.images);
-        }
+/**
+ * OpenAI tool messages cannot carry images, so they are held back and forwarded as one user
+ * message once the run of tool messages ends — a user message must not split consecutive tools.
+ */
+class PendingImages {
+    private readonly images: ImagePart[] = [];
+
+    constructor(private readonly out: MessageParam[]) {}
+
+    hold(images?: ImagePart[]): void {
+        if (images?.length) this.images.push(...images);
     }
-    flushImages();
+
+    flush(): void {
+        if (!this.images.length) return;
+        this.out.push({
+            role: "user",
+            content: mixedContent("Images from the tool result above:", this.images),
+        });
+        this.images.length = 0;
+    }
+}
+
+export function toMessages(system: SystemPrompt, messages: ChatMessage[]): MessageParam[] {
+    // OpenAI-compatible endpoints cache prompt prefixes automatically; the stable half first and
+    // the per-run snapshot last is what keeps that prefix reusable (see `SystemPrompt`).
+    const out: MessageParam[] = [{ role: "system", content: flattenSystem(system) }];
+    const images = new PendingImages(out);
+
+    for (const m of messages) {
+        if (m.role === "tool") {
+            out.push(toToolMessage(m));
+            images.hold(m.images);
+            continue;
+        }
+        images.flush();
+        if (m.role === "user") {
+            out.push(toUserMessage(m));
+            continue;
+        }
+        const message = toAssistantMessage(m);
+        if (message) out.push(message);
+    }
+    images.flush();
     return out;
 }
 

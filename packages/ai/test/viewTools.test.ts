@@ -3,7 +3,7 @@
 
 import { createMockDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { buildViewTools, parseColor } from "../src/tools/viewTools";
+import { buildViewTools, parseColor, parseToolColor } from "../src/tools/viewTools";
 
 describe("parseColor", () => {
     test.each([
@@ -22,6 +22,120 @@ describe("parseColor", () => {
 
     test.each([["not-a-color"], ["#12345"], [""], ["#ff00"]])("falls back to gray for %s", (input) => {
         expect(parseColor(input)).toBe(0xcccccc);
+    });
+});
+
+describe("parseToolColor", () => {
+    test("accepts the same forms as parseColor", () => {
+        expect(parseToolColor("#ff0000")).toBe(0xff0000);
+        expect(parseToolColor("red")).toBe(0xff0000);
+        expect(parseToolColor(0x00ff00)).toBe(0x00ff00);
+    });
+
+    // The tool's own input path must not swallow a typo as "some gray" the way parseColor does
+    // when reading back stored colors.
+    test.each([["crimson"], ["#ff00"], [""]])("rejects the unknown color %s", (input) => {
+        expect(parseToolColor(input)).toContain("unknown color");
+    });
+
+    test("rejects a number outside the 24-bit color range", () => {
+        expect(parseToolColor(-1)).toContain("0x000000..0xffffff");
+        expect(parseToolColor(0x1000000)).toContain("0x000000..0xffffff");
+        expect(parseToolColor(1.5)).toContain("0x000000..0xffffff");
+    });
+});
+
+describe("set_material tool", () => {
+    function getTool() {
+        const tool = buildViewTools().find((t) => t.name === "set_material");
+        expect(tool).toBeDefined();
+        return tool!;
+    }
+
+    function stubNode(node: Record<string, unknown> = {}) {
+        const doc = createMockDocument();
+        const target = { id: "n1", materialId: undefined as string | undefined, ...node };
+        (doc.modelManager as any).findNodes = rs.fn((pred: (n: any) => boolean) =>
+            pred(target) ? [target] : [],
+        );
+        (doc.visual as any).update = rs.fn(() => {});
+        rs.stubGlobal("app", { activeView: { document: doc } });
+        return { doc, target };
+    }
+
+    /** The JSON body set_material answers with, success or error. */
+    interface MaterialResult {
+        id: string;
+        color: number;
+        opacity: number;
+        texture: string | null;
+        materialId: string;
+        error?: string;
+    }
+
+    async function run(args: Record<string, unknown>): Promise<MaterialResult> {
+        const result = await getTool().handler(args);
+        return JSON.parse(typeof result === "string" ? result : result.content) as MaterialResult;
+    }
+
+    /** The materials the document now holds, narrowed for the assertions. */
+    function materials(doc: ReturnType<typeof createMockDocument>): any[] {
+        return doc.modelManager.materials as unknown as any[];
+    }
+
+    afterEach(() => {
+        rs.unstubAllGlobals();
+    });
+
+    test("sets colour, opacity and texture together on a new material", async () => {
+        const { doc, target } = stubNode();
+
+        const result = await run({
+            id: "n1",
+            color: "#ff0000",
+            opacity: 0.4,
+            texture: "data:image/png;base64,AAAA",
+        });
+
+        expect(result).toMatchObject({ id: "n1", color: 0xff0000, opacity: 0.4 });
+        const created = materials(doc);
+        expect(created).toHaveLength(1);
+        expect(created[0].opacity).toBe(0.4);
+        expect(created[0].map.image).toBe("data:image/png;base64,AAAA");
+        expect(target.materialId).toBe(created[0].id);
+    });
+
+    test("keeps the values it is not given, and reuses a material that already matches", async () => {
+        const { doc } = stubNode();
+        await run({ id: "n1", color: "red" });
+
+        const result = await run({ id: "n1", opacity: 0.5 });
+
+        expect(result.color).toBe(0xff0000);
+        expect(materials(doc)).toHaveLength(2);
+        // Asking again for the same appearance must not pile up another material.
+        await run({ id: "n1", color: "red", opacity: 0.5 });
+        expect(materials(doc)).toHaveLength(2);
+    });
+
+    test("validates opacity, the texture source and an empty call", async () => {
+        stubNode();
+
+        expect((await run({ id: "n1", opacity: 2 })).error).toContain("opacity must be a number in [0,1]");
+        expect((await run({ id: "n1", texture: "checkerboard" })).error).toContain(
+            "texture must be an image data URL",
+        );
+        expect((await run({ id: "n1" })).error).toContain("provide at least one of color, opacity, texture");
+    });
+
+    test("removes a texture with an empty string", async () => {
+        const { doc } = stubNode();
+        await run({ id: "n1", texture: "data:image/png;base64,AAAA" });
+
+        const result = await run({ id: "n1", texture: "" });
+
+        expect(result.texture).toBeNull();
+        expect(materials(doc)[1].map.image).toBe("");
     });
 });
 
@@ -148,23 +262,30 @@ describe("isolate_view tool", () => {
     }
 
     function stubView(nodeIds: string[] = []) {
-        const isolate = rs.fn();
-        const unisolate = rs.fn();
+        const order: string[] = [];
+        const isolate = rs.fn((_nodes: unknown[]) => {
+            order.push("isolate");
+        });
+        const unisolate = rs.fn(() => {
+            order.push("unisolate");
+        });
         const update = rs.fn();
         const doc = createMockDocument();
         (doc.modelManager as any).findNodes = rs.fn((pred: (n: any) => boolean) =>
             nodeIds.map((id) => ({ id })).filter(pred),
         );
         rs.stubGlobal("app", { activeView: { document: doc, isolate, unisolate, update } });
-        return { isolate, unisolate, update };
+        return { isolate, unisolate, update, order };
     }
 
-    test("isolates the given nodes", async () => {
-        const { isolate, update } = stubView(["n1", "n2"]);
+    test("isolates the given nodes, clearing any previous isolation first", async () => {
+        const { isolate, update, order } = stubView(["n1", "n2"]);
 
         const result = (await getTool().handler({ ids: ["n1", "n2"] })) as { content: string };
 
-        expect(isolate).toHaveBeenCalledTimes(1);
+        // The viewport's isolate() widens the existing isolation; this tool is documented as
+        // replacing it, so the previous set is dropped before the new one is applied.
+        expect(order).toEqual(["unisolate", "isolate"]);
         expect(isolate.mock.calls[0][0]).toEqual([{ id: "n1" }, { id: "n2" }]);
         expect(update).toHaveBeenCalledTimes(1);
         expect(JSON.parse(result.content)).toEqual({ ok: true, isolated: ["n1", "n2"] });

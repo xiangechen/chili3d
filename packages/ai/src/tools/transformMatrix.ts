@@ -24,6 +24,13 @@ function asVec3(value: unknown, label: string): Vec3 | string {
     return { x: x as number, y: y as number, z: z as number };
 }
 
+/**
+ * Multiplies one transform step onto everything accumulated so far, so the accumulator ends up as
+ * mirror·scale·rotate·translate. `Matrix4.ofPoint` applies a matrix to a point as a row vector
+ * (`p·M`), so the LEFTMOST factor acts first — the accumulated order IS the order the steps reach
+ * the geometry. (Under the column-vector convention the same chain would read backwards, which is
+ * the trap `transformMatrix.test.ts` pins down.)
+ */
 type MatrixStep = (matrix: Matrix4, value: unknown) => Matrix4 | string;
 
 function applyMirror(matrix: Matrix4, mirror: unknown): Matrix4 | string {
@@ -80,21 +87,43 @@ function applyTranslate(matrix: Matrix4, translate: unknown): Matrix4 | string {
 }
 
 /**
+ * The shared transform encoding, stated once: the system prompt's transformedMul sentence
+ * quotes all four, and `nodeTools.ts`'s parameter schema reuses the flat ones (translate and
+ * scale — rotate and mirror carry nested schemas, so their shape is written there). Changing
+ * how an argument is encoded means touching its entry here and its `apply*` function below.
+ */
+export const TRANSFORM_ARG_DOC = {
+    translate: "Translation in mm, {x, y, z}",
+    rotate: "Rotation of a non-zero axis {x, y, z} by an angle in degrees, about an optional center (defaults to {0,0,0})",
+    scale: "Uniform scaling by a number or {x, y, z}; must be non-zero",
+    mirror: "A mirror plane through an origin {x, y, z} with a non-zero normal {x, y, z}",
+} as const;
+
+/** The steps in the order they act on the geometry — this array IS that order. */
+const TRANSFORM_STEPS: [keyof typeof TRANSFORM_ARG_DOC, MatrixStep][] = [
+    ["mirror", applyMirror],
+    ["scale", applyScale],
+    ["rotate", applyRotate],
+    ["translate", applyTranslate],
+];
+
+/** The order the arguments act in, derived from `TRANSFORM_STEPS` so no prose can disagree. */
+export const TRANSFORM_ORDER = TRANSFORM_STEPS.map(([name]) => name).join(" → ");
+
+/** The four arguments, in the order they act, as the single sentence the prompt quotes. */
+export const TRANSFORM_ARGS_SENTENCE = TRANSFORM_STEPS.map(
+    ([name]) => `${name}: ${TRANSFORM_ARG_DOC[name]}`,
+).join("; ");
+
+/**
  * Compose a Matrix4 from the shared transform encoding used by transform_node and the
- * transformedMul op: any of translate/rotate/scale/mirror, composed in
- * mirror → scale → rotate → translate order. Returns an error string on invalid input.
+ * transformedMul op: any of translate/rotate/scale/mirror, acting in `TRANSFORM_ORDER`.
+ * Returns an error string on invalid input.
  */
 export function buildTransformMatrix(args: Record<string, unknown>): Matrix4 | string {
-    const steps: [string, MatrixStep][] = [
-        ["mirror", applyMirror],
-        ["scale", applyScale],
-        ["rotate", applyRotate],
-        ["translate", applyTranslate],
-    ];
-
     let matrix = Matrix4.identity();
     let hasOp = false;
-    for (const [key, step] of steps) {
+    for (const [key, step] of TRANSFORM_STEPS) {
         if (args[key] === undefined) continue;
         const result = step(matrix, args[key]);
         if (typeof result === "string") return result;

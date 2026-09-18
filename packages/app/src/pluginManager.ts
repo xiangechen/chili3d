@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AppGuideStore,
     CommandStore,
     Config,
     type DialogButton,
@@ -370,6 +371,12 @@ export class PluginManager implements IPluginManager {
                 this.app.mainWindow.ribbon.combineRibbonTab(ribbonContribution);
             }
         }
+
+        if (plugin.guide) {
+            for (const section of plugin.guide) {
+                AppGuideStore.registerSection(section);
+            }
+        }
     }
 
     private async unregisterPlugin(pluginName: string, plugin: Plugin): Promise<void> {
@@ -396,6 +403,12 @@ export class PluginManager implements IPluginManager {
         if (plugin.commands) {
             for (const commandKey of plugin.commands) {
                 CommandStore.unregisterCommand(commandKey);
+            }
+        }
+
+        if (plugin.guide) {
+            for (const section of plugin.guide) {
+                AppGuideStore.unregisterSection(section.name);
             }
         }
 

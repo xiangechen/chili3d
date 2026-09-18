@@ -81,7 +81,14 @@ export type QueryOwner =
 
 export type QueryFamily = "shape" | "curve" | "surface";
 
-export type QueryReturnKind = "data" | "curveRef" | "surfaceRef" | "shapeRef" | "refList" | "mutate";
+export type QueryReturnKind =
+    | "data"
+    | "shapeType"
+    | "curveRef"
+    | "surfaceRef"
+    | "shapeRef"
+    | "refList"
+    | "mutate";
 
 export interface QueryCapability {
     method: string;
@@ -418,7 +425,7 @@ export const queryCapabilities: QueryCapability[] = [
         name: "shapeType",
         owner: "shape",
         family: "shape",
-        returnKind: "data",
+        returnKind: "shapeType",
         params: [],
     },
     { method: "shape.id", name: "id", owner: "shape", family: "shape", returnKind: "data", params: [] },
@@ -1935,7 +1942,7 @@ export const queryCapabilities: QueryCapability[] = [
     },
 ];
 
-export const capabilitiesSource = `Available modeling capabilities (from IShapeFactory; units: mm, angles: degrees):
+export const capabilitiesSource = `Available modeling capabilities (from IShapeFactory; units: mm, angles: degrees — the exception is simplifyShape's angleTolerance, which OCCT takes in radians):
   edge(curve: curveRef) -> edge
   face(wire: refArray) -> face
   faceFromSurface(wires: refArray, sourceFace: ref) -> face
@@ -1980,15 +1987,15 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   simplifyShape(shape: ref, removeEdges: boolean, removeFaces: boolean, keepShapes: refArray, linearTolerance: number?, angleTolerance: number?) -> shape
 JSON encoding: XYZ={x,y,z}; Plane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} — an XY-oriented plane through origin when normal is omitted; Line={point:{x,y,z},direction:{x,y,z}} — a point plus a direction, NOT {start,end} ("line(start,end)" above is a creation method that builds an edge; to revolve around an existing edge, query edge.ends and derive point/direction from them); a shape/ref parameter takes an op id from any run_program call on this document or an existing node id; number[] is a plain number array — for fillet/chamfer "edges" it takes edge indices in the order returned by shape.findSubShapes(target, edge), so run that query first and pick indices from the edges' geometry (e.g. via edge.ends); enum params list their allowed values inline (a|b|c). Geometric params (plane/center/normal) may be omitted and default to the origin/Z axis. Params marked with ? are optional and may be omitted; the factory default applies. A method returning "shapeWithData" (removeFillet) creates its node from the result's shape; array extras (newEdges) come back in "results" under "<opId>.<key>" as { count, refs, kind: "shape" } with refs named <opId>#<key>#0..n.
 Placement: box/rect/pyramid — plane.origin is a CORNER, the shape extends +dx/+dy/+dz from it. cylinder/cone — center is the BASE-FACE center, the shape extends +dz along normal. sphere — center is the true center. To center a box at P use origin = P - (dx/2,dy/2,dz/2); to center a cylinder/cone at P use center = P - normal*(dz/2).
-polygon: pass the corner points in PERIMETER ORDER, at least 3, ALL ON ONE PLANE, and REPEAT THE FIRST POINT as the last point to close the wire explicitly. An unclosed wire can still become a face, but prism/revolve on it sweeps an open SHELL instead of a solid — a silent wrong result that breaks downstream booleans and fillets. polygon returns a WIRE, not a face: chain wire.toFace for a face or feed the closed wire to prism/revolve. A self-crossing point order (bowtie) yields a degenerate near-zero-area face, not an error — order points around the perimeter.`;
+polygon: pass the corner points in PERIMETER ORDER, at least 3, ALL ON ONE PLANE, and REPEAT THE FIRST POINT as the last point to close the wire explicitly. polygon returns a WIRE, not a face — prism/revolve take it as it is: a CLOSED wire (or a closed edge such as a circle) is closed into a face for you and sweeps a solid, while an UNCLOSED one is swept into an open SHELL, a silent wrong result that breaks downstream booleans and fillets. A self-crossing point order (bowtie) yields a degenerate near-zero-area face, not an error — order points around the perimeter.`;
 
-export const queryApiDoc = `Shape query API (units: mm, angles: degrees). Run via run_program query ops:
+export const queryApiDoc = `Shape query API (units: mm, angles: degrees — the exception is conicalSurface.semiAngle, which reports OCCT's native radians). Run via run_program query ops:
 { "method": "<owner>.<name>", "target": "<ref>", "id": "q1", "args": { ... } }
 - target: an op id, an existing node id, a sub-shape ref (q1#2), or a curve/surface ref.
-- Refs persist across run_program calls on the same document and re-resolve against the live shape; a ref whose source node was deleted fails with a clear error — re-run the query that produced it.
+- Refs persist across run_program calls on the same document and re-resolve against the live shape; a ref whose source node was deleted fails with a clear error — re-run the query that produced it. At most 256 refs are kept per document: in a long session the oldest are evicted and later fail as "Unknown ref".
 - Every query op needs an "id"; its return value comes back in the response "results" under that id. Result encodings: data queries return the plain value; curve/surface-producing queries (edge.curve, face.surface, trimmedCurve.basisCurve, ...) return { ref, kind } where kind is "curve" or "surface" — pass ref as the target of follow-up queries, and only to members matching its kind; single-shape queries (wire.toFace, wire.offset, face.outerWire, edge.trim, ...) return { ref, kind: "shape" } — the ref works both as a query target and as a shape argument in creation ops; list queries (shape.findSubShapes, wire.edgeLoop) return { count, refs, kind: "shape" }; mutation queries (curve.reverse, trimmedCurve.setTrim, ...) return null and modify the target ref's geometry in place — the mutation is remembered and re-applied whenever the ref is re-resolved.
 - Query ops never consume or delete the referenced node, and never create scene nodes.
-- kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} (XY-oriented through origin when normal is omitted) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid; ref/curveRef/surfaceRef take a ref string.
+- kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} (XY-oriented through origin when normal is omitted) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid (the plural is accepted too, and shape.findSubShapes' subshapeType may be left out — it then means edge); ref/curveRef/surfaceRef take a ref string.
 - Type hierarchy: circle/ellipse/hyperbola/parabola are conic; conic/line/bezierCurve/bsplineCurve/trimmedCurve/offsetCurve are curve — curve.* and conic.* members apply to those targets too. Surfaces likewise: cylindricalSurface/planeSurface/sphericalSurface/... are elementarySurface, and every *Surface is a surface. Use curve.curveType to check what a curve ref actually is.
 - edge.curve ALWAYS yields a trimmedCurve (it carries the edge's parameter range), even for a straight or circular edge.
 - Auto-derivation: curve-family queries accept an edge shape ref directly (edge.curve is applied for you), and surface-family queries accept a face shape ref (face.surface). Type-specific curve members (circle.radius, line.direction, ...) additionally unwrap a trimmedCurve to its basisCurve, so circle.radius works straight on an edge ref. curve.curveType is the exception — it reports the target's own type, so on an edge or trimmedCurve it says "trimmedCurve"; chain trimmedCurve.basisCurve (callable on an edge ref too) to classify the underlying curve. Mutation queries (curve.reverse, trimmedCurve.setTrim) are strict: they need an explicit curve ref from edge.curve.

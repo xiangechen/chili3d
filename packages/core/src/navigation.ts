@@ -22,7 +22,8 @@ export class Navigation3D {
         return key;
     }
 
-    static navigationKeyMap(): {
+    /** The pan/rotate mouse buttons of a profile — the active one unless a profile is named. */
+    static navigationKeyMap(profile: Navigation3DType = Config.instance.navigation3D): {
         pan: string;
         rotate: string;
     } {
@@ -54,6 +55,6 @@ export class Navigation3D {
                 rotate: string;
             }
         >;
-        return functionKey[Config.instance.navigation3D];
+        return functionKey[profile];
     }
 }
