@@ -66,6 +66,37 @@ import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
 
+/** One sub-shape a hit resolved to, and the indexes it occupies in its own node's shape list. */
+interface SubShapeEntry {
+    shape: IShape;
+    transform?: Matrix4;
+    indexes: number[];
+}
+
+/**
+ * The containers a pick replaces a face/edge with, in the order the bitmask asks for them:
+ * `solid` before `shell` for a face, `wire` for an edge. A pick may want several at once —
+ * `ShapeType` is a bitmask — which is why this is a list and not a single type.
+ */
+function wantedContainers(shapeType: ShapeType, subType: ShapeType): ShapeType[] {
+    const wanted: ShapeType[] = [];
+    if (subType === ShapeTypes.face) {
+        if (ShapeTypeUtils.hasSolid(shapeType)) wanted.push(ShapeTypes.solid);
+        if (ShapeTypeUtils.hasShell(shapeType)) wanted.push(ShapeTypes.shell);
+    } else if (subType === ShapeTypes.edge && ShapeTypeUtils.hasWire(shapeType)) {
+        wanted.push(ShapeTypes.wire);
+    }
+    return wanted;
+}
+
+/** Whether the sub-shape itself is what a pick with no applicable container asked for. */
+function keepsSubShape(shapeType: ShapeType, subType: ShapeType): boolean {
+    if (subType === ShapeTypes.face) return ShapeTypeUtils.hasFace(shapeType);
+    if (subType === ShapeTypes.edge) return ShapeTypeUtils.hasEdge(shapeType);
+    // A range group that is neither a face nor an edge (a solid, a vertex) passes through.
+    return true;
+}
+
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
     private _needsUpdate: boolean = false;
@@ -611,11 +642,8 @@ export class ThreeView extends Observable implements IView {
         return result;
     }
 
-    private collectSubShapeEntries(
-        shapeType: ShapeType,
-        visual: ThreeVisualObject,
-    ): { shape: IShape; transform?: Matrix4; indexes: number[] }[] {
-        const entries: { shape: IShape; transform?: Matrix4; indexes: number[] }[] = [];
+    private collectSubShapeEntries(shapeType: ShapeType, visual: ThreeVisualObject): SubShapeEntry[] {
+        const entries: SubShapeEntry[] = [];
         const added = new Set<string>();
 
         const iterateFaces =
@@ -624,27 +652,28 @@ export class ThreeView extends Observable implements IView {
             ShapeTypeUtils.hasShell(shapeType);
         const iterateEdges = ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType);
 
+        // The ranges to walk and the shape the ancestors are resolved against: a geometry
+        // node's own mesh, or a component instance's merged one (no root shape of its own).
+        let faceRanges: ShapeMeshRange[] | undefined;
+        let edgeRanges: ShapeMeshRange[] | undefined;
+        let rootShape: IShape | undefined;
         if (visual instanceof ThreeGeometry) {
             const node = visual.geometryNode;
-            const rootShape = node instanceof ShapeNode ? node.shape.unchecked() : undefined;
-
-            if (iterateFaces && node.mesh.faces?.range) {
-                this.resolveRangeGroups(shapeType, node.mesh.faces.range, rootShape, added, entries);
-            }
-            if (iterateEdges && node.mesh.edges?.range) {
-                this.resolveRangeGroups(shapeType, node.mesh.edges.range, rootShape, added, entries);
-            }
+            rootShape = node instanceof ShapeNode ? node.shape.unchecked() : undefined;
+            faceRanges = node.mesh.faces?.range;
+            edgeRanges = node.mesh.edges?.range;
         } else if (visual instanceof ThreeComponentObject) {
             const mesh = visual.componentNode.component.mesh;
-
-            if (iterateFaces && mesh.face.range.length > 0) {
-                this.resolveRangeGroups(shapeType, mesh.face.range, undefined, added, entries);
-            }
-            if (iterateEdges && mesh.edge.range.length > 0) {
-                this.resolveRangeGroups(shapeType, mesh.edge.range, undefined, added, entries);
-            }
+            faceRanges = mesh.face.range;
+            edgeRanges = mesh.edge.range;
         }
 
+        if (iterateFaces && faceRanges?.length) {
+            this.resolveRangeGroups(shapeType, faceRanges, rootShape, added, entries);
+        }
+        if (iterateEdges && edgeRanges?.length) {
+            this.resolveRangeGroups(shapeType, edgeRanges, rootShape, added, entries);
+        }
         return entries;
     }
 
@@ -653,38 +682,37 @@ export class ThreeView extends Observable implements IView {
         groups: ShapeMeshRange[],
         rootShape: IShape | undefined,
         added: Set<string>,
-        entries: { shape: IShape; transform?: Matrix4; indexes: number[] }[],
+        entries: SubShapeEntry[],
     ) {
-        const addShape = (visual: ReturnType<typeof this.getAncestorAndIndex>) => {
-            if (visual.shape && !added.has(visual.shape.id)) {
-                added.add(visual.shape.id);
-                entries.push({
-                    shape: visual.shape,
-                    transform: visual.transform,
-                    indexes: visual.indexes,
-                });
-            }
-        };
         for (let i = 0; i < groups.length; i++) {
             const subShape = groups[i].shape as ISubShape;
             if (!subShape) continue;
 
             const rShape = rootShape ?? subShape;
-            if (ShapeTypeUtils.hasSolid(shapeType) && subShape.shapeType === ShapeTypes.face) {
-                addShape(this.getAncestorAndIndex(ShapeTypes.solid, subShape, rShape, groups));
-            } else if (ShapeTypeUtils.hasShell(shapeType) && subShape.shapeType === ShapeTypes.face) {
-                addShape(this.getAncestorAndIndex(ShapeTypes.shell, subShape, rShape, groups));
-            } else if (ShapeTypeUtils.hasWire(shapeType) && subShape.shapeType === ShapeTypes.edge) {
-                addShape(this.getAncestorAndIndex(ShapeTypes.wire, subShape, rShape, groups));
-            } else {
-                if (!ShapeTypeUtils.hasFace(shapeType) && subShape.shapeType === ShapeTypes.face) {
-                    continue;
-                } else if (!ShapeTypeUtils.hasEdge(shapeType) && subShape.shapeType === ShapeTypes.edge) {
-                    continue;
-                }
-                addShape({ indexes: [i], ...groups[i] });
+            // Only the FIRST wanted container applies: the face is replaced by it whether or
+            // not the ancestor resolves, never demoted back to the face itself.
+            const container = wantedContainers(shapeType, subShape.shapeType).at(0);
+            if (container !== undefined) {
+                this.addEntry(added, entries, this.getAncestorAndIndex(container, subShape, rShape, groups));
+                continue;
             }
+            if (!keepsSubShape(shapeType, subShape.shapeType)) continue;
+            this.addEntry(added, entries, { indexes: [i], ...groups[i] });
         }
+    }
+
+    /**
+     * Adds one resolved sub-shape, once per shape id — the same face may sit in several
+     * ranges. An ancestor lookup that found nothing arrives as an entry with no shape.
+     */
+    private addEntry(
+        added: Set<string>,
+        entries: SubShapeEntry[],
+        entry: { shape: IShape | undefined; transform?: Matrix4; indexes: number[] },
+    ): void {
+        if (!entry.shape || added.has(entry.shape.id)) return;
+        added.add(entry.shape.id);
+        entries.push({ shape: entry.shape, transform: entry.transform, indexes: entry.indexes });
     }
 
     private isBoundingBoxInRect(
@@ -850,25 +878,16 @@ export class ThreeView extends Observable implements IView {
         const { shape, subShape, index, groups, transform } = this.findShapeAndIndex(parent, intersection);
         if (!subShape || !shape) return { shape: undefined, indexes: [] };
 
-        if (ShapeTypeUtils.hasSolid(shapeType) && subShape.shapeType === ShapeTypes.face) {
-            const solid = this.getAncestorAndIndex(ShapeTypes.solid, subShape, shape, groups);
-            if (solid.shape) return solid;
+        // Every wanted container is tried in turn — a container whose ancestor cannot be
+        // found falls through to the next, and only then to the sub-shape itself. (The
+        // rect path stops at the first one; see `resolveRangeGroups`.)
+        for (const container of wantedContainers(shapeType, subShape.shapeType)) {
+            const ancestor = this.getAncestorAndIndex(container, subShape, shape, groups);
+            if (ancestor.shape) return ancestor;
         }
-        if (ShapeTypeUtils.hasShell(shapeType) && subShape.shapeType === ShapeTypes.face) {
-            const shell = this.getAncestorAndIndex(ShapeTypes.shell, subShape, shape, groups);
-            if (shell.shape) return shell;
-        }
-        if (ShapeTypeUtils.hasWire(shapeType) && subShape.shapeType === ShapeTypes.edge) {
-            const wire = this.getAncestorAndIndex(ShapeTypes.wire, subShape, shape, groups);
-            if (wire.shape) return wire;
-        }
-        if (!ShapeTypeUtils.hasFace(shapeType) && subShape.shapeType === ShapeTypes.face) {
+        if (!keepsSubShape(shapeType, subShape.shapeType)) {
             return { shape: undefined, indexes: [index] };
         }
-        if (!ShapeTypeUtils.hasEdge(shapeType) && subShape.shapeType === ShapeTypes.edge) {
-            return { shape: undefined, indexes: [index] };
-        }
-
         return { shape: subShape, indexes: [index], transform };
     }
 

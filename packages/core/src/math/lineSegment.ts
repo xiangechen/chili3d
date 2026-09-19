@@ -144,28 +144,24 @@ export class LineSegment {
     ) {
         if (tN < 0.0) {
             // tc < 0 => the t=0 edge is visible
-            tN = 0.0;
-            if (negD < 0.0) {
-                sN = 0.0;
-            } else if (negD > a) {
-                sN = sD;
-            } else {
-                sN = negD;
-                sD = a;
-            }
-        } else if (tN > tD) {
+            return clampToVisibleEdge(0.0, tD, sD, negD, a);
+        }
+        if (tN > tD) {
             // tc > 1  => the t=1 edge is visible
-            tN = tD;
-            const negDB = b !== undefined ? negD + b : negD;
-            if (negDB < 0.0) {
-                sN = 0.0;
-            } else if (negDB > a) {
-                sN = sD;
-            } else {
-                sN = negDB;
-                sD = a;
-            }
+            return clampToVisibleEdge(tD, tD, sD, b !== undefined ? negD + b : negD, a);
         }
         return { tN, tD, sN, sD };
     }
+}
+
+/**
+ * The parameters of the closest point when the t projection leaves [0, 1]: the
+ * t edge the projection falls on is visible, so the s parameter is clamped to
+ * that edge - 0 below it, 1 above it (sN === sD), the projection itself
+ * otherwise. The incoming sN is always superseded by the clamping.
+ */
+function clampToVisibleEdge(tN: number, tD: number, sD: number, projection: number, a: number) {
+    if (projection < 0.0) return { tN, tD, sN: 0.0, sD };
+    if (projection > a) return { tN, tD, sN: sD, sD };
+    return { tN, tD, sN: projection, sD: a };
 }

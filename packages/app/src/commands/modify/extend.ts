@@ -234,11 +234,9 @@ function freeEnds(wire: IShape, edge: ISubEdgeShape): FreeEnds {
 }
 
 /**
- * Rebuild the edge so its range reaches p. When both ends are free the picked
- * endpoint moves to p (the longer side without a pick point); when only one
- * end is free the free end moves to p and the shared end anchors the edge,
- * even when the corner lies beyond the anchor; when both ends are shared the
- * range cannot change at all. An arc may never grow to a full circle.
+ * Rebuild the edge so its range reaches p. Which rule moves the range is
+ * decided by the free ends, and the picked `end` only matters when both ends
+ * are free. An arc may never grow to a full circle.
  */
 function edgeThroughParameter(
     edge: IEdge,
@@ -247,38 +245,74 @@ function edgeThroughParameter(
     end: PickedEnd,
     free: FreeEnds,
 ): Result<IEdge> {
-    let [first, last] = [support.first, support.last];
-    const tol = support.period > 0 ? Precision.Angle : Precision.Distance;
-    if (!free.first && !free.last) {
-        if (p < first - tol || p > last + tol || (p > first + tol && p < last - tol)) {
-            return Result.err("The shared endpoint of a wire edge cannot move");
-        }
-    } else if (free.first !== free.last) {
-        // only the free end moves to p; the shared end anchors the edge
-        if (free.first) {
-            const q = Math.abs(p - last) <= tol ? last : p;
-            [first, last] = [Math.min(q, last), Math.max(q, last)];
-        } else {
-            const q = Math.abs(p - first) <= tol ? first : p;
-            [first, last] = [Math.min(first, q), Math.max(first, q)];
-        }
-    } else if (p > first && p < last) {
-        if (end === "first" || (end === undefined && p - first < last - p)) {
-            first = p;
-        } else {
-            last = p;
-        }
-    } else {
-        first = Math.min(first, p);
-        last = Math.max(last, p);
-    }
+    const range = movedRange(support, p, end, free);
+    if (!range.isOk) return range.parse();
 
+    const [first, last] = range.value;
     if (support.period > 0 && last - first >= support.period - Precision.Angle) {
         return Result.err("Arc would become a full circle");
     }
+
     const trimmed = edge.trim(first, last);
     // a corner within tolerance of the anchored end leaves an empty window
     return trimmed === undefined ? Result.err("Edge would shrink to a point") : Result.ok(trimmed);
+}
+
+/** The range the edge moves to so it reaches p; the free ends decide which rule applies. */
+function movedRange(
+    support: SupportCurve,
+    p: number,
+    end: PickedEnd,
+    free: FreeEnds,
+): Result<[number, number]> {
+    const [first, last] = [support.first, support.last];
+    const tol = support.period > 0 ? Precision.Angle : Precision.Distance;
+
+    if (!free.first && !free.last) return anchoredRange(first, last, p, tol);
+    if (free.first !== free.last) return oneFreeEndRange(first, last, p, tol, free.first);
+    return bothEndsFreeRange(first, last, p, end);
+}
+
+/** When both ends are shared the range cannot change at all, so p must already land on the edge. */
+function anchoredRange(first: number, last: number, p: number, tol: number): Result<[number, number]> {
+    if (p < first - tol || p > last + tol || (p > first + tol && p < last - tol)) {
+        return Result.err("The shared endpoint of a wire edge cannot move");
+    }
+    return Result.ok([first, last]);
+}
+
+/**
+ * When only one end is free the free end moves to p and the shared end
+ * anchors the edge, even when the corner lies beyond the anchor.
+ */
+function oneFreeEndRange(
+    first: number,
+    last: number,
+    p: number,
+    tol: number,
+    firstIsFree: boolean,
+): Result<[number, number]> {
+    if (firstIsFree) {
+        const q = Math.abs(p - last) <= tol ? last : p;
+        return Result.ok([Math.min(q, last), Math.max(q, last)]);
+    }
+    const q = Math.abs(p - first) <= tol ? first : p;
+    return Result.ok([Math.min(first, q), Math.max(first, q)]);
+}
+
+/**
+ * When both ends are free the picked endpoint moves to p (the longer side
+ * without a pick point) for a p inside the range; a p outside grows the range
+ * to reach it.
+ */
+function bothEndsFreeRange(first: number, last: number, p: number, end: PickedEnd): Result<[number, number]> {
+    if (p > first && p < last) {
+        if (end === "first" || (end === undefined && p - first < last - p)) {
+            return Result.ok([p, last]);
+        }
+        return Result.ok([first, p]);
+    }
+    return Result.ok([Math.min(first, p), Math.max(last, p)]);
 }
 
 /**

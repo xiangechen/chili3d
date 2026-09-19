@@ -40,6 +40,36 @@ interface PickedPlane {
     refPositions?: Record<string, number>;
 }
 
+/** The source body's edges, matched against a picked face's boundary to recover tracked ids. */
+function sourceBodyEdges(owner: INode): IEdge[] {
+    return owner instanceof ParametricBodyNode && owner.shape.isOk
+        ? (owner.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[])
+        : [];
+}
+
+/**
+ * The source body's tracked id for one boundary edge of a picked face, reporting the
+ * loss when the body carries ids but has none for this edge.
+ */
+function trackedIdOfFaceEdge(owner: INode, ownerEdges: IEdge[], localEdge: IEdge): string | undefined {
+    if (!(owner instanceof ParametricBodyNode)) return undefined;
+    // isSame, not isEqual: wire exploration may decorate the edge with a
+    // reversed orientation, which IsEqual rejects — boolean-born faces
+    // (a groove's floor) would otherwise lose their tracked ids here.
+    const index = ownerEdges.findIndex((edge) => edge.isSame(localEdge));
+    const edgeId = index < 0 ? undefined : owner.edgeIdAt(index);
+    if (edgeId === undefined) {
+        reportSilentIdLoss(
+            owner,
+            "edge",
+            index < 0
+                ? "a boundary edge of the picked face was not found on the source body"
+                : "a boundary edge of the picked face has no tracked id",
+        );
+    }
+    return edgeId;
+}
+
 /**
  * The picked face's boundary edges as reference-role external refs (profile would
  * surprise-extrude the whole face boundary). Edges whose curve is not a line or a
@@ -53,32 +83,13 @@ export function captureBoundaryExternalRefs(
 ): ExternalRefData[] | undefined {
     const localFace = result.data.shape as IFace;
     const localEdges = localFace.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const ownerEdges = sourceBodyEdges(owner);
     const refs: ExternalRefData[] = [];
-    const ownerEdges =
-        owner instanceof ParametricBodyNode && owner.shape.isOk
-            ? (owner.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[])
-            : [];
     let nextId = FIRST_EXTERNAL_ENTITY_ID;
     for (const localEdge of localEdges) {
         const worldEdge = localEdge.transformedMul(result.data.transform) as IEdge;
         try {
-            let edgeId: string | undefined;
-            if (owner instanceof ParametricBodyNode) {
-                // isSame, not isEqual: wire exploration may decorate the edge with a
-                // reversed orientation, which IsEqual rejects — boolean-born faces
-                // (a groove's floor) would otherwise lose their tracked ids here.
-                const index = ownerEdges.findIndex((edge) => edge.isSame(localEdge));
-                edgeId = index < 0 ? undefined : owner.edgeIdAt(index);
-                if (edgeId === undefined) {
-                    reportSilentIdLoss(
-                        owner,
-                        "edge",
-                        index < 0
-                            ? "a boundary edge of the picked face was not found on the source body"
-                            : "a boundary edge of the picked face has no tracked id",
-                    );
-                }
-            }
+            const edgeId = trackedIdOfFaceEdge(owner, ownerEdges, localEdge);
             const ref = captureExternalRef(nextId, owner.id, plane, worldEdge, edgeId, "reference");
             if (ref === undefined) continue;
             refs.push(ref);

@@ -177,29 +177,31 @@ export class PluginManager implements IPluginManager {
         const importmapObj = await response.json();
         const importmapBaseUrl = new URL(importmapPath, baseUrl).href;
         if (importmapObj.imports) {
-            for (const key in importmapObj.imports) {
-                const value = importmapObj.imports[key];
-                if (!value.startsWith("http://") && !value.startsWith("https://")) {
-                    const absoluteUrl = new URL(value, importmapBaseUrl).href;
-                    importmapObj.imports[key] = absoluteUrl;
-                }
-            }
+            PluginManager.resolveSpecifiers(importmapObj.imports, importmapBaseUrl);
         }
 
         if (importmapObj.scopes) {
             for (const scope in importmapObj.scopes) {
                 const scopeBaseUrl = new URL(scope, importmapBaseUrl).href;
-                for (const key in importmapObj.scopes[scope]) {
-                    const value = importmapObj.scopes[scope][key];
-                    if (!value.startsWith("http://") && !value.startsWith("https://")) {
-                        const absoluteUrl = new URL(value, scopeBaseUrl).href;
-                        importmapObj.scopes[scope][key] = absoluteUrl;
-                    }
-                }
+                PluginManager.resolveSpecifiers(importmapObj.scopes[scope], scopeBaseUrl);
             }
         }
 
         this.injectImportmap(JSON.stringify(importmapObj));
+    }
+
+    /**
+     * Rewrite the relative entries of a specifier map - the importmap's imports
+     * or one of its scopes - as absolute URLs against baseUrl, since the browser
+     * would otherwise resolve them against the document rather than the plugin.
+     */
+    private static resolveSpecifiers(specifiers: Record<string, string>, baseUrl: string) {
+        for (const key in specifiers) {
+            const value = specifiers[key];
+            if (!value.startsWith("http://") && !value.startsWith("https://")) {
+                specifiers[key] = new URL(value, baseUrl).href;
+            }
+        }
     }
 
     private async loadMainCode(

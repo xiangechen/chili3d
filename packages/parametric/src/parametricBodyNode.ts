@@ -598,17 +598,7 @@ export class ParametricBodyNode
                 this.followReferencedSketches(feature, followedSketches);
                 this.refreshConsumedTools(feature);
                 const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
-                if (!step.isOk) {
-                    this._featureErrors.set(feature.id, String(step.error));
-                    // A failed chain keeps the previous cache and shape: id queries must
-                    // keep describing the displayed shape, not a truncated prefix of a
-                    // rebuild that never made it to the screen.
-                    this._timeline.discard(nextCache, this.currentShape());
-                    // Warnings describe sketch state, not the chain run — repopulate them
-                    // here too, or one failing feature wipes them off the other rows.
-                    this.markUnresolvedExternalRefs(features);
-                    return Result.err(step.error);
-                }
+                if (!step.isOk) return this.abandonChain(feature, step.error, nextCache, features);
                 input = step.value.shape;
                 faceIds = step.value.faceIds;
                 edgeIds = step.value.edgeIds;
@@ -629,6 +619,25 @@ export class ParametricBodyNode
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
         if (input === undefined) return shapeFactory.combine([]);
         return Result.ok(input);
+    }
+
+    /**
+     * Ends the run at the feature that failed. The previous cache and shape stay: id queries
+     * must keep describing the displayed shape, not a truncated prefix of a rebuild that never
+     * made it to the screen. The sketch warnings are repopulated here too — they describe
+     * sketch state, not the chain run, and one failing feature would otherwise wipe them off
+     * the other rows.
+     */
+    private abandonChain(
+        feature: FeatureData,
+        error: string,
+        nextCache: FeatureCacheEntry[],
+        features: FeatureData[],
+    ): Result<IShape> {
+        this._featureErrors.set(feature.id, String(error));
+        this._timeline.discard(nextCache, this.currentShape());
+        this.markUnresolvedExternalRefs(features);
+        return Result.err(error);
     }
 
     /**

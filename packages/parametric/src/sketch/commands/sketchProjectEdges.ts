@@ -7,6 +7,7 @@ import {
     command,
     type I18nKeys,
     type IEdge,
+    type INode,
     type Plane,
     PubSub,
     property,
@@ -33,6 +34,32 @@ function sameExternalEdge(a: ExternalRefData, b: ExternalRefData): boolean {
     return sameEdgeFingerprint(a.edge, b.edge);
 }
 
+/**
+ * The owner's tracked edge id for a picked sub-shape. A tracking body that cannot
+ * produce one reports the loss instead of letting the ref silently lose its id.
+ */
+function pickedEdgeTrackedId(owner: INode, index: number): string | undefined {
+    if (!isBodyTrackingNode(owner)) return undefined;
+    const edgeId = owner.edgeIdAt(index);
+    if (edgeId === undefined) {
+        reportSilentIdLoss(owner, "edge", "a projected edge has no tracked id");
+    }
+    return edgeId;
+}
+
+/**
+ * Anchors the body's timeline position on its first reference — a body referenced for
+ * the first time is anchored as it is now. Mid-session the body shows its rollback
+ * preview: the picked edge comes from the preview, so the anchor must be the rollback
+ * position — `features.length` would read as "no rollback" to both consumers and
+ * resolve the ref against geometry the user never saw.
+ */
+function anchorBodyTimeline(editor: SketchEditor, owner: INode): void {
+    if (owner instanceof ParametricBodyNode) {
+        editor.solver.recordRefPosition(owner.id, owner.rollbackIndex ?? owner.features.length);
+    }
+}
+
 function projectEdge(
     editor: SketchEditor,
     plane: Plane,
@@ -44,10 +71,7 @@ function projectEdge(
     try {
         if (!isEdgeCoplanarWithPlane(plane, worldEdge)) return false;
         const owner = picked.owner.node;
-        const edgeId = isBodyTrackingNode(owner) ? owner.edgeIdAt(picked.indexes[0]) : undefined;
-        if (edgeId === undefined && isBodyTrackingNode(owner)) {
-            reportSilentIdLoss(owner, "edge", "a projected edge has no tracked id");
-        }
+        const edgeId = pickedEdgeTrackedId(owner, picked.indexes[0]);
         // solver-side monotonic counter — deleted ids are never reissued
         const ref = captureExternalRef(
             editor.solver.allocateExternalEntityId(),
@@ -62,15 +86,7 @@ function projectEdge(
         // derivation would revert it while no constraint references the edge
         if (role === "profile") ref.pinned = true;
         editor.solver.addExternalEntity(ref);
-        // anchor the body's timeline position on its first reference — a body
-        // referenced for the first time is anchored as it is now. Mid-session the
-        // body shows its rollback preview: the picked edge comes from the preview,
-        // so the anchor must be the rollback position — `features.length` would
-        // read as "no rollback" to both consumers and resolve the ref against
-        // geometry the user never saw.
-        if (owner instanceof ParametricBodyNode) {
-            editor.solver.recordRefPosition(owner.id, owner.rollbackIndex ?? owner.features.length);
-        }
+        anchorBodyTimeline(editor, owner);
         existing.push(ref);
         return true;
     } finally {

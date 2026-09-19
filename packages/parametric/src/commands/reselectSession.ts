@@ -242,34 +242,42 @@ export class EdgeReselectSession {
         selected: VisualShapeData[],
     ): void {
         this.clearPreview();
-        const edges = selected
-            // Upcast for the identity test: `owner.node` is a `VisualNode`, the host a
-            // narrower interface — both are `INode`, which is what identity means here.
-            .filter((x) => (x.owner.node as INode) === this.host && x.shape.shapeType === ShapeTypes.edge)
-            .map((x) => this.captureRef(x));
+        const edges = this.selectedEdgeRefs(selected);
         if (edges.length > 0) {
             const preview = original.map((x, i) => (i === featureIndex ? { ...x, edges } : x));
             const shape = evaluateChainSnapshot(this.host, preview);
-            if (shape.isOk) {
-                // The temp mesh renders in world space; the chain evaluates locally.
-                let previewShape = shape.value;
-                const transform = this.host.worldTransform();
-                if (!transform.equals(Matrix4.identity())) {
-                    previewShape = shape.value.transformedMul(transform);
-                }
-                try {
-                    const { faces, edges: edgeMesh } = previewShape.mesh;
-                    const datas = [faces, edgeMesh].filter((x) => x !== undefined);
-                    if (datas.length > 0) {
-                        this._preview = this.host.document.visual.context.displayMesh(datas);
-                    }
-                } finally {
-                    previewShape.dispose();
-                    if (previewShape !== shape.value) shape.value.dispose();
-                }
-            }
+            if (shape.isOk) this._preview = this.displayPreviewMesh(shape.value);
         }
         this.host.document.visual.update();
+    }
+
+    /** The refs of the selected shapes that are this host's edges. */
+    private selectedEdgeRefs(selected: VisualShapeData[]): EdgeRef[] {
+        // Upcast for the identity test: `owner.node` is a `VisualNode`, the host a
+        // narrower interface — both are `INode`, which is what identity means here.
+        return selected
+            .filter((x) => (x.owner.node as INode) === this.host && x.shape.shapeType === ShapeTypes.edge)
+            .map((x) => this.captureRef(x));
+    }
+
+    /**
+     * Displays `shape` as a temporary mesh and returns its id, or undefined when it carries no
+     * mesh data. The temp mesh renders in world space; the chain evaluates locally.
+     */
+    private displayPreviewMesh(shape: IShape): number | undefined {
+        let previewShape = shape;
+        const transform = this.host.worldTransform();
+        if (!transform.equals(Matrix4.identity())) {
+            previewShape = shape.transformedMul(transform);
+        }
+        try {
+            const { faces, edges } = previewShape.mesh;
+            const datas = [faces, edges].filter((x) => x !== undefined);
+            return datas.length > 0 ? this.host.document.visual.context.displayMesh(datas) : undefined;
+        } finally {
+            previewShape.dispose();
+            if (previewShape !== shape) shape.dispose();
+        }
     }
 
     /** Selects the edges the feature currently references so the pick starts from them. */

@@ -49,46 +49,79 @@ export function completeHistory<TShape, TRef>(
     const completed = [...map];
     // Nothing to complete: skip every fingerprint capture.
     if (!completed.some((index) => index < 0)) return completed;
+
     const claimed = new Set(completed.filter((index) => index >= 0));
-    const inputRefs: { index: number; ref: TRef }[] = [];
-    for (const [index, input] of inputs.entries()) {
-        // Claimed inputs are skipped at scoring time — don't pay for their capture.
-        if (claimed.has(index)) continue;
-        try {
-            inputRefs.push({ index, ref: capture(input) });
-        } catch {
-            // Degenerate input — it never claims an output.
-        }
-    }
+    const inputRefs = captureUnclaimed(inputs, claimed, capture);
     for (const [outputIndex, output] of outputs.entries()) {
         if (completed[outputIndex] === undefined || completed[outputIndex] >= 0) continue;
-        let outputRef: TRef;
-        try {
-            outputRef = capture(output);
-        } catch {
-            // Degenerate output — its entry stays unmapped.
+        // A degenerate output claims nothing — its entry stays unmapped.
+        const outputRef = tryCapture(output, capture);
+        if (outputRef === undefined) continue;
+
+        const match = nearestUnclaimed(inputRefs, claimed, outputRef, score);
+        // The winner has to be within tolerance AND clear of its runner-up.
+        if (match.index < 0 || match.best > MATCH_TOLERANCE || match.second - match.best < MATCH_TOLERANCE) {
             continue;
         }
-        let best = -1;
-        let bestScore = Infinity;
-        let secondScore = Infinity;
-        for (const { index, ref } of inputRefs) {
-            if (claimed.has(index)) continue;
-            const candidateScore = score(ref, outputRef);
-            if (candidateScore < bestScore) {
-                secondScore = bestScore;
-                bestScore = candidateScore;
-                best = index;
-            } else if (candidateScore < secondScore) {
-                secondScore = candidateScore;
-            }
-        }
-        if (best >= 0 && bestScore <= MATCH_TOLERANCE && secondScore - bestScore >= MATCH_TOLERANCE) {
-            completed[outputIndex] = best;
-            claimed.add(best);
-        }
+        completed[outputIndex] = match.index;
+        claimed.add(match.index);
     }
     return completed;
+}
+
+/**
+ * The unclaimed inputs with their fingerprints. Claimed inputs are skipped here rather than
+ * at scoring time — their fingerprint would only be discarded.
+ */
+function captureUnclaimed<TShape, TRef>(
+    inputs: readonly TShape[],
+    claimed: ReadonlySet<number>,
+    capture: (shape: TShape) => TRef,
+): { index: number; ref: TRef }[] {
+    const refs: { index: number; ref: TRef }[] = [];
+    for (const [index, input] of inputs.entries()) {
+        if (claimed.has(index)) continue;
+        const ref = tryCapture(input, capture);
+        // A degenerate input — it never claims an output.
+        if (ref !== undefined) refs.push({ index, ref });
+    }
+    return refs;
+}
+
+/**
+ * The unclaimed input closest to `outputRef`, if any, with the runner-up's score — the gap
+ * between the two is what tells a clear winner from a tie.
+ */
+function nearestUnclaimed<TRef>(
+    inputRefs: readonly { index: number; ref: TRef }[],
+    claimed: ReadonlySet<number>,
+    outputRef: TRef,
+    score: (a: TRef, b: TRef) => number,
+): { index: number; best: number; second: number } {
+    let index = -1;
+    let best = Number.POSITIVE_INFINITY;
+    let second = Number.POSITIVE_INFINITY;
+    for (const candidate of inputRefs) {
+        if (claimed.has(candidate.index)) continue;
+        const candidateScore = score(candidate.ref, outputRef);
+        if (candidateScore < best) {
+            second = best;
+            best = candidateScore;
+            index = candidate.index;
+        } else if (candidateScore < second) {
+            second = candidateScore;
+        }
+    }
+    return { index, best, second };
+}
+
+/** The fingerprint of one candidate sub-shape; undefined when a kernel query on it fails. */
+function tryCapture<TShape, TRef>(shape: TShape, capture: (shape: TShape) => TRef): TRef | undefined {
+    try {
+        return capture(shape);
+    } catch {
+        return undefined;
+    }
 }
 
 /**

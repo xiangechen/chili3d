@@ -66,6 +66,27 @@ interface DatumValue {
     readonly value: number;
 }
 
+/** garlic param wiring for one constraint, as `buildConstraintParams` works it out. */
+interface ConstraintParams {
+    params: number[];
+    /** The params a datum was written into, when the kind carries one. */
+    datumParamIds?: number[];
+    datumSources?: ParameterValue[];
+    /** garlic kind when it differs from the sketch-level kind (arc radius → P2PDistance). */
+    garlicKind?: ConstraintKind;
+}
+
+/** The kinds whose value arrives through a datum param rather than from the geometry. */
+const DATUM_CONSTRAINTS: ReadonlySet<ConstraintKind> = new Set([
+    ConstraintKind.P2PDistance,
+    ConstraintKind.Radius,
+    ConstraintKind.P2LDistance,
+    ConstraintKind.Angle,
+    ConstraintKind.HorizontalDistance,
+    ConstraintKind.VerticalDistance,
+    ConstraintKind.Fix,
+]);
+
 interface ConstraintRecord {
     id: number;
     kind: ConstraintKind;
@@ -876,13 +897,16 @@ export class SketchSolver implements ExternalEntityHost {
     private buildConstraintParams(
         constraint: Omit<SketchConstraintData, "id">,
         id: number,
-    ): {
-        params: number[];
-        datumParamIds?: number[];
-        datumSources?: ParameterValue[];
-        /** garlic kind when it differs from the sketch-level kind (arc radius → P2PDistance). */
-        garlicKind?: ConstraintKind;
-    } {
+    ): ConstraintParams {
+        if (DATUM_CONSTRAINTS.has(constraint.kind)) return this.datumConstraintParams(constraint, id);
+        return { params: this.geometricConstraintParams(constraint) };
+    }
+
+    /**
+     * The garlic params of a constraint that is pure geometry: every ref contributes the
+     * point / line / arc / radius ids garlic reads for that kind, in ref order.
+     */
+    private geometricConstraintParams(constraint: Omit<SketchConstraintData, "id">): number[] {
         const { refs } = constraint;
         switch (constraint.kind) {
             case ConstraintKind.P2PCoincident:
@@ -890,176 +914,158 @@ export class SketchSolver implements ExternalEntityHost {
             case ConstraintKind.Vertical:
             case ConstraintKind.HorizontalAlign:
             case ConstraintKind.VerticalAlign:
-                return { params: [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])] };
+                return this.pointParams(refs[0], refs[1]);
             case ConstraintKind.PointOnArc:
                 // p, c, s — refs are [point, center, start] (arc structural: end, center, start)
-                return {
-                    params: [
-                        ...this.pointParamIds(refs[0]),
-                        ...this.arcPointParamIds(refs[1]),
-                        ...this.arcPointParamIds(refs[2]),
-                    ],
-                };
+                return [...this.pointParams(refs[0]), ...this.arcParams(refs[1], refs[2])];
             case ConstraintKind.PointOnLine:
             case ConstraintKind.Midpoint:
-                return {
-                    params: [
-                        ...this.pointParamIds(refs[0]),
-                        ...this.linePointParamIds(refs[1]),
-                        ...this.linePointParamIds(refs[2]),
-                    ],
-                };
+                return [...this.pointParams(refs[0]), ...this.lineParams(refs[1], refs[2])];
             case ConstraintKind.Parallel:
             case ConstraintKind.Perpendicular:
             case ConstraintKind.EqualLength:
-                return { params: this.twoLineParams(refs) };
+                return this.twoLineParams(refs);
             case ConstraintKind.Symmetric:
-                return {
-                    params: [
-                        ...this.pointParamIds(refs[0]),
-                        ...this.pointParamIds(refs[1]),
-                        ...this.linePointParamIds(refs[2]),
-                        ...this.linePointParamIds(refs[3]),
-                    ],
-                };
+                return [...this.pointParams(refs[0], refs[1]), ...this.lineParams(refs[2], refs[3])];
             case ConstraintKind.EqualRadius:
-                return {
-                    params: [this.radiusParamId(refs[0].entityId), this.radiusParamId(refs[1].entityId)],
-                };
+                return [this.radiusParamId(refs[0].entityId), this.radiusParamId(refs[1].entityId)];
             case ConstraintKind.PointOnCircle:
-                return {
-                    params: [
-                        ...this.pointParamIds(refs[0]),
-                        ...this.circleCenterParamIds(refs[1]),
-                        this.radiusParamId(refs[1].entityId),
-                    ],
-                };
+                return [
+                    ...this.pointParams(refs[0]),
+                    ...this.circleCenterParamIds(refs[1]),
+                    this.radiusParamId(refs[1].entityId),
+                ];
             case ConstraintKind.TangentLineCircle:
-                return {
-                    params: [
-                        ...this.linePointParamIds(refs[0]),
-                        ...this.linePointParamIds(refs[1]),
-                        ...this.circleCenterParamIds(refs[2]),
-                        this.radiusParamId(refs[2].entityId),
-                    ],
-                };
+                return [
+                    ...this.lineParams(refs[0], refs[1]),
+                    ...this.circleCenterParamIds(refs[2]),
+                    this.radiusParamId(refs[2].entityId),
+                ];
             case ConstraintKind.TangentCircleCircle:
-                return {
-                    params: [
-                        ...this.circleCenterParamIds(refs[0]),
-                        this.radiusParamId(refs[0].entityId),
-                        ...this.circleCenterParamIds(refs[1]),
-                        this.radiusParamId(refs[1].entityId),
-                    ],
-                };
+                return [
+                    ...this.circleCenterParamIds(refs[0]),
+                    this.radiusParamId(refs[0].entityId),
+                    ...this.circleCenterParamIds(refs[1]),
+                    this.radiusParamId(refs[1].entityId),
+                ];
             case ConstraintKind.EqualArcRadius:
             case ConstraintKind.TangentArcArc:
-                return {
-                    params: [
-                        ...this.arcPointParamIds(refs[0]),
-                        ...this.arcPointParamIds(refs[1]),
-                        ...this.arcPointParamIds(refs[2]),
-                        ...this.arcPointParamIds(refs[3]),
-                    ],
-                };
+                return this.arcParams(refs[0], refs[1], refs[2], refs[3]);
             case ConstraintKind.TangentLineArc:
-                return {
-                    params: [
-                        ...this.linePointParamIds(refs[0]),
-                        ...this.linePointParamIds(refs[1]),
-                        ...this.arcPointParamIds(refs[2]),
-                        ...this.arcPointParamIds(refs[3]),
-                    ],
-                };
+                return [...this.lineParams(refs[0], refs[1]), ...this.arcParams(refs[2], refs[3])];
             case ConstraintKind.TangentCircleArc:
-                return {
-                    params: [
-                        ...this.circleCenterParamIds(refs[0]),
-                        this.radiusParamId(refs[0].entityId),
-                        ...this.arcPointParamIds(refs[1]),
-                        ...this.arcPointParamIds(refs[2]),
-                    ],
-                };
-            case ConstraintKind.P2PDistance:
-                return this.withDatums(
-                    [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
-                    [
-                        this.datumOf(id, constraint.kind, constraint.datum, () =>
-                            this.currentDistance(refs[0], refs[1]),
-                        ),
-                    ],
-                );
-            case ConstraintKind.Radius: {
-                if (this.typeOf(refs[0].entityId) === "arc") {
-                    // arcs have no radius param — drive ‖start−center‖ as a point distance
-                    const start: SketchPointRef = { entityId: refs[0].entityId, pointIndex: 1 };
-                    return {
-                        garlicKind: ConstraintKind.P2PDistance,
-                        ...this.withDatums(
-                            [...this.arcPointParamIds(refs[0]), ...this.arcPointParamIds(start)],
-                            [
-                                this.datumOf(id, constraint.kind, constraint.datum, () =>
-                                    this.currentRadius(refs[0].entityId),
-                                ),
-                            ],
-                        ),
-                    };
-                }
-                return this.withDatums(
-                    [this.radiusParamId(refs[0].entityId)],
-                    [
-                        this.datumOf(id, constraint.kind, constraint.datum, () =>
-                            this.currentRadius(refs[0].entityId),
-                        ),
-                    ],
-                );
-            }
-            case ConstraintKind.P2LDistance:
-                return this.withDatums(
-                    [
-                        ...this.pointParamIds(refs[0]),
-                        ...this.linePointParamIds(refs[1]),
-                        ...this.linePointParamIds(refs[2]),
-                    ],
-                    [
-                        this.datumOf(id, constraint.kind, constraint.datum, () =>
-                            this.currentP2LDistance(refs),
-                        ),
-                    ],
-                );
-            case ConstraintKind.Angle:
-                return this.withDatums(this.twoLineParams(refs), [
-                    this.datumOf(id, constraint.kind, constraint.datum, () => this.currentAngle(refs)),
-                ]);
-            case ConstraintKind.HorizontalDistance:
-            case ConstraintKind.VerticalDistance:
-                return this.withDatums(
-                    [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
-                    [
-                        this.datumOf(id, constraint.kind, constraint.datum, () =>
-                            this.currentSignedDistance(
-                                refs[0],
-                                refs[1],
-                                constraint.kind === ConstraintKind.HorizontalDistance ? 0 : 1,
-                            ),
-                        ),
-                    ],
-                );
-            case ConstraintKind.Fix: {
-                const fallback = this.pointOf(refs[0]);
-                const sources = constraint.datums;
-                return this.withDatums(
-                    [...this.pointParamIds(refs[0])],
-                    sources === undefined
-                        ? fallback.map((value) => ({ source: value, value }))
-                        : sources.map((source, index) =>
-                              this.datumOf(id, constraint.kind, source, () => fallback[index]),
-                          ),
-                );
-            }
+                return [
+                    ...this.circleCenterParamIds(refs[0]),
+                    this.radiusParamId(refs[0].entityId),
+                    ...this.arcParams(refs[1], refs[2]),
+                ];
             default:
+                // A datum kind never reaches here — `buildConstraintParams` routes it first.
                 throw new Error(`Unsupported constraint kind: ${constraint.kind}`);
         }
+    }
+
+    /**
+     * The garlic params of a datum-driven constraint: its geometric params plus the param
+     * its datum is written into. The value comes from the expression scope, the geometry's
+     * own value standing in when the datum is absent or does not resolve (see `datumOf`).
+     */
+    private datumConstraintParams(
+        constraint: Omit<SketchConstraintData, "id">,
+        id: number,
+    ): ConstraintParams {
+        const { refs } = constraint;
+        switch (constraint.kind) {
+            case ConstraintKind.P2PDistance:
+                return this.withDatum(this.pointParams(refs[0], refs[1]), id, constraint, () =>
+                    this.currentDistance(refs[0], refs[1]),
+                );
+            case ConstraintKind.Radius:
+                return this.radiusConstraintParams(constraint, id);
+            case ConstraintKind.P2LDistance:
+                return this.withDatum(
+                    [...this.pointParams(refs[0]), ...this.lineParams(refs[1], refs[2])],
+                    id,
+                    constraint,
+                    () => this.currentP2LDistance(refs),
+                );
+            case ConstraintKind.Angle:
+                return this.withDatum(this.twoLineParams(refs), id, constraint, () =>
+                    this.currentAngle(refs),
+                );
+            case ConstraintKind.HorizontalDistance:
+            case ConstraintKind.VerticalDistance:
+                return this.withDatum(this.pointParams(refs[0], refs[1]), id, constraint, () =>
+                    this.currentSignedDistance(
+                        refs[0],
+                        refs[1],
+                        constraint.kind === ConstraintKind.HorizontalDistance ? 0 : 1,
+                    ),
+                );
+            case ConstraintKind.Fix:
+                return this.fixConstraintParams(constraint, id);
+            default:
+                throw new Error(`Unsupported datum constraint kind: ${constraint.kind}`);
+        }
+    }
+
+    /** A circle's radius drives its radius param; an arc has none, so it drives a point distance. */
+    private radiusConstraintParams(
+        constraint: Omit<SketchConstraintData, "id">,
+        id: number,
+    ): ConstraintParams {
+        const entityId = constraint.refs[0].entityId;
+        if (this.typeOf(entityId) !== "arc") {
+            return this.withDatum([this.radiusParamId(entityId)], id, constraint, () =>
+                this.currentRadius(entityId),
+            );
+        }
+        // arcs have no radius param — drive ‖start−center‖ as a point distance
+        const start: SketchPointRef = { entityId, pointIndex: 1 };
+        return {
+            garlicKind: ConstraintKind.P2PDistance,
+            ...this.withDatum(this.arcParams(constraint.refs[0], start), id, constraint, () =>
+                this.currentRadius(entityId),
+            ),
+        };
+    }
+
+    /** A fix pins one point; given explicit datums, each coordinate carries its own. */
+    private fixConstraintParams(constraint: Omit<SketchConstraintData, "id">, id: number): ConstraintParams {
+        const ref = constraint.refs[0];
+        const fallback = this.pointOf(ref);
+        const sources = constraint.datums;
+        return this.withDatums(
+            this.pointParams(ref),
+            sources === undefined
+                ? fallback.map((value) => ({ source: value, value }))
+                : sources.map((source, index) =>
+                      this.datumOf(id, constraint.kind, source, () => fallback[index]),
+                  ),
+        );
+    }
+
+    /** One datum on top of a constraint's geometric params. */
+    private withDatum(
+        params: number[],
+        id: number,
+        constraint: Omit<SketchConstraintData, "id">,
+        fallback: () => number,
+    ): ConstraintParams {
+        return this.withDatums(params, [this.datumOf(id, constraint.kind, constraint.datum, fallback)]);
+    }
+
+    /** The garlic params of each ref, concatenated in ref order. */
+    private pointParams(...refs: readonly SketchPointRef[]): number[] {
+        return refs.flatMap((ref) => this.pointParamIds(ref));
+    }
+
+    private lineParams(...refs: readonly SketchPointRef[]): number[] {
+        return refs.flatMap((ref) => this.linePointParamIds(ref));
+    }
+
+    private arcParams(...refs: readonly SketchPointRef[]): number[] {
+        return refs.flatMap((ref) => this.arcPointParamIds(ref));
     }
 
     /**
@@ -1087,10 +1093,7 @@ export class SketchSolver implements ExternalEntityHost {
         return { source, value: fallback() };
     }
 
-    private withDatums(
-        params: number[],
-        datums: readonly DatumValue[],
-    ): { params: number[]; datumParamIds: number[]; datumSources: ParameterValue[] } {
+    private withDatums(params: number[], datums: readonly DatumValue[]): ConstraintParams {
         const datumParamIds = datums.map((datum) => this.createDatumParam(datum.value));
         return {
             params: [...params, ...datumParamIds],

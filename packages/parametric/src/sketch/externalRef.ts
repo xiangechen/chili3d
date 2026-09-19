@@ -271,14 +271,18 @@ function resolveEdge(source: SourceEdges, ref: ExternalRefData): ResolvedEdge | 
     return geometricEdgeMatch(source, ref.edge);
 }
 
+/** An id hit that can still claim the ref, with whether its world copy must be disposed by the caller. */
+interface IdCandidate {
+    edge: IEdge;
+    owned: boolean;
+    score: number;
+}
+
 /**
  * Narrows the id hits to the one edge the ref belongs to.
  *
  * Several edges can carry the id — the pieces of a boolean-split edge share it, a collinear
- * merge compounds it — so a bare first hit can realign the ref onto a sibling piece. Every hit
- * that still carries the fingerprint's span therefore competes by span proximity: an exact span
- * wins outright, otherwise a sole candidate or a clear nearest keeps a rigid move following (the
- * pieces move together), and a genuine tie is handed to the geometric match.
+ * merge compounds it — so a bare first hit can realign the ref onto a sibling piece.
  *
  * Hits failing the span/invariant check fall through as before: a strict sub-span means a
  * boolean split the referenced edge, which the caller's split-piece coverage owns.
@@ -290,30 +294,46 @@ function resolveByEdgeId(
     transform: Matrix4,
     indexesOfId: (id: string) => number[],
 ): ResolvedEdge | undefined {
-    const candidates: { edge: IEdge; owned: boolean; score: number }[] = [];
+    const candidates: IdCandidate[] = [];
     for (const hit of indexesOfId(edgeId)) {
         const local = edges[hit];
         if (local === undefined) continue;
         const byId = worldEdge(local, transform);
-        // Trust the id while the edge still carries the fingerprint's span: a rigid
-        // move (an extrude length edit) only changes position, which is deliberately
-        // not checked — moving IS the edit (same contract as resolveFacePlane, which
-        // checks the face's normal but not its offset). A direction change means the
-        // id realigned onto another edge.
-        if (!idStillIdentifiesEdge(byId, ref)) {
-            if (byId !== local) byId.dispose();
-            continue;
-        }
-        let score: number;
-        try {
-            score = refScore(ref, byId);
-        } catch {
-            // A degenerate edge cannot claim the ref.
+        const score = idHitScore(ref, byId);
+        if (score === undefined) {
             if (byId !== local) byId.dispose();
             continue;
         }
         candidates.push({ edge: byId, owned: byId !== local, score });
     }
+    return spanWinner(candidates);
+}
+
+/**
+ * The hit's span proximity to the ref, or undefined when it cannot claim the ref.
+ *
+ * Trust the id while the edge still carries the fingerprint's span: a rigid move (an extrude
+ * length edit) only changes position, which is deliberately not checked — moving IS the edit
+ * (same contract as resolveFacePlane, which checks the face's normal but not its offset). A
+ * direction change means the id realigned onto another edge.
+ */
+function idHitScore(ref: EdgeRef, byId: IEdge): number | undefined {
+    if (!idStillIdentifiesEdge(byId, ref)) return undefined;
+    try {
+        return refScore(ref, byId);
+    } catch {
+        // A degenerate edge cannot claim the ref.
+        return undefined;
+    }
+}
+
+/**
+ * The candidate the ref belongs to, releasing the runner-ups' world copies. Every hit that
+ * still carries the fingerprint's span competes by span proximity: an exact span wins
+ * outright, otherwise a sole candidate or a clear nearest keeps a rigid move following (the
+ * pieces move together), and a genuine tie is handed to the geometric match.
+ */
+function spanWinner(candidates: IdCandidate[]): ResolvedEdge | undefined {
     if (candidates.length === 0) return undefined;
     candidates.sort((a, b) => a.score - b.score);
     const best = candidates[0]!;

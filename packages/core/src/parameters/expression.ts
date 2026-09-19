@@ -141,6 +141,26 @@ export function parseParameterValue(text: string): ParameterValue {
     return trimmed !== "" && Number.isFinite(value) ? value : trimmed;
 }
 
+/**
+ * One `*`, `/` or `%` step: the value it produces and the unit it carries. Only `*` and `/`
+ * move the exponents — `%` is the remainder of a division, so it stays within the operands'
+ * unit the same way `+` and `-` do.
+ */
+function multiplicativeValue(
+    op: string,
+    left: EvaluatedValue,
+    right: EvaluatedValue,
+): Result<EvaluatedValue> {
+    if ((op === "/" || op === "%") && right.value === 0) return Result.err("Division by zero");
+    if (op === "%") {
+        const unit = additiveUnitSpec(left.unit, right.unit);
+        if (!unit.isOk) return Result.err(unit.error);
+        return Result.ok({ value: left.value % right.value, unit: unit.value });
+    }
+    const value = op === "*" ? left.value * right.value : left.value / right.value;
+    return Result.ok({ value, unit: combineUnitSpecs(left.unit, right.unit, op === "*" ? 1 : -1) });
+}
+
 /** Merged unit spec of an additive pair, or an error naming the conflict. */
 function additiveUnitSpec(left: UnitSpec, right: UnitSpec): Result<UnitSpec> {
     const merged = mergeUnitSpecs(left, right);
@@ -200,26 +220,9 @@ class Parser {
             this.pos++;
             const right = this.parseUnary();
             if (!right.isOk) return right;
-            if ((op === "/" || op === "%") && right.value.value === 0) {
-                return Result.err("Division by zero");
-            }
-            // `%` is the remainder of a division, so it stays within the operands'
-            // unit the same way `+`/`-` do; only `*` and `/` move the exponents.
-            if (op === "%") {
-                const unit = additiveUnitSpec(left.value.unit, right.value.unit);
-                if (!unit.isOk) return Result.err(unit.error);
-                left = Result.ok({
-                    value: left.value.value % right.value.value,
-                    unit: unit.value,
-                });
-                continue;
-            }
-            const value =
-                op === "*" ? left.value.value * right.value.value : left.value.value / right.value.value;
-            left = Result.ok({
-                value,
-                unit: combineUnitSpecs(left.value.unit, right.value.unit, op === "*" ? 1 : -1),
-            });
+            const combined = multiplicativeValue(op, left.value, right.value);
+            if (!combined.isOk) return combined;
+            left = combined;
         }
     }
 

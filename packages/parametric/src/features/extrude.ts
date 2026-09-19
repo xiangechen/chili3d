@@ -432,15 +432,7 @@ function sweepProfileTracked(
 ): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
     const owned: IFace[] = [];
     try {
-        const face = translateFace(profile.face, offsetVec, owned);
-        // A translated copy is a fresh object: it is neither the WeakMap key of the
-        // original profile face nor in its sub-shape parent chain, so without
-        // re-registering, a start offset would demote every edge seed to a
-        // positional ordinal. The translation preserves the edge enumeration.
-        if (face !== profile.face) {
-            const entities = profileEdgeEntityIds(profile.face);
-            if (entities !== undefined) registerProfileEdgeEntities(face, entities);
-        }
+        const face = translateProfileFace(profile, offsetVec, owned);
         const result = shapeFactory.prismTracked!(face, vec);
         if (!result.isOk) return Result.err(result.error);
         const seed = `sketch:${sketch.id}:${profile.seed}${seedSuffix}`;
@@ -456,28 +448,55 @@ function sweepProfileTracked(
             inputFaces: [face],
         });
         const faceIds = trackedFaceIds(featureId, [seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
-        // The top face is the profile's other sweep image (see the doc above). The
-        // kernel reports it directly (the sweep's LastShape) — authoritative, so the
-        // history-less heuristic must not run when a cap is reported (it misidentifies
-        // when several faces lack history). The heuristic remains for kernels
-        // predating the channel; it seeds only a unique history-less face, so an
-        // ambiguous report keeps the positional fallback.
-        const reported = result.value.capFaces ?? [];
-        if (reported.length > 0) {
-            for (const index of reported) {
-                if (index >= 0 && index < faceIds.length) faceIds[index] = `${seed}:top`;
-            }
-        } else {
-            const topCandidates = faceIds.flatMap((_, index) =>
-                faceMap[index] < 0 && (result.value.faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
-            );
-            if (topCandidates.length === 1) faceIds[topCandidates[0]] = `${seed}:top`;
-        }
+        seedTopFace(faceIds, seed, faceMap, result.value.faceEdgeMap, result.value.capFaces ?? []);
         const edgeIds = trackedIds(featureId, edgeSeeds, edgeMap);
         return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
     } finally {
         owned.forEach((x) => x.dispose());
     }
+}
+
+/**
+ * The profile face translated to the feature's start offset, registered so the edge
+ * enumeration stays entity-derived.
+ *
+ * A translated copy is a fresh object: it is neither the WeakMap key of the original
+ * profile face nor in its sub-shape parent chain, so without re-registering, a start offset
+ * would demote every edge seed to a positional ordinal.
+ */
+function translateProfileFace(profile: ResolvedProfile, offsetVec: XYZ, owned: IFace[]): IFace {
+    const face = translateFace(profile.face, offsetVec, owned);
+    if (face !== profile.face) {
+        const entities = profileEdgeEntityIds(profile.face);
+        if (entities !== undefined) registerProfileEdgeEntities(face, entities);
+    }
+    return face;
+}
+
+/**
+ * Seeds the top face's id in place. The top face is the profile's other sweep image, and the
+ * kernel reports it directly (the sweep's LastShape) — authoritative, so the history-less
+ * heuristic must not run when a cap is reported (it misidentifies when several faces lack
+ * history). The heuristic remains for kernels predating that channel; it seeds only a unique
+ * history-less face, so an ambiguous report keeps the positional fallback.
+ */
+function seedTopFace(
+    faceIds: string[],
+    seed: string,
+    faceMap: readonly number[],
+    faceEdgeMap: readonly number[] | undefined,
+    capFaces: readonly number[],
+): void {
+    if (capFaces.length > 0) {
+        for (const index of capFaces) {
+            if (index >= 0 && index < faceIds.length) faceIds[index] = `${seed}:top`;
+        }
+        return;
+    }
+    const candidates = faceIds.flatMap((_, index) =>
+        faceMap[index] < 0 && (faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
+    );
+    if (candidates.length === 1) faceIds[candidates[0]] = `${seed}:top`;
 }
 
 registerFeature("extrude", extrudeHandler);

@@ -678,4 +678,41 @@ describe("dimension commands", () => {
             restoreFactory();
         }
     });
+
+    // Every placement step hands its pick a fresh controller, so the command panel's Cancel
+    // button reaches the pick that is up and not the one before it.
+    test("cancelling the command during the position pick abandons the dimension", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addLine(0, 0, 0, 100);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const command = new AngleDimensionCommand();
+            const run = command.execute(app);
+            handler.pointerDown(view, pointerEvent(450, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 250));
+            await tick();
+            expect(editor.isPicking).toBe(true);
+
+            command.cancel();
+            await tick();
+
+            expect(editor.isPicking).toBe(false);
+            // A click after the cancel must not revive the placement and settle the dimension.
+            handler.pointerDown(view, pointerEvent(440, 280));
+            await run;
+
+            expect(editor.solver.toData().constraints.length).toBe(0);
+            expect(dialog.content).toBeUndefined();
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
 });

@@ -23,7 +23,7 @@ import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { syncNodeWatches } from "../nodeWatch";
 import { ensureVariableSync } from "../variableSync";
 import { normalizeSnapshot } from "./entityLayout";
-import { resolveExternalRefs } from "./externalRef";
+import { type ExternalResolveResult, resolveExternalRefs } from "./externalRef";
 import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
 import {
     arcAngles,
@@ -289,19 +289,34 @@ export class SketchNode extends ParameterShapeNode {
         }
     }
 
-    /** Follows the referenced face: a source rebuild or a move carries the sketch plane with it. */
-    private readonly handlePlaneRefNodeChanged = (property: string) => {
-        if (property !== "shape" && property !== "transform") return;
+    /**
+     * Runs work that only re-derives state — the plane, the external refs, the solved entities,
+     * the shape — with the undo history silenced.
+     *
+     * A recorded derived write would be restored BEFORE the causative edit's own record
+     * (records undo in reverse), re-evaluating the body in a mixed state that never existed.
+     * Every write below is reachable from a trigger that re-derives it anyway, so nothing is
+     * lost by leaving it out of the history.
+     */
+    private withoutHistory<T>(action: () => T): T {
         const history = this.document.history;
         const disabled = history.disabled;
         history.disabled = true;
         try {
-            if (this.followPlaneRef()) {
-                this.setShape(this.generateShape());
-            }
+            return action();
         } finally {
             history.disabled = disabled;
         }
+    }
+
+    /** Follows the referenced face: a source rebuild or a move carries the sketch plane with it. */
+    private readonly handlePlaneRefNodeChanged = (property: string) => {
+        if (property !== "shape" && property !== "transform") return;
+        this.withoutHistory(() => {
+            if (this.followPlaneRef()) {
+                this.setShape(this.generateShape());
+            }
+        });
     };
 
     /**
@@ -332,15 +347,8 @@ export class SketchNode extends ParameterShapeNode {
             includeRolledBackSources: this._editingSession,
         });
         if (plane === undefined || this.isSamePlane(plane)) return false;
-        const history = this.document.history;
-        const disabled = history.disabled;
-        history.disabled = true;
-        try {
-            // setProperty (not the shape-changing variant): the caller regenerates.
-            this.setProperty("plane", plane);
-        } finally {
-            history.disabled = disabled;
-        }
+        // setProperty (not the shape-changing variant): the caller regenerates.
+        this.withoutHistory(() => this.setProperty("plane", plane));
         return true;
     }
 
@@ -407,44 +415,23 @@ export class SketchNode extends ParameterShapeNode {
             this.updateDanglingWarning(refs);
             return false;
         }
-        let mutated = false;
-        for (const ref of refs) {
-            const snapshot = normalizeSnapshot(ref.type, ref.snapshot);
-            if (snapshot !== ref.snapshot) {
-                ref.snapshot = snapshot;
-                mutated = true;
-            }
-        }
+        const healedSnapshots = normalizeSnapshots(refs);
         const results = resolveExternalRefs(this.document, this.plane, refs, data.refPositions, {
             // The session owner's refs must follow the rolled-back body (the editor
             // seeds the capture-time geometry from them); bystanders skip it.
             includeRolledBackSources: this._editingSession,
         });
         this.updateDanglingWarning(refs);
-        let shapeStale = false;
-        const movedEntityIds = new Set<number>();
-        for (const result of results) {
-            if (result.mutated) mutated = true;
-            if (!result.geometryChanged) continue;
-            movedEntityIds.add(result.ref.entityId);
-            if (result.ref.role === "profile") shapeStale = true;
-        }
-        if (!mutated) return false;
+        const { mutated, shapeStale, movedEntityIds } = tallyRefResults(results);
+        if (!mutated && !healedSnapshots) return false;
         // The off-session solve pays off only when a moved external is constrained
         // against sketch entities — nothing else can follow it.
         const solved = constraintsReferenceAny(data.constraints, movedEntityIds)
             ? this.solveExternalFollowers(data)
             : undefined;
-        const history = this.document.history;
-        const disabled = history.disabled;
-        history.disabled = true;
-        try {
-            // setProperty (not the shape-changing variant): the caller regenerates
-            // the shape — this only persists the re-resolved refs and solved entities.
-            this.setProperty("dataJson", JSON.stringify(solved ?? data));
-        } finally {
-            history.disabled = disabled;
-        }
+        // setProperty (not the shape-changing variant): the caller regenerates the shape —
+        // this only persists the re-resolved refs and solved entities.
+        this.withoutHistory(() => this.setProperty("dataJson", JSON.stringify(solved ?? data)));
         return solved !== undefined || shapeStale;
     }
 
@@ -529,19 +516,12 @@ export class SketchNode extends ParameterShapeNode {
         this._variableRevision = revision;
         const solved = this.solveWithScope(this.data);
         if (solved === undefined) return;
-        const history = this.document.history;
-        const disabled = history.disabled;
-        history.disabled = true;
-        try {
+        this.withoutHistory(() => {
             // setProperty, not the shape-changing variant: the regeneration below
             // already reports the change, and this only persists the solved entities.
             this.setProperty("dataJson", JSON.stringify(solved));
-            // Inside the guard too: a recorded shape would be restored before the causative
-            // edit's own record (records undo in reverse), a mixed state that never existed.
             this.setShape(this.generateShape());
-        } finally {
-            history.disabled = disabled;
-        }
+        });
     }
 
     /** Watches every distinct external-reference source node; dropped refs unwatch. */
@@ -574,19 +554,14 @@ export class SketchNode extends ParameterShapeNode {
         // history: a recorded sketch shape would be restored BEFORE the causative
         // edit's own record (records undo in reverse), re-evaluating the body in a
         // mixed state that never existed.
-        const history = this.document.history;
-        const disabled = history.disabled;
-        history.disabled = true;
-        try {
+        this.withoutHistory(() => {
             const planeStale = this.followPlaneRef();
             if (this.refreshExternalRefs() || planeStale) {
                 // the immediately following generateShape inherits this resolution
                 this._externalRefsFresh = true;
                 this.setShape(this.generateShape());
             }
-        } finally {
-            history.disabled = disabled;
-        }
+        });
     }
 
     /** A source rebuild or move re-resolves the refs (see `followExternalRefs`). */
@@ -630,6 +605,43 @@ function danglingProfileRefIds(refs: ExternalRefData[]): number[] {
         .filter((ref) => ref.role === "profile" && ref.dangling === true)
         .map((ref) => ref.entityId)
         .sort((a, b) => a - b);
+}
+
+/**
+ * Heals hand-edited or legacy snapshots of the wrong length in place, so the persisted data
+ * comes out normalized on the next write. Returns whether any of them had to be rewritten.
+ */
+function normalizeSnapshots(refs: ExternalRefData[]): boolean {
+    let healed = false;
+    for (const ref of refs) {
+        const snapshot = normalizeSnapshot(ref.type, ref.snapshot);
+        if (snapshot !== ref.snapshot) {
+            ref.snapshot = snapshot;
+            healed = true;
+        }
+    }
+    return healed;
+}
+
+/**
+ * What one resolution pass amounts to. Only a profile-role ref can make the shape stale:
+ * reference-role geometry never enters the shape.
+ */
+function tallyRefResults(results: readonly ExternalResolveResult[]): {
+    mutated: boolean;
+    shapeStale: boolean;
+    movedEntityIds: Set<number>;
+} {
+    let mutated = false;
+    let shapeStale = false;
+    const movedEntityIds = new Set<number>();
+    for (const result of results) {
+        if (result.mutated) mutated = true;
+        if (!result.geometryChanged) continue;
+        movedEntityIds.add(result.ref.entityId);
+        if (result.ref.role === "profile") shapeStale = true;
+    }
+    return { mutated, shapeStale, movedEntityIds };
 }
 
 /** True when any constraint references one of the given entity ids. */

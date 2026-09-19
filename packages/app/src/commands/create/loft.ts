@@ -106,19 +106,24 @@ export class LoftCommand extends CancelableCommand {
                 this.displayVisual();
             }
 
-            Transaction.execute(this.document, "loft", () => {
-                this.document.modelManager.addNode(
-                    new EditableShapeNode({ document: this.document, name: "loft", shape: this.shape }),
-                );
-                if (this.deleteObjects) {
-                    selectedWholeShapeNodes(this.selectedDatas).forEach((node) => {
-                        node.parent?.remove(node);
-                    });
-                }
-            });
+            this.commitLoft();
         } finally {
             this.clearVisual();
         }
+    }
+
+    /** Adds the lofted node and drops the picked sections, as one undo step. */
+    private commitLoft(): void {
+        Transaction.execute(this.document, "loft", () => {
+            this.document.modelManager.addNode(
+                new EditableShapeNode({ document: this.document, name: "loft", shape: this.shape }),
+            );
+            if (this.deleteObjects) {
+                selectedWholeShapeNodes(this.selectedDatas).forEach((node) => {
+                    node.parent?.remove(node);
+                });
+            }
+        });
     }
 
     private async selectSection() {

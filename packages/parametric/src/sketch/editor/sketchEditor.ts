@@ -164,7 +164,9 @@ export class SketchEditor implements IDisposable {
         // From here on every step writes view/session state, and exit() stays a no-op
         // when the constructor throws (the active editor is published only after it
         // returns) — so each completed step queues its own undo, and a throw unwinds
-        // the queue in reverse, then releases startSession as well.
+        // the queue in reverse, then releases startSession as well. The steps stay in
+        // this body rather than behind helpers: TypeScript only proves a property is
+        // assigned when the constructor assigns it itself.
         const teardown: Array<() => void> = [];
         try {
             this.savedCamera = this.captureCamera();
@@ -175,17 +177,10 @@ export class SketchEditor implements IDisposable {
             this.lockCameraOntoPlane(this.view);
 
             this.eventHandler = this.installEventHandler();
-            teardown.push(() => {
-                this.eventHandler.dispose();
-                this.document.visual.eventHandler = this.savedHandler;
-                this.setCanRotate(true);
-            });
+            teardown.push(() => this.restoreEventHandler());
 
             this.savedVisible = this.showSketchForSession();
-            teardown.push(() => {
-                this.document.visual.context.setNodeOnTop([this.node], false);
-                this.setNodeVisibleSilently(this.savedVisible);
-            });
+            teardown.push(() => this.restoreSketchVisibility());
 
             this.annotations = this.createAnnotations();
             teardown.push(() => this.annotations.dispose());
@@ -215,6 +210,19 @@ export class SketchEditor implements IDisposable {
     }
 
     // ------------------------------------------------------------------ Session lifecycle: enter, rollback, teardown
+
+    /** Undoes the handler swap `installEventHandler` made. */
+    private restoreEventHandler(): void {
+        this.eventHandler.dispose();
+        this.document.visual.eventHandler = this.savedHandler;
+        this.setCanRotate(true);
+    }
+
+    /** Undoes the visibility the session forced on the sketch. */
+    private restoreSketchVisibility(): void {
+        this.document.visual.context.setNodeOnTop([this.node], false);
+        this.setNodeVisibleSilently(this.savedVisible);
+    }
 
     /**
      * Claims the session state (editing flag, timeline rollback, solver), unwinding
