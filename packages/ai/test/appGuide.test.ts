@@ -1,16 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Config, I18n, type Locale } from "@chili3d/core";
-import { appGuideDoc, resolveCommandRefs } from "../src/skills/appGuide";
+import { AppGuideStore, Config, I18n, type Locale } from "@chili3d/core";
+import { appGuide, resolveCommandRefs } from "../src/skills/appGuide";
 
 afterEach(() => {
     Config.instance.navigation3D = "Chili3d";
+    // Other suites register sections and overrides; read the built-in manual, not theirs.
+    AppGuideStore.clearBase();
 });
 
 describe("appGuide manual", () => {
     test("resolves every command reference — one left over is a typo or a removed command", () => {
-        const unresolved = [...appGuideDoc().matchAll(/\{[a-z][\w.]*\}/g)].map((match) => match[0]);
+        const unresolved = [...appGuide.content.matchAll(/\{[a-z][\w.]*\}/g)].map((match) => match[0]);
 
         // A typo would otherwise reach the model as literal "{creat.line}" and be taught verbatim.
         expect(unresolved).toEqual([]);
@@ -47,7 +49,7 @@ describe("appGuide manual", () => {
     });
 
     test("reports every navigation profile's pan and rotate buttons", () => {
-        const guide = appGuideDoc();
+        const guide = appGuide.content;
 
         expect(guide).toContain("- Chili3d: pan = middle-drag, rotate = Shift + middle-drag");
         expect(guide).toContain("- Blender: pan = Shift + middle-drag, rotate = middle-drag");

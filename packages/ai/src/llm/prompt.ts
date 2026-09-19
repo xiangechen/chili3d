@@ -3,7 +3,6 @@
 
 import { SKILLS } from "../skills";
 import { buildTools } from "../tools";
-import { capabilitiesSource } from "../tools/capabilities.generated";
 import { EDIT_METHODS } from "../tools/capabilityEngine";
 import { documentSnapshot } from "../tools/readTools";
 import { TRANSFORM_ARGS_SENTENCE, TRANSFORM_ORDER } from "../tools/transformMatrix";
@@ -23,8 +22,6 @@ export function buildSystemPrompt(): SystemPrompt {
 
 function introSection(): string {
     return `You are the AI assistant for Chili3D (a parametric CAD). Help the user create and edit 3D models in the browser.
-
-${capabilitiesSource}
 
 Shape transform op (run_program creation op, not an IShapeFactory method): { "method": "transformedMul", "id"?, "args": { "shape": "<ref>", "translate"?, "rotate"?, "scale"?, "mirror"? } } — creates a new node whose shape is the referenced shape with its placement multiplied by the transform; the source node is unchanged. Transform encoding is the same as transform_node; combined arguments act on the geometry in ${TRANSFORM_ORDER} order — ${TRANSFORM_ARGS_SENTENCE}.`;
 }

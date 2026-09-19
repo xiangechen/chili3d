@@ -16,6 +16,20 @@ describe("skillTool", () => {
         expect(content).toContain("wire.toFace");
     });
 
+    test("the modeling API skill carries the catalog together with its encoding rules", async () => {
+        const tool = buildSkillTool();
+        const api = (await tool.handler({ name: "modeling-api" })) as string;
+
+        expect(api).toContain("box(plane: plane, dx: number, dy: number, dz: number) -> solid");
+        expect(api).toContain("booleanCut(shape1: refArray, shape2: refArray) -> shape");
+        // Nothing else states these now that the catalog left the system prompt, so they
+        // have to travel with it — Line={point,direction} and the corner-vs-center rules
+        // are what make a hand-written op call correct on the first try.
+        expect(api).toContain("JSON encoding:");
+        expect(api).toContain("Line={point:{x,y,z},direction:{x,y,z}}");
+        expect(api).toContain("Placement:");
+    });
+
     test("the app guide teaches the app, not the modeling API", async () => {
         const tool = buildSkillTool();
         const guide = (await tool.handler({ name: "app-guide" })) as string;

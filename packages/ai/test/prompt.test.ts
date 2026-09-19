@@ -24,9 +24,18 @@ describe("buildSystemPrompt", () => {
     });
 
     test("keeps the resident prompt compact", () => {
-        // Resident prompt budget: guard against accidental bloat (~3.5k tokens at 3.5 chars/token).
+        // The creation-method catalog moved into the modeling-api skill, which took the
+        // resident half from ~11.9k to ~7k. This bound guards against creeping back.
         const { stable, volatile } = buildSystemPrompt();
-        expect(stable.length + volatile.length).toBeLessThan(12000);
+        expect(stable.length + volatile.length).toBeLessThan(8000);
+    });
+
+    test("keeps the creation-method catalog out of the resident half", () => {
+        const { stable, volatile } = buildSystemPrompt();
+        // It lives in the modeling-api skill now; inlining it again would take the
+        // resident prompt back to the top of its budget.
+        expect(stable).not.toContain("Available modeling capabilities");
+        expect(volatile).not.toContain("Available modeling capabilities");
     });
 
     test("lists every registered skill for on-demand loading", () => {

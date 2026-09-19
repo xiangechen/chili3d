@@ -950,7 +950,11 @@ function runQueryOp(
     results: Record<string, unknown>,
 ): void {
     const query = queryCapabilities.find((c) => c.method === op.method);
-    if (!query) throw new Error(`unknown method "${op.method}"`);
+    if (!query) {
+        throw new Error(
+            `unknown method "${op.method}" — load_skill("modeling-api") lists the modeling methods and load_skill("shape-query") the query methods`,
+        );
+    }
     runQuery(query, op, doc, localRefs, results);
 }
 
@@ -1071,7 +1075,7 @@ function buildModelingTool(): Tool {
     return {
         name: "run_program",
         description:
-            'Run a sequence of modeling and query operations in one call. The single argument is an object { "ops": [...] } where ops run in order. Creation ops have "method" (a modeling capability), "args", optional "id" (referenced by later ops) and optional "name"; they return created nodes. Query ops have "method" (a query like "face.area" or "shape.volume"), "target" (a ref) and "id"; their values come back in "results". The response is { created, removed, results }: "created" lists new nodes, "removed" lists input nodes consumed by edit-style ops (booleanCut/booleanFuse/fillet/...) — removed nodes no longer exist, do not hide, delete or reference them. Use load_skill("shape-query") for the full query reference. A ref arg takes an op id, a sub-shape/curve/surface ref, or an existing node id; refs stay valid across run_program calls on the same document and re-resolve against the live scene, so an edited node is seen through its current shape (a ref whose source node was deleted fails with a clear error — re-run the query that produced it).',
+            'Run a sequence of modeling and query operations in one call — load_skill("modeling-api") first for the creation-method signatures and the argument encoding. The single argument is an object { "ops": [...] } where ops run in order. Creation ops have "method" (a modeling capability), "args", optional "id" (referenced by later ops) and optional "name"; they return created nodes. Query ops have "method" (a query like "face.area" or "shape.volume"), "target" (a ref) and "id"; their values come back in "results". The response is { created, removed, results }: "created" lists new nodes, "removed" lists input nodes consumed by edit-style ops (booleanCut/booleanFuse/fillet/...) — removed nodes no longer exist, do not hide, delete or reference them. Use load_skill("shape-query") for the full query reference. A ref arg takes an op id, a sub-shape/curve/surface ref, or an existing node id; refs stay valid across run_program calls on the same document and re-resolve against the live scene, so an edited node is seen through its current shape (a ref whose source node was deleted fails with a clear error — re-run the query that produced it).',
         parameters: runProgramParameters(),
         handler: handleRunProgram,
     };
@@ -1105,7 +1109,7 @@ function runProgramOpSchema(): JsonSchema {
             },
             args: {
                 type: "object",
-                description: "Method parameters, per the system prompt's JSON encoding",
+                description: 'Method parameters — load_skill("modeling-api") documents the encoding',
             },
             target: {
                 type: "string",

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AppGuideStore,
     Config,
     formatShortcutKey,
     I18N_KEYS,
@@ -11,6 +12,7 @@ import {
     Navigation3DTypes,
     ShortcutProfiles,
 } from "@chili3d/core";
+import type { Skill } from "./types";
 
 /** Command keys the manual may reference; a `{key}` outside this set stays literal (and is a bug). */
 const COMMAND_KEYS = new Set(
@@ -143,7 +145,32 @@ The workflow to teach:
 - The AI assistant panel is toggled by {ai.toggleChat} and has no hotkey. It starts docked open; drag its header to detach it into a floating window, and drag it back to re-dock. Its first use asks for provider, base URL, model and API key. Send with Ctrl+Enter or the send button, and images can be attached.`,
 ];
 
-/** The built-in manual, with every command reference resolved for the session reading it. */
-export function appGuideDoc(): string {
-    return resolveCommandRefs([INTRO, ...SECTIONS].join("\n\n"));
+/**
+ * The manual the assistant reads: the built-in text unless someone replaced it, followed by
+ * every section modules and plugins registered (see AppGuideStore). Assembled on demand, not
+ * when the skill is constructed — registration happens as plugins load, and a contributed
+ * section may use the same `{command.key}` references the built-in text uses.
+ */
+function buildAppGuideDoc(): string {
+    const override = AppGuideStore.getBase();
+    const parts = [resolveCommandRefs(override ?? [INTRO, ...SECTIONS].join("\n\n"))];
+    for (const section of AppGuideStore.getSections()) {
+        parts.push(resolveCommandRefs(`## ${section.name}\n${section.content}`));
+    }
+    return parts.join("\n\n");
 }
+
+/**
+ * The app's own manual. Unlike the other skills this one is about the UI rather than the
+ * modeling API, so it is the answer to "how do I…" and "where is…" questions: it maps every
+ * command to its ribbon tab/group and hotkey, and explains navigation, selection, the model
+ * tree, sketch mode and the parametric feature list.
+ */
+export const appGuide: Skill = {
+    name: "app-guide",
+    description:
+        'How to operate the Chili3D app itself: where every command lives (ribbon tabs and groups, toolbars, hotkeys), viewport navigation and selection, the model tree and property panel, sketch mode, parametric features, file operations and settings — load it to answer any "how do I…" or "where is…" question',
+    get content() {
+        return buildAppGuideDoc();
+    },
+};
