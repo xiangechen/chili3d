@@ -7,6 +7,7 @@ import {
     I18n,
     type IDocument,
     type INode,
+    isNodeIcon,
     isNodeWarning,
     Transaction,
 } from "@chili3d/core";
@@ -107,6 +108,16 @@ export abstract class TreeItem extends HTMLElement {
 
     removeStyle(style: string) {
         this.mainElement().classList.remove(style);
+    }
+
+    /**
+     * The type icon a node declares through the optional `INodeIcon` contract, or
+     * undefined for a node that does not opt in — those rows keep the layout they had.
+     * Subclasses place it before the name.
+     */
+    protected createTypeIcon(): SVGSVGElement | undefined {
+        if (!isNodeIcon(this.node)) return undefined;
+        return svg({ className: style.typeIcon, icon: this.node.icon });
     }
 
     abstract mainElement(): HTMLElement;

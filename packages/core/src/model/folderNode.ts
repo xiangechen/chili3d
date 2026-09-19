@@ -15,6 +15,11 @@ export interface FolderNodeOptions {
 
 @serializable()
 export class FolderNode extends Node implements INodeLinkedList {
+    /** `INodeIcon`: the folder glyph, so a group reads apart from the shapes it holds. */
+    get icon(): string {
+        return "icon-folder";
+    }
+
     private readonly _children: NodeChildList = new NodeChildList(
         this,
         () => this.visible && this.parentVisible,

@@ -14,6 +14,7 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     "parent-hidden": "ti-parent-hidden",
     hidden: "ti-hidden",
     warning: "ti-warning",
+    typeIcon: "ti-type-icon",
 }));
 
 rs.mock("../src/project/tree/treeItemGroup.module.css", () => ({
@@ -48,6 +49,8 @@ class MockGroupNode {
     parent: unknown;
     firstChild: unknown;
     nextSibling: unknown;
+    /** Present only on nodes opting into the `INodeIcon` contract. */
+    icon?: string;
     onPropertyChanged(_handler: unknown) {}
     removePropertyChanged(_handler: unknown) {}
 }
@@ -86,6 +89,17 @@ describe("TreeGroup", () => {
             expect(group.header.children[0]).toBe(group.expanderIcon);
             expect(group.header.children[1]).toBe(group.name);
             expect(group.header.children[2]).toBe(group.visibleIcon);
+        });
+
+        test("should place the group's type icon between the expander and the name", () => {
+            const node = new MockGroupNode();
+            node.icon = "icon-folder";
+            const { group } = createGroup(node);
+            expect(group.header.children[0]).toBe(group.expanderIcon);
+            const icon = group.header.children[1] as SVGSVGElement;
+            expect(icon.classList.contains("ti-type-icon")).toBe(true);
+            expect(icon.getAttribute("icon")).toBe("icon-folder");
+            expect(group.header.children[2]).toBe(group.name);
         });
 
         test("should badge the header when the group node reports warnings", () => {

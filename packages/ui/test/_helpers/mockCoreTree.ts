@@ -24,9 +24,14 @@ export function getPubSubPubs() {
 
 rs.mock("@chili3d/core", () => {
     const actual = rs.hoisted(() => require("@chili3d/core"));
-    const { BindingMock, TransactionMock, I18nMock, isFeatureListNodeMock, isNodeWarningMock } = rs.hoisted(
-        () => require("./coreMocks"),
-    );
+    const {
+        BindingMock,
+        TransactionMock,
+        I18nMock,
+        isFeatureListNodeMock,
+        isNodeIconMock,
+        isNodeWarningMock,
+    } = rs.hoisted(() => require("./coreMocks"));
     class VisualNode {}
     class Annotation {}
     class NodeSelectionHandler {}
@@ -48,6 +53,7 @@ rs.mock("@chili3d/core", () => {
         PubSub: pubSubRecorder.stub,
         I18n: I18nMock,
         isFeatureListNode: isFeatureListNodeMock,
+        isNodeIcon: isNodeIconMock,
         isNodeWarning: isNodeWarningMock,
         VisualNode,
         Annotation,

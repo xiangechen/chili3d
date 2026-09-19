@@ -39,6 +39,15 @@ export abstract class ShapeNode extends GeometryNode {
         return ShapeTypeUtils.stringValue(this._shape.value.shapeType);
     }
 
+    /**
+     * Iconfont key for the model tree (`INodeIcon`). Every shape node is some kind of
+     * solid, so the base is the generic solid icon; sketches and parametric bodies
+     * override it so the three read apart at a glance.
+     */
+    get icon(): string {
+        return "icon-box";
+    }
+
     protected setShape(shape: Result<IShape>) {
         if (this._shape.isOk && shape.isOk && this._shape.value.isEqual(shape.value)) {
             return;

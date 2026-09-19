@@ -15,9 +15,11 @@ export class TreeGroup extends TreeItem {
     constructor(document: IDocument, node: INodeLinkedList) {
         super(document, node);
         this.expanderIcon = this.createExpanderIcon(node);
+        const typeIcon = this.createTypeIcon();
         this.header = div(
             { className: `${style.row} ${style.header}` },
             this.expanderIcon,
+            ...(typeIcon === undefined ? [] : [typeIcon]),
             this.name,
             this.visibleIcon,
             this.warningBadge,

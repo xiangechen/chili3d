@@ -57,6 +57,11 @@ export class SketchNode extends ParameterShapeNode {
         return "body.sketch";
     }
 
+    /** `INodeIcon`: a sketch reads as a sketch, not as the solid it feeds. */
+    override get icon(): string {
+        return "icon-sketchEdit";
+    }
+
     @serialize()
     get plane(): Plane {
         return this.getPrivateValue("plane");

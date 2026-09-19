@@ -14,6 +14,7 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     "parent-hidden": "ti-parent-hidden",
     hidden: "ti-hidden",
     warning: "ti-warning",
+    typeIcon: "ti-type-icon",
 }));
 
 rs.mock("../src/project/tree/treeModel.module.css", () => ({
@@ -39,6 +40,8 @@ class MockNode {
     /** Present only on warning-capable nodes (the `isNodeWarning` guard needs both). */
     warningCount?: number;
     warningTooltip?: string;
+    /** Present only on nodes opting into the `INodeIcon` contract. */
+    icon?: string;
     private handlers = new Set<PropertyHandler>();
 
     onPropertyChanged(handler: PropertyHandler) {
@@ -92,6 +95,20 @@ describe("TreeModel (TreeItem)", () => {
             expect(item.classList.contains("tm-panel")).toBe(true);
             expect(item.children[0]).toBe(item.name);
             expect(item.children[1]).toBe(item.visibleIcon);
+        });
+
+        test("should lead with the type icon a node declares", () => {
+            const item = createItem({ icon: "icon-sketchNew" });
+            const icon = item.children[0] as SVGSVGElement;
+            expect(icon.classList.contains("ti-type-icon")).toBe(true);
+            expect(icon.getAttribute("icon")).toBe("icon-sketchNew");
+            // Ahead of the name, not after it.
+            expect(item.children[1]).toBe(item.name);
+        });
+
+        test("should render no type icon for a node that declares none", () => {
+            const item = createItem();
+            expect(item.children[0]).toBe(item.name);
         });
 
         test("should be draggable", () => {

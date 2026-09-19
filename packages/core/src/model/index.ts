@@ -11,6 +11,7 @@ export * from "./geometryNode";
 export * from "./groupNode";
 export * from "./meshNode";
 export * from "./node";
+export * from "./nodeIcon";
 export * from "./nodeWarning";
 export * from "./shapeNode";
 export * from "./visualNode";

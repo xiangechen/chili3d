@@ -16,6 +16,14 @@
     padding: 0px 8px;
 }
 
+.typeIcon {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    padding: 0px 4px;
+    color: var(--foreground-muted-color);
+}
+
 .parent-hidden {
     opacity: 0.56;
 }

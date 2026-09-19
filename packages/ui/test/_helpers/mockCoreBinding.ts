@@ -18,6 +18,7 @@ rs.mock("@chili3d/core", () => {
         TransactionMock,
         I18nMock,
         isFeatureListNodeMock,
+        isNodeIconMock,
         isNodeWarningMock,
     } = rs.hoisted(() => require("./coreMocks"));
     return {
@@ -27,6 +28,7 @@ rs.mock("@chili3d/core", () => {
         FolderNode: FolderNodeMock,
         I18n: I18nMock,
         isFeatureListNode: isFeatureListNodeMock,
+        isNodeIcon: isNodeIconMock,
         isNodeWarning: isNodeWarningMock,
     };
 });

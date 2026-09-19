@@ -8,6 +8,8 @@ import style from "./treeModel.module.css";
 export class TreeModel extends TreeItem {
     constructor(document: IDocument, node: INode) {
         super(document, node);
+        const typeIcon = this.createTypeIcon();
+        if (typeIcon !== undefined) this.append(typeIcon);
         this.append(this.name, this.visibleIcon, this.warningBadge);
         this.classList.add(style.panel);
     }

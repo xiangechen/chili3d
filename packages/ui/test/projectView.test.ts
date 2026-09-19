@@ -22,6 +22,7 @@ rs.mock("../src/project/tree/treeItem.module.css", () => ({
     item: "ti-item",
     icon: "ti-icon",
     label: "ti-label",
+    typeIcon: "ti-type-icon",
 }));
 
 rs.mock("../src/project/tree/treeModel.module.css", () => ({

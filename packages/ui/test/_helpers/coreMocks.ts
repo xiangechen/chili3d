@@ -70,6 +70,11 @@ export function isNodeWarningMock(node: unknown): boolean {
     return typeof candidate?.warningCount === "number" && typeof candidate?.warningTooltip === "string";
 }
 
+/** Mirror of core's real guard (the mid-init snapshot can miss function exports). */
+export function isNodeIconMock(node: unknown): boolean {
+    return typeof (node as { icon?: unknown } | undefined)?.icon === "string";
+}
+
 /** No-op PubSub stub. */
 export const PubSubMock = {
     default: {
