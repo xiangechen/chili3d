@@ -3,8 +3,10 @@
 
 import type { IConverter } from "./foundation";
 import type { I18nKeys } from "./i18n";
+import type { UnitSpec } from "./parameters/unitSpec";
 import type { Combobox } from "./ui";
 
+/** The controls that are more than a plain value editor; everything else edits by value. */
 export type PropertyType = "color" | "materialId";
 
 export interface Property {
@@ -14,6 +16,13 @@ export interface Property {
     group?: I18nKeys;
     icon?: string;
     type?: PropertyType;
+    /**
+     * What this value measures. Marking a property with a unit is what makes its editor
+     * accept an expression beside a literal — the unit decides whether one resolves, and
+     * a value that does not fit it is refused. It is also what a units-aware display layer
+     * would read to know whether to show millimetres or degrees.
+     */
+    unit?: UnitSpec;
     dependencies?: {
         property: string | number | symbol;
         value: any;

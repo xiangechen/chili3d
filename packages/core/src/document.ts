@@ -4,6 +4,7 @@
 import type { IApplication } from "./application";
 import type { History, IDisposable, IPropertyChanged, ObservableCollection } from "./foundation";
 import type { ModelManager } from "./modelManager";
+import type { IVariableTable } from "./parameters/variableTable";
 import type { IPicker, ISelection } from "./selection";
 import type { Serialized } from "./serialize";
 import type { Act, IVisual } from "./visual";
@@ -19,6 +20,8 @@ export interface IDocument extends IPropertyChanged, IDisposable {
     readonly visual: IVisual;
     readonly application: IApplication;
     readonly modelManager: ModelManager;
+    /** Document-wide parameters shared by every body and sketch (see `variableTable.ts`). */
+    readonly variables: IVariableTable;
     name: string;
     acts: ObservableCollection<Act>;
     userData?: Record<string, unknown>;

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { I18nKeys } from "../i18n";
+import type { UnitSpec } from "../parameters/unitSpec";
 import type { INode } from "./node";
 
 /** A single editable parameter of a feature, rendered by the feature list panel. */
@@ -13,6 +14,8 @@ export interface FeatureParameter {
      * booleans render as a checkbox (e.g. a boolean feature's consume-tools toggle).
      */
     readonly value: number | string | boolean;
+    /** The unit the slot expects — the panel hints it, the rebuild enforces it. */
+    readonly unit?: UnitSpec;
 }
 
 /**

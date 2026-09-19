@@ -296,6 +296,17 @@ export class NodeUtils {
         return result;
     }
 
+    static *children(root: INodeLinkedList): Generator<INode> {
+        let node = root.firstChild;
+        while (node) {
+            yield node;
+            if (NodeUtils.isLinkedListNode(node)) {
+                yield* NodeUtils.children(node);
+            }
+            node = node.nextSibling;
+        }
+    }
+
     static serializeNode(node: INode) {
         const nodes: Serialized[] = [];
         NodeUtils.serializeNodeToArray(nodes, node, undefined);

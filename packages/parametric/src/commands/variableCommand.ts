@@ -1,60 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    command,
-    GetOrSelectNodeStep,
-    Id,
-    type INode,
-    type IStep,
-    MultistepCommand,
-    Transaction,
-} from "@chili3d/core";
-import { ParametricBodyNode } from "../parametricBodyNode";
-import { promptText } from "./promptDialog";
+import { CancelableCommand, command, PubSub } from "@chili3d/core";
 
-const NAME_PATTERN = /^[A-Za-z_]\w*$/;
-
-/** Appends a variable feature: pick a parametric body, then enter the name and expression. */
+/**
+ * Opens the document's parameter dialog. A variable is a document-level parameter, not
+ * a step of any body's feature list, so this picks nothing and appends to nothing — the
+ * dialog edits `document.variables` as a whole and one confirm is one undo step.
+ */
 @command({ key: "feature.variable", icon: "icon-tag" })
-export class VariableFeatureCommand extends MultistepCommand {
-    private get body(): ParametricBodyNode {
-        return this.stepDatas[0].nodes?.[0] as unknown as ParametricBodyNode;
-    }
-
-    protected override getSteps(): IStep[] {
-        return [
-            new GetOrSelectNodeStep("prompt.select.models", {
-                filter: { allow: (node: INode) => node instanceof ParametricBodyNode },
-            }),
-        ];
-    }
-
-    protected override executeMainTask(): void {
-        promptText(
-            "common.name",
-            "width",
-            (name) => (NAME_PATTERN.test(name) ? undefined : `Invalid variable name: ${name}`),
-            (name) => this.promptExpression(name),
-        );
-    }
-
-    private promptExpression(name: string): void {
-        promptText(
-            "common.expression",
-            "50",
-            (expression) => (expression.length === 0 ? "Expression must not be empty" : undefined),
-            (expression) => this.addVariable(name, expression),
-        );
-    }
-
-    private addVariable(name: string, expression: string): void {
-        Transaction.execute(this.document, "excute feature.variable", () => {
-            this.body.setFeaturesEmitShapeChanged([
-                ...this.body.features,
-                { id: Id.generate(), type: "variable", name, expression },
-            ]);
-            this.document.visual.update();
-        });
+export class VariableCommand extends CancelableCommand {
+    protected async executeAsync(): Promise<void> {
+        const document = this.document;
+        PubSub.default.pub("editVariables", document, () => document.visual.update());
     }
 }

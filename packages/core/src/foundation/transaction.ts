@@ -28,7 +28,20 @@ export class Transaction {
         Logger.info(`history added ${record.name}`);
     }
 
+    /**
+     * Opens a transaction, runs `action` and commits it — or, when the document already has
+     * one open, joins that one: the records merge, so undoing reverts both halves together.
+     *
+     * The join is what makes a listener that edits a second time work. Editing the parameter
+     * table re-solves the live sketch, which commits its own data — one user action, one undo
+     * step. Opening a second transaction used to throw inside the notification, where the
+     * observer swallowed it: the inner edit was lost with no error anywhere.
+     */
     static execute(document: IDocument, name: string, action: () => void) {
+        if (Transaction._transactionMap.has(document)) {
+            action();
+            return;
+        }
         const trans = new Transaction(document, name);
         trans.start();
         try {
@@ -41,6 +54,10 @@ export class Transaction {
     }
 
     static async executeAsync(document: IDocument, name: string, action: () => Promise<void>) {
+        if (Transaction._transactionMap.has(document)) {
+            await action();
+            return;
+        }
         const trans = new Transaction(document, name);
         trans.start();
 

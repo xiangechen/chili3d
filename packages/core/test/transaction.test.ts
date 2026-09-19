@@ -39,4 +39,55 @@ describe("Transaction", () => {
         trans.commit();
         expect(doc.history.undoCount()).toBe(1);
     });
+
+    // A listener running inside a transaction that edits again — editing the parameter
+    // table re-solving a live sketch — is one user action, and had to stop being a throw:
+    // the notification swallowed it, so the inner edit was lost without a trace.
+    test("execute joins an open transaction — one action, one undo step", () => {
+        const doc: IDocument = { history: new History() } as any;
+        const record: PropertyHistoryRecord = {} as any;
+        let innerRan = false;
+        let innerError: unknown;
+
+        Transaction.execute(doc, "outer", () => {
+            Transaction.add(doc, record);
+            try {
+                Transaction.execute(doc, "inner", () => {
+                    innerRan = true;
+                    Transaction.add(doc, record);
+                });
+            } catch (error) {
+                innerError = error;
+            }
+            // Still open: nothing reaches the history until the outer transaction commits.
+            expect(doc.history.undoCount()).toBe(0);
+        });
+
+        expect(innerError).toBeUndefined();
+        expect(innerRan).toBe(true);
+        expect(doc.history.undoCount()).toBe(1);
+    });
+
+    test("a throw inside a joined execute rolls the whole transaction back", () => {
+        const doc: IDocument = { history: new History() } as any;
+        expect(() =>
+            Transaction.execute(doc, "outer", () => {
+                Transaction.execute(doc, "inner", () => {
+                    throw new Error("inner failed");
+                });
+            }),
+        ).toThrow("inner failed");
+        expect(doc.history.undoCount()).toBe(0);
+    });
+
+    test("executeAsync joins an open transaction too", async () => {
+        const doc: IDocument = { history: new History() } as any;
+        const record: PropertyHistoryRecord = {} as any;
+        await Transaction.executeAsync(doc, "outer", async () => {
+            await Transaction.executeAsync(doc, "inner", async () => {
+                Transaction.add(doc, record);
+            });
+        });
+        expect(doc.history.undoCount()).toBe(1);
+    });
 });

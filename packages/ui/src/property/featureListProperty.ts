@@ -14,6 +14,7 @@ import {
     Localize,
     PubSub,
     Transaction,
+    type UnitSpec,
 } from "@chili3d/core";
 import { div, input, span, svg } from "@chili3d/element";
 import { showDialog } from "../dialog";
@@ -24,6 +25,15 @@ import inputStyle from "./input.module.css";
 interface DropTarget {
     readonly id: string;
     readonly before: boolean;
+}
+
+/** The i18n label of a unit the panel can name; undefined for derived ones (area, ...). */
+function unitSpecLabelKey(unit: UnitSpec | undefined): I18nKeys | undefined {
+    if (unit === undefined) return undefined;
+    if (unit.length === 1 && unit.angle === 0) return "variable.type.length";
+    if (unit.length === 0 && unit.angle === 1) return "variable.type.angle";
+    if (unit.length === 0 && unit.angle === 0) return "variable.type.unitless";
+    return undefined;
 }
 
 /**
@@ -164,14 +174,18 @@ export class FeatureListProperty extends HTMLElement {
                       onclick: (e) =>
                           this.applyChecked(item, param.key, (e.target as HTMLInputElement).checked),
                   })
-                : this.textParamInput(item, param.key, param.value),
+                : this.textParamInput(item, param.key, param.value, param.unit),
         );
     }
 
-    private textParamInput(item: FeatureItem, key: string, value: number | string) {
+    private textParamInput(item: FeatureItem, key: string, value: number | string, unit?: UnitSpec) {
+        const expected = unitSpecLabelKey(unit);
         return input({
             className: inputStyle.box,
             value: this.formatParameterValue(value),
+            // What the slot measures — the value may be an expression, and the rebuild
+            // rejects one of the wrong unit, so say up front what fits.
+            title: expected === undefined ? "" : (I18n.translate(expected) ?? ""),
             // Reveal the raw value for editing; blur without a change
             // restores the trimmed display.
             onfocus: (e) => {

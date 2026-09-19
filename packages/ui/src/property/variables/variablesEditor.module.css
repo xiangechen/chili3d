@@ -1,0 +1,207 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* No minimum of its own: how small the panel may get is the opener's business. */
+}
+
+.table {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.rows {
+    overflow-y: auto;
+    max-height: 320px;
+    /* Reserve the scrollbar's strip so the header and the rows keep sharing one grid. */
+    scrollbar-gutter: stable;
+}
+
+.row,
+.newRow,
+.header {
+    display: grid;
+    grid-template-columns: 140px 100px minmax(160px, 1fr) 84px;
+    gap: 6px;
+    align-items: center;
+    padding: 3px 8px;
+}
+
+/* The name and its description marker share one column. */
+.nameCell {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-width: 0;
+}
+
+/*
+ * The description marker. Hidden on rows that have no note until the row is hovered, so a
+ * table of undocumented parameters looks like a three-column table.
+ */
+.marker {
+    flex: none;
+    padding: 0 2px;
+    font-size: 1.2em;
+    line-height: 1;
+    color: var(--foreground-muted-color);
+    cursor: pointer;
+    visibility: hidden;
+}
+
+.marker.hasNote {
+    visibility: visible;
+    color: var(--primary-color);
+}
+
+/* Last, so hovering uncovers the marker on rows that have no note yet. */
+.row:hover .marker {
+    visibility: visible;
+}
+
+.notePopup {
+    position: fixed;
+    z-index: 100;
+    padding: 4px;
+    background-color: var(--panel-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+}
+
+.noteInput {
+    width: 220px;
+    padding: 4px 6px;
+    font-size: 0.95em;
+    color: var(--foreground-color);
+    background-color: var(--input-background-color);
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    outline: none;
+}
+
+.header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--foreground-secondary-color);
+    background-color: var(--title-background);
+    border-bottom: 1px solid var(--border-color);
+
+    /* Line the labels up with the text inside the quiet cells below (6px padding + 1px border). */
+    .cell {
+        padding: 0 7px;
+    }
+}
+
+.row {
+    border-bottom: 1px solid var(--border-color);
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover,
+    &:focus-within {
+        background-color: var(--panel-hover-background-color);
+    }
+}
+
+.cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+/* Quiet cells: a cell's box appears on hover/focus instead of shouting from every row at once. */
+.field {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 6px;
+    font-size: 0.95em;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+
+    &:hover {
+        border-color: var(--border-color);
+    }
+
+    &:focus {
+        background-color: var(--input-background-color);
+        border-color: var(--primary-color);
+        outline: none;
+    }
+}
+
+select.field {
+    cursor: pointer;
+}
+
+/*
+ * Left, like the expression it holds: this column is code (`w / 2`), not figures to compare
+ * down, and the cell is also the input — the caret and the text should start in one place.
+ * Tabular figures keep a column of numbers visually aligned anyway.
+ */
+.value {
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground-secondary-color);
+}
+
+.error {
+    color: var(--error-color);
+}
+
+.errorRow {
+    background-color: color-mix(in srgb, var(--error-color) 8%, transparent);
+
+    &:hover,
+    &:focus-within {
+        background-color: color-mix(in srgb, var(--error-color) 14%, transparent);
+    }
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
+}
+
+.iconButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    color: var(--foreground-secondary-color);
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+
+    svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    &:hover:not(:disabled) {
+        color: var(--foreground-color);
+        background-color: var(--hover-background-color);
+    }
+
+    &:disabled {
+        opacity: 0.3;
+        cursor: default;
+    }
+}
+
+.danger:hover:not(:disabled) {
+    color: var(--error-color);
+}

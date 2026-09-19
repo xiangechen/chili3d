@@ -118,6 +118,27 @@ describe("node utils", () => {
             expect(specialNodes).toContain(child3);
             expect(specialNodes).toContain(child4);
         });
+
+        test("NodeUtils children yields descendants in document order", () => {
+            const root = new FolderNode({ document: doc, name: "root" });
+            const child1 = newNode("child1");
+            const child2 = new FolderNode({ document: doc, name: "child2" });
+            const grandChild1 = newNode("grandChild1");
+            const grandChild2 = newNode("grandChild2");
+            const child3 = newNode("child3");
+
+            root.add(child1, child2, child3);
+            child2.add(grandChild1, grandChild2);
+
+            expect(Array.from(NodeUtils.children(root))).toEqual([
+                child1,
+                child2,
+                grandChild1,
+                grandChild2,
+                child3,
+            ]);
+            expect(Array.from(NodeUtils.children(root))).not.toContain(root);
+        });
     });
 
     describe("NodeUtils.generateName", () => {

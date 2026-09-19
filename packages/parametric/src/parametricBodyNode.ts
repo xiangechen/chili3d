@@ -18,6 +18,7 @@ import {
     ParameterShapeNode,
     PubSub,
     Result,
+    type Scope,
     ShapeNode,
     serializable,
     serialize,
@@ -43,6 +44,7 @@ import type { BooleanFeatureData, ExtrudeFeatureData } from "./features/feature"
 import type { ProfileRef } from "./features/profileRef";
 import { syncNodeWatches } from "./nodeWatch";
 import { danglingProfileRefs, SketchNode } from "./sketch/sketchNode";
+import { ensureVariableSync } from "./variableSync";
 
 /**
  * The parametric body: a node whose geometry is DERIVED by replaying an ordered feature list.
@@ -207,6 +209,7 @@ export class ParametricBodyNode
         super({ document: options.document, id: options.id });
         this.setPrivateValue("featuresJson", options.featuresJson ?? JSON.stringify(options.features ?? []));
         this.document.modelManager.addNodeObserver(this.handleReferencedNodeChanged);
+        ensureVariableSync(options.document);
     }
 
     setFeaturesEmitShapeChanged(features: FeatureData[]): void {
@@ -559,9 +562,9 @@ export class ParametricBodyNode
 
     /**
      * Replays the feature list, reusing cached per-feature results while the feature
-     * data, the variable scope, its input shape, and its referenced node shapes are
-     * all unchanged — so editing one feature only re-evaluates from that feature on.
-     * Parameter-kind features (variables) update the scope instead of the shape.
+     * data, the document's variable scope, its input shape, and its referenced node
+     * shapes are all unchanged — so editing one feature only re-evaluates from that
+     * feature on.
      * A session rollback (`_rollbackIndex`) stops the replay early; the truncation
      * is by feature-list index, so user-suppressed features still count.
      */
@@ -569,7 +572,10 @@ export class ParametricBodyNode
         let input: IShape | undefined;
         let faceIds: string[] | undefined;
         let edgeIds: string[] | undefined;
-        const scope = new Map<string, number>();
+        // The document's parameter table, not a per-body one: every body in the
+        // document resolves the same names, and a variable edit invalidates every
+        // body's cache through `cacheKey` below.
+        const scope = this.document.variables.evaluate().scope;
         const nextCache: FeatureCacheEntry[] = [];
         const resolvedProfiles = new Map<string, ProfileRef[]>();
         const resolvedEdges = new Map<string, EdgeRef[]>();
@@ -603,7 +609,6 @@ export class ParametricBodyNode
                     this.markUnresolvedExternalRefs(features);
                     return Result.err(step.error);
                 }
-                if (step.value === undefined) continue; // parameter feature: only the scope changed
                 input = step.value.shape;
                 faceIds = step.value.faceIds;
                 edgeIds = step.value.edgeIds;
@@ -799,24 +804,15 @@ export class ParametricBodyNode
 
     // ------------------------------------------------------------------ Cache plumbing
 
-    /**
-     * Evaluates one feature against the current chain state, returning its output (or
-     * undefined for parameter-kind features, which only update `scope`).
-     */
+    /** Evaluates one feature against the current chain state, returning its output. */
     private evaluateFeatureStep(
         feature: FeatureData,
-        scope: Map<string, number>,
+        scope: Scope,
         input: IShape | undefined,
         faceIds: string[] | undefined,
         edgeIds: string[] | undefined,
         nextCache: FeatureCacheEntry[],
-    ): Result<FeatureStepOutput | undefined> {
-        const handler = featureHandler(feature.type);
-        if (handler?.kind === "parameters") {
-            const result =
-                handler.evaluateParameters?.(feature, scope) ?? Result.err("Not a parameter feature");
-            return result.isOk ? Result.ok(undefined) : Result.err(result.error);
-        }
+    ): Result<FeatureStepOutput> {
         const key = this.cacheKey(feature, scope);
         const cached = this.validCacheEntry(key, input, nextCache.length);
         if (cached !== undefined) {
@@ -830,7 +826,7 @@ export class ParametricBodyNode
     private evaluateAndCache(
         feature: FeatureData,
         key: string,
-        scope: Map<string, number>,
+        scope: Scope,
         input: IShape | undefined,
         faceIds: string[] | undefined,
         edgeIds: string[] | undefined,
@@ -871,7 +867,7 @@ export class ParametricBodyNode
     }
 
     /** Cache keys include the scope snapshot so a variable change invalidates dependents. */
-    private cacheKey(feature: FeatureData, scope: ReadonlyMap<string, number>): string {
+    private cacheKey(feature: FeatureData, scope: Scope): string {
         return scope.size === 0 ? JSON.stringify(feature) : JSON.stringify([feature, [...scope]]);
     }
 
@@ -979,9 +975,20 @@ export class ParametricBodyNode
     // keeps the last good shape silently — the feature panel shows the error — instead
     // of toasting per change.
     private readonly handleWatchedNodeChanged = (property: string) => {
+        if (property !== "shape" && property !== "transform") return;
+        this.rebuildFromUpstream();
+    };
+
+    /**
+     * Re-derives the shape because something upstream changed — a watched node's
+     * geometry, or the document's parameter table (`applyVariables`, dispatched by
+     * `variableSync.ts`). A failed rebuild keeps the last good shape silently; the
+     * feature panel carries the error.
+     */
+    private rebuildFromUpstream(): void {
         // Skip while evaluating: a referenced node (e.g. the sketch) may generate its
         // shape lazily mid-evaluation and notify — the in-flight pass reads it fresh.
-        if ((property !== "shape" && property !== "transform") || this._evaluating) return;
+        if (this._evaluating) return;
         // A rolled-back source (a sketch-session preview) must not re-evaluate
         // bystanders: the preview hides later features' geometry, the rebuilt shape
         // would be wrong, and the run would re-anchor refs onto the preview and
@@ -1004,7 +1011,20 @@ export class ParametricBodyNode
             this.document.visual.update();
         }
         this.emitPropertyChanged("featuresJson", this.featuresJson);
-    };
+    }
+
+    /** `IVariableConsumer`: bodies re-derive after the sketches that read the same table. */
+    readonly variableSyncOrder = 1;
+
+    /**
+     * `IVariableConsumer`: the document's parameter table changed, so every feature
+     * re-resolves against the new scope. The chain cache invalidates itself — the
+     * scope is part of `cacheKey` — so this is a genuine rebuild, guarded the same
+     * way a watched-node change is.
+     */
+    applyVariables(): void {
+        this.rebuildFromUpstream();
+    }
 
     override disposeInternal(): void {
         // Drop session rollback state so a stale editor-side reference never triggers

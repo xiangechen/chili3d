@@ -1,7 +1,19 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IView, type Plane, Precision, type XYZ } from "@chili3d/core";
+import {
+    ANGLE_UNITS,
+    type IView,
+    LENGTH_UNITS,
+    type ParameterValue,
+    type Plane,
+    Precision,
+    Result,
+    resolveUnitSpec,
+    type Scope,
+    type UnitSpec,
+    type XYZ,
+} from "@chili3d/core";
 import { ConstraintKind } from "../../lib/garlic";
 import type { EdgeRef } from "../features/edgeRef";
 
@@ -44,9 +56,69 @@ export interface SketchConstraintData {
     id: number;
     kind: ConstraintKind;
     refs: SketchPointRef[];
-    datum?: number;
+    /**
+     * A literal in solver-storage units, or an expression written in display units
+     * that resolves against the document's parameters (`resolveDatumSource`).
+     */
+    datum?: ParameterValue;
     /** Datum values for multi-datum kinds (Fix = [x, y]); mutually exclusive with `datum`. */
-    datums?: number[];
+    datums?: ParameterValue[];
+}
+
+/**
+ * The unit a dimension of `kind` measures — what an expression driving it must
+ * resolve to, and what `toDatumSource`/`resolveDatumSource` convert between.
+ */
+export function datumUnitSpec(kind: ConstraintKind): UnitSpec {
+    return kind === ConstraintKind.Angle ? ANGLE_UNITS : LENGTH_UNITS;
+}
+
+/**
+ * Datum value shown in the UI: angles store the signed sweep (the sign picks the
+ * side of the first line) and display its magnitude in degrees, point-line
+ * distances flip sign (UI: positive = left of the line direction; garlic stores
+ * the negated signed distance), everything else as stored.
+ */
+export function toDisplayDatum(kind: ConstraintKind, value: number): number {
+    if (kind === ConstraintKind.Angle) return (Math.abs(value) * 180) / Math.PI;
+    if (kind === ConstraintKind.P2LDistance) return -value;
+    return value;
+}
+
+/**
+ * Datum value for the solver: inverse of `toDisplayDatum`. For angles this yields
+ * the magnitude in radians — the solver re-attaches the side sign before solving
+ * (`SketchSolver.syncAngleDatumSide`).
+ */
+export function toStorageDatum(kind: ConstraintKind, value: number): number {
+    if (kind === ConstraintKind.Angle) return (value * Math.PI) / 180;
+    if (kind === ConstraintKind.P2LDistance) return -value;
+    return value;
+}
+
+/**
+ * The user's input as stored: a literal is converted into storage units right away,
+ * an expression is kept verbatim — it is written in display units, and converting it
+ * before it resolves would mean re-parsing the conversion on every rebuild.
+ */
+export function toDatumSource(kind: ConstraintKind, input: ParameterValue): ParameterValue {
+    return typeof input === "number" ? toStorageDatum(kind, input) : input;
+}
+
+/**
+ * A stored datum as the number the solver takes: a literal is already in storage
+ * units, an expression resolves against `scope` (in display units, checked against
+ * the kind's unit) and is converted afterwards.
+ */
+export function resolveDatumSource(
+    kind: ConstraintKind,
+    source: ParameterValue,
+    scope: Scope,
+): Result<number> {
+    if (typeof source === "number") return Result.ok(source);
+    const resolved = resolveUnitSpec(source, scope, datumUnitSpec(kind));
+    if (!resolved.isOk) return Result.err(resolved.error);
+    return Result.ok(toStorageDatum(kind, resolved.value));
 }
 
 /** Where the label of a datum constraint is anchored, relative to its references. */

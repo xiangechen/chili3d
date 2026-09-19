@@ -7,11 +7,13 @@ import {
     CancelableCommand,
     type Combobox,
     CommandStore,
+    EMPTY_SCOPE,
     I18n,
     type I18nKeys,
     type ICancelableCommand,
     type ICommand,
     type IDisposable,
+    type IDocument,
     isCancelableCommand,
     Localize,
     Observable,
@@ -19,6 +21,10 @@ import {
     type Property,
     PropertyUtils,
     PubSub,
+    parseParameterValue,
+    resolveUnitSpec,
+    type Scope,
+    type UnitSpec,
 } from "@chili3d/core";
 import {
     button,
@@ -218,6 +224,10 @@ export class CommandContext extends HTMLElement implements IDisposable {
             return this.newCombobox(g, g.combobox);
         }
 
+        if (g.unit !== undefined) {
+            return this.newExpressionInput(g, noType, g.unit);
+        }
+
         switch (type) {
             case "function":
                 return this.newButton(g, noType);
@@ -260,6 +270,56 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 ...options,
             ),
         );
+    }
+
+    /**
+     * A dimensional field that also takes an expression (`w * 2`). The text is stored as
+     * written — a feature keeps the RELATION, not the number it happened to evaluate to,
+     * which is what lets a later parameter edit carry through. The document's parameters
+     * decide whether the text resolves at all; a value that will not resolve is refused
+     * with a toast rather than written, because writing it would silently break the rebuild.
+     */
+    private newExpressionInput(g: Property, noType: any, expected: UnitSpec) {
+        return div(
+            label({ textContent: new Localize(g.display) }),
+            input({
+                type: "text",
+                className: style.input,
+                value: new Binding(noType, g.name),
+                onblur: (e) => {
+                    const box = e.target as HTMLInputElement;
+                    const text = box.value;
+                    if (text === "") return;
+                    const value = parseParameterValue(text);
+                    if (typeof value === "string") {
+                        const resolved = resolveUnitSpec(value, this.parameterScope(), expected);
+                        if (!resolved.isOk) {
+                            PubSub.default.pub("showToast", "error.default:{0}", resolved.error);
+                            // The command refused the text, so the field must stop showing it:
+                            // the property still holds the old value, and a binding only
+                            // re-renders on a property-changed emit that never came.
+                            box.value = String(noType[g.name] ?? "");
+                            return;
+                        }
+                    }
+                    noType[g.name] = value;
+                },
+                onkeydown: (e) => {
+                    e.stopPropagation();
+                    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                },
+            }),
+        );
+    }
+
+    /**
+     * The document's parameters, for judging an expression typed into a command field.
+     * `document` is not on `ICommand` — `CancelableCommand` carries it, other
+     * implementations do not, and those simply have nothing to resolve against.
+     */
+    private parameterScope(): Scope {
+        const document = (this.command as { document?: IDocument }).document;
+        return document?.variables.evaluate().scope ?? EMPTY_SCOPE;
     }
 
     private newInput(g: Property, noType: any, converter?: (v: string) => any) {

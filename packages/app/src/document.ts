@@ -12,6 +12,7 @@ import {
     InternalClassName,
     type IPicker,
     type ISelection,
+    type IVariableTable,
     type IVisual,
     Logger,
     ModelManager,
@@ -20,6 +21,7 @@ import {
     PubSub,
     type Serialized,
     Serializer,
+    VariableTable,
 } from "@chili3d/core";
 import { Picker } from "./picker";
 import { SelectionManager } from "./selectionManager";
@@ -31,6 +33,8 @@ export class Document extends Observable implements IDocument {
     readonly picker: IPicker;
     readonly acts = new ObservableCollection<Act>();
     readonly modelManager: ModelManager;
+    /** Document-wide parameters shared by every body and sketch. */
+    readonly variables: IVariableTable;
     userData: Record<string, unknown> = {};
 
     static readonly version = __DOCUMENT_VERSION__;
@@ -53,6 +57,7 @@ export class Document extends Observable implements IDocument {
         this.setPrivateValue("name", name);
         this.modelManager = new ModelManager(this);
         this.history = new History();
+        this.variables = new VariableTable(this);
         this.selection = new SelectionManager(this);
         this.picker = new Picker(this);
         this.visual = application.visualFactory.create(this);
@@ -67,6 +72,7 @@ export class Document extends Observable implements IDocument {
             id: this.id,
             name: this.name,
             models: this.modelManager.serialize(),
+            variables: this.variables.items,
             acts: this.acts.map((x) => Serializer.serializeObject(x)),
             userData: this.userData,
         };
@@ -79,6 +85,7 @@ export class Document extends Observable implements IDocument {
         this.modelManager.dispose();
         this.visual.dispose();
         this.history.dispose();
+        this.variables.dispose();
         this.selection.dispose();
         this.acts.forEach((x) => x.dispose());
         this.acts.clear();
@@ -138,6 +145,9 @@ export class Document extends Observable implements IDocument {
         }
         const document = new Document(app, data["name"], data["id"]);
         document.history.disabled = true;
+        // Before the models: a body's feature chain resolves its parameters against
+        // the table, and deserializing a body rebuilds it.
+        document.variables.setItems(data["variables"] ?? []);
         document.acts.push(...data["acts"].map((x: Serialized) => Serializer.deserializeObject(document, x)));
         if (data["userData"]) {
             document.userData = data["userData"];

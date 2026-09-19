@@ -10,7 +10,10 @@ import {
     type INode,
     type INodeVisual,
     type IStep,
+    LENGTH_UNITS,
     MultistepCommand,
+    type ParameterValue,
+    PubSub,
     property,
     type ShapeMeshData,
     ShapeTypes,
@@ -35,8 +38,17 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     protected abstract readonly featureType: "fillet" | "chamfer";
 
     /** The fillet radius / chamfer distance, entered in the command's floating options tab. */
-    protected abstract get value(): number;
-    protected abstract set value(value: number);
+    protected abstract get value(): ParameterValue;
+    protected abstract set value(value: ParameterValue);
+
+    /**
+     * The value as the preview, the arrow and the kernel need it. Undefined when the
+     * expression will not resolve; the feature itself keeps what the user typed.
+     */
+    protected get valueNumber(): number | undefined {
+        const resolved = this.resolveParameter(this.value, LENGTH_UNITS);
+        return resolved.isOk ? resolved.value : undefined;
+    }
 
     private get body(): ParametricBodyNode {
         return this.stepDatas[0].nodes![0] as unknown as ParametricBodyNode;
@@ -68,7 +80,8 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     protected readonly updatePreview = () => {
         this.removePreview();
         this.activeHandler?.refreshArrow();
-        if (!Number.isFinite(this.value) || this.value <= 0) return;
+        const value = this.valueNumber;
+        if (value === undefined || value <= 0) return;
 
         const picked = this.pickedEdgesOnBody();
         if (picked === undefined) return;
@@ -102,6 +115,8 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
         node: ParametricBodyNode,
         edges: VisualShapeData[],
     ): ShapeMeshData[] | undefined {
+        const value = this.valueNumber;
+        if (value === undefined) return undefined;
         const shape = node.shape.value;
         const indexes = matchEdgeIndexes(
             shape,
@@ -109,7 +124,7 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
         );
         if (!indexes.isOk) return undefined;
 
-        const result = shapeFactory[this.featureType](shape, indexes.value, this.value);
+        const result = shapeFactory[this.featureType](shape, indexes.value, value);
         if (!result.isOk) return undefined;
         const world = result.value.transformedMul(edges[0].transform);
         result.value.dispose();
@@ -140,7 +155,8 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
      * edge-midpoint-to-body-center direction projected perpendicular to the tangent.
      */
     private readonly arrowData = (): EdgeCornerArrowData | undefined => {
-        if (!Number.isFinite(this.value)) return undefined;
+        const value = this.valueNumber;
+        if (value === undefined) return undefined;
         const first = this.document.selection.getSelectedShapes().at(0);
         if (first === undefined || !(first.owner.node instanceof ParametricBodyNode)) return undefined;
 
@@ -149,7 +165,7 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
             const midParam = (world.firstParameter() + world.lastParameter()) / 2;
             const direction = this.arrowDirection(world, midParam, first);
             if (direction === undefined) return undefined;
-            return { anchor: world.pointAt(midParam), direction, value: Math.max(this.value, 0) };
+            return { anchor: world.pointAt(midParam), direction, value: Math.max(value, 0) };
         } finally {
             world.dispose();
         }
@@ -197,6 +213,15 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     }
 
     protected override executeMainTask(): void {
+        // The same refusal the extrude commit makes: the feature keeps the expression the user
+        // typed, and an expression that no longer resolves — the variable was deleted between
+        // typing and confirming, and the parameters panel is not modal — fails the next rebuild
+        // and takes every feature after it down the chain with it.
+        const resolved = this.resolveParameter(this.value, LENGTH_UNITS);
+        if (!resolved.isOk) {
+            PubSub.default.pub("showToast", "error.default:{0}", resolved.error);
+            return;
+        }
         const edges = this.stepDatas[0].shapes.map((data) => {
             const edgeId = this.body.edgeIdAt(data.indexes[0]);
             if (edgeId === undefined) {
@@ -210,7 +235,7 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
         });
     }
 
-    private feature(value: number, edges: EdgeRef[]): FilletFeatureData | ChamferFeatureData {
+    private feature(value: ParameterValue, edges: EdgeRef[]): FilletFeatureData | ChamferFeatureData {
         if (this.featureType === "fillet") {
             return { id: Id.generate(), type: "fillet", radius: value, edges };
         }
@@ -222,11 +247,11 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
 export class FilletFeatureCommand extends EdgeCornerFeatureCommand {
     protected readonly featureType = "fillet" as const;
 
-    @property("circle.radius")
-    get value() {
+    @property("circle.radius", { unit: LENGTH_UNITS })
+    get value(): ParameterValue {
         return this.getPrivateValue("value", 2);
     }
-    set value(value: number) {
+    set value(value: ParameterValue) {
         this.setProperty("value", value, () => this.updatePreview());
     }
 }
@@ -235,11 +260,11 @@ export class FilletFeatureCommand extends EdgeCornerFeatureCommand {
 export class ChamferFeatureCommand extends EdgeCornerFeatureCommand {
     protected readonly featureType = "chamfer" as const;
 
-    @property("common.length")
-    get value() {
+    @property("common.length", { unit: LENGTH_UNITS })
+    get value(): ParameterValue {
         return this.getPrivateValue("value", 1);
     }
-    set value(value: number) {
+    set value(value: ParameterValue) {
         this.setProperty("value", value, () => this.updatePreview());
     }
 }

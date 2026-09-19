@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type FloatPanelOptions, Localize } from "@chili3d/core";
+import { type FloatPanelOptions, type IDocument, Localize, PubSub } from "@chili3d/core";
 import { div, label, svg } from "@chili3d/element";
 import style from "./floatPanel.module.css";
 
@@ -161,8 +161,31 @@ export class FloatPanel extends HTMLElement {
 customElements.define("chili-float-panel", FloatPanel);
 
 export function showFloatPanel(options: FloatPanelOptions): FloatPanel {
-    const panel = new FloatPanel(options);
+    let stopWatching: () => void = () => {};
+    const panel = new FloatPanel({
+        ...options,
+        onClose: () => {
+            stopWatching();
+            options.onClose?.();
+        },
+    });
     const host = app.mainWindow ?? document.body;
     host.appendChild(panel);
+
+    // A panel bound to a document closes with it: `Document.close` disposes the state the
+    // panel reads and writes, and one left up throws out of its next edit. Closing the panel
+    // first has to stop the watch, or every open would leave a subscription holding the
+    // removed panel alive.
+    const boundDocument = options.document;
+    if (boundDocument !== undefined) {
+        const handleDocumentClosed = (closed: IDocument) => {
+            if (closed !== boundDocument) return;
+            stopWatching();
+            panel.remove();
+            panel.dispose();
+        };
+        PubSub.default.sub("documentClosed", handleDocumentClosed);
+        stopWatching = () => PubSub.default.remove("documentClosed", handleDocumentClosed);
+    }
     return panel;
 }

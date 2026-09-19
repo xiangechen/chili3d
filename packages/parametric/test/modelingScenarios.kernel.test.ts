@@ -38,7 +38,7 @@ import type {
 import { captureProfileRef } from "../src/features/profileRef";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { captureFaceRef, sketchPlaneOfFace } from "../src/sketch/planeRef";
-import type { SketchData } from "../src/sketch/sketchModel";
+import { ConstraintKind, type SketchData } from "../src/sketch/sketchModel";
 import { SketchNode } from "../src/sketch/sketchNode";
 import "./sketch/setup";
 
@@ -69,6 +69,19 @@ function newDoc(): TestDocument {
     const doc = new TestDocument({ application: createMockApplication() });
     doc.visual = createMockVisualWithDocument(doc) as any;
     return doc;
+}
+
+/** Seeds or re-drives the document's parameter table — variables live on the document. */
+function setWidth(doc: TestDocument, expression: string) {
+    Transaction.execute(doc, "edit variables", () => {
+        doc.variables.setItems([{ id: "v1", name: "w", expression, type: "length" }]);
+    });
+}
+
+/** Length of the single line of a one-line sketch, read back from its solved entities. */
+function measuredLine(data: SketchData): number {
+    const [x1, y1, x2, y2] = data.entities[0].params;
+    return Math.hypot(x2 - x1, y2 - y1);
 }
 
 /** A parametric body extruded from a rectangle on the XY plane: a `size` cube at the origin. */
@@ -403,13 +416,13 @@ describe("boolean flows", () => {
 describe("expression and history flows", () => {
     test("a variable drives a press-pull chain and re-driving it carries every body", () => {
         const doc = newDoc();
+        setWidth(doc, "40");
         const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: rect(0, 0, 40, 40) });
         doc.modelManager.addNode(sketch);
         const profiles = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
         const body = new ParametricBodyNode({
             document: doc,
             features: [
-                { id: "v1", type: "variable", name: "w", expression: "40" },
                 {
                     id: "e1",
                     type: "extrude",
@@ -429,13 +442,64 @@ describe("expression and history flows", () => {
 
         // Only the height follows the variable: the rectangle stays 40×40, so the swept
         // prism reaches x = 40 + 20/4.
-        body.setFeatureParameter("v1", "expression", "20");
+        setWidth(doc, "20");
         expectClean(body);
         expect(extent(body)).toEqual([0, 0, 0, 45, 40, 20]);
 
-        body.setFeatureParameter("v1", "expression", "40");
+        setWidth(doc, "40");
         expectClean(body);
         expect(extent(body)).toEqual([0, 0, 0, 50, 40, 40]);
+    });
+
+    test("one variable reaches a sketch dimension and a body feature in the same edit", () => {
+        const doc = newDoc();
+        setWidth(doc, "40");
+
+        // A sketch whose single dimension is an expression rather than a number.
+        const dimensioned: SketchData = {
+            entities: [{ id: 1, type: "line", params: [0, 0, 40, 0] }],
+            constraints: [
+                {
+                    id: 2,
+                    kind: ConstraintKind.P2PDistance,
+                    refs: [
+                        { entityId: 1, pointIndex: 0 },
+                        { entityId: 1, pointIndex: 1 },
+                    ],
+                    datum: "w",
+                },
+            ],
+        };
+        const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: dimensioned });
+        doc.modelManager.addNode(sketch);
+        expect(measuredLine(sketch.data)).toBeCloseTo(40);
+
+        // A body driven by the same variable through its feature parameter.
+        const boxSketch = new SketchNode({ document: doc, plane: Plane.XY, data: rect(0, 0, 40, 40) });
+        doc.modelManager.addNode(boxSketch);
+        const profiles =
+            boxSketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                {
+                    id: "e1",
+                    type: "extrude",
+                    sketchId: boxSketch.id,
+                    depth: "w",
+                    profiles: [captureProfileRef(profiles[0].shape as unknown as IFace)],
+                },
+            ],
+        });
+        doc.modelManager.addNode(body);
+        expect(extent(body)).toEqual([0, 0, 0, 40, 40, 40]);
+
+        setWidth(doc, "20");
+
+        // Both followed the one edit: the sketch re-solved and the body re-read the table.
+        expect(measuredLine(sketch.data)).toBeCloseTo(20);
+        expectClean(body);
+        expect(extent(body)).toEqual([0, 0, 0, 40, 40, 20]);
     });
 
     test("undo and redo of an edit restore the fused pair exactly", () => {
@@ -848,13 +912,13 @@ describe("dependency edge cases", () => {
 
     test("a wrecked expression reports and heals", () => {
         const doc = newDoc();
+        setWidth(doc, "40");
         const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: rect(0, 0, 40, 40) });
         doc.modelManager.addNode(sketch);
         const profiles = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
         const body = new ParametricBodyNode({
             document: doc,
             features: [
-                { id: "v1", type: "variable", name: "w", expression: "40" },
                 {
                     id: "e1",
                     type: "extrude",
@@ -873,13 +937,15 @@ describe("dependency edge cases", () => {
         expect(extent(body)).toEqual([0, 0, 0, 50, 40, 40]);
 
         for (const broken of ["1 / 0", "nope * 2", "w +", "(w"]) {
-            body.setFeatureParameter("v1", "expression", broken);
+            setWidth(doc, broken);
+            // The table row carries the expression's own error; the chain then fails on
+            // the now-unresolvable `w` and keeps its last good shape.
+            expect(doc.variables.evaluate().errors.get("v1")).toBeDefined();
             expect(body.featureItems()[0].error).toBeDefined();
-            // The failed chain keeps the last good shape rather than blanking the body.
             expect(extent(body)).toEqual([0, 0, 0, 50, 40, 40]);
         }
 
-        body.setFeatureParameter("v1", "expression", "40");
+        setWidth(doc, "40");
         expectClean(body);
         expect(extent(body)).toEqual([0, 0, 0, 50, 40, 40]);
     });

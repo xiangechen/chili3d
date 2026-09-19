@@ -9,13 +9,14 @@ import {
     type IFace,
     type IShape,
     type Matrix4,
+    type ParameterValue,
     Result,
+    type Scope,
     ShapeTypes,
     type TrackedShape,
     type XYZLike,
 } from "@chili3d/core";
 import type { EdgeRef } from "./edgeRef";
-import type { ParameterValue } from "./expression";
 import { completeEdgeHistory, completeFaceHistory } from "./historyCompletion";
 import type { ProfileRef } from "./profileRef";
 
@@ -34,8 +35,7 @@ export type FeatureData =
     | RevolveFeatureData
     | FilletFeatureData
     | ChamferFeatureData
-    | BooleanFeatureData
-    | VariableFeatureData;
+    | BooleanFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -119,13 +119,6 @@ export interface BooleanFeatureData extends FeatureBase {
     readonly consumeTools?: boolean;
 }
 
-/** A named value (`expression` may reference earlier variables) usable by later features. */
-export interface VariableFeatureData extends FeatureBase {
-    readonly type: "variable";
-    readonly name: string;
-    readonly expression: string;
-}
-
 /**
  * What a feature may ask of the body replaying it: its identity (to recognise a
  * self-reference, e.g. an extrude sourced on the host's own face) and its world
@@ -143,8 +136,8 @@ export interface FeatureContext {
     readonly host: IShapeHost;
     /** Output of the previous feature; undefined for the first (profile) feature. */
     readonly input?: IShape;
-    /** Variables defined by `variable` features earlier in the list. */
-    readonly scope: ReadonlyMap<string, number>;
+    /** The document's parameter table, resolved for this rebuild. */
+    readonly scope: Scope;
     /**
      * Set by the body so handlers can report stable sub-shape ids via the kernel's
      * shape history. `inputFaceIds`/`inputEdgeIds` are the ids of `input`'s faces and
@@ -276,16 +269,9 @@ export interface FeatureHandler<F extends FeatureData = any> {
     readonly display: I18nKeys | ((feature: F) => I18nKeys);
     /** Iconfont key shown in the feature list; a function picks the icon per feature. */
     readonly icon?: string | ((feature: F) => string);
-    /**
-     * "shape" (default) features produce the body shape; "parameters" features only
-     * contribute variables to the scope via `evaluateParameters`.
-     */
-    readonly kind?: "shape" | "parameters";
     /** Set when the user can re-pick the shapes the feature references (e.g. edges). */
     readonly reselectable?: boolean;
     evaluate(feature: F, context: FeatureContext): Result<IShape>;
-    /** Parameter-kind features resolve their expression into the scope. */
-    evaluateParameters?(feature: F, scope: Map<string, number>): Result<void>;
     /** Ids of nodes this feature references — the body watches them for changes. */
     nodeIds(feature: F): string[];
     /**

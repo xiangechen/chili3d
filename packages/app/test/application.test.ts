@@ -41,6 +41,7 @@ function makeSerializedDocData(name: string, id: string): Serialized {
             components: [],
             materials: [],
         },
+        variables: [],
         acts: [],
         userData: {},
     } as unknown as Serialized;

@@ -1,8 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { AsyncController, I18nKeys, Locale } from "@chili3d/core";
-import { Combobox, CommandStore, I18n, Observable, PropertyUtils, PubSub, property } from "@chili3d/core";
+import type { AsyncController, I18nKeys, Locale, ParameterValue } from "@chili3d/core";
+import {
+    Combobox,
+    CommandStore,
+    I18n,
+    LENGTH_UNITS,
+    Observable,
+    PropertyUtils,
+    PubSub,
+    property,
+} from "@chili3d/core";
+import { TestDocument } from "@chili3d/core/test-utils";
 import { afterEach, beforeEach, describe, expect, rs, test } from "@rstest/core";
 
 // CSS module under test
@@ -34,6 +44,7 @@ import { mustQuery } from "./_helpers/domHelpers";
 const CMD_KEY = "test.context.command";
 const CANCEL_CMD_KEY = "test.context.cancelable";
 const MATERIAL_CMD_KEY = "test.context.material";
+const LENGTH_CMD_KEY = "test.context.length";
 
 class TestCommand extends Observable {
     async execute() {}
@@ -106,6 +117,22 @@ class CancelableTestCommand extends Observable {
     cancel = rs.fn(async () => {});
 }
 
+/** A command whose field is a dimensional one, so expressions are accepted there. */
+class LengthCommand extends Observable {
+    readonly document = new TestDocument();
+
+    private _depth: ParameterValue = 0;
+    @property("test.depth" as I18nKeys, { unit: LENGTH_UNITS })
+    get depth(): ParameterValue {
+        return this._depth;
+    }
+    set depth(value: ParameterValue) {
+        this._depth = value;
+    }
+
+    async execute() {}
+}
+
 class MaterialCommand extends Observable {
     async execute() {}
     private _materialId = "m1";
@@ -130,6 +157,7 @@ describe("CommandContext", () => {
         CommandStore.registerCommand(TestCommand, { key: CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(CancelableTestCommand, { key: CANCEL_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(MaterialCommand, { key: MATERIAL_CMD_KEY, icon: "icon-ctx" });
+        CommandStore.registerCommand(LengthCommand, { key: LENGTH_CMD_KEY, icon: "icon-ctx" });
         // I18n.isI18nKey (used by the combobox editor) reads the zh-CN translation table
         I18n.addLanguage({ display: "zh", language: "zh-CN", translation: {} as Locale["translation"] });
     });
@@ -142,6 +170,7 @@ describe("CommandContext", () => {
         CommandStore.unregisterCommand(CMD_KEY);
         CommandStore.unregisterCommand(CANCEL_CMD_KEY);
         CommandStore.unregisterCommand(MATERIAL_CMD_KEY);
+        CommandStore.unregisterCommand(LENGTH_CMD_KEY);
         I18n.removeLanguage("zh-CN");
     });
 
@@ -167,6 +196,93 @@ describe("CommandContext", () => {
         test("should not render cancel button for non-cancelable command", () => {
             const ctx = track(new CommandContext(new TestCommand()));
             expect(ctx.querySelector(".cc-cancel")).toBeNull();
+        });
+    });
+
+    describe("dimensional fields", () => {
+        function dimensionalContext(
+            variables: { name: string; expression: string; type?: "length" | "angle" }[],
+        ) {
+            const command = new LengthCommand();
+            command.document.variables.setItems(
+                variables.map((x, index) => ({
+                    id: `v${index}`,
+                    name: x.name,
+                    expression: x.expression,
+                    type: x.type ?? "length",
+                })),
+            );
+            const ctx = track(new CommandContext(command));
+            const input = mustQuery<HTMLInputElement>(ctx, "input[type='text']");
+            return {
+                command,
+                input,
+                type: (value: string) => {
+                    // The real element is the target: a refusal is supposed to put the field
+                    // back to the command's own value, and that is only observable here.
+                    input.value = value;
+                    (input as unknown as { _onblur: (e: { target: HTMLInputElement }) => void })._onblur({
+                        target: input,
+                    });
+                },
+            };
+        }
+
+        test("stores a parameter name as written, not what it resolves to", () => {
+            const { command, type } = dimensionalContext([{ name: "w", expression: "50" }]);
+
+            type("w * 2");
+
+            // The relation is what a feature keeps — that is what lets a later edit to `w`
+            // carry through instead of freezing today's number.
+            expect(command.depth).toBe("w * 2");
+        });
+
+        test("stores a plain number as a number", () => {
+            const { command, type } = dimensionalContext([]);
+
+            type("25");
+
+            expect(command.depth).toBe(25);
+        });
+
+        test("refuses an expression the parameters cannot resolve", () => {
+            const { command, type } = dimensionalContext([]);
+
+            type("nope");
+
+            expect(command.depth).toBe(0);
+        });
+
+        test("refuses a value of the wrong dimension", () => {
+            const { command, type } = dimensionalContext([{ name: "a", expression: "45", type: "angle" }]);
+
+            type("a");
+
+            expect(command.depth).toBe(0);
+        });
+
+        // A field left showing text the command refused is a lie the user confirms against:
+        // nothing re-renders the binding (a plain setter emits no property change), so the
+        // refusal has to put the value back itself.
+        test.each([
+            { value: "nope", variables: [] as { name: string; expression: string; type?: "angle" }[] },
+            { value: "a", variables: [{ name: "a", expression: "45", type: "angle" as const }] },
+        ])("a refused `$value` does not stay in the field", ({ value, variables }) => {
+            const { command, input, type } = dimensionalContext(variables);
+
+            type(value);
+
+            expect(command.depth).toBe(0);
+            expect(input.value).toBe("0");
+        });
+
+        test("an accepted expression is what the field goes on showing", () => {
+            const { input, type } = dimensionalContext([{ name: "w", expression: "50" }]);
+
+            type("w * 2");
+
+            expect(input.value).toBe("w * 2");
         });
     });
 

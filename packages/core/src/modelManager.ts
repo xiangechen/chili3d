@@ -10,13 +10,24 @@ import {
     ObservableCollection,
     Transaction,
 } from "./foundation";
-import type { Material } from "./material";
+import { type Material, PhongMaterial } from "./material";
 import type { Component } from "./model/component";
 import { FolderNode } from "./model/folderNode";
 import { type INode, type INodeLinkedList, NodeUtils } from "./model/node";
 import { type Serialized, Serializer } from "./serialize";
 
 export type OnNodeChanged = (records: NodeRecord[]) => void;
+
+/** The material reference a node carries, if any — both `GeometryNode` and `MeshNode` have one. */
+function materialIdOf(node: INode): string | string[] | undefined {
+    return (node as { materialId?: string | string[] }).materialId;
+}
+
+/** A node's material reference as a list; a missing one contributes nothing. */
+function materialIdsOf(materialId: string | string[] | undefined): readonly string[] {
+    if (materialId === undefined) return [];
+    return Array.isArray(materialId) ? materialId : [materialId];
+}
 
 export class ModelManager extends Observable {
     private readonly _nodeChangedObservers = new Set<OnNodeChanged>();
@@ -106,12 +117,12 @@ export class ModelManager extends Observable {
     }
 
     async deserialize(data: { components: Serialized[]; nodes: Serialized[]; materials: Serialized[] }) {
-        this.components.push(
-            ...data.components.map((x: Serialized) => Serializer.deserializeObject(this.document, x)),
-        );
-
         this.materials.push(
             ...data.materials.map((x: Serialized) => Serializer.deserializeObject(this.document, x)),
+        );
+
+        this.components.push(
+            ...data.components.map((x: Serialized) => Serializer.deserializeObject(this.document, x)),
         );
 
         // Defer node notifications until the new tree replaces rootNode: displaying a
@@ -122,10 +133,42 @@ export class ModelManager extends Observable {
         try {
             const rootNode = await NodeUtils.deserializeNode(this.document, data.nodes);
             this.rootNode = rootNode!;
+            this.ensureMaterials();
         } finally {
             this._deserializing = false;
         }
         this.notifyNodeChanged([{ action: "add", node: this.rootNode }]);
+    }
+
+    /**
+     * Fills in the materials a loaded document references but its `materials` list no longer
+     * holds, so rendering does not throw `Material not found` — the node tree and the material
+     * list are separate arrays, and an interrupted or hand-edited save can leave them out of step.
+     *
+     * The placeholder keeps the referenced id, so every node resolves; it is a grey
+     * `PhongMaterial` the user can restyle.
+     */
+    private ensureMaterials() {
+        const known = new Set(this.materials.map((x) => x.id));
+        const backfill = (materialId: string | string[] | undefined) => {
+            for (const id of materialIdsOf(materialId)) {
+                // An empty id is "nothing assigned" — the `GeometryNode` default when the
+                // document had no materials yet — not a reference to repair. Backfilling it
+                // would write a nameless material into every later save.
+                if (id === "" || known.has(id)) continue;
+                known.add(id);
+                this.materials.push(
+                    new PhongMaterial({ id, document: this.document, name: "replaced", color: 0xaaaaaa }),
+                );
+            }
+        };
+
+        // The nodes a component owns hang off the component, not off the linked-list tree,
+        // so both walks are needed to cover everything that can carry a `materialId`.
+        for (const node of NodeUtils.children(this.rootNode)) backfill(materialIdOf(node));
+        for (const component of this.components) {
+            for (const node of component.nodes) backfill(materialIdOf(node));
+        }
     }
 
     override disposeInternal(): void {

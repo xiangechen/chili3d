@@ -1,9 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type I18nKeys, type IShape, Result, type TrackedShape } from "@chili3d/core";
+import {
+    type I18nKeys,
+    type IShape,
+    LENGTH_UNITS,
+    Result,
+    resolveUnitSpec,
+    type TrackedShape,
+} from "@chili3d/core";
 import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
-import { resolveNumber } from "./expression";
 import {
     type ChamferFeatureData,
     completeTrackedHistory,
@@ -44,6 +50,7 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
                 key: options.parameterKey,
                 display: options.parameterDisplay,
                 value: feature[options.parameterKey] as number | string,
+                unit: LENGTH_UNITS,
             },
         ],
 
@@ -56,7 +63,11 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
             if (context.input === undefined) {
                 return Result.err(`${feature.type} requires a preceding feature`);
             }
-            const parameter = resolveNumber(feature[options.parameterKey] as number | string, context.scope);
+            const parameter = resolveUnitSpec(
+                feature[options.parameterKey] as number | string,
+                context.scope,
+                LENGTH_UNITS,
+            );
             if (!parameter.isOk) return Result.err(parameter.error);
             const tracking = context.tracking;
             let indexes: number[];

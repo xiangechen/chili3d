@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ANGLE_UNITS,
     CurveUtils,
     command,
     Id,
@@ -13,6 +14,7 @@ import {
     type IStep,
     Line,
     MultistepCommand,
+    type ParameterValue,
     PubSub,
     property,
     SelectShapeStep,
@@ -30,11 +32,11 @@ import { SelectSketchProfilesStep } from "./extrudeCommand";
 
 @command({ key: "feature.revolve", icon: "icon-revolve" })
 export class RevolveFeatureCommand extends MultistepCommand {
-    @property("common.angle")
-    get angle() {
+    @property("common.angle", { unit: ANGLE_UNITS })
+    get angle(): ParameterValue {
         return this.getPrivateValue("angle", 360);
     }
-    set angle(value: number) {
+    set angle(value: ParameterValue) {
         this.setProperty("angle", value);
     }
 
@@ -80,7 +82,10 @@ export class RevolveFeatureCommand extends MultistepCommand {
     }
 
     private validAngle(): boolean {
-        if (Number.isFinite(this.angle) && this.angle !== 0) return true;
+        // The feature keeps the expression; what has to be a usable angle is what it
+        // resolves to.
+        const angle = this.resolveParameter(this.angle, ANGLE_UNITS);
+        if (angle.isOk && angle.value !== 0) return true;
         PubSub.default.pub("showToast", "error.input.invalidNumber");
         return false;
     }

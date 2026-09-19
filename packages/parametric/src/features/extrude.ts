@@ -6,14 +6,15 @@ import {
     type IEdge,
     type IFace,
     type IShape,
+    LENGTH_UNITS,
     Result,
+    resolveUnitSpec,
     ShapeTypes,
     type TrackedShape,
     type XYZ,
 } from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
 import { type TrackedMethod, trackedBoolean } from "./boolean";
-import { resolveNumber } from "./expression";
 import {
     completeTrackedHistory,
     type ExtrudeFeatureData,
@@ -53,8 +54,13 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
             : [{ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId }],
 
     parameters: (feature) => [
-        { key: "depth", display: "option.command.depth", value: feature.depth },
-        { key: "startOffset", display: "option.command.startOffset", value: feature.startOffset ?? 0 },
+        { key: "depth", display: "option.command.depth", value: feature.depth, unit: LENGTH_UNITS },
+        {
+            key: "startOffset",
+            display: "option.command.startOffset",
+            value: feature.startOffset ?? 0,
+            unit: LENGTH_UNITS,
+        },
         { key: "symmetric", display: "option.command.symmetric", value: feature.symmetric ?? false },
     ],
 
@@ -92,9 +98,9 @@ function resolveExtrudeParams(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
 ): Result<{ depth: number; startOffset: number }> {
-    const depth = resolveNumber(feature.depth, context.scope);
+    const depth = resolveUnitSpec(feature.depth, context.scope, LENGTH_UNITS);
     if (!depth.isOk) return Result.err(depth.error);
-    const startOffset = resolveNumber(feature.startOffset ?? 0, context.scope);
+    const startOffset = resolveUnitSpec(feature.startOffset ?? 0, context.scope, LENGTH_UNITS);
     if (!startOffset.isOk) return Result.err(startOffset.error);
     return Result.ok({ depth: depth.value, startOffset: startOffset.value });
 }

@@ -16,6 +16,7 @@ import { FloatPanel } from "./floatPanel";
 import { ProjectView } from "./project";
 import { PropertyView } from "./property";
 import { MaterialDataContent, MaterialEditor } from "./property/material";
+import { showVariablesPanel } from "./property/variables";
 import { RibbonUI } from "./ribbon";
 import { CommandContext } from "./ribbon/commandContext";
 import { Statusbar } from "./statusbar";
@@ -215,6 +216,7 @@ export class Editor extends HTMLElement {
 
     connectedCallback(): void {
         PubSub.default.sub("editMaterial", this._handleMaterialEdit);
+        PubSub.default.sub("editVariables", this._handleVariablesEdit);
         PubSub.default.sub("openCommandContext", this.openContext);
         PubSub.default.sub("closeCommandContext", this.closeContext);
         PubSub.default.sub("toggleChatPanel", this.toggleChat);
@@ -222,6 +224,7 @@ export class Editor extends HTMLElement {
 
     disconnectedCallback(): void {
         PubSub.default.remove("editMaterial", this._handleMaterialEdit);
+        PubSub.default.remove("editVariables", this._handleVariablesEdit);
         PubSub.default.remove("openCommandContext", this.openContext);
         PubSub.default.remove("closeCommandContext", this.closeContext);
         PubSub.default.remove("toggleChatPanel", this.toggleChat);
@@ -253,6 +256,10 @@ export class Editor extends HTMLElement {
     ) => {
         const context = new MaterialDataContent(document, callback, editingMaterial);
         this._viewportContainer.append(new MaterialEditor(context));
+    };
+
+    private readonly _handleVariablesEdit = (document: IDocument, onApplied: () => void) => {
+        showVariablesPanel(document, onApplied);
     };
 }
 

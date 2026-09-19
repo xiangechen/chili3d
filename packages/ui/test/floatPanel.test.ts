@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { I18nKeys } from "@chili3d/core";
-import { describe, expect, test } from "@rstest/core";
+import type { I18nKeys, IDocument } from "@chili3d/core";
+import { beforeEach, describe, expect, test } from "@rstest/core";
 
 // Set up global app mock before any imports that reference it
 Object.defineProperty(globalThis, "app", {
@@ -25,6 +25,13 @@ rs.mock("../src/floatPanel.module.css", () => ({
 // Mock element helpers
 import "./_helpers/mockElement";
 
+// Recorded collaborators for the core mock. Factories may only reference
+// rs.hoisted-created values.
+const pubSubRecorder = rs.hoisted(() => {
+    const { createPubSubRecorder } = require("./_helpers/coreMocks");
+    return createPubSubRecorder();
+});
+
 // Mock Localize
 rs.mock("@chili3d/core", () => {
     const actual = rs.hoisted(() => require("@chili3d/core"));
@@ -32,10 +39,11 @@ rs.mock("@chili3d/core", () => {
     return {
         ...actual,
         Localize: LocalizeMock,
+        PubSub: pubSubRecorder.stub,
     };
 });
 
-import { FloatPanel } from "../src/floatPanel";
+import { FloatPanel, showFloatPanel } from "../src/floatPanel";
 
 describe("FloatPanel", () => {
     describe("constructor defaults", () => {
@@ -269,5 +277,60 @@ describe("showFloatPanel constructor equivalent", () => {
         expect(panel.style.width).toBe("300px");
         expect(panel.style.height).toBe("200px");
         panel.remove();
+    });
+});
+
+describe("showFloatPanel lifetime", () => {
+    beforeEach(() => {
+        pubSubRecorder.reset();
+    });
+
+    function open(document?: IDocument) {
+        return showFloatPanel({
+            title: "Test" as I18nKeys,
+            content: window.document.createElement("div"),
+            document,
+        });
+    }
+
+    test("a panel bound to a document closes when that document closes", () => {
+        const bound = { name: "bound" } as IDocument;
+        const panel = open(bound);
+        expect(panel.isConnected).toBe(true);
+
+        pubSubRecorder.handlers.get("documentClosed")?.(bound);
+
+        expect(panel.isConnected).toBe(false);
+    });
+
+    test("another document closing leaves it alone", () => {
+        const bound = { name: "bound" } as IDocument;
+        const panel = open(bound);
+
+        pubSubRecorder.handlers.get("documentClosed")?.({ name: "other" } as IDocument);
+
+        expect(panel.isConnected).toBe(true);
+        panel.remove();
+    });
+
+    test("a panel with no document is not subscribed at all", () => {
+        const panel = open();
+
+        expect(pubSubRecorder.handlers.has("documentClosed")).toBe(false);
+        expect(panel.isConnected).toBe(true);
+        panel.remove();
+    });
+
+    test("closing the panel stops the watch, so the next document close is not delivered", () => {
+        const bound = { name: "bound" } as IDocument;
+        const panel = open(bound);
+
+        // The close button runs `onClose`, then removes and disposes the panel.
+        const closeButton = panel.querySelector(".fp-close");
+        expect(closeButton).not.toBeNull();
+        (closeButton as any)._onclick();
+
+        expect(panel.isConnected).toBe(false);
+        expect(pubSubRecorder.handlers.has("documentClosed")).toBe(false);
     });
 });

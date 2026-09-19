@@ -15,9 +15,12 @@ import {
     type IShape,
     type IStep,
     type IView,
+    LENGTH_UNITS,
     Matrix4,
     MultistepCommand,
+    type ParameterValue,
     Precision,
+    PubSub,
     property,
     Result,
     type ShapeMeshData,
@@ -209,22 +212,42 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         this._dragHandler?.refresh();
     }
 
-    @property("option.command.startOffset")
-    get startOffset(): number {
+    @property("option.command.startOffset", { unit: LENGTH_UNITS })
+    get startOffset(): ParameterValue {
         return this.getPrivateValue("startOffset", 0);
     }
-    set startOffset(value: number) {
+    set startOffset(value: ParameterValue) {
         this.setProperty("startOffset", value);
-        this._dragHandler?.setStartOffset(value);
+        // Without a live drag there is nothing to preview, and nothing to resolve against.
+        if (!this._dragHandler) return;
+        const resolved = this.resolveLength(value);
+        if (resolved !== undefined) this._dragHandler.setStartOffset(resolved);
     }
 
-    @property("option.command.depth")
-    get depth(): number {
+    @property("option.command.depth", { unit: LENGTH_UNITS })
+    get depth(): ParameterValue {
         return this.getPrivateValue("depth", 0);
     }
-    set depth(value: number) {
+    set depth(value: ParameterValue) {
         this.setProperty("depth", value);
-        if (this._dragHandler && !this._syncingFromDrag) this._dragHandler.setDepth(value);
+        if (!this._dragHandler || this._syncingFromDrag) return;
+        const resolved = this.resolveLength(value);
+        if (resolved !== undefined) this._dragHandler.setDepth(resolved);
+    }
+
+    /** A length field's numeric value, or undefined when its expression does not resolve. */
+    private resolveLength(value: ParameterValue): number | undefined {
+        const resolved = this.resolveParameter(value, LENGTH_UNITS);
+        return resolved.isOk ? resolved.value : undefined;
+    }
+
+    /** The drag's own preview geometry: an unresolvable expression previews as zero. */
+    private get depthValue(): number {
+        return this.resolveLength(this.depth) ?? 0;
+    }
+
+    private get startOffsetValue(): number {
+        return this.resolveLength(this.startOffset) ?? 0;
     }
 
     private _dragHandler: ExtrudeDragHandler | undefined;
@@ -263,8 +286,8 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             origin: plane.origin,
             normal: plane.normal,
             anchor: faces[0]?.point ?? plane.origin,
-            depth: this.depth,
-            startOffset: this.startOffset,
+            depth: this.depthValue,
+            startOffset: this.startOffsetValue,
             buildPreview: this.buildPreview,
             meshArrow: this.meshArrow,
             onReady: (handler: ExtrudeDragHandler) => {
@@ -382,8 +405,8 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
      */
     private offsetVectorOf(node: INode, normal: XYZ): (face: IFace) => XYZ {
         return node instanceof SketchNode
-            ? () => normal.multiply(this.startOffset)
-            : (face) => face.normal(0, 0)[1].multiply(this.startOffset);
+            ? () => normal.multiply(this.startOffsetValue)
+            : (face) => face.normal(0, 0)[1].multiply(this.startOffsetValue);
     }
 
     /**
@@ -475,13 +498,22 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     protected override executeMainTask(): void {
         const node = this.sourceNode;
         const plane = this.dragData.plane!;
-        const depth = this.depth;
+        // The feature stores what the user typed (the relation); the geometry needs the
+        // number it resolves to. An expression that no longer resolves — the variable was
+        // deleted between typing and committing — refuses the commit instead of sweeping
+        // a prism of zero height.
+        const depthResult = this.resolveParameter(this.depth, LENGTH_UNITS);
+        if (!depthResult.isOk) {
+            PubSub.default.pub("showToast", "error.default:{0}", depthResult.error);
+            return;
+        }
+        const depth = depthResult.value;
 
         // Body-face fingerprints are captured in world coordinates (see the feature's
         // `source` contract); sketch profiles keep their raw faces.
         const owned: IFace[] = [];
         const worldFaces = this.dragData.shapes.map((x) => ExtrudeFeatureCommand.worldFace(x, owned));
-        const feature = this.buildFeature(node, depth, worldFaces);
+        const feature = this.buildFeature(node, this.depth, worldFaces);
         try {
             Transaction.execute(this.document, "excute feature.extrude", () => {
                 this.commitFeature(node, feature, depth, plane.normal, worldFaces);
@@ -500,7 +532,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     /** The feature payload of the committed drag. */
     private buildFeature(
         node: SketchNode | ParametricBodyNode,
-        depth: number,
+        depth: ParameterValue,
         worldFaces: IFace[],
     ): ExtrudeFeatureData {
         return {

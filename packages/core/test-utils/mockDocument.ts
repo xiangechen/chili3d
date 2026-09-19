@@ -12,6 +12,7 @@ import {
     type IPicker,
     type ISelection,
     type IStorage,
+    type IVariableTable,
     type ModelManager,
     type ObservableCollection,
     type Serialized,
@@ -29,6 +30,7 @@ export interface MockDocumentOverrides {
     modelManager?: Partial<ModelManager>;
     application?: IApplication;
     storage?: Partial<IStorage>;
+    variables?: Partial<IVariableTable>;
 }
 
 /**
@@ -142,6 +144,19 @@ export function createMockDocument(overrides: MockDocumentOverrides = {}): IDocu
             dispose: () => {},
         } as unknown as ObservableCollection<any>,
         userData: {},
+        variables: {
+            document: doc,
+            items: [],
+            variablesJson: "[]",
+            revision: 0,
+            setItems: () => {},
+            evaluate: () => ({ scope: new Map(), errors: new Map() }),
+            onPropertyChanged: () => {},
+            removePropertyChanged: () => {},
+            clearPropertyChanged: () => {},
+            dispose: () => {},
+            ...overrides.variables,
+        } as unknown as IVariableTable,
         save: async () => {},
         close: async () => {},
         serialize: () => ({}) as Serialized,

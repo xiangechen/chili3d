@@ -9,12 +9,14 @@ import {
     InternalClassName,
     type IPicker,
     type ISelection,
+    type IVariableTable,
     type IView,
     type IVisual,
     ModelManager,
     ObservableCollection,
     type PropertyChangedHandler,
     type Serialized,
+    VariableTable,
 } from "../src";
 import { createMockVisual } from "./mockVisual";
 
@@ -29,6 +31,7 @@ export class TestDocument implements IDocument {
     activeView: IView | undefined;
     userData?: Record<string, unknown> | undefined;
     modelManager: ModelManager;
+    variables: IVariableTable;
     acts: ObservableCollection<Act> = new ObservableCollection<Act>();
 
     onPropertyChanged<K extends keyof this>(_handler: PropertyChangedHandler<this, K>): void {
@@ -75,5 +78,6 @@ export class TestDocument implements IDocument {
         this.picker = overrides?.picker ?? ({} as IPicker);
         this.application = overrides?.application ?? ({ views: [] } as unknown as IApplication);
         this.modelManager = new ModelManager(this);
+        this.variables = new VariableTable(this);
     }
 }

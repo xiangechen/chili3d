@@ -75,6 +75,7 @@ export const PubSubMock = {
     default: {
         pub: () => {},
         sub: () => {},
+        remove: () => {},
     },
 };
 
@@ -96,6 +97,9 @@ export function createPubSubRecorder() {
                 },
                 sub: (topic: string, handler: (...args: unknown[]) => unknown) => {
                     handlers.set(topic, handler);
+                },
+                remove: (topic: string, handler: (...args: unknown[]) => unknown) => {
+                    if (handlers.get(topic) === handler) handlers.delete(topic);
                 },
             },
         },

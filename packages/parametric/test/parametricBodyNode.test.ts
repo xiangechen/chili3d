@@ -7,6 +7,7 @@ import {
     type I18nKeys,
     type INode,
     isCancelableCommand,
+    LENGTH_UNITS,
     Matrix4,
     NodeUtils,
     Plane,
@@ -390,8 +391,8 @@ describe("ParametricBodyNode", () => {
         expect(items[0].icon).toBe("icon-prism");
         expect(items[0].error).toBeUndefined();
         expect(items[0].parameters).toEqual([
-            { key: "depth", display: "option.command.depth", value: 7 },
-            { key: "startOffset", display: "option.command.startOffset", value: 0 },
+            { key: "depth", display: "option.command.depth", value: 7, unit: LENGTH_UNITS },
+            { key: "startOffset", display: "option.command.startOffset", value: 0, unit: LENGTH_UNITS },
             { key: "symmetric", display: "option.command.symmetric", value: false },
         ]);
     });
@@ -698,11 +699,11 @@ describe("ParametricBodyNode", () => {
     });
 
     test("reselectShapes ignores features without shape references", async () => {
-        const body = bodyWith([{ id: "v1", type: "variable", name: "a", expression: "1" }]);
+        const body = bodyWith([{ id: "b1", type: "boolean", operation: "fuse", toolIds: [] }]);
         const pickShape = rs.fn(() => Promise.resolve([]));
         doc.picker.pickShape = pickShape as any;
 
-        await body.reselectShapes("v1");
+        await body.reselectShapes("b1");
 
         expect(pickShape).not.toHaveBeenCalled();
     });

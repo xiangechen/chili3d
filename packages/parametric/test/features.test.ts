@@ -3,6 +3,7 @@
 
 import {
     BoundingBox,
+    LENGTH_UNITS,
     Line,
     Matrix4,
     Plane,
@@ -31,7 +32,6 @@ import type {
     FilletFeatureData,
     RevolveFeatureData,
     ShapeTracking,
-    VariableFeatureData,
 } from "../src/features/feature";
 import { featureHandler } from "../src/features/feature";
 import { allProfiles, sketchProfiles } from "../src/features/profileBuilder";
@@ -641,27 +641,29 @@ describe("feature evaluation", () => {
         });
     });
 
-    function variableFeature(name: string, expression: string): VariableFeatureData {
-        return { id: "v1", type: "variable", name, expression };
+    /** Seeds the document's parameter table; variables live on the document, not the body. */
+    function setVariables(...items: { id: string; name: string; expression: string }[]) {
+        doc.history.disabled = true;
+        doc.variables.setItems(items.map((x) => ({ type: "length" as const, ...x })));
+        doc.history.disabled = false;
     }
 
-    test("a variable defines a scope value usable by later features", () => {
+    test("a document variable drives a feature parameter", () => {
+        setVariables({ id: "v1", name: "width", expression: "10" });
         const extrude: ExtrudeFeatureData = {
             id: "e1",
             type: "extrude",
             sketchId: sketch.id,
             depth: "width * 2",
         };
-        const body = bodyWith([variableFeature("width", "10"), extrude]);
+        const body = bodyWith([extrude]);
 
         expect(body.shape.isOk).toBe(true);
         const vec = (mocks.prism.mock.calls[0] as unknown as [any, XYZ])[1];
         expect(vec.z).toBe(20);
-        expect(body.featureItems()[0].display).toBe("command.feature.variable");
-        expect(body.featureItems()[0].parameters).toEqual([
-            { key: "name", display: "common.name", value: "width" },
-            { key: "expression", display: "common.expression", value: "10" },
-        ]);
+        // The variable is no longer a row of the feature list.
+        expect(body.featureItems()).toHaveLength(1);
+        expect(body.featureItems()[0].id).toBe("e1");
     });
 
     test("expressions work in any numeric parameter", () => {
@@ -678,22 +680,42 @@ describe("feature evaluation", () => {
         expect((mocks.revolve.mock.calls[0] as unknown as [any, any, number])[2]).toBe(90);
     });
 
-    test("editing a variable re-evaluates dependent features", () => {
+    test("a variable in a slot of the wrong unit is rejected", () => {
+        setVariables({ id: "v1", name: "w", expression: "10" });
+        const revolve: RevolveFeatureData = {
+            id: "r1",
+            type: "revolve",
+            sketchId: sketch.id,
+            axis: AXIS,
+            angle: "w",
+        };
+        const body = bodyWith([revolve]);
+
+        expect(body.shape.isOk).toBe(false);
+        expect(body.shape.error).toBe("Dimension mismatch: expected angle, got length");
+    });
+
+    test("editing a variable re-evaluates bodies without touching their feature list", () => {
+        setVariables({ id: "v1", name: "width", expression: "10" });
         const extrude: ExtrudeFeatureData = {
             id: "e1",
             type: "extrude",
             sketchId: sketch.id,
             depth: "width",
         };
-        const body = bodyWith([variableFeature("width", "10"), extrude]);
+        const body = bodyWith([extrude]);
         expect(body.shape.isOk).toBe(true);
+        const featuresJson = body.featuresJson;
         mocks.prism.mockClear();
 
-        Transaction.execute(doc, "edit variable", () => body.setFeatureParameter("v1", "expression", "20"));
+        Transaction.execute(doc, "edit variables", () => {
+            doc.variables.setItems([{ id: "v1", name: "width", expression: "20", type: "length" }]);
+        });
 
         expect(mocks.prism).toHaveBeenCalledTimes(1);
         const vec = (mocks.prism.mock.calls[0] as unknown as [any, XYZ])[1];
         expect(vec.z).toBe(20);
+        expect(body.featuresJson).toBe(featuresJson);
     });
 
     test("an unresolvable expression surfaces as a feature error", () => {
@@ -710,24 +732,8 @@ describe("feature evaluation", () => {
         expect(body.featureItems()[0].error).toBe("Unknown identifier: nope");
     });
 
-    test("an invalid variable name surfaces as a feature error", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 };
-        const body = bodyWith([variableFeature("1bad", "10"), extrude]);
-
-        expect(body.shape.isOk).toBe(false);
-        expect(body.featureItems()[0].error).toBe("Invalid variable name: 1bad");
-    });
-
-    test("a variable may not shadow a constant", () => {
-        const extrude: ExtrudeFeatureData = { id: "e1", type: "extrude", sketchId: sketch.id, depth: "pi" };
-        const body = bodyWith([variableFeature("pi", "3.2"), extrude]);
-
-        expect(body.shape.isOk).toBe(false);
-        expect(body.featureItems()[0].error).toBe("Variable name shadows a constant: pi");
-    });
-
-    test("a variable-only body yields an empty compound", () => {
-        const body = bodyWith([variableFeature("width", "10")]);
+    test("a body with no features yields an empty compound", () => {
+        const body = bodyWith([]);
 
         expect(body.shape.isOk).toBe(true);
         expect(mocks.combine).toHaveBeenCalledTimes(1);
@@ -1053,6 +1059,7 @@ describe("feature evaluation", () => {
                 key: "startOffset",
                 display: "option.command.startOffset",
                 value: 3,
+                unit: LENGTH_UNITS,
             });
         });
     });

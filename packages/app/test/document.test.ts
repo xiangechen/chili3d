@@ -143,6 +143,43 @@ describe("Document", () => {
         });
     });
 
+    describe("variables", () => {
+        test("starts empty", () => {
+            expect(document.variables.items).toEqual([]);
+        });
+
+        test("should include variables in serialization", () => {
+            document.variables.setItems([{ id: "v1", name: "w", expression: "50", type: "length" }]);
+
+            const serialized = document.serialize();
+
+            expect(serialized["variables"]).toEqual([
+                { id: "v1", name: "w", expression: "50", type: "length" },
+            ]);
+        });
+
+        test("should restore variables through Document.load", async () => {
+            document.variables.setItems([
+                { id: "v1", name: "w", expression: "50", type: "length", description: "总宽" },
+            ]);
+            const serialized = document.serialize();
+
+            const loaded = await Document.load(mockApp, serialized);
+
+            try {
+                expect(loaded).not.toBeUndefined();
+                expect(loaded!.variables.items).toEqual([
+                    { id: "v1", name: "w", expression: "50", type: "length", description: "总宽" },
+                ]);
+                // Restored BEFORE the models deserialize, so a body rebuilding during
+                // that load already resolves its parameters.
+                expect(loaded!.variables.evaluate().scope.get("w")?.value).toBe(50);
+            } finally {
+                loaded?.dispose();
+            }
+        });
+    });
+
     describe("serialize → deserialize roundtrip", () => {
         test("should restore id, name and userData through Document.load", async () => {
             document.userData = { layer: "roundtrip", count: 3 };

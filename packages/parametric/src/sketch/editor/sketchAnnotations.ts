@@ -29,13 +29,13 @@ import {
     type DimensionAnchor,
     type DimensionGeometry,
     distanceDimension,
+    formatDatum,
     lineIntersection,
     pointLineDistanceDimension,
     pointLineFoot,
     pointLineSignedDistance,
     radiusDimension,
     segmentOffset,
-    toDisplayDatum,
 } from "./dimensionLayout";
 import style from "./sketchAnnotations.module.css";
 
@@ -467,10 +467,9 @@ export class SketchAnnotationManager implements IDisposable {
         if (geometry === undefined) return;
         segments.push(...geometry.segments);
         const prefix = constraint.kind === ConstraintKind.Radius ? "R" : "";
-        const suffix = constraint.kind === ConstraintKind.Angle ? "°" : "";
-        const value = toDisplayDatum(constraint.kind, constraint.datum ?? 0);
+        // An expression reads as written — that is the whole point of naming it.
         this.addBadge(
-            `${prefix}${value.toFixed(constraint.kind === ConstraintKind.Angle ? 1 : 2)}${suffix}`,
+            `${prefix}${formatDatum(constraint.kind, constraint.datum ?? 0)}`,
             ...geometry.textPosition,
             constraint,
             constraint.refs,
@@ -742,6 +741,14 @@ export class SketchAnnotationManager implements IDisposable {
                     list.push(element);
                     this.badgeElements.set(id, list);
                     element.classList.toggle(style.selected, this.selectedConstraints.has(id));
+                    // A datum whose expression stopped resolving keeps its last geometry
+                    // (`SketchSolver.datumOf`) — this badge is the only place that says so,
+                    // so it carries the reason as its tooltip and reads as broken.
+                    const datumError = this.solver.datumErrors.get(id);
+                    if (datumError !== undefined) {
+                        element.classList.add(style.error);
+                        element.title = datumError;
+                    }
                     if (icon !== undefined) {
                         element.classList.add(style.symbol);
                         element.replaceChildren(badgeIcon(icon));

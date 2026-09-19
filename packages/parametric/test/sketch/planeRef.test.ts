@@ -268,10 +268,10 @@ describe("SketchNode plane follow", () => {
         function bodyShowing(shape: IShape, featureCount: number) {
             const doc = new TestDocument({ application: createMockApplication() });
             const features: FeatureData[] = Array.from({ length: featureCount }, (_, index) => ({
-                id: `v${index}`,
-                type: "variable",
-                name: `v${index}`,
-                expression: "1",
+                id: `f${index}`,
+                type: "boolean" as const,
+                operation: "fuse" as const,
+                toolIds: [],
             }));
             const body = new ParametricBodyNode({ document: doc, features });
             doc.modelManager.addNode(body);

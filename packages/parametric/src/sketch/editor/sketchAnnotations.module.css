@@ -34,6 +34,14 @@
     border-color: var(--badge-selected);
 }
 
+/* a datum whose expression no longer resolves — it keeps its last geometry, and says why */
+.error,
+.badge.error:hover {
+    color: var(--error-color);
+    background-color: color-mix(in srgb, var(--error-color) 12%, var(--panel-background-color));
+    border-color: var(--error-color);
+}
+
 /* symbol badges show the toolbar constraint icon instead of text */
 .symbol {
     display: flex;

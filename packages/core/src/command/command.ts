@@ -2,7 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IApplication } from "../application";
-import { type AsyncController, type IDisposable, Observable, PubSub } from "../foundation";
+import { type AsyncController, type IDisposable, Observable, PubSub, type Result } from "../foundation";
+import { EMPTY_SCOPE, type ParameterValue, resolveUnitSpec, type Scope } from "../parameters/expression";
+import type { UnitSpec } from "../parameters/unitSpec";
 import { type Property, PropertyUtils, property } from "../property";
 
 export interface ICommand {
@@ -41,6 +43,29 @@ export abstract class CancelableCommand extends Observable implements ICancelabl
 
     get document() {
         return this.application.activeView?.document!;
+    }
+
+    /**
+     * One of the command's parameters resolved against the document's parameters. A field
+     * declared with a `unit` holds what the user typed — a number or an expression — and
+     * this is where the geometry reads the number it stands for.
+     */
+    protected resolveParameter(value: ParameterValue, expected: UnitSpec): Result<number> {
+        return resolveUnitSpec(value, this.parameterScope(), expected);
+    }
+
+    /**
+     * The parameters of the document this command runs against. A command can be configured
+     * before it runs (and is, in tests), and only a running one has an application to reach
+     * a document through — without one a literal still means what it says while an
+     * expression simply has nothing to resolve against.
+     */
+    private parameterScope(): Scope {
+        try {
+            return this.document.variables.evaluate().scope;
+        } catch {
+            return EMPTY_SCOPE;
+        }
     }
 
     #controller?: AsyncController;

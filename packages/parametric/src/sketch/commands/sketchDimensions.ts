@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, command } from "@chili3d/core";
+import { AsyncController, command, type ParameterValue } from "@chili3d/core";
 import {
     type DimensionAnchor,
     lineIntersection,
@@ -14,6 +14,7 @@ import {
 import type { SketchEditor } from "../editor/sketchEditor";
 import {
     ConstraintKind,
+    datumUnitSpec,
     entityRadius,
     pointRefKey,
     type SketchConstraintData,
@@ -138,15 +139,16 @@ function commitDimension(
     editor: SketchEditor,
     constraint: Omit<SketchConstraintData, "id">,
     anchor: DimensionAnchor,
-    initial: number,
-    options?: { apply?: (id: number, value: number) => void; positiveOnly?: boolean },
+    initial: ParameterValue,
+    options?: { apply?: (id: number, value: ParameterValue) => void; positiveOnly?: boolean },
 ): void {
     const id = editor.solver.addConstraint(constraint);
     editor.dimensionAnchors.set(id, anchor);
     editor.solve(true);
     editor.promptDatum(
         initial,
-        (value) => (options?.apply ?? ((cid, v) => editor.solver.setDatum(cid, v)))(id, value),
+        (value) => (options?.apply ?? ((cid, v) => editor.solver.setDatumSource(cid, v)))(id, value),
+        datumUnitSpec(constraint.kind),
         () => {
             editor.solver.removeConstraint(id);
             editor.dimensionAnchors.delete(id);
@@ -235,11 +237,7 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
             },
             { kind: "offset", offset: segmentOffset(uvP, foot, position) },
             initial,
-            {
-                apply: (id, value) =>
-                    editor.solver.setDatum(id, toStorageDatum(ConstraintKind.P2LDistance, value)),
-                positiveOnly: false,
-            },
+            { positiveOnly: false },
         );
     }
 }
@@ -294,14 +292,11 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
         // in place instead of flipping the line across its reference
         const initialRad = Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
 
-        const applyAngle = (id: number, value: number) =>
-            editor.solver.setDatum(id, toStorageDatum(ConstraintKind.Angle, value));
         commitDimension(
             editor,
             { kind: ConstraintKind.Angle, refs, datum: initialRad },
             { kind: "vector", dx: position[0] - vertex[0], dy: position[1] - vertex[1] },
             toDisplayDatum(ConstraintKind.Angle, initialRad),
-            { apply: applyAngle },
         );
     }
 }

@@ -8,30 +8,24 @@
  */
 
 export type { DimensionAnchor } from "../sketchModel";
+// Re-exported so the editor-side import sites keep working; the definitions moved to
+// `sketchModel` because the solver converts datums too and must not import the editor.
+export { toDisplayDatum, toStorageDatum } from "../sketchModel";
 
-import { ConstraintKind } from "../sketchModel";
-
-/**
- * Datum value shown in the UI: angles store the signed sweep (the sign picks the
- * side of the first line) and display its magnitude in degrees, point-line
- * distances flip sign (UI: positive = left of the line direction; garlic stores
- * the negated signed distance), everything else as stored.
- */
-export function toDisplayDatum(kind: ConstraintKind, value: number): number {
-    if (kind === ConstraintKind.Angle) return (Math.abs(value) * 180) / Math.PI;
-    if (kind === ConstraintKind.P2LDistance) return -value;
-    return value;
-}
+import type { ParameterValue } from "@chili3d/core";
+import { ConstraintKind, toDisplayDatum } from "../sketchModel";
 
 /**
- * Datum value for the solver: inverse of `toDisplayDatum`. For angles this yields
- * the magnitude in radians — the solver re-attaches the side sign before solving
- * (`SketchSolver.syncAngleDatumSide`).
+ * The text a dimension annotation shows for a stored datum: an expression reads as
+ * written — that name IS the user's intent — while a literal reads as its display
+ * value. The radius `R` prefix stays with the caller, which knows the geometry; the
+ * degree sign belongs to the datum itself.
  */
-export function toStorageDatum(kind: ConstraintKind, value: number): number {
-    if (kind === ConstraintKind.Angle) return (value * Math.PI) / 180;
-    if (kind === ConstraintKind.P2LDistance) return -value;
-    return value;
+export function formatDatum(kind: ConstraintKind, value: ParameterValue): string {
+    if (typeof value === "string") return value;
+    const display = toDisplayDatum(kind, value);
+    const suffix = kind === ConstraintKind.Angle ? "°" : "";
+    return `${display.toFixed(kind === ConstraintKind.Angle ? 1 : 2)}${suffix}`;
 }
 
 export interface DimensionGeometry {

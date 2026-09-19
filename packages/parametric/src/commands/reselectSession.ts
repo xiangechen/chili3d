@@ -28,7 +28,6 @@ import {
     evaluateFeature,
     type FeatureData,
     type FilletFeatureData,
-    featureHandler,
 } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, profileEntitiesOf, sketchProfiles } from "../features/profileBuilder";
@@ -386,19 +385,9 @@ export class ProfileReselectSession {
  */
 function evaluateChainSnapshot(host: ReselectHost, features: FeatureData[]): Result<IShape> {
     let input: IShape | undefined;
-    const scope = new Map<string, number>();
+    const scope = host.document.variables.evaluate().scope;
     for (const feature of features) {
         if (feature.suppressed) continue;
-        const handler = featureHandler(feature.type);
-        if (handler?.kind === "parameters") {
-            const result =
-                handler.evaluateParameters?.(feature, scope) ?? Result.err("Not a parameter feature");
-            if (!result.isOk) {
-                input?.dispose();
-                return Result.err(result.error);
-            }
-            continue;
-        }
         const result = evaluateFeature(feature, { document: host.document, host, input, scope });
         if (!result.isOk) {
             input?.dispose();

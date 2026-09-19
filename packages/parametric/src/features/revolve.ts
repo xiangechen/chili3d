@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ANGLE_UNITS,
     CurveUtils,
     type IEdge,
     type IFace,
@@ -9,6 +10,7 @@ import {
     Line,
     type Matrix4,
     Result,
+    resolveUnitSpec,
     ShapeNode,
     ShapeTypes,
     XYZ,
@@ -17,7 +19,6 @@ import type { SketchNode } from "../sketch/sketchNode";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
 import { captureEdgeRef, type EdgeRef } from "./edgeRef";
-import { resolveNumber } from "./expression";
 import { findSketch } from "./extrude";
 import {
     completeTrackedHistory,
@@ -48,7 +49,9 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     // shows, and the revolve's own door is the section sketch.
     references: (feature) => [{ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId }],
 
-    parameters: (feature) => [{ key: "angle", display: "common.angle", value: feature.angle }],
+    parameters: (feature) => [
+        { key: "angle", display: "common.angle", value: feature.angle, unit: ANGLE_UNITS },
+    ],
 
     setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
 
@@ -66,7 +69,7 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
         const sketch = findSketch(context.document, feature.sketchId);
         if (sketch === undefined) return Result.err("Sketch not found");
 
-        const angle = resolveNumber(feature.angle, context.scope);
+        const angle = resolveUnitSpec(feature.angle, context.scope, ANGLE_UNITS);
         if (!angle.isOk) return Result.err(angle.error);
         const { axis, anchor } = resolveAxis(feature, context);
         const profiles = resolveProfiles(sketch, feature.profiles);

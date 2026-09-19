@@ -9,13 +9,18 @@ import {
     type IDocument,
     type IEventHandler,
     type IView,
+    type ParameterValue,
     PubSub,
+    resolveUnitSpec,
+    type Scope,
     Transaction,
+    type UnitSpec,
     type XYZ,
 } from "@chili3d/core";
 import type { ParametricBodyNode } from "../../parametricBodyNode";
 import {
     ConstraintKind,
+    datumUnitSpec,
     isExternalEntityId,
     type SketchData,
     type SketchEntityType,
@@ -188,6 +193,11 @@ export class SketchEditor implements IDisposable {
             node.onPropertyChanged(this.onNodeDataChanged);
             teardown.push(() => this.node.removePropertyChanged(this.onNodeDataChanged));
 
+            // The session pushes the parameter scope to its own solver (SketchNode's
+            // off-session re-solve is skipped while this session owns the node).
+            this.document.variables.onPropertyChanged(this.handleVariablesChanged);
+            teardown.push(() => this.document.variables.removePropertyChanged(this.handleVariablesChanged));
+
             this.solve(true);
             PubSub.default.sub("activeViewChanged", this.onActiveViewChanged);
             teardown.push(() => PubSub.default.remove("activeViewChanged", this.onActiveViewChanged));
@@ -302,7 +312,7 @@ export class SketchEditor implements IDisposable {
 
     private createSessionSolver(): SketchSolver {
         const data = this.node.data;
-        const solver = new SketchSolver(this.node.plane, data);
+        const solver = new SketchSolver(this.node.plane, data, this.variableScope());
         // the anchor of the face the sketch sits on outlives its boundary refs
         solver.planeOwnerNodeId = this.node.planeRef?.nodeId;
         this.loadAnchors(data);
@@ -363,6 +373,25 @@ export class SketchEditor implements IDisposable {
             if (constraintIds.has(x.id)) this.dimensionAnchors.set(x.id, x.anchor);
         }
     }
+
+    /**
+     * A parameter edit while the session is live: push the new scope into the solver,
+     * re-solve and commit so the geometry follows. Rare but real — the parameters dialog is
+     * modal over a session that stays open behind it, and another view of the same document
+     * can edit the table at any time.
+     */
+    private readonly handleVariablesChanged = (property: string) => {
+        if (property !== "variablesJson" || this.disposed) return;
+        if (!this.solver.setScope(this.variableScope())) {
+            // Nothing moved, but a datum that just stopped resolving (its parameter was
+            // deleted or renamed) is only visible on its own annotation — redraw them so
+            // the dimension reads as broken instead of silently keeping its last value.
+            if (this.solver.datumErrors.size > 0) this.annotations.refresh();
+            return;
+        }
+        this.solve(true);
+        this.commit();
+    };
 
     /** Undo/redo rewrites the node data behind the solver's back — resync from it. */
     private readonly onNodeDataChanged = (property: string) => {
@@ -573,23 +602,42 @@ export class SketchEditor implements IDisposable {
 
     // ------------------------------------------------------------------ Datum value dialogs
 
+    /** The document's parameters, resolved — what every expression datum resolves against. */
+    private variableScope(): Scope {
+        return this.document.variables.evaluate().scope;
+    }
+
     /**
      * Shows the datum input in a modal dialog; a valid confirm runs `apply`, re-solves and
      * commits. Invalid input keeps the dialog open with an error message; cancelling keeps the
      * current value and runs `onCancel`. The dialog itself is `datumPrompt.ts`.
+     *
+     * `unit` is what makes an expression judgeable: the dialog cannot tell a variable from
+     * a typo, so the editor hands it the slot's expectation and the resolved value.
      */
     promptDatum(
-        initial: number,
-        apply: (value: number) => void,
+        initial: ParameterValue,
+        apply: (value: ParameterValue) => void,
+        unit: UnitSpec,
         onCancel?: () => void,
         options?: { positiveOnly?: boolean },
     ): void {
-        datumPrompt.promptDatum(initial, apply, () => this.applyDatum(), onCancel, options);
+        datumPrompt.promptDatum(initial, apply, () => this.applyDatum(), onCancel, {
+            ...options,
+            resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
+        });
     }
 
     /** Two-value variant of `promptDatum` for multi-datum constraints (Fix = X, Y). */
-    promptDatumPair(initial: [number, number], apply: (x: number, y: number) => void): void {
-        datumPrompt.promptDatumPair(initial, apply, () => this.applyDatum());
+    promptDatumPair(
+        initial: [ParameterValue, ParameterValue],
+        apply: (x: ParameterValue, y: ParameterValue) => void,
+        unit: UnitSpec,
+    ): void {
+        datumPrompt.promptDatumPair(initial, apply, () => this.applyDatum(), {
+            positiveOnly: false,
+            resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
+        });
     }
 
     /** What a confirmed datum does to the session, whatever the dialog looked like. */
@@ -601,22 +649,34 @@ export class SketchEditor implements IDisposable {
     /** Re-opens the datum dialog of an existing dimension constraint (double-click edit). */
     editDatum(constraintId: number): void {
         const constraint = this.solver.toData().constraints.find((x) => x.id === constraintId);
-        if (constraint?.datums !== undefined) {
-            this.promptDatumPair([constraint.datums[0], constraint.datums[1]], (x, y) => {
-                this.solver.setDatum(constraintId, x, 0);
-                this.solver.setDatum(constraintId, y, 1);
-            });
+        if (constraint === undefined) return;
+        const unit = datumUnitSpec(constraint.kind);
+        if (constraint.datums !== undefined) {
+            this.promptDatumPair(
+                [constraint.datums[0], constraint.datums[1]],
+                (x, y) => {
+                    this.solver.setDatumSource(constraintId, x, 0);
+                    this.solver.setDatumSource(constraintId, y, 1);
+                },
+                unit,
+            );
             return;
         }
-        if (constraint?.datum === undefined) return;
+        if (constraint.datum === undefined) return;
         // point-line and horizontal/vertical distances are signed; other datums stay positive
         const signed =
             constraint.kind === ConstraintKind.P2LDistance ||
             constraint.kind === ConstraintKind.HorizontalDistance ||
             constraint.kind === ConstraintKind.VerticalDistance;
+        // An expression reopens as written; a literal as its display value (the dialog's units).
+        const initial =
+            typeof constraint.datum === "number"
+                ? toDisplayDatum(constraint.kind, constraint.datum)
+                : constraint.datum;
         this.promptDatum(
-            toDisplayDatum(constraint.kind, constraint.datum),
-            (value) => this.solver.setDatum(constraintId, toStorageDatum(constraint.kind, value)),
+            initial,
+            (value) => this.solver.setDatumSource(constraintId, value),
+            unit,
             undefined,
             { positiveOnly: !signed },
         );
@@ -691,6 +751,7 @@ export class SketchEditor implements IDisposable {
     }
 
     private teardownSession(): void {
+        this.document.variables.removePropertyChanged(this.handleVariablesChanged);
         this.eventHandler.dispose();
         this.annotations.dispose();
         this.document.visual.eventHandler = this.savedHandler;

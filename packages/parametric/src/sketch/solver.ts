@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { Plane } from "@chili3d/core";
+import { EMPTY_SCOPE, type ParameterValue, type Plane, Result, type Scope } from "@chili3d/core";
 import type { WasmSystem } from "../../lib/garlic";
 import { INCIDENCE_TOLERANCE } from "../features/refGeometry";
 import { ENTITY_PARAM_KINDS, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH } from "./entityLayout";
@@ -21,6 +21,7 @@ import {
     isExternalEntityId,
     nextSketchId,
     pointRefKey,
+    resolveDatumSource,
     SKETCH_ORIGIN_ID,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
@@ -30,6 +31,7 @@ import {
     type SketchEntityType,
     type SketchPointRef,
     syncExternalRoles,
+    toDatumSource,
 } from "./sketchModel";
 
 function findRoot(parent: Map<string, string>, key: string): string {
@@ -58,12 +60,25 @@ export interface SolveOutcome {
     dofs: number;
 }
 
+/** One datum as it goes into garlic: what to persist alongside the value it resolved to. */
+interface DatumValue {
+    readonly source: ParameterValue;
+    readonly value: number;
+}
+
 interface ConstraintRecord {
     id: number;
     kind: ConstraintKind;
     refs: SketchPointRef[];
     garlicId: number;
     datumParamIds?: number[];
+    /**
+     * What each `datumParamIds` entry was written from, in the same order: a number
+     * may be read back from garlic (that is how the solver normalizes a literal),
+     * a string is an expression and must be persisted verbatim — reading garlic back
+     * over it would replace the user's expression with its current value.
+     */
+    datumSources?: ParameterValue[];
 }
 
 /**
@@ -97,6 +112,15 @@ export class SketchSolver implements ExternalEntityHost {
     private readonly external = new ExternalEntityRegistry(this);
     private draggedParamIds: number[] = [];
     /**
+     * The document's parameters, re-read by every expression datum. Held as a snapshot
+     * rather than a live reference: `document.variables.evaluate()` re-resolves the
+     * whole table, and `setScope` is where a new one lands.
+     */
+    private _scope: Scope;
+    /** Expression datums that failed to resolve, by constraint id — the editor surfaces them. */
+    private readonly _datumErrors = new Map<number, string>();
+
+    /**
      * Monotonic id allocation, serialized as SketchData.entityIdSeq/externalIdSeq:
      * freed ids are never reused, so a stale ProfileRef fingerprint (keyed on entity
      * ids) can never match a geometrically different region. Real ids count up from
@@ -112,13 +136,70 @@ export class SketchSolver implements ExternalEntityHost {
     private idCountersPersisted = false;
     private idAllocatedSinceLoad = false;
 
-    constructor(plane: Plane, data?: SketchData) {
+    constructor(plane: Plane, data?: SketchData, scope: Scope = EMPTY_SCOPE) {
         this.plane = plane;
+        this._scope = scope;
         this.system = newGarlicSystem();
         this.seedDatum();
         if (data !== undefined) {
             this.loadData(data);
         }
+    }
+
+    /** Expression datums that failed to resolve at the last load or scope change. */
+    get datumErrors(): ReadonlyMap<number, string> {
+        return this._datumErrors;
+    }
+
+    /**
+     * Re-resolves every expression datum against `scope` and pushes the new values into
+     * garlic. Returns whether any value actually moved, so the caller can skip a solve
+     * that would find nothing to do. A datum that no longer resolves is reported through
+     * `datumErrors` and keeps its previous value — the sketch stays usable.
+     */
+    setScope(scope: Scope): boolean {
+        this._scope = scope;
+        this._datumErrors.clear();
+        let changed = false;
+        for (const record of this.constraints.values()) {
+            const sources = record.datumSources;
+            const paramIds = record.datumParamIds;
+            if (sources === undefined || paramIds === undefined) continue;
+            for (let index = 0; index < sources.length; index++) {
+                const resolved = resolveDatumSource(record.kind, sources[index], scope);
+                if (!resolved.isOk) {
+                    this._datumErrors.set(record.id, resolved.error);
+                    continue;
+                }
+                const current = this.system.get_params(new Uint32Array([paramIds[index]]))[0];
+                if (current === resolved.value) continue;
+                this.system.set_param(paramIds[index], resolved.value);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Writes a user input as one of a constraint's datums: a literal is converted into
+     * storage units, an expression is stored verbatim and resolved on the spot. A failed
+     * resolve returns the error without touching the datum — the user is editing, so the
+     * dialog rejects the input rather than the sketch silently keeping a stale value.
+     */
+    setDatumSource(constraintId: number, input: ParameterValue, index = 0): Result<void> {
+        const record = this.constraints.get(constraintId);
+        const paramId = record?.datumParamIds?.[index];
+        if (record === undefined || paramId === undefined) {
+            return Result.err(`Constraint ${constraintId} has no datum ${index}`);
+        }
+        const source = toDatumSource(record.kind, input);
+        const resolved = resolveDatumSource(record.kind, source, this._scope);
+        if (!resolved.isOk) return Result.err(resolved.error);
+        if (record.datumSources === undefined) record.datumSources = [];
+        record.datumSources[index] = source;
+        this._datumErrors.delete(constraintId);
+        this.system.set_param(paramId, resolved.value);
+        return Result.ok(undefined);
     }
 
     // ------------------------------------------------------------------ Entity and constraint editing
@@ -550,15 +631,33 @@ export class SketchSolver implements ExternalEntityHost {
                 kind: record.kind,
                 refs: record.refs.map((r) => ({ ...r })),
             };
-            if (record.datumParamIds !== undefined) {
-                const values = Array.from(this.system.get_params(new Uint32Array(record.datumParamIds)));
-                if (values.length === 1) {
-                    data.datum = values[0];
+            const sources = this.persistedDatums(record);
+            if (sources !== undefined) {
+                if (sources.length === 1) {
+                    data.datum = sources[0];
                 } else {
-                    data.datums = values;
+                    data.datums = sources;
                 }
             }
             return data;
+        });
+    }
+
+    /**
+     * The datums of a record as they should be persisted, in order. A literal is read
+     * back from garlic — that is where the solver's normalization lands (the angle sign
+     * `syncAngleDatumSide` settles on, the geometric fallback a datumless constraint
+     * started from). An expression is returned as written: reading garlic back over it
+     * would replace the user's expression with whatever it currently evaluates to, once
+     * per commit.
+     */
+    private persistedDatums(record: ConstraintRecord): ParameterValue[] | undefined {
+        const paramIds = record.datumParamIds;
+        if (paramIds === undefined) return undefined;
+        const values = Array.from(this.system.get_params(new Uint32Array(paramIds)));
+        return values.map((value, index) => {
+            const source = record.datumSources?.[index];
+            return typeof source === "string" ? source : value;
         });
     }
 
@@ -752,7 +851,10 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     private addConstraintWithId(id: number, constraint: Omit<SketchConstraintData, "id">): void {
-        const { params, datumParamIds, garlicKind } = this.buildConstraintParams(constraint);
+        const { params, datumParamIds, datumSources, garlicKind } = this.buildConstraintParams(
+            constraint,
+            id,
+        );
         const garlicId = this.system.add_constraint(
             garlicKind ?? constraint.kind,
             new Uint32Array(params),
@@ -766,13 +868,18 @@ export class SketchSolver implements ExternalEntityHost {
             refs: constraint.refs.map((r) => ({ ...r })),
             garlicId,
             datumParamIds,
+            datumSources,
         });
     }
 
     /** garlic param ids for a constraint; datum kinds also create their datum params. */
-    private buildConstraintParams(constraint: Omit<SketchConstraintData, "id">): {
+    private buildConstraintParams(
+        constraint: Omit<SketchConstraintData, "id">,
+        id: number,
+    ): {
         params: number[];
         datumParamIds?: number[];
+        datumSources?: ParameterValue[];
         /** garlic kind when it differs from the sketch-level kind (arc radius → P2PDistance). */
         garlicKind?: ConstraintKind;
     } {
@@ -876,7 +983,11 @@ export class SketchSolver implements ExternalEntityHost {
             case ConstraintKind.P2PDistance:
                 return this.withDatums(
                     [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
-                    [constraint.datum ?? this.currentDistance(refs[0], refs[1])],
+                    [
+                        this.datumOf(id, constraint.kind, constraint.datum, () =>
+                            this.currentDistance(refs[0], refs[1]),
+                        ),
+                    ],
                 );
             case ConstraintKind.Radius: {
                 if (this.typeOf(refs[0].entityId) === "arc") {
@@ -886,13 +997,21 @@ export class SketchSolver implements ExternalEntityHost {
                         garlicKind: ConstraintKind.P2PDistance,
                         ...this.withDatums(
                             [...this.arcPointParamIds(refs[0]), ...this.arcPointParamIds(start)],
-                            [constraint.datum ?? this.currentRadius(refs[0].entityId)],
+                            [
+                                this.datumOf(id, constraint.kind, constraint.datum, () =>
+                                    this.currentRadius(refs[0].entityId),
+                                ),
+                            ],
                         ),
                     };
                 }
                 return this.withDatums(
                     [this.radiusParamId(refs[0].entityId)],
-                    [constraint.datum ?? this.currentRadius(refs[0].entityId)],
+                    [
+                        this.datumOf(id, constraint.kind, constraint.datum, () =>
+                            this.currentRadius(refs[0].entityId),
+                        ),
+                    ],
                 );
             }
             case ConstraintKind.P2LDistance:
@@ -902,38 +1021,82 @@ export class SketchSolver implements ExternalEntityHost {
                         ...this.linePointParamIds(refs[1]),
                         ...this.linePointParamIds(refs[2]),
                     ],
-                    [constraint.datum ?? this.currentP2LDistance(refs)],
+                    [
+                        this.datumOf(id, constraint.kind, constraint.datum, () =>
+                            this.currentP2LDistance(refs),
+                        ),
+                    ],
                 );
             case ConstraintKind.Angle:
                 return this.withDatums(this.twoLineParams(refs), [
-                    constraint.datum ?? this.currentAngle(refs),
+                    this.datumOf(id, constraint.kind, constraint.datum, () => this.currentAngle(refs)),
                 ]);
             case ConstraintKind.HorizontalDistance:
             case ConstraintKind.VerticalDistance:
                 return this.withDatums(
                     [...this.pointParamIds(refs[0]), ...this.pointParamIds(refs[1])],
                     [
-                        constraint.datum ??
+                        this.datumOf(id, constraint.kind, constraint.datum, () =>
                             this.currentSignedDistance(
                                 refs[0],
                                 refs[1],
                                 constraint.kind === ConstraintKind.HorizontalDistance ? 0 : 1,
                             ),
+                        ),
                     ],
                 );
-            case ConstraintKind.Fix:
+            case ConstraintKind.Fix: {
+                const fallback = this.pointOf(refs[0]);
+                const sources = constraint.datums;
                 return this.withDatums(
                     [...this.pointParamIds(refs[0])],
-                    constraint.datums ?? [...this.pointOf(refs[0])],
+                    sources === undefined
+                        ? fallback.map((value) => ({ source: value, value }))
+                        : sources.map((source, index) =>
+                              this.datumOf(id, constraint.kind, source, () => fallback[index]),
+                          ),
                 );
+            }
             default:
                 throw new Error(`Unsupported constraint kind: ${constraint.kind}`);
         }
     }
 
-    private withDatums(params: number[], values: number[]): { params: number[]; datumParamIds: number[] } {
-        const datumParamIds = values.map((value) => this.createDatumParam(value));
-        return { params: [...params, ...datumParamIds], datumParamIds };
+    /**
+     * One datum as a source/value pair. `source === undefined` is the datumless case: the
+     * geometry's current value becomes both the source and the value, exactly as before.
+     *
+     * An expression that does not resolve does NOT throw — the dimension falls back to
+     * that same geometric value and the error is recorded in `datumErrors`, mirroring how
+     * a failed feature keeps the body's last good shape. A bad expression must not make
+     * the sketch unopenable; the editor surfaces it on the annotation instead.
+     */
+    private datumOf(
+        id: number,
+        kind: ConstraintKind,
+        source: ParameterValue | undefined,
+        fallback: () => number,
+    ): DatumValue {
+        if (source === undefined) {
+            const value = fallback();
+            return { source: value, value };
+        }
+        const resolved = resolveDatumSource(kind, source, this._scope);
+        if (resolved.isOk) return { source, value: resolved.value };
+        this._datumErrors.set(id, resolved.error);
+        return { source, value: fallback() };
+    }
+
+    private withDatums(
+        params: number[],
+        datums: readonly DatumValue[],
+    ): { params: number[]; datumParamIds: number[]; datumSources: ParameterValue[] } {
+        const datumParamIds = datums.map((datum) => this.createDatumParam(datum.value));
+        return {
+            params: [...params, ...datumParamIds],
+            datumParamIds,
+            datumSources: datums.map((datum) => datum.source),
+        };
     }
 
     createDatumParam(value: number): number {
@@ -1068,6 +1231,8 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     private loadData(data: SketchData): void {
+        // The constraints are rebuilt below, so their datum errors are too.
+        this._datumErrors.clear();
         this.external.refPositions = data.refPositions === undefined ? undefined : { ...data.refPositions };
         // external refs seed before the constraints that may reference them
         for (const ref of data.externalRefs ?? []) {

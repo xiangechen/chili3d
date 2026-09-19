@@ -21,6 +21,7 @@ import {
 } from "@chili3d/core";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { syncNodeWatches } from "../nodeWatch";
+import { ensureVariableSync } from "../variableSync";
 import { normalizeSnapshot } from "./entityLayout";
 import { resolveExternalRefs } from "./externalRef";
 import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
@@ -140,6 +141,7 @@ export class SketchNode extends ParameterShapeNode {
         const danglingIds = danglingProfileRefIds(this.data.externalRefs ?? []);
         this._danglingProfileCount = danglingIds.length;
         this._danglingSignature = danglingIds.join(",");
+        ensureVariableSync(options.document);
     }
 
     setDataEmitShapeChanged(data: SketchData): void {
@@ -371,6 +373,12 @@ export class SketchNode extends ParameterShapeNode {
      */
     private _externalRefsFresh = false;
 
+    /** The parameter-table revision this sketch last re-solved against (see `applyVariables`). */
+    private _variableRevision: number | undefined;
+
+    /** `IVariableConsumer`: sketches re-solve before the bodies that read them. */
+    readonly variableSyncOrder = 0;
+
     /**
      * Re-resolves the external references against their source nodes, persists the result, and
      * returns whether the sketch shape is stale afterwards.
@@ -475,12 +483,22 @@ export class SketchNode extends ParameterShapeNode {
      */
     private solveExternalFollowers(data: SketchData): SketchData | undefined {
         if (this._editingSession) return undefined;
+        return this.solveWithScope(data);
+    }
+
+    /**
+     * Off-session re-solve of the sketch against the document's parameter table,
+     * returning the solved data when any entity moved and undefined when the solve was
+     * refused or changed nothing. A dimension written as an expression re-reads its
+     * value here, which is the whole point of the scope parameter.
+     */
+    private solveWithScope(data: SketchData): SketchData | undefined {
         let solved: SketchData;
         try {
             // No explicit solve here: the constructor's loadData already ends with the
             // full solve that pulls constrained entities onto the moved external
             // geometry — a second solve(true) on unchanged state is a no-op.
-            const solver = new SketchSolver(this.plane, data);
+            const solver = new SketchSolver(this.plane, data, this.document.variables.evaluate().scope);
             try {
                 solved = solver.toData();
             } finally {
@@ -493,6 +511,37 @@ export class SketchNode extends ParameterShapeNode {
         // the solver does not carry dimension-label anchors — keep them
         if (data.anchors !== undefined) solved.anchors = data.anchors;
         return solved;
+    }
+
+    /**
+     * `IVariableConsumer`: re-solves after the document's parameters changed, so a
+     * dimension driven by an expression follows its new value. Idempotent per table
+     * revision, and left to the session while a `SketchEditor` owns the solve (the
+     * editor pushes the new scope to its own solver).
+     *
+     * Derived state, exactly like `followExternalRefs` — the solved positions come
+     * back from the persisted dataJson, so nothing here may enter the undo history.
+     */
+    applyVariables(): void {
+        if (this._editingSession) return;
+        const revision = this.document.variables.revision;
+        if (this._variableRevision === revision) return;
+        this._variableRevision = revision;
+        const solved = this.solveWithScope(this.data);
+        if (solved === undefined) return;
+        const history = this.document.history;
+        const disabled = history.disabled;
+        history.disabled = true;
+        try {
+            // setProperty, not the shape-changing variant: the regeneration below
+            // already reports the change, and this only persists the solved entities.
+            this.setProperty("dataJson", JSON.stringify(solved));
+            // Inside the guard too: a recorded shape would be restored before the causative
+            // edit's own record (records undo in reverse), a mixed state that never existed.
+            this.setShape(this.generateShape());
+        } finally {
+            history.disabled = disabled;
+        }
     }
 
     /** Watches every distinct external-reference source node; dropped refs unwatch. */
