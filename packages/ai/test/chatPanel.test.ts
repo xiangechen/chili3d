@@ -1,10 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { mockLocalStorage } from "@chili3d/core/test-utils";
+import { type IDocument, PubSub } from "@chili3d/core";
+import { createMockDocument, mockLocalStorage } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ChatPanel } from "../src/chatPanel";
+import {
+    readConversations,
+    type StoredConversation,
+    type StoredMessage,
+    writeConversations,
+} from "../src/history";
 import { loadConfig, saveConfig } from "../src/settings";
+import { type AskRequest, setAskHandler } from "../src/tools/askUser";
 
 const agentMock = rs.hoisted(() => {
     const pending: { resolve: () => void }[] = [];
@@ -80,6 +88,27 @@ rs.mock("../src/chatPanel.module.css", () => ({
     cancelButton: "cancelButton",
     field: "field",
     saveButton: "saveButton",
+    historyOverlay: "historyOverlay",
+    historyHeader: "historyHeader",
+    historyTitle: "historyTitle",
+    historyList: "historyList",
+    historyEmpty: "historyEmpty",
+    historyItem: "historyItem",
+    historyItemActive: "historyItemActive",
+    historyItemBody: "historyItemBody",
+    historyItemTitle: "historyItemTitle",
+    historyItemDate: "historyItemDate",
+    historyItemDelete: "historyItemDelete",
+    historyItemDeleteIcon: "historyItemDeleteIcon",
+    askCard: "askCard",
+    askAnswered: "askAnswered",
+    askQuestion: "askQuestion",
+    askOptions: "askOptions",
+    askOption: "askOption",
+    askInputRow: "askInputRow",
+    askInput: "askInput",
+    askSend: "askSend",
+    askAnswer: "askAnswer",
 }));
 
 describe("ChatPanel", () => {
@@ -87,6 +116,12 @@ describe("ChatPanel", () => {
         mockLocalStorage();
         agentMock.pending.length = 0;
         agentMock.runAgent.mock.calls.length = 0;
+    });
+
+    afterEach(() => {
+        // Each panel subscribes for its whole life; drop them so panels outlive their test.
+        PubSub.default.removeAll("activeViewChanged");
+        setAskHandler(undefined);
     });
 
     test("ignores a re-entrant send while a run is in flight", async () => {
@@ -133,7 +168,12 @@ describe("ChatPanel", () => {
         expect(panel.header.style.display).toBe("none");
 
         const actions = panel.floatingActions();
-        expect(actions).toEqual([anyPanel.settingsButtonEl, anyPanel.clearButtonEl, anyPanel.dockButtonEl]);
+        expect(actions).toEqual([
+            anyPanel.settingsButtonEl,
+            anyPanel.historyButtonEl,
+            anyPanel.newChatButtonEl,
+            anyPanel.dockButtonEl,
+        ]);
 
         // Simulate the host title bar taking over the actions, then docking back
         const host = document.createElement("div");
@@ -143,7 +183,8 @@ describe("ChatPanel", () => {
         panel.setFloating(false);
         expect(panel.header.style.display).toBe("");
         expect(anyPanel.headerButtons.contains(anyPanel.settingsButtonEl)).toBe(true);
-        expect(anyPanel.headerButtons.contains(anyPanel.clearButtonEl)).toBe(true);
+        expect(anyPanel.headerButtons.contains(anyPanel.historyButtonEl)).toBe(true);
+        expect(anyPanel.headerButtons.contains(anyPanel.newChatButtonEl)).toBe(true);
         expect(anyPanel.headerButtons.contains(anyPanel.dockButtonEl)).toBe(true);
         expect(anyPanel.headerButtons.contains(anyPanel.closeButtonEl)).toBe(true);
     });
@@ -546,5 +587,374 @@ describe("ChatPanel", () => {
 
         agentMock.pending.shift()?.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+});
+
+describe("ChatPanel history", () => {
+    function conversationOf(id: string, messages: StoredMessage[]): StoredConversation {
+        return {
+            id,
+            title: messages[0].text,
+            createdAt: messages[0].time,
+            updatedAt: messages[messages.length - 1].time,
+            messages,
+        };
+    }
+
+    const userMessage = (text: string, time: number): StoredMessage => ({ role: "user", text, time });
+
+    const assistantMessage = (text: string, time: number, toolName: string): StoredMessage => ({
+        role: "assistant",
+        text,
+        time,
+        workedMs: 3000,
+        tools: [{ name: toolName, args: "{}", result: JSON.stringify({ created: [{ name: "Box" }] }) }],
+    });
+
+    /** A document that already carries the given conversations as its history. */
+    function documentWith(id: string, ...conversations: StoredConversation[]): IDocument {
+        const document = createMockDocument({ id });
+        writeConversations(document, conversations);
+        return document;
+    }
+
+    function panelOn(document: IDocument): ChatPanel {
+        const panel = new ChatPanel();
+        (panel as any).openDocument(document);
+        return panel;
+    }
+
+    function historyOn(document: IDocument): StoredConversation[] {
+        return readConversations(document);
+    }
+
+    function historyItems(panel: ChatPanel): NodeListOf<HTMLElement> {
+        return (panel as any).historyListEl.querySelectorAll(".historyItem");
+    }
+
+    test("archives a finished turn into the document that hosted it", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onTextDelta("Made a box.");
+        });
+        (panel as any).input.value = "make a box";
+        await (panel as any).send();
+
+        const saved = historyOn(document);
+        expect(saved.length).toBe(1);
+        expect(saved[0].title).toBe("make a box");
+        expect(saved[0].messages.map((m) => `${m.role}:${m.text}`)).toEqual([
+            "user:make a box",
+            "assistant:Made a box.",
+        ]);
+    });
+
+    test("restores the transcript and a context the model can resume from", () => {
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [
+                userMessage("make a box", 1),
+                assistantMessage("Made a box.", 2, "run_program"),
+            ]),
+        );
+
+        const panel = panelOn(document);
+
+        expect(panel.querySelector(".user")?.textContent).toBe("make a box");
+        expect(panel.querySelector(".markdown")?.textContent?.trim()).toBe("Made a box.");
+        expect(panel.querySelector(".toolCard .toolName")?.textContent).toBe("run_program");
+        // A restored turn reads like any finished one: collapsed work block, footer included
+        expect(panel.querySelector(".workBlock")?.classList.contains("open")).toBe(false);
+        expect(panel.querySelector(".msgFooter")).not.toBeNull();
+
+        // The model resumes from text and images only — no thinking, no tool exchange
+        expect((panel as any).messages).toEqual([
+            { role: "user", content: "make a box", images: undefined },
+            { role: "assistant", content: "Made a box." },
+        ]);
+    });
+
+    test("keeps each restored turn's tool cards in their own work block", () => {
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [
+                userMessage("first", 1),
+                assistantMessage("one", 2, "tool_a"),
+                userMessage("second", 3),
+                assistantMessage("two", 4, "tool_b"),
+            ]),
+        );
+
+        const panel = panelOn(document);
+
+        const blocks = panel.querySelectorAll(".workBlock");
+        expect(blocks.length).toBe(2);
+        expect(blocks[0].querySelector(".toolName")?.textContent).toBe("tool_a");
+        expect(blocks[1].querySelector(".toolName")?.textContent).toBe("tool_b");
+    });
+
+    test("keeps the original footer time when a turn is restored", () => {
+        const time = new Date(2026, 0, 2, 9, 30).getTime();
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [userMessage("hi", time), assistantMessage("hey", time, "t")]),
+        );
+
+        const panel = panelOn(document);
+
+        expect(panel.querySelector(".msgTime")?.textContent).toBe(
+            new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        );
+    });
+
+    test("starting a new chat archives the old one and clears the transcript", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onTextDelta("ok");
+        });
+        (panel as any).input.value = "make a box";
+        await (panel as any).send();
+
+        (panel as any).startNewConversation();
+
+        expect((panel as any).messages.length).toBe(0);
+        expect((panel as any).conversation.messages.length).toBe(0);
+        expect(panel.querySelector(".user")).toBeNull();
+        expect(historyOn(document).length).toBe(1);
+    });
+
+    test("lists the document's conversations newest first and marks the open one", () => {
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [userMessage("the older chat", 1)]),
+            conversationOf("c2", [userMessage("the newer chat", 9)]),
+        );
+
+        const panel = panelOn(document);
+        (panel as any).showHistory();
+
+        const items = historyItems(panel);
+        expect(items.length).toBe(2);
+        expect(items[0].querySelector(".historyItemTitle")?.textContent).toBe("the newer chat");
+        expect(items[0].classList.contains("historyItemActive")).toBe(true);
+        expect(items[1].classList.contains("historyItemActive")).toBe(false);
+    });
+
+    test("switches to the conversation picked from the list", () => {
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [userMessage("the older chat", 1)]),
+            conversationOf("c2", [userMessage("the newer chat", 9)]),
+        );
+
+        const panel = panelOn(document);
+        expect(panel.querySelector(".user")?.textContent).toBe("the newer chat");
+
+        (panel as any).showHistory();
+        historyItems(panel)[1].click();
+
+        expect(panel.querySelector(".user")?.textContent).toBe("the older chat");
+        expect((panel as any).historyOverlay.style.display).toBe("none");
+    });
+
+    test("deletes a conversation only after the user confirms", () => {
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [userMessage("keep me", 1)]),
+            conversationOf("c2", [userMessage("delete me", 9)]),
+        );
+        const panel = panelOn(document);
+        (panel as any).showHistory();
+
+        try {
+            rs.stubGlobal(
+                "confirm",
+                rs.fn(() => false),
+            );
+            historyItems(panel)[0].querySelector<HTMLButtonElement>(".historyItemDelete")!.click();
+            expect(historyOn(document).length).toBe(2);
+
+            rs.stubGlobal(
+                "confirm",
+                rs.fn(() => true),
+            );
+            historyItems(panel)[0].querySelector<HTMLButtonElement>(".historyItemDelete")!.click();
+
+            expect(historyOn(document).map((c) => c.id)).toEqual(["c1"]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("titles a conversation whose first message carried no text as untitled", () => {
+        const document = documentWith("d1", conversationOf("c1", [userMessage("", 1)]));
+
+        const panel = panelOn(document);
+        (panel as any).showHistory();
+
+        expect(historyItems(panel)[0].querySelector(".historyItemTitle")?.textContent).toBe("ai.untitled");
+    });
+
+    test("follows the active document", () => {
+        const documentOne = documentWith("d1", conversationOf("c1", [userMessage("doc one chat", 1)]));
+        const documentTwo = documentWith("d2", conversationOf("c2", [userMessage("doc two chat", 2)]));
+        const panel = panelOn(documentOne);
+        expect(panel.querySelector(".user")?.textContent).toBe("doc one chat");
+
+        PubSub.default.pub("activeViewChanged", { document: documentTwo } as any);
+
+        expect(panel.querySelector(".user")?.textContent).toBe("doc two chat");
+    });
+});
+
+describe("ChatPanel questions", () => {
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    function panelOn(document: IDocument): ChatPanel {
+        const panel = new ChatPanel();
+        (panel as any).openDocument(document);
+        return panel;
+    }
+
+    /** Stands in for the agent: calls the real ask_user tool, then reports the call like agent.ts does. */
+    function answerWith(question: AskRequest) {
+        return async (opts: any) => {
+            const tool = opts.tools.find((t: { name: string }) => t.name === "ask_user");
+            // agent.ts passes the run's signal through; the abort test depends on it.
+            const answer = String(await tool.handler(question, opts.signal));
+            opts.callbacks.onToolCall({
+                name: "ask_user",
+                arguments: JSON.stringify(question),
+                result: answer,
+            });
+            opts.callbacks.onTextDelta("done");
+        };
+    }
+
+    function startAsk(panel: ChatPanel, question: AskRequest): Promise<void> {
+        agentMock.runAgent.mockImplementationOnce(answerWith(question));
+        (panel as any).input.value = "cut a hole";
+        return (panel as any).send();
+    }
+
+    test("asks above the assistant reply and resumes with the clicked option", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = panelOn(createMockDocument());
+
+        const sending = startAsk(panel, { question: "how big?", options: ["6mm", "8mm"] });
+        await flush();
+
+        const card = panel.querySelector(".askCard")!;
+        expect(card.querySelector(".askQuestion")?.textContent).toBe("how big?");
+        expect(card.querySelectorAll(".askOption").length).toBe(2);
+        // The card belongs before the assistant bubble; appending it after would read backwards.
+        const children = Array.from((panel as any).messageList.children) as Element[];
+        const assistantAt = children.findIndex((c) => c.classList.contains("assistant"));
+        expect(children.indexOf(card)).toBeLessThan(assistantAt);
+
+        (card.querySelectorAll(".askOption")[1] as HTMLButtonElement).click();
+        await sending;
+
+        expect(card.classList.contains("askAnswered")).toBe(true);
+        expect(card.querySelector(".askAnswer")?.textContent).toBe("8mm");
+        // The handler drew this card, so onToolCall must not have drawn a second one for it
+        expect(panel.querySelectorAll(".askCard").length).toBe(1);
+        expect(panel.querySelector(".toolCard")).toBeNull();
+        expect(panel.querySelector(".markdown")?.textContent).toContain("done");
+    });
+
+    test("takes a typed answer on Enter", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = panelOn(createMockDocument());
+
+        const sending = startAsk(panel, { question: "how big?", options: ["6mm", "8mm"] });
+        await flush();
+
+        const card = panel.querySelector(".askCard")!;
+        const input = card.querySelector(".askInput") as HTMLInputElement;
+        input.value = "12.5mm";
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", cancelable: true }));
+        await sending;
+
+        expect(card.querySelector(".askAnswer")?.textContent).toBe("12.5mm");
+    });
+
+    test("stopping the run releases a question that is still waiting", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = panelOn(createMockDocument());
+
+        const sending = startAsk(panel, { question: "how big?" });
+        await flush();
+        const card = panel.querySelector(".askCard")!;
+
+        (panel as any).interrupt();
+        await sending;
+
+        expect((panel as any).sending).toBe(false);
+        expect(card.querySelector(".askInputRow")).toBeNull();
+        expect(card.querySelector(".askAnswer")?.textContent).toBe("ai.ask.notAnswered");
+    });
+
+    test("a new chat abandons the question without leaking the late reply", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+
+        let handedBack = "";
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            const tool = opts.tools.find((t: { name: string }) => t.name === "ask_user");
+            handedBack = String(await tool.handler({ question: "how big?" }));
+            opts.callbacks.onTextDelta("late reply");
+        });
+        (panel as any).input.value = "cut a hole";
+        const sending: Promise<void> = (panel as any).send();
+        await flush();
+        expect(panel.querySelector(".askCard")).not.toBeNull();
+
+        (panel as any).startNewConversation();
+        await sending;
+
+        // The model was told the question was dropped...
+        expect(handedBack).toContain("interrupted");
+        // ...and the reply that arrived afterwards belongs to no conversation at all
+        expect(panel.querySelector(".askCard")).toBeNull();
+        expect(panel.querySelector(".markdown")).toBeNull();
+        const saved = readConversations(document);
+        expect(saved.length).toBe(1);
+        expect(saved[0].messages.map((m) => m.role)).toEqual(["user"]);
+    });
+
+    test("replays an answered question from the transcript", () => {
+        const document = createMockDocument({ id: "d1" });
+        writeConversations(document, [
+            {
+                id: "c1",
+                title: "cut a hole",
+                createdAt: 1,
+                updatedAt: 2,
+                messages: [
+                    { role: "user", text: "cut a hole", time: 1 },
+                    {
+                        role: "assistant",
+                        text: "Done.",
+                        time: 2,
+                        asks: [{ question: "how big?", options: ["6mm", "8mm"], answer: "8mm" }],
+                    },
+                ],
+            },
+        ]);
+
+        const panel = panelOn(document);
+
+        const card = panel.querySelector(".askCard");
+        expect(card).not.toBeNull();
+        expect(card!.classList.contains("askAnswered")).toBe(true);
+        expect(card!.querySelector(".askQuestion")?.textContent).toBe("how big?");
+        expect(card!.querySelector(".askAnswer")?.textContent).toBe("8mm");
     });
 });

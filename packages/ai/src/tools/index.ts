@@ -3,6 +3,7 @@
 
 import type { Tool } from "../llm/types";
 import { buildSkillTool } from "../skills";
+import { buildAskUserTool } from "./askUser";
 import { buildCapabilityTools } from "./capabilityEngine";
 import { buildFileTools } from "./fileTools";
 import { buildNodeTools } from "./nodeTools";
@@ -30,5 +31,6 @@ export function buildTools(): Tool[] {
         // the end invalidates the tools prefix of every conversation already in flight.
         ...buildParametricTools(),
         ...buildVariableTools(),
+        buildAskUserTool(),
     ];
 }

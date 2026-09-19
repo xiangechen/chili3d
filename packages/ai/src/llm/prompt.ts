@@ -67,7 +67,8 @@ function policySection(): string {
 - To change an entity that already exists: get_node_properties reads what the property panel shows (name, a shape's parameters), set_node_properties writes it — the node and its references survive and the panel updates. "Make this box taller" is a property write, NOT delete-then-recreate; transform_node is for placement, set_material for appearance.
 - Choosing how to target geometry: identifiable by name/id/dimensions → use node ids or query ops directly; anything else (the user says "this edge", "that hole") → capture_screenshot first, then click_view at the pixel on that image.
 - Verifying a visual pick: click_view action 'select' + screenshot:true returns the image in the same result — check the highlight is on the shape you meant before operating on it; the user sees the same highlight.
-- Prefer a single run_program with multiple ops for a multi-step plan (e.g. box then fillet) instead of multiple calls.`;
+- Prefer a single run_program with multiple ops for a multi-step plan (e.g. box then fillet) instead of multiple calls.
+- ask_user is the last resort, not a first move: settle what a tool can find out — the document, the selection, a screenshot — before asking. Reserve it for the user's own intent (how big, which face, keep or discard), ask one thing at a time, and offer 2-4 concrete options whenever the choices are enumerable.`;
 }
 
 /**

@@ -1,10 +1,28 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type I18nKeys, Localize } from "@chili3d/core";
+import {
+    getCurrentApplication,
+    I18n,
+    type I18nKeys,
+    type IDocument,
+    type IView,
+    Localize,
+    PubSub,
+} from "@chili3d/core";
 import { button, div, form, img, input, option, select, span, svg, textarea } from "@chili3d/element";
 import { marked, type Tokens } from "marked";
 import style from "./chatPanel.module.css";
+import {
+    conversationTitle,
+    newConversation,
+    readConversations,
+    type StoredAsk,
+    type StoredConversation,
+    type StoredMessage,
+    type StoredToolCall,
+    writeConversations,
+} from "./history";
 import { runAgent } from "./llm/agent";
 import { buildSystemPrompt } from "./llm/prompt";
 import type { ChatMessage, ImagePart } from "./llm/types";
@@ -16,9 +34,17 @@ import {
     saveConfig,
 } from "./settings";
 import { buildTools } from "./tools";
+import { type AskRequest, setAskHandler } from "./tools/askUser";
 
 /** How many messages of history are resent to the model on each turn. */
 const MAX_HISTORY_MESSAGES = 40;
+
+/**
+ * Tool result handed back when a question is abandoned rather than answered. Protocol text, like
+ * the error strings in tools/documentContext.ts — not UI copy, so it stays out of i18n.
+ */
+const ASK_INTERRUPTED =
+    "The user interrupted without answering — do not repeat the question; wait for their next message.";
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -86,9 +112,34 @@ export class ChatPanel extends HTMLElement {
     private closeButtonEl!: HTMLButtonElement;
     private dockButtonEl!: HTMLButtonElement;
     private settingsButtonEl!: HTMLButtonElement;
-    private clearButtonEl!: HTMLButtonElement;
+    private historyButtonEl!: HTMLButtonElement;
+    private newChatButtonEl!: HTMLButtonElement;
     private headerButtons!: HTMLElement;
     private settingsOverlay?: HTMLElement;
+    private historyOverlay?: HTMLElement;
+    private historyListEl?: HTMLElement;
+    /** The document whose history is on screen, and whose `userData` holds it. */
+    private document?: IDocument;
+    /** The active document's archived conversations; the in-flight one is `conversation`. */
+    private conversations: StoredConversation[] = [];
+    private conversation: StoredConversation = newConversation();
+    /** Tool cards from the turn in flight, projected onto its assistant message when it ends. */
+    private turnTools: StoredToolCall[] = [];
+    /** Questions asked during the turn in flight, likewise projected when it ends. */
+    private turnAsks: StoredAsk[] = [];
+    /**
+     * The assistant bubble of the turn in flight. Work blocks and question cards both anchor
+     * before it, so the turn reads top-down as well as the DOM order does.
+     */
+    private activeAssistantEl?: HTMLElement;
+    /** Settles the question card currently waiting on the user, if one is up. */
+    private settleAsk?: (answer: string, recorded?: string) => void;
+    /**
+     * The conversation the turn in flight belongs to. `endTurn` compares it against the current
+     * one so a run that outlives a switch — aborted late, still unwinding — cannot write its
+     * tail into whatever conversation opened next.
+     */
+    private turnConversation?: StoredConversation;
     private providerSelect!: HTMLSelectElement;
     private baseURLInput!: HTMLInputElement;
     private modelInput!: HTMLInputElement;
@@ -129,8 +180,15 @@ export class ChatPanel extends HTMLElement {
             this.composer,
             fileInput,
             this.buildSettingsOverlay(),
+            this.buildHistoryOverlay(),
         );
         this.loadConfig();
+        this.openDocument(activeDocument());
+        // The ask_user tool reaches its card through here; see tools/askUser.ts for the channel.
+        setAskHandler((request, signal) => this.askUser(request, signal));
+        // Subscribed once, for the panel's whole life: floating mode detaches by moving this node
+        // between parents, so a connect/disconnect pair would re-subscribe on every drag.
+        PubSub.default.sub("activeViewChanged", this.onActiveViewChanged);
     }
 
     private createInput(): HTMLTextAreaElement {
@@ -206,12 +264,16 @@ export class ChatPanel extends HTMLElement {
         this.closeButtonEl = this.headerButton("icon-times", "ai.cancel", () => this.onClose?.());
         this.dockButtonEl = this.headerButton("icon-compress-alt", undefined, () => this.onDock?.(), true);
         this.settingsButtonEl = this.headerButton("icon-cog", "ai.settings", () => this.showSettings());
-        this.clearButtonEl = this.headerButton("icon-clear", "ai.clear", () => this.clear());
+        this.historyButtonEl = this.headerButton("icon-history", "ai.history", () => this.showHistory());
+        this.newChatButtonEl = this.headerButton("icon-plus", "ai.newChat", () =>
+            this.startNewConversation(),
+        );
 
         this.headerButtons = div(
             { className: style.headerButtons },
             this.settingsButtonEl,
-            this.clearButtonEl,
+            this.historyButtonEl,
+            this.newChatButtonEl,
             this.dockButtonEl,
             this.closeButtonEl,
         );
@@ -275,7 +337,8 @@ export class ChatPanel extends HTMLElement {
         if (!floating) {
             this.headerButtons.append(
                 this.settingsButtonEl,
-                this.clearButtonEl,
+                this.historyButtonEl,
+                this.newChatButtonEl,
                 this.dockButtonEl,
                 this.closeButtonEl,
             );
@@ -284,7 +347,7 @@ export class ChatPanel extends HTMLElement {
 
     /** Buttons hosted by the FloatPanel title bar while floating. */
     floatingActions(): HTMLElement[] {
-        return [this.settingsButtonEl, this.clearButtonEl, this.dockButtonEl];
+        return [this.settingsButtonEl, this.historyButtonEl, this.newChatButtonEl, this.dockButtonEl];
     }
 
     private loadConfig() {
@@ -460,13 +523,203 @@ export class ChatPanel extends HTMLElement {
         }
     }
 
-    private clear() {
+    private startNewConversation() {
+        this.saveConversation();
+        this.startConversation();
+        this.hideHistory();
+    }
+
+    /**
+     * Drop the transcript and begin a fresh, empty conversation. The one being left is already
+     * archived by the caller, so nothing is lost — which is why this replaced a plain "clear".
+     */
+    private startConversation() {
+        this.abandonPendingAsk();
+        this.conversation = newConversation();
         this.messages.length = 0;
+        this.turnTools = [];
         this.messageList.innerHTML = "";
         this.workBlock = undefined;
         this.pendingImages.length = 0;
         this.renderImagePreview();
         this.updateEmptyState();
+    }
+
+    /**
+     * Release a question the user has navigated away from. Every path that replaces the transcript
+     * goes through here — without it the run that asked would await forever and `sending` would
+     * never come back down.
+     */
+    private abandonPendingAsk() {
+        this.settleAsk?.(ASK_INTERRUPTED, I18n.translate("ai.ask.notAnswered"));
+    }
+
+    private buildHistoryOverlay(): HTMLElement {
+        this.historyListEl = div({ className: style.historyList });
+        this.historyOverlay = div(
+            { className: style.historyOverlay, style: "display: none" },
+            this.createHistoryHeader(),
+            this.historyListEl,
+        );
+        return this.historyOverlay;
+    }
+
+    private createHistoryHeader(): HTMLElement {
+        return div(
+            { className: style.historyHeader },
+            this.headerButton("icon-back", "ai.cancel", () => this.hideHistory()),
+            div({ className: style.historyTitle, textContent: new Localize("ai.history") }),
+        );
+    }
+
+    private showHistory() {
+        if (!this.historyOverlay) return;
+        this.renderHistoryList();
+        this.historyOverlay.style.display = "flex";
+    }
+
+    private hideHistory() {
+        if (this.historyOverlay) this.historyOverlay.style.display = "none";
+    }
+
+    private renderHistoryList() {
+        const list = this.historyListEl;
+        if (!list) return;
+        list.innerHTML = "";
+        const items = this.sortedConversations();
+        if (items.length === 0) {
+            list.append(div({ className: style.historyEmpty, textContent: new Localize("ai.historyEmpty") }));
+            return;
+        }
+        for (const conversation of items) list.append(this.historyItem(conversation));
+    }
+
+    private sortedConversations(): StoredConversation[] {
+        return [...this.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+    }
+
+    private historyItem(conversation: StoredConversation): HTMLElement {
+        const title = conversation.title || I18n.translate("ai.untitled");
+        const active = conversation.id === this.conversation.id;
+        return div(
+            {
+                className: active ? `${style.historyItem} ${style.historyItemActive}` : style.historyItem,
+                onclick: () => this.openConversation(conversation),
+            },
+            div(
+                { className: style.historyItemBody },
+                span({ className: style.historyItemTitle, textContent: title }),
+                span({
+                    className: style.historyItemDate,
+                    textContent: new Date(conversation.updatedAt).toLocaleDateString(),
+                }),
+            ),
+            button(
+                {
+                    className: style.historyItemDelete,
+                    title: I18n.translate("ai.historyDelete", title),
+                    onclick: (e: MouseEvent) => {
+                        e.stopPropagation();
+                        this.deleteConversation(conversation);
+                    },
+                },
+                svg({ className: style.historyItemDeleteIcon, icon: "icon-times" }),
+            ),
+        );
+    }
+
+    private deleteConversation(conversation: StoredConversation) {
+        const title = conversation.title || I18n.translate("ai.untitled");
+        if (!window.confirm(I18n.translate("ai.historyDelete", title))) return;
+        this.conversations = this.conversations.filter((c) => c.id !== conversation.id);
+        if (conversation.id === this.conversation.id) this.startConversation();
+        this.saveConversation();
+        this.renderHistoryList();
+    }
+
+    /** Restore an archived conversation: the transcript, and the context the model resumes from. */
+    private openConversation(conversation: StoredConversation) {
+        this.abandonPendingAsk();
+        this.conversation = conversation;
+        this.messages.length = 0;
+        this.messages.push(...conversation.messages.map(toChatMessage));
+        this.trimMessages();
+        this.renderConversation(conversation);
+        this.hideHistory();
+    }
+
+    /** Rebuild the whole transcript from stored messages, as if it had just streamed in. */
+    private renderConversation(conversation: StoredConversation) {
+        this.messageList.innerHTML = "";
+        this.workBlock = undefined;
+        for (const message of conversation.messages) {
+            if (message.role === "user") {
+                this.appendBubble("user", message.text, message.images);
+                continue;
+            }
+            const el = div({ className: style.assistant });
+            this.messageList.append(el);
+            if (message.tools?.length) {
+                // The work block is a single slot: fill it and finalize before the next turn, or
+                // the following turn's cards land inside this one.
+                this.ensureWorkBlock(el, {
+                    summary: I18n.translate("ai.workedFor", `${Math.round((message.workedMs ?? 0) / 1000)}s`),
+                    open: false,
+                });
+                for (const tool of message.tools) {
+                    this.appendToolCard(tool.name, tool.args, tool.result);
+                }
+                this.finalizeWorkBlock(true);
+            }
+            for (const ask of message.asks ?? []) {
+                this.messageList.insertBefore(this.askCardElement(ask), el);
+            }
+            if (message.text) {
+                el.append(div({ className: style.markdown, innerHTML: renderMarkdown(message.text) }));
+            }
+            el.append(this.messageFooter(message.text, message.time));
+        }
+        this.updateEmptyState();
+        this.scrollToBottom();
+    }
+
+    private readonly onActiveViewChanged = (view: IView | undefined) => {
+        const next = view?.document;
+        if (next?.id === this.document?.id) return;
+        this.saveConversation();
+        this.openDocument(next);
+    };
+
+    /** Swap to another document's history. Both sides of the switch tolerate a missing document. */
+    private openDocument(document: IDocument | undefined) {
+        this.document = document;
+        this.conversations = document ? readConversations(document) : [];
+        const latest = this.sortedConversations()[0];
+        if (latest) this.openConversation(latest);
+        else this.startConversation();
+    }
+
+    /**
+     * Fold the in-flight conversation into the list and hand the list to the document. This
+     * touches memory only — it reaches storage when the document itself is saved.
+     */
+    private saveConversation() {
+        if (!this.document) return;
+        if (this.conversation.messages.length > 0) {
+            const index = this.conversations.findIndex((c) => c.id === this.conversation.id);
+            if (index >= 0) this.conversations[index] = this.conversation;
+            else this.conversations.push(this.conversation);
+        }
+        writeConversations(this.document, this.conversations);
+    }
+
+    /** Append one turn to the transcript, naming the conversation after its first question. */
+    private recordMessage(message: StoredMessage): void {
+        if (!this.conversation.title && message.role === "user") {
+            this.conversation.title = conversationTitle(message.text);
+        }
+        this.conversation.messages.push(message);
+        this.conversation.updatedAt = message.time;
     }
 
     private autosizeInput() {
@@ -561,7 +814,26 @@ export class ChatPanel extends HTMLElement {
     /** Undo what beginTurn set up, once the reply has landed. */
     private endTurn(showFooter: boolean, stream: StreamState, assistantEl: HTMLElement): void {
         if (showFooter && stream.el) assistantEl.append(this.messageFooter(stream.raw));
+        const workedMs = this.workBlock ? Date.now() - this.workBlock.startedAt : 0;
         this.finalizeWorkBlock();
+        const hasContent = showFooter || this.turnTools.length > 0 || this.turnAsks.length > 0;
+        // The turn belongs to a conversation only while the two still match: a switch mid-run
+        // (new chat, restore, another document) leaves this one unwinding into nothing.
+        if (this.turnConversation === this.conversation && hasContent) {
+            this.recordMessage({
+                role: "assistant",
+                text: showFooter ? stream.raw : "",
+                time: Date.now(),
+                tools: this.turnTools.length ? this.turnTools : undefined,
+                asks: this.turnAsks.length ? this.turnAsks : undefined,
+                workedMs: workedMs || undefined,
+            });
+            this.saveConversation();
+        }
+        this.turnTools = [];
+        this.turnAsks = [];
+        this.turnConversation = undefined;
+        this.activeAssistantEl = undefined;
         this.sending = false;
         this.abortController = undefined;
         this.setStopMode(false);
@@ -595,6 +867,10 @@ export class ChatPanel extends HTMLElement {
             callbacks: {
                 onTextDelta: (t) => this.handleTextDelta(t, stream, thinkingEl, assistantEl),
                 onToolCall: (c) => {
+                    // ask_user drew its own card while it waited (see askUser); agent.ts only reports
+                    // the call once it resolves, so without this guard it would be drawn twice.
+                    if (c.name === "ask_user") return;
+                    this.turnTools.push({ name: c.name, args: c.arguments, result: c.result });
                     this.ensureWorkBlock(assistantEl);
                     this.appendToolCard(c.name, c.arguments, c.result);
                 },
@@ -604,6 +880,7 @@ export class ChatPanel extends HTMLElement {
 
     /** Lock the composer, record the user message and render its bubble. */
     private beginTurn(text: string) {
+        this.turnConversation = this.conversation;
         this.setStopMode(true);
         this.input.value = "";
         this.autosizeInput();
@@ -611,6 +888,12 @@ export class ChatPanel extends HTMLElement {
         this.renderImagePreview();
         this.messages.push({ role: "user", content: text, images: images.length ? images : undefined });
         this.trimMessages();
+        this.recordMessage({
+            role: "user",
+            text,
+            time: Date.now(),
+            images: images.length ? images : undefined,
+        });
         this.appendBubble("user", text, images);
         this.updateEmptyState();
     }
@@ -625,6 +908,7 @@ export class ChatPanel extends HTMLElement {
         );
         assistantEl.append(thinkingEl);
         this.messageList.append(assistantEl);
+        this.activeAssistantEl = assistantEl;
         this.scrollToBottom();
         return { assistantEl, thinkingEl };
     }
@@ -717,11 +1001,16 @@ export class ChatPanel extends HTMLElement {
      * Collapsible "worked for Ns" row above the assistant reply that groups the turn's tool
      * cards — expanded while running, collapsed once the turn finishes.
      */
-    private ensureWorkBlock(anchor: HTMLElement) {
+    private ensureWorkBlock(anchor: HTMLElement, options?: { summary?: string; open?: boolean }) {
         if (this.workBlock) return;
-        const summary = span({ className: style.workSummary, textContent: I18n.translate("ai.working") });
+        const summary = span({
+            className: style.workSummary,
+            textContent: options?.summary ?? I18n.translate("ai.working"),
+        });
         const body = div({ className: style.workBody });
-        const root = div({ className: `${style.workBlock} ${style.open}` });
+        const root = div({
+            className: options?.open === false ? style.workBlock : `${style.workBlock} ${style.open}`,
+        });
         root.append(
             button(
                 { className: style.workHeader, onclick: () => root.classList.toggle(style.open) },
@@ -734,15 +1023,17 @@ export class ChatPanel extends HTMLElement {
         this.workBlock = { root, body, summary, startedAt: Date.now() };
     }
 
-    private finalizeWorkBlock() {
+    private finalizeWorkBlock(keepSummary = false) {
         if (!this.workBlock) return;
-        const seconds = Math.round((Date.now() - this.workBlock.startedAt) / 1000);
-        this.workBlock.summary.textContent = I18n.translate("ai.workedFor", `${seconds}s`);
+        if (!keepSummary) {
+            const seconds = Math.round((Date.now() - this.workBlock.startedAt) / 1000);
+            this.workBlock.summary.textContent = I18n.translate("ai.workedFor", `${seconds}s`);
+        }
         this.workBlock.root.classList.remove(style.open);
         this.workBlock = undefined;
     }
 
-    private messageFooter(raw: string) {
+    private messageFooter(raw: string, time: number = Date.now()) {
         return div(
             { className: style.msgFooter },
             button(
@@ -755,7 +1046,7 @@ export class ChatPanel extends HTMLElement {
             ),
             span({
                 className: style.msgTime,
-                textContent: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                textContent: new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             }),
         );
     }
@@ -786,6 +1077,105 @@ export class ChatPanel extends HTMLElement {
         this.scrollToBottom();
     }
 
+    /**
+     * Put a question in the transcript and wait for the answer. The returned promise is what
+     * ask_user's handler awaits, so the agent loop parks here until the user replies — every
+     * path that abandons a turn (stop, new chat, restore, another document) must settle it,
+     * or the run never finishes.
+     */
+    private askUser(request: AskRequest, signal?: AbortSignal): Promise<string> {
+        const card = this.buildAskCard(request);
+        // Same anchor as work blocks: both belong before the assistant bubble of this turn.
+        this.messageList.insertBefore(card, this.activeAssistantEl ?? null);
+        this.scrollToBottom();
+
+        return new Promise<string>((resolve) => {
+            // Settles once: the guard lets a late abort land harmlessly after an answer, which is
+            // what keeps this free of any listener bookkeeping.
+            const settle = (answer: string, recorded: string = answer) => {
+                if (this.settleAsk !== settle) return;
+                this.settleAsk = undefined;
+                this.turnAsks.push({
+                    question: request.question,
+                    options: request.options,
+                    answer: recorded,
+                });
+                this.markAskAnswered(card, recorded);
+                resolve(answer);
+            };
+            // Interrupted: the model gets a protocol line, the transcript gets a readable marker.
+            const onAbort = () => settle(ASK_INTERRUPTED, I18n.translate("ai.ask.notAnswered"));
+            this.settleAsk = settle;
+            if (signal?.aborted) onAbort();
+            else signal?.addEventListener("abort", onAbort, { once: true });
+        });
+    }
+
+    private buildAskCard(request: AskRequest): HTMLElement {
+        const card = div(
+            { className: style.askCard },
+            div({ className: style.askQuestion, textContent: request.question }),
+        );
+        const options = request.options ?? [];
+        if (options.length) {
+            const row = div({ className: style.askOptions });
+            for (const option of options) {
+                row.append(
+                    button({
+                        className: style.askOption,
+                        textContent: option,
+                        onclick: () => this.settleAsk?.(option),
+                    }),
+                );
+            }
+            card.append(row);
+        }
+        const answerInput = input({
+            className: style.askInput,
+            placeholder: I18n.translate("ai.ask.placeholder"),
+            onkeydown: (e: KeyboardEvent) => {
+                if (e.key === "Enter" && !e.isComposing) {
+                    e.preventDefault();
+                    this.submitAsk(answerInput);
+                }
+            },
+        });
+        card.append(
+            div(
+                { className: style.askInputRow },
+                answerInput,
+                button({
+                    className: style.askSend,
+                    textContent: "↑",
+                    onclick: () => this.submitAsk(answerInput),
+                }),
+            ),
+        );
+        return card;
+    }
+
+    private submitAsk(input: HTMLInputElement) {
+        const answer = input.value.trim();
+        if (answer) this.settleAsk?.(answer);
+    }
+
+    /** Freeze the card: the question stays readable, the controls give way to the answer. */
+    private markAskAnswered(card: HTMLElement, answer: string) {
+        card.classList.add(style.askAnswered);
+        card.querySelector(`.${style.askOptions}`)?.remove();
+        card.querySelector(`.${style.askInputRow}`)?.remove();
+        card.append(div({ className: style.askAnswer, textContent: answer }));
+    }
+
+    /** A finished question redrawn from the transcript, in the shape `markAskAnswered` leaves. */
+    private askCardElement(ask: StoredAsk): HTMLElement {
+        return div(
+            { className: `${style.askCard} ${style.askAnswered}` },
+            div({ className: style.askQuestion, textContent: ask.question }),
+            div({ className: style.askAnswer, textContent: ask.answer }),
+        );
+    }
+
     /** Summarize a tool result JSON into one display line; non-JSON passes through verbatim. */
     private parseToolResult(result: string): { text: string; isError: boolean } {
         try {
@@ -803,6 +1193,23 @@ export class ChatPanel extends HTMLElement {
         this.messageList.append(
             div({ className: style.error, textContent: I18n.translate("ai.error.prefix", message) }),
         );
+    }
+}
+
+/** The stored projection as model context: text and images, no thinking, no tool exchanges. */
+function toChatMessage(message: StoredMessage): ChatMessage {
+    if (message.role === "user") {
+        return { role: "user", content: message.text, images: message.images };
+    }
+    return { role: "assistant", content: message.text };
+}
+
+/** The active document, or undefined outside a running app (tests, detached panels). */
+function activeDocument(): IDocument | undefined {
+    try {
+        return getCurrentApplication().activeView?.document;
+    } catch {
+        return undefined;
     }
 }
 
