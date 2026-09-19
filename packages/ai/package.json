@@ -5,7 +5,8 @@
     "main": "src/index.ts",
     "devDependencies": {
         "@chili3d/core": "*",
-        "@chili3d/element": "*"
+        "@chili3d/element": "*",
+        "@chili3d/parametric": "*"
     },
     "dependencies": {
         "@anthropic-ai/sdk": "^0.124.0",
