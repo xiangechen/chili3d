@@ -1,8 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type IShape, type ISubShape, ShapeTypes } from "@chili3d/core";
+import {
+    type IEdge,
+    type IFace,
+    type IShape,
+    type ISubShape,
+    ShapeTypes,
+    XYZ,
+    type XYZLike,
+} from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
+import { edgeMidPoint } from "./edgeRef";
 import { INCIDENCE_TOLERANCE } from "./refGeometry";
 
 /**
@@ -132,11 +141,31 @@ export function attributeFaceEdges(
         // A mocked face without sub-shape access — no attribution, no seeds.
         return [];
     }
-    return faceEdges.map((edge) => {
+    return attributeEdges(faceEdges, candidates, (candidate) => idByEdge.get(candidate));
+}
+
+/**
+ * Attributes each edge of `edges` to the candidate it was generated from — the profile-face
+ * attribution's matching core (`attributeFaceEdges`). The two probes, in order and both needed:
+ * - `isSame` — an identity hit (a rebuilt face or sweep keeps the TShapes of what it was built from);
+ * - `edgeLiesOn` — an on-curve probe, for the pieces the kernel CUT: they are new TShapes that lie
+ *   on a candidate's trimmed curve without sharing it.
+ *
+ * The generated-edge attribution of a tracked operation (`attributeSweepEdges`,
+ * `attributeCornerEdges`) matches by relation instead — a corner stands a parameter away from its
+ * edge, a seam runs parallel to it — so it has its own loop; what the three share is the probe
+ * itself (`edgeLiesOn`) and the rule that an ambiguous edge keeps its positional id.
+ */
+export function attributeEdges<T>(
+    edges: readonly IEdge[],
+    candidates: readonly IEdge[],
+    idOf: (candidate: IEdge) => T | undefined,
+): (T | undefined)[] {
+    return edges.map((edge) => {
         const match =
             candidates.find((candidate) => safeIsSame(edge, candidate)) ??
             candidates.find((candidate) => safeLiesOn(edge, candidate));
-        return match === undefined ? undefined : idByEdge.get(match);
+        return match === undefined ? undefined : idOf(match);
     });
 }
 
@@ -163,12 +192,32 @@ function safeLiesOn(edge: IEdge, candidate: IEdge): boolean {
  * INCIDENCE_TOLERANCE — the solver's incidence-repair scale, so both layers agree
  * on "on the edge"). Probing the trimmed curve also rejects a collinear candidate
  * whose span does not reach the piece.
+ *
+ * Exported for the generated-edge attribution of tracked operations, which probes
+ * the same way against the input edges a sweep or fillet produced edges from.
  */
-function edgeLiesOn(piece: IEdge, whole: IEdge): boolean {
+export function edgeLiesOn(piece: IEdge, whole: IEdge): boolean {
+    return liesOnOffset(piece, whole, undefined);
+}
+
+/**
+ * `edgeLiesOn` for the sweep's image of `whole`: does `piece` lie on `whole` shifted by
+ * `offset`? A prism is a pure translation, so its top edges are exactly this — probing
+ * the offset beats building translated kernel copies of every profile edge.
+ */
+export function edgeLiesOnOffset(piece: IEdge, whole: IEdge, offset: XYZLike): boolean {
+    return liesOnOffset(piece, whole, offset);
+}
+
+function liesOnOffset(piece: IEdge, whole: IEdge, offset: XYZLike | undefined): boolean {
     const [t0, t1] = [piece.firstParameter(), piece.lastParameter()];
-    return [t0, (t0 + t1) / 2, t1].every(
-        (t) => whole.curve.nearestFromPoint(piece.pointAt(t)).distance < INCIDENCE_TOLERANCE,
-    );
+    return [piece.pointAt(t0), edgeMidPoint(piece), piece.pointAt(t1)].every((point) => {
+        const probe =
+            offset === undefined
+                ? point
+                : new XYZ({ x: point.x - offset.x, y: point.y - offset.y, z: point.z - offset.z });
+        return whole.curve.nearestFromPoint(probe).distance < INCIDENCE_TOLERANCE;
+    });
 }
 
 /** Region faces of the crossing path → their bounding sketch entity ids. */

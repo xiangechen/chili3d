@@ -17,8 +17,14 @@ import {
     type XYZLike,
 } from "@chili3d/core";
 import type { EdgeRef } from "./edgeRef";
-import { completeEdgeHistory, completeFaceHistory } from "./historyCompletion";
+import {
+    completeEdgeHistory,
+    completeFaceHistory,
+    verifiedEdgeAncestors,
+    verifiedFaceAncestors,
+} from "./historyCompletion";
 import type { ProfileRef } from "./profileRef";
+import { positionalId } from "./trackedId";
 
 export interface FeatureBase {
     readonly id: string;
@@ -170,16 +176,18 @@ export interface ShapeTracking {
 /**
  * Maps kernel sub-shape history to stable ids: a sub-shape derived from an input
  * sub-shape keeps that id, a brand-new one gets an id scoped to the creating feature.
- * Feature-scoped ids are positional — stable while the kernel enumerates unchanged
- * geometry the same way, NOT geometry-stable — so consumers re-verify an id hit
- * against the ref's rigid-move invariants (`edgeMatchesRefInvariant`) and demote a
- * realigned id to fingerprint matching instead of trusting it blindly.
+ * Feature-scoped ids are positional (`positionalId`) — stable while the kernel
+ * enumerates unchanged geometry the same way, NOT geometry-stable — so consumers
+ * re-verify an id hit against the ref's rigid-move invariants
+ * (`edgeMatchesRefInvariant`), the matcher distrusts one that a decisive geometric
+ * match contradicts, and the callers attribute what they can by content instead
+ * (`attributeSweepEdges`, `attributeCornerEdges`).
  */
 export function trackedIds(featureId: string, inputIds: readonly string[], map: number[]): string[] {
     return map.map((inputIndex, outputIndex) =>
         inputIndex >= 0 && inputIndex < inputIds.length
             ? inputIds[inputIndex]
-            : `${featureId}:${outputIndex}`,
+            : positionalId(featureId, outputIndex),
     );
 }
 
@@ -200,7 +208,7 @@ export function trackedFaceIds(
         if (inputIndex >= 0 && inputIndex < inputFaceIds.length) return inputFaceIds[inputIndex];
         const edgeIndex = faceEdgeMap?.[outputIndex] ?? -1;
         if (edgeIndex >= 0 && edgeIndex < inputEdgeIds.length) return inputEdgeIds[edgeIndex];
-        return `${featureId}:${outputIndex}`;
+        return positionalId(featureId, outputIndex);
     });
 }
 
@@ -211,6 +219,15 @@ export interface CompletedTrackedHistory {
     /** `result.shape`'s sub-shapes in findSubShapes order — reused by callers for seed generation. */
     readonly outputEdges: IEdge[];
     readonly outputFaces: IFace[];
+    /** The enumerated input edges, in the order the kernel's history indexes refer to. */
+    readonly inputEdges: readonly IEdge[];
+    /**
+     * The kernel's merge channel (`TrackedShape.edgeAncestors`/`faceAncestors`) with every pair
+     * the geometry contradicts dropped (see `verifiedEdgeAncestors`). Callers must prefer these
+     * over the raw fields on `result` — the raw ones are the report the verification exists for.
+     */
+    readonly edgeAncestors?: number[];
+    readonly faceAncestors?: number[];
 }
 
 /**
@@ -250,6 +267,9 @@ export function completeTrackedHistory(
         faceMap: completeFaceHistory(inputFaces, outputFaces, result.faceMap),
         outputEdges,
         outputFaces,
+        inputEdges,
+        edgeAncestors: verifiedEdgeAncestors(result.edgeAncestors, outputEdges, inputEdges),
+        faceAncestors: verifiedFaceAncestors(result.faceAncestors, outputFaces, inputFaces),
     };
 }
 

@@ -40,7 +40,13 @@ export interface TrackedShape {
      * (merges are a boolean phenomenon); absent for sweeps/fillets and older kernels.
      */
     faceAncestors?: number[];
-    /** The edge counterpart of `faceAncestors` — emitted alongside it, not yet consumed. */
+    /**
+     * The edge counterpart of `faceAncestors`, emitted alongside it and consumed exactly as it
+     * is — by `mapBooleanIds`/`mapOperationIds`/`mapFusedIds` alike, through the pairs
+     * `completeTrackedHistory` verified: a fuse of two touching swept prisms reports pairs the
+     * geometry contradicts (measured: a merged top edge recorded as derived from a BOTTOM edge),
+     * and composing those unverified minted ids naming sub-shapes millimetres away.
+     */
     edgeAncestors?: number[];
     /**
      * Output face indexes (findSubShapes order) of a sweep's end cap, reported

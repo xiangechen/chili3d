@@ -37,6 +37,19 @@ export type EdgeRef =
       }
     | { kind: "other"; mid: XYZLike; length: number; edgeId?: string; splitPiece?: boolean };
 
+/**
+ * The edge's midpoint — the point a caller means by "the middle of this edge".
+ *
+ * `IEdge.pointAt` takes the curve's OWN parameter (the kernel's `BRepAdaptor_Curve::Value`),
+ * NOT a fraction of the edge: measured on a filleted box, a trimmed line spanning `[2, 38]`
+ * puts `pointAt(0.5)` nineteen millimetres away from its midpoint, and an arc spanning
+ * `[3.142, 4.712]` puts it outside the sweep altogether. The midpoint is the range's middle,
+ * and every sampler in this package goes through here so the convention lives in one place.
+ */
+export function edgeMidPoint(edge: IEdge): XYZ {
+    return edge.pointAt((edge.firstParameter() + edge.lastParameter()) / 2);
+}
+
 export function captureEdgeRef(edge: IEdge, edgeId?: string, splitPiece?: boolean): EdgeRef {
     const basis = edge.curve.basisCurve;
     let ref: EdgeRef;
@@ -51,8 +64,7 @@ export function captureEdgeRef(edge: IEdge, edgeId?: string, splitPiece?: boolea
     } else if (CurveUtils.isLine(basis)) {
         ref = { kind: "line", start: plainVec(edge.startPoint()), end: plainVec(edge.endPoint()), edgeId };
     } else {
-        const midParam = (edge.firstParameter() + edge.lastParameter()) / 2;
-        ref = { kind: "other", mid: plainVec(edge.pointAt(midParam)), length: edge.length(), edgeId };
+        ref = { kind: "other", mid: plainVec(edgeMidPoint(edge)), length: edge.length(), edgeId };
     }
     // Set only when true: absent keeps the serialized shape of older refs.
     if (splitPiece === true) ref.splitPiece = true;
@@ -137,6 +149,49 @@ export function refScoreRefs(a: EdgeRef, b: EdgeRef): number {
 export function isClearWinner(bestScore: number, secondScore: number | undefined): boolean {
     if (!Number.isFinite(bestScore)) return false;
     return secondScore === undefined || secondScore > 1.5 * bestScore + MATCH_TOLERANCE;
+}
+
+/**
+ * Cheap necessary condition of "these two fingerprints describe geometry that overlaps" —
+ * the prefilter of a geometric scan that would otherwise pay a kernel probe per pair
+ * (`mergedEdgeAncestors`). Lines need a shared supporting segment; circles a shared circle.
+ *
+ * A free-form ("other") fingerprint carries only a midpoint and a length, which cannot bound
+ * an overlap, so those pairs always reach the probe: a face full of spline edges makes the
+ * scan pay its full O(outputs x inputs) cost.
+ */
+export function mayOverlap(a: EdgeRef, b: EdgeRef): boolean {
+    if (a.kind !== b.kind) return false;
+    if (a.kind === "circle" && b.kind === "circle") {
+        return (
+            Math.abs(a.radius - b.radius) <= MATCH_TOLERANCE &&
+            distance(a.center, b.center) <= MATCH_TOLERANCE &&
+            axisDistance(a.axis, b.axis) <= MATCH_TOLERANCE
+        );
+    }
+    if (a.kind !== "line" || b.kind !== "line") return true;
+    return containsSegment(a, b) || containsSegment(b, a);
+}
+
+/** True when both endpoints of `inner` sit on the `outer` line SEGMENT. */
+function containsSegment(
+    outer: Extract<EdgeRef, { kind: "line" }>,
+    inner: Extract<EdgeRef, { kind: "line" }>,
+): boolean {
+    const start = new XYZ(outer.start);
+    const shift = new XYZ(outer.end).sub(start);
+    const length = shift.length();
+    if (length < MATCH_TOLERANCE) return false;
+    const unit = shift.multiply(1 / length);
+    return [inner.start, inner.end].every((point) => {
+        const offset = new XYZ(point).sub(start);
+        const along = offset.dot(unit);
+        return (
+            offset.sub(unit.multiply(along)).length() <= MATCH_TOLERANCE &&
+            along >= -MATCH_TOLERANCE &&
+            along <= length + MATCH_TOLERANCE
+        );
+    });
 }
 
 /**

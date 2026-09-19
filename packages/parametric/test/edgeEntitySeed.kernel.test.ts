@@ -76,6 +76,21 @@ function edgesOf(body: ParametricBodyNode): IEdge[] {
     return body.shape.unchecked()?.findSubShapes(ShapeTypes.edge) as IEdge[];
 }
 
+/**
+ * The content part of a sweep seed id — everything after `<sketch>:<nodeId>:<profileSeed>`
+ * (`ent3`, `ent3:top`, `v2.3`, …), so the assertions do not depend on the node id.
+ */
+function seedContent(id: string): string {
+    const match = /^sketch:[^:]+:[^:]+:(.+)$/.exec(id);
+    if (match === null) throw new Error(`not a sweep seed id: ${id}`);
+    return match[1];
+}
+
+/** The same, for an id that may be a compound of several regions' seeds. */
+function shortId(id: string): string {
+    return id.replace(/sketch:[^:]+:/g, "");
+}
+
 /** Geometry of every sketch-scoped edge id: id → its edges' endpoint pairs (orientation-insensitive). */
 function edgeGeometryBySeedId(body: ParametricBodyNode): Map<string, number[][][]> {
     const result = new Map<string, number[][][]>();
@@ -98,11 +113,25 @@ describe("sketch entity edge seeds (real kernel)", () => {
     test("swept edge seeds come from the generating sketch entity", () => {
         const { body } = setup(square(10));
         const ids = [...edgeGeometryBySeedId(body).keys()];
-        // The four bottom edges keep their profile-edge seeds (top and vertical
-        // edges are feature-scoped); each seed names its entity, not a wire position.
-        expect(ids).toHaveLength(4);
-        for (const id of ids) expect(id).toMatch(/^sketch:.+:e1\.2\.3\.4:ent[1-4]$/);
-        expect(new Set(ids.map((id) => id.split(":ent")[1])).size).toBe(4);
+        // Every edge of the prism is content-derived, and none is left positional: the
+        // bottom edges keep their profile-edge seed, their swept images add `:top`, and
+        // the verticals carry the corner they stand on (`v<entityA>.<entityB>`, sorted).
+        expect(ids.map(seedContent).sort()).toEqual(
+            [
+                "ent1",
+                "ent2",
+                "ent3",
+                "ent4",
+                "ent1:top",
+                "ent2:top",
+                "ent3:top",
+                "ent4:top",
+                "v1.2",
+                "v2.3",
+                "v3.4",
+                "v1.4",
+            ].sort(),
+        );
     });
 
     test("reordering the sketch entities keeps every seed on its edge", () => {
@@ -132,22 +161,32 @@ describe("sketch entity edge seeds (real kernel)", () => {
         doc.modelManager.addNode(body);
         expect(body.shape.isOk).toBe(true);
 
-        const ids = [...edgeGeometryBySeedId(body).keys()];
-        expect(ids).toHaveLength(4);
-        for (const id of ids) expect(id).toMatch(/^sketch:.+:e1\.2\.3\.4:ent[1-4]$/);
-        expect(new Set(ids.map((id) => id.split(":ent")[1])).size).toBe(4);
+        // Every edge is named by content — a positional id here would be the offset
+        // enumeration's, not the geometry's.
+        expect([...edgeGeometryBySeedId(body).keys()].map(seedContent)).toContain("ent1:top");
+        expect([...edgeGeometryBySeedId(body).keys()].map(seedContent)).toContain("v1.2");
+        expect(new Set([...edgeGeometryBySeedId(body).keys()].map(seedContent)).size).toBe(12);
     });
 
     test("a T-junction sketch attributes split pieces to their source entity", () => {
         const { sketch, body } = setup(squareWithDivider(5));
         const before = edgeGeometryBySeedId(body);
-        // The outer boundary's pieces are attributed to their source entities; the
-        // divider's own pieces are interior to the fused bottom face and vanish.
-        expect([...before.keys()].map((id) => id.split(":ent")[1]).sort()).toEqual(["1", "2", "3", "4"]);
-        // Entity 1's two pieces fused back into one edge carrying the entity's seed.
-        const ent1 = [...before.keys()].find((id) => id.endsWith(":ent1"));
-        if (!ent1) throw new Error("ent1 seed missing");
-        expect(before.get(ent1)).toHaveLength(1);
+        const ids = [...before.keys()].map(shortId);
+        // Nothing is left positional: every edge is named by the entities and corners it
+        // came from, and the divider — interior once the two regions fuse — names nothing.
+        expect(ids.filter((id) => id.includes("@"))).toEqual([]);
+        expect(ids.filter((id) => id.includes(":ent5"))).toEqual([]);
+        // The four edges the fuse MERGED — each long side's bottom and its swept image —
+        // carry BOTH regions' ids, the same entity on either side of the compound: a ref
+        // captured on one half keeps intersecting the whole edge.
+        const merged = ids.filter((id) => id.includes("|"));
+        expect(merged).toHaveLength(4);
+        for (const id of merged) {
+            const [a, b] = id.split("|");
+            expect(a.split(":").at(-1)).toBe(b.split(":").at(-1));
+        }
+        // The two untouched sides and the four verticals name a single entity each.
+        expect(ids.filter((id) => !id.includes("|"))).toHaveLength(8);
 
         sketch.setDataEmitShapeChanged(squareWithDivider(7));
         expect(body.shape.isOk).toBe(true);

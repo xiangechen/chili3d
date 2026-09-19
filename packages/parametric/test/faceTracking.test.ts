@@ -243,9 +243,9 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.shape.isOk).toBe(true);
         expect(mocks.prismTracked).toHaveBeenCalledTimes(1);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(1)).toBe("f1:1");
+        expect(body.faceIdAt(1)).toBe("f1@1");
         expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4`)).toBe(0);
-        expect(body.faceIndexById("f1:1")).toBe(1);
+        expect(body.faceIndexById("f1@1")).toBe(1);
         expect(body.faceIndexById("unknown")).toBeUndefined();
     });
 
@@ -287,7 +287,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.faceIdAt(5)).toBe(`sketch:${sketch.id}:e1.2.3.4:top`);
         expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4:top`)).toBe(5);
         // The other history-less faces keep positional ids — the heuristic did not run.
-        expect(body.faceIdAt(1)).toBe("f1:1");
+        expect(body.faceIdAt(1)).toBe("f1@1");
     });
 
     test("an empty cap channel keeps the history-less heuristic and its ambiguity guard", () => {
@@ -304,7 +304,7 @@ describe("ParametricBodyNode face tracking", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.faceIdAt(5)).toBe("f1:5");
+        expect(body.faceIdAt(5)).toBe("f1@5");
     });
 
     test("revolve: the kernel-reported end cap wins over the history-less heuristic", () => {
@@ -342,7 +342,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:e1.2.3.4:cap`);
         // The other new faces keep positional ids — the heuristic did not run.
-        expect(body.faceIdAt(1)).toBe("r1:1");
+        expect(body.faceIdAt(1)).toBe("r1@1");
     });
 
     test("fillet propagates input ids and adds a feature-scoped id for the new face", () => {
@@ -354,8 +354,8 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.shape.isOk).toBe(true);
         expect(mocks.filletTracked).toHaveBeenCalledTimes(1);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(5)).toBe("f1:5");
-        expect(body.faceIdAt(6)).toBe("f2:6");
+        expect(body.faceIdAt(5)).toBe("f1@5");
+        expect(body.faceIdAt(6)).toBe("f2@6");
     });
 
     test("editing a later feature keeps the cached prefix ids", () => {
@@ -387,7 +387,7 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.shape.isOk).toBe(true);
             expect(prism).toHaveBeenCalledTimes(1);
             expect(body.faceIdAt(0)).toBeUndefined();
-            expect(body.faceIndexById("f1:0")).toBeUndefined();
+            expect(body.faceIndexById("f1@0")).toBeUndefined();
         } finally {
             restore();
         }
@@ -401,9 +401,9 @@ describe("ParametricBodyNode face tracking", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
         expect(body.shape.isOk).toBe(true);
 
-        // faceIdAt(1) is "f1:1" — geometrically offset 5 would match faceA (index 0),
+        // faceIdAt(1) is "f1@1" — geometrically offset 5 would match faceA (index 0),
         // but the stored id must hit faceB (index 1) exactly.
-        const ref = { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "f1:1" };
+        const ref = { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "f1@1" };
         expect(resolveFacePlane(doc, ref)?.origin.z).toBe(10);
     });
 
@@ -425,7 +425,7 @@ describe("ParametricBodyNode face tracking", () => {
         const sketchOnBody = new SketchNode({
             document: doc,
             plane: Plane.XY.translateTo(new XYZ({ x: 0, y: 0, z: 5 })),
-            planeRef: { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "f1:1" },
+            planeRef: { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "f1@1" },
         });
         doc.modelManager.addNode(sketchOnBody);
 
@@ -436,7 +436,7 @@ describe("ParametricBodyNode face tracking", () => {
             nodeId: body.id,
             normal: { x: 0, y: 0, z: 1 },
             offset: 5,
-            faceId: "f1:1",
+            faceId: "f1@1",
         });
     });
 
@@ -461,7 +461,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.shape.isOk).toBe(true);
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         expect(body.edgeIdAt(3)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent4`);
-        expect(body.edgeIdAt(4)).toBe("f2:4");
+        expect(body.edgeIdAt(4)).toBe("f2@4");
     });
 
     test("reselectShapes captures edge ids from the rolled-back shape, not the restored one", async () => {
@@ -547,10 +547,10 @@ describe("ParametricBodyNode face tracking", () => {
 
         expect(body.shape.isOk).toBe(true);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(1)).toBe(`tool:${tool.id}:0`);
-        expect(body.faceIdAt(2)).toBe("f2:2");
+        expect(body.faceIdAt(1)).toBe(`tool:${tool.id}@0`);
+        expect(body.faceIdAt(2)).toBe("f2@2");
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
-        expect(body.edgeIdAt(1)).toBe("f2:1");
+        expect(body.edgeIdAt(1)).toBe("f2@1");
     });
 
     test("boolean keeps untracked main-body sub-shapes out of the tool ranges", () => {
@@ -602,11 +602,11 @@ describe("ParametricBodyNode face tracking", () => {
 
         expect(body.shape.isOk).toBe(true);
         // Main-body hit 0 is feature-scoped — without the input-shape boundary it
-        // would leak into the tool's range and come out as `tool:<id>:0`.
-        expect(body.faceIdAt(0)).toBe("f2:0");
-        expect(body.faceIdAt(1)).toBe(`tool:${tool.id}:0`);
-        expect(body.faceIdAt(2)).toBe("f2:2");
-        expect(body.edgeIdAt(0)).toBe("f2:0");
+        // would leak into the tool's range and come out as a tool-scoped positional id.
+        expect(body.faceIdAt(0)).toBe("f2@0");
+        expect(body.faceIdAt(1)).toBe(`tool:${tool.id}@0`);
+        expect(body.faceIdAt(2)).toBe("f2@2");
+        expect(body.edgeIdAt(0)).toBe("f2@0");
     });
 
     test("a join extrude tracks ids through the boolean with the chain input", () => {
@@ -637,11 +637,11 @@ describe("ParametricBodyNode face tracking", () => {
         // boolean-born sub-shapes are feature-scoped.
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(2)).toBe("f2:1");
-        expect(body.faceIdAt(3)).toBe("f2:3");
+        expect(body.faceIdAt(2)).toBe("f2@1");
+        expect(body.faceIdAt(3)).toBe("f2@3");
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
-        expect(body.edgeIdAt(2)).toBe("f2:2");
+        expect(body.edgeIdAt(2)).toBe("f2@2");
     });
 
     describe("multi-profile fusion", () => {
@@ -740,10 +740,10 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4`);
             expect(body.faceIdAt(1)).toBe(`sketch:${two.id}:e1.2.3.4:top`);
             expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:e5.6.7.8`);
-            expect(body.faceIdAt(3)).toBe("f1:3");
+            expect(body.faceIdAt(3)).toBe("f1@3");
             expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4:ent1`);
-            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:e5.6.7.8:e0`);
-            expect(body.edgeIdAt(2)).toBe("f1:2");
+            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:e5.6.7.8:e@0`);
+            expect(body.edgeIdAt(2)).toBe("f1@2");
             // The fuse copies the geometry; the intermediate prisms are disposed.
             expect(prismShapes[0].dispose).toHaveBeenCalled();
             expect(prismShapes[1].dispose).toHaveBeenCalled();
@@ -805,10 +805,10 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.faceIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4`);
             expect(body.faceIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:top`);
             expect(body.faceIdAt(2)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg`);
-            expect(body.faceIdAt(3)).toBe("f1:3");
+            expect(body.faceIdAt(3)).toBe("f1@3");
             expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4:ent1`);
             expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg:ent1`);
-            expect(body.edgeIdAt(2)).toBe("f1:2");
+            expect(body.edgeIdAt(2)).toBe("f1@2");
         });
     });
 });

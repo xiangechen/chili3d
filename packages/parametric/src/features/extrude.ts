@@ -10,7 +10,6 @@ import {
     Result,
     resolveUnitSpec,
     ShapeTypes,
-    type TrackedShape,
     type XYZ,
 } from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
@@ -25,13 +24,15 @@ import {
     trackedFaceIds,
     trackedIds,
 } from "./feature";
+import { mergedEdgeAncestors, unionAncestors } from "./historyCompletion";
 import { mapFusedIds, mapOperationIds } from "./operationIds";
 import { extrudeFromSourceFaces } from "./pressPull";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
-import { profileEdgeEntityIds, registerProfileEdgeEntities } from "./profileEntities";
+import { edgeLiesOnOffset, profileEdgeEntityIds, registerProfileEdgeEntities } from "./profileEntities";
 import { captureProfileRef } from "./profileRef";
-import { profileEdgeSeeds } from "./profileSeeds";
+import { type ProfileCorner, profileCornerSeeds, profileEdgeSeeds, samePoint } from "./profileSeeds";
 import { anyPairTouches, combineShapes, extrudePlain, translateFace } from "./sweepGeometry";
+import { positionalId, uncontested } from "./trackedId";
 
 export function findSketch(document: IDocument, id: string): SketchNode | undefined {
     const node = document.modelManager.findNode((n) => n.id === id);
@@ -266,11 +267,21 @@ function fuseSweptPrisms(
     }
     const fused = shapeFactory.booleanFuseTracked([shapes[0]], shapes.slice(1));
     if (!fused.isOk) return undefined;
-    const { edgeMap, faceMap } = completeTrackedHistory(shapes, fused.value);
+    const completed = completeTrackedHistory(shapes, fused.value);
+    // The merge channel twice over: the kernel's verified pairs, plus a geometric sweep for
+    // the merges those pairs got wrong (see `mergedEdgeAncestors`).
     const merged = {
         shape: fused.value.shape,
-        faceIds: mapFusedIds(featureId, faceIds, faceMap),
-        edgeIds: mapFusedIds(featureId, edgeIds, edgeMap),
+        faceIds: mapFusedIds(featureId, faceIds, completed.faceMap, completed.faceAncestors),
+        edgeIds: mapFusedIds(
+            featureId,
+            edgeIds,
+            completed.edgeMap,
+            unionAncestors(
+                completed.edgeAncestors,
+                mergedEdgeAncestors(completed.outputEdges, completed.inputEdges),
+            ),
+        ),
     };
     shapes.forEach((x) => {
         x.dispose();
@@ -305,15 +316,19 @@ function pressPullOperationTracked(
         const result = tracked([context.input], [built.value]);
         if (!result.isOk) return Result.err(result.error);
         const tool = {
-            faceIds: (built.value.findSubShapes(ShapeTypes.face) as IFace[]).map(
-                (_, index) => `${feature.id}:tool:f${index}`,
+            faceIds: (built.value.findSubShapes(ShapeTypes.face) as IFace[]).map((_, index) =>
+                positionalId(`${feature.id}:tool:f`, index),
             ),
-            edgeIds: (built.value.findSubShapes(ShapeTypes.edge) as IEdge[]).map(
-                (_, index) => `${feature.id}:tool:e${index}`,
+            edgeIds: (built.value.findSubShapes(ShapeTypes.edge) as IEdge[]).map((_, index) =>
+                positionalId(`${feature.id}:tool:e`, index),
             ),
         };
-        const { edgeMap, faceMap } = completeTrackedHistory([context.input, built.value], result.value);
-        trackOperation(feature.id, context.input, tracking, tool, { ...result.value, edgeMap, faceMap });
+        const completed = completeTrackedHistory([context.input, built.value], result.value);
+        trackOperation(feature.id, context.input, tracking, tool, {
+            edgeMap: completed.edgeMap,
+            faceMap: completed.faceMap,
+            ancestors: { edges: completed.edgeAncestors, faces: completed.faceAncestors },
+        });
         return Result.ok(result.value.shape);
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
@@ -371,8 +386,12 @@ function applyTrackedOperation(
     const result = tracked([input], [tool.shape]);
     if (!result.isOk) return Result.err(result.error);
 
-    const { edgeMap, faceMap } = completeTrackedHistory([input, tool.shape], result.value);
-    trackOperation(featureId, input, tracking, tool, { ...result.value, edgeMap, faceMap });
+    const completed = completeTrackedHistory([input, tool.shape], result.value);
+    trackOperation(featureId, input, tracking, tool, {
+        edgeMap: completed.edgeMap,
+        faceMap: completed.faceMap,
+        ancestors: { edges: completed.edgeAncestors, faces: completed.faceAncestors },
+    });
     return Result.ok(result.value.shape);
 }
 
@@ -382,25 +401,29 @@ function trackOperation(
     input: IShape,
     tracking: ShapeTracking,
     tool: { faceIds: string[]; edgeIds: string[] },
-    result: TrackedShape,
+    completed: {
+        edgeMap: number[];
+        faceMap: number[];
+        ancestors: { edges?: number[]; faces?: number[] };
+    },
 ): void {
     tracking.outputFaceIds = mapOperationIds(
         featureId,
         input,
         tracking.inputFaceIds,
         tool.faceIds,
-        result.faceMap,
+        completed.faceMap,
         ShapeTypes.face,
-        result.faceAncestors,
+        completed.ancestors.faces,
     );
     tracking.outputEdgeIds = mapOperationIds(
         featureId,
         input,
         tracking.inputEdgeIds,
         tool.edgeIds,
-        result.edgeMap,
+        completed.edgeMap,
         ShapeTypes.edge,
-        result.edgeAncestors,
+        completed.ancestors.edges,
     );
 }
 
@@ -443,17 +466,100 @@ function sweepProfileTracked(
         // The completed face map keeps the top-face seeding below unambiguous: a
         // kernel-missed bottom face would otherwise look like a second history-less
         // candidate.
-        const { edgeMap, faceMap } = completeTrackedHistory([face], result.value, {
+        const { edgeMap, faceMap, outputEdges } = completeTrackedHistory([face], result.value, {
             inputEdges: faceEdges,
             inputFaces: [face],
         });
         const faceIds = trackedFaceIds(featureId, [seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
         seedTopFace(faceIds, seed, faceMap, result.value.faceEdgeMap, result.value.capFaces ?? []);
         const edgeIds = trackedIds(featureId, edgeSeeds, edgeMap);
+        attributeSweepEdges(edgeIds, outputEdges, edgeMap, face, vec, seed, edgeSeeds);
         return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
     } finally {
         owned.forEach((x) => x.dispose());
     }
+}
+
+/**
+ * Names the prism edges the kernel's history could not attribute, in place.
+ *
+ * The kernel reports a prism's bottom edges (the profile's own, identity or Modified)
+ * and its side FACES, but nothing derives its TOP edges (the profile's edges swept) or
+ * its side EDGES (the profile's corners swept): those fall to `trackedIds`' positional
+ * id, which names "output index n" — and a rebuilt prism re-enumerates, silently
+ * realigning that id onto a neighbour (see `profileSeeds` on why seeds are content-derived).
+ *
+ * Both are exactly attributable here, because a prism is a pure translation by `vec`:
+ * - **top edge** — the image of the profile edge it lies on (`edgeLiesOnOffset`);
+ * - **side edge** — the image of the corner it stands on (`profileCornerSeeds`).
+ *
+ * An edge that matches several candidates, or whose candidate has no seed (an
+ * unattributed corner), keeps its positional id rather than take an id two different
+ * sub-shapes could claim. Symmetric sweeps need no special case: `seed` and the edge
+ * seeds already carry the direction suffix.
+ */
+function attributeSweepEdges(
+    edgeIds: string[],
+    outputEdges: readonly IEdge[],
+    edgeMap: readonly number[],
+    face: IFace,
+    vec: XYZ,
+    seed: string,
+    edgeSeeds: readonly string[],
+): void {
+    const profileEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
+    let corners: ProfileCorner[] | undefined;
+    const candidates = new Map<number, string>();
+    outputEdges.forEach((edge, index) => {
+        if (edgeMap[index] >= 0) return;
+        try {
+            const topSeed = topEdgeSeed(edge, profileEdges, edgeSeeds, vec);
+            if (topSeed !== undefined) {
+                candidates.set(index, topSeed);
+                return;
+            }
+            corners ??= profileCornerSeeds(face, seed);
+            const corner = cornerOf(edge, corners, vec);
+            if (corner !== undefined) candidates.set(index, corner);
+        } catch {
+            // A degenerate edge (its kernel queries throw — the release build turns an OCCT
+            // failure into a JS-level throw): it keeps its positional id.
+        }
+    });
+    // Both directions: one edge gets one candidate, and no candidate is shared by two edges
+    // (a mirrored or duplicated profile can offer the same seed twice).
+    for (const [index, id] of uncontested(candidates)) {
+        edgeIds[index] = id;
+    }
+}
+
+/** `<edgeSeed>:top` for the profile edge this top edge is the image of — undefined when none or several. */
+function topEdgeSeed(
+    edge: IEdge,
+    profileEdges: readonly IEdge[],
+    edgeSeeds: readonly string[],
+    vec: XYZ,
+): string | undefined {
+    const hits = profileEdges.flatMap((profileEdge, index) =>
+        edgeLiesOnOffset(edge, profileEdge, vec) ? [edgeSeeds[index]] : [],
+    );
+    return hits.length === 1 ? `${hits[0]}:top` : undefined;
+}
+
+/** The corner seed of the profile vertex this side edge stands on — undefined when none or several. */
+function cornerOf(edge: IEdge, corners: readonly ProfileCorner[], vec: XYZ): string | undefined {
+    const start = edge.startPoint();
+    const end = edge.endPoint();
+    const hits = corners.flatMap((corner) => {
+        if (corner.seed === undefined) return [];
+        const base = corner.point;
+        const top = { x: base.x + vec.x, y: base.y + vec.y, z: base.z + vec.z };
+        const spans =
+            (samePoint(start, base) && samePoint(end, top)) ||
+            (samePoint(end, base) && samePoint(start, top));
+        return spans ? [corner.seed] : [];
+    });
+    return hits.length === 1 ? hits[0] : undefined;
 }
 
 /**

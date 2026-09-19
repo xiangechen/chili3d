@@ -11,7 +11,7 @@ import {
     refScoreRefs,
 } from "./edgeRef";
 import { MATCH_TOLERANCE } from "./refGeometry";
-import { ID_COMPONENT_SEPARATOR, idIsShared, idsOverlap } from "./trackedId";
+import { ID_COMPONENT_SEPARATOR, idIsShared, idsOverlap, isPositionalId } from "./trackedId";
 
 /**
  * Re-finding stored edge references on a rebuilt shape.
@@ -216,10 +216,14 @@ function resolveById(
     // recovered ref.
     let byComponent: Map<string, number[]> | undefined;
     const componentIndex = () => (byComponent ??= indexByIdComponent(inputEdgeIds, edges.length));
+    // Captured once, on the first positional-id ref that needs it: the distrust check scores
+    // the ref against every edge, and re-capturing them per ref would be O(refs x edges).
+    let captured: CapturedEdgeRef[] | undefined;
+    const captureOnce = () => (captured ??= captureEdgeRefs(edges));
 
     for (const [refIndex, ref] of refs.entries()) {
         const hits = idHits(edges, ref, componentIndex);
-        if (hits.length === 0) {
+        if (hits.length === 0 || contradictsPositionalHit(ref, hits, edges, captureOnce)) {
             remaining.push(refIndex);
             continue;
         }
@@ -230,6 +234,37 @@ function resolveById(
         }
     }
     return Result.ok({ resolved, remaining });
+}
+
+/**
+ * True when a POSITIONAL id hit must not be trusted, because the geometry contradicts it.
+ *
+ * A positional id names "the n-th output of feature F", not a piece of geometry (see
+ * `positionalId`): a rebuild that re-enumerates hands it to a neighbour, and a neighbour a
+ * line's direction or an arc's axis still agrees with (`edgeMatchesRefInvariant`) is then
+ * adopted silently — rounding the wrong edge. So a positional hit must not override a
+ * DECISIVE geometric mismatch: when the stored fingerprint has a clear winner elsewhere
+ * (`isClearWinner`, so the fallback is not stepping into ambiguity) and this hit is farther
+ * from it than `MATCH_TOLERANCE`, the ref demotes to fingerprint matching instead.
+ *
+ * Content-derived ids are never second-guessed here: they name what they name, and the
+ * invariants below are all the check they need.
+ *
+ * The risk it accepts, unproven but real: a positional id that happens to be RIGHT is demoted
+ * whenever some other edge is decisively closer to the stored fingerprint. No counterexample has
+ * been constructed — the winner is normally the id's own edge — so the branch stays.
+ */
+function contradictsPositionalHit(
+    ref: EdgeRef,
+    hits: readonly number[],
+    edges: IEdge[],
+    captureOnce: () => CapturedEdgeRef[],
+): boolean {
+    if (ref.edgeId === undefined || !isPositionalId(ref.edgeId)) return false;
+    const hitScore = Math.min(...hits.map((index) => refScore(ref, edges[index])));
+    const [best, second] = bestTwo(captureOnce(), ref);
+    if (best === undefined || !isClearWinner(best.score, second?.score)) return false;
+    return hitScore > best.score + MATCH_TOLERANCE;
 }
 
 /** Indexes of the edges whose id overlaps the ref's and which still satisfy its invariant. */

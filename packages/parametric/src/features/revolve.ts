@@ -18,7 +18,7 @@ import {
 import type { SketchNode } from "../sketch/sketchNode";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
-import { captureEdgeRef, type EdgeRef } from "./edgeRef";
+import { captureEdgeRef, type EdgeRef, edgeMidPoint } from "./edgeRef";
 import { findSketch } from "./extrude";
 import {
     completeTrackedHistory,
@@ -319,7 +319,7 @@ function seedHistoryLessFaces(
         const surface = faces[index].surface();
         const claims = edgeSeeds.filter((_, edgeIndex) => {
             const edge = faceEdges[edgeIndex];
-            const mid = edge.pointAt((edge.firstParameter() + edge.lastParameter()) / 2);
+            const mid = edgeMidPoint(edge);
             return surface.parameter(mid, MATCH_TOLERANCE) !== undefined;
         });
         if (claims.length > 0) faceIds[index] = combineIds(claims);

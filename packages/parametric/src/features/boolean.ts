@@ -21,7 +21,7 @@ import {
     type IShapeHost,
     registerFeature,
 } from "./feature";
-import { mapBooleanIds } from "./operationIds";
+import { bornEdgeIdMap, mapBooleanIds } from "./operationIds";
 
 const DISPLAYS: Record<BooleanOperation, I18nKeys> = {
     fuse: "command.feature.fuse",
@@ -132,24 +132,35 @@ function evaluateTracked(
     }
     const result = tracked([input], toolShapes);
     if (!result.isOk) return Result.err(result.error);
-    const { edgeMap, faceMap } = completeTrackedHistory([input, ...toolShapes], result.value);
+    const completed = completeTrackedHistory([input, ...toolShapes], result.value);
+    const { outputEdges, outputFaces } = completed;
     tracking.outputFaceIds = mapBooleanIds(
         feature.id,
         input,
         tracking.inputFaceIds,
         tools,
-        faceMap,
+        completed.faceMap,
         ShapeTypes.face,
-        result.value.faceAncestors,
+        completed.faceAncestors,
+    );
+    // The intersection curves this boolean carved derive from nothing in either operand;
+    // they are named by the two faces they join (see `bornEdgeIdMap`).
+    const bornEdges = bornEdgeIdMap(
+        result.value.shape,
+        outputEdges,
+        outputFaces,
+        tracking.outputFaceIds,
+        (index) => completed.edgeMap[index] < 0,
     );
     tracking.outputEdgeIds = mapBooleanIds(
         feature.id,
         input,
         tracking.inputEdgeIds,
         tools,
-        edgeMap,
+        completed.edgeMap,
         ShapeTypes.edge,
-        result.value.edgeAncestors,
+        completed.edgeAncestors,
+        (index) => bornEdges.get(index),
     );
     return Result.ok(result.value.shape);
 }

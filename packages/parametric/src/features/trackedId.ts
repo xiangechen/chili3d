@@ -13,6 +13,83 @@
 export const ID_COMPONENT_SEPARATOR = "|";
 
 /**
+ * Marker of a POSITIONAL id — the id a generated sub-shape takes when the kernel's
+ * history could not attribute it to anything (`{featureId}@{outputIndex}`).
+ *
+ * - **Why it is marked.** A positional id names "the n-th output of feature F", not a
+ *   piece of geometry: the kernel is free to re-enumerate a rebuilt shape, and the id
+ *   then silently names a NEIGHBOUR (see `profileSeeds.ts` on why seeds are
+ *   content-derived). Attribute every generated sub-shape you can; what still falls
+ *   back is flagged so the matching layer can weigh it as the weak hint it is
+ *   (`edgeMatcher` distrusts one that contradicts a decisive geometric match).
+ * - **Why `@`.** `Id.generate`'s alphabet is `A-Za-z0-9_-`, so no node, feature or
+ *   seed id can contain it — the marker is unambiguous, unlike `:`, which every id
+ *   component uses.
+ * - **Documents written before the marker existed** (`f1:5`) simply stop matching: the ref
+ *   falls back to its geometric fingerprint, and the first successful rebuild re-anchors it
+ *   with the marked id (`refreshAnchoredRefs`). A re-opened document can therefore meet an
+ *   AMBIGUOUS fingerprint once, on a body whose geometry is genuinely ambiguous; there is no
+ *   migration step, and none is needed for the common case.
+ */
+const POSITIONAL_MARKER = "@";
+
+/** The feature-scoped id of an output the kernel's history did not attribute. */
+export function positionalId(featureId: string, outputIndex: number): string {
+    return `${featureId}${POSITIONAL_MARKER}${outputIndex}`;
+}
+
+/** True when `id` is (or contains) a positional id — a weak, enumeration-scoped hint. */
+export function isPositionalId(id: string): boolean {
+    return id.split(ID_COMPONENT_SEPARATOR).some((leaf) => leaf.includes(POSITIONAL_MARKER));
+}
+
+/**
+ * `id` with `suffix` hung off EVERY leaf — the only safe way to derive an id from a stem
+ * that may already be a compound. Suffixing the whole string would leave the later leaves
+ * bare, and they would then collide with the ids that live in the host's own id space
+ * (the same trap `mapBooleanIds` documents for its tool prefix).
+ *
+ * **The suffix must be atomic** — use `embeddedId` for anything that may itself be a
+ * compound, or the same leak happens through the back door.
+ */
+export function derivedId(id: string, suffix: string): string {
+    return id
+        .split(ID_COMPONENT_SEPARATOR)
+        .map((leaf) => `${leaf}${suffix}`)
+        .join(ID_COMPONENT_SEPARATOR);
+}
+
+/**
+ * `id` flattened into ONE component, for embedding inside another id.
+ *
+ * An embedded id keeps its identity only as a whole: leaving it compound would leak its
+ * leaves into the host's id space, where `idsOverlap` compares component-wise — measured,
+ * two fillet seams on different corners of a boolean-merged face then shared a bare face
+ * component and reported as overlapping, so a ref on one could swallow the other.
+ *
+ * `^` does the escaping because it is the one character no other part of the grammar claims:
+ * `|` separates components, `@` marks positional ids, `~` the duplicate-entity-set occurrence
+ * suffix (`profileSeeds`), `:` and `.` the seed parts.
+ */
+export function embeddedId(id: string): string {
+    return id.split(ID_COMPONENT_SEPARATOR).join("^");
+}
+
+/**
+ * One ATOMIC name for the boundary between several sub-shapes — the pair of faces an edge
+ * joins, the face side a corner's edge borders.
+ *
+ * A conjunction, not a merge, and that is why it is atomic rather than a `combineIds`
+ * compound: `A&B` says "the edge between A and B", while `A|B` says "derived from A and B".
+ * `idsOverlap` compares components, so a compound would make every boundary sharing a face
+ * look like the same sub-shape — measured, a bore's four curves all touch the top face, and a
+ * fillet on one would have swallowed the rest. `embeddedId` keeps a compound name inside.
+ */
+export function boundaryId(ids: readonly string[]): string {
+    return [...new Set(ids)].sort().map(embeddedId).join("&");
+}
+
+/**
  * Combines the ids of every input sub-shape an output sub-shape derives from into one
  * stable id. A single ancestor keeps its id unchanged (bit-for-bit the pre-compound
  * behavior); several ancestors — a boolean MERGED their sub-shapes into one — form a
@@ -54,22 +131,45 @@ export function ancestorInputs(map: readonly number[], ancestors?: readonly numb
 /**
  * The shared tail of `mapBooleanIds`/`mapOperationIds`: every output's ancestor
  * input indexes (`ancestorInputs`) are mapped through `idOfInput` and combined —
- * an output with no ancestors takes a stable feature-scoped id, and one derived
- * from several inputs (a boolean merge) combines every ancestor's id
- * (`combineIds`), so pieces of a later re-split still intersect the stored id.
+ * an output with no ancestors takes `bornId`, or a positional id when the caller
+ * cannot name it by content, and one derived from several inputs (a boolean merge)
+ * combines every ancestor's id (`combineIds`), so pieces of a later re-split still
+ * intersect the stored id.
  */
 export function mapAncestorIds(
     featureId: string,
     map: readonly number[],
     ancestors: readonly number[] | undefined,
     idOfInput: (inputIndex: number, outputIndex: number) => string,
+    bornId?: (outputIndex: number) => string | undefined,
 ): string[] {
     const perOutput = ancestorInputs(map, ancestors);
     return map.map((_, outputIndex) => {
         const inputs = perOutput[outputIndex];
-        if (inputs.length === 0) return `${featureId}:${outputIndex}`;
+        if (inputs.length === 0) {
+            // An output nothing in the kernel's history derives from (a boolean's
+            // intersection curve). Callers that can identify it by content supply
+            // `bornId`; the positional fallback stays for the rest.
+            return bornId?.(outputIndex) ?? positionalId(featureId, outputIndex);
+        }
         return combineIds(inputs.map((x) => idOfInput(x, outputIndex)));
     });
+}
+
+/**
+ * The candidates whose id no sibling also computes — the guard every attribution path applies
+ * before writing an id it derived.
+ *
+ * An id two sub-shapes could both claim would make the matcher read them as pieces of one
+ * (`idsOverlap`), so a contested id is dropped and those sub-shapes keep their positional ids
+ * instead. The check is component-wise, not textual, because that is how the matcher compares:
+ * two compound ids can overlap without being equal, and two equal ids always overlap.
+ */
+export function uncontested(candidates: ReadonlyMap<number, string>): Map<number, string> {
+    const entries = [...candidates];
+    return new Map(
+        entries.filter(([, id]) => entries.every(([, other]) => other === id || !idsOverlap(id, other))),
+    );
 }
 
 /**
