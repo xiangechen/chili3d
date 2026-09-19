@@ -6,7 +6,9 @@ import type { Tool } from "../llm/types";
 import { getDocument } from "./documentContext";
 
 function summarizeNode(node: INode) {
-    return { id: node.id, type: node.constructor.name, name: node.name };
+    // parentId is what makes the tree legible: a FolderNode's children share its id, and a
+    // node moved by create_folder/move_nodes stays present here with its parent changed.
+    return { id: node.id, type: node.constructor.name, name: node.name, parentId: node.parent?.id };
 }
 
 function documentSummary(doc: IDocument) {
@@ -43,7 +45,7 @@ export function buildReadTools(): Tool[] {
         {
             name: "get_document_state",
             description:
-                "Read the current document: whether there is an active document, its name, node count, and each node's id/type/name.",
+                "Read the current document: whether there is an active document, its name, node count, and each node's id/type/name/parentId. Nodes of type FolderNode are the groups; a node's parentId is the folder holding it.",
             parameters: { type: "object", properties: {} },
             handler: readDocumentState,
         },

@@ -38,6 +38,29 @@ describe("readTools", () => {
         }
     });
 
+    // parentId is how the model reads the tree: it names the folder each node sits in, so a
+    // group created by create_folder is visible without a second call.
+    test("get_document_state reports each node's parentId", async () => {
+        const doc = createMockDocument({ name: "part" });
+        const folder = { id: "f1", name: "Parts", constructor: { name: "FolderNode" } };
+        const child = { id: "a", name: "box", parent: folder, constructor: { name: "BoxNode" } };
+        (doc.modelManager as any).findNodes = rs.fn(() => [folder, child]);
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+        try {
+            const tool = buildReadTools().find((t) => t.name === "get_document_state")!;
+            const result = JSON.parse((await tool.handler({})) as string);
+            expect(result.nodes).toEqual([
+                { id: "f1", type: "FolderNode", name: "Parts" },
+                { id: "a", type: "BoxNode", name: "box", parentId: "f1" },
+            ]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
     test("documentSnapshot merges the node summary and the selection", () => {
         const doc = createMockDocument({ name: "part" });
         (doc.modelManager as any).findNodes = rs.fn(() => [

@@ -124,7 +124,9 @@ The workflow to teach:
 - If a feature fails, the body keeps the last shape that did build and the failing row shows the error: fix it or suppress that feature.
 - References resolve against the timeline position of the feature that owns them, so a feature added later cannot break an earlier reference.
 - Suppressed features are skipped when rebuilding but keep their place in the list.
-- The features are added from the Parametric tab: {feature.extrude} (operation New/Join/Cut/Intersect, symmetric, start offset, depth), {feature.revolve}, {feature.fillet}, {feature.chamfer}, {feature.fuse}, {feature.cut}, {feature.common} and {feature.variable} (name an expression and use it as a dimension value).`,
+- The features are added from the Parametric tab: {feature.extrude} (operation New/Join/Cut/Intersect, symmetric, start offset, depth), {feature.revolve}, {feature.fillet}, {feature.chamfer}, {feature.fuse}, {feature.cut} and {feature.common}.
+- {feature.variable} opens the document-wide Parameters dialog: each parameter has a name, a type (length / angle / unitless), an expression and an optional description. Parameters are shared by the whole document — any feature parameter or sketch dimension may reference one by name, and a variable may reference the ones listed above it.
+- An expression takes numbers, other parameter names, + - * / %, parentheses, pi/e, and abs, sqrt, floor, ceil, round, min, max, sin, cos, tan, asin, acos, atan, atan2 — angles are in degrees throughout. Types are checked: a length parameter in an angle slot is an error, sqrt wants even exponents, and a variable cannot reference one declared below it.`,
 
     `## Documents and files
 - The app opens on a start screen: {doc.new}, {doc.open}, the recent documents and the settings (see below).

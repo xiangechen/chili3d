@@ -1,9 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { isConsumedTool, Matrix4, Transaction } from "@chili3d/core";
+import {
+    FolderNode,
+    type IDocument,
+    type INode,
+    isConsumedTool,
+    Matrix4,
+    NodeUtils,
+    Transaction,
+} from "@chili3d/core";
 import type { Tool } from "../llm/types";
-import { requireDocument, requireNode } from "./documentContext";
+import { findNode, requireDocument, requireNode } from "./documentContext";
 import { buildTransformMatrix, TRANSFORM_ARG_DOC, TRANSFORM_ORDER, VEC3_SCHEMA } from "./transformMatrix";
 
 const TRANSFORM_NODE_PARAMETERS = {
@@ -153,6 +161,180 @@ function redoTool(): Tool {
     };
 }
 
+/**
+ * The folder a grouping tool targets: `id` names a folder, or the document root when omitted.
+ * A parametric body is a linked-list container too, so `instanceof` is doing real work here —
+ * moving a node into a body would silently turn it into a consumed tool of that body.
+ */
+function resolveFolder(doc: IDocument, id: unknown): FolderNode | string {
+    const node = id === undefined ? doc.modelManager.rootNode : findNode(doc, String(id));
+    if (node === undefined) return JSON.stringify({ error: `folder not found: ${id}` });
+    if (!(node instanceof FolderNode)) {
+        return JSON.stringify({
+            error: `${id} is a ${node.constructor.name}, not a folder — pass a folder id from create_folder or get_document_state`,
+        });
+    }
+    return node;
+}
+
+/** True when `folder` is `node` itself or one of its descendants — a move that would orphan the tree. */
+function isSelfOrDescendant(node: INode, folder: INode): boolean {
+    for (let current: INode | undefined = folder; current !== undefined; current = current.parent) {
+        if (current === node) return true;
+    }
+    return false;
+}
+
+/** The nodes named by `ids`, or the message for the first one that cannot be re-parented into `folder`. */
+function resolveMovable(doc: IDocument, ids: unknown, folder: FolderNode): INode[] | string {
+    if (!Array.isArray(ids)) return "nodeIds must be an array of node ids";
+    const nodes: INode[] = [];
+    for (const id of ids) {
+        const node = findNode(doc, String(id));
+        if (node === undefined) return `node not found: ${id}`;
+        if (node.parent === undefined) return `cannot move ${id}: it is the document root`;
+        // The body rebuilds from its own feature list, so the node would keep rendering the
+        // body's features wherever it landed — a move that looks applied and is not.
+        if (isConsumedTool(node)) {
+            return `cannot move ${id}: it is a tool consumed by "${node.parent.name}", which rebuilds it from its own features`;
+        }
+        if (isSelfOrDescendant(node, folder)) {
+            return `cannot move ${id} into itself or one of its own descendants`;
+        }
+        nodes.push(node);
+    }
+    return nodes;
+}
+
+interface MoveOutcome {
+    moved: string[];
+    skipped: { id: string; reason: string }[];
+}
+
+/** Re-parents every node into `folder`, reporting the ones left where they were and why. */
+function moveAllInto(nodes: INode[], folder: FolderNode): MoveOutcome {
+    const outcome: MoveOutcome = { moved: [], skipped: [] };
+    for (const node of nodes) {
+        if (node.parent === folder) {
+            outcome.skipped.push({ id: node.id, reason: "already a child of this folder" });
+        } else {
+            (node.parent as FolderNode).move(node, folder);
+            outcome.moved.push(node.id);
+        }
+    }
+    return outcome;
+}
+
+function createFolderTool(): Tool {
+    return {
+        name: "create_folder",
+        description:
+            "Create a folder node and optionally move existing nodes into it. A folder only organises the model tree — it does not fuse, hide or transform what it holds (use combine in run_program to make one compound shape, or a boolean op to merge solids, when the parts must become one). Nest folders with parentId, and reuse an existing folder by passing its id to move_nodes instead of making another.",
+        parameters: {
+            type: "object",
+            properties: {
+                name: {
+                    type: "string",
+                    description: "Folder name; defaults to a generated 'Folder1', 'Folder2', …",
+                },
+                nodeIds: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Existing nodes to move into the new folder",
+                },
+                parentId: {
+                    type: "string",
+                    description:
+                        "Id of an existing folder to nest this one under; defaults to the document root",
+                },
+            },
+        },
+        handler: async (args) => {
+            const doc = requireDocument();
+            if (typeof doc === "string") return doc;
+
+            const parent = resolveFolder(doc, args["parentId"]);
+            if (typeof parent === "string") return parent;
+
+            const nodes = resolveMovable(doc, args["nodeIds"] ?? [], parent);
+            if (typeof nodes === "string") return JSON.stringify({ error: nodes });
+
+            const given = args["name"];
+            const name =
+                typeof given === "string" && given.trim() !== ""
+                    ? given.trim()
+                    : NodeUtils.generateName(doc, "Folder");
+
+            const folder = new FolderNode({ document: doc, name });
+            let outcome: MoveOutcome = { moved: [], skipped: [] };
+            Transaction.execute(doc, "AI create folder", () => {
+                parent.add(folder);
+                outcome = moveAllInto(nodes, folder);
+            });
+            doc.visual.update();
+            return JSON.stringify({
+                id: folder.id,
+                name: folder.name,
+                parentId: parent.id,
+                moved: outcome.moved,
+                skipped: outcome.skipped,
+            });
+        },
+    };
+}
+
+function moveNodesTool(): Tool {
+    return {
+        name: "move_nodes",
+        description:
+            "Move nodes into a folder, between folders, or back to the document root (omit folderId) to ungroup them. Create the folder with create_folder first. A hidden folder hides whatever moves into it.",
+        parameters: {
+            type: "object",
+            properties: {
+                nodeIds: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Nodes to move",
+                },
+                folderId: {
+                    type: "string",
+                    description: "Target folder; omit to move the nodes to the document root",
+                },
+            },
+            required: ["nodeIds"],
+        },
+        handler: async (args) => {
+            const doc = requireDocument();
+            if (typeof doc === "string") return doc;
+
+            const folder = resolveFolder(doc, args["folderId"]);
+            if (typeof folder === "string") return folder;
+
+            const nodes = resolveMovable(doc, args["nodeIds"], folder);
+            if (typeof nodes === "string") return JSON.stringify({ error: nodes });
+
+            let outcome: MoveOutcome = { moved: [], skipped: [] };
+            Transaction.execute(doc, "AI move nodes", () => {
+                outcome = moveAllInto(nodes, folder);
+            });
+            doc.visual.update();
+            return JSON.stringify({
+                folder: { id: folder.id, name: folder.name },
+                moved: outcome.moved,
+                skipped: outcome.skipped,
+            });
+        },
+    };
+}
+
 export function buildNodeTools(): Tool[] {
-    return [deleteNodeTool(), setNodeVisibleTool(), transformNodeTool(), undoTool(), redoTool()];
+    return [
+        deleteNodeTool(),
+        setNodeVisibleTool(),
+        transformNodeTool(),
+        createFolderTool(),
+        moveNodesTool(),
+        undoTool(),
+        redoTool(),
+    ];
 }
