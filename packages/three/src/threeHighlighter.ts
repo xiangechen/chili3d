@@ -14,6 +14,7 @@ import {
     VisualStateUtils,
 } from "@chili3d/core";
 import { Group, Mesh, Points } from "three";
+import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { isHighlightable } from "./highlightable";
@@ -212,25 +213,32 @@ export class GeometryState {
         index: number,
         state: VisualState,
     ): LineSegments2 | undefined {
-        if (!this.wantsEdge(state, type)) {
+        const material = this.edgeMaterialOf(state, type);
+        if (material === undefined) {
             this.removeSubObject(existing);
             return undefined;
         }
         const edge = existing ?? this.createSubEdge(type, key, index);
         if (edge === undefined) return undefined;
-        edge.material = VisualStateUtils.hasState(state, VisualStates.edgeHighlight)
-            ? hilightEdgeMaterial
-            : selectedEdgeMaterial;
+        edge.material = material;
         return edge;
     }
 
-    /** Outline target of a state: an edge or wire sub-shape, or the boundary of a face. */
-    private wantsEdge(state: VisualState, type: ShapeType): boolean {
-        return (
-            (hasFaces(type) || ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type)) &&
-            (VisualStateUtils.hasState(state, VisualStates.edgeHighlight) ||
-                VisualStateUtils.hasState(state, VisualStates.edgeSelected))
-        );
+    /**
+     * Material of the outline a state draws for a sub-shape, or none. A face draws its
+     * boundary only when the state names it with an edge bit; an edge or wire has no fill
+     * to draw, so there a state asking only for a fill — the hover or selection a pick
+     * over edges and faces passes down — becomes the matching outline.
+     */
+    private edgeMaterialOf(state: VisualState, type: ShapeType): LineMaterial | undefined {
+        const isEdge = ShapeTypeUtils.hasEdge(type) || ShapeTypeUtils.hasWire(type);
+        if (!isEdge && !hasFaces(type)) return undefined;
+        if (VisualStateUtils.hasState(state, VisualStates.edgeHighlight)) return hilightEdgeMaterial;
+        if (VisualStateUtils.hasState(state, VisualStates.edgeSelected)) return selectedEdgeMaterial;
+        if (!isEdge) return undefined;
+        if (VisualStateUtils.hasState(state, VisualStates.faceHighlight)) return hilightEdgeMaterial;
+        if (VisualStateUtils.hasState(state, VisualStates.faceSelected)) return selectedEdgeMaterial;
+        return undefined;
     }
 
     private createSubEdge(type: ShapeType, key: string, index: number) {

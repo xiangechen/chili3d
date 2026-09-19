@@ -9,6 +9,7 @@ import type { IHighlightable } from "../src/highlightable";
 import {
     defaultEdgeMaterial,
     faceTransparentMaterial,
+    highlightFaceMaterial,
     hilightEdgeMaterial,
     selectedEdgeMaterial,
 } from "../src/materials";
@@ -564,6 +565,48 @@ describe("GeometryState with ThreeGeometry", () => {
 
         expect(highlighter.container.children.length).toBe(beforeCount + 1);
         expect(highlighter.getState(geo, ShapeTypes.edge, 0)).toBe(VisualStates.edgeHighlight);
+    });
+
+    // A pick over edges and faces passes one face-shaped state down to both, and an edge
+    // has no fill to draw, so the state has to come out as the matching outline.
+    test("a face-shaped hover outlines an edge sub-shape", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, VisualStates.faceHighlight, ShapeTypes.edge, 0);
+
+        const drawn = highlighter.container.children.slice(beforeCount);
+        expect(drawn).toHaveLength(1);
+        expect((drawn[0] as LineSegments2).material).toBe(hilightEdgeMaterial);
+        expect(highlighter.getState(geo, ShapeTypes.edge, 0)).toBe(VisualStates.faceHighlight);
+    });
+
+    test("a face-shaped selection outlines an edge sub-shape", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, VisualStates.faceSelected, ShapeTypes.edge, 0);
+
+        const drawn = highlighter.container.children.slice(beforeCount);
+        expect(drawn).toHaveLength(1);
+        expect((drawn[0] as LineSegments2).material).toBe(selectedEdgeMaterial);
+        expect(highlighter.getState(geo, ShapeTypes.edge, 0)).toBe(VisualStates.faceSelected);
+    });
+
+    test("removing a face-shaped state takes the edge outline away", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, VisualStates.faceHighlight, ShapeTypes.edge, 0);
+
+        highlighter.removeState(geo, VisualStates.faceHighlight, ShapeTypes.edge, 0);
+
+        expect(highlighter.container.children.length).toBe(beforeCount);
+        expect(highlighter.getState(geo, ShapeTypes.edge, 0)).toBeUndefined();
+    });
+
+    test("a face-shaped state draws no outline for a face", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, VisualStates.faceHighlight, ShapeTypes.face, 0);
+
+        // the fill alone — a hovered face stays apart from a selected one, which outlines it
+        const drawn = highlighter.container.children.slice(beforeCount);
+        expect(drawn).toHaveLength(1);
+        expect((drawn[0] as Mesh).material).toBe(highlightFaceMaterial);
     });
 
     test("a state carrying a fill and an outline draws both for a face", () => {
