@@ -31,15 +31,19 @@
 }
 
 /*
- * The first two columns are 100px while the panel has room and give way below that: they are
- * caps, not fixed widths, so a panel dragged narrow squeezes the cells instead of running the
- * table off the edge of its own frame.
+ * The first two tracks are what a drag set them to, capped at a floor so a panel dragged
+ * narrow squeezes the cells instead of running the table off the edge of its own frame —
+ * they are caps, not fixed widths. `applyColumnWidths` writes them; the fallbacks here are
+ * only for the instant before the element's constructor has run.
  */
 .row,
 .newRow,
 .header {
     display: grid;
-    grid-template-columns: minmax(64px, 100px) minmax(72px, 100px) minmax(96px, 1fr);
+    grid-template-columns:
+        var(--variables-name-column, minmax(64px, 100px))
+        var(--variables-type-column, minmax(72px, 100px))
+        minmax(96px, 1fr);
     gap: 6px;
     align-items: center;
     padding: 3px 8px;
@@ -121,6 +125,58 @@
     /* Line the labels up with the text inside the quiet cells below (6px padding + 1px border). */
     .cell {
         padding: 0 7px;
+    }
+}
+
+/*
+ * A header cell is its own box so the resize strip can hang on its trailing edge. The label
+ * is a separate element because `.cell` clips with `overflow: hidden` and would clip the
+ * strip with it.
+ */
+.headerCell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+/*
+ * The grab strip: 9px of invisible target straddling the edge, with a 2px line that only
+ * appears on hover or focus. It sits in the header's gap, so it takes no width from either
+ * column and the two columns' labels stay put while it is dragged.
+ *
+ * The negative insets reach out into the header's own padding (the 8px above): a cell is only
+ * as tall as its label, and a line that height came out a speck. They also make the target a
+ * taller slab to grab.
+ */
+.resizer {
+    position: absolute;
+    top: -8px;
+    right: -4px;
+    bottom: -8px;
+    width: 9px;
+    cursor: col-resize;
+    touch-action: none;
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 15%;
+        bottom: 15%;
+        left: 3px;
+        width: 2px;
+        border-radius: 1px;
+        background-color: transparent;
+    }
+
+    /* The line is the focus indicator too, so the browser's ring around a 9px strip goes. */
+    &:focus {
+        outline: none;
+    }
+
+    &:hover::after,
+    &:focus-visible::after {
+        background-color: var(--primary-color);
     }
 }
 

@@ -19,6 +19,7 @@ rs.mock("../src/property/variables/variablesEditor.module.css", () => ({
     row: "v-row",
     newRow: "v-new-row",
     header: "v-header",
+    headerCell: "v-header-cell",
     cell: "v-cell",
     field: "v-field",
     value: "v-value",
@@ -31,6 +32,7 @@ rs.mock("../src/property/variables/variablesEditor.module.css", () => ({
     errorRow: "v-error-row",
     empty: "v-empty",
     selected: "v-selected",
+    resizer: "v-resizer",
     actions: "v-actions",
     iconButton: "v-icon-button",
     danger: "v-danger",
@@ -359,6 +361,97 @@ describe("showVariablesPanel", () => {
             expect(editor.querySelectorAll(".v-row")).toHaveLength(1);
             expect(editor.querySelectorAll(".v-selected")).toHaveLength(0);
             expect(actions.childElementCount).toBe(0);
+        });
+    });
+
+    describe("the column widths", () => {
+        const NAME = "--variables-name-column";
+        const TYPE = "--variables-type-column";
+
+        function openWithRows(rows = 1) {
+            const items = Array.from({ length: rows }, (_, i) => variable(`v${i}`, `w${i}`, "50"));
+            return open(documentWith(items));
+        }
+
+        /** A whole drag: down on the strip, a move on the document, then the button up. */
+        function drag(resizer: HTMLElement, from: number, to: number) {
+            resizer.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX: from }));
+            window.document.dispatchEvent(new MouseEvent("pointermove", { clientX: to }));
+            window.document.dispatchEvent(new MouseEvent("pointerup"));
+        }
+
+        test("only the columns that can give way have a strip to drag", () => {
+            const { editor } = openWithRows();
+            const cells = editor.querySelectorAll(".v-header-cell");
+
+            expect(cells).toHaveLength(3);
+            expect(cells[0].querySelector(".v-resizer")).not.toBeNull();
+            expect(cells[1].querySelector(".v-resizer")).not.toBeNull();
+            // The third track is the `1fr` one: it takes what the others leave.
+            expect(cells[2].querySelector(".v-resizer")).toBeNull();
+        });
+
+        test("dragging an edge moves that column's track, and stops when the button is let go", () => {
+            const { editor } = openWithRows();
+            const strip = editor.querySelectorAll(".v-resizer")[1] as HTMLElement;
+
+            drag(strip, 100, 160);
+
+            expect(editor.style.getPropertyValue(TYPE)).toBe("minmax(72px, 160px)");
+            // The name column was not touched, and the listeners went with the button.
+            expect(editor.style.getPropertyValue(NAME)).toBe("minmax(64px, 100px)");
+            window.document.dispatchEvent(new MouseEvent("pointermove", { clientX: 240 }));
+            expect(editor.style.getPropertyValue(TYPE)).toBe("minmax(72px, 160px)");
+        });
+
+        test("a drag is held between the column's floor and the panel's ceiling", () => {
+            const { editor } = openWithRows();
+            const strip = editor.querySelector(".v-resizer") as HTMLElement;
+
+            drag(strip, 100, -5000);
+            // Below the floor the panel could no longer hold the three tracks at its minimum.
+            expect(editor.style.getPropertyValue(NAME)).toBe("minmax(64px, 64px)");
+
+            drag(strip, 100, 5000);
+            expect(editor.style.getPropertyValue(NAME)).toBe("minmax(64px, 400px)");
+        });
+
+        test("the focused strip is moved by the arrow keys", () => {
+            const { editor } = openWithRows();
+            const strip = editor.querySelector(".v-resizer") as HTMLElement;
+
+            strip.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+            expect(editor.style.getPropertyValue(NAME)).toBe("minmax(64px, 108px)");
+
+            strip.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true, shiftKey: true }),
+            );
+            expect(editor.style.getPropertyValue(NAME)).toBe("minmax(64px, 84px)");
+        });
+
+        test("a width outlives the rows it was set for", () => {
+            const { editor } = openWithRows();
+            drag(editor.querySelector(".v-resizer") as HTMLElement, 100, 150);
+
+            // Rebuilding the rows replaces every one of them; the widths are the table's.
+            const newRow = mustQuery<HTMLInputElement>(editor, ".v-new-row input");
+            newRow.value = "depth";
+            (newRow as any)._onblur({ target: newRow });
+
+            expect(editor.querySelectorAll(".v-row")).toHaveLength(2);
+            expect(editor.style.getPropertyValue(NAME)).toBe("minmax(64px, 150px)");
+        });
+
+        test("reaching for an edge is not a click on the table, so the selection stays", () => {
+            const { editor, actions } = openWithRows();
+            const row = editor.querySelectorAll(".v-row")[0] as HTMLElement;
+            row.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            expect(actions.querySelectorAll("button")).toHaveLength(3);
+
+            drag(editor.querySelector(".v-resizer") as HTMLElement, 100, 140);
+
+            expect(editor.querySelectorAll(".v-selected")).toHaveLength(1);
+            expect(actions.querySelectorAll("button")).toHaveLength(3);
         });
     });
 });

@@ -484,6 +484,7 @@ export default {
         "variable.moveDown": "下移",
         "variable.moveUp": "上移",
         "variable.namePlaceholder": "名称",
+        "variable.resizeColumn": "拖动列边缘，或用方向键调整",
         "variable.type": "类型",
         "variable.type.angle": "角度",
         "variable.type.length": "长度",

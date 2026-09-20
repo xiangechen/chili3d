@@ -489,6 +489,7 @@ export default {
         "variable.moveDown": "Move down",
         "variable.moveUp": "Move up",
         "variable.namePlaceholder": "Name",
+        "variable.resizeColumn": "Drag the column edge, or use the arrow keys",
         "variable.type": "Type",
         "variable.type.angle": "Angle",
         "variable.type.length": "Length",

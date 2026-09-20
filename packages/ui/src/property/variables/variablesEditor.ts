@@ -22,11 +22,29 @@ const TYPES: readonly { value: VariableType; label: I18nKeys }[] = [
 const COLUMNS: readonly I18nKeys[] = ["common.name", "variable.type", "variable.value"];
 
 /**
+ * The two columns that can be dragged, in header order — the third is the `1fr` one. The
+ * width is where a drag starts from; the floor is both the smallest a drag may go and what
+ * the panel's own minimum width can hold, so a narrow panel squeezes the cells rather than
+ * pushing the table out of its frame (see the grid in the stylesheet).
+ */
+const COLUMN_WIDTHS = [100, 100] as const;
+const COLUMN_MIN_WIDTHS = [64, 72] as const;
+const COLUMN_MAX_WIDTH = 400;
+/** One arrow-key press; `Shift` takes a bigger bite. */
+const COLUMN_KEY_STEP = 8;
+
+/**
  * The parameters table: one row per document parameter — Name / Type / Value, where the
  * value column is also where the expression is written (`Onshape`'s variable feature).
  *
  * The description is not a column: it is an optional note, and a cell for it made every row
  * wider for nothing. It lives behind the marker next to the name instead — `editDescription`.
+ *
+ * The name and type columns are draggable by their header edges (`resizeColumn`), because how
+ * much of a 100px name is enough is a matter of the names in front of you. The widths are the
+ * panel's own state and nothing else reads them: no float panel here survives being closed
+ * with its size intact, so a column that remembered its width across a session would be the
+ * only thing in the app that did.
  *
  * A row carries no buttons of its own. Reordering and deletion act on one parameter at a
  * time, so they live in the floating panel's title bar and follow the selected row (see
@@ -50,12 +68,17 @@ export class VariablesEditor extends HTMLElement {
     /** The actions that act on the selected row — hosted by the panel's title bar. */
     private readonly actionsBar = div({ className: style.actions });
     private selectedId: string | undefined;
+    /** The name and type columns as dragged — see `resizeColumn`. */
+    private readonly columnWidths: number[] = [...COLUMN_WIDTHS];
+    /** Takes down the listeners of a resize still in flight; see `disconnectedCallback`. */
+    private stopResizing: (() => void) | undefined;
     /** The open description editor, when one is up (see `editDescription`). */
     private popup: HTMLElement | undefined;
 
     constructor(private readonly content: VariablesDataContent) {
         super();
         this.className = style.root;
+        this.applyColumnWidths();
         this.render();
         this.addEventListener("pointerdown", this.handlePointerDown);
         this.addEventListener("focusin", this.handleFocusIn);
@@ -101,6 +124,7 @@ export class VariablesEditor extends HTMLElement {
 
     disconnectedCallback(): void {
         this.content.document.variables.removePropertyChanged(this.handleVariablesChanged);
+        this.stopResizing?.();
         this.popup?.remove();
         this.popup = undefined;
     }
@@ -132,9 +156,7 @@ export class VariablesEditor extends HTMLElement {
                 { className: style.table },
                 div(
                     { className: style.header },
-                    ...COLUMNS.map((column) =>
-                        span({ className: style.cell, textContent: new Localize(column) }),
-                    ),
+                    ...COLUMNS.map((column, index) => this.headerCell(column, index)),
                 ),
                 div(
                     { className: style.rows },
@@ -145,6 +167,83 @@ export class VariablesEditor extends HTMLElement {
         );
         this.refreshValues();
         this.updateActions();
+    }
+
+    /**
+     * A header cell, plus — on every column but the last — the grab strip on its trailing
+     * edge. The last column is the `1fr` one: it takes whatever the other two leave, so
+     * there is nothing to drag.
+     */
+    private headerCell(column: I18nKeys, index: number) {
+        const cell = div(
+            { className: style.headerCell },
+            span({ className: style.cell, textContent: new Localize(column) }),
+        );
+        if (index < COLUMNS.length - 1) cell.append(this.resizer(index));
+        return cell;
+    }
+
+    private resizer(index: number) {
+        const handle = div({
+            className: style.resizer,
+            role: "separator",
+            tabIndex: 0,
+            // The strip is 9px of invisible target around a 2px line: without a name there is
+            // nothing to announce it to anything that cannot see the line appear on hover.
+            title: I18n.translate("variable.resizeColumn") ?? "",
+        });
+        handle.addEventListener("pointerdown", (e: PointerEvent) => this.resizeColumn(index, e));
+        handle.addEventListener("keydown", (e: KeyboardEvent) => this.resizeColumnByKey(index, e));
+        return handle;
+    }
+
+    /**
+     * A drag on a column's edge. `stopPropagation` because resizing is not a row gesture:
+     * the table's own pointerdown would read this as a click off the rows and drop the
+     * selected parameter, taking the title bar's buttons away mid-drag.
+     */
+    private resizeColumn(index: number, e: PointerEvent): void {
+        e.preventDefault();
+        e.stopPropagation();
+        const startX = e.clientX;
+        const startWidth = this.columnWidths[index];
+        const onMove = (move: PointerEvent) => this.setColumnWidth(index, startWidth + move.clientX - startX);
+        const onUp = () => {
+            this.stopResizing = undefined;
+            document.removeEventListener("pointermove", onMove);
+            document.removeEventListener("pointerup", onUp);
+            document.removeEventListener("pointercancel", onUp);
+        };
+        this.stopResizing?.();
+        this.stopResizing = onUp;
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp);
+        document.addEventListener("pointercancel", onUp);
+    }
+
+    /** The same drag without a pointer: the strip is focusable, and the arrows move it. */
+    private resizeColumnByKey(index: number, e: KeyboardEvent): void {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+        const step = e.key === "ArrowLeft" ? -COLUMN_KEY_STEP : COLUMN_KEY_STEP;
+        this.setColumnWidth(index, this.columnWidths[index] + step * (e.shiftKey ? 3 : 1));
+    }
+
+    private setColumnWidth(index: number, width: number): void {
+        const floor = COLUMN_MIN_WIDTHS[index];
+        this.columnWidths[index] = Math.min(COLUMN_MAX_WIDTH, Math.max(floor, width));
+        this.applyColumnWidths();
+    }
+
+    /**
+     * Both tracks are handed to the rows as custom properties rather than written into each
+     * one: every row and the header are grids of the same three tracks, and a drag has to
+     * move all of them at once.
+     */
+    private applyColumnWidths(): void {
+        const [name, type] = this.columnWidths;
+        this.style.setProperty("--variables-name-column", `minmax(${COLUMN_MIN_WIDTHS[0]}px, ${name}px)`);
+        this.style.setProperty("--variables-type-column", `minmax(${COLUMN_MIN_WIDTHS[1]}px, ${type}px)`);
     }
 
     /**

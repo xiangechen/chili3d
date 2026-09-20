@@ -477,6 +477,7 @@ export const I18N_KEYS = [
     "variable.moveDown",
     "variable.moveUp",
     "variable.namePlaceholder",
+    "variable.resizeColumn",
     "variable.type",
     "variable.type.angle",
     "variable.type.length",
