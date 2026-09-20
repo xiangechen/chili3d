@@ -483,7 +483,7 @@ export default {
         "variable.expressionPlaceholder": "50 或 width / 2",
         "variable.moveDown": "下移",
         "variable.moveUp": "上移",
-        "variable.namePlaceholder": "length",
+        "variable.namePlaceholder": "名称",
         "variable.type": "类型",
         "variable.type.angle": "角度",
         "variable.type.length": "长度",

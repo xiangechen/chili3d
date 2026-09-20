@@ -28,6 +28,17 @@ const COLUMNS: readonly I18nKeys[] = ["common.name", "variable.type", "variable.
  * The description is not a column: it is an optional note, and a cell for it made every row
  * wider for nothing. It lives behind the marker next to the name instead — `editDescription`.
  *
+ * A row carries no buttons of its own. Reordering and deletion act on one parameter at a
+ * time, so they live in the floating panel's title bar and follow the selected row (see
+ * `floatingActions`) — three icons repeated down every row is a column of noise for buttons
+ * that only ever mean one row. The selected row is tinted, because the bar is away from what
+ * it changes.
+ *
+ * Selecting is what focus does: clicking a row or tabbing into one of its fields selects it,
+ * clicking anywhere off the rows lets it go. It outlives the field's focus on purpose —
+ * reaching for a title-bar button blurs the field, and a selection that died on blur would
+ * take the button away from under the pointer.
+ *
  * Editing a field refreshes only the value column — rebuilding the rows would take the focus
  * out of the box the user is typing in. Adding, removing and reordering DO rebuild, because
  * the row set itself changed; a rebuild hands focus back (the new row's name box on add, the
@@ -36,6 +47,9 @@ const COLUMNS: readonly I18nKeys[] = ["common.name", "variable.type", "variable.
 export class VariablesEditor extends HTMLElement {
     private readonly valueCells = new Map<string, HTMLInputElement>();
     private readonly rows = new Map<string, HTMLElement>();
+    /** The actions that act on the selected row — hosted by the panel's title bar. */
+    private readonly actionsBar = div({ className: style.actions });
+    private selectedId: string | undefined;
     /** The open description editor, when one is up (see `editDescription`). */
     private popup: HTMLElement | undefined;
 
@@ -43,7 +57,46 @@ export class VariablesEditor extends HTMLElement {
         super();
         this.className = style.root;
         this.render();
+        this.addEventListener("pointerdown", this.handlePointerDown);
+        this.addEventListener("focusin", this.handleFocusIn);
         this.content.document.variables.onPropertyChanged(this.handleVariablesChanged);
+    }
+
+    /** The title-bar slot contents — see `FloatPanelOptions.actions`. */
+    floatingActions(): HTMLElement[] {
+        return [this.actionsBar];
+    }
+
+    private readonly handlePointerDown = (e: Event) => {
+        // Off the rows entirely (the empty row, the table's header, the space under it) is
+        // "nothing is selected"; `undefined` is how that is said.
+        this.select(this.rowIdAt(e.target));
+    };
+
+    private readonly handleFocusIn = (e: Event) => {
+        // Tabbing into a row selects it just as clicking it does; a focus that left the
+        // rows (nothing is focusable outside them here) does not.
+        const id = this.rowIdAt(e.target);
+        if (id !== undefined) this.select(id);
+    };
+
+    private rowIdAt(target: EventTarget | null): string | undefined {
+        const row = (target as HTMLElement | null)?.closest(`.${style.row}`);
+        if (row === null || row === undefined) return undefined;
+        // Identity, not position: `rows` is keyed by id and is the reverse of this lookup.
+        for (const [id, element] of this.rows) {
+            if (element === row) return id;
+        }
+        return undefined;
+    }
+
+    private select(id: string | undefined): void {
+        if (id === this.selectedId) return;
+        this.selectedId = id;
+        for (const [rowId, row] of this.rows) {
+            row.classList.toggle(style.selected, rowId === id);
+        }
+        this.updateActions();
     }
 
     disconnectedCallback(): void {
@@ -69,6 +122,9 @@ export class VariablesEditor extends HTMLElement {
 
     /** Rebuilds every row. Only for structural changes — see the class comment. */
     render(): void {
+        // A rebuild is also when the table can be seen whole: the selected row may have been
+        // deleted from under the bar by an undo, or by another panel on the same document.
+        if (this.current(this.selectedId) === undefined) this.selectedId = undefined;
         this.valueCells.clear();
         this.rows.clear();
         this.replaceChildren(
@@ -79,10 +135,6 @@ export class VariablesEditor extends HTMLElement {
                     ...COLUMNS.map((column) =>
                         span({ className: style.cell, textContent: new Localize(column) }),
                     ),
-                    // The actions column's header, deliberately empty: its buttons are icons
-                    // with tooltips, and a label would cost width to say nothing. The span
-                    // itself is load-bearing — one cell short and every column shifts left.
-                    span(),
                 ),
                 div(
                     { className: style.rows },
@@ -92,6 +144,7 @@ export class VariablesEditor extends HTMLElement {
             ),
         );
         this.refreshValues();
+        this.updateActions();
     }
 
     /**
@@ -120,15 +173,22 @@ export class VariablesEditor extends HTMLElement {
         // must not depend on the row order.
         const value = this.valueCell(item);
         const row = div(
-            { className: style.row },
+            { className: this.rowClassName(item, undefined) },
             this.nameCell(item),
             this.typeCell(item),
             value,
-            this.actions(item),
         );
         this.valueCells.set(item.id, value);
         this.rows.set(item.id, row);
         return row;
+    }
+
+    /** Selection and error are both a row's state, and both are repainted from scratch. */
+    private rowClassName(item: VariableData, error: string | undefined): string {
+        let className = style.row;
+        if (item.id === this.selectedId) className += ` ${style.selected}`;
+        if (error !== undefined) className += ` ${style.errorRow}`;
+        return className;
     }
 
     /**
@@ -164,7 +224,7 @@ export class VariablesEditor extends HTMLElement {
      * the rows — so a control asking "what was in this field?" must ask the table, not its own
      * closure, or it will hand back the value from before the last edit.
      */
-    private current(id: string): VariableData | undefined {
+    private current(id: string | undefined): VariableData | undefined {
         return this.content.items.find((x) => x.id === id);
     }
 
@@ -263,20 +323,29 @@ export class VariablesEditor extends HTMLElement {
         return types;
     }
 
-    private actions(item: VariableData) {
-        const index = this.content.items.findIndex((x) => x.id === item.id);
-        return div(
-            { className: style.actions },
-            this.iconButton("icon-up", "variable.moveUp", index === 0, () => this.move(item.id, -1, 0)),
+    /**
+     * The title bar's contents: the three actions on the selected row, and nothing at all
+     * when no row is selected. The ends of the table are read off the table rather than
+     * cached, so the arrows are already right after a move or an undo.
+     */
+    private updateActions(): void {
+        const id = this.selectedId;
+        const index = this.content.items.findIndex((x) => x.id === id);
+        if (id === undefined || index < 0) {
+            this.actionsBar.replaceChildren();
+            return;
+        }
+        this.actionsBar.replaceChildren(
+            this.iconButton("icon-up", "variable.moveUp", index === 0, () => this.move(id, -1, 0)),
             this.iconButton("icon-down", "variable.moveDown", index === this.content.items.length - 1, () =>
-                this.move(item.id, 1, 1),
+                this.move(id, 1, 1),
             ),
             this.iconButton(
                 "icon-trash",
                 "variable.delete",
                 false,
                 () => {
-                    this.content.remove(item.id);
+                    this.content.remove(id);
                     this.render();
                 },
                 style.danger,
@@ -288,7 +357,7 @@ export class VariablesEditor extends HTMLElement {
     private move(id: string, offset: -1 | 1, arrow: 0 | 1): void {
         this.content.move(id, offset);
         this.render();
-        this.rows.get(id)?.querySelectorAll("button")[arrow]?.focus();
+        this.actionsBar.querySelectorAll("button")[arrow]?.focus();
     }
 
     private iconButton(
@@ -332,7 +401,7 @@ export class VariablesEditor extends HTMLElement {
                     : `${style.cell} ${style.field} ${style.value} ${style.error}`;
             // The cell shows what the expression came to; hovering reveals the expression.
             cell.title = error ?? item.expression;
-            row.className = error === undefined ? style.row : `${style.row} ${style.errorRow}`;
+            row.className = this.rowClassName(item, error);
         }
     }
 

@@ -30,6 +30,7 @@ rs.mock("../src/property/variables/variablesEditor.module.css", () => ({
     error: "v-error",
     errorRow: "v-error-row",
     empty: "v-empty",
+    selected: "v-selected",
     actions: "v-actions",
     iconButton: "v-icon-button",
     danger: "v-danger",
@@ -65,7 +66,11 @@ describe("showVariablesPanel", () => {
     function open(document: TestDocument, applied = rs.fn()) {
         PubSub.default.sub("showFloatPanel", capture);
         showVariablesPanel(document, applied);
-        return { editor: opened[0]?.content as VariablesEditor, applied };
+        const editor = opened[0]?.content as VariablesEditor;
+        // The panel hosts it in its title bar, so the tests read it from the options the same
+        // way `FloatPanel` does.
+        const actions = opened[0]?.actions?.[0] as HTMLElement;
+        return { editor, actions, applied };
     }
 
     test("opens a floating panel holding the parameters table", () => {
@@ -231,5 +236,129 @@ describe("showVariablesPanel", () => {
 
         expect(document.history.undoCount()).toBe(0);
         expect(applied).not.toHaveBeenCalled();
+    });
+
+    describe("the selected parameter and its actions", () => {
+        function press(editor: VariablesEditor, rowIndex: number): HTMLElement {
+            const row = editor.querySelectorAll(".v-row")[rowIndex] as HTMLElement;
+            row.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+            return row;
+        }
+
+        test("a row carries no buttons — they are the panel's, up in the title bar", () => {
+            const { editor, actions } = open(documentWith([variable("v1", "w", "50")]));
+
+            expect(editor.querySelectorAll(".v-row button")).toHaveLength(0);
+            expect(editor.contains(actions)).toBe(false);
+            expect(actions.classList.contains("v-actions")).toBe(true);
+        });
+
+        test("with nothing selected the title bar holds nothing", () => {
+            const { actions } = open(documentWith([variable("v1", "w", "50")]));
+
+            expect(actions.childElementCount).toBe(0);
+        });
+
+        test("selecting a row marks it and puts its actions in the title bar", () => {
+            const { editor, actions } = open(documentWith([variable("v1", "w", "50")]));
+
+            const row = press(editor, 0);
+
+            expect(row.classList.contains("v-selected")).toBe(true);
+            expect(actions.querySelectorAll("button")).toHaveLength(3);
+        });
+
+        test("tabbing into a row selects it as clicking does", () => {
+            const { editor, actions } = open(
+                documentWith([variable("v1", "w", "50"), variable("v2", "h", "10")]),
+            );
+            const rows = editor.querySelectorAll(".v-row");
+            press(editor, 0);
+
+            const name = mustQuery<HTMLInputElement>(rows[1], "input");
+            name.dispatchEvent(new Event("focusin", { bubbles: true }));
+
+            expect(rows[1].classList.contains("v-selected")).toBe(true);
+            expect(rows[0].classList.contains("v-selected")).toBe(false);
+            expect(actions.querySelectorAll("button")).toHaveLength(3);
+        });
+
+        test("the ends of the table are where the arrows are disabled", () => {
+            const { editor, actions } = open(
+                documentWith([variable("v1", "w", "50"), variable("v2", "h", "10")]),
+            );
+            const buttons = () => actions.querySelectorAll<HTMLButtonElement>("button");
+
+            press(editor, 0);
+            expect(buttons()[0].disabled).toBe(true);
+            expect(buttons()[1].disabled).toBe(false);
+
+            press(editor, 1);
+            expect(buttons()[0].disabled).toBe(false);
+            expect(buttons()[1].disabled).toBe(true);
+        });
+
+        test("leaving a field keeps the row selected — the bar is what blurred it", () => {
+            const document = documentWith([variable("v1", "w", "50")]);
+            const { editor, actions } = open(document);
+            const row = press(editor, 0);
+            const name = mustQuery<HTMLInputElement>(row, ".v-cell");
+
+            name.value = "width";
+            (name as any)._onblur({ target: name });
+
+            expect(document.variables.items[0].name).toBe("width");
+            expect(row.classList.contains("v-selected")).toBe(true);
+            expect(actions.querySelectorAll("button")).toHaveLength(3);
+        });
+
+        test("a move keeps the row selected and the bar pointed at it", () => {
+            const document = documentWith([variable("v1", "w", "50"), variable("v2", "h", "10")]);
+            const { editor, actions } = open(document);
+            press(editor, 0);
+
+            (actions.querySelectorAll("button")[1] as any)._onclick();
+
+            expect(document.variables.items.map((x) => x.id)).toEqual(["v2", "v1"]);
+            const rows = editor.querySelectorAll(".v-row");
+            expect(rows[1].classList.contains("v-selected")).toBe(true);
+            expect(rows[0].classList.contains("v-selected")).toBe(false);
+            expect(actions.querySelectorAll("button")).toHaveLength(3);
+        });
+
+        test("the delete button removes the selected parameter and empties the bar", () => {
+            const document = documentWith([variable("v1", "w", "50"), variable("v2", "h", "10")]);
+            const { editor, actions } = open(document);
+            press(editor, 0);
+
+            (actions.querySelectorAll("button")[2] as any)._onclick();
+
+            expect(document.variables.items.map((x) => x.id)).toEqual(["v2"]);
+            expect(editor.querySelectorAll(".v-row")).toHaveLength(1);
+            expect(actions.childElementCount).toBe(0);
+        });
+
+        test("clicking off the rows drops the selection", () => {
+            const { editor, actions } = open(documentWith([variable("v1", "w", "50")]));
+            press(editor, 0);
+
+            const newRow = mustQuery<HTMLElement>(editor, ".v-new-row");
+            newRow.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+
+            expect(editor.querySelectorAll(".v-selected")).toHaveLength(0);
+            expect(actions.childElementCount).toBe(0);
+        });
+
+        test("a write from elsewhere that takes the row away empties the bar", () => {
+            const document = documentWith([variable("v1", "w", "50"), variable("v2", "h", "10")]);
+            const { editor, actions } = open(document);
+            press(editor, 0);
+
+            document.variables.setItems([variable("v2", "h", "10")]);
+
+            expect(editor.querySelectorAll(".v-row")).toHaveLength(1);
+            expect(editor.querySelectorAll(".v-selected")).toHaveLength(0);
+            expect(actions.childElementCount).toBe(0);
+        });
     });
 });

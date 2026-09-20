@@ -1,30 +1,45 @@
+/*
+ * Fills the floating panel's content area, so the row list is the only thing that scrolls:
+ * a table with a height of its own had its own scrollbar inside the panel's.
+ */
 .root {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    /* No minimum of its own: how small the panel may get is the opener's business. */
+    height: 100%;
+    min-height: 0;
 }
 
+/*
+ * No frame of its own: the panel's content area is already a bordered, rounded box, and a
+ * second one 6px inside it reads as a box in a box. The header's own strip is the top edge.
+ */
 .table {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
 }
 
+/* Grows into whatever the panel is tall, so a taller panel is more parameters, not more box. */
 .rows {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
-    max-height: 320px;
     /* Reserve the scrollbar's strip so the header and the rows keep sharing one grid. */
     scrollbar-gutter: stable;
 }
 
+/*
+ * The first two columns are 100px while the panel has room and give way below that: they are
+ * caps, not fixed widths, so a panel dragged narrow squeezes the cells instead of running the
+ * table off the edge of its own frame.
+ */
 .row,
 .newRow,
 .header {
     display: grid;
-    grid-template-columns: 140px 100px minmax(160px, 1fr) 84px;
+    grid-template-columns: minmax(64px, 100px) minmax(72px, 100px) minmax(96px, 1fr);
     gap: 6px;
     align-items: center;
     padding: 3px 8px;
@@ -41,11 +56,15 @@
 /*
  * The description marker. Hidden on rows that have no note until the row is hovered, so a
  * table of undocumented parameters looks like a three-column table.
+ *
+ * Big and padded because a bullet's ink is a fraction of its em box: at 1.2em it was a speck,
+ * and the padding widens the target without widening the row — `line-height: 1` keeps the
+ * enlarged box inside the row's height, which the fields set.
  */
 .marker {
     flex: none;
-    padding: 0 2px;
-    font-size: 1.2em;
+    padding: 0 3px;
+    font-size: 1.6em;
     line-height: 1;
     color: var(--foreground-muted-color);
     cursor: pointer;
@@ -62,9 +81,16 @@
     visibility: visible;
 }
 
+/*
+ * Appended to `document.body` (see `editDescription`) — the panel clips its overflow, and the
+ * popup hangs past the bottom of the table. Being outside it means the z-index has to be read
+ * against the panel's: the popup is anchored to a marker INSIDE the float panel, which is
+ * `z-index: 1000`, so anything below that paints the popup behind the panel it came from and
+ * the input is never seen or clicked. Raise this if the panel's ever goes up.
+ */
 .notePopup {
     position: fixed;
-    z-index: 100;
+    z-index: 1001;
     padding: 4px;
     background-color: var(--panel-background-color);
     border: 1px solid var(--border-color);
@@ -166,21 +192,34 @@ select.field {
     }
 }
 
+/*
+ * The row the title-bar actions act on. The bar is up in the header, away from the row it
+ * changes, so the row has to say so itself: a tint, and a mark on the leading edge that
+ * survives the hover and the error tint it sits between. Declared after `.errorRow` so a
+ * selected row that does not resolve still reads as selected — the red value is the error.
+ */
+.row.selected,
+.row.selected:hover,
+.row.selected:focus-within {
+    background-color: color-mix(in srgb, var(--primary-color) 14%, transparent);
+    box-shadow: inset 2px 0 0 var(--primary-color);
+}
+
+/* The title-bar slot: one row's actions, so three buttons at most. */
 .actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 2px;
+    gap: 4px;
 }
 
 .iconButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 20px;
+    height: 20px;
     padding: 0;
-    color: var(--foreground-secondary-color);
+    color: var(--foreground-color);
     background: none;
     border: none;
     border-radius: 4px;

@@ -17,12 +17,17 @@ import { VariablesEditor } from "./variablesEditor";
  * panel left up would throw out of its next edit.
  */
 export function showVariablesPanel(document: IDocument, onApplied: () => void): void {
+    const editor = new VariablesEditor(new VariablesDataContent(document, onApplied));
     PubSub.default.pub("showFloatPanel", {
         title: "variables.title",
-        content: new VariablesEditor(new VariablesDataContent(document, onApplied)),
+        content: editor,
+        // The row actions are the editor's, hosted up in the title bar — see `VariablesEditor`.
+        actions: editor.floatingActions(),
         width: 560,
         height: 360,
-        minWidth: 420,
+        // Narrow enough to park beside the viewport it drives. The columns give way to it
+        // (see the grid in `variablesEditor.module.css`) rather than overflowing it.
+        minWidth: 300,
         minHeight: 200,
         document,
     });

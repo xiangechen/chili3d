@@ -488,7 +488,7 @@ export default {
         "variable.expressionPlaceholder": "50 or width / 2",
         "variable.moveDown": "Move down",
         "variable.moveUp": "Move up",
-        "variable.namePlaceholder": "length",
+        "variable.namePlaceholder": "Name",
         "variable.type": "Type",
         "variable.type.angle": "Angle",
         "variable.type.length": "Length",

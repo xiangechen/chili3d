@@ -52,6 +52,7 @@ function applyProps(el: HTMLElement, props: any, opts: ElementMockOptions): void
         (el as any)._checked = props.checked;
     }
     if (props.readOnly !== undefined) (el as HTMLInputElement).readOnly = Boolean(props.readOnly);
+    if (props.disabled !== undefined) (el as HTMLButtonElement).disabled = Boolean(props.disabled);
     if (props.selected !== undefined) {
         (el as HTMLOptionElement).selected = Boolean(props.selected);
         // Happy-DOM scrambles `option.selected` when several options are appended to
