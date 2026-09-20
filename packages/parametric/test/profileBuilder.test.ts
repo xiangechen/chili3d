@@ -16,6 +16,7 @@ import { rs } from "@rstest/core";
 import { allProfiles, resolveProfiles, sketchProfiles } from "../src/features/profileBuilder";
 import { captureProfileRef } from "../src/features/profileRef";
 import type { SketchNode } from "../src/sketch";
+import { claimIdentityLosses } from "./identityLoss";
 
 function mockShapeFactory(methods: Record<string, (...args: any[]) => any>) {
     const previous = Object.getOwnPropertyDescriptor(globalThis, "shapeFactory");
@@ -541,7 +542,6 @@ describe("kernel source-index guards", () => {
             Result.ok({ faces: regions, sources: [[0, 1, 99, -1]] }),
         );
         const restore = mockShapeFactory({ facesFromEdges });
-        const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
         try {
             const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
             const result = sketchProfiles(sketchWith(edges));
@@ -550,11 +550,8 @@ describe("kernel source-index guards", () => {
             // 99 and -1 are outside the 8 entity ids: dropped, not undefined in the set.
             expect(result.unchecked()!.outerEntities).toEqual([[1, 2]]);
             expect(captureProfileRef(regions[0]).entities).toEqual([1, 2]);
-            expect(warn).toHaveBeenCalled();
-            const messages = warn.mock.calls.map((call) => String(call[0]));
-            expect(messages.some((message) => message.includes("99"))).toBe(true);
+            expect(claimIdentityLosses().some((message) => message.includes("99"))).toBe(true);
         } finally {
-            warn.mockRestore();
             restore();
         }
     });
@@ -565,7 +562,6 @@ describe("kernel source-index guards", () => {
             Result.ok({ faces: regions, sources: [[0, 1, 2, 3]] }),
         );
         const restore = mockShapeFactory({ facesFromEdges });
-        const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
         try {
             // Pathological input: 8 edges in the shape but only 2 entities in the
             // data — the kernel's source indexes 2 and 3 fall beyond the id list.
@@ -588,9 +584,9 @@ describe("kernel source-index guards", () => {
 
             expect(result.isOk).toBe(true);
             expect(result.unchecked()!.outerEntities).toEqual([[10, 11]]);
-            expect(warn).toHaveBeenCalled();
+            // Reported rather than silently dropped — how many times is the kernel's business.
+            expect(claimIdentityLosses().some((message) => message.includes("entity"))).toBe(true);
         } finally {
-            warn.mockRestore();
             restore();
         }
     });
@@ -609,7 +605,6 @@ describe("kernel source-index guards", () => {
             }),
         );
         const restore = mockShapeFactory({ facesFromEdges });
-        const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
         try {
             // The corner-touching squares form one branch group of 8 edges, but
             // only 4 entity ids exist — the misses must not reach the identity
@@ -618,9 +613,8 @@ describe("kernel source-index guards", () => {
 
             expect(result.isOk).toBe(true);
             expect(result.unchecked()!.outerEntities).toEqual([[1, 2, 3, 4], []]);
-            expect(warn).toHaveBeenCalledTimes(1);
+            expect(claimIdentityLosses()).toHaveLength(1);
         } finally {
-            warn.mockRestore();
             restore();
         }
     });

@@ -11,7 +11,7 @@ import {
     refScoreRefs,
 } from "./edgeRef";
 import { MATCH_TOLERANCE } from "./refGeometry";
-import { ID_COMPONENT_SEPARATOR, idIsShared, idsOverlap, isPositionalId } from "./trackedId";
+import { ID_COMPONENT_SEPARATOR, idIsShared, idsOverlap } from "./trackedId";
 
 /**
  * Re-finding stored edge references on a rebuilt shape.
@@ -91,14 +91,14 @@ function captureEdgeRefs(edges: readonly IEdge[]): CapturedEdgeRef[] {
  * Every input edge whose id intersects the ref's (`idsOverlap`) **and** still keeps the
  * fingerprint's rigid-move invariants (`edgeMatchesRefInvariant`) is adopted — the whole
  * span, which is what an edge feature picked on a split or merged edge means:
- * - several hits are the pieces of an edge a boolean split (feature-scoped ids are unique per
- *   rebuild, so a duplicated id can only come from one-to-many derivation), or the pieces of a
- *   re-split merge (a fused collinear edge carries a compound of its ancestors' ids);
+ * - several hits are the pieces of an edge a boolean split (no operation gives one id to two of
+ *   the sub-shapes it builds — a contested name is dropped, see `uncontested` — so a repeated id
+ *   can only come from one-to-many derivation), or the pieces of a re-split merge (a fused
+ *   collinear edge carries a compound of its ancestors' ids);
  * - a single hit is the ordinary case.
  *
- * An id that is gone — or whose edge no longer keeps the invariants (a positional id realigned
- * onto another edge; a merged free-form curve, whose length changed) — demotes the ref to
- * fingerprint matching.
+ * An id that is gone — or whose edge no longer keeps the invariants (a merged free-form curve,
+ * whose length changed) — demotes the ref to fingerprint matching.
  *
  * Narrowing: when exactly ONE of several hits still matches the fingerprint within
  * MATCH_TOLERANCE, the ref was captured from just that piece of an already split edge, so only
@@ -114,7 +114,7 @@ function captureEdgeRefs(edges: readonly IEdge[]): CapturedEdgeRef[] {
 export function matchEdgesAnchored(
     shape: IShape,
     refs: EdgeRef[],
-    inputEdgeIds: readonly string[],
+    inputEdgeIds: readonly (string | undefined)[],
 ): Result<AnchoredEdgeMatch> {
     const edges = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
     const byId = resolveById(edges, refs, inputEdgeIds);
@@ -139,7 +139,7 @@ function recoverByFingerprint(
     edges: IEdge[],
     refs: EdgeRef[],
     remaining: number[],
-    inputEdgeIds: readonly string[],
+    inputEdgeIds: readonly (string | undefined)[],
     resolved: Set<number>,
 ): Result<Map<number, EdgeRef>> {
     if (edges.length === 0) return Result.err("Shape has no edges");
@@ -177,11 +177,12 @@ function recoverByFingerprint(
 function reanchorRecoveredRef(
     ref: EdgeRef,
     edge: IEdge,
-    inputEdgeIds: readonly string[],
+    inputEdgeIds: readonly (string | undefined)[],
     edgeIndex: number,
 ): EdgeRef {
     const storedId = ref.edgeId;
-    if (storedId !== undefined && inputEdgeIds.some((id) => idsOverlap(id, storedId))) return ref;
+    if (storedId !== undefined && inputEdgeIds.some((id) => id !== undefined && idsOverlap(id, storedId)))
+        return ref;
     const recoveredId = edgeIndex < inputEdgeIds.length ? inputEdgeIds[edgeIndex] : undefined;
     try {
         return captureEdgeRef(
@@ -202,7 +203,7 @@ function reanchorRecoveredRef(
 function resolveById(
     edges: IEdge[],
     refs: EdgeRef[],
-    inputEdgeIds: readonly string[],
+    inputEdgeIds: readonly (string | undefined)[],
 ): Result<{ resolved: Set<number>; remaining: number[] }> {
     const resolved = new Set<number>();
     const remaining: number[] = [];
@@ -216,14 +217,10 @@ function resolveById(
     // recovered ref.
     let byComponent: Map<string, number[]> | undefined;
     const componentIndex = () => (byComponent ??= indexByIdComponent(inputEdgeIds, edges.length));
-    // Captured once, on the first positional-id ref that needs it: the distrust check scores
-    // the ref against every edge, and re-capturing them per ref would be O(refs x edges).
-    let captured: CapturedEdgeRef[] | undefined;
-    const captureOnce = () => (captured ??= captureEdgeRefs(edges));
 
     for (const [refIndex, ref] of refs.entries()) {
         const hits = idHits(edges, ref, componentIndex);
-        if (hits.length === 0 || contradictsPositionalHit(ref, hits, edges, captureOnce)) {
+        if (hits.length === 0) {
             remaining.push(refIndex);
             continue;
         }
@@ -234,37 +231,6 @@ function resolveById(
         }
     }
     return Result.ok({ resolved, remaining });
-}
-
-/**
- * True when a POSITIONAL id hit must not be trusted, because the geometry contradicts it.
- *
- * A positional id names "the n-th output of feature F", not a piece of geometry (see
- * `positionalId`): a rebuild that re-enumerates hands it to a neighbour, and a neighbour a
- * line's direction or an arc's axis still agrees with (`edgeMatchesRefInvariant`) is then
- * adopted silently — rounding the wrong edge. So a positional hit must not override a
- * DECISIVE geometric mismatch: when the stored fingerprint has a clear winner elsewhere
- * (`isClearWinner`, so the fallback is not stepping into ambiguity) and this hit is farther
- * from it than `MATCH_TOLERANCE`, the ref demotes to fingerprint matching instead.
- *
- * Content-derived ids are never second-guessed here: they name what they name, and the
- * invariants below are all the check they need.
- *
- * The risk it accepts, unproven but real: a positional id that happens to be RIGHT is demoted
- * whenever some other edge is decisively closer to the stored fingerprint. No counterexample has
- * been constructed — the winner is normally the id's own edge — so the branch stays.
- */
-function contradictsPositionalHit(
-    ref: EdgeRef,
-    hits: readonly number[],
-    edges: IEdge[],
-    captureOnce: () => CapturedEdgeRef[],
-): boolean {
-    if (ref.edgeId === undefined || !isPositionalId(ref.edgeId)) return false;
-    const hitScore = Math.min(...hits.map((index) => refScore(ref, edges[index])));
-    const [best, second] = bestTwo(captureOnce(), ref);
-    if (best === undefined || !isClearWinner(best.score, second?.score)) return false;
-    return hitScore > best.score + MATCH_TOLERANCE;
 }
 
 /** Indexes of the edges whose id overlaps the ref's and which still satisfy its invariant. */
@@ -294,10 +260,13 @@ function adoptHits(hits: number[], edges: IEdge[], ref: EdgeRef, resolved: Set<n
  * Component → indexes of every input id (below `bound`) containing it — the
  * `idsOverlap` scan precomputed.
  */
-function indexByIdComponent(ids: readonly string[], bound: number): Map<string, number[]> {
+function indexByIdComponent(ids: readonly (string | undefined)[], bound: number): Map<string, number[]> {
     const byComponent = new Map<string, number[]>();
     for (let index = 0; index < ids.length && index < bound; index++) {
-        for (const component of ids[index].split(ID_COMPONENT_SEPARATOR)) {
+        // An unattributed sub-shape (no id) can never be an id hit.
+        const id = ids[index];
+        if (id === undefined) continue;
+        for (const component of id.split(ID_COMPONENT_SEPARATOR)) {
             const list = byComponent.get(component);
             if (list === undefined) byComponent.set(component, [index]);
             else list.push(index);

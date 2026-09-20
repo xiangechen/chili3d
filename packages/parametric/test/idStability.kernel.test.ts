@@ -89,6 +89,33 @@ const byCoords = (a: number[], b: number[]) =>
     a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || (a[3] ?? 0) - (b[3] ?? 0);
 
 /**
+ * The tracked ids that name MORE THAN ONE sub-shape of the current shape, as
+ * `"<kind> x<count> <id>"` — the collision a corner pass must never produce.
+ *
+ * Pieces of a split sub-shape sharing an id is designed (`idSnapshot` lists them together), so
+ * this is read per OPERATION: a corner derives its names from the input edge it was built on, and
+ * two corners on the two pieces of ONE split input edge derive from the same stem.
+ */
+function sharedIds(body: ParametricBodyNode): string[] {
+    const shape = body.shape.unchecked()!;
+    const kinds: [string, readonly (string | undefined)[]][] = [
+        ["face", (shape.findSubShapes(ShapeTypes.face) as IFace[]).map((_, index) => body.faceIdAt(index))],
+        ["edge", (shape.findSubShapes(ShapeTypes.edge) as IEdge[]).map((_, index) => body.edgeIdAt(index))],
+    ];
+    const shared: string[] = [];
+    for (const [kind, ids] of kinds) {
+        const counts = new Map<string, number>();
+        for (const id of ids) {
+            if (id !== undefined) counts.set(id, (counts.get(id) ?? 0) + 1);
+        }
+        for (const [id, count] of counts) {
+            if (count > 1) shared.push(`${kind} x${count} ${id}`);
+        }
+    }
+    return shared;
+}
+
+/**
  * id → geometry of every edge and face of the body: edges as sorted [start, mid,
  * end] coordinate triples (orientation-insensitive), faces as [center, area].
  * One id can list several entries — split pieces share their tracked id.
@@ -408,7 +435,7 @@ describe("golden id stability (real kernel)", () => {
                         [20, -20, 20],
                     ],
                 ],
-                "sketch:sk1:e1.2.3.4:ent1:fsketch:sk1:e1.2.3.4:ent2": [
+                "f1:sketch:sk1:e1.2.3.4:ent1:fsketch:sk1:e1.2.3.4:ent2": [
                     [
                         [20, -20, 2],
                         [20, -18, 0],
@@ -443,7 +470,7 @@ describe("golden id stability (real kernel)", () => {
                         [10, -20, 8],
                     ],
                 ],
-                "sketch:sk1:e1.2.3.4:ent1:fsketch:sk1:e1.2.3.4:ent1": [
+                "f1:sketch:sk1:e1.2.3.4:ent1:fsketch:sk1:e1.2.3.4:ent1": [
                     [
                         [10, -20, 2],
                         [10.5, -20, 2],
@@ -485,14 +512,14 @@ describe("golden id stability (real kernel)", () => {
                         [-20, -20, 20],
                     ],
                 ],
-                "sketch:sk1:e1.2.3.4:ent1:fsketch:sk2:e1.2.3.4:ent2": [
+                "f1:sketch:sk1:e1.2.3.4:ent1:fsketch:sk2:e1.2.3.4:ent2": [
                     [
                         [10, -20, 2],
                         [10, -18, 0],
                         [10, -17.041149, 3.755165],
                     ],
                 ],
-                "sketch:sk1:e1.2.3.4:ent1:fsketch:sk1:e1.2.3.4^sketch:sk2:e1.2.3.4:ent1": [
+                "f1:sketch:sk1:e1.2.3.4:ent1:fsketch:sk1:e1.2.3.4^sketch:sk2:e1.2.3.4:ent1": [
                     [
                         [10, -18, 0],
                         [10.5, -18, 0],
@@ -520,7 +547,7 @@ describe("golden id stability (real kernel)", () => {
                         [20, 20, 0],
                     ],
                 ],
-                "f1@17": [
+                "f1:sketch:sk1:e1.2.3.4^sketch:sk2:e1.2.3.4:ent1&sketch:sk2:e1.2.3.4:ent2": [
                     [
                         [10, -20, 0],
                         [10, -18, 0],
@@ -601,7 +628,7 @@ describe("golden id stability (real kernel)", () => {
             faces: {
                 "sketch:sk1:e1.2.3.4:ent2": [[20, 0, 10, 799.141593]],
                 "sketch:sk1:e1.2.3.4:ent1": [[0, -20, 10, 620]],
-                "f1@2": [[15, -19, 1, 31.415927]],
+                "f1:sketch:sk1:e1.2.3.4:ent1:f": [[15, -19, 1, 31.415927]],
                 "sketch:sk1:e1.2.3.4:top": [[0, 0, 20, 1600]],
                 "sketch:sk1:e1.2.3.4|sketch:sk2:e1.2.3.4:ent1": [[0, -5, 0, 1780]],
                 "sketch:sk1:e1.2.3.4:ent3": [[0, 20, 10, 800]],
@@ -612,6 +639,109 @@ describe("golden id stability (real kernel)", () => {
                 "sketch:sk2:e1.2.3.4:top": [[0, -30, 4, 160]],
             },
         });
+    });
+
+    test("two fillets on the two pieces of a split edge each get their own ids", () => {
+        // Both corners are built on ONE logical input edge: the front bottom edge the fused bump
+        // split in two, whose pieces share `...:ent1` by design. Both corners therefore derive
+        // their names from the same stem — `<inputEdgeId>:f<inheritedFace>` for a seam, and
+        // `<inputEdgeId>:f` for the surface — and the two pieces border the SAME face pair, so
+        // without the feature scope (`prefixedId`) every one of those names comes out identical:
+        // measured before it, `face x2 sketch:sk1:e1.2.3.4:ent1:f` plus two `edge x2 ...`, with
+        // every feature row reporting NO error — one name on two faces 30mm apart, which
+        // `idsOverlap` then reads as pieces of a single split sub-shape. The overlap guard alone
+        // could only drop the second claim, leaving one corner unnamed; the scope names both, each
+        // under the feature that built it.
+        const doc = setup();
+        const body = extrudeBody(doc, addSketch(doc, "sk1", Plane.XY, rect(-20, -20, 20, 20)));
+        const front = (body.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[]).find(
+            (face) => face.normal(0, 0)[1].y < -1 + 1e-6,
+        )!;
+        const plane = sketchPlaneOfFace(front);
+        const corners = [
+            new XYZ({ x: -10, y: -20, z: 0 }),
+            new XYZ({ x: 10, y: -20, z: 0 }),
+            new XYZ({ x: 10, y: -20, z: 8 }),
+            new XYZ({ x: -10, y: -20, z: 8 }),
+        ].map((p) => toUV(plane, p));
+        const sketch2 = addSketch(doc, "sk2", plane, {
+            entities: [
+                { id: 1, type: "line", params: [...corners[0], ...corners[1]] },
+                { id: 2, type: "line", params: [...corners[1], ...corners[2]] },
+                { id: 3, type: "line", params: [...corners[2], ...corners[3]] },
+                { id: 4, type: "line", params: [...corners[3], ...corners[0]] },
+            ],
+            constraints: [],
+        });
+        body.setFeaturesEmitShapeChanged([
+            ...body.features,
+            {
+                id: "e2",
+                type: "extrude",
+                sketchId: sketch2.id,
+                depth: 10,
+                operation: "fuse",
+                profiles: [captureProfileRef(profileOf(sketch2))],
+            },
+        ]);
+        expect(body.featureItems().map((x) => x.error)).toEqual([undefined, undefined]);
+
+        /** The two pieces of the split front bottom edge, as they stand right now. */
+        const pieces = () =>
+            (body.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[])
+                .map((edge, index) => ({ edge, index }))
+                .filter(({ edge }) => {
+                    if (edge.curve.basisCurve.curveType !== "line") return false;
+                    const s = edge.startPoint();
+                    const e = edge.endPoint();
+                    return (
+                        Math.abs(s.y + 20) < 1e-6 &&
+                        Math.abs(e.y + 20) < 1e-6 &&
+                        Math.abs(s.z) < 1e-6 &&
+                        Math.abs(e.z) < 1e-6
+                    );
+                });
+
+        // Fillet the right piece, then — from the shape that leaves — the left one, each
+        // captured the way the command captures it (id + the shared flag).
+        const addFillet = (id: string, rightward: boolean) => {
+            const piece = pieces().find(
+                ({ edge }) => edge.startPoint().x + edge.endPoint().x > 0 === rightward,
+            );
+            expect(piece).toBeDefined();
+            const edgeId = body.edgeIdAt(piece!.index);
+            // The premise of the whole test: the piece still answers to the split edge's own id,
+            // whichever of the two pieces it is — the single stem both corners derive from.
+            expect(edgeId).toBe("sketch:sk1:e1.2.3.4:ent1");
+            body.setFeaturesEmitShapeChanged([
+                ...body.features,
+                {
+                    id,
+                    type: "fillet",
+                    radius: 2,
+                    edges: [captureEdgeRef(piece!.edge, edgeId, body.edgeIdIsShared(edgeId))],
+                },
+            ]);
+        };
+        addFillet("f1", true);
+        addFillet("f2", false);
+
+        expect(body.featureItems().map((x) => x.error)).toEqual([undefined, undefined, undefined, undefined]);
+        expect(sharedIds(body)).toEqual([]);
+        // BOTH corner surfaces are named, each under its own feature — the ids are the same except
+        // for the scope, which is the whole point of carrying it.
+        const faceIds = (body.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[]).map((_, index) =>
+            body.faceIdAt(index),
+        );
+        const surfaces = faceIds.filter((id) => id?.endsWith(":ent1:f")).sort();
+        expect(surfaces).toEqual(["f1:sketch:sk1:e1.2.3.4:ent1:f", "f2:sketch:sk1:e1.2.3.4:ent1:f"]);
+        // A reference captured on either surface resolves to that one piece only.
+        for (const id of surfaces) {
+            expect(body.faceIndexesOfId(id!)).toHaveLength(1);
+            expect(body.faceIdIsShared(id)).toBe(false);
+        }
+        // Nothing was traded away for it: no face is left unnamed (one was, before the scope).
+        expect(faceIds.filter((id) => id === undefined)).toEqual([]);
     });
 
     test("partial revolve", () => {
@@ -636,14 +766,14 @@ describe("golden id stability (real kernel)", () => {
 
         expect(idSnapshot(body)).toEqual({
             edges: {
-                "r1@0": [
+                "sketch:sk1:e1.2.3.4:v2.3": [
                     [
                         [-10, 15, 0],
                         [8.369483, 15.967209, 0],
                         [15, 10, 0],
                     ],
                 ],
-                "r1@1": [
+                "sketch:sk1:e1.2.3.4:v3.4": [
                     [
                         [-10, 5, 0],
                         [-0.406343, 11.172953, 0],
@@ -657,14 +787,14 @@ describe("golden id stability (real kernel)", () => {
                         [15, 10, 0],
                     ],
                 ],
-                "r1@3": [
+                "sketch:sk1:e1.2.3.4:ent3:cap": [
                     [
                         [-10, 5, 0],
                         [-10, 14.5, 0],
                         [-10, 15, 0],
                     ],
                 ],
-                "r1@4": [
+                "sketch:sk1:e1.2.3.4:v1.4": [
                     [
                         [0, 5, 0],
                         [4.387913, 2.397128, 0],
@@ -678,14 +808,14 @@ describe("golden id stability (real kernel)", () => {
                         [5, 10, 0],
                     ],
                 ],
-                "r1@6": [
+                "sketch:sk1:e1.2.3.4:ent4:cap": [
                     [
                         [-10, 5, 0],
                         [-9.5, 5, 0],
                         [0, 5, 0],
                     ],
                 ],
-                "r1@7": [
+                "sketch:sk1:e1.2.3.4:v1.2": [
                     [
                         [0, 15, 0],
                         [13.163738, 7.191383, 0],
@@ -699,7 +829,7 @@ describe("golden id stability (real kernel)", () => {
                         [15, 0, 0],
                     ],
                 ],
-                "r1@9": [
+                "sketch:sk1:e1.2.3.4:ent1:cap": [
                     [
                         [0, 5, 0],
                         [0, 5.5, 0],
@@ -713,7 +843,7 @@ describe("golden id stability (real kernel)", () => {
                         [15, 10, 0],
                     ],
                 ],
-                "r1@11": [
+                "sketch:sk1:e1.2.3.4:ent2:cap": [
                     [
                         [-10, 15, 0],
                         [-0.5, 15, 0],

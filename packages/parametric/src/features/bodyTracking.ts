@@ -10,6 +10,16 @@ import type { IShape } from "@chili3d/core";
  * the body node).
  */
 export interface IBodyTrackingNode {
+    /**
+     * Whether this node tracks ids for `kind` at all — the id array exists. A chain link that
+     * could not track leaves it undefined (`ShapeTracking`), and that is the designed
+     * degradation: a miss then means nothing to report.
+     *
+     * NOT `idAt(0) !== undefined`: an individual entry is legitimately unnamed in a TRACKED
+     * body (the sub-shape has no stable name to carry), so index 0 says nothing about whether
+     * tracking is on — in either direction.
+     */
+    hasTrackedIds(kind: "edge" | "face"): boolean;
     faceIdAt(index: number): string | undefined;
     faceIndexById(id: string): number | undefined;
     /**
@@ -43,8 +53,8 @@ export function isBodyTrackingNode<T>(node: T): node is T & IBodyTrackingNode {
  */
 export interface FeatureTimelineState {
     readonly shape: IShape | undefined;
-    readonly faceIds?: string[];
-    readonly edgeIds?: string[];
+    readonly faceIds?: (string | undefined)[];
+    readonly edgeIds?: (string | undefined)[];
 }
 
 /**

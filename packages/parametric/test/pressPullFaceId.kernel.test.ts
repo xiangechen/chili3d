@@ -230,13 +230,14 @@ describe("press-pull face-id tracking", () => {
         expect(body.featureItems().map((x) => x.error)).toEqual([undefined, undefined]);
         expect(topFacesOf(body)).toEqual([{ area: 1600, z: 25 }]);
 
-        // The tracked boolean kept face ids alive past the press-pull: the raised pad
-        // top carries an id a second press-pull can capture (it was undefined when the
-        // operation path was plain).
+        // The tracked boolean keeps face ids alive past the press-pull: the raised pad's top
+        // is the pressed face's own swept image (`<pressedFaceId>:top` — the pressed face was
+        // itself a `:top`, hence the doubled suffix), so a second press-pull captures it by id
+        // instead of re-matching it geometrically.
         const faces = body.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[];
         const padTopIndex = faces.findIndex((face) => face.normal(0, 0)[1].z > 1 - 1e-6);
         const padTopId = body.faceIdAt(padTopIndex);
-        expect(typeof padTopId).toBe("string");
+        expect(padTopId?.endsWith(":top")).toBe(true);
 
         pressPullTop("e3", 3);
         expect(body.featureItems().map((x) => x.error)).toEqual([undefined, undefined, undefined]);

@@ -82,8 +82,8 @@ import { ensureVariableSync } from "./variableSync";
 /** Shape plus tracked sub-shape ids produced by evaluating one feature. */
 interface FeatureStepOutput {
     readonly shape: IShape;
-    readonly faceIds?: string[];
-    readonly edgeIds?: string[];
+    readonly faceIds?: (string | undefined)[];
+    readonly edgeIds?: (string | undefined)[];
     /** Fingerprints the feature actually matched this run — re-anchored into the feature. */
     readonly resolvedProfiles?: ProfileRef[];
     /** Edge anchors the feature actually matched this run — re-anchored into the feature. */
@@ -499,6 +499,10 @@ export class ParametricBodyNode
 
     // ------------------------------------------------------------------ Tracking facade (IBodyTrackingNode / IBodyTimelineNode)
 
+    hasTrackedIds(kind: "edge" | "face"): boolean {
+        return this._timeline.tracksIds(kind);
+    }
+
     faceIdAt(index: number): string | undefined {
         return this._timeline.idAt(index, "face");
     }
@@ -570,8 +574,8 @@ export class ParametricBodyNode
      */
     private evaluateChain(): Result<IShape> {
         let input: IShape | undefined;
-        let faceIds: string[] | undefined;
-        let edgeIds: string[] | undefined;
+        let faceIds: (string | undefined)[] | undefined;
+        let edgeIds: (string | undefined)[] | undefined;
         // The document's parameter table, not a per-body one: every body in the
         // document resolves the same names, and a variable edit invalidates every
         // body's cache through `cacheKey` below.
@@ -818,8 +822,8 @@ export class ParametricBodyNode
         feature: FeatureData,
         scope: Scope,
         input: IShape | undefined,
-        faceIds: string[] | undefined,
-        edgeIds: string[] | undefined,
+        faceIds: (string | undefined)[] | undefined,
+        edgeIds: (string | undefined)[] | undefined,
         nextCache: FeatureCacheEntry[],
     ): Result<FeatureStepOutput> {
         const key = this.cacheKey(feature, scope);
@@ -837,8 +841,8 @@ export class ParametricBodyNode
         key: string,
         scope: Scope,
         input: IShape | undefined,
-        faceIds: string[] | undefined,
-        edgeIds: string[] | undefined,
+        faceIds: (string | undefined)[] | undefined,
+        edgeIds: (string | undefined)[] | undefined,
         nextCache: FeatureCacheEntry[],
     ): Result<FeatureStepOutput> {
         const tracking: ShapeTracking = {

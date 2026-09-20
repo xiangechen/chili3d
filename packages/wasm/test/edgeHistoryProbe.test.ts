@@ -4,7 +4,15 @@
 // Probe tests: pin down what OCCT shape history actually delivers for edges and
 // boolean tools, so the parametric edge-id layer knows what it can rely on.
 
-import { type IShape, Line, Plane, ShapeTypes, XYZ } from "@chili3d/core";
+import {
+    type IShape,
+    Line,
+    Plane,
+    primaryAncestors,
+    ShapeTypes,
+    type TrackedShape,
+    XYZ,
+} from "@chili3d/core";
 import type { ShapeFactory } from "../src/factory";
 import { createBox, createTestFactory, unwrapOk } from "./helpers";
 import "./setup";
@@ -14,6 +22,15 @@ let factory: ShapeFactory;
 beforeEach(() => {
     factory = createTestFactory();
 });
+
+/** The kernel's report as a first-ancestor map (see `primaryAncestors`). */
+function edgeMap(tracked: TrackedShape): number[] {
+    return primaryAncestors(tracked.edgeAncestors, edgeCount(tracked.shape));
+}
+
+function faceMap(tracked: TrackedShape): number[] {
+    return primaryAncestors(tracked.faceAncestors, tracked.shape.findSubShapes(ShapeTypes.face).length);
+}
 
 function edgeCount(shape: IShape): number {
     return shape.findSubShapes(ShapeTypes.edge).length;
@@ -28,9 +45,9 @@ describe("edge history probe", () => {
     test("prism edgeMap", () => {
         const rect = unwrapOk(factory.rect(Plane.XY, 10, 20));
         const result = unwrapOk(factory.prismTracked(rect, new XYZ({ x: 0, y: 0, z: 30 })));
-        console.log("prism edges:", summarize(result.edgeMap));
-        expect(result.edgeMap.length).toBe(edgeCount(result.shape));
-        for (const index of result.edgeMap) {
+        console.log("prism edges:", summarize(edgeMap(result)));
+        expect(edgeMap(result).length).toBe(edgeCount(result.shape));
+        for (const index of edgeMap(result)) {
             expect(index).toBeLessThan(4);
         }
     });
@@ -38,9 +55,9 @@ describe("edge history probe", () => {
     test("fillet edgeMap", () => {
         const box = createBox(factory, 10, 20, 30);
         const result = unwrapOk(factory.filletTracked(box, [0], 2));
-        console.log("fillet edges:", summarize(result.edgeMap));
-        expect(result.edgeMap.length).toBe(edgeCount(result.shape));
-        for (const index of result.edgeMap) {
+        console.log("fillet edges:", summarize(edgeMap(result)));
+        expect(edgeMap(result).length).toBe(edgeCount(result.shape));
+        for (const index of edgeMap(result)) {
             expect(index).toBeLessThan(12);
         }
     });
@@ -48,9 +65,9 @@ describe("edge history probe", () => {
     test("chamfer edgeMap", () => {
         const box = createBox(factory, 10, 20, 30);
         const result = unwrapOk(factory.chamferTracked(box, [0], 2));
-        console.log("chamfer edges:", summarize(result.edgeMap));
-        expect(result.edgeMap.length).toBe(edgeCount(result.shape));
-        for (const index of result.edgeMap) {
+        console.log("chamfer edges:", summarize(edgeMap(result)));
+        expect(edgeMap(result).length).toBe(edgeCount(result.shape));
+        for (const index of edgeMap(result)) {
             expect(index).toBeLessThan(12);
         }
     });
@@ -60,14 +77,14 @@ describe("edge history probe", () => {
         const tool = unwrapOk(factory.cylinder(XYZ.unitZ, XYZ.zero, 2, 20));
         const toolEdgeCount = edgeCount(tool);
         const result = unwrapOk(factory.booleanCutTracked([box], [tool]));
-        console.log("cut edges:", summarize(result.edgeMap), "toolEdgeCount:", toolEdgeCount);
-        expect(result.edgeMap.length).toBe(edgeCount(result.shape));
+        console.log("cut edges:", summarize(edgeMap(result)), "toolEdgeCount:", toolEdgeCount);
+        expect(edgeMap(result).length).toBe(edgeCount(result.shape));
         // Any surviving input edge points into [0, 12 + toolEdgeCount).
-        for (const index of result.edgeMap) {
+        for (const index of edgeMap(result)) {
             expect(index).toBeLessThan(12 + toolEdgeCount);
         }
         // The intersection circle is a new edge.
-        expect(result.edgeMap).toContain(-1);
+        expect(edgeMap(result)).toContain(-1);
     });
 
     test("booleanFuse with simplify merges coplanar faces and keeps history", () => {
@@ -85,14 +102,14 @@ describe("edge history probe", () => {
             ),
         );
         const result = unwrapOk(factory.booleanFuseTracked([a], [b]));
-        console.log("fuse faces:", summarize(result.faceMap), "edges:", summarize(result.edgeMap));
+        console.log("fuse faces:", summarize(faceMap(result)), "edges:", summarize(edgeMap(result)));
         // Two boxes side by side fuse into one 20x10x10 box: 6 faces after simplify.
-        expect(result.faceMap.length).toBe(6);
-        expect(result.edgeMap.length).toBe(edgeCount(result.shape));
-        for (const index of result.faceMap) {
+        expect(faceMap(result).length).toBe(6);
+        expect(edgeMap(result).length).toBe(edgeCount(result.shape));
+        for (const index of faceMap(result)) {
             expect(index).toBeLessThan(12);
         }
-        for (const index of result.edgeMap) {
+        for (const index of edgeMap(result)) {
             expect(index).toBeLessThan(24);
         }
     });
@@ -101,9 +118,9 @@ describe("edge history probe", () => {
         const rect = unwrapOk(factory.rect(Plane.XY, 10, 20));
         const axis = new Line({ point: XYZ.zero, direction: XYZ.unitZ });
         const result = unwrapOk(factory.revolveTracked(rect, axis, 360));
-        console.log("revolve edges:", summarize(result.edgeMap));
-        expect(result.edgeMap.length).toBe(edgeCount(result.shape));
-        for (const index of result.edgeMap) {
+        console.log("revolve edges:", summarize(edgeMap(result)));
+        expect(edgeMap(result).length).toBe(edgeCount(result.shape));
+        for (const index of edgeMap(result)) {
             expect(index).toBeLessThan(4);
         }
     });

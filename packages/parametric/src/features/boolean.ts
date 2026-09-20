@@ -20,6 +20,7 @@ import {
     type FeatureHandler,
     type IShapeHost,
     registerFeature,
+    trackedAncestors,
 } from "./feature";
 import { bornEdgeIdMap, mapBooleanIds } from "./operationIds";
 
@@ -61,7 +62,7 @@ const booleanHandler: FeatureHandler<BooleanFeatureData> = {
         const owned = toolShapes.filter((x, i) => x !== tools.value[i].shape.unchecked());
         try {
             if (context.tracking !== undefined && tracked !== undefined) {
-                return evaluateTracked(feature, context, tools.value, toolShapes, tracked);
+                return evaluateTracked(context, tools.value, toolShapes, tracked);
             }
             switch (feature.operation) {
                 case "common":
@@ -119,7 +120,6 @@ export function trackedBoolean(operation: BooleanOperation): TrackedMethod | und
 }
 
 function evaluateTracked(
-    feature: BooleanFeatureData,
     context: FeatureContext,
     tools: ShapeNode[],
     toolShapes: IShape[],
@@ -134,14 +134,16 @@ function evaluateTracked(
     if (!result.isOk) return Result.err(result.error);
     const completed = completeTrackedHistory([input, ...toolShapes], result.value);
     const { outputEdges, outputFaces } = completed;
+    // Both mappers below consume the merge channel, so this is one of the few places that pays
+    // for verifying it (see `trackedAncestors`).
+    const ancestors = trackedAncestors(completed, result.value);
     tracking.outputFaceIds = mapBooleanIds(
-        feature.id,
         input,
         tracking.inputFaceIds,
         tools,
         completed.faceMap,
         ShapeTypes.face,
-        completed.faceAncestors,
+        ancestors.faceAncestors,
     );
     // The intersection curves this boolean carved derive from nothing in either operand;
     // they are named by the two faces they join (see `bornEdgeIdMap`).
@@ -153,13 +155,12 @@ function evaluateTracked(
         (index) => completed.edgeMap[index] < 0,
     );
     tracking.outputEdgeIds = mapBooleanIds(
-        feature.id,
         input,
         tracking.inputEdgeIds,
         tools,
         completed.edgeMap,
         ShapeTypes.edge,
-        completed.edgeAncestors,
+        ancestors.edgeAncestors,
         (index) => bornEdges.get(index),
     );
     return Result.ok(result.value.shape);

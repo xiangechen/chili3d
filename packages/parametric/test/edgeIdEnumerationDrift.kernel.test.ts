@@ -148,10 +148,13 @@ test("a fillet's own edges keep their ids across a traversal-only edit", () => {
     expect(idGeometry(body)).toEqual(before);
 });
 
-test("a chamfer's strips are named by content, its slanted ends are not (yet)", () => {
+test("a chamfer names both its strips and its slanted ends by content", () => {
     const doc = new TestDocument({ application: createMockApplication() });
     doc.visual = createMockVisualWithDocument(doc) as any;
-    const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: forward });
+    // An EXPLICIT id: the default is random, and the `:f` filters below read the id text — a
+    // node id that happens to start with `f` makes `sketch:f...` match them, which counted
+    // every id as a strip and failed this test in roughly one run in thirty (measured).
+    const sketch = new SketchNode({ document: doc, id: "sk1", plane: Plane.XY, data: forward });
     doc.modelManager.addNode(sketch);
     const profiles = sketch.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
     const body = new ParametricBodyNode({
@@ -185,11 +188,12 @@ test("a chamfer's strips are named by content, its slanted ends are not (yet)", 
         (_, index) => body.edgeIdAt(index) ?? "?",
     );
     // The two strips running ALONG each chamfered edge stand a `distance` away from it, which
-    // is what `builtFrom` measures: 2 per chamfered edge, all content-derived.
-    expect(ids.filter((id) => id.includes(":f"))).toHaveLength(8);
-    // The slanted end edges cross the corner instead of running along it, so the measure cannot
-    // reach them: they keep the positional id, and `edgeMatcher` weighs that as the weak hint it
-    // is. Pinned here so a future refinement is a visible change, not a silent one.
-    expect(ids.filter((id) => id.includes("@")).length).toBe(8);
+    // is what `builtFrom` measures: 2 per chamfered edge, named `<inputEdge>:f<inheritedFace>`.
+    expect(ids.filter((id) => id.includes(":f") && !id.includes("&"))).toHaveLength(8);
+    // The slanted END edges cross the corner instead of running along it, so that measure cannot
+    // reach them; `attributeCornerBornEdges` names them by the two faces they join instead — the
+    // chamfer's own surface (`<inputEdge>:f`) and the box face the chamfer opens onto.
+    expect(ids.filter((id) => id.includes("&"))).toHaveLength(8);
+    // Nothing is left unnamed: every one of the 24 edges answers to an id.
     expect(ids.filter((id) => id === "?")).toEqual([]);
 });

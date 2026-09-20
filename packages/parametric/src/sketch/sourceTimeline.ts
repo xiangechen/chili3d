@@ -54,8 +54,8 @@ export interface TimelineSource {
      */
     readonly standIn: boolean;
     /** The stand-in's own tracked ids; undefined when the stand-in could not track. */
-    readonly faceIds?: string[];
-    readonly edgeIds?: string[];
+    readonly faceIds?: (string | undefined)[];
+    readonly edgeIds?: (string | undefined)[];
 }
 
 export type TimelineSourceResult = TimelineSource | typeof ROLLED_BACK_SOURCE | typeof SOURCE_UNAVAILABLE;

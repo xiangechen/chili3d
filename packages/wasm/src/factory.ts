@@ -129,8 +129,6 @@ function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
     } else {
         res = Result.ok({
             shape: OccShape.wrap(result.shape),
-            faceMap: toIntArray(result.faceMap),
-            edgeMap: toIntArray(result.edgeMap),
             faceEdgeMap: toIntArray(result.faceEdgeMap),
             faceAncestors: toIntArray(result.faceAncestors),
             edgeAncestors: toIntArray(result.edgeAncestors),
@@ -165,6 +163,38 @@ function filletResultEdges(edges: TopoDS_Shape[]): OccEdge[] {
     return newEdges;
 }
 
+/**
+ * The error for a picked SEAM edge, or undefined when none of `edges` is one.
+ *
+ * A seam is the imprint a CLOSED sweep leaves where its first and last sections meet (a full
+ * revolve, a swept circle): the SAME face lies on both sides, so there is no dihedral a corner
+ * surface can sit in. OCCT does not report that as a failure — it RAISES, and this build
+ * (`-sDISABLE_EXCEPTION_CATCHING=1`) turns a raise into an abort that takes the whole module, and
+ * the session with it, down; `IsDone` never gets a chance. So the refusal has to be preventative,
+ * and it has to be HERE: this is the only layer that calls the kernel, and the modifying commands
+ * reach it directly (`fillet`/`chamfer` on a created cylinder's seam would otherwise kill the
+ * session, not fail one feature).
+ *
+ * Only a genuinely doubled face counts: an unreadable adjacency (a mock, an open shell) is left
+ * to the kernel rather than refused on a guess.
+ */
+function seamError(shape: IShape, edges: readonly number[], operation: string): string | undefined {
+    const all = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
+    for (const index of edges) {
+        const edge = all[index];
+        if (edge === undefined) continue;
+        try {
+            const faces = edge.findAncestor(ShapeTypes.face, shape) as IFace[];
+            if (faces.length >= 2 && faces.every((face) => face.isSame(faces[0]))) {
+                return `A ${operation} needs a dihedral to sit in: edge ${index} has the same face on both sides`;
+            }
+        } catch {
+            // Unreadable adjacency — leave it to the kernel.
+        }
+    }
+    return undefined;
+}
+
 export class ShapeFactory implements IShapeFactory {
     readonly kernelName = "opencascade";
 
@@ -185,6 +215,8 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "fillet");
+            if (seam !== undefined) return Result.err(seam);
             return convertShapeResult(wasm.ShapeFactory.fillet, [shape.shape, edges, radius], "Fillet Error");
         }
         return Result.err("Not OccShape");
@@ -200,6 +232,8 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "chamfer");
+            if (seam !== undefined) return Result.err(seam);
             return convertShapeResult(
                 wasm.ShapeFactory.chamfer,
                 [shape.shape, edges, distance],
@@ -219,6 +253,8 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "fillet");
+            if (seam !== undefined) return Result.err(seam);
             return convertTrackedShapeResult(
                 wasm.ShapeFactory.filletTracked,
                 [shape.shape, edges, radius],
@@ -238,6 +274,8 @@ export class ShapeFactory implements IShapeFactory {
         }
 
         if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "chamfer");
+            if (seam !== undefined) return Result.err(seam);
             return convertTrackedShapeResult(
                 wasm.ShapeFactory.chamferTracked,
                 [shape.shape, edges, distance],

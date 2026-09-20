@@ -13,37 +13,6 @@
 export const ID_COMPONENT_SEPARATOR = "|";
 
 /**
- * Marker of a POSITIONAL id — the id a generated sub-shape takes when the kernel's
- * history could not attribute it to anything (`{featureId}@{outputIndex}`).
- *
- * - **Why it is marked.** A positional id names "the n-th output of feature F", not a
- *   piece of geometry: the kernel is free to re-enumerate a rebuilt shape, and the id
- *   then silently names a NEIGHBOUR (see `profileSeeds.ts` on why seeds are
- *   content-derived). Attribute every generated sub-shape you can; what still falls
- *   back is flagged so the matching layer can weigh it as the weak hint it is
- *   (`edgeMatcher` distrusts one that contradicts a decisive geometric match).
- * - **Why `@`.** `Id.generate`'s alphabet is `A-Za-z0-9_-`, so no node, feature or
- *   seed id can contain it — the marker is unambiguous, unlike `:`, which every id
- *   component uses.
- * - **Documents written before the marker existed** (`f1:5`) simply stop matching: the ref
- *   falls back to its geometric fingerprint, and the first successful rebuild re-anchors it
- *   with the marked id (`refreshAnchoredRefs`). A re-opened document can therefore meet an
- *   AMBIGUOUS fingerprint once, on a body whose geometry is genuinely ambiguous; there is no
- *   migration step, and none is needed for the common case.
- */
-const POSITIONAL_MARKER = "@";
-
-/** The feature-scoped id of an output the kernel's history did not attribute. */
-export function positionalId(featureId: string, outputIndex: number): string {
-    return `${featureId}${POSITIONAL_MARKER}${outputIndex}`;
-}
-
-/** True when `id` is (or contains) a positional id — a weak, enumeration-scoped hint. */
-export function isPositionalId(id: string): boolean {
-    return id.split(ID_COMPONENT_SEPARATOR).some((leaf) => leaf.includes(POSITIONAL_MARKER));
-}
-
-/**
  * `id` with `suffix` hung off EVERY leaf — the only safe way to derive an id from a stem
  * that may already be a compound. Suffixing the whole string would leave the later leaves
  * bare, and they would then collide with the ids that live in the host's own id space
@@ -60,6 +29,22 @@ export function derivedId(id: string, suffix: string): string {
 }
 
 /**
+ * `id` namespaced under `prefix` — EVERY leaf prefixed, the mirror of `derivedId`. Prefixing the
+ * whole string instead would leave the later leaves bare, to collide with the ids already in the
+ * host's own id space (`mapBooleanIds`'s `tool:` prefix is the same rule written by hand).
+ *
+ * The prefix is what makes a name say WHO built the sub-shape, not just what it was built from:
+ * two operations deriving names from the same input — two corners on the two pieces of one split
+ * edge — would otherwise compute identical ids, and one of them would have to go unnamed.
+ */
+export function prefixedId(prefix: string, id: string): string {
+    return id
+        .split(ID_COMPONENT_SEPARATOR)
+        .map((leaf) => `${prefix}:${leaf}`)
+        .join(ID_COMPONENT_SEPARATOR);
+}
+
+/**
  * `id` flattened into ONE component, for embedding inside another id.
  *
  * An embedded id keeps its identity only as a whole: leaving it compound would leak its
@@ -68,8 +53,8 @@ export function derivedId(id: string, suffix: string): string {
  * component and reported as overlapping, so a ref on one could swallow the other.
  *
  * `^` does the escaping because it is the one character no other part of the grammar claims:
- * `|` separates components, `@` marks positional ids, `~` the duplicate-entity-set occurrence
- * suffix (`profileSeeds`), `:` and `.` the seed parts.
+ * `|` separates components, `~` the duplicate-entity-set occurrence suffix (`profileSeeds`),
+ * `:` and `.` the seed parts.
  */
 export function embeddedId(id: string): string {
     return id.split(ID_COMPONENT_SEPARATOR).join("^");
@@ -129,30 +114,29 @@ export function ancestorInputs(map: readonly number[], ancestors?: readonly numb
 }
 
 /**
- * The shared tail of `mapBooleanIds`/`mapOperationIds`: every output's ancestor
- * input indexes (`ancestorInputs`) are mapped through `idOfInput` and combined —
- * an output with no ancestors takes `bornId`, or a positional id when the caller
- * cannot name it by content, and one derived from several inputs (a boolean merge)
- * combines every ancestor's id (`combineIds`), so pieces of a later re-split still
- * intersect the stored id.
+ * The shared tail of `mapBooleanIds`/`mapOperationIds`/`mapFusedIds`: every output's
+ * ancestor input indexes (`ancestorInputs`) are mapped through `idOfInput` and combined —
+ * an output with no ancestors takes `bornId`, and one derived from several inputs (a
+ * boolean merge) combines every ancestor's id (`combineIds`), so pieces of a later
+ * re-split still intersect the stored id.
+ *
+ * An output nothing can name — no ancestor, or ancestors that are themselves unattributed —
+ * gets NO id. That is deliberate: naming it by where it sits in the kernel's enumeration
+ * would be a name a rebuilt body is free to hand to a neighbour (see `trackedIds` in
+ * feature.ts). An id-less sub-shape is resolved geometrically instead.
  */
 export function mapAncestorIds(
-    featureId: string,
     map: readonly number[],
     ancestors: readonly number[] | undefined,
-    idOfInput: (inputIndex: number, outputIndex: number) => string,
+    idOfInput: (inputIndex: number) => string | undefined,
     bornId?: (outputIndex: number) => string | undefined,
-): string[] {
+): (string | undefined)[] {
     const perOutput = ancestorInputs(map, ancestors);
     return map.map((_, outputIndex) => {
         const inputs = perOutput[outputIndex];
-        if (inputs.length === 0) {
-            // An output nothing in the kernel's history derives from (a boolean's
-            // intersection curve). Callers that can identify it by content supply
-            // `bornId`; the positional fallback stays for the rest.
-            return bornId?.(outputIndex) ?? positionalId(featureId, outputIndex);
-        }
-        return combineIds(inputs.map((x) => idOfInput(x, outputIndex)));
+        if (inputs.length === 0) return bornId?.(outputIndex);
+        const ids = inputs.map((x) => idOfInput(x)).filter((x): x is string => x !== undefined);
+        return ids.length === 0 ? undefined : combineIds(ids);
     });
 }
 
@@ -161,14 +145,17 @@ export function mapAncestorIds(
  * before writing an id it derived.
  *
  * An id two sub-shapes could both claim would make the matcher read them as pieces of one
- * (`idsOverlap`), so a contested id is dropped and those sub-shapes keep their positional ids
- * instead. The check is component-wise, not textual, because that is how the matcher compares:
+ * (`idsOverlap`), so a contested id is dropped and those sub-shapes stay unnamed instead. The check is component-wise, not textual, because that is how the matcher compares:
  * two compound ids can overlap without being equal, and two equal ids always overlap.
  */
 export function uncontested(candidates: ReadonlyMap<number, string>): Map<number, string> {
     const entries = [...candidates];
     return new Map(
-        entries.filter(([, id]) => entries.every(([, other]) => other === id || !idsOverlap(id, other))),
+        // Self is skipped by POSITION, not by value: `other === id` would also excuse an equal
+        // sibling, and two sub-shapes computing the same id is the most contested case there is.
+        entries.filter(([, id], index) =>
+            entries.every(([, other], otherIndex) => otherIndex === index || !idsOverlap(id, other)),
+        ),
     );
 }
 
@@ -179,7 +166,7 @@ export function uncontested(candidates: ReadonlyMap<number, string>): Map<number
  * `A`, and both pieces are the same logical split edge. Exact duplicates — the only
  * case a textual comparison sees — are a subset of this.
  */
-export function idIsShared(ids: readonly string[], id: string | undefined): boolean {
+export function idIsShared(ids: readonly (string | undefined)[], id: string | undefined): boolean {
     return id !== undefined && indexesOfOverlappingId(ids, id).length > 1;
 }
 

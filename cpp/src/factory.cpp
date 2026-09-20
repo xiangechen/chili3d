@@ -120,58 +120,43 @@ struct TrackedShapeResult {
     TopoDS_Shape shape;
     bool isOk;
     std::string error;
-    // output face/edge index (TopExp::MapShapes order) -> input index, -1 = new sub-shape
-    std::vector<int> faceMap;
-    std::vector<int> edgeMap;
+    // Every (output, input) derivation as flat pairs (out0, in0, out1, in1, ...), in
+    // ascending input order (identity first for each input). This is the WHOLE relation:
+    // a caller wanting "the first ancestor" per output derives it, rather than the kernel
+    // dropping the rest here — so a sub-shape MERGED from several inputs records each of
+    // them whichever operation merged it. A sub-shape nothing derives from has no pair.
+    std::vector<int> faceAncestors;
+    std::vector<int> edgeAncestors;
     // output face index -> input edge index for faces Generated from an input edge
     // (a sweep's side faces), -1 = not edge-generated
     std::vector<int> faceEdgeMap = {};
-    // Every (output, input) derivation as flat pairs (out0, in0, out1, in1, ...) — the
-    // maps above keep only the FIRST ancestor; these keep them all, so a face MERGED
-    // from several input faces records each of them. Filled for booleans only (merges
-    // are a boolean phenomenon); empty for sweeps/fillets, where the maps suffice.
-    std::vector<int> faceAncestors = {};
-    std::vector<int> edgeAncestors = {};
-    // Output face indexes (same MapShapes order as the maps) of a sweep's end cap —
+    // Output face indexes of a sweep's end cap —
     // BRepPrimAPI's LastShape(): a prism's top face, a PARTIAL revolve's end cap. A
-    // separate channel on purpose: the cap must not go through faceMap's derivation
+    // separate channel on purpose: the cap must not go through the derivation
     // (it would claim the profile face's index and collide with the identical
     // bottom/start face). Empty for non-sweeps and for a full 360° revolve, where the
     // first and last shapes coincide and there is no distinct cap.
     std::vector<int> capFaces = {};
 };
 
-// Marks output sub-shapes identical to or derived (Modified/Generated — guarded, some
-// algorithms only implement Generated) from `inShape` with its input index. The map keeps
-// the first ancestor per output; `ancestors` (when given) records every derivation, so a
-// merge of several inputs into one output is fully preserved.
+// Appends every output sub-shape identical to or derived (Modified/Generated — guarded,
+// some algorithms only implement Generated) from `inShape`, as an (output, input) pair.
 static void mapInputShape(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& inShape, int inIndex,
-    const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& outMap, std::vector<int>& map,
-    std::vector<int>* ancestors)
+    const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& outMap, std::vector<int>& ancestors)
 {
     auto markDerived = [&](const NCollection_List<TopoDS_Shape>& derived) {
         for (const TopoDS_Shape& shape : derived) {
             int outIndex = outMap.FindIndex(shape);
             if (outIndex > 0) {
-                if (map[outIndex - 1] < 0) {
-                    map[outIndex - 1] = inIndex;
-                }
-                if (ancestors != nullptr) {
-                    ancestors->push_back(outIndex - 1);
-                    ancestors->push_back(inIndex);
-                }
+                ancestors.push_back(outIndex - 1);
+                ancestors.push_back(inIndex);
             }
         }
     };
     int identical = outMap.FindIndex(inShape);
     if (identical > 0) {
-        if (map[identical - 1] < 0) {
-            map[identical - 1] = inIndex;
-        }
-        if (ancestors != nullptr) {
-            ancestors->push_back(identical - 1);
-            ancestors->push_back(inIndex);
-        }
+        ancestors.push_back(identical - 1);
+        ancestors.push_back(inIndex);
     }
     try {
         markDerived(algo.Modified(inShape));
@@ -183,35 +168,33 @@ static void mapInputShape(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& in
     }
 }
 
-// Maps each output sub-shape of `type` to the input sub-shape it derives from (identity
-// first — some algorithms keep input shapes as-is, e.g. the prism bottom face).
-// Sub-shapes without an input origin keep -1. When `ancestors` is given it additionally
-// receives every (output, input) derivation as flat pairs — including derivations the
-// returned map dropped as non-first ancestors.
+// Every (output, input) derivation of `type` between `input` and `output`, as flat pairs in
+// ascending input order (identity first — some algorithms keep input shapes as-is, e.g. the
+// prism bottom face). A sub-shape no input derives does not appear.
 static std::vector<int> shapeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
-    const TopoDS_Shape& output, TopAbs_ShapeEnum type, std::vector<int>* ancestors = nullptr)
+    const TopoDS_Shape& output, TopAbs_ShapeEnum type)
 {
     NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> inMap;
     NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outMap;
     TopExp::MapShapes(input, type, inMap);
     TopExp::MapShapes(output, type, outMap);
-    std::vector<int> map(outMap.Extent(), -1);
+    std::vector<int> ancestors;
     for (int i = 1; i <= inMap.Extent(); i++) {
-        mapInputShape(algo, inMap.FindKey(i), i - 1, outMap, map, ancestors);
+        mapInputShape(algo, inMap.FindKey(i), i - 1, outMap, ancestors);
     }
-    return map;
+    return ancestors;
 }
 
 static std::vector<int> faceHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
-    const TopoDS_Shape& output, std::vector<int>* ancestors = nullptr)
+    const TopoDS_Shape& output)
 {
-    return shapeHistory(algo, input, output, TopAbs_FACE, ancestors);
+    return shapeHistory(algo, input, output, TopAbs_FACE);
 }
 
 static std::vector<int> edgeHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
-    const TopoDS_Shape& output, std::vector<int>* ancestors = nullptr)
+    const TopoDS_Shape& output)
 {
-    return shapeHistory(algo, input, output, TopAbs_EDGE, ancestors);
+    return shapeHistory(algo, input, output, TopAbs_EDGE);
 }
 
 // Maps each output face Generated from an input edge (a prism/revol side face) to that
@@ -1401,14 +1384,9 @@ public:
             inputs.insert(inputs.end(), toolVec.begin(), toolVec.end());
             inputCompound = compoundOf(inputs);
         }
-        std::vector<int> faceAncestors;
-        std::vector<int> edgeAncestors;
-        TrackedShapeResult result { boolOperater.Shape(), true, "",
-            faceHistory(boolOperater, inputCompound, boolOperater.Shape(), &faceAncestors),
-            edgeHistory(boolOperater, inputCompound, boolOperater.Shape(), &edgeAncestors) };
-        result.faceAncestors = std::move(faceAncestors);
-        result.edgeAncestors = std::move(edgeAncestors);
-        return result;
+        return TrackedShapeResult { boolOperater.Shape(), true, "",
+            faceHistory(boolOperater, inputCompound, boolOperater.Shape()),
+            edgeHistory(boolOperater, inputCompound, boolOperater.Shape()) };
     }
 
     static TrackedShapeResult booleanCommonTracked(const ShapeArray& args, const ShapeArray& tools)
@@ -1858,8 +1836,6 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("shape", &TrackedShapeResult::shape, return_value_policy::reference())
         .property("isOk", &TrackedShapeResult::isOk)
         .property("error", &TrackedShapeResult::error)
-        .property("faceMap", &TrackedShapeResult::faceMap)
-        .property("edgeMap", &TrackedShapeResult::edgeMap)
         .property("faceEdgeMap", &TrackedShapeResult::faceEdgeMap)
         .property("faceAncestors", &TrackedShapeResult::faceAncestors)
         .property("edgeAncestors", &TrackedShapeResult::edgeAncestors)

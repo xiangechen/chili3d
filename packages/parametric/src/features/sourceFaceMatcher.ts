@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IFace, Matrix4, Result, ShapeNode, ShapeTypes } from "@chili3d/core";
+import { type IEdge, type IFace, Matrix4, Result, ShapeNode, ShapeTypes } from "@chili3d/core";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import type { ExtrudeFeatureData, FeatureContext } from "./feature";
 import { matchProfileIndexes } from "./profileMatcher";
@@ -213,21 +213,79 @@ function narrowToPickedPiece(faces: IFace[], ref: ProfileRef, hits: number[]): R
 export function resolveSourceFaces(
     source: NonNullable<ExtrudeFeatureData["source"]>,
     context: FeatureContext,
-): Result<{ worldFaces: IFace[]; faceIds: readonly (string | undefined)[] | undefined; owned: IFace[] }> {
+): Result<ResolvedSourceFaces> {
     const resolved =
         source.nodeId === context.host.id ? hostInputFaces(context) : sourceNodeFaces(source.nodeId, context);
     if (!resolved.isOk) return Result.err(resolved.error);
 
-    const { faces, faceIds, transform } = resolved.value;
+    const { faces, faceIds, shapeEdges, edgeIds, transform } = resolved.value;
     const identity = transform.equals(Matrix4.identity());
     const worldFaces = identity ? faces : faces.map((x) => x.transformedMul(transform) as IFace);
-    return Result.ok({ worldFaces, faceIds, owned: identity ? [] : worldFaces });
+    // Resolved per SWEPT face and only on demand: each is an `isSame` scan, and a press-pull
+    // normally sweeps one face. The ids come from the pre-transform faces — a transformed copy
+    // is a new TShape, so `isSame` could not find it in the source's enumeration.
+    const cache = new Map<number, (string | undefined)[] | undefined>();
+    const edgeIdsOf = (index: number) => {
+        if (!cache.has(index)) {
+            cache.set(
+                index,
+                edgeIds === undefined || shapeEdges === undefined
+                    ? undefined
+                    : faceEdgeIds(faces[index], shapeEdges, edgeIds),
+            );
+        }
+        return cache.get(index);
+    };
+    return Result.ok({ worldFaces, faceIds, edgeIdsOf, owned: identity ? [] : worldFaces });
+}
+
+/** What `resolveSourceFaces` hands the press-pull sweep — see each field. */
+export interface ResolvedSourceFaces {
+    readonly worldFaces: IFace[];
+    readonly faceIds: readonly (string | undefined)[] | undefined;
+    /**
+     * The tracked ids of world face `index`'s own edges, in its `findSubShapes(edge)` order —
+     * what names the pad the sweep raises (`sweepFaceTracked`). Undefined when the source
+     * carries no edge tracking, which leaves the pad's edges unnamed.
+     */
+    readonly edgeIdsOf: (index: number) => (string | undefined)[] | undefined;
+    readonly owned: IFace[];
 }
 
 interface SourceFaceGeometry {
     faces: IFace[];
     faceIds: readonly (string | undefined)[] | undefined;
+    /** The source shape's flat edge list and its parallel tracked ids, for `faceEdgeIds`. */
+    shapeEdges?: readonly IEdge[];
+    edgeIds?: readonly (string | undefined)[];
     transform: Matrix4;
+}
+
+/**
+ * The tracked ids of `face`'s own edges, in its `findSubShapes(edge)` order. A face's edges ARE
+ * the shape's edges (its boundary is a subset of them, not a copy), so `isSame` finds each. A
+ * miss or a degenerate probe leaves that edge unnamed rather than guessing a neighbour.
+ */
+function faceEdgeIds(
+    face: IFace,
+    shapeEdges: readonly IEdge[],
+    ids: readonly (string | undefined)[],
+): (string | undefined)[] {
+    let faceEdges: IEdge[];
+    try {
+        faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
+    } catch {
+        // A mocked or degenerate face — nothing to attribute.
+        return [];
+    }
+    return faceEdges.map((edge) => {
+        try {
+            const index = shapeEdges.findIndex((candidate) => candidate.isSame(edge));
+            return index < 0 ? undefined : ids[index];
+        } catch {
+            return undefined;
+        }
+    });
 }
 
 /** The feature's own input faces, used when the source is the host body itself. */
@@ -236,9 +294,19 @@ function hostInputFaces(context: FeatureContext): Result<SourceFaceGeometry> {
         return Result.err("Extrude source face requires a preceding feature");
     }
     const faces = context.input.findSubShapes(ShapeTypes.face) as IFace[];
-    const tracked = context.tracking?.inputFaceIds;
-    const faceIds = tracked !== undefined && tracked.length === faces.length ? tracked : undefined;
-    return Result.ok({ faces, faceIds, transform: context.host.worldTransform() });
+    const trackedFaces = context.tracking?.inputFaceIds;
+    const faceIds =
+        trackedFaces !== undefined && trackedFaces.length === faces.length ? trackedFaces : undefined;
+    const shapeEdges =
+        context.tracking === undefined
+            ? undefined
+            : (context.input.findSubShapes(ShapeTypes.edge) as IEdge[]);
+    const trackedEdges = context.tracking?.inputEdgeIds;
+    const edgeIds =
+        shapeEdges !== undefined && trackedEdges !== undefined && trackedEdges.length === shapeEdges.length
+            ? trackedEdges
+            : undefined;
+    return Result.ok({ faces, faceIds, shapeEdges, edgeIds, transform: context.host.worldTransform() });
 }
 
 /** Another node's faces — off its live shape, or the pre-boolean state when it consumed this host. */
@@ -275,8 +343,15 @@ function sourceNodeFaces(nodeId: string, context: FeatureContext): Result<Source
         return Result.err("Extrude source body not found");
     }
     const faces = node.shape.value.findSubShapes(ShapeTypes.face) as IFace[];
-    const faceIds = isBodyTrackingNode(node) ? faces.map((_, index) => node.faceIdAt(index)) : undefined;
-    return Result.ok({ faces, faceIds, transform: node.worldTransform() });
+    const tracked = isBodyTrackingNode(node) ? node : undefined;
+    const faceIds = tracked === undefined ? undefined : faces.map((_, index) => tracked.faceIdAt(index));
+    const shapeEdges =
+        tracked === undefined ? undefined : (node.shape.value.findSubShapes(ShapeTypes.edge) as IEdge[]);
+    const edgeIds =
+        tracked === undefined || shapeEdges === undefined
+            ? undefined
+            : shapeEdges.map((_, index) => tracked.edgeIdAt(index));
+    return Result.ok({ faces, faceIds, shapeEdges, edgeIds, transform: node.worldTransform() });
 }
 
 /**
@@ -293,9 +368,18 @@ function consumedFaces(node: ShapeNode, context: FeatureContext): SourceFaceGeom
     if (index === undefined) return undefined;
     const state = node.timelineStateAt(index);
     if (state?.shape === undefined) return undefined;
+    const shapeEdges =
+        state.edgeIds === undefined ? undefined : (state.shape.findSubShapes(ShapeTypes.edge) as IEdge[]);
     return {
         faces: state.shape.findSubShapes(ShapeTypes.face) as IFace[],
         faceIds: state.faceIds,
+        shapeEdges,
+        // The edge ids run parallel to the shape's own enumeration, not to `shapeEdges`'s
+        // length — a mismatch (the run could not track edges) leaves them undefined.
+        edgeIds:
+            shapeEdges !== undefined && state.edgeIds?.length === shapeEdges.length
+                ? state.edgeIds
+                : undefined,
         transform: node.worldTransform(),
     };
 }

@@ -97,9 +97,9 @@ export function sameEdgeFingerprint(a: EdgeRef, b: EdgeRef): boolean {
  * - **What is compared:** a line's direction, a circle's axis, another curve's length.
  *   **Position deliberately is not** — a parameter edit moves geometry rigidly, and moving IS
  *   the edit (the same contract as the external-ref resolver).
- * - **On mismatch** the id realigned onto a different edge (a positional id drifting, or a
- *   kernel behavior change), so the caller demotes the ref to fingerprint matching instead of
- *   trusting the id blindly.
+ * - **On mismatch** the id realigned onto a different edge (a kernel behavior change, or a
+ *   compound id that widened past the picked span), so the caller demotes the ref to
+ *   fingerprint matching instead of trusting the id blindly.
  * - **Why each kind is checked on that property.** A line's length and a circle's radius are
  *   the very parameters feature edits drive (extrude depth, hole diameter), so comparing them
  *   would demote the id on every legitimate edit; direction and axis survive those edits. A

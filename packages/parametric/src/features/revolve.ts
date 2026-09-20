@@ -8,7 +8,8 @@ import {
     type IFace,
     type IShape,
     Line,
-    type Matrix4,
+    MathUtils,
+    Matrix4,
     Result,
     resolveUnitSpec,
     ShapeNode,
@@ -32,7 +33,7 @@ import {
 } from "./feature";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { captureProfileRef } from "./profileRef";
-import { profileEdgeSeeds } from "./profileSeeds";
+import { attributeSweepEdges, profileEdgeSeeds } from "./profileSeeds";
 import { MATCH_TOLERANCE } from "./refGeometry";
 import { combineIds } from "./trackedId";
 
@@ -91,7 +92,7 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
             }
             return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
         }
-        return revolveTracked(feature, sketch, axis, angle.value, profiles.value, tracking);
+        return revolveTracked(sketch, axis, angle.value, profiles.value, tracking);
     },
 };
 
@@ -164,8 +165,10 @@ function axisFromSourceNode(
     const edges = node.shape.value.findSubShapes(ShapeTypes.edge) as IEdge[];
     // A tracked source resolves the axis edge through its stable id first (same
     // contract as every other tracked reference); anything else matches the
-    // fingerprint geometrically. The id channel needs the full id array — a
-    // partially tracked source stays on the geometric path.
+    // fingerprint geometrically. A hole in the id array is normal — tracking lapses
+    // per sub-shape — and costs nothing here: an edge with no id simply never
+    // resolves in the id channel, so a reference to it takes the fingerprint
+    // fallback inside `matchEdgesAnchored`.
     const ids = isBodyTrackingNode(node) ? edges.map((_, index) => node.edgeIdAt(index)) : undefined;
     return matchAxis(node.shape.value, edges, ids, ref, node.worldTransform(), fallback);
 }
@@ -181,8 +184,8 @@ function matchAxis(
 ): { axis: Line; anchor?: EdgeRef } {
     let index: number;
     let anchor: EdgeRef;
-    if (ids !== undefined && ids.every((id) => id !== undefined)) {
-        const anchored = matchEdgesAnchored(shape, [ref], ids as string[]);
+    if (ids !== undefined) {
+        const anchored = matchEdgesAnchored(shape, [ref], ids);
         if (!anchored.isOk) return fallback;
         index = anchored.value.indexes[0];
         anchor = anchored.value.anchors[0];
@@ -209,7 +212,6 @@ function matchAxis(
 }
 
 function revolveTracked(
-    feature: RevolveFeatureData,
     sketch: SketchNode,
     axis: Line,
     angle: number,
@@ -217,10 +219,10 @@ function revolveTracked(
     tracking: ShapeTracking,
 ): Result<IShape> {
     const shapes: IShape[] = [];
-    const outputFaceIds: string[] = [];
-    const outputEdgeIds: string[] = [];
+    const outputFaceIds: (string | undefined)[] = [];
+    const outputEdgeIds: (string | undefined)[] = [];
     for (const profile of profiles) {
-        const revolved = revolveProfileTracked(feature, sketch, axis, angle, profile);
+        const revolved = revolveProfileTracked(sketch, axis, angle, profile);
         if (!revolved.isOk) return Result.err(revolved.error);
         shapes.push(revolved.value.shape);
         outputFaceIds.push(...revolved.value.faceIds);
@@ -233,15 +235,20 @@ function revolveTracked(
 
 /**
  * Revolves one profile with kernel history and maps the tracked ids into
- * findSubShapes order (the per-profile half of extrude's sweepProfileTracked).
+ * findSubShapes order (the rotation counterpart of `sweepFaceTracked`, the sweep
+ * extrude and press-pull share).
+ *
+ * The faces and the edges the swept profile reproduces take the kernel's history; the two
+ * families the revolve CREATES — the arc each profile corner sweeps and the end-cap edge each
+ * profile edge sweeps — have no history to take, and are named from the rotation itself
+ * (`attributeSweepEdges`, the same call extrude makes with its translation).
  */
 function revolveProfileTracked(
-    feature: RevolveFeatureData,
     sketch: SketchNode,
     axis: Line,
     angle: number,
     profile: ResolvedProfile,
-): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
+): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
     // Guaranteed by the caller's guard — the type just cannot see it.
     if (shapeFactory.revolveTracked === undefined) return Result.err("Revolve tracking is unavailable");
     const result = shapeFactory.revolveTracked(profile.face, axis, angle);
@@ -252,12 +259,16 @@ function revolveProfileTracked(
     const edgeSeeds = profileEdgeSeeds(profile.face, seed, faceEdges);
     // Revolve edge history is sparse; the completed face map feeds both
     // trackedFaceIds and the history-less seeding below.
-    const { edgeMap, faceMap, outputFaces } = completeTrackedHistory([profile.face], result.value, {
-        inputEdges: faceEdges,
-        inputFaces: [profile.face],
-    });
+    const { edgeMap, faceMap, outputEdges, outputFaces } = completeTrackedHistory(
+        [profile.face],
+        result.value,
+        {
+            inputEdges: faceEdges,
+            inputFaces: [profile.face],
+        },
+    );
     // Side faces generated from profile edges take the edge's seed (see extrude).
-    const faceIds = trackedFaceIds(feature.id, [seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
+    const faceIds = trackedFaceIds([seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
     seedHistoryLessFaces(
         outputFaces,
         faceIds,
@@ -268,18 +279,27 @@ function revolveProfileTracked(
         seed,
         result.value.capFaces,
     );
-    return Result.ok({
-        shape: result.value.shape,
-        faceIds,
-        edgeIds: trackedIds(feature.id, edgeSeeds, edgeMap),
-    });
+    const edgeIds = trackedIds(edgeSeeds, edgeMap);
+    // The revolve carries every profile point by a rotation about the axis, so the swept image
+    // of a profile edge is its end-cap edge and the swept image of a corner is its arc.
+    attributeSweepEdges(
+        edgeIds,
+        outputEdges,
+        edgeMap,
+        profile.face,
+        seed,
+        edgeSeeds,
+        Matrix4.fromAxisRad(axis.point, axis.direction, MathUtils.degToRad(angle)),
+        ":cap",
+    );
+    return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
 }
 
 /**
  * Seeds the faces the kernel's revolve history does not report. Two are missing by construction:
  * a partial revolve's end cap, and a full turn's end rings (the flange faces an
- * axis-perpendicular profile edge sweeps at 360°). Left alone they would take positional ids
- * that realign onto another face when the profile's structure changes.
+ * axis-perpendicular profile edge sweeps at 360°). Left alone they would have no id, so a
+ * downstream reference to one would have to be re-found geometrically.
  *
  * - **Authoritative first.** The kernel reports a partial revolve's end cap directly through
  *   `capFaces` (the sweep's LastShape), so nothing else runs when it is present.
@@ -289,15 +309,15 @@ function revolveProfileTracked(
  *   seeds of the profile edges lying on its surface (a full-turn ring contains the input edge
  *   that swept it), compounding when a merged ring carries several. Only the edge midpoint is
  *   probed — the endpoints are shared with the neighboring edge's surface.
- * - **Faces no edge claims** keep the positional fallback.
+ * - **Faces no edge claims** stay unnamed.
  */
 function seedHistoryLessFaces(
     faces: IFace[],
-    faceIds: string[],
+    faceIds: (string | undefined)[],
     faceMap: number[],
     faceEdgeMap: number[] | undefined,
     faceEdges: IEdge[],
-    edgeSeeds: string[],
+    edgeSeeds: readonly (string | undefined)[],
     seed: string,
     capFaces?: number[],
 ): void {
@@ -317,10 +337,11 @@ function seedHistoryLessFaces(
     }
     for (const index of candidates) {
         const surface = faces[index].surface();
-        const claims = edgeSeeds.filter((_, edgeIndex) => {
-            const edge = faceEdges[edgeIndex];
+        const claims = faceEdges.flatMap((edge, edgeIndex) => {
+            const seed = edgeSeeds[edgeIndex];
+            if (seed === undefined) return [];
             const mid = edgeMidPoint(edge);
-            return surface.parameter(mid, MATCH_TOLERANCE) !== undefined;
+            return surface.parameter(mid, MATCH_TOLERANCE) !== undefined ? [seed] : [];
         });
         if (claims.length > 0) faceIds[index] = combineIds(claims);
     }

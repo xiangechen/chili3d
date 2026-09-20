@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type IShape, Matrix4, Plane, ShapeTypes } from "@chili3d/core";
+import {
+    type IEdge,
+    type IFace,
+    type IShape,
+    Matrix4,
+    Plane,
+    primaryAncestors,
+    ShapeTypes,
+    type TrackedShape,
+} from "@chili3d/core";
 import type { ShapeFactory } from "../src/factory";
 import { createBox, createTestFactory, unwrapOk } from "./helpers";
 import "./setup";
@@ -14,10 +23,14 @@ beforeEach(() => {
 
 const facesOf = (shape: IShape): IFace[] => shape.findSubShapes(ShapeTypes.face) as IFace[];
 
+/** The first-ancestor map DERIVED from the pairs — what the kernel used to report beside them. */
+const faceMapOf = (tracked: TrackedShape): number[] =>
+    primaryAncestors(tracked.faceAncestors, facesOf(tracked.shape).length);
+
 /** Input indexes recorded for `outputIndex` in the flat (out, in) ancestor pairs. */
-function ancestorsOf(ancestors: number[] | undefined, outputIndex: number): number[] {
+function ancestorsOf(ancestors: readonly number[], outputIndex: number): number[] {
     const inputs: number[] = [];
-    for (let i = 0; ancestors !== undefined && i + 1 < ancestors.length; i += 2) {
+    for (let i = 0; i + 1 < ancestors.length; i += 2) {
         if (ancestors[i] === outputIndex) inputs.push(ancestors[i + 1]);
     }
     return [...new Set(inputs)].sort((a, b) => a - b);
@@ -48,10 +61,10 @@ describe("ShapeFactory — multi-valued boolean history", () => {
         );
         expect(mergedIndex).toBeGreaterThanOrEqual(0);
 
-        // The single-valued map keeps the first ancestor; the pairs keep both — one
+        // The DERIVED first-ancestor map takes the first pair; the pairs keep both — one
         // from the arg body (index < 6), one from the tool (index >= 6).
         const inputs = ancestorsOf(result.faceAncestors, mergedIndex);
-        expect(result.faceMap[mergedIndex]).toBe(inputs[0]);
+        expect(faceMapOf(result)[mergedIndex]).toBe(inputs[0]);
         expect(inputs.length).toBe(2);
         expect(inputs[0]).toBeLessThan(6);
         expect(inputs[1]).toBeGreaterThanOrEqual(6);
@@ -71,20 +84,20 @@ describe("ShapeFactory — multi-valued boolean history", () => {
         );
         expect(bossBackIndex).toBeGreaterThanOrEqual(6);
         const claimed = new Set<number>();
-        for (let i = 0; result.faceAncestors !== undefined && i + 1 < result.faceAncestors.length; i += 2) {
+        for (let i = 0; i + 1 < result.faceAncestors.length; i += 2) {
             claimed.add(result.faceAncestors[i + 1]);
         }
-        expect(result.faceAncestors).toBeDefined();
         expect(claimed.has(bossBackIndex)).toBe(false);
     });
 
-    test("faceMap stays single-valued and aligned with the output faces", () => {
+    test("the first-ancestor map is derived from the pairs, aligned with the output faces", () => {
         const { result } = fuseWithMergedTop();
-        expect(result.faceMap.length).toBe(facesOf(result.shape).length);
+        const faceMap = faceMapOf(result);
+        expect(faceMap.length).toBe(facesOf(result.shape).length);
         // Every ancestor pair points at a valid output/input index.
-        for (let i = 0; result.faceAncestors !== undefined && i + 1 < result.faceAncestors.length; i += 2) {
+        for (let i = 0; i + 1 < result.faceAncestors.length; i += 2) {
             expect(result.faceAncestors[i]).toBeGreaterThanOrEqual(0);
-            expect(result.faceAncestors[i]).toBeLessThan(result.faceMap.length);
+            expect(result.faceAncestors[i]).toBeLessThan(faceMap.length);
             expect(result.faceAncestors[i + 1]).toBeGreaterThanOrEqual(0);
         }
     });

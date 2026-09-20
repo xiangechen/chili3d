@@ -188,8 +188,7 @@ export function groupConnected(edges: IEdge[]): IEdge[][] {
         // Seed each group from the first remaining edge — the lowest entity — so groups
         // come out in entity order. That order is stable under append: a newly added
         // entity carries a higher id and lands in a group after the existing ones, so
-        // existing profiles keep their positional index — the fallback seed when
-        // entity ids are unavailable, and the occurrence order behind the `~n`
+        // existing profiles keep their position — the occurrence order behind the `~n`
         // suffix telling apart profiles bounded by the same entity set.
         const group = [remaining.shift()!];
         let grew = true;

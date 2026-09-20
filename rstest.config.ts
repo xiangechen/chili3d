@@ -11,7 +11,12 @@ export default defineConfig({
         exclude: ["**/wasm/lib/**", "**/test-utils/**"],
     },
     globals: true,
-    setupFiles: [resolve(configDir, "packages/core/test-utils/setup.ts")],
+    // Applied to every test file: the identity-loss guard must cover them all, not just the
+    // parametric ones — any package can drive a feature chain through the app.
+    setupFiles: [
+        resolve(configDir, "packages/core/test-utils/setup.ts"),
+        resolve(configDir, "packages/parametric/test/setup.ts"),
+    ],
     testEnvironment: "happy-dom",
     tools: {
         rspack: {

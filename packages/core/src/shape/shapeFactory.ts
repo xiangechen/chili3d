@@ -19,13 +19,23 @@ import type {
 
 export interface TrackedShape {
     shape: IShape;
-    /** output face index (findSubShapes order) -> input face index, -1 = new face */
-    faceMap: number[];
     /**
-     * output edge index (findSubShapes order) -> input edge index, -1 = new edge.
-     * For booleans the input enumerates args edges first, then tools edges.
+     * Every (output, input) face derivation as flat pairs (out0, in0, out1, in1, ...), in
+     * ascending input order (identity first for each input). This is the kernel's WHOLE
+     * relation, not a first-ancestor-only map: a face MERGED from several inputs records each
+     * of them, whichever operation merged it, and "the first ancestor" is derived where a
+     * single index is wanted (`primaryAncestors` below) rather than dropped here.
+     * A sub-shape no input derives from simply has no pair.
      */
-    edgeMap: number[];
+    faceAncestors: number[];
+    /**
+     * The edge counterpart of `faceAncestors`, emitted alongside it and consumed exactly as it
+     * is — by `mapBooleanIds`/`mapOperationIds`/`mapFusedIds` alike, through the pairs
+     * `completeTrackedHistory` verified: a fuse of two touching swept prisms reports pairs the
+     * geometry contradicts (measured: a merged top edge recorded as derived from a BOTTOM edge),
+     * and composing those unverified minted ids naming sub-shapes millimetres away.
+     */
+    edgeAncestors: number[];
     /**
      * output face index (findSubShapes order) -> input edge index for faces generated
      * from an input edge (a sweep's side faces), -1 = not edge-generated. Lets callers
@@ -34,30 +44,35 @@ export interface TrackedShape {
      */
     faceEdgeMap?: number[];
     /**
-     * Every (output, input) face derivation as flat pairs (out0, in0, out1, in1, ...) —
-     * `faceMap` keeps only the first ancestor per output; this keeps them all, so a
-     * face MERGED from several input faces records each of them. Filled for booleans
-     * (merges are a boolean phenomenon); absent for sweeps/fillets and older kernels.
-     */
-    faceAncestors?: number[];
-    /**
-     * The edge counterpart of `faceAncestors`, emitted alongside it and consumed exactly as it
-     * is — by `mapBooleanIds`/`mapOperationIds`/`mapFusedIds` alike, through the pairs
-     * `completeTrackedHistory` verified: a fuse of two touching swept prisms reports pairs the
-     * geometry contradicts (measured: a merged top edge recorded as derived from a BOTTOM edge),
-     * and composing those unverified minted ids naming sub-shapes millimetres away.
-     */
-    edgeAncestors?: number[];
-    /**
      * Output face indexes (findSubShapes order) of a sweep's end cap, reported
      * directly by the kernel (LastShape): a prism's top face, a PARTIAL revolve's
      * end cap. Empty for non-sweeps and full-turn revolves (first/last shapes
-     * coincide — those keep the geometric probe). Deliberately separate from
-     * `faceMap`: the cap must not claim the profile face's derivation and collide
+     * coincide — those keep the geometric probe). Deliberately separate from the
+     * derivation: the cap must not claim the profile face's ancestors and collide
      * with the identical bottom/start face. Absent when the kernel predates this
      * channel — callers then fall back to the history-less-face heuristic.
      */
     capFaces?: number[];
+}
+
+/**
+ * The FIRST ancestor of every output — one index per output in findSubShapes order, -1 where no
+ * input derives it. Most callers want exactly this single index ("is this sub-shape new?",
+ * "which input did it come from?"), and it is derived from the pairs rather than emitted beside
+ * them, so the two can never disagree and no operation has to decide whether its merges are
+ * worth recording. "First" is the smallest input index: the pairs arrive in ascending input
+ * order, identity first.
+ */
+export function primaryAncestors(ancestors: readonly number[] | undefined, count: number): number[] {
+    const map = new Array<number>(count).fill(-1);
+    // A producer predating the pair channel reports no ancestors at all: every sub-shape is then
+    // "new", which is exactly the id-less state tracking degrades to (`trackedIds`).
+    if (ancestors === undefined) return map;
+    for (let i = 0; i + 1 < ancestors.length; i += 2) {
+        const output = ancestors[i];
+        if (output >= 0 && output < count && map[output] < 0) map[output] = ancestors[i + 1];
+    }
+    return map;
 }
 
 export interface IShapeFactory {

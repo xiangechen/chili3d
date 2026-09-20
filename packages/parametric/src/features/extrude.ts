@@ -3,36 +3,32 @@
 
 import {
     type IDocument,
-    type IEdge,
-    type IFace,
     type IShape,
     LENGTH_UNITS,
     Result,
     resolveUnitSpec,
     ShapeTypes,
+    type TrackedShape,
     type XYZ,
 } from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
 import { type TrackedMethod, trackedBoolean } from "./boolean";
 import {
+    type CompletedTrackedHistory,
     completeTrackedHistory,
     type ExtrudeFeatureData,
     type FeatureContext,
     type FeatureHandler,
     registerFeature,
     type ShapeTracking,
-    trackedFaceIds,
-    trackedIds,
+    trackedAncestors,
 } from "./feature";
-import { mergedEdgeAncestors, unionAncestors } from "./historyCompletion";
-import { mapFusedIds, mapOperationIds } from "./operationIds";
+import { bornEdgeIdMap, mapOperationIds } from "./operationIds";
 import { extrudeFromSourceFaces } from "./pressPull";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
-import { edgeLiesOnOffset, profileEdgeEntityIds, registerProfileEdgeEntities } from "./profileEntities";
 import { captureProfileRef } from "./profileRef";
-import { type ProfileCorner, profileCornerSeeds, profileEdgeSeeds, samePoint } from "./profileSeeds";
-import { anyPairTouches, combineShapes, extrudePlain, translateFace } from "./sweepGeometry";
-import { positionalId, uncontested } from "./trackedId";
+import { combineShapes, extrudePlain } from "./sweepGeometry";
+import { fuseSweptPrisms, sweepFaceTracked } from "./sweepTracked";
 
 export function findSketch(document: IDocument, id: string): SketchNode | undefined {
     const node = document.modelManager.findNode((n) => n.id === id);
@@ -86,11 +82,22 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
         if (tracked !== undefined) return tracked;
 
         const source = feature.source;
-        const built =
-            source === undefined
-                ? extrudeFromSketch(feature, context, depth, startOffset)
-                : extrudeFromSourceFaces({ ...feature, source }, context, depth, startOffset);
-        return combineWithInput(built, feature, context);
+        if (source === undefined) {
+            return combineWithInput(
+                extrudeFromSketch(feature, context, depth, startOffset),
+                feature,
+                context,
+            );
+        }
+        const built = extrudeFromSourceFaces({ ...feature, source }, context, depth, startOffset);
+        if (!built.isOk) return Result.err(built.error);
+        // The sweep's ids are the body's ids — without this a standalone press-pull (the default:
+        // no `operation`) named nothing (see `extrudeTracked`, the sketch path's counterpart).
+        if (context.tracking !== undefined) {
+            context.tracking.outputFaceIds = built.value.faceIds;
+            context.tracking.outputEdgeIds = built.value.edgeIds;
+        }
+        return combineWithInput(Result.ok(built.value.shape), feature, context);
     },
 };
 
@@ -174,7 +181,7 @@ function extrudeFromSketch(
         shapeFactory.prismTracked === undefined;
     return plain
         ? extrudePlain(profiles, vecs, offsetVec)
-        : extrudeTracked(feature, sketch, vecs, profiles, context.tracking!, offsetVec);
+        : extrudeTracked(sketch, vecs, profiles, context.tracking!, offsetVec);
 }
 
 /**
@@ -199,14 +206,13 @@ function resolveSketchProfiles(
 }
 
 function extrudeTracked(
-    feature: ExtrudeFeatureData,
     sketch: SketchNode,
     vecs: XYZ[],
     profiles: ResolvedProfile[],
     tracking: ShapeTracking,
     offsetVec: XYZ,
 ): Result<IShape> {
-    const swept = sweepProfiles(feature, sketch, vecs, profiles, offsetVec);
+    const swept = sweepProfiles(sketch, vecs, profiles, offsetVec);
     if (!swept.isOk) return Result.err(swept.error);
     tracking.outputFaceIds = swept.value.faceIds;
     tracking.outputEdgeIds = swept.value.edgeIds;
@@ -219,22 +225,20 @@ function extrudeTracked(
  * findSubShapes order.
  */
 function sweepProfiles(
-    feature: ExtrudeFeatureData,
     sketch: SketchNode,
     vecs: XYZ[],
     profiles: ResolvedProfile[],
     offsetVec: XYZ,
-): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
+): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
     const shapes: IShape[] = [];
-    const faceIds: string[][] = [];
-    const edgeIds: string[][] = [];
+    const faceIds: (string | undefined)[][] = [];
+    const edgeIds: (string | undefined)[][] = [];
     for (const profile of profiles) {
         for (const [direction, vec] of vecs.entries()) {
-            const swept = sweepProfileTracked(
-                feature,
-                sketch,
+            const swept = sweepFaceTracked(
+                profile.face,
+                `sketch:${sketch.id}:${profile.seed}`,
                 vec,
-                profile,
                 offsetVec,
                 direction === 0 ? "" : ":neg",
             );
@@ -244,7 +248,7 @@ function sweepProfiles(
             edgeIds.push(swept.value.edgeIds);
         }
     }
-    const fused = fuseSweptPrisms(feature.id, shapes, faceIds, edgeIds);
+    const fused = fuseSweptPrisms(shapes, faceIds, edgeIds);
     if (fused !== undefined) return fused;
     const combined = combineShapes(shapes);
     if (!combined.isOk) return Result.err(combined.error);
@@ -252,51 +256,12 @@ function sweepProfiles(
 }
 
 /**
- * Fuses touching swept prisms into one solid with kernel history, mapping the
- * merged ids back per prism. Returns undefined when the fuse does not apply or
- * fails — the caller then combines the prisms into a compound.
- */
-function fuseSweptPrisms(
-    featureId: string,
-    shapes: IShape[],
-    faceIds: string[][],
-    edgeIds: string[][],
-): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> | undefined {
-    if (shapes.length <= 1 || !anyPairTouches(shapes) || shapeFactory.booleanFuseTracked === undefined) {
-        return undefined;
-    }
-    const fused = shapeFactory.booleanFuseTracked([shapes[0]], shapes.slice(1));
-    if (!fused.isOk) return undefined;
-    const completed = completeTrackedHistory(shapes, fused.value);
-    // The merge channel twice over: the kernel's verified pairs, plus a geometric sweep for
-    // the merges those pairs got wrong (see `mergedEdgeAncestors`).
-    const merged = {
-        shape: fused.value.shape,
-        faceIds: mapFusedIds(featureId, faceIds, completed.faceMap, completed.faceAncestors),
-        edgeIds: mapFusedIds(
-            featureId,
-            edgeIds,
-            completed.edgeMap,
-            unionAncestors(
-                completed.edgeAncestors,
-                mergedEdgeAncestors(completed.outputEdges, completed.inputEdges),
-            ),
-        ),
-    };
-    shapes.forEach((x) => {
-        x.dispose();
-    });
-    return Result.ok(merged);
-}
-
-/**
  * Press-pull with join/cut/intersect on the tracked path: the swept prism combines
  * with the chain input via the tracked boolean, so the body's own face ids survive
- * past this feature and later press-pulls still resolve by id. The tool's sub-shapes
- * get positional feature-scoped ids — the sweep is deterministic per source-face set,
- * and its faces are new geometry either way (they realign when the source-face set
- * changes, the usual feature-scoped trade-off). Returns undefined when a tracking
- * capability is missing (the caller falls back to the plain path).
+ * past this feature and later press-pulls still resolve by id — including on the pad
+ * this feature raises, whose top is the pressed face's own image (`sweepTracked.ts`).
+ * Returns undefined when a tracking capability is missing (the caller falls back to
+ * the plain path).
  */
 function pressPullOperationTracked(
     feature: ExtrudeFeatureData & { source: NonNullable<ExtrudeFeatureData["source"]> },
@@ -313,26 +278,16 @@ function pressPullOperationTracked(
     const built = extrudeFromSourceFaces(feature, context, depth, startOffset);
     if (!built.isOk) return Result.err(built.error);
     try {
-        const result = tracked([context.input], [built.value]);
+        const result = tracked([context.input], [built.value.shape]);
         if (!result.isOk) return Result.err(result.error);
-        const tool = {
-            faceIds: (built.value.findSubShapes(ShapeTypes.face) as IFace[]).map((_, index) =>
-                positionalId(`${feature.id}:tool:f`, index),
-            ),
-            edgeIds: (built.value.findSubShapes(ShapeTypes.edge) as IEdge[]).map((_, index) =>
-                positionalId(`${feature.id}:tool:e`, index),
-            ),
-        };
-        const completed = completeTrackedHistory([context.input, built.value], result.value);
-        trackOperation(feature.id, context.input, tracking, tool, {
-            edgeMap: completed.edgeMap,
-            faceMap: completed.faceMap,
-            ancestors: { edges: completed.edgeAncestors, faces: completed.faceAncestors },
-        });
+        // Empty when the source face carried no id — an untracked tool, not a misnamed one.
+        const tool = { faceIds: built.value.faceIds, edgeIds: built.value.edgeIds };
+        const completed = completeTrackedHistory([context.input, built.value.shape], result.value);
+        trackOperation(context.input, tracking, tool, completed, result.value);
         return Result.ok(result.value.shape);
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
-        built.value.dispose();
+        built.value.shape.dispose();
     }
 }
 
@@ -365,10 +320,10 @@ function extrudeOperationTracked(
     const vec = resolved.value.sketch.plane.normal.multiply(depth);
     const vecs = feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
     const offsetVec = resolved.value.sketch.plane.normal.multiply(startOffset);
-    const tool = sweepProfiles(feature, resolved.value.sketch, vecs, resolved.value.profiles, offsetVec);
+    const tool = sweepProfiles(resolved.value.sketch, vecs, resolved.value.profiles, offsetVec);
     if (!tool.isOk) return Result.err(tool.error);
     try {
-        return applyTrackedOperation(feature.id, input, tracking, tracked, tool.value);
+        return applyTrackedOperation(input, tracking, tracked, tool.value);
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
         tool.value.shape.dispose();
@@ -377,232 +332,58 @@ function extrudeOperationTracked(
 
 /** Combines the swept prism with the chain input and records the resulting id map. */
 function applyTrackedOperation(
-    featureId: string,
     input: IShape,
     tracking: ShapeTracking,
     tracked: TrackedMethod,
-    tool: { shape: IShape; faceIds: string[]; edgeIds: string[] },
+    tool: { shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] },
 ): Result<IShape> {
     const result = tracked([input], [tool.shape]);
     if (!result.isOk) return Result.err(result.error);
 
     const completed = completeTrackedHistory([input, tool.shape], result.value);
-    trackOperation(featureId, input, tracking, tool, {
-        edgeMap: completed.edgeMap,
-        faceMap: completed.faceMap,
-        ancestors: { edges: completed.edgeAncestors, faces: completed.faceAncestors },
-    });
+    trackOperation(input, tracking, tool, completed, result.value);
     return Result.ok(result.value.shape);
 }
 
 /** Fills the tracking outputs from the operation's boolean history (see `mapOperationIds`). */
 function trackOperation(
-    featureId: string,
     input: IShape,
     tracking: ShapeTracking,
-    tool: { faceIds: string[]; edgeIds: string[] },
-    completed: {
-        edgeMap: number[];
-        faceMap: number[];
-        ancestors: { edges?: number[]; faces?: number[] };
-    },
+    tool: { faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] },
+    completed: CompletedTrackedHistory,
+    result: TrackedShape,
 ): void {
+    const shape = result.shape;
+    // Both mappers consume the merge channel, so this is one of the few places that pays for
+    // verifying it (see `trackedAncestors`).
+    const ancestors = trackedAncestors(completed, result);
     tracking.outputFaceIds = mapOperationIds(
-        featureId,
         input,
         tracking.inputFaceIds,
         tool.faceIds,
         completed.faceMap,
         ShapeTypes.face,
-        completed.ancestors.faces,
+        ancestors.faceAncestors,
+    );
+    // The curves a join/cut carves derive from nothing in either operand — they are the
+    // boundary between two faces that DO have ids, exactly as a boolean's carved curves are
+    // (see `bornEdgeIdMap`).
+    const bornEdges = bornEdgeIdMap(
+        shape,
+        completed.outputEdges,
+        completed.outputFaces,
+        tracking.outputFaceIds,
+        (index) => completed.edgeMap[index] < 0,
     );
     tracking.outputEdgeIds = mapOperationIds(
-        featureId,
         input,
         tracking.inputEdgeIds,
         tool.edgeIds,
         completed.edgeMap,
         ShapeTypes.edge,
-        completed.ancestors.edges,
+        ancestors.edgeAncestors,
+        (index) => bornEdges.get(index),
     );
-}
-
-/**
- * Sweeps one profile with kernel history and maps that history to stable ids.
- *
- * - **Bottom edges** — the profile's edges seed sketch-scoped ids; the prism's bottom edges are
- *   identical to them.
- * - **Bottom face** — each profile face seeds one id, which prism history propagates to the
- *   bottom face (also identical to the profile).
- * - **Top face** — has no sweep history at all (it is neither the identical bottom nor an
- *   edge-generated side), so the kernel reports it directly through `capFaces` (LastShape) and
- *   it takes the profile's synthetic `:top` seed. A positional feature-scoped id would realign
- *   onto another face when the sketch's structure changes. A kernel predating that channel
- *   falls back to the unique-history-less-face heuristic.
- * - **Side faces** — generated from profile edges, so they take that edge's seed; a rebuild that
- *   re-enumerates faces (a mirrored profile) therefore cannot realign them.
- * - **Anything the sweep history does not cover** gets a feature-scoped id.
- * - **`seedSuffix`** keeps the mirrored half of a symmetric sweep from duplicating the first
- *   half's ids.
- */
-function sweepProfileTracked(
-    feature: ExtrudeFeatureData,
-    sketch: SketchNode,
-    vec: XYZ,
-    profile: ResolvedProfile,
-    offsetVec: XYZ,
-    seedSuffix = "",
-): Result<{ shape: IShape; faceIds: string[]; edgeIds: string[] }> {
-    const owned: IFace[] = [];
-    try {
-        const face = translateProfileFace(profile, offsetVec, owned);
-        const result = shapeFactory.prismTracked!(face, vec);
-        if (!result.isOk) return Result.err(result.error);
-        const seed = `sketch:${sketch.id}:${profile.seed}${seedSuffix}`;
-        const faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
-        // Entity-derived edge seeds survive wire re-enumeration (see profileEdgeSeeds).
-        const edgeSeeds = profileEdgeSeeds(face, seed, faceEdges);
-        const featureId = `${feature.id}${seedSuffix}`;
-        // The completed face map keeps the top-face seeding below unambiguous: a
-        // kernel-missed bottom face would otherwise look like a second history-less
-        // candidate.
-        const { edgeMap, faceMap, outputEdges } = completeTrackedHistory([face], result.value, {
-            inputEdges: faceEdges,
-            inputFaces: [face],
-        });
-        const faceIds = trackedFaceIds(featureId, [seed], edgeSeeds, faceMap, result.value.faceEdgeMap);
-        seedTopFace(faceIds, seed, faceMap, result.value.faceEdgeMap, result.value.capFaces ?? []);
-        const edgeIds = trackedIds(featureId, edgeSeeds, edgeMap);
-        attributeSweepEdges(edgeIds, outputEdges, edgeMap, face, vec, seed, edgeSeeds);
-        return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
-    } finally {
-        owned.forEach((x) => x.dispose());
-    }
-}
-
-/**
- * Names the prism edges the kernel's history could not attribute, in place.
- *
- * The kernel reports a prism's bottom edges (the profile's own, identity or Modified)
- * and its side FACES, but nothing derives its TOP edges (the profile's edges swept) or
- * its side EDGES (the profile's corners swept): those fall to `trackedIds`' positional
- * id, which names "output index n" — and a rebuilt prism re-enumerates, silently
- * realigning that id onto a neighbour (see `profileSeeds` on why seeds are content-derived).
- *
- * Both are exactly attributable here, because a prism is a pure translation by `vec`:
- * - **top edge** — the image of the profile edge it lies on (`edgeLiesOnOffset`);
- * - **side edge** — the image of the corner it stands on (`profileCornerSeeds`).
- *
- * An edge that matches several candidates, or whose candidate has no seed (an
- * unattributed corner), keeps its positional id rather than take an id two different
- * sub-shapes could claim. Symmetric sweeps need no special case: `seed` and the edge
- * seeds already carry the direction suffix.
- */
-function attributeSweepEdges(
-    edgeIds: string[],
-    outputEdges: readonly IEdge[],
-    edgeMap: readonly number[],
-    face: IFace,
-    vec: XYZ,
-    seed: string,
-    edgeSeeds: readonly string[],
-): void {
-    const profileEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
-    let corners: ProfileCorner[] | undefined;
-    const candidates = new Map<number, string>();
-    outputEdges.forEach((edge, index) => {
-        if (edgeMap[index] >= 0) return;
-        try {
-            const topSeed = topEdgeSeed(edge, profileEdges, edgeSeeds, vec);
-            if (topSeed !== undefined) {
-                candidates.set(index, topSeed);
-                return;
-            }
-            corners ??= profileCornerSeeds(face, seed);
-            const corner = cornerOf(edge, corners, vec);
-            if (corner !== undefined) candidates.set(index, corner);
-        } catch {
-            // A degenerate edge (its kernel queries throw — the release build turns an OCCT
-            // failure into a JS-level throw): it keeps its positional id.
-        }
-    });
-    // Both directions: one edge gets one candidate, and no candidate is shared by two edges
-    // (a mirrored or duplicated profile can offer the same seed twice).
-    for (const [index, id] of uncontested(candidates)) {
-        edgeIds[index] = id;
-    }
-}
-
-/** `<edgeSeed>:top` for the profile edge this top edge is the image of — undefined when none or several. */
-function topEdgeSeed(
-    edge: IEdge,
-    profileEdges: readonly IEdge[],
-    edgeSeeds: readonly string[],
-    vec: XYZ,
-): string | undefined {
-    const hits = profileEdges.flatMap((profileEdge, index) =>
-        edgeLiesOnOffset(edge, profileEdge, vec) ? [edgeSeeds[index]] : [],
-    );
-    return hits.length === 1 ? `${hits[0]}:top` : undefined;
-}
-
-/** The corner seed of the profile vertex this side edge stands on — undefined when none or several. */
-function cornerOf(edge: IEdge, corners: readonly ProfileCorner[], vec: XYZ): string | undefined {
-    const start = edge.startPoint();
-    const end = edge.endPoint();
-    const hits = corners.flatMap((corner) => {
-        if (corner.seed === undefined) return [];
-        const base = corner.point;
-        const top = { x: base.x + vec.x, y: base.y + vec.y, z: base.z + vec.z };
-        const spans =
-            (samePoint(start, base) && samePoint(end, top)) ||
-            (samePoint(end, base) && samePoint(start, top));
-        return spans ? [corner.seed] : [];
-    });
-    return hits.length === 1 ? hits[0] : undefined;
-}
-
-/**
- * The profile face translated to the feature's start offset, registered so the edge
- * enumeration stays entity-derived.
- *
- * A translated copy is a fresh object: it is neither the WeakMap key of the original
- * profile face nor in its sub-shape parent chain, so without re-registering, a start offset
- * would demote every edge seed to a positional ordinal.
- */
-function translateProfileFace(profile: ResolvedProfile, offsetVec: XYZ, owned: IFace[]): IFace {
-    const face = translateFace(profile.face, offsetVec, owned);
-    if (face !== profile.face) {
-        const entities = profileEdgeEntityIds(profile.face);
-        if (entities !== undefined) registerProfileEdgeEntities(face, entities);
-    }
-    return face;
-}
-
-/**
- * Seeds the top face's id in place. The top face is the profile's other sweep image, and the
- * kernel reports it directly (the sweep's LastShape) — authoritative, so the history-less
- * heuristic must not run when a cap is reported (it misidentifies when several faces lack
- * history). The heuristic remains for kernels predating that channel; it seeds only a unique
- * history-less face, so an ambiguous report keeps the positional fallback.
- */
-function seedTopFace(
-    faceIds: string[],
-    seed: string,
-    faceMap: readonly number[],
-    faceEdgeMap: readonly number[] | undefined,
-    capFaces: readonly number[],
-): void {
-    if (capFaces.length > 0) {
-        for (const index of capFaces) {
-            if (index >= 0 && index < faceIds.length) faceIds[index] = `${seed}:top`;
-        }
-        return;
-    }
-    const candidates = faceIds.flatMap((_, index) =>
-        faceMap[index] < 0 && (faceEdgeMap?.[index] ?? -1) < 0 ? [index] : [],
-    );
-    if (candidates.length === 1) faceIds[candidates[0]] = `${seed}:top`;
 }
 
 registerFeature("extrude", extrudeHandler);

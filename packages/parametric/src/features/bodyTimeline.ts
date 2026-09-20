@@ -37,10 +37,11 @@ export interface FeatureCacheEntry {
     readonly shape: IShape;
     /**
      * Stable face/edge ids of `shape` (findSubShapes order), from kernel shape history.
-     * Undefined when any link in the chain could not track (e.g. unsupported kernel).
+     * Undefined when any link in the chain could not track (e.g. unsupported kernel); an
+     * individual entry is undefined when nothing named that sub-shape.
      */
-    readonly faceIds?: string[];
-    readonly edgeIds?: string[];
+    readonly faceIds?: (string | undefined)[];
+    readonly edgeIds?: (string | undefined)[];
 }
 
 /** Which of the two tracked id arrays a query addresses. */
@@ -124,6 +125,11 @@ export class BodyTimeline {
         return this.idsOf(kind)?.[index];
     }
 
+    /** Whether the current shape's ids exist at all for `kind` (see `IBodyTrackingNode`). */
+    tracksIds(kind: TrackedIdKind): boolean {
+        return this.idsOf(kind) !== undefined;
+    }
+
     /** Sub-shape index of a tracked id, or undefined when unknown. */
     indexOfId(kind: TrackedIdKind, id: string): number | undefined {
         const index = this.idsOf(kind)?.indexOf(id) ?? -1;
@@ -147,7 +153,7 @@ export class BodyTimeline {
      * so these always describe the displayed shape — a failed re-evaluation changes
      * neither.
      */
-    private idsOf(kind: TrackedIdKind): string[] | undefined {
+    private idsOf(kind: TrackedIdKind): (string | undefined)[] | undefined {
         const entry = this._cache.at(-1);
         return kind === "face" ? entry?.faceIds : entry?.edgeIds;
     }

@@ -10,6 +10,7 @@ import {
     type IShape,
     type Matrix4,
     type ParameterValue,
+    primaryAncestors,
     Result,
     type Scope,
     ShapeTypes,
@@ -24,7 +25,6 @@ import {
     verifiedFaceAncestors,
 } from "./historyCompletion";
 import type { ProfileRef } from "./profileRef";
-import { positionalId } from "./trackedId";
 
 export interface FeatureBase {
     readonly id: string;
@@ -154,10 +154,10 @@ export interface FeatureContext {
 }
 
 export interface ShapeTracking {
-    readonly inputFaceIds: readonly string[];
-    outputFaceIds: string[];
-    readonly inputEdgeIds: readonly string[];
-    outputEdgeIds: string[];
+    readonly inputFaceIds: readonly (string | undefined)[];
+    outputFaceIds: (string | undefined)[];
+    readonly inputEdgeIds: readonly (string | undefined)[];
+    outputEdgeIds: (string | undefined)[];
     /**
      * Set by a profile-matching handler to the fingerprints of the faces it actually
      * matched this run; the body writes them back into the feature (re-anchoring) so
@@ -174,20 +174,28 @@ export interface ShapeTracking {
 }
 
 /**
- * Maps kernel sub-shape history to stable ids: a sub-shape derived from an input
- * sub-shape keeps that id, a brand-new one gets an id scoped to the creating feature.
- * Feature-scoped ids are positional (`positionalId`) — stable while the kernel
- * enumerates unchanged geometry the same way, NOT geometry-stable — so consumers
- * re-verify an id hit against the ref's rigid-move invariants
- * (`edgeMatchesRefInvariant`), the matcher distrusts one that a decisive geometric
- * match contradicts, and the callers attribute what they can by content instead
- * (`attributeSweepEdges`, `attributeCornerEdges`).
+ * Maps kernel sub-shape history to stable ids: a sub-shape derived from an input sub-shape
+ * keeps that id, and a sub-shape nothing can name gets NO id.
+ *
+ * **Why there is no fallback name.** The only name left for an unattributed sub-shape would
+ * be its position in the output enumeration ("the n-th output of feature F") — and a rebuilt
+ * body is free to re-enumerate, which hands that name to a NEIGHBOUR, silently. Every sweep
+ * instead attributes what it can by content (`attributeSweepEdges` in profileSeeds.ts,
+ * `attributeCornerEdges` in edgeCorner.ts); what is left is left id-less, and the matching
+ * layer resolves it geometrically, failing loudly when the geometry is ambiguous rather than
+ * trusting a name that may have drifted.
+ *
+ * **Documents that stored a positional id** (`f1@7`, from before this) simply stop matching:
+ * the reference falls back to its geometric fingerprint, and the first successful rebuild
+ * re-anchors it with a real id (`refreshAnchoredRefs`). No migration step, and none is needed
+ * for the common case.
  */
-export function trackedIds(featureId: string, inputIds: readonly string[], map: number[]): string[] {
-    return map.map((inputIndex, outputIndex) =>
-        inputIndex >= 0 && inputIndex < inputIds.length
-            ? inputIds[inputIndex]
-            : positionalId(featureId, outputIndex),
+export function trackedIds(
+    inputIds: readonly (string | undefined)[],
+    map: readonly number[],
+): (string | undefined)[] {
+    return map.map((inputIndex) =>
+        inputIndex >= 0 && inputIndex < inputIds.length ? inputIds[inputIndex] : undefined,
     );
 }
 
@@ -195,20 +203,19 @@ export function trackedIds(featureId: string, inputIds: readonly string[], map: 
  * Face ids for sweeps (prism/revol): face-history hits keep the input face id; a side
  * face generated from a profile edge takes that edge's seed — stable across rebuilds
  * even when the kernel re-enumerates faces (a mirrored profile flips the side-face
- * order); anything else is feature-scoped.
+ * order); anything else gets no id, for the reason `trackedIds` gives.
  */
 export function trackedFaceIds(
-    featureId: string,
-    inputFaceIds: readonly string[],
-    inputEdgeIds: readonly string[],
-    faceMap: number[],
-    faceEdgeMap?: number[],
-): string[] {
+    inputFaceIds: readonly (string | undefined)[],
+    inputEdgeIds: readonly (string | undefined)[],
+    faceMap: readonly number[],
+    faceEdgeMap?: readonly number[],
+): (string | undefined)[] {
     return faceMap.map((inputIndex, outputIndex) => {
         if (inputIndex >= 0 && inputIndex < inputFaceIds.length) return inputFaceIds[inputIndex];
         const edgeIndex = faceEdgeMap?.[outputIndex] ?? -1;
         if (edgeIndex >= 0 && edgeIndex < inputEdgeIds.length) return inputEdgeIds[edgeIndex];
-        return positionalId(featureId, outputIndex);
+        return undefined;
     });
 }
 
@@ -221,20 +228,14 @@ export interface CompletedTrackedHistory {
     readonly outputFaces: IFace[];
     /** The enumerated input edges, in the order the kernel's history indexes refer to. */
     readonly inputEdges: readonly IEdge[];
-    /**
-     * The kernel's merge channel (`TrackedShape.edgeAncestors`/`faceAncestors`) with every pair
-     * the geometry contradicts dropped (see `verifiedEdgeAncestors`). Callers must prefer these
-     * over the raw fields on `result` — the raw ones are the report the verification exists for.
-     */
-    readonly edgeAncestors?: number[];
-    readonly faceAncestors?: number[];
+    readonly inputFaces: readonly IFace[];
 }
 
 /**
  * Geometry-identical completion of BOTH sub-shape kinds of a tracked kernel
  * history (`completeEdgeHistory`/`completeFaceHistory`): recovers the unchanged
  * sub-shapes a sparse kernel history missed, so they keep the input's stable id
- * instead of a feature-scoped one. Kernel geometry is read eagerly — call
+ * instead of being left unnamed. Kernel geometry is read eagerly — call
  * before disposing any input shape.
  *
  * ORDERING CONTRACT (load-bearing): the kernel's history input enumerates the
@@ -243,10 +244,14 @@ export interface CompletedTrackedHistory {
  * of the completed maps (`mapOperationIds`' main/tool boundary, `mapFusedIds`,
  * `mapBooleanIds`) all interpret the indexes against it.
  *
- * `enumerated` hands over input sub-shape lists the caller already enumerated
- * (the sweep sites keep the profile's edges for seed generation), skipping the
- * repeat `findSubShapes`; the returned output lists are the enumerated result
- * sub-shapes, for the same reuse.
+ * `options.inputEdges`/`options.inputFaces` hand over sub-shape lists the caller already
+ * enumerated (the sweep sites keep the profile's edges for seed generation), skipping the repeat
+ * `findSubShapes`; the returned output lists are the enumerated result sub-shapes, for the same
+ * reuse.
+ *
+ * The verified merge channel is NOT part of the result — a caller that wants it asks for it with
+ * `trackedAncestors`, because the kernel reports pairs for every tracked op while only the merge
+ * mappers read them, and verifying is the expensive half (see `trackedAncestors`).
  */
 export function completeTrackedHistory(
     inputs: readonly IShape[],
@@ -263,13 +268,50 @@ export function completeTrackedHistory(
     const outputEdges = result.shape.findSubShapes(ShapeTypes.edge) as IEdge[];
     const outputFaces = result.shape.findSubShapes(ShapeTypes.face) as IFace[];
     return {
-        edgeMap: completeEdgeHistory(inputEdges, outputEdges, result.edgeMap),
-        faceMap: completeFaceHistory(inputFaces, outputFaces, result.faceMap),
+        edgeMap: completeEdgeHistory(
+            inputEdges,
+            outputEdges,
+            primaryAncestors(result.edgeAncestors, outputEdges.length),
+        ),
+        faceMap: completeFaceHistory(
+            inputFaces,
+            outputFaces,
+            primaryAncestors(result.faceAncestors, outputFaces.length),
+        ),
         outputEdges,
         outputFaces,
         inputEdges,
-        edgeAncestors: verifiedEdgeAncestors(result.edgeAncestors, outputEdges, inputEdges),
-        faceAncestors: verifiedFaceAncestors(result.faceAncestors, outputFaces, inputFaces),
+        inputFaces,
+    };
+}
+
+/**
+ * The kernel's merge channel, verified: the `(output, input)` pairs with every one the geometry
+ * contradicts dropped (see `verifiedEdgeAncestors`), for the merge mappers that consume them.
+ *
+ * Deliberately a separate call rather than a field of `completeTrackedHistory`: the kernel now
+ * reports pairs for EVERY tracked op — booleans, prisms, revolves, corners alike — while only
+ * `mapBooleanIds`/`mapFusedIds`/`mapOperationIds` read the channel, and verifying costs an
+ * `edgeLiesOn` in each direction per pair (several kernel queries each). A sweep or a corner
+ * would pay all of it for nothing.
+ *
+ * Reads kernel geometry, so call it while the sub-shapes `completed` enumerated are still alive.
+ */
+export function trackedAncestors(
+    completed: CompletedTrackedHistory,
+    result: TrackedShape,
+): { readonly edgeAncestors?: number[]; readonly faceAncestors?: number[] } {
+    return {
+        edgeAncestors: verifiedEdgeAncestors(
+            result.edgeAncestors,
+            completed.outputEdges,
+            completed.inputEdges,
+        ),
+        faceAncestors: verifiedFaceAncestors(
+            result.faceAncestors,
+            completed.outputFaces,
+            completed.inputFaces,
+        ),
     };
 }
 

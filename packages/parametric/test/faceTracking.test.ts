@@ -49,6 +49,47 @@ function planarFace(point: XYZ, normal: XYZ): IFace {
     } as unknown as IFace;
 }
 
+/**
+ * The (output, input) pairs a mock kernel reports for a first-ancestor map — in the order the
+ * real one emits them, ascending input index. `primaryAncestors` derives the map back out.
+ */
+function pairsOf(map: readonly number[]): number[] {
+    // (output, input) — the kernel's order, and `primaryAncestors` reads the first pair per
+    // output, so the pairs must be in the kernel's order: ascending input, identity first.
+    const pairs = map.flatMap((input, output) => (input < 0 ? [] : [[output, input] as const]));
+    pairs.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+    return pairs.flat();
+}
+
+/** `count` distinguishable faces, for a mock output shape whose map describes that many. */
+function mockFaces(count: number): IFace[] {
+    return Array.from({ length: count }, (_, i) => planarFace(new XYZ({ x: 0, y: 0, z: i }), XYZ.unitZ));
+}
+
+/** `count` distinguishable edges, for the same purpose. */
+function mockEdges(count: number): IEdge[] {
+    return Array.from({ length: count }, (_, i) =>
+        mockLine(new XYZ({ x: i, y: 0, z: 0 }), new XYZ({ x: i, y: 1, z: 0 })),
+    );
+}
+
+/** `findSubShapes` for a mock output shape whose map describes `faces` faces and `edges` edges. */
+function subShapesOf(faces: number, edges: number) {
+    return (type: ShapeType) =>
+        type === ShapeTypes.face ? mockFaces(faces) : type === ShapeTypes.edge ? mockEdges(edges) : [];
+}
+
+/** A mock output shape reporting exactly the sub-shapes a map of that size describes. */
+function mockTrackedShape(faces: number, edges: number): IShape {
+    return {
+        shapeType: ShapeTypes.solid,
+        isEqual: () => false,
+        dispose: rs.fn(),
+        findSubShapes: (type: ShapeType) =>
+            type === ShapeTypes.face ? mockFaces(faces) : type === ShapeTypes.edge ? mockEdges(edges) : [],
+    } as unknown as IShape;
+}
+
 /** A line edge with real XYZ endpoints — the id-invariant check reads its direction. */
 function mockLine(start: XYZ, end: XYZ) {
     return {
@@ -126,8 +167,15 @@ interface TrackedMocks {
 }
 
 /** Wire/line/combine mocks for the sketch profile, plus tracked prism/fillet. */
+/**
+ * Six faces by default — the count the default `prismTracked` map below describes. A mock
+ * shape and its reported map must agree: the kernel's map is sized by the output enumeration
+ * it read, so a shape with fewer faces than its map is a mock that cannot exist.
+ */
 function setupTrackedMocks(
-    faces: IFace[] = [],
+    faces: IFace[] = Array.from({ length: 6 }, (_, i) =>
+        planarFace(new XYZ({ x: 0, y: 0, z: i }), XYZ.unitZ),
+    ),
     extra: Record<string, (...args: any[]) => any> = {},
 ): TrackedMocks {
     // Distinct boundary edges of the unit-square profile — geometry completion tells
@@ -154,12 +202,7 @@ function setupTrackedMocks(
             type === ShapeTypes.face ? faces : type === ShapeTypes.edge ? subEdges : [],
         mesh: { edges: { range: subEdges.map((shape) => ({ shape })) } },
     } as unknown as IShape;
-    const filletedShape = {
-        shapeType: ShapeTypes.solid,
-        isEqual: () => false,
-        dispose: rs.fn(),
-        findSubShapes: () => [],
-    } as unknown as IShape;
+    const filletedShape = mockTrackedShape(7, 5);
     const mocks = {
         line: rs.fn((start: XYZ, end: XYZ) =>
             Result.ok({
@@ -201,14 +244,18 @@ function setupTrackedMocks(
     // history reports only edge 0 as identical; geometric completion recovers the
     // other three bottom edges (the prism edges ARE the profile edges here).
     const prismTracked = rs.fn((_face: any, _vec: XYZ) =>
-        Result.ok({ shape: prismShape, faceMap: [0, -1, -1, -1, -1, -1], edgeMap: [0, -1, -1, -1] }),
+        Result.ok({
+            shape: prismShape,
+            faceAncestors: pairsOf([0, -1, -1, -1, -1, -1]),
+            edgeAncestors: pairsOf([0, -1, -1, -1]),
+        }),
     );
     // Every input face/edge survives identically; one new fillet face and edge appear.
     const filletTracked = rs.fn((_shape: any, _indexes: number[], _radius: number) =>
         Result.ok({
             shape: filletedShape,
-            faceMap: [0, 1, 2, 3, 4, 5, -1],
-            edgeMap: [0, 1, 2, 3, -1],
+            faceAncestors: pairsOf([0, 1, 2, 3, 4, 5, -1]),
+            edgeAncestors: pairsOf([0, 1, 2, 3, -1]),
         }),
     );
     const restore = mockShapeFactory({ ...mocks, prismTracked, filletTracked, ...extra });
@@ -237,15 +284,16 @@ describe("ParametricBodyNode face tracking", () => {
         return body;
     }
 
-    test("extrude seeds the profile face id and scopes new faces to the feature", () => {
+    test("extrude seeds the profile face id and leaves an unattributed face unnamed", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
         expect(mocks.prismTracked).toHaveBeenCalledTimes(1);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(1)).toBe("f1@1");
+        // The kernel's history names nothing for face 1, and nothing may name it by its
+        // position either: it is left id-less (see `trackedIds` in feature.ts).
+        expect(body.faceIdAt(1)).toBeUndefined();
         expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4`)).toBe(0);
-        expect(body.faceIndexById("f1@1")).toBe(1);
         expect(body.faceIndexById("unknown")).toBeUndefined();
     });
 
@@ -253,8 +301,8 @@ describe("ParametricBodyNode face tracking", () => {
         mocks.prismTracked.mockImplementation((_face: any, _vec: XYZ) =>
             Result.ok({
                 shape: mocks.prismShape,
-                faceMap: [0, -1, -1, -1, -1, -1],
-                edgeMap: [0, -1, -1, -1],
+                faceAncestors: pairsOf([0, -1, -1, -1, -1, -1]),
+                edgeAncestors: pairsOf([0, -1, -1, -1]),
                 // side faces 1..4 are generated from profile edges 0..3
                 faceEdgeMap: [-1, 0, 1, 2, 3, -1],
             }),
@@ -276,8 +324,8 @@ describe("ParametricBodyNode face tracking", () => {
                 shape: mocks.prismShape,
                 // Only the bottom has history: five history-less faces are ambiguous
                 // to the heuristic, but the kernel's cap channel names the top.
-                faceMap: [0, -1, -1, -1, -1, -1],
-                edgeMap: [0, -1, -1, -1],
+                faceAncestors: pairsOf([0, -1, -1, -1, -1, -1]),
+                edgeAncestors: pairsOf([0, -1, -1, -1]),
                 capFaces: [5],
             }),
         );
@@ -286,25 +334,25 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.shape.isOk).toBe(true);
         expect(body.faceIdAt(5)).toBe(`sketch:${sketch.id}:e1.2.3.4:top`);
         expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4:top`)).toBe(5);
-        // The other history-less faces keep positional ids — the heuristic did not run.
-        expect(body.faceIdAt(1)).toBe("f1@1");
+        // The other history-less faces stay unnamed — the heuristic did not run.
+        expect(body.faceIdAt(1)).toBeUndefined();
     });
 
     test("an empty cap channel keeps the history-less heuristic and its ambiguity guard", () => {
         mocks.prismTracked.mockImplementation((_face: any, _vec: XYZ) =>
             Result.ok({
                 shape: mocks.prismShape,
-                faceMap: [0, -1, -1, -1, -1, -1],
-                edgeMap: [0, -1, -1, -1],
+                faceAncestors: pairsOf([0, -1, -1, -1, -1, -1]),
+                edgeAncestors: pairsOf([0, -1, -1, -1]),
                 // A kernel predating the channel reports nothing: five history-less
-                // faces stay ambiguous, so no :top is seeded (positional fallback).
+                // faces stay ambiguous, so no :top is seeded and they stay unnamed.
                 capFaces: [],
             }),
         );
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
 
         expect(body.shape.isOk).toBe(true);
-        expect(body.faceIdAt(5)).toBe("f1@5");
+        expect(body.faceIdAt(5)).toBeUndefined();
     });
 
     test("revolve: the kernel-reported end cap wins over the history-less heuristic", () => {
@@ -313,7 +361,7 @@ describe("ParametricBodyNode face tracking", () => {
             shapeType: ShapeTypes.solid,
             isEqual: () => false,
             dispose: rs.fn(),
-            findSubShapes: () => [],
+            findSubShapes: subShapesOf(5, 4),
             mesh: { edges: { range: [] } },
         } as unknown as IShape;
         const revolveTracked = rs.fn((_face: any, _axis: any, _angle: number) =>
@@ -321,12 +369,12 @@ describe("ParametricBodyNode face tracking", () => {
                 shape: revolvedShape,
                 // The start face is identical to the profile; the four remaining
                 // faces are new — ambiguous to the history-less heuristic.
-                faceMap: [0, -1, -1, -1, -1],
-                edgeMap: [0, -1, -1, -1],
+                faceAncestors: pairsOf([0, -1, -1, -1, -1]),
+                edgeAncestors: pairsOf([0, -1, -1, -1]),
                 capFaces: [4],
             }),
         );
-        mocks = setupTrackedMocks([], { revolveTracked });
+        mocks = setupTrackedMocks(mockFaces(6), { revolveTracked });
         const body = bodyWith([
             {
                 id: "r1",
@@ -341,11 +389,11 @@ describe("ParametricBodyNode face tracking", () => {
         expect(revolveTracked).toHaveBeenCalledTimes(1);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(4)).toBe(`sketch:${sketch.id}:e1.2.3.4:cap`);
-        // The other new faces keep positional ids — the heuristic did not run.
-        expect(body.faceIdAt(1)).toBe("r1@1");
+        // The other new faces stay unnamed — the heuristic did not run.
+        expect(body.faceIdAt(1)).toBeUndefined();
     });
 
-    test("fillet propagates input ids and adds a feature-scoped id for the new face", () => {
+    test("fillet propagates input ids and leaves the face it builds unnamed", () => {
         const body = bodyWith([
             { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
@@ -354,8 +402,8 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.shape.isOk).toBe(true);
         expect(mocks.filletTracked).toHaveBeenCalledTimes(1);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(5)).toBe("f1@5");
-        expect(body.faceIdAt(6)).toBe("f2@6");
+        expect(body.faceIdAt(5)).toBeUndefined();
+        expect(body.faceIdAt(6)).toBeUndefined();
     });
 
     test("editing a later feature keeps the cached prefix ids", () => {
@@ -387,7 +435,9 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.shape.isOk).toBe(true);
             expect(prism).toHaveBeenCalledTimes(1);
             expect(body.faceIdAt(0)).toBeUndefined();
-            expect(body.faceIndexById("f1@0")).toBeUndefined();
+            // Not even the seed the tracked path would have produced resolves: with no
+            // history there is nothing to hang an id on.
+            expect(body.faceIndexById(`sketch:${sketch.id}:e1.2.3.4`)).toBeUndefined();
         } finally {
             restore();
         }
@@ -401,10 +451,12 @@ describe("ParametricBodyNode face tracking", () => {
         const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 }]);
         expect(body.shape.isOk).toBe(true);
 
-        // faceIdAt(1) is "f1@1" — geometrically offset 5 would match faceA (index 0),
-        // but the stored id must hit faceB (index 1) exactly.
-        const ref = { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "f1@1" };
-        expect(resolveFacePlane(doc, ref)?.origin.z).toBe(10);
+        // Only faceA carries an id (the kernel's history attributes face 0 alone). The
+        // stored id must win over the fingerprint, which at offset 10 reaches faceB.
+        const faceAId = body.faceIdAt(0) ?? "";
+        expect(faceAId).toBe(`sketch:${sketch.id}:e1.2.3.4`);
+        const ref = { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 10, faceId: faceAId };
+        expect(resolveFacePlane(doc, ref)?.origin.z).toBe(5);
     });
 
     test("resolveFacePlane falls back to the fingerprint for an unknown face id", () => {
@@ -425,7 +477,12 @@ describe("ParametricBodyNode face tracking", () => {
         const sketchOnBody = new SketchNode({
             document: doc,
             plane: Plane.XY.translateTo(new XYZ({ x: 0, y: 0, z: 5 })),
-            planeRef: { nodeId: body.id, normal: { x: 0, y: 0, z: 1 }, offset: 5, faceId: "f1@1" },
+            planeRef: {
+                nodeId: body.id,
+                normal: { x: 0, y: 0, z: 1 },
+                offset: 5,
+                faceId: `sketch:${sketch.id}:e1.2.3.4`,
+            },
         });
         doc.modelManager.addNode(sketchOnBody);
 
@@ -436,7 +493,7 @@ describe("ParametricBodyNode face tracking", () => {
             nodeId: body.id,
             normal: { x: 0, y: 0, z: 1 },
             offset: 5,
-            faceId: "f1@1",
+            faceId: `sketch:${sketch.id}:e1.2.3.4`,
         });
     });
 
@@ -452,7 +509,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.edgeIndexById("unknown")).toBeUndefined();
     });
 
-    test("fillet propagates edge ids and adds a feature-scoped id for the new edge", () => {
+    test("fillet propagates edge ids and leaves the edge it builds unnamed", () => {
         const body = bodyWith([
             { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
@@ -461,7 +518,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(body.shape.isOk).toBe(true);
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         expect(body.edgeIdAt(3)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent4`);
-        expect(body.edgeIdAt(4)).toBe("f2@4");
+        expect(body.edgeIdAt(4)).toBeUndefined();
     });
 
     test("reselectShapes captures edge ids from the rolled-back shape, not the restored one", async () => {
@@ -473,16 +530,16 @@ describe("ParametricBodyNode face tracking", () => {
             shapeType: ShapeTypes.solid,
             isEqual: () => false,
             dispose: rs.fn(),
-            findSubShapes: () => [],
+            findSubShapes: subShapesOf(7, 5),
         } as unknown as IShape;
         const permutedFilletTracked = rs.fn((_shape: any, _indexes: number[], _radius: number) =>
             Result.ok({
                 shape: filletedShape,
-                faceMap: [0, 1, 2, 3, 4, 5, -1],
-                edgeMap: [1, 2, 3, 0, -1],
+                faceAncestors: pairsOf([0, 1, 2, 3, 4, 5, -1]),
+                edgeAncestors: pairsOf([1, 2, 3, 0, -1]),
             }),
         );
-        mocks = setupTrackedMocks([], { filletTracked: permutedFilletTracked });
+        mocks = setupTrackedMocks(mockFaces(6), { filletTracked: permutedFilletTracked });
         const body = bodyWith([
             { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "fillet", radius: 2, edges: [EDGE_REF] },
@@ -515,7 +572,7 @@ describe("ParametricBodyNode face tracking", () => {
         expect(indexes).toEqual([1]);
     });
 
-    test("boolean maps tool sub-shapes to tool-scoped ids", () => {
+    test("boolean leaves an untracked tool's sub-shapes unnamed", () => {
         const toolFace = planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ);
         const toolShape = {
             shapeType: ShapeTypes.solid,
@@ -533,13 +590,13 @@ describe("ParametricBodyNode face tracking", () => {
                     shapeType: ShapeTypes.solid,
                     isEqual: () => false,
                     dispose: rs.fn(),
-                    findSubShapes: () => [],
+                    findSubShapes: subShapesOf(3, 2),
                 },
-                faceMap: [0, 6, -1],
-                edgeMap: [0, -1],
+                faceAncestors: pairsOf([0, 6, -1]),
+                edgeAncestors: pairsOf([0, -1]),
             }),
         );
-        mocks = setupTrackedMocks([], { booleanCutTracked });
+        mocks = setupTrackedMocks(mockFaces(6), { booleanCutTracked });
         const body = bodyWith([
             { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "boolean", operation: "cut", toolIds: [tool.id] },
@@ -547,13 +604,18 @@ describe("ParametricBodyNode face tracking", () => {
 
         expect(body.shape.isOk).toBe(true);
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(1)).toBe(`tool:${tool.id}@0`);
-        expect(body.faceIdAt(2)).toBe("f2@2");
+        // The tool is an EditableShapeNode — it tracks nothing, so its own sub-shape
+        // (input 6) and the boolean's born face have no id to inherit or invent.
+        expect(body.faceIdAt(1)).toBeUndefined();
+        expect(body.faceIdAt(2)).toBeUndefined();
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
-        expect(body.edgeIdAt(1)).toBe("f2@1");
+        // Not the tool's: the history completion claims this output edge onto the chain input's
+        // second edge, which the mock's geometry makes identical to it. What the tool built
+        // stays unnamed — that is the faces above.
+        expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent2`);
     });
 
-    test("boolean keeps untracked main-body sub-shapes out of the tool ranges", () => {
+    test("an untracked chain and an untracked tool leave every output unnamed", () => {
         const toolFace = planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ);
         const toolShape = {
             shapeType: ShapeTypes.solid,
@@ -583,10 +645,10 @@ describe("ParametricBodyNode face tracking", () => {
                     shapeType: ShapeTypes.solid,
                     isEqual: () => false,
                     dispose: rs.fn(),
-                    findSubShapes: () => [],
+                    findSubShapes: subShapesOf(3, 2),
                 },
-                faceMap: [0, 2, -1],
-                edgeMap: [0, -1],
+                faceAncestors: pairsOf([0, 2, -1]),
+                edgeAncestors: pairsOf([0, -1]),
             }),
         );
         const restore = mockShapeFactory({
@@ -601,12 +663,13 @@ describe("ParametricBodyNode face tracking", () => {
         ]);
 
         expect(body.shape.isOk).toBe(true);
-        // Main-body hit 0 is feature-scoped — without the input-shape boundary it
-        // would leak into the tool's range and come out as a tool-scoped positional id.
-        expect(body.faceIdAt(0)).toBe("f2@0");
-        expect(body.faceIdAt(1)).toBe(`tool:${tool.id}@0`);
-        expect(body.faceIdAt(2)).toBe("f2@2");
-        expect(body.edgeIdAt(0)).toBe("f2@0");
+        // The main/tool boundary still gates the tool ranges, but with no ids on either
+        // side its effect is no longer observable here — a leak would need a TOOL that
+        // carries ids of its own to show up as a wrong tool id.
+        expect(body.faceIdAt(0)).toBeUndefined();
+        expect(body.faceIdAt(1)).toBeUndefined();
+        expect(body.faceIdAt(2)).toBeUndefined();
+        expect(body.edgeIdAt(0)).toBeUndefined();
     });
 
     test("a join extrude tracks ids through the boolean with the chain input", () => {
@@ -618,13 +681,13 @@ describe("ParametricBodyNode face tracking", () => {
                     shapeType: ShapeTypes.solid,
                     isEqual: () => false,
                     dispose: rs.fn(),
-                    findSubShapes: () => [],
+                    findSubShapes: subShapesOf(4, 3),
                 },
-                faceMap: [0, 6, 7, -1],
-                edgeMap: [0, 4, -1],
+                faceAncestors: pairsOf([0, 6, 7, -1]),
+                edgeAncestors: pairsOf([0, 4, -1]),
             }),
         );
-        mocks = setupTrackedMocks([], { booleanFuseTracked });
+        mocks = setupTrackedMocks(mockFaces(6), { booleanFuseTracked });
         const body = bodyWith([
             { id: "f1", type: "extrude", sketchId: sketch.id, depth: 5 },
             { id: "f2", type: "extrude", sketchId: sketch.id, depth: 2, operation: "fuse" },
@@ -634,14 +697,14 @@ describe("ParametricBodyNode face tracking", () => {
         expect(mocks.prismTracked).toHaveBeenCalledTimes(2);
         expect(booleanFuseTracked).toHaveBeenCalledTimes(1);
         // Input hits keep the input ids, tool hits take the sweep's sketch-scoped ids,
-        // boolean-born sub-shapes are feature-scoped.
+        // and the boolean's own born sub-shapes have nothing to be named after.
         expect(body.faceIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
         expect(body.faceIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4`);
-        expect(body.faceIdAt(2)).toBe("f2@1");
-        expect(body.faceIdAt(3)).toBe("f2@3");
+        expect(body.faceIdAt(2)).toBeUndefined();
+        expect(body.faceIdAt(3)).toBeUndefined();
         expect(body.edgeIdAt(0)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
         expect(body.edgeIdAt(1)).toBe(`sketch:${sketch.id}:e1.2.3.4:ent1`);
-        expect(body.edgeIdAt(2)).toBe("f2@2");
+        expect(body.edgeIdAt(2)).toBeUndefined();
     });
 
     describe("multi-profile fusion", () => {
@@ -664,7 +727,7 @@ describe("ParametricBodyNode face tracking", () => {
                 shapeType: ShapeTypes.solid,
                 isEqual: () => false,
                 dispose: rs.fn(),
-                findSubShapes: () => [],
+                findSubShapes: subShapesOf(2, 2),
                 boundingBox: () =>
                     new BoundingBox(
                         new XYZ({ x: min[0], y: min[1], z: min[2] }),
@@ -709,11 +772,15 @@ describe("ParametricBodyNode face tracking", () => {
                   ];
             const prismShapes = boxes.map(([min, max]) => solidWithBox(min, max));
             let call = 0;
-            mocks = setupTrackedMocks([], {
+            mocks = setupTrackedMocks(mockFaces(6), {
                 booleanFuseTracked,
                 prismTracked: rs.fn(() => {
                     const shape = prismShapes[call++];
-                    return Result.ok({ shape, faceMap: [0, -1], edgeMap: [0, -1] });
+                    return Result.ok({
+                        shape,
+                        faceAncestors: pairsOf([0, -1]),
+                        edgeAncestors: pairsOf([0, -1]),
+                    });
                 }),
             });
             return prismShapes;
@@ -724,11 +791,15 @@ describe("ParametricBodyNode face tracking", () => {
                 shapeType: ShapeTypes.solid,
                 isEqual: () => false,
                 dispose: rs.fn(),
-                findSubShapes: () => [],
+                findSubShapes: subShapesOf(4, 3),
             } as unknown as IShape;
             // Output faces: 0,1 from profile 0; 2 from profile 1 (input 2); 3 is fuse-born.
             const booleanFuseTracked = rs.fn((_args: any[], _tools: any[]) =>
-                Result.ok({ shape: fusedShape, faceMap: [0, 1, 2, -1], edgeMap: [0, 2, -1] }),
+                Result.ok({
+                    shape: fusedShape,
+                    faceAncestors: pairsOf([0, 1, 2, -1]),
+                    edgeAncestors: pairsOf([0, 2, -1]),
+                }),
             );
             const prismShapes = setupFusion(booleanFuseTracked, true);
             const two = twoLoopSketch(OVERLAPPING_SQUARE);
@@ -740,10 +811,15 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.faceIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4`);
             expect(body.faceIdAt(1)).toBe(`sketch:${two.id}:e1.2.3.4:top`);
             expect(body.faceIdAt(2)).toBe(`sketch:${two.id}:e5.6.7.8`);
-            expect(body.faceIdAt(3)).toBe("f1@3");
+            expect(body.faceIdAt(3)).toBeUndefined();
             expect(body.edgeIdAt(0)).toBe(`sketch:${two.id}:e1.2.3.4:ent1`);
-            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:e5.6.7.8:e@0`);
-            expect(body.edgeIdAt(2)).toBe("f1@2");
+            // The fuse's claim for edge 1 names the second profile's edge — but the geometry
+            // says this edge is profile 0's second one, and a claim the geometry contradicts is
+            // dropped (`verifiedEdgeAncestors`) rather than composed into an id naming the wrong
+            // thing. The second profile's edges carry no entity attribution, so where the fuse
+            // really does take one, it seeds nothing.
+            expect(body.edgeIdAt(1)).toBe(`sketch:${two.id}:e1.2.3.4:ent2`);
+            expect(body.edgeIdAt(2)).toBeUndefined();
             // The fuse copies the geometry; the intermediate prisms are disposed.
             expect(prismShapes[0].dispose).toHaveBeenCalled();
             expect(prismShapes[1].dispose).toHaveBeenCalled();
@@ -779,20 +855,24 @@ describe("ParametricBodyNode face tracking", () => {
                 shapeType: ShapeTypes.solid,
                 isEqual: () => false,
                 dispose: rs.fn(),
-                findSubShapes: () => [],
+                findSubShapes: subShapesOf(4, 3),
             } as unknown as IShape;
             // The two halves (positive/mirrored) each report faceMap [0, -1] /
             // edgeMap [0, -1]; the fuse keeps both bottom faces and adds a born face.
             const booleanFuseTracked = rs.fn((_args: any[], _tools: any[]) =>
-                Result.ok({ shape: fusedShape, faceMap: [0, 1, 2, -1], edgeMap: [0, 2, -1] }),
+                Result.ok({
+                    shape: fusedShape,
+                    faceAncestors: pairsOf([0, 1, 2, -1]),
+                    edgeAncestors: pairsOf([0, 2, -1]),
+                }),
             );
             const halves = [solidWithBox([0, 0, 0], [1, 1, 5]), solidWithBox([0, 0, -5], [1, 1, 0.1])];
             let call = 0;
             const prismTracked = rs.fn(() => {
                 const shape = halves[call++];
-                return Result.ok({ shape, faceMap: [0, -1], edgeMap: [0, -1] });
+                return Result.ok({ shape, faceAncestors: pairsOf([0, -1]), edgeAncestors: pairsOf([0, -1]) });
             });
-            mocks = setupTrackedMocks([], { booleanFuseTracked, prismTracked });
+            mocks = setupTrackedMocks(mockFaces(6), { booleanFuseTracked, prismTracked });
             const fresh = new SketchNode({ document: doc, plane: Plane.XY, data: SQUARE });
             doc.modelManager.addNode(fresh);
             const body = bodyWith([
@@ -805,10 +885,17 @@ describe("ParametricBodyNode face tracking", () => {
             expect(body.faceIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4`);
             expect(body.faceIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:top`);
             expect(body.faceIdAt(2)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg`);
-            expect(body.faceIdAt(3)).toBe("f1@3");
-            expect(body.edgeIdAt(0)).toBe(`sketch:${fresh.id}:e1.2.3.4:ent1`);
-            expect(body.edgeIdAt(1)).toBe(`sketch:${fresh.id}:e1.2.3.4:neg:ent1`);
-            expect(body.edgeIdAt(2)).toBe("f1@2");
+            expect(body.faceIdAt(3)).toBeUndefined();
+            // The fuse now records EVERY ancestor, not just the first: a fused edge that is
+            // both halves' side edge carries a compound of the two, so a reference captured on
+            // either half still intersects it.
+            expect(body.edgeIdAt(0)).toBe(
+                `sketch:${fresh.id}:e1.2.3.4:ent1|sketch:${fresh.id}:e1.2.3.4:neg:ent1`,
+            );
+            expect(body.edgeIdAt(1)).toBe(
+                `sketch:${fresh.id}:e1.2.3.4:ent2|sketch:${fresh.id}:e1.2.3.4:neg:ent1|sketch:${fresh.id}:e1.2.3.4:neg:ent2`,
+            );
+            expect(body.edgeIdAt(2)).toBeUndefined();
         });
     });
 });

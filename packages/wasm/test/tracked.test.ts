@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IFace, type IShape, Line, Plane, ShapeTypes, XYZ } from "@chili3d/core";
+import {
+    type IFace,
+    type IShape,
+    Line,
+    Plane,
+    primaryAncestors,
+    ShapeTypes,
+    type TrackedShape,
+    XYZ,
+} from "@chili3d/core";
 import type { ShapeFactory } from "../src/factory";
 import { createBox, createTestFactory, unwrapOk } from "./helpers";
 import "./setup";
@@ -11,6 +20,11 @@ let factory: ShapeFactory;
 beforeEach(() => {
     factory = createTestFactory();
 });
+
+/** The kernel's face report as a first-ancestor map (see `primaryAncestors`). */
+function faceMap(tracked: TrackedShape): number[] {
+    return primaryAncestors(tracked.faceAncestors, faceCount(tracked.shape));
+}
 
 function faceCount(shape: IShape): number {
     return shape.findSubShapes(ShapeTypes.face).length;
@@ -24,10 +38,10 @@ describe("ShapeFactory — tracked (face history)", () => {
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
             // A box has 6 faces; the face map aligns with findSubShapes order.
-            expect(result.value.faceMap.length).toBe(faceCount(result.value.shape));
-            expect(result.value.faceMap.length).toBe(6);
+            expect(faceMap(result.value).length).toBe(faceCount(result.value.shape));
+            expect(faceMap(result.value).length).toBe(6);
             // The bottom face is the profile face itself (identity match).
-            expect(result.value.faceMap).toContain(0);
+            expect(faceMap(result.value)).toContain(0);
         });
 
         test("should fail on a zero-length vector", () => {
@@ -46,7 +60,7 @@ describe("ShapeFactory — tracked (face history)", () => {
             const capFaces = result.value.capFaces ?? [];
             expect(capFaces).toHaveLength(1);
             const index = capFaces[0];
-            expect(result.value.faceMap[index]).toBe(-1);
+            expect(faceMap(result.value)[index]).toBe(-1);
             expect(result.value.faceEdgeMap?.[index] ?? -1).toBe(-1);
             // It is the geometric top (the profile translated by the sweep vector).
             const face = result.value.shape.findSubShapes(ShapeTypes.face)[index] as IFace;
@@ -90,8 +104,8 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.revolveTracked(rect, axis, 360);
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
-            expect(result.value.faceMap.length).toBe(faceCount(result.value.shape));
-            expect(result.value.faceMap.length).toBeGreaterThan(0);
+            expect(faceMap(result.value).length).toBe(faceCount(result.value.shape));
+            expect(faceMap(result.value).length).toBeGreaterThan(0);
         });
 
         test("should report a partial revolve's end cap through capFaces", () => {
@@ -105,7 +119,7 @@ describe("ShapeFactory — tracked (face history)", () => {
             const index = capFaces[0];
             // The cap has no history — it is neither the identical start face nor an
             // edge-generated side face.
-            expect(result.value.faceMap[index]).toBe(-1);
+            expect(faceMap(result.value)[index]).toBe(-1);
             expect(result.value.faceEdgeMap?.[index] ?? -1).toBe(-1);
             // The rect's center (5,10,0) rotated 270° about Z lands at (10,-5,0).
             const face = result.value.shape.findSubShapes(ShapeTypes.face)[index] as IFace;
@@ -133,11 +147,11 @@ describe("ShapeFactory — tracked (face history)", () => {
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
             // 6 input faces + 1 fillet face
-            expect(result.value.faceMap.length).toBe(7);
-            const newFaces = result.value.faceMap.filter((x) => x === -1);
+            expect(faceMap(result.value).length).toBe(7);
+            const newFaces = faceMap(result.value).filter((x) => x === -1);
             expect(newFaces.length).toBe(1);
             // Untouched faces keep their identity mapping — all six input indexes appear.
-            const mapped = new Set(result.value.faceMap.filter((x) => x >= 0));
+            const mapped = new Set(faceMap(result.value).filter((x) => x >= 0));
             expect(mapped.size).toBe(6);
         });
     });
@@ -148,8 +162,8 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.chamferTracked(box, [0], 2);
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
-            expect(result.value.faceMap.length).toBe(7);
-            const newFaces = result.value.faceMap.filter((x) => x === -1);
+            expect(faceMap(result.value).length).toBe(7);
+            const newFaces = faceMap(result.value).filter((x) => x === -1);
             expect(newFaces.length).toBe(1);
         });
     });
@@ -161,11 +175,11 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.booleanCutTracked([box], [tool]);
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
-            expect(result.value.faceMap.length).toBe(faceCount(result.value.shape));
+            expect(faceMap(result.value).length).toBe(faceCount(result.value.shape));
             // Box faces keep indexes 0-5; the cylindrical cut face traces back to the
             // tool's lateral face — tool faces are enumerated after the args (index 6+).
-            expect(result.value.faceMap.some((x) => x >= 0 && x < 6)).toBe(true);
-            expect(result.value.faceMap.some((x) => x >= 6)).toBe(true);
+            expect(faceMap(result.value).some((x) => x >= 0 && x < 6)).toBe(true);
+            expect(faceMap(result.value).some((x) => x >= 6)).toBe(true);
         });
     });
 
@@ -176,8 +190,8 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.booleanFuseTracked([box], [other]);
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
-            expect(result.value.faceMap.length).toBe(faceCount(result.value.shape));
-            expect(result.value.faceMap.some((x) => x >= 0)).toBe(true);
+            expect(faceMap(result.value).length).toBe(faceCount(result.value.shape));
+            expect(faceMap(result.value).some((x) => x >= 0)).toBe(true);
         });
     });
 
@@ -188,7 +202,7 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.booleanCommonTracked([box], [other]);
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
-            expect(result.value.faceMap.length).toBe(faceCount(result.value.shape));
+            expect(faceMap(result.value).length).toBe(faceCount(result.value.shape));
         });
     });
 
@@ -203,10 +217,10 @@ describe("ShapeFactory — tracked (face history)", () => {
             const fillet = factory.filletTracked(prism.value.shape, [0], 2);
             expect(fillet.isOk).toBe(true);
             if (!fillet.isOk) return;
-            const fromPrism = fillet.value.faceMap.filter((x) => x >= 0);
+            const fromPrism = faceMap(fillet.value).filter((x) => x >= 0);
             // Every kept face points at a valid prism face index.
             for (const index of fromPrism) {
-                expect(index).toBeLessThan(prism.value.faceMap.length);
+                expect(index).toBeLessThan(faceMap(prism.value).length);
             }
             expect(fromPrism.length).toBe(6);
         });

@@ -644,46 +644,6 @@ describe("matchEdgesAnchored", () => {
     });
 });
 
-describe("positional id hits are distrusted when the geometry contradicts them", () => {
-    // Three parallel verticals. A record-time enumeration handed `f1@2` to the right-hand
-    // one, so a ref captured on the LEFT one can arrive carrying its neighbour's id.
-    const shape = () => shapeWith(lineEdge(0, 0, 0, 10), lineEdge(10, 0, 10, 10), lineEdge(20, 0, 20, 10));
-    const ids = ["f1@0", "f1@1", "f1@2"];
-    const refWith = (edge: IEdge, edgeId: string): EdgeRef => ({ ...captureEdgeRef(edge), edgeId });
-
-    test("a positional id that a decisive match contradicts demotes to the fingerprint", () => {
-        // The ref means the LEFT line (index 0) but carries the right-hand id: the id hit
-        // is 20 away from the fingerprint while its own edge sits on it, so the geometry wins.
-        const ref = refWith(lineEdge(0, 0, 0, 10), "f1@2");
-        const matched = matchEdgeIndexesTracked(shape(), [ref], ids);
-        expect(matched.unchecked()).toEqual([0]);
-    });
-
-    test("a content-derived id is trusted even when the fingerprint disagrees", () => {
-        const ref = refWith(lineEdge(0, 0, 0, 10), "sketch:sk1:e1:ent3");
-        const matched = matchEdgeIndexesTracked(shape(), [ref], [...ids.slice(0, 2), "sketch:sk1:e1:ent3"]);
-        expect(matched.unchecked()).toEqual([2]);
-    });
-
-    test("a positional id whose hit IS the geometric winner is trusted", () => {
-        const ref = refWith(lineEdge(0, 0, 0, 10), "f1@0");
-        const matched = matchEdgeIndexesTracked(shape(), [ref], ids);
-        expect(matched.unchecked()).toEqual([0]);
-    });
-
-    test("a geometric tie leaves the positional id in charge", () => {
-        // Two coincident favourites: the geometry has no decisive answer, so the id stands
-        // rather than the ref being pushed into an ambiguous fingerprint match.
-        const ref = refWith(lineEdge(0, 0, 0, 10), "f1@1");
-        const matched = matchEdgeIndexesTracked(
-            shapeWith(lineEdge(0, 0, 0, 10), lineEdge(0, 0, 0, 10)),
-            [ref],
-            ["f1@0", "f1@1"],
-        );
-        expect(matched.unchecked()).toEqual([1]);
-    });
-});
-
 describe("idIsShared", () => {
     test("exact duplicates are shared", () => {
         expect(idIsShared(["f1:0", "f1:0", "f1:2"], "f1:0")).toBe(true);

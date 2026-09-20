@@ -13,8 +13,8 @@ import { directionsParallel, distance, MATCH_TOLERANCE, plainVec } from "./refGe
  * The tracked-id scheme (see `trackedId.ts`) rests on the kernel telling us which
  * output sub-shape derives from which input. It is a sparse report: a rebuild leaves
  * most sub-shapes bit-identical, and the kernel skips exactly those. Left alone, such
- * a sub-shape would look brand new and take a feature-scoped id, silently diverging
- * from the stable id a downstream ref stored.
+ * a sub-shape would look brand new and be left unnamed, silently diverging from the
+ * stable id a downstream ref stored.
  *
  * So an unmapped output is matched against the unclaimed inputs by geometric
  * fingerprint: identical geometry claims its index back, a fingerprint that is not a
@@ -343,7 +343,7 @@ function faceScoreFingerprints(a: FaceFingerprint, b: FaceFingerprint): number {
  * unmapped output face inherits the input index of a fingerprint-identical input
  * face. Recovers the unchanged faces sparse kernel face histories (prism tops,
  * revolve caps and beyond) fail to report — the still-unmapped remainder keeps
- * its hand-seeded or feature-scoped id.
+ * only its hand-seeded id, or no id at all.
  */
 export function completeFaceHistory(
     inputs: readonly IFace[],

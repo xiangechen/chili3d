@@ -60,8 +60,6 @@ export interface TrackedShapeResult extends ClassHandle {
   get error(): string;
   set error(value: EmbindString);
   shape: TopoDS_Shape;
-  faceMap: IntVector;
-  edgeMap: IntVector;
   faceEdgeMap: IntVector;
   faceAncestors: IntVector;
   edgeAncestors: IntVector;

@@ -1,17 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    type IEdge,
-    type IFace,
-    type IShape,
-    type ISubShape,
-    ShapeTypes,
-    XYZ,
-    type XYZLike,
-} from "@chili3d/core";
+import { type IEdge, type IFace, type IShape, type ISubShape, ShapeTypes, type XYZ } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
 import { edgeMidPoint } from "./edgeRef";
+import { reportIdentityLoss } from "./idDiagnostics";
 import { INCIDENCE_TOLERANCE } from "./refGeometry";
 
 /**
@@ -47,7 +40,7 @@ import { INCIDENCE_TOLERANCE } from "./refGeometry";
  * round-trip (undefined → null), far from the cause.
  */
 export function reportMissingEntityId(sketch: SketchNode, what: string): void {
-    console.warn(
+    reportIdentityLoss(
         `[chili3d] profile entity loss: ${what} (sketch ${sketch.id}) — the profile identity degrades to geometric matching. Please report this scenario.`,
     );
 }
@@ -114,7 +107,7 @@ function entityIdByEdge(
         }
         const id = entityIds[index];
         // An in-range miss was already reported where the lookup dropped it (see
-        // splitProfiles); the edge keeps the positional seed fallback.
+        // splitProfiles); the edge then seeds nothing (see `profileEdgeSeeds`).
         if (id === undefined) continue;
         map.set(edge, id);
     }
@@ -126,8 +119,7 @@ function entityIdByEdge(
  * face's edge enumeration: an exact `isSame` hit first (a face shares the TShapes
  * of the edges it was built from; the kernel splitter also keeps untouched edges),
  * then an on-curve probe for split pieces (region edges are new TShapes cut from
- * the input edges). Undefined where neither matches — the seed falls back to the
- * positional ordinal there.
+ * the input edges). Undefined where neither matches — the edge then has no seed.
  */
 export function attributeFaceEdges(
     face: IFace,
@@ -154,7 +146,7 @@ export function attributeFaceEdges(
  * The generated-edge attribution of a tracked operation (`attributeSweepEdges`,
  * `attributeCornerEdges`) matches by relation instead — a corner stands a parameter away from its
  * edge, a seam runs parallel to it — so it has its own loop; what the three share is the probe
- * itself (`edgeLiesOn`) and the rule that an ambiguous edge keeps its positional id.
+ * itself (`edgeLiesOn`) and the rule that an ambiguous edge stays unnamed.
  */
 export function attributeEdges<T>(
     edges: readonly IEdge[],
@@ -197,27 +189,24 @@ function safeLiesOn(edge: IEdge, candidate: IEdge): boolean {
  * the same way against the input edges a sweep or fillet produced edges from.
  */
 export function edgeLiesOn(piece: IEdge, whole: IEdge): boolean {
-    return liesOnOffset(piece, whole, undefined);
+    return edgeLiesOnImage(piece, whole, (point) => point);
 }
 
 /**
- * `edgeLiesOn` for the sweep's image of `whole`: does `piece` lie on `whole` shifted by
- * `offset`? A prism is a pure translation, so its top edges are exactly this — probing
- * the offset beats building translated kernel copies of every profile edge.
+ * `edgeLiesOn` for the SWEEP's image of `whole`: does `piece` lie on the curve `whole`
+ * would have if carried back by `unimage`?
+ *
+ * A sweep carries every profile point through one rigid motion, so the image of `whole` is
+ * the set of images of its points — reproduced here by applying the motion's INVERSE to three
+ * probes of `piece` (start, mid, end), which beats building a kernel copy of every profile
+ * edge. The motion is all that differs between sweeps: a prism translates by its vector, a
+ * revolve rotates about its axis.
  */
-export function edgeLiesOnOffset(piece: IEdge, whole: IEdge, offset: XYZLike): boolean {
-    return liesOnOffset(piece, whole, offset);
-}
-
-function liesOnOffset(piece: IEdge, whole: IEdge, offset: XYZLike | undefined): boolean {
+export function edgeLiesOnImage(piece: IEdge, whole: IEdge, unimage: (point: XYZ) => XYZ): boolean {
     const [t0, t1] = [piece.firstParameter(), piece.lastParameter()];
-    return [piece.pointAt(t0), edgeMidPoint(piece), piece.pointAt(t1)].every((point) => {
-        const probe =
-            offset === undefined
-                ? point
-                : new XYZ({ x: point.x - offset.x, y: point.y - offset.y, z: point.z - offset.z });
-        return whole.curve.nearestFromPoint(probe).distance < INCIDENCE_TOLERANCE;
-    });
+    return [piece.pointAt(t0), edgeMidPoint(piece), piece.pointAt(t1)].every(
+        (point) => whole.curve.nearestFromPoint(unimage(point)).distance < INCIDENCE_TOLERANCE,
+    );
 }
 
 /** Region faces of the crossing path → their bounding sketch entity ids. */

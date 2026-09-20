@@ -9,12 +9,12 @@ import type { ResolvedProfile } from "./profileBuilder";
  * `translateFace`) and merging the results into one solid (`fuseProfiles`,
  * `combineShapes`, `anyPairTouches`).
  *
- * This is the **plain** path: it builds geometry and reports nothing about ids. Its
- * tracked counterparts — `sweepProfiles`, `sweepProfileTracked`, `fuseSweptPrisms` —
- * stay in `extrude.ts`, because they need the feature's own seeding and the
- * operation-id mappers, which are extrude's business. What is here is what both paths
- * share, and the merge half is also what `commands/extrudeCommand.ts` reuses for its
- * own preview.
+ * This is the **plain** path: it builds geometry and reports nothing about ids. The tracked
+ * half lives in `sweepTracked.ts` (`sweepFaceTracked`, `fuseSweptPrisms`), reached through
+ * `extrude.ts`'s `sweepProfiles` for a profile list — they need the feature's own seeding and
+ * the operation-id mappers, which are extrude's business. What is here is what both paths
+ * share, and the merge half is also what `commands/extrudeCommand.ts` reuses for its own
+ * preview.
  */
 
 /** Sweeps every profile along each direction and merges touching prisms (see `fuseProfiles`). */
