@@ -160,6 +160,33 @@ export function uncontested(candidates: ReadonlyMap<number, string>): Map<number
 }
 
 /**
+ * Write the candidates that are safe to take into `ids`, and return the indexes written.
+ *
+ * The module's invariant, enforced where a name is minted rather than argued away: a name belongs
+ * to ONE sub-shape, or the matcher reads two as pieces of one. Two things can stand in a
+ * candidate's way — the other candidates (a mirrored or duplicated profile offers one seed twice,
+ * and only one of the two may take it), and a name `ids` already carries, which is not a sibling
+ * candidate at all but the input's own inherited ids. `uncontested` settles the first and cannot
+ * see the second, so it is called here rather than left to the caller. Both are compared
+ * component-wise (`idsOverlap`), the way the matcher compares.
+ *
+ * The indexes come back for callers with something to record alongside the name they took.
+ */
+export function writeUncontestedIds(
+    ids: (string | undefined)[],
+    candidates: ReadonlyMap<number, string>,
+): number[] {
+    const identities = ids.filter((id): id is string => id !== undefined);
+    const written: number[] = [];
+    for (const [index, id] of uncontested(candidates)) {
+        if (identities.some((taken) => idsOverlap(taken, id))) continue;
+        ids[index] = id;
+        written.push(index);
+    }
+    return written;
+}
+
+/**
  * True when the id overlaps more than one entry — pieces of a split sub-shape.
  * Overlap is component-wise (`idsOverlap`), not textual: a piece that merged with a
  * collinear neighbor carries a compound like `A|B` while its untouched sibling keeps

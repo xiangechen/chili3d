@@ -136,14 +136,53 @@
     word-break: break-word;
 }
 
-.user {
+.userRow {
+    display: flex;
+    align-items: center;
     align-self: flex-end;
+    gap: 4px;
+    max-width: 85%;
+}
+
+.user {
     background: var(--hover-background-color);
     color: var(--foreground-color);
-    max-width: 85%;
+    max-width: 100%;
     padding: 8px 14px;
     border-radius: 18px 18px 6px 18px;
     white-space: pre-wrap;
+}
+
+/* The way back to a message, out of sight until the pointer is on it. */
+.userUndo {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: var(--foreground-muted-color);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.userRow:hover .userUndo {
+    opacity: 1;
+}
+
+.userUndo:hover {
+    background: var(--hover-background-color);
+    color: var(--foreground-color);
+}
+
+.userUndoIcon {
+    width: 12px;
+    height: 12px;
 }
 
 .assistant {
@@ -193,6 +232,18 @@
         opacity: 1;
         transform: translateY(-3px);
     }
+}
+
+/* Marks where the transcript stops being what the model is sent. */
+.contextNotice {
+    align-self: stretch;
+    text-align: center;
+    color: var(--foreground-muted-color);
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 2px 0 8px;
+    border-bottom: 1px dashed var(--border-color);
+    margin-bottom: 2px;
 }
 
 .markdown {
@@ -275,53 +326,6 @@
     }
 }
 
-.workBlock {
-    align-self: stretch;
-    display: flex;
-    flex-direction: column;
-}
-
-.workHeader {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    align-self: flex-start;
-    background: none;
-    border: none;
-    padding: 2px 4px;
-    cursor: pointer;
-    color: var(--foreground-muted-color);
-    font-family: inherit;
-    font-size: 12px;
-    border-radius: 6px;
-}
-
-.workHeader:hover {
-    color: var(--foreground-color);
-    background: var(--hover-background-color);
-}
-
-.workChevron {
-    width: 10px;
-    height: 10px;
-    transition: transform 0.15s ease;
-}
-
-.open .workChevron {
-    transform: rotate(90deg);
-}
-
-.workBody {
-    display: none;
-    flex-direction: column;
-    gap: 6px;
-    padding: 6px 0 2px 4px;
-}
-
-.open .workBody {
-    display: flex;
-}
-
 .msgFooter {
     display: flex;
     align-items: center;
@@ -352,12 +356,69 @@
     height: 13px;
 }
 
-.msgTime {
+.msgTime,
+.msgWorked {
     font-size: 11px;
 }
 
+/* Reasoning: folded to one line once the model has moved on, open while it is still thinking. */
+.thinkingBlock {
+    margin: 6px 0;
+    border-left: 2px solid var(--border-color);
+    padding-left: 8px;
+}
+
+.thinkingHeader {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    padding: 1px 0;
+    cursor: pointer;
+    color: var(--foreground-muted-color);
+    font-family: inherit;
+    font-size: 11px;
+}
+
+.thinkingHeader:hover {
+    color: var(--foreground-color);
+}
+
+.thinkingSummary {
+    font-weight: 500;
+}
+
+.thinkingChevron {
+    width: 10px;
+    height: 10px;
+    transition: transform 0.15s ease;
+}
+
+.open .thinkingChevron {
+    transform: rotate(90deg);
+}
+
+.thinkingBody {
+    display: none;
+    padding: 4px 0 2px;
+    color: var(--foreground-muted-color);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.open .thinkingBody {
+    display: block;
+}
+
 .toolCard {
-    align-self: stretch;
+    /* Cards sit between paragraphs rather than in a group of their own, so they carry their
+       own spacing — collapsing margins give a run of cards a single 6px gap. */
+    margin: 6px 0;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background: var(--control-background-color);
@@ -425,6 +486,17 @@
     display: block;
 }
 
+/* A node the card names: clicking selects and frames it in the viewport. */
+.toolLink {
+    color: var(--primary-color);
+    cursor: pointer;
+    text-decoration: underline dotted;
+}
+
+.toolLink:hover {
+    text-decoration: underline solid;
+}
+
 .toolResult {
     color: var(--foreground-muted-color);
     font-family: "SF Mono", Consolas, monospace;
@@ -467,7 +539,42 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     padding: 2px 8px 6px;
+}
+
+/* Context meter: the panel's one always-visible reading, so it lives in the send row. */
+.contextMeter {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    color: var(--foreground-muted-color);
+    font-size: 10.5px;
+}
+
+.contextBar {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border-color);
+    overflow: hidden;
+}
+
+.contextFill {
+    width: 0;
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.2s ease;
+}
+
+.contextMeterFull .contextFill {
+    background: var(--error-color);
+}
+
+.contextText {
+    white-space: nowrap;
 }
 
 .input {
@@ -513,8 +620,8 @@
 }
 
 .sendIcon {
-    font-size: 15px;
-    line-height: 1;
+    width: 14px;
+    height: 14px;
 }
 
 .sendButton:hover {
@@ -592,6 +699,8 @@
 }
 
 .settingsTitle {
+    /* Pushes the close button to the far end, the way the panel header sits. */
+    flex: 1 1 auto;
     font-weight: 600;
     font-size: 12.5px;
 }
@@ -738,6 +847,7 @@
 }
 
 .historyTitle {
+    flex: 1 1 auto;
     font-weight: 600;
     font-size: 12.5px;
 }
@@ -826,6 +936,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin: 6px 0;
     padding: 10px 12px;
     border: 1px solid var(--primary-color);
     border-radius: 8px;
@@ -836,9 +947,51 @@
     border-color: var(--border-color);
 }
 
+/* A question pinned in the composer's place is the composer for the moment: the input card's
+   own spacing would read as a floating card rather than an occupied slot. */
+.composer .askCard {
+    margin: 0;
+    /* How long the question runs is the model's to choose; cap it so a wordy one cannot squeeze
+       the transcript out of the panel. */
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.askHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
 .askQuestion {
+    flex: 1 1 auto;
     font-weight: 600;
     line-height: 1.5;
+}
+
+.askStop {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--foreground-muted-color);
+    cursor: pointer;
+}
+
+.askStop:hover {
+    background: var(--hover-background-color);
+    color: var(--foreground-color);
+}
+
+.askStopIcon {
+    width: 12px;
+    height: 12px;
 }
 
 .askOptions {
@@ -877,22 +1030,6 @@
     padding: 4px 8px;
     font-family: inherit;
     font-size: 12px;
-}
-
-.askSend {
-    flex: 0 0 auto;
-    background: none;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 4px 10px;
-    color: inherit;
-    font-family: inherit;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.askSend:hover {
-    background: var(--hover-background-color);
 }
 
 .askAnswer {

@@ -27,6 +27,7 @@ import {
     type ShapeCapabilityParam,
     shapeCapabilities,
 } from "./capabilities.generated";
+import { findNode } from "./documentContext";
 import { buildTransformMatrix } from "./transformMatrix";
 
 interface Op {
@@ -250,7 +251,7 @@ function resolveRefEntry(
     if (sessionNullRefs(doc).has(id)) {
         throw new Error(I18n.translate("ai.error.nullRef", id));
     }
-    const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+    const node = findNode(doc, id);
     if (node instanceof ShapeNode && node.shape.isOk) {
         consumed.add(node.id);
         return { nodeId: node.id, kind: "shape", value: node.shape.value };
@@ -282,7 +283,7 @@ function refreshEntry(
 /** Node-backed refs re-read the node's current shape; a removed source node fails clearly. */
 function refreshNodeValue(id: string, entry: LocalRef, doc: IDocument, consumed: Set<string>): void {
     if (entry.nodeId === undefined) return;
-    const node = doc.modelManager.findNodes((n) => n.id === entry.nodeId)[0];
+    const node = findNode(doc, entry.nodeId);
     if (!(node instanceof ShapeNode) || !node.shape.isOk) {
         throw new Error(`ref "${id}" is no longer valid: its source node was removed`);
     }
@@ -1060,7 +1061,7 @@ function consumeEditInputs(
 ): void {
     if (!EDIT_METHODS.has(method)) return;
     for (const id of consumed) {
-        const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+        const node = findNode(doc, id);
         if (node && !removed.some((r) => r.nodeId === id)) {
             removed.push({ nodeId: id, name: node.name });
         }

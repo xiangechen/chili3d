@@ -184,6 +184,8 @@ function convertDelta(e: RawStreamEvent, state: StreamState): StreamEvent | unde
     } else if (e.delta?.type === "thinking_delta") {
         const tb = state.thinkingBuf.get(e.index!);
         if (tb) tb.thinking += e.delta.thinking;
+        // Forwarded unmodified: the block it accumulates into is what gets replayed.
+        return { type: "thinking_delta", text: e.delta.thinking ?? "" };
     } else if (e.delta?.type === "signature_delta") {
         const tb = state.thinkingBuf.get(e.index!);
         if (tb) tb.signature += e.delta.signature;

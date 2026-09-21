@@ -3,20 +3,17 @@
 
 import { download, I18n, type IApplication, type IDocument, type INode, VisualNode } from "@chili3d/core";
 import type { Tool } from "../llm/types";
-
-function getDocument(): IDocument | undefined {
-    return globalThis.app.activeView?.document;
-}
+import { findNode, getDocument } from "./documentContext";
 
 function resolveNodes(doc: IDocument, ids: unknown): INode[] | string {
     if (ids === undefined) {
         return doc.modelManager.findNodes((n) => n.parent === doc.modelManager.rootNode);
     }
     if (!Array.isArray(ids)) return "ids must be an array of node ids";
-    const nodes = ids.map((id) => doc.modelManager.findNodes((n) => n.id === String(id))[0]);
-    const missing = ids.filter((_, i) => !nodes[i]);
+    const nodes = ids.map((id) => findNode(doc, String(id)));
+    const missing = ids.filter((_, i) => nodes[i] === undefined);
     if (missing.length) return `nodes not found: ${missing.join(", ")}`;
-    return nodes;
+    return nodes.filter((node): node is INode => node !== undefined);
 }
 
 function validateFormat(app: IApplication, format: string): string | undefined {

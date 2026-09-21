@@ -45,6 +45,12 @@ export type ChatMessage =
 export type StreamEvent =
     | { type: "text"; text: string }
     | { type: "thinking"; block: ThinkingBlock }
+    /**
+     * Reasoning arriving token by token, for the UI to show live. The finished block — this text
+     * plus its signature — still comes through as `thinking` at the end of the block: the delta is
+     * display only, and is what the transcript renders; the block is what the API gets replayed.
+     */
+    | { type: "thinking_delta"; text: string }
     | { type: "tool_call"; id: string; name: string; arguments: string }
     | { type: "usage"; usage: TokenUsage }
     | { type: "done"; stopReason: string };

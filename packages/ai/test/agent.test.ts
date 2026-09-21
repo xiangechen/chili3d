@@ -65,7 +65,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages,
             tools,
-            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
         });
 
@@ -91,7 +96,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages,
             tools: [],
-            callbacks: { onTextDelta: (t) => deltas.push(t), onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: (t) => deltas.push(t),
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
         });
 
@@ -127,7 +137,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages,
             tools,
-            callbacks: { onTextDelta: (t) => deltas.push(t), onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: (t) => deltas.push(t),
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
         });
 
@@ -163,7 +178,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages: [],
             tools,
-            callbacks: { onTextDelta: (t) => deltas.push(t), onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: (t) => deltas.push(t),
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
         });
 
@@ -203,7 +223,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages,
             tools,
-            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
         });
 
@@ -234,7 +259,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages,
             tools: [],
-            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
         });
 
@@ -256,7 +286,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages,
             tools: [],
-            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
             signal: controller.signal,
         });
@@ -276,7 +311,12 @@ describe("runAgent", () => {
                 system: SYSTEM,
                 messages: [],
                 tools: [],
-                callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+                callbacks: {
+                    onTextDelta: () => {},
+                    onToolCall: () => {},
+                    onThinkingDelta: () => {},
+                    onUsage: () => {},
+                },
                 provider,
             }),
         ).rejects.toThrow("boom");
@@ -313,7 +353,12 @@ describe("runAgent", () => {
             system: SYSTEM,
             messages: [],
             tools,
-            callbacks: { onTextDelta: () => {}, onToolCall: () => {} },
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
             provider,
             signal: controller.signal,
         });

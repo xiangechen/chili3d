@@ -1,9 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type IDocument, Material, Transaction, type XYZLike } from "@chili3d/core";
+import { I18n, type IDocument, type INode, Material, Transaction, type XYZLike } from "@chili3d/core";
 import type { Tool, ToolResult } from "../llm/types";
-import { getDocument } from "./documentContext";
+import { findNode, getDocument } from "./documentContext";
 
 const Z_UP: XYZLike = { x: 0, y: 0, z: 1 };
 
@@ -135,7 +135,7 @@ const setMaterialHandler: Tool["handler"] = async (args) => {
     const doc = getDocument();
     if (!doc) return textResult({ error: I18n.translate("ai.error.noDocument") });
     const id = args["id"] as string;
-    const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+    const node = findNode(doc, id);
     if (!node || !("materialId" in node)) {
         return textResult({ error: `node not found or has no material: ${id}` });
     }
@@ -286,15 +286,15 @@ const isolateViewHandler: Tool["handler"] = async (args) => {
         view.update();
         return textResult({ ok: true, isolated: [] });
     }
-    const nodes = ids.map((id) => doc.modelManager.findNodes((n) => n.id === String(id))[0]);
-    const missing = ids.filter((_, i) => !nodes[i]);
+    const nodes = ids.map((id) => findNode(doc, String(id)));
+    const missing = ids.filter((_, i) => nodes[i] === undefined);
     if (missing.length) {
         return textResult({ error: `nodes not found: ${missing.join(", ")}` });
     }
     // `view.isolate` accumulates (the viewport treats a second call as widening the isolation),
     // but this tool is documented as "isolate these nodes", so each call replaces the set.
     view.unisolate();
-    view.isolate(nodes);
+    view.isolate(nodes.filter((node): node is INode => node !== undefined));
     view.update();
     return textResult({ ok: true, isolated: ids });
 };

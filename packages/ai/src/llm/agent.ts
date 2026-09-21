@@ -20,17 +20,23 @@ import type {
 
 export interface ChatCallbacks {
     onTextDelta(text: string): void;
+    /** Reasoning as it streams, for the UI to show while the model is still thinking. */
+    onThinkingDelta(text: string): void;
     onToolCall(call: { name: string; arguments: string; result?: string }): void;
+    /** What one model turn cost, reported once per streamed turn. */
+    onUsage(usage: TokenUsage): void;
 }
 
 /**
  * Upper bound on model<->tool round trips per run, so a stuck tool loop cannot spin forever.
  *
- * Both providers disable parallel tool calls (anthropic.ts's `disable_parallel_tool_use`,
- * completions.ts's `parallel_tool_calls: false`), so a round trip is one tool call — and a
- * verified edit is already ~6 of them (screenshot, click_view + verify, run_program, select,
- * fit, screenshot). 25 aborted multi-part work in the middle of a plan; 50 keeps the guard
- * against a spinning loop while leaving room for a build with a few retries.
+ * The providers ask for one tool call at a time where their API allows it (anthropic.ts's
+ * `disable_parallel_tool_use`, completions.ts's `parallel_tool_calls: false`; the Responses API
+ * takes no such flag, and `runToolCalls` below covers the case where it returns several), so a
+ * round trip is normally one tool call — and a verified edit is already ~6 of them (screenshot,
+ * click_view + verify, run_program, select, fit, screenshot). 25 aborted multi-part work in the
+ * middle of a plan; 50 keeps the guard against a spinning loop while leaving room for a build
+ * with a few retries.
  */
 export const MAX_AGENT_ITERATIONS = 50;
 
@@ -117,6 +123,9 @@ function collectEvent(parts: TurnParts, ev: StreamEvent, callbacks: ChatCallback
         parts.toolCalls.push({ id: ev.id, name: ev.name, arguments: ev.arguments });
     } else if (ev.type === "thinking") {
         parts.thinking.push(ev.block);
+    } else if (ev.type === "thinking_delta") {
+        // Display only: the block that carries it is what `parts.thinking` keeps for the replay.
+        callbacks.onThinkingDelta(ev.text);
     }
 }
 
@@ -145,7 +154,10 @@ async function streamTurn(provider: LLMProvider, opts: RunAgentOptions): Promise
         if (ev.type === "usage") usage = ev.usage;
         else collectEvent(parts, ev, opts.callbacks);
     }
-    if (usage) logTokenUsage(usage);
+    if (usage) {
+        logTokenUsage(usage);
+        opts.callbacks.onUsage(usage);
+    }
     return parts;
 }
 

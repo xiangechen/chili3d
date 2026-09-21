@@ -82,7 +82,7 @@ describe("anthropic markConversationTail", () => {
 });
 
 describe("anthropic convertEvent", () => {
-    test("captures a thinking block with its signature", () => {
+    test("streams thinking deltas, then closes them with the signed block", () => {
         const events = runEvents([
             { type: "content_block_start", index: 0, content_block: { type: "thinking", thinking: "" } },
             { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "let me " } },
@@ -92,6 +92,10 @@ describe("anthropic convertEvent", () => {
         ]);
 
         expect(events).toEqual([
+            { type: "thinking_delta", text: "let me " },
+            { type: "thinking_delta", text: "think" },
+            // The block carries what the deltas only spelled out — the signature included, which
+            // is the whole reason it has to come through whole.
             { type: "thinking", block: { type: "thinking", thinking: "let me think", signature: "sig1" } },
         ]);
     });

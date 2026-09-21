@@ -2,42 +2,71 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    getCurrentApplication,
     I18n,
     type I18nKeys,
     type IDocument,
+    type IHistoryRecord,
+    type INode,
     type IView,
     Localize,
     PubSub,
 } from "@chili3d/core";
-import { button, div, form, img, input, option, select, span, svg, textarea } from "@chili3d/element";
+import {
+    button,
+    div,
+    form,
+    img,
+    input,
+    option,
+    select,
+    setSVGIcon,
+    span,
+    svg,
+    textarea,
+} from "@chili3d/element";
 import { marked, type Tokens } from "marked";
 import style from "./chatPanel.module.css";
 import {
     conversationTitle,
+    messageParts,
     newConversation,
     readConversations,
     type StoredAsk,
     type StoredConversation,
     type StoredMessage,
+    type StoredPart,
     type StoredToolCall,
     writeConversations,
 } from "./history";
 import { runAgent } from "./llm/agent";
 import { buildSystemPrompt } from "./llm/prompt";
-import type { ChatMessage, ImagePart } from "./llm/types";
+import type { ChatMessage, ImagePart, TokenUsage } from "./llm/types";
 import {
-    DEFAULT_ANTHROPIC_MODEL,
+    CONTEXT_WINDOW_OPTIONS,
+    currentConfig,
+    DEFAULT_CONTEXT_WINDOW,
     type LLMConfig,
     loadConfig,
+    offerKeyToPasswordManager,
     PROVIDER_PRESETS,
+    type ProviderPreset,
     saveConfig,
 } from "./settings";
 import { buildTools } from "./tools";
 import { type AskRequest, setAskHandler } from "./tools/askUser";
+import { findNode, getDocument } from "./tools/documentContext";
 
-/** How many messages of history are resent to the model on each turn. */
-const MAX_HISTORY_MESSAGES = 40;
+/**
+ * How much of the model's window the resent history may fill before the oldest turns are dropped.
+ * The remainder is slack for the estimate below, which is deliberately rough.
+ */
+const CONTEXT_BUDGET_RATIO = 0.8;
+
+/**
+ * How close to the bottom still counts as reading along. About a line: far enough that rounding
+ * or a footer landing does not break the follow, near enough that a deliberate scroll away does.
+ */
+const FOLLOW_BOTTOM_SLACK = 32;
 
 /**
  * Tool result handed back when a question is abandoned rather than answered. Protocol text, like
@@ -65,7 +94,6 @@ function renderMarkdown(raw: string): string {
     return marked.parse(raw, { async: false });
 }
 
-/** Mutable state of the assistant text streaming in during one turn. */
 /** The parts of a tool result a chat card summarizes; anything else falls back to the raw text. */
 interface ToolResultSummary {
     ref?: string;
@@ -74,27 +102,117 @@ interface ToolResultSummary {
     error?: string;
 }
 
-function summarizeResult(parsed: ToolResultSummary, fallback: string): string {
+/** One line of a tool card's detail. `nodeIds` marks what clicking it should reveal. */
+interface ResultSegment {
+    text: string;
+    nodeIds?: string[];
+}
+
+function summarizeResult(parsed: ToolResultSummary, fallback: string): ResultSegment[] {
     const names = (nodes: { nodeId?: string; name?: string }[]) =>
         nodes
             .map((n) => n.name ?? n.nodeId ?? "")
             .filter(Boolean)
             .join(", ");
 
-    const segments: string[] = [];
+    const ids = (nodes: { nodeId?: string }[]) =>
+        nodes.map((n) => n.nodeId).filter((id): id is string => id !== undefined);
+
+    const segments: ResultSegment[] = [];
     if (parsed.created?.length) {
-        segments.push(I18n.translate("ai.tool.created", names(parsed.created)));
+        // Created nodes still exist, so the segment can point at them. Removed ones cannot —
+        // they are gone the moment the call returns, and a dead link is worse than none.
+        segments.push({
+            text: I18n.translate("ai.tool.created", names(parsed.created)),
+            nodeIds: ids(parsed.created),
+        });
     }
     if (parsed.removed?.length) {
-        segments.push(I18n.translate("ai.tool.removed", names(parsed.removed)));
+        segments.push({ text: I18n.translate("ai.tool.removed", names(parsed.removed)) });
     }
-    if (segments.length) return segments.join("; ");
-    return parsed.ref ? I18n.translate("ai.tool.created", parsed.ref) : fallback;
+    if (segments.length) return segments;
+    return [{ text: parsed.ref ? I18n.translate("ai.tool.created", parsed.ref) : fallback }];
 }
 
+/** Mutable state of the assistant output streaming in during one turn. */
 interface StreamState {
-    el: HTMLElement | null;
+    /** The paragraph being streamed right now; null between a tool call and the text after it. */
+    block: HTMLElement | null;
+    /** That paragraph's own text, reset each time a tool call or question closes it. */
+    blockText: string;
+    /** The reasoning block streaming right now, until text or a tool call closes it. */
+    thinking: HTMLElement | null;
+    thinkingText: string;
+    /** When that reasoning block opened, for the "thought for Ns" summary. */
+    thinkingStartedAt: number;
+    /** The whole turn's text, across every paragraph — what the copy button and the record hold. */
     raw: string;
+}
+
+/** What one finished turn leaves for the transcript, once its bubble has stopped streaming. */
+interface SettledTurn {
+    /** The turn's parts in order — empty when there is no bubble left to have owned them. */
+    parts: StoredPart[];
+    /** Those parts' text read back, which is what the copy button and the record's `text` carry. */
+    text: string;
+    /** Wall-clock milliseconds the turn spent in tool calls, or undefined if it called none. */
+    workedMs?: number;
+}
+
+/**
+ * A user turn the transcript can take back: the row that stands for it, what it carried, and where
+ * the document's undo stack stood when it began (`mark` undefined means an empty stack, which is
+ * still somewhere to rewind to — the turn's own records are then all there is to undo).
+ */
+interface RevertedTurn {
+    mark: IHistoryRecord | undefined;
+    text: string;
+    images?: ImagePart[];
+    el: HTMLElement;
+}
+
+/**
+ * How full the model's context is after a request. Every input token counts — cached or not, it
+ * is sitting in the window — while output is the reply, which only joins the context next turn.
+ */
+function contextTokens(usage: TokenUsage): number {
+    return usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
+}
+
+/** The estimated weight of a conversation — what the trim budget and the meter both need. */
+function estimateContext(messages: ChatMessage[]): number {
+    return messages.reduce((sum, message) => sum + estimateTokens(message), 0);
+}
+
+/**
+ * Roughly what a message costs the context. There is no tokenizer in the browser, so this is the
+ * usual four-characters-per-token rule of thumb, applied to everything that goes over the wire:
+ * text, tool arguments, reasoning (which is replayed), and base64 images. It only has to pick a
+ * trim point with room to spare — the exact count arrives with every response.
+ */
+function estimateTokens(message: ChatMessage): number {
+    let chars = message.content.length;
+    if (message.role === "assistant") {
+        for (const call of message.toolCalls ?? []) chars += call.name.length + call.arguments.length;
+        for (const block of message.thinking ?? []) {
+            chars +=
+                block.type === "thinking"
+                    ? block.thinking.length + block.signature.length
+                    : block.data.length;
+        }
+    } else {
+        for (const image of message.images ?? []) chars += image.data.length;
+    }
+    return Math.ceil(chars / 4);
+}
+
+/** `1000` and `1_000_000` must not read as `1.0k` and `1000.0k`. */
+function formatTokens(count: number): string {
+    const scaled = (value: number, unit: string) =>
+        `${Number.isInteger(value) ? value : value.toFixed(1)}${unit}`;
+    if (count >= 1_000_000) return scaled(count / 1_000_000, "M");
+    if (count >= 1000) return scaled(count / 1000, "k");
+    return `${count}`;
 }
 
 export class ChatPanel extends HTMLElement {
@@ -106,6 +224,8 @@ export class ChatPanel extends HTMLElement {
     private readonly messageList: HTMLElement;
     private readonly emptyState: HTMLElement;
     private readonly composer: HTMLElement;
+    /** The composer's input card, hidden while a question stands in for it. */
+    private composerCard!: HTMLElement;
     private readonly input: HTMLTextAreaElement;
     private readonly sendButton: HTMLButtonElement;
     private titleEl!: HTMLElement;
@@ -123,15 +243,39 @@ export class ChatPanel extends HTMLElement {
     /** The active document's archived conversations; the in-flight one is `conversation`. */
     private conversations: StoredConversation[] = [];
     private conversation: StoredConversation = newConversation();
-    /** Tool cards from the turn in flight, projected onto its assistant message when it ends. */
-    private turnTools: StoredToolCall[] = [];
-    /** Questions asked during the turn in flight, likewise projected when it ends. */
-    private turnAsks: StoredAsk[] = [];
+    /** The turn in flight, in the order it happened, projected onto its message when it ends. */
+    private turnParts: StoredPart[] = [];
+    /** When the turn in flight started, for the "worked for Ns" summary. */
+    private turnStartedAt = 0;
     /**
-     * The assistant bubble of the turn in flight. Work blocks and question cards both anchor
-     * before it, so the turn reads top-down as well as the DOM order does.
+     * What the model's window currently holds. A response reports it exactly, and that figure
+     * stands until something changes the history underneath it — so a revert recomputes it from
+     * the messages that survived. That recomputation is an estimate; every other value here is
+     * measured, which is why this is a plain count and not a `TokenUsage`.
+     */
+    private contextUsed?: number;
+    private contextMeter!: HTMLElement;
+    private contextFill!: HTMLElement;
+    private contextText!: HTMLElement;
+    /**
+     * What was on top of the document's undo stack when the turn began — how far a turn rewinds
+     * it. The record itself, not a depth: `undoLimits` pins `undoCount` once the stack is full,
+     * so a count would stop describing the stack exactly when there is most to rewind.
+     */
+    private turnHistoryMark?: IHistoryRecord;
+    /** The fullest reading of the window this turn reported, to be kept with its message. */
+    private turnUsage?: TokenUsage;
+    /** The "the model no longer sees all of this" marker, once the context has overflowed. */
+    private contextNoticeEl?: HTMLElement;
+    /**
+     * The assistant bubble of the turn in flight. Every part of the turn — paragraphs, tool
+     * cards, question cards — lands inside it in the order it streamed, so the turn reads the
+     * way it happened.
      */
     private activeAssistantEl?: HTMLElement;
+    /** The waiting indicator, up until the turn produces its first visible part. */
+    private thinkingEl?: HTMLElement;
+    private stream?: StreamState;
     /** Settles the question card currently waiting on the user, if one is up. */
     private settleAsk?: (answer: string, recorded?: string) => void;
     /**
@@ -143,6 +287,14 @@ export class ChatPanel extends HTMLElement {
     private providerSelect!: HTMLSelectElement;
     private baseURLInput!: HTMLInputElement;
     private modelInput!: HTMLInputElement;
+    private contextWindowSelect!: HTMLSelectElement;
+    /**
+     * The preset the model and base URL fields were last set from — what a provider switch compares
+     * them against to tell the preset's own values from the user's (see `onProviderChanged`).
+     */
+    private appliedPreset?: ProviderPreset;
+    /** Holds a window size outside the common tiers, so an older custom value stays visible. */
+    private customWindowOption?: HTMLOptionElement;
     private apiKeyInput!: HTMLInputElement;
     private usernameInput!: HTMLInputElement;
     private readonly imagePreview: HTMLElement;
@@ -150,13 +302,8 @@ export class ChatPanel extends HTMLElement {
     private configured = false;
     private sending = false;
     private abortController?: AbortController;
-    private sendIconEl!: HTMLElement;
-    private workBlock?: {
-        root: HTMLElement;
-        body: HTMLElement;
-        summary: HTMLElement;
-        startedAt: number;
-    };
+    /** The send arrow, swapped for the stop square while a run is in flight. */
+    private sendIconEl!: SVGSVGElement;
 
     constructor() {
         super();
@@ -183,7 +330,7 @@ export class ChatPanel extends HTMLElement {
             this.buildHistoryOverlay(),
         );
         this.loadConfig();
-        this.openDocument(activeDocument());
+        this.openDocument(getDocument());
         // The ask_user tool reaches its card through here; see tools/askUser.ts for the channel.
         setAskHandler((request, signal) => this.askUser(request, signal));
         // Subscribed once, for the panel's whole life: floating mode detaches by moving this node
@@ -218,7 +365,7 @@ export class ChatPanel extends HTMLElement {
     }
 
     private createSendButton(): HTMLButtonElement {
-        this.sendIconEl = span({ className: style.sendIcon, textContent: "↑" });
+        this.sendIconEl = svg({ className: style.sendIcon, icon: "icon-up" });
         return button(
             {
                 className: style.sendButton,
@@ -305,14 +452,42 @@ export class ChatPanel extends HTMLElement {
             },
             svg({ className: style.attachIcon, icon: "icon-plus" }),
         );
-        return div(
-            { className: style.composer },
-            div(
-                { className: style.composerCard },
-                this.input,
-                div({ className: style.composerBar }, attachButton, this.sendButton),
-            ),
+        this.composerCard = div(
+            { className: style.composerCard },
+            this.input,
+            div({ className: style.composerBar }, attachButton, this.createContextMeter(), this.sendButton),
         );
+        return div({ className: style.composer }, this.composerCard);
+    }
+
+    /**
+     * How full the model's context is, sitting in the send row because that is the one strip of
+     * the panel always in view. Hidden until a request reports usage: a bar at zero says nothing.
+     */
+    private createContextMeter(): HTMLElement {
+        this.contextFill = div({ className: style.contextFill });
+        this.contextText = span({ className: style.contextText });
+        this.contextMeter = div(
+            { className: style.contextMeter, style: "display: none" },
+            div({ className: style.contextBar }, this.contextFill),
+            this.contextText,
+        );
+        return this.contextMeter;
+    }
+
+    private renderContextMeter() {
+        const used = this.contextUsed;
+        if (used === undefined) {
+            this.contextMeter.style.display = "none";
+            return;
+        }
+        const window = currentConfig().contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+        const ratio = window > 0 ? Math.min(1, used / window) : 1;
+        this.contextMeter.style.display = "";
+        this.contextMeter.title = I18n.translate("ai.contextHint", formatTokens(used), formatTokens(window));
+        this.contextMeter.classList.toggle(style.contextMeterFull, ratio >= 0.8);
+        this.contextFill.style.width = `${(ratio * 100).toFixed(1)}%`;
+        this.contextText.textContent = `${formatTokens(used)} / ${formatTokens(window)}`;
     }
 
     private createEmptyState(): HTMLElement {
@@ -383,6 +558,12 @@ export class ChatPanel extends HTMLElement {
         );
         this.baseURLInput = input({ className: style.field, placeholder: "base URL (OpenAI-compatible)" });
         this.modelInput = input({ className: style.field, placeholder: "model" });
+        this.contextWindowSelect = select(
+            { className: style.field },
+            ...CONTEXT_WINDOW_OPTIONS.map((size) =>
+                option({ value: String(size), textContent: formatTokens(size) }),
+            ),
+        );
         // Login-form semantics let the OS/browser password manager keep the key; the
         // app itself only holds it in memory for the session (see settings.ts).
         this.usernameInput = input({
@@ -400,7 +581,7 @@ export class ChatPanel extends HTMLElement {
             autocomplete: "current-password",
         });
 
-        this.providerSelect.onchange = () => this.fillFromPreset();
+        this.providerSelect.onchange = () => this.onProviderChanged();
     }
 
     private settingsField(label: Localize, el: HTMLElement) {
@@ -416,6 +597,9 @@ export class ChatPanel extends HTMLElement {
             { className: style.settingsHeader },
             this.headerButton("icon-back", "ai.cancel", () => this.hideSettings()),
             div({ className: style.settingsTitle, textContent: new Localize("ai.settingsTitle") }),
+            // The overlay covers the panel's own header, so it has to carry that header's close
+            // button — same icon, same tooltip, same action.
+            this.headerButton("icon-times", "ai.cancel", () => this.onClose?.()),
         );
     }
 
@@ -434,6 +618,7 @@ export class ChatPanel extends HTMLElement {
                 this.settingsField(new Localize("ai.provider"), this.providerSelect),
                 this.settingsField(new Localize("ai.baseURL"), this.baseURLInput),
                 this.settingsField(new Localize("ai.model"), this.modelInput),
+                this.settingsField(new Localize("ai.contextWindow"), this.contextWindowSelect),
                 this.settingsField(new Localize("ai.apiKey"), this.apiKeyInput),
                 div({ className: style.settingsHint, textContent: new Localize("ai.apiKeyHint") }),
             ),
@@ -458,13 +643,59 @@ export class ChatPanel extends HTMLElement {
         );
     }
 
-    private fillFromPreset() {
+    /**
+     * The provider select changed, so the preset can fill the fields the user has not made their
+     * own — a field still holding what the last preset put there is the preset's to change, and
+     * one holding anything else is theirs: the proxy address everything routes through, a model
+     * name no preset has heard of. An empty one is nobody's either — it says nothing worth keeping,
+     * and a switch is as good a moment as any to fill it. Switching provider is not a reset.
+     */
+    private onProviderChanged() {
         const preset = PROVIDER_PRESETS.find((p) => p.id === this.providerSelect?.value);
-        if (preset && this.baseURLInput && this.modelInput) {
+        if (!preset) return;
+        const previous = this.appliedPreset;
+        /** Whether the field is the preset's to write: empty, or still holding the last preset's. */
+        const unclaimed = (current: string, from?: string) =>
+            current === "" || previous === undefined || current === (from ?? "");
+        if (unclaimed(this.baseURLInput.value, previous?.baseURL)) {
             this.baseURLInput.value = preset.baseURL ?? "";
-            this.modelInput.value = preset.defaultModel;
-            if (this.usernameInput) this.usernameInput.value = preset.id;
         }
+        if (unclaimed(this.modelInput.value, previous?.defaultModel)) {
+            this.modelInput.value = preset.defaultModel;
+        }
+        this.appliedPreset = preset;
+        if (this.usernameInput) this.usernameInput.value = preset.id;
+    }
+
+    /** Nothing saved to start from, so the preset's own values stand in — blank fields help nobody. */
+    private applyPresetDefaults() {
+        const preset = PROVIDER_PRESETS.find((p) => p.id === this.providerSelect?.value);
+        if (!preset) return;
+        this.baseURLInput.value = preset.baseURL ?? "";
+        this.modelInput.value = preset.defaultModel;
+        this.syncContextWindowValue(DEFAULT_CONTEXT_WINDOW);
+        if (this.usernameInput) this.usernameInput.value = preset.id;
+        this.appliedPreset = preset;
+    }
+
+    /**
+     * Show `size` in the select, adding a one-off entry when it is not one of the common tiers —
+     * a value typed in before this was a select, which the select would otherwise blank out and
+     * then silently replace with the default on save.
+     */
+    private syncContextWindowValue(size: number) {
+        const select = this.contextWindowSelect;
+        if (CONTEXT_WINDOW_OPTIONS.includes(size)) {
+            this.customWindowOption?.remove();
+            this.customWindowOption = undefined;
+        } else if (this.customWindowOption) {
+            this.customWindowOption.value = String(size);
+            this.customWindowOption.textContent = formatTokens(size);
+        } else {
+            this.customWindowOption = option({ value: String(size), textContent: formatTokens(size) });
+            select.append(this.customWindowOption);
+        }
+        select.value = String(size);
     }
 
     private showSettings() {
@@ -473,12 +704,16 @@ export class ChatPanel extends HTMLElement {
         if (saved && this.providerSelect && this.baseURLInput && this.modelInput && this.apiKeyInput) {
             const preset = PROVIDER_PRESETS.find((p) => p.provider === saved.provider);
             if (preset) this.providerSelect.value = preset.id;
+            // Which preset the shown values came from, so a switch can still tell an untouched
+            // field from one the user has made their own since.
+            this.appliedPreset = preset;
             this.baseURLInput.value = saved.baseURL ?? "";
             this.modelInput.value = saved.model;
+            this.syncContextWindowValue(saved.contextWindow ?? DEFAULT_CONTEXT_WINDOW);
             this.apiKeyInput.value = saved.apiKey;
             if (this.usernameInput) this.usernameInput.value = preset?.id ?? saved.provider;
         } else {
-            this.fillFromPreset();
+            this.applyPresetDefaults();
         }
         this.settingsOverlay.style.display = "flex";
     }
@@ -493,34 +728,14 @@ export class ChatPanel extends HTMLElement {
             provider: preset?.provider ?? "anthropic",
             baseURL: this.baseURLInput?.value || undefined,
             model: this.modelInput?.value ?? "",
+            contextWindow: Number(this.contextWindowSelect?.value) || DEFAULT_CONTEXT_WINDOW,
             apiKey: this.apiKeyInput?.value.trim() ?? "",
         };
         saveConfig(config);
-        await this.offerKeyToPasswordManager(preset?.id ?? config.provider, config.apiKey);
+        await offerKeyToPasswordManager(preset?.id ?? config.provider, config.apiKey);
         this.configured = config.apiKey.length > 0;
         this.renderState();
         this.hideSettings();
-    }
-
-    /**
-     * Hand the key to the browser's password manager (Chrome/Edge support the
-     * Credential Management API). Unsupported browsers or a declined prompt leave
-     * the key session-only, and the user re-enters it next time.
-     */
-    private async offerKeyToPasswordManager(id: string, password: string) {
-        if (!password) return;
-        try {
-            const ctor = (
-                globalThis as {
-                    PasswordCredential?: new (data: { id: string; password: string }) => Credential;
-                }
-            ).PasswordCredential;
-            if (ctor && navigator.credentials?.store) {
-                await navigator.credentials.store(new ctor({ id, password }));
-            }
-        } catch {
-            // Declined or blocked — session-only it is.
-        }
     }
 
     private startNewConversation() {
@@ -537,9 +752,11 @@ export class ChatPanel extends HTMLElement {
         this.abandonPendingAsk();
         this.conversation = newConversation();
         this.messages.length = 0;
-        this.turnTools = [];
+        this.turnParts = [];
         this.messageList.innerHTML = "";
-        this.workBlock = undefined;
+        this.contextNoticeEl = undefined;
+        this.contextUsed = undefined;
+        this.renderContextMeter();
         this.pendingImages.length = 0;
         this.renderImagePreview();
         this.updateEmptyState();
@@ -569,6 +786,8 @@ export class ChatPanel extends HTMLElement {
             { className: style.historyHeader },
             this.headerButton("icon-back", "ai.cancel", () => this.hideHistory()),
             div({ className: style.historyTitle, textContent: new Localize("ai.history") }),
+            // Same reason as the settings overlay: it hides the panel header it borrows from.
+            this.headerButton("icon-times", "ai.cancel", () => this.onClose?.()),
         );
     }
 
@@ -651,7 +870,7 @@ export class ChatPanel extends HTMLElement {
     /** Rebuild the whole transcript from stored messages, as if it had just streamed in. */
     private renderConversation(conversation: StoredConversation) {
         this.messageList.innerHTML = "";
-        this.workBlock = undefined;
+        this.contextNoticeEl = undefined;
         for (const message of conversation.messages) {
             if (message.role === "user") {
                 this.appendBubble("user", message.text, message.images);
@@ -659,26 +878,24 @@ export class ChatPanel extends HTMLElement {
             }
             const el = div({ className: style.assistant });
             this.messageList.append(el);
-            if (message.tools?.length) {
-                // The work block is a single slot: fill it and finalize before the next turn, or
-                // the following turn's cards land inside this one.
-                this.ensureWorkBlock(el, {
-                    summary: I18n.translate("ai.workedFor", `${Math.round((message.workedMs ?? 0) / 1000)}s`),
-                    open: false,
-                });
-                for (const tool of message.tools) {
-                    this.appendToolCard(tool.name, tool.args, tool.result);
+            for (const part of messageParts(message)) {
+                if (part.type === "text") {
+                    el.append(div({ className: style.markdown, innerHTML: renderMarkdown(part.text) }));
+                } else if (part.type === "tool") {
+                    el.append(this.toolCardElement(part));
+                } else if (part.type === "thinking") {
+                    el.append(this.thinkingPartElement(part));
+                } else {
+                    el.append(this.askCardElement(part));
                 }
-                this.finalizeWorkBlock(true);
             }
-            for (const ask of message.asks ?? []) {
-                this.messageList.insertBefore(this.askCardElement(ask), el);
-            }
-            if (message.text) {
-                el.append(div({ className: style.markdown, innerHTML: renderMarkdown(message.text) }));
-            }
-            el.append(this.messageFooter(message.text, message.time));
+            el.append(this.messageFooter(message.text, message.time, message.workedMs));
         }
+        // Reopening a conversation resumes its context, so the meter reads what the model holds
+        // rather than starting blank.
+        const saved = [...conversation.messages].reverse().find((m) => m.usage)?.usage;
+        this.contextUsed = saved ? contextTokens(saved) : undefined;
+        this.renderContextMeter();
         this.updateEmptyState();
         this.scrollToBottom();
     }
@@ -766,17 +983,6 @@ export class ChatPanel extends HTMLElement {
         this.imagePreview.style.display = this.pendingImages.length ? "flex" : "none";
     }
 
-    private currentConfig(): LLMConfig {
-        return (
-            loadConfig() ?? {
-                provider: "anthropic",
-                baseURL: undefined,
-                apiKey: "",
-                model: DEFAULT_ANTHROPIC_MODEL,
-            }
-        );
-    }
-
     private async send() {
         if (this.sending) return;
         const text = this.input.value.trim();
@@ -788,61 +994,104 @@ export class ChatPanel extends HTMLElement {
         this.abortController = new AbortController();
         this.beginTurn(text);
 
-        const { assistantEl, thinkingEl } = this.appendAssistantPlaceholder();
-        const stream: StreamState = { el: null, raw: "" };
+        const assistantEl = this.appendAssistantPlaceholder();
+        this.stream = {
+            block: null,
+            blockText: "",
+            thinking: null,
+            thinkingText: "",
+            thinkingStartedAt: 0,
+            raw: "",
+        };
         let showFooter = false;
         try {
-            await this.runTurn(config, this.abortController.signal, stream, assistantEl, thinkingEl);
-            if (stream.el) {
-                showFooter = true;
-            } else {
-                this.appendNoReply(assistantEl, thinkingEl);
-            }
+            await this.runTurn(config, this.abortController.signal);
+            if (this.stream.raw) showFooter = true;
+            else this.appendNoReply(assistantEl);
         } catch (err) {
-            showFooter = this.handleSendError(err, stream, thinkingEl, assistantEl);
+            showFooter = this.handleSendError(err);
         } finally {
-            this.endTurn(showFooter, stream, assistantEl);
+            this.endTurn(showFooter, assistantEl);
         }
     }
 
     /** A turn that streamed no text still owes the user an answer, even a placeholder one. */
-    private appendNoReply(assistantEl: HTMLElement, thinkingEl: HTMLElement): void {
-        thinkingEl.remove();
+    private appendNoReply(assistantEl: HTMLElement): void {
+        this.clearThinking();
         assistantEl.append(div({ className: style.noReply, textContent: I18n.translate("ai.noReply") }));
     }
 
     /** Undo what beginTurn set up, once the reply has landed. */
-    private endTurn(showFooter: boolean, stream: StreamState, assistantEl: HTMLElement): void {
-        if (showFooter && stream.el) assistantEl.append(this.messageFooter(stream.raw));
-        const workedMs = this.workBlock ? Date.now() - this.workBlock.startedAt : 0;
-        this.finalizeWorkBlock();
-        const hasContent = showFooter || this.turnTools.length > 0 || this.turnAsks.length > 0;
+    private endTurn(showFooter: boolean, assistantEl: HTMLElement): void {
+        this.sealStream();
+        this.clearThinking();
+        const turn = this.settleTurn(assistantEl, showFooter);
+        // Nothing worth a turn — no reply text, no cards, no question — leaves nothing behind.
+        if (showFooter || turn.parts.length > 0) this.archiveTurn(turn);
+        this.clearTurnState();
+    }
+
+    /**
+     * Settle the finished turn: give its bubble the footer it earned, and read off what it leaves
+     * for the transcript. `showFooter` is the caller's "the model said something" — the footer is
+     * the only place a tool-only turn can report its elapsed time, so that case gets one too.
+     */
+    private settleTurn(assistantEl: HTMLElement, showFooter: boolean): SettledTurn {
+        // A bubble no longer on screen leaves nothing to record. That is a run stopped while the
+        // model was still reasoning: `handleSendError` takes the whole bubble down, because
+        // reasoning with nothing said after it is not an answer — and the thinking part that
+        // `sealStream` just pushed belongs to that bubble, not to the transcript.
+        const parts = this.messageList.contains(assistantEl) ? this.turnParts : [];
+        // `text` is `parts` read back, never a second tally of the same stream: a turn that
+        // errored mid-way keeps the paragraphs it had already sealed, and a `text` built from the
+        // raw stream would have dropped them along with the paragraph that was discarded.
+        const text = parts
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("");
+        // `undefined`, not 0, is what says the turn called nothing: a fast tool finishes inside
+        // the same millisecond it started.
+        const workedMs = parts.some((p) => p.type === "tool") ? Date.now() - this.turnStartedAt : undefined;
+        if (showFooter || workedMs !== undefined) {
+            assistantEl.append(this.messageFooter(text, Date.now(), workedMs));
+        }
+        return { parts, text, workedMs };
+    }
+
+    /** Put the settled turn into the conversation it belongs to, if it is still that one's. */
+    private archiveTurn(turn: SettledTurn): void {
         // The turn belongs to a conversation only while the two still match: a switch mid-run
         // (new chat, restore, another document) leaves this one unwinding into nothing.
-        if (this.turnConversation === this.conversation && hasContent) {
-            this.recordMessage({
-                role: "assistant",
-                text: showFooter ? stream.raw : "",
-                time: Date.now(),
-                tools: this.turnTools.length ? this.turnTools : undefined,
-                asks: this.turnAsks.length ? this.turnAsks : undefined,
-                workedMs: workedMs || undefined,
-            });
-            this.saveConversation();
-        }
-        this.turnTools = [];
-        this.turnAsks = [];
+        if (this.turnConversation !== this.conversation) return;
+        this.recordMessage({
+            role: "assistant",
+            text: turn.text,
+            time: Date.now(),
+            parts: turn.parts.length ? turn.parts : undefined,
+            workedMs: turn.workedMs,
+            usage: this.turnUsage,
+        });
+        this.saveConversation();
+    }
+
+    /** Drop everything the turn in flight was holding, and hand the panel back to idle. */
+    private clearTurnState(): void {
+        this.turnParts = [];
+        this.turnUsage = undefined;
         this.turnConversation = undefined;
         this.activeAssistantEl = undefined;
+        this.stream = undefined;
         this.sending = false;
         this.abortController = undefined;
         this.setStopMode(false);
-        this.scrollToBottom();
+        // The turn ending is the run's doing too: a reader who scrolled up to study something
+        // keeps their place, and one who was following gets the last of the reply.
+        if (this.isAtBottom()) this.scrollToBottom();
     }
 
     /** The config to run with, or undefined after sending the user to the settings overlay. */
     private configuredConfig(): LLMConfig | undefined {
-        const config = this.currentConfig();
+        const config = currentConfig();
         if (config.apiKey) return config;
         this.configured = false;
         this.renderState();
@@ -851,13 +1100,7 @@ export class ChatPanel extends HTMLElement {
     }
 
     /** Stream one answer into the placeholder, wiring the callbacks that render it live. */
-    private async runTurn(
-        config: LLMConfig,
-        signal: AbortSignal,
-        stream: StreamState,
-        assistantEl: HTMLElement,
-        thinkingEl: HTMLElement,
-    ): Promise<void> {
+    private async runTurn(config: LLMConfig, signal: AbortSignal): Promise<void> {
         await runAgent({
             config,
             system: buildSystemPrompt(),
@@ -865,13 +1108,19 @@ export class ChatPanel extends HTMLElement {
             tools: buildTools(),
             signal,
             callbacks: {
-                onTextDelta: (t) => this.handleTextDelta(t, stream, thinkingEl, assistantEl),
+                onTextDelta: (t) => this.handleTextDelta(t),
+                onThinkingDelta: (t) => this.handleThinkingDelta(t),
+                onUsage: (usage) => {
+                    // Last one wins: within a turn each model round trip reports the window it
+                    // read, and the last read is the fullest — it already holds the rounds before.
+                    this.turnUsage = usage;
+                    this.contextUsed = contextTokens(usage);
+                    this.renderContextMeter();
+                },
                 onToolCall: (c) => {
                     // ask_user drew its own card while it waited (see askUser); agent.ts only reports
                     // the call once it resolves, so without this guard it would be drawn twice.
                     if (c.name === "ask_user") return;
-                    this.turnTools.push({ name: c.name, args: c.arguments, result: c.result });
-                    this.ensureWorkBlock(assistantEl);
                     this.appendToolCard(c.name, c.arguments, c.result);
                 },
             },
@@ -881,6 +1130,9 @@ export class ChatPanel extends HTMLElement {
     /** Lock the composer, record the user message and render its bubble. */
     private beginTurn(text: string) {
         this.turnConversation = this.conversation;
+        this.turnStartedAt = Date.now();
+        this.turnHistoryMark = this.document?.history.undoTop();
+        this.turnUsage = undefined;
         this.setStopMode(true);
         this.input.value = "";
         this.autosizeInput();
@@ -894,56 +1146,173 @@ export class ChatPanel extends HTMLElement {
             time: Date.now(),
             images: images.length ? images : undefined,
         });
-        this.appendBubble("user", text, images);
+        this.appendBubble("user", text, images, { mark: this.turnHistoryMark });
         this.updateEmptyState();
     }
 
-    private appendAssistantPlaceholder() {
+    private appendAssistantPlaceholder(): HTMLElement {
         const assistantEl = div({ className: style.assistant });
-        const thinkingEl = div(
+        this.messageList.append(assistantEl);
+        this.activeAssistantEl = assistantEl;
+        this.showThinking();
+        this.scrollToBottom();
+        return assistantEl;
+    }
+
+    private handleTextDelta(t: string) {
+        const stream = this.stream;
+        const assistantEl = this.activeAssistantEl;
+        if (!stream || !assistantEl) return;
+        // Read before the DOM grows: afterwards the metrics describe the taller layout, and the
+        // reader who was being carried along would read as having scrolled away.
+        const following = this.isAtBottom();
+        if (!stream.block) {
+            // The reply starting is what ends the reasoning that led to it.
+            this.sealStream();
+            stream.block = div({ className: style.markdown });
+            assistantEl.append(stream.block);
+            this.showThinking();
+        }
+        stream.blockText += t;
+        stream.raw += t;
+        stream.block.innerHTML = renderMarkdown(stream.blockText);
+        if (following) this.scrollToBottom();
+    }
+
+    /**
+     * Show reasoning as it streams, in a block that folds itself away once the model moves on.
+     * The API sends this both as deltas and as a finished block; only the deltas reach here —
+     * the block is what `parts.thinking` keeps for the replay.
+     */
+    private handleThinkingDelta(text: string) {
+        const stream = this.stream;
+        const assistantEl = this.activeAssistantEl;
+        if (!stream || !assistantEl) return;
+        const following = this.isAtBottom();
+        if (!stream.thinking) {
+            stream.thinking = this.buildThinkingBlock(I18n.translate("ai.thinking"), "");
+            // Open while it streams: the point is watching the model work.
+            stream.thinking.classList.add(style.open);
+            stream.thinkingText = "";
+            stream.thinkingStartedAt = Date.now();
+            assistantEl.append(stream.thinking);
+            this.showThinking();
+        }
+        stream.thinkingText += text;
+        const body = stream.thinking.querySelector(`.${style.thinkingBody}`);
+        if (body) {
+            body.textContent = stream.thinkingText;
+            // The block is capped in height and scrolls inside itself, so carrying the reader
+            // along means carrying this too — the newest reasoning is the part being written.
+            if (following) body.scrollTop = body.scrollHeight;
+        }
+        if (following) this.scrollToBottom();
+    }
+
+    /** A folded reasoning block; the caller opens it if it is the one streaming right now. */
+    private buildThinkingBlock(summaryText: string, bodyText: string): HTMLElement {
+        const summary = span({ className: style.thinkingSummary, textContent: summaryText });
+        const body = div({ className: style.thinkingBody, textContent: bodyText });
+        const root = div(
+            { className: style.thinkingBlock },
+            button(
+                { className: style.thinkingHeader, onclick: () => root.classList.toggle(style.open) },
+                summary,
+                svg({ className: style.thinkingChevron, icon: "icon-angle-right" }),
+            ),
+            body,
+        );
+        return root;
+    }
+
+    /** A reasoning block redrawn from the transcript, folded away as `closeThinking` left it. */
+    private thinkingPartElement(part: { text: string; ms?: number }): HTMLElement {
+        return this.buildThinkingBlock(
+            part.ms === undefined
+                ? I18n.translate("ai.thinking")
+                : I18n.translate("ai.thoughtFor", `${Math.round(part.ms / 1000)}s`),
+            part.text,
+        );
+    }
+
+    /** Fold the reasoning block away and record it, once the model has something to say. */
+    private closeThinking() {
+        const stream = this.stream;
+        if (!stream?.thinking) return;
+        const ms = Date.now() - stream.thinkingStartedAt;
+        const summary = stream.thinking.querySelector(`.${style.thinkingSummary}`);
+        if (summary) summary.textContent = I18n.translate("ai.thoughtFor", `${Math.round(ms / 1000)}s`);
+        stream.thinking.classList.remove(style.open);
+        this.turnParts.push({ type: "thinking", text: stream.thinkingText, ms });
+        stream.thinking = null;
+        stream.thinkingText = "";
+    }
+
+    /**
+     * Seal whatever is streaming — reasoning and/or a paragraph — so the next part starts fresh.
+     * This is what keeps a turn's blocks apart on either side of a tool call, in the DOM and in
+     * the recorded parts alike.
+     */
+    private sealStream() {
+        this.closeThinking();
+        this.closeParagraph();
+    }
+
+    private closeParagraph() {
+        const stream = this.stream;
+        if (!stream?.block) return;
+        this.turnParts.push({ type: "text", text: stream.blockText });
+        stream.block = null;
+        stream.blockText = "";
+    }
+
+    /** Throw away the half-written paragraph a crashed turn left, so the retry starts clean. */
+    private discardParagraph() {
+        const stream = this.stream;
+        if (!stream?.block) return;
+        stream.raw = stream.raw.slice(0, stream.raw.length - stream.blockText.length);
+        stream.block.remove();
+        stream.block = null;
+        stream.blockText = "";
+    }
+
+    private clearThinking() {
+        this.thinkingEl?.remove();
+        this.thinkingEl = undefined;
+    }
+
+    /**
+     * Show the waiting dots under whatever just landed. With the turn's parts flat, they are the
+     * only thing saying a run is still going: a tool that reports late would otherwise leave the
+     * transcript looking finished between two cards.
+     *
+     * They are built on demand rather than once per turn, because a question takes the run off
+     * the model's hands mid-turn — `askUser` takes them down, and the answer has to put them back.
+     */
+    private showThinking() {
+        const assistantEl = this.activeAssistantEl;
+        if (!assistantEl) return;
+        this.thinkingEl ??= div(
             { className: style.thinkingDots },
             span({ className: style.thinkingDot }),
             span({ className: style.thinkingDot }),
             span({ className: style.thinkingDot }),
         );
-        assistantEl.append(thinkingEl);
-        this.messageList.append(assistantEl);
-        this.activeAssistantEl = assistantEl;
-        this.scrollToBottom();
-        return { assistantEl, thinkingEl };
-    }
-
-    private handleTextDelta(
-        t: string,
-        stream: StreamState,
-        thinkingEl: HTMLElement,
-        assistantEl: HTMLElement,
-    ) {
-        if (!stream.el) {
-            thinkingEl.remove();
-            stream.el = div({ className: style.markdown });
-            assistantEl.append(stream.el);
-        }
-        stream.raw += t;
-        stream.el.innerHTML = renderMarkdown(stream.raw);
-        this.scrollToBottom();
+        assistantEl.append(this.thinkingEl);
     }
 
     /** Returns true when the (partial) reply should still get a footer. */
-    private handleSendError(
-        err: unknown,
-        stream: StreamState,
-        thinkingEl: HTMLElement,
-        assistantEl: HTMLElement,
-    ): boolean {
-        thinkingEl.remove();
+    private handleSendError(err: unknown): boolean {
+        this.clearThinking();
         if (this.abortController?.signal.aborted) {
             // Interrupted by the user: keep whatever already streamed, drop an empty bubble.
-            if (stream.el) return true;
-            assistantEl.remove();
-            return false;
+            if (!this.stream?.raw && this.turnParts.length === 0) {
+                this.activeAssistantEl?.remove();
+                return false;
+            }
+            return !!this.stream?.raw;
         }
-        stream.el?.remove();
+        this.discardParagraph();
         this.appendError((err as Error).message);
         return false;
     }
@@ -952,21 +1321,36 @@ export class ChatPanel extends HTMLElement {
         this.messageList.scrollTop = this.messageList.scrollHeight;
     }
 
+    /**
+     * Whether the reader is at the bottom of the transcript, and so wants to be carried along as
+     * it grows. Read BEFORE the content that would move it: a delta that has already landed makes
+     * the layout taller, and someone who was being carried along then reads as having scrolled away.
+     */
+    private isAtBottom(): boolean {
+        const { scrollTop, scrollHeight, clientHeight } = this.messageList;
+        return scrollHeight - scrollTop - clientHeight <= FOLLOW_BOTTOM_SLACK;
+    }
+
     private interrupt() {
         this.abortController?.abort();
     }
 
     private setStopMode(stop: boolean) {
-        this.sendIconEl.textContent = stop ? "■" : "↑";
+        setSVGIcon(this.sendIconEl, stop ? "icon-square" : "icon-up");
         this.sendButton.title = I18n.translate(stop ? "ai.stop" : "ai.sendHint");
         this.sendButton.classList.toggle(style.stopButton, stop);
     }
 
     /**
-     * Bound the history resent to the model: keep the newest MAX_HISTORY_MESSAGES messages,
-     * and strip base64 images from all but the latest message that carries them. Never start
-     * the kept window mid tool-exchange — walk forward to the next user-message boundary so
-     * assistant tool_calls and their tool results stay paired (or are dropped together).
+     * Bound the history resent to the model to the window the user configured, less slack: keep
+     * the newest turns that fit in CONTEXT_BUDGET_RATIO of it. Counting messages instead — a flat
+     * 40, say — has no relation to the window: the same 40 are 2% of a 1M context and over it in a
+     * 32k one, so it either starves short conversations or overruns long ones.
+     *
+     * Two things are not negotiable whatever the budget. Base64 images are stripped from all but
+     * the latest message that carries them — a screenshot is worth more than every message around
+     * it. And the kept window never starts mid tool-exchange: walk forward to the next user
+     * boundary so assistant tool_calls and their tool results stay paired, or are dropped together.
      */
     private trimMessages() {
         let lastWithImages = -1;
@@ -981,59 +1365,81 @@ export class ChatPanel extends HTMLElement {
             if (m.role !== "assistant" && i !== lastWithImages && m.images) m.images = undefined;
         }
 
-        if (this.messages.length <= MAX_HISTORY_MESSAGES) return;
-        let start = this.messages.length - MAX_HISTORY_MESSAGES;
+        const budget = (currentConfig().contextWindow ?? DEFAULT_CONTEXT_WINDOW) * CONTEXT_BUDGET_RATIO;
+        let total = estimateContext(this.messages);
+        if (total <= budget) return;
+
+        // Always keep the newest message, even alone over budget: an empty context answers nothing.
+        let start = 0;
+        while (start < this.messages.length - 1 && total > budget) {
+            total -= estimateTokens(this.messages[start]);
+            start++;
+        }
         while (start < this.messages.length && this.messages[start].role !== "user") start++;
         this.messages.splice(0, start);
-    }
-
-    private appendBubble(role: "user" | "assistant", text: string, images?: ImagePart[]) {
-        const el = div({ className: role === "user" ? style.user : style.assistant }, text);
-        for (const image of images ?? []) {
-            el.append(
-                img({ className: style.bubbleImage, src: `data:${image.mediaType};base64,${image.data}` }),
-            );
-        }
-        this.messageList.append(el);
+        this.showContextNotice();
     }
 
     /**
-     * Collapsible "worked for Ns" row above the assistant reply that groups the turn's tool
-     * cards — expanded while running, collapsed once the turn finishes.
+     * Say once, at the top of the transcript, that the conversation has outgrown what the model
+     * is sent. Without it the model simply starts forgetting earlier turns and nothing on screen
+     * explains why — the transcript still shows every message, because the user gets to keep them.
      */
-    private ensureWorkBlock(anchor: HTMLElement, options?: { summary?: string; open?: boolean }) {
-        if (this.workBlock) return;
-        const summary = span({
-            className: style.workSummary,
-            textContent: options?.summary ?? I18n.translate("ai.working"),
+    private showContextNotice() {
+        if (this.contextNoticeEl) return;
+        this.contextNoticeEl = div({
+            className: style.contextNotice,
+            textContent: I18n.translate("ai.contextTrimmed"),
         });
-        const body = div({ className: style.workBody });
-        const root = div({
-            className: options?.open === false ? style.workBlock : `${style.workBlock} ${style.open}`,
-        });
-        root.append(
-            button(
-                { className: style.workHeader, onclick: () => root.classList.toggle(style.open) },
-                summary,
-                svg({ className: style.workChevron, icon: "icon-angle-right" }),
-            ),
-            body,
-        );
-        this.messageList.insertBefore(root, anchor);
-        this.workBlock = { root, body, summary, startedAt: Date.now() };
+        this.messageList.prepend(this.contextNoticeEl);
     }
 
-    private finalizeWorkBlock(keepSummary = false) {
-        if (!this.workBlock) return;
-        if (!keepSummary) {
-            const seconds = Math.round((Date.now() - this.workBlock.startedAt) / 1000);
-            this.workBlock.summary.textContent = I18n.translate("ai.workedFor", `${seconds}s`);
+    /**
+     * One message bubble. A user bubble from this session also carries a revert control, out of
+     * sight until the pointer is on it — the way back to "let me rephrase that" without retyping.
+     * Restored transcripts pass no `revertTo`, having nothing in the document's stack to rewind —
+     * and `mark` being empty is not the same as that: a turn sent against an empty stack is still
+     * one this session can take back, and taking it back means undoing all of it.
+     */
+    private appendBubble(
+        role: "user" | "assistant",
+        text: string,
+        images?: ImagePart[],
+        revertTo?: { mark: IHistoryRecord | undefined },
+    ): HTMLElement {
+        const bubble = div({ className: role === "user" ? style.user : style.assistant }, text);
+        for (const image of images ?? []) {
+            bubble.append(
+                img({ className: style.bubbleImage, src: `data:${image.mediaType};base64,${image.data}` }),
+            );
         }
-        this.workBlock.root.classList.remove(style.open);
-        this.workBlock = undefined;
+        if (role !== "user") {
+            this.messageList.append(bubble);
+            return bubble;
+        }
+        // Every user bubble gets the row, reverted turns included: the row is what holds the
+        // bubble against the right edge, and only the control inside it is conditional.
+        const children: HTMLElement[] = [];
+        if (revertTo) {
+            children.push(
+                button(
+                    {
+                        className: style.userUndo,
+                        type: "button",
+                        title: I18n.translate("ai.undoHint"),
+                        onclick: () => this.revertToTurn({ mark: revertTo.mark, text, images, el: row }),
+                    },
+                    svg({ className: style.userUndoIcon, icon: "icon-undo" }),
+                ),
+            );
+        }
+        children.push(bubble);
+        const row = div({ className: style.userRow }, ...children);
+        this.messageList.append(row);
+        return row;
     }
 
-    private messageFooter(raw: string, time: number = Date.now()) {
+    private messageFooter(raw: string, time: number = Date.now(), workedMs?: number) {
         return div(
             { className: style.msgFooter },
             button(
@@ -1044,6 +1450,14 @@ export class ChatPanel extends HTMLElement {
                 },
                 svg({ className: style.copyIcon, icon: "icon-copy2" }),
             ),
+            ...(workedMs === undefined
+                ? []
+                : [
+                      span({
+                          className: style.msgWorked,
+                          textContent: I18n.translate("ai.workedFor", `${Math.round(workedMs / 1000)}s`),
+                      }),
+                  ]),
             span({
                 className: style.msgTime,
                 textContent: new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -1051,11 +1465,104 @@ export class ChatPanel extends HTMLElement {
         );
     }
 
+    /**
+     * Take a turn back — and every turn after it. The document is one stack, so reaching an older
+     * turn brings the newer ones with it; the transcript and the model's context have to come
+     * along, or the model would be answering a question that is no longer on screen.
+     */
+    private revertToTurn(turn: RevertedTurn) {
+        // A run still in flight would write its tail back into what is being taken away, so cut it
+        // loose first: clearing the conversation is what `endTurn` reads as "this turn is nobody's".
+        if (this.sending) {
+            this.turnConversation = undefined;
+            this.interrupt();
+        }
+
+        this.rewindDocument(turn.mark);
+        this.dropTranscriptFrom(turn.el);
+        this.syncPanelAfterRevert(turn);
+    }
+
+    /**
+     * Undo the document back to where the turn began.
+     *
+     * To the mark, not to a counted number of steps: the stack is capped, so once it is full
+     * `undoCount` stops rising and a count reads "nothing to rewind" for exactly the turns that
+     * added the most. The depth is the backstop for a mark a manual undo took off the stack
+     * mid-run — there is nothing left to aim at then, and going to the bottom beats leaving the
+     * document holding work the transcript no longer shows.
+     */
+    private rewindDocument(mark: IHistoryRecord | undefined): void {
+        const history = this.document?.history;
+        if (!history) return;
+        while (history.undoTop() !== mark && history.undoCount() > 0) history.undo();
+        this.document?.visual.update();
+    }
+
+    /**
+     * Take the transcript back to `el`, the row of the turn being reverted — and the model's
+     * context with it. The rows and both message lists are appended in step, so the Nth row from
+     * the end is the Nth user message from the end in each; an index would not survive
+     * `trimMessages` dropping the front of the context.
+     */
+    private dropTranscriptFrom(el: HTMLElement): void {
+        let rounds = 0;
+        while (this.messageList.lastElementChild) {
+            const node = this.messageList.lastElementChild;
+            node.remove();
+            if (node.classList.contains(style.userRow)) rounds++;
+            if (node === el) break;
+        }
+        for (let i = 0; i < rounds; i++) {
+            this.dropLastRound(this.messages);
+            this.dropLastRound(this.conversation.messages);
+        }
+    }
+
+    /** Bring the panel back in step with the transcript that survived the revert. */
+    private syncPanelAfterRevert(turn: RevertedTurn): void {
+        // The window shrank with the transcript. Nothing can measure it now — the next response
+        // will — so estimate, rather than leave the meter reading a size that no longer exists.
+        this.contextUsed = estimateContext(this.messages);
+        this.renderContextMeter();
+
+        // The marker claimed "everything above is outside the model's window" for a transcript
+        // that no longer has that shape; the next send reassesses and puts it back if it holds.
+        this.contextNoticeEl?.remove();
+        this.contextNoticeEl = undefined;
+
+        // The message is back in the box, ready to be said differently.
+        this.input.value = turn.text;
+        this.autosizeInput();
+        for (const image of turn.images ?? []) this.pendingImages.push(image);
+        this.renderImagePreview();
+
+        this.saveConversation();
+        this.updateEmptyState();
+        this.scrollToBottom();
+    }
+
+    /** Drop one turn's user message and everything the model said in response to it. */
+    private dropLastRound(list: { role: string }[]) {
+        while (list.length > 0) {
+            if (list.pop()?.role === "user") break;
+        }
+    }
+
+    /** Append a tool card to the turn, right where the call happened. */
     private appendToolCard(name: string, args: string, result?: string) {
-        const { text: resultText, isError } = result
-            ? this.parseToolResult(result)
-            : { text: "", isError: false };
-        const detail = resultText || args;
+        this.sealStream();
+        const tool: StoredToolCall = { name, args, result };
+        this.turnParts.push({ type: "tool", ...tool });
+        this.activeAssistantEl?.append(this.toolCardElement(tool));
+        this.showThinking();
+        // A card landing is the run's own doing, so it carries a reader only if they were already
+        // at the bottom — the same rule the deltas follow.
+        if (this.isAtBottom()) this.scrollToBottom();
+    }
+
+    private toolCardElement(tool: StoredToolCall): HTMLElement {
+        const isError = tool.result ? this.parseToolResult(tool.result).isError : false;
         const card = div({ className: isError ? `${style.toolCard} ${style.open}` : style.toolCard });
         const header = button(
             {
@@ -1066,15 +1573,46 @@ export class ChatPanel extends HTMLElement {
                 className: isError ? `${style.toolStatus} ${style.toolStatusError}` : style.toolStatus,
                 icon: isError ? "icon-times" : "icon-check",
             }),
-            span({ className: style.toolName, textContent: name }),
+            span({ className: style.toolName, textContent: tool.name }),
             svg({ className: style.toolChevron, icon: "icon-angle-down" }),
         );
-        card.append(
-            header,
-            div({ className: style.toolBody }, div({ className: style.toolResult, textContent: detail })),
+        card.append(header, div({ className: style.toolBody }, this.toolDetail(tool)));
+        return card;
+    }
+
+    /** A card's detail line, with the nodes it names clickable — the card's one way into the model. */
+    private toolDetail(tool: StoredToolCall): HTMLElement {
+        const segments = tool.result ? this.parseToolResult(tool.result).segments : [{ text: tool.args }];
+        return div(
+            { className: style.toolResult },
+            ...segments.flatMap((segment, index) => {
+                const ids = segment.nodeIds;
+                const line = ids?.length
+                    ? span({
+                          className: style.toolLink,
+                          textContent: segment.text,
+                          title: I18n.translate("ai.tool.reveal"),
+                          onclick: () => this.revealNodes(ids),
+                      })
+                    : span({ textContent: segment.text });
+                return index === 0 ? [line] : [span({ textContent: "; " }), line];
+            }),
         );
-        (this.workBlock?.body ?? this.messageList).append(card);
-        this.scrollToBottom();
+    }
+
+    /**
+     * Select the nodes a card names and frame them, so "what did it actually make" is one click
+     * rather than a scroll through the project tree.
+     */
+    private revealNodes(ids: string[]) {
+        const document = this.document;
+        if (!document) return;
+        const nodes = ids
+            .map((id) => findNode(document, id))
+            .filter((node): node is INode => node !== undefined);
+        if (nodes.length === 0) return;
+        document.selection.setSelectedNodes(nodes, false);
+        document.application?.activeView?.cameraController.fitContent();
     }
 
     /**
@@ -1084,52 +1622,105 @@ export class ChatPanel extends HTMLElement {
      * or the run never finishes.
      */
     private askUser(request: AskRequest, signal?: AbortSignal): Promise<string> {
+        this.sealStream();
+        this.clearThinking();
         const card = this.buildAskCard(request);
-        // Same anchor as work blocks: both belong before the assistant bubble of this turn.
-        this.messageList.insertBefore(card, this.activeAssistantEl ?? null);
-        this.scrollToBottom();
+        this.pinAskCard(card);
 
         return new Promise<string>((resolve) => {
             // Settles once: the guard lets a late abort land harmlessly after an answer, which is
             // what keeps this free of any listener bookkeeping.
-            const settle = (answer: string, recorded: string = answer) => {
+            const settle = (answer: string, recorded: string = answer, resume = true) => {
                 if (this.settleAsk !== settle) return;
                 this.settleAsk = undefined;
-                this.turnAsks.push({
+                this.turnParts.push({
+                    type: "ask",
                     question: request.question,
                     options: request.options,
                     answer: recorded,
                 });
                 this.markAskAnswered(card, recorded);
+                this.unpinAskCard(card);
+                // An answer hands the run back to the model, which then takes a round trip before
+                // its next word. Put the dots back, or the transcript reads finished meanwhile.
+                if (resume) this.showThinking();
                 resolve(answer);
             };
             // Interrupted: the model gets a protocol line, the transcript gets a readable marker.
-            const onAbort = () => settle(ASK_INTERRUPTED, I18n.translate("ai.ask.notAnswered"));
+            const onAbort = () => settle(ASK_INTERRUPTED, I18n.translate("ai.ask.notAnswered"), false);
             this.settleAsk = settle;
             if (signal?.aborted) onAbort();
             else signal?.addEventListener("abort", onAbort, { once: true });
         });
     }
 
+    /**
+     * Stand the question in the composer's place. The run is blocked on the answer, so the bottom
+     * of the panel — where the user's hands already are — is where it belongs; in the transcript
+     * it would drift out of view behind a long turn.
+     */
+    private pinAskCard(card: HTMLElement) {
+        this.composerCard.style.display = "none";
+        this.composer.append(card);
+        this.scrollToBottom();
+    }
+
+    /** Give the composer back, and leave the answered card in the transcript where it was asked. */
+    private unpinAskCard(card: HTMLElement) {
+        this.composerCard.style.display = "";
+        if (this.activeAssistantEl) this.activeAssistantEl.append(card);
+        else card.remove();
+        this.scrollToBottom();
+    }
+
     private buildAskCard(request: AskRequest): HTMLElement {
-        const card = div(
-            { className: style.askCard },
-            div({ className: style.askQuestion, textContent: request.question }),
-        );
+        const card = div({ className: style.askCard }, this.buildAskHeader(request));
         const options = request.options ?? [];
-        if (options.length) {
-            const row = div({ className: style.askOptions });
-            for (const option of options) {
-                row.append(
-                    button({
-                        className: style.askOption,
-                        textContent: option,
-                        onclick: () => this.settleAsk?.(option),
-                    }),
-                );
-            }
-            card.append(row);
+        if (options.length) card.append(this.buildAskOptions(options));
+        card.append(this.buildAskInputRow());
+        return card;
+    }
+
+    /**
+     * The question, and the way out of it. Owning the composer means owning the composer's stop
+     * button too: without it the user has no way out of a question they do not want to answer.
+     */
+    private buildAskHeader(request: AskRequest): HTMLElement {
+        return div(
+            { className: style.askHeader },
+            div({ className: style.askQuestion, textContent: request.question }),
+            button(
+                {
+                    className: style.askStop,
+                    title: I18n.translate("ai.stop"),
+                    onclick: () => this.interrupt(),
+                },
+                svg({ className: style.askStopIcon, icon: "icon-times" }),
+            ),
+        );
+    }
+
+    /** The offered answers, one button each. */
+    private buildAskOptions(options: readonly string[]): HTMLElement {
+        const row = div({ className: style.askOptions });
+        for (const option of options) {
+            row.append(
+                button({
+                    className: style.askOption,
+                    textContent: option,
+                    onclick: () => this.settleAsk?.(option),
+                }),
+            );
         }
+        return row;
+    }
+
+    /**
+     * The free-text answer row, carrying the composer's own send control rather than a second
+     * look-alike: the question stands in for the composer, so the way out of it is the button the
+     * user has already learned.
+     */
+    private buildAskInputRow(): HTMLElement {
         const answerInput = input({
             className: style.askInput,
             placeholder: I18n.translate("ai.ask.placeholder"),
@@ -1140,18 +1731,19 @@ export class ChatPanel extends HTMLElement {
                 }
             },
         });
-        card.append(
-            div(
-                { className: style.askInputRow },
-                answerInput,
-                button({
-                    className: style.askSend,
-                    textContent: "↑",
+        return div(
+            { className: style.askInputRow },
+            answerInput,
+            button(
+                {
+                    className: style.sendButton,
+                    type: "button",
+                    title: I18n.translate("ai.send"),
                     onclick: () => this.submitAsk(answerInput),
-                }),
+                },
+                svg({ className: style.sendIcon, icon: "icon-up" }),
             ),
         );
-        return card;
     }
 
     private submitAsk(input: HTMLInputElement) {
@@ -1164,6 +1756,7 @@ export class ChatPanel extends HTMLElement {
         card.classList.add(style.askAnswered);
         card.querySelector(`.${style.askOptions}`)?.remove();
         card.querySelector(`.${style.askInputRow}`)?.remove();
+        card.querySelector(`.${style.askStop}`)?.remove();
         card.append(div({ className: style.askAnswer, textContent: answer }));
     }
 
@@ -1177,15 +1770,18 @@ export class ChatPanel extends HTMLElement {
     }
 
     /** Summarize a tool result JSON into one display line; non-JSON passes through verbatim. */
-    private parseToolResult(result: string): { text: string; isError: boolean } {
+    private parseToolResult(result: string): { segments: ResultSegment[]; isError: boolean } {
         try {
             const parsed = JSON.parse(result) as ToolResultSummary;
             if (parsed.error) {
-                return { text: I18n.translate("ai.error.prefix", parsed.error), isError: true };
+                return {
+                    segments: [{ text: I18n.translate("ai.error.prefix", parsed.error) }],
+                    isError: true,
+                };
             }
-            return { text: summarizeResult(parsed, result), isError: false };
+            return { segments: summarizeResult(parsed, result), isError: false };
         } catch {
-            return { text: result, isError: false };
+            return { segments: [{ text: result }], isError: false };
         }
     }
 
@@ -1204,17 +1800,4 @@ function toChatMessage(message: StoredMessage): ChatMessage {
     return { role: "assistant", content: message.text };
 }
 
-/** The active document, or undefined outside a running app (tests, detached panels). */
-function activeDocument(): IDocument | undefined {
-    try {
-        return getCurrentApplication().activeView?.document;
-    } catch {
-        return undefined;
-    }
-}
-
 customElements.define("chili-ai-chat", ChatPanel);
-
-export function createChatPanel(): ChatPanel {
-    return new ChatPanel();
-}

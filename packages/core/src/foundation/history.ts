@@ -53,6 +53,15 @@ export class History implements IDisposable {
         return this._undos.length;
     }
 
+    /**
+     * The record on top of the undo stack — an identity to rewind back to. `undoCount` cannot
+     * serve as that mark: once the stack reaches `undoLimits` every further `add` shifts one out,
+     * so the count stops moving while the stack keeps changing underneath it.
+     */
+    undoTop(): IHistoryRecord | undefined {
+        return this._undos[this._undos.length - 1];
+    }
+
     redoCount() {
         return this._redos.length;
     }

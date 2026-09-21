@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IDocument, Id } from "@chili3d/core";
-import type { ImagePart } from "./llm/types";
+import type { ImagePart, TokenUsage } from "./llm/types";
 
 /** Where a document keeps its chat history inside `IDocument.userData`. */
 const CHAT_KEY = "chats";
@@ -22,22 +22,53 @@ export interface StoredAsk {
 }
 
 /**
+ * One piece of an assistant turn, in the order it happened. A turn interleaves paragraphs with
+ * the tool cards and questions that interrupted them, so the projection has to stay ordered —
+ * a flat `text` beside a `tools` list sorts every tool ahead of every paragraph.
+ */
+export type StoredPart =
+    | { type: "text"; text: string }
+    /** Reasoning, kept for the transcript only — it carries no signature and is never replayed. */
+    | { type: "thinking"; text: string; ms?: number }
+    | ({ type: "tool" } & StoredToolCall)
+    | ({ type: "ask" } & StoredAsk);
+
+/**
  * One entry of the visible transcript. This is a *display projection* of the model's
  * conversation, not the conversation itself: thinking blocks are dropped (their signatures
- * cannot be replayed) and a turn's tool exchanges collapse into `tools` on the assistant
- * message they belong to.
+ * cannot be replayed) and a turn's text and tool exchanges are recorded as the ordered
+ * `parts` they streamed in as.
  */
 export interface StoredMessage {
     role: "user" | "assistant";
+    /** The turn's text alone, concatenated — what the copy button and the model context use. */
     text: string;
     /** When the message landed, so a restored transcript keeps its original footer times. */
     time: number;
     images?: ImagePart[];
+    /** An assistant turn's ordered content. Absent on user messages. */
+    parts?: StoredPart[];
+    /** Pre-`parts` layout, read only to restore conversations saved before that change. */
     tools?: StoredToolCall[];
-    /** Questions asked during the turn, in order. Their own shape — not folded tool cards. */
     asks?: StoredAsk[];
     /** Wall-clock milliseconds the turn spent in tool calls, for the "worked for Ns" summary. */
     workedMs?: number;
+    /** What the turn cost, summed over its model turns — shown in the footer. */
+    usage?: TokenUsage;
+}
+
+/**
+ * A turn's parts in order. Conversations saved before `parts` existed kept the same content in
+ * three flat fields, which lost the interleaving — they are rebuilt in the top-down order the
+ * old renderer drew them: tool cards and questions above the reply.
+ */
+export function messageParts(message: StoredMessage): StoredPart[] {
+    if (message.parts) return message.parts;
+    return [
+        ...(message.tools ?? []).map((tool): StoredPart => ({ type: "tool", ...tool })),
+        ...(message.asks ?? []).map((ask): StoredPart => ({ type: "ask", ...ask })),
+        ...(message.text ? ([{ type: "text", text: message.text }] as StoredPart[]) : []),
+    ];
 }
 
 export interface StoredConversation {

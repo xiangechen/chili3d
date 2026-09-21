@@ -30,7 +30,7 @@ import {
 import { bornEdgeIdMap } from "./operationIds";
 import { edgeLiesOn } from "./profileEntities";
 import { directionsParallel, distance, MATCH_TOLERANCE } from "./refGeometry";
-import { boundaryId, derivedId, idsOverlap, prefixedId, uncontested } from "./trackedId";
+import { boundaryId, derivedId, prefixedId, writeUncontestedIds } from "./trackedId";
 
 interface EdgeCornerOptions<F extends FilletFeatureData | ChamferFeatureData> {
     readonly display: I18nKeys;
@@ -221,15 +221,7 @@ function attributeCornerEdges(
         }
     });
 
-    // The module's invariant, enforced where a name is minted rather than argued away: a name
-    // belongs to ONE sub-shape, or the matcher reads two as pieces of one. `uncontested` only
-    // compares the candidates against each other, so a candidate is also checked against what is
-    // already in `outputEdgeIds` — the input's own inherited names. The same guard
-    // `attributeSweepEdges` keeps.
-    const identities = tracking.outputEdgeIds.filter((id): id is string => id !== undefined);
-    for (const [index, id] of uncontested(candidates)) {
-        if (identities.some((taken) => idsOverlap(taken, id))) continue;
-        tracking.outputEdgeIds[index] = id;
+    for (const index of writeUncontestedIds(tracking.outputEdgeIds, candidates)) {
         const owner = owners.get(index);
         if (owner !== undefined) accepted.set(index, owner);
     }
@@ -260,13 +252,35 @@ function attributeCornerFaces(
     featureId: string,
 ): void {
     if (ownedEdges.size === 0) return;
+    const owners = cornerFaceOwners(shape, completed, ownedEdges);
+
+    const candidates = new Map<number, string>();
+    for (const [index, set] of owners) {
+        if (set.size !== 1 || tracking.outputFaceIds[index] !== undefined) continue;
+        candidates.set(index, prefixedId(featureId, derivedId([...set][0], ":f")));
+    }
+    writeUncontestedIds(tracking.outputFaceIds, candidates);
+}
+
+/**
+ * Which input edge owns which corner surface: output-face index → the input edges having a seam
+ * on it. A face the kernel rebuilt from an input face is left out — it keeps that input's id, and
+ * only the corner's own surface is derived here.
+ *
+ * An edge whose kernel queries throw contributes nothing: the release build turns an OCCT failure
+ * into a JS-level throw, and a degenerate seam has no face to name.
+ */
+function cornerFaceOwners(
+    shape: IShape,
+    completed: CompletedTrackedHistory,
+    ownedEdges: ReadonlyMap<number, string>,
+): Map<number, Set<string>> {
     const owners = new Map<number, Set<string>>();
     for (const [edgeIndex, inputEdgeId] of ownedEdges) {
         const edge = completed.outputEdges[edgeIndex];
         try {
             for (const face of edge.findAncestor(ShapeTypes.face, shape) as IFace[]) {
                 const index = completed.outputFaces.findIndex((candidate) => candidate.isSame(face));
-                // Only the corner's OWN surface: an inherited face keeps the input's id.
                 if (index < 0 || completed.faceMap[index] >= 0) continue;
                 const set = owners.get(index) ?? new Set<string>();
                 set.add(inputEdgeId);
@@ -276,18 +290,7 @@ function attributeCornerFaces(
             // A degenerate edge — it contributes no face.
         }
     }
-
-    const candidates = new Map<number, string>();
-    for (const [index, set] of owners) {
-        if (set.size !== 1 || tracking.outputFaceIds[index] !== undefined) continue;
-        candidates.set(index, prefixedId(featureId, derivedId([...set][0], ":f")));
-    }
-    // The same invariant guard as `attributeCornerEdges`, against the same `outputFaceIds`.
-    const identities = tracking.outputFaceIds.filter((id): id is string => id !== undefined);
-    for (const [index, id] of uncontested(candidates)) {
-        if (identities.some((taken) => idsOverlap(taken, id))) continue;
-        tracking.outputFaceIds[index] = id;
-    }
+    return owners;
 }
 
 /**

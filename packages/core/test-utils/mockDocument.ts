@@ -104,10 +104,16 @@ export function createMockDocument(overrides: MockDocumentOverrides = {}): IDocu
 
     const history: History = {
         disabled: false,
+        undoLimits: 50,
         add: () => {},
         addRecords: () => {},
-        undo: async () => undefined,
-        redo: async () => undefined,
+        undo: () => {},
+        redo: () => {},
+        undoCount: () => 0,
+        redoCount: () => 0,
+        // An empty stack's top. A test that gives the mock records has to say what is on top of
+        // them too, or the mark and the stack disagree and nothing ever rewinds.
+        undoTop: () => undefined,
         dispose: () => {},
         ...overrides.history,
     } as unknown as History;

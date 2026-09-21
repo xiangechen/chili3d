@@ -11,13 +11,10 @@ import {
     VisualStates,
 } from "@chili3d/core";
 import type { Tool } from "../llm/types";
+import { findNode, getDocument } from "./documentContext";
 import { imageResult } from "./viewTools";
 
 const PICKABLE_SHAPE_TYPES = ["shape", "solid", "shell", "face", "wire", "edge", "vertex"] as const;
-
-function getDocument(): IDocument | undefined {
-    return globalThis.app.activeView?.document;
-}
 
 function shapeTypeOf(v: unknown): ShapeType {
     const t = ShapeTypes[String(v) as keyof typeof ShapeTypes];
@@ -160,7 +157,7 @@ function findNodesByIds(doc: IDocument, ids: string[]): { nodes: INode[]; missin
     const nodes: INode[] = [];
     const missing: string[] = [];
     for (const id of ids) {
-        const node = doc.modelManager.findNodes((n) => n.id === id)[0];
+        const node = findNode(doc, id);
         if (node) nodes.push(node);
         else missing.push(id);
     }

@@ -52,6 +52,64 @@ describe("openaiCompat toMessages", () => {
 });
 
 describe("openaiCompat convertChunk", () => {
+    test("reports usage from the trailing chunk, which carries no choices", () => {
+        const toolBuf: ToolCallBuffer = new Map();
+        const events = [
+            ...convertChunk(chunk({ content: "hi" }), toolBuf),
+            ...convertChunk(
+                {
+                    choices: [],
+                    usage: {
+                        prompt_tokens: 1000,
+                        completion_tokens: 20,
+                        prompt_tokens_details: { cached_tokens: 800 },
+                    },
+                } as never,
+                toolBuf,
+            ),
+        ];
+
+        // That last chunk is the one the `choices[0]` guard would otherwise skip, taking the only
+        // copy of the numbers with it. `prompt_tokens` includes the cached part; the fields have to
+        // come out disjoint or the context meter counts the cached half twice.
+        expect(events).toEqual([
+            { type: "text", text: "hi" },
+            {
+                type: "usage",
+                usage: {
+                    inputTokens: 200,
+                    outputTokens: 20,
+                    cacheReadTokens: 800,
+                    cacheCreationTokens: 0,
+                },
+            },
+        ]);
+    });
+
+    test("streams an extension reasoning_content field as thinking deltas", () => {
+        const toolBuf: ToolCallBuffer = new Map();
+        const events = [
+            ...convertChunk(chunk({ reasoning_content: "weighing " }), toolBuf),
+            ...convertChunk(chunk({ reasoning_content: "options" }), toolBuf),
+            ...convertChunk(chunk({ content: "Done." }), toolBuf),
+        ];
+
+        // Reasoning leads the answer, and stays a display channel: no `thinking` block is emitted,
+        // so the agent never carries it back in the conversation.
+        expect(events).toEqual([
+            { type: "thinking_delta", text: "weighing " },
+            { type: "thinking_delta", text: "options" },
+            { type: "text", text: "Done." },
+        ]);
+    });
+
+    test("emits nothing extra for an endpoint that does not stream reasoning", () => {
+        const toolBuf: ToolCallBuffer = new Map();
+        const events = [...convertChunk(chunk({ content: "hi" }), toolBuf)];
+
+        expect(events).toEqual([{ type: "text", text: "hi" }]);
+    });
+
     test("flushes tool calls ordered by index and defaults empty arguments", () => {
         const toolBuf: ToolCallBuffer = new Map();
         const events: StreamEvent[] = [];

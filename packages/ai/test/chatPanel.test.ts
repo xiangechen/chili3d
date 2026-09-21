@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, PubSub } from "@chili3d/core";
-import { createMockDocument, mockLocalStorage } from "@chili3d/core/test-utils";
+import { type IDocument, type IHistoryRecord, PubSub } from "@chili3d/core";
+import { createMockDocument, createPlainNode, mockLocalStorage } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ChatPanel } from "../src/chatPanel";
 import {
@@ -66,15 +66,26 @@ rs.mock("../src/chatPanel.module.css", () => ({
     toolBody: "toolBody",
     toolResult: "toolResult",
     open: "open",
-    workBlock: "workBlock",
-    workHeader: "workHeader",
-    workSummary: "workSummary",
-    workChevron: "workChevron",
-    workBody: "workBody",
     msgFooter: "msgFooter",
     copyButton: "copyButton",
     copyIcon: "copyIcon",
     msgTime: "msgTime",
+    msgWorked: "msgWorked",
+    toolLink: "toolLink",
+    contextNotice: "contextNotice",
+    contextMeter: "contextMeter",
+    contextBar: "contextBar",
+    contextFill: "contextFill",
+    contextText: "contextText",
+    contextMeterFull: "contextMeterFull",
+    userRow: "userRow",
+    userUndo: "userUndo",
+    userUndoIcon: "userUndoIcon",
+    thinkingBlock: "thinkingBlock",
+    thinkingHeader: "thinkingHeader",
+    thinkingSummary: "thinkingSummary",
+    thinkingChevron: "thinkingChevron",
+    thinkingBody: "thinkingBody",
     error: "error",
     bubbleImage: "bubbleImage",
     settingsOverlay: "settingsOverlay",
@@ -101,29 +112,33 @@ rs.mock("../src/chatPanel.module.css", () => ({
     historyItemDelete: "historyItemDelete",
     historyItemDeleteIcon: "historyItemDeleteIcon",
     askCard: "askCard",
+    askHeader: "askHeader",
+    askStop: "askStop",
+    askStopIcon: "askStopIcon",
     askAnswered: "askAnswered",
     askQuestion: "askQuestion",
     askOptions: "askOptions",
     askOption: "askOption",
     askInputRow: "askInputRow",
     askInput: "askInput",
-    askSend: "askSend",
     askAnswer: "askAnswer",
 }));
 
+// File-level, not per-describe: the panels share localStorage, PubSub and the ask handler, and a
+// suite that left any of them dirty would leak into whichever suite ran next.
+beforeEach(() => {
+    mockLocalStorage();
+    agentMock.pending.length = 0;
+    agentMock.runAgent.mock.calls.length = 0;
+});
+
+afterEach(() => {
+    // Each panel subscribes for its whole life; drop them so panels outlive their test.
+    PubSub.default.removeAll("activeViewChanged");
+    setAskHandler(undefined);
+});
+
 describe("ChatPanel", () => {
-    beforeEach(() => {
-        mockLocalStorage();
-        agentMock.pending.length = 0;
-        agentMock.runAgent.mock.calls.length = 0;
-    });
-
-    afterEach(() => {
-        // Each panel subscribes for its whole life; drop them so panels outlive their test.
-        PubSub.default.removeAll("activeViewChanged");
-        setAskHandler(undefined);
-    });
-
     test("ignores a re-entrant send while a run is in flight", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         const panel = new ChatPanel();
@@ -189,42 +204,66 @@ describe("ChatPanel", () => {
         expect(anyPanel.headerButtons.contains(anyPanel.closeButtonEl)).toBe(true);
     });
 
-    test("trims history to the newest messages and strips all but the latest images", () => {
+    test("trims history to fit the window, keeping the newest turns", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 400 });
         const panel = new ChatPanel();
         const messages = (panel as any).messages as any[];
         for (let i = 0; i < 45; i++) {
             messages.push({
                 role: "user",
-                content: `m${i}`,
-                images: i % 10 === 0 ? [{ mediaType: "image/png", data: "x" }] : undefined,
+                // 40 characters — about 10 tokens each, so 45 of them overflow a 400-token window.
+                content: `m${i}`.padEnd(40, "x"),
+                // Empty data so the arithmetic below is about the text budget alone.
+                images: i % 10 === 0 ? [{ mediaType: "image/png", data: "" }] : undefined,
             });
         }
 
         (panel as any).trimMessages();
 
-        expect(messages.length).toBe(40);
-        expect(messages[0].content).toBe("m5");
+        // 45 x 10 tokens against a 400-token window at 80%: the oldest 13 go, the newest 32 stay.
+        expect(messages.length).toBe(32);
+        expect(messages[0].content.startsWith("m13")).toBe(true);
+        expect(messages.at(-1)!.content.startsWith("m44")).toBe(true);
+        // Only the latest screenshot survives, whatever the budget: base64 dwarfs everything else.
         const withImages = messages.filter((m) => m.images);
         expect(withImages.length).toBe(1);
-        expect(withImages[0].content).toBe("m40");
+        expect(withImages[0].content.startsWith("m40")).toBe(true);
     });
 
     test("trim cuts at a user boundary so tool_use/tool_result pairs stay intact", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 400 });
         const panel = new ChatPanel();
         const messages = (panel as any).messages as any[];
-        messages.push({ role: "user", content: "old" });
+        // An oversized opening turn: dropping it must take its tools with it, not leave them
+        // dangling in front of the window.
+        messages.push({ role: "user", content: "old".padEnd(400, "x") });
         messages.push({
             role: "assistant",
             content: "",
             toolCalls: [{ id: "t1", name: "x", arguments: "{}" }],
         });
         messages.push({ role: "tool", toolCallId: "t1", name: "x", content: "{}" });
-        for (let i = 0; i < 38; i++) messages.push({ role: "user", content: `m${i}` });
+        for (let i = 0; i < 38; i++) messages.push({ role: "user", content: `m${i}`.padEnd(40, "x") });
 
         (panel as any).trimMessages();
 
-        expect(messages.length).toBe(38);
         expect(messages.every((m) => m.role === "user")).toBe(true);
+        expect(messages[0].content.startsWith("m")).toBe(true);
+        expect(messages.length).toBeLessThan(39);
+    });
+
+    test("keeps the newest message even when it alone overruns the window", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 100 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        messages.push({ role: "user", content: "short" });
+        messages.push({ role: "user", content: "x".repeat(4000) });
+
+        (panel as any).trimMessages();
+
+        // An empty context answers nothing, so the oversized message goes through on its own.
+        expect(messages.length).toBe(1);
+        expect(messages[0].content).toBe("x".repeat(4000));
     });
 
     test("scrolls the message list to the bottom immediately on send", async () => {
@@ -266,6 +305,39 @@ describe("ChatPanel", () => {
 
         agentMock.pending.shift()!.resolve();
         await pending;
+    });
+
+    test("keeps the waiting dots below the turn while the agent is still running", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        const anyPanel = panel as any;
+        anyPanel.input.value = "make a box";
+        const sending = anyPanel.send();
+
+        callbacks.onToolCall({ name: "screenshot", arguments: "{}", result: "{}" });
+        callbacks.onTextDelta("drawing");
+
+        // The dots used to live inside the collapsible work row; with the cards flat they are the
+        // only thing left telling the user the run has not finished.
+        const turn = panel.querySelector(".assistant")!;
+        expect(turn.querySelectorAll(".toolCard").length).toBe(1);
+        expect(turn.lastElementChild!.className).toBe("thinkingDots");
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+
+        // The footer takes over once the turn ends.
+        expect(turn.querySelector(".thinkingDots")).toBeNull();
+        expect(turn.querySelector(".msgFooter")).not.toBeNull();
     });
 
     test("renders streamed text as markdown and escapes raw html", async () => {
@@ -359,11 +431,122 @@ describe("ChatPanel", () => {
         expect(card!.querySelector(".toolStatusError")).not.toBeNull();
     });
 
-    test("groups tool cards under a work row that finalizes with the elapsed time", async () => {
+    test("marks the top of the transcript once history outgrows the context", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 200 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        for (let i = 0; i < 45; i++) messages.push({ role: "user", content: `m${i}`.padEnd(40, "x") });
+
+        expect(panel.querySelector(".contextNotice")).toBeNull();
+
+        (panel as any).trimMessages();
+
+        const notice = panel.querySelector(".contextNotice");
+        expect(notice).not.toBeNull();
+        // Above everything, because everything above it is what the model no longer gets.
+        expect((panel as any).messageList.firstElementChild).toBe(notice);
+
+        (panel as any).trimMessages();
+        expect(panel.querySelectorAll(".contextNotice").length).toBe(1);
+    });
+
+    test("shows reasoning while it streams and folds it away once the reply starts", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        const anyPanel = panel as any;
+        anyPanel.input.value = "make a box";
+        const sending = anyPanel.send();
+
+        callbacks.onThinkingDelta("the user wants ");
+        callbacks.onThinkingDelta("a box");
+
+        const block = panel.querySelector(".thinkingBlock")!;
+        // Open while it streams: watching it work is the whole point of showing it.
+        expect(block.classList.contains("open")).toBe(true);
+        expect(block.querySelector(".thinkingBody")!.textContent).toBe("the user wants a box");
+
+        callbacks.onTextDelta("Making it");
+
+        expect(block.classList.contains("open")).toBe(false);
+        expect(block.querySelector(".thinkingSummary")!.textContent).toBe("ai.thoughtFor");
+        // The reply follows the reasoning it came out of.
+        expect(panel.querySelector(".markdown")!.textContent?.trim()).toBe("Making it");
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("reveals the nodes a card names when its summary is clicked", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const box = createPlainNode("Box", "node-1");
+        const selected: string[][] = [];
+        const fitContent = rs.fn(() => {});
+        const document = createMockDocument({
+            application: { activeView: { cameraController: { fitContent } } } as any,
+            selection: {
+                setSelectedNodes: (nodes) => {
+                    selected.push(nodes.map((n) => n.id));
+                    return nodes.length;
+                },
+            },
+            modelManager: { findNodes: (fn) => (fn?.(box) ? [box] : []) },
+        });
+
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onToolCall({
+                name: "run_program",
+                arguments: "{}",
+                result: JSON.stringify({ created: [{ nodeId: "node-1", name: "Box" }] }),
+            });
+        });
+        const panel = new ChatPanel();
+        (panel as any).openDocument(document);
+        (panel as any).input.value = "make a box";
+        await (panel as any).send();
+
+        const link = panel.querySelector(".toolLink") as HTMLElement;
+        expect(link.textContent).toBe("ai.tool.created");
+        link.click();
+
+        // One click from "it made a box" to the box being selected and framed.
+        expect(selected).toEqual([["node-1"]]);
+        expect(fitContent).toHaveBeenCalledTimes(1);
+    });
+
+    test("leaves removed nodes unclickable, since they no longer exist", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onToolCall({
+                name: "run_program",
+                arguments: "{}",
+                result: JSON.stringify({ removed: [{ nodeId: "gone", name: "Tool" }] }),
+            });
+        });
+        const panel = new ChatPanel();
+        (panel as any).input.value = "cut";
+        await (panel as any).send();
+
+        expect(panel.querySelector(".toolResult")!.textContent).toBe("ai.tool.removed");
+        expect(panel.querySelector(".toolLink")).toBeNull();
+    });
+
+    test("interleaves paragraphs and tool cards in the order they streamed", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onTextDelta("Looking");
+            opts.callbacks.onToolCall({ name: "screenshot", arguments: "{}", result: "{}" });
+            opts.callbacks.onTextDelta("Drawing");
             opts.callbacks.onToolCall({ name: "run_program", arguments: "{}", result: "{}" });
-            opts.callbacks.onTextDelta("done");
+            opts.callbacks.onTextDelta("Done");
         });
         const panel = new ChatPanel();
         const anyPanel = panel as any;
@@ -371,16 +554,87 @@ describe("ChatPanel", () => {
         anyPanel.input.value = "make a box";
         await anyPanel.send();
 
-        const work = panel.querySelector(".workBlock");
-        expect(work).not.toBeNull();
-        expect(work!.querySelector(".workSummary")!.textContent).toBe("ai.workedFor");
-        // collapsed once the turn finishes
-        expect(work!.classList.contains("open")).toBe(false);
-        // tool cards live inside the collapsible work body
-        expect(work!.querySelector(".workBody .toolCard")).not.toBeNull();
+        // Each paragraph is its own block: without splitting, every tool would sort above every
+        // word of the reply and the turn would read backwards.
+        const assistantEl = panel.querySelector(".assistant")!;
+        const blocks = Array.from(assistantEl.children);
+        expect(blocks.map((b) => b.className.split(" ")[0])).toEqual([
+            "markdown",
+            "toolCard",
+            "markdown",
+            "toolCard",
+            "markdown",
+            "msgFooter",
+        ]);
+        const [first, , second, , third] = blocks;
+        expect(first.textContent?.trim()).toBe("Looking");
+        expect(second.textContent?.trim()).toBe("Drawing");
+        expect(third.textContent?.trim()).toBe("Done");
+        expect(blocks[1].querySelector(".toolName")?.textContent).toBe("screenshot");
+        expect(blocks[3].querySelector(".toolName")?.textContent).toBe("run_program");
+    });
 
-        (work!.querySelector(".workHeader") as HTMLButtonElement).click();
-        expect(work!.classList.contains("open")).toBe(true);
+    test("carries the reader along only while they are at the bottom", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        anyPanel.input.value = "make a box";
+        const sending = anyPanel.send();
+        const list = anyPanel.messageList as HTMLElement;
+        // happy-dom reports 0 for every scroll metric, which reads as "at the bottom" — so the
+        // geometry is stated outright, or the follow rule could not be told from its absence.
+        const scrollTo = (scrollTop: number) => {
+            Object.defineProperties(list, {
+                scrollTop: { value: scrollTop, writable: true, configurable: true },
+                scrollHeight: { value: 1000, configurable: true },
+                clientHeight: { value: 200, configurable: true },
+            });
+        };
+
+        // Scrolled up into the middle of what is already there: the reply must not drag the
+        // reader back down under it.
+        scrollTo(300);
+        callbacks.onTextDelta("still working");
+        expect(list.scrollTop).toBe(300);
+
+        callbacks.onToolCall({ name: "screenshot", arguments: "{}", result: "{}" });
+        expect(list.scrollTop).toBe(300);
+
+        // Back at the bottom — 1000 - 200 = 800, inside the follow slack — so the rest arrives
+        // under the reader's eyes again.
+        scrollTo(800);
+        callbacks.onTextDelta(" done");
+        expect(list.scrollTop).toBe(1000);
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("reports the elapsed time in the footer of a turn that called tools", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onToolCall({ name: "run_program", arguments: "{}", result: "{}" });
+        });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+
+        anyPanel.input.value = "make a box";
+        await anyPanel.send();
+
+        // A tool-only turn has no reply to carry a footer, but the elapsed time still needs a home.
+        const footer = panel.querySelector(".assistant .msgFooter");
+        expect(footer).not.toBeNull();
+        expect(footer!.querySelector(".msgWorked")!.textContent).toBe("ai.workedFor");
+        expect(panel.querySelector(".noReply")).not.toBeNull();
     });
 
     test("shows a copy button and timestamp under a completed reply", async () => {
@@ -435,7 +689,13 @@ describe("ChatPanel", () => {
         const pending = anyPanel.send();
 
         const sendButton = anyPanel.sendButton as HTMLButtonElement;
-        expect(anyPanel.sendIconEl.textContent).toBe("■");
+        // The shown icon is the `<use>` href — the svg's own attributes are set once and never
+        // rewritten, so `getAttribute("icon")` would sit at the initial value however it looks.
+        const iconHref = () =>
+            (anyPanel.sendIconEl as SVGSVGElement)
+                .querySelector("use")
+                ?.getAttributeNS("http://www.w3.org/1999/xlink", "href");
+        expect(iconHref()).toBe("#icon-square");
         expect(sendButton.disabled).toBe(false);
         expect(sendButton.classList.contains("stopButton")).toBe(true);
 
@@ -444,7 +704,7 @@ describe("ChatPanel", () => {
 
         expect(anyPanel.sending).toBe(false);
         expect(anyPanel.abortController).toBeUndefined();
-        expect(anyPanel.sendIconEl.textContent).toBe("↑");
+        expect(iconHref()).toBe("#icon-up");
         // the partially streamed reply is kept and gets a footer
         expect(panel.querySelector(".markdown")!.textContent).toContain("partial");
         expect(panel.querySelector(".msgFooter")).not.toBeNull();
@@ -485,11 +745,13 @@ describe("ChatPanel", () => {
         expect(overlay.style.display).toBe("flex");
 
         anyPanel.apiKeyInput.value = "sk-test";
+        anyPanel.contextWindowSelect.value = "256000";
         (overlay.querySelector("form") as HTMLFormElement).requestSubmit();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         expect(overlay.style.display).toBe("none");
         expect(loadConfig()?.apiKey).toBe("sk-test");
+        expect(loadConfig()?.contextWindow).toBe(256000);
         expect(anyPanel.configured).toBe(true);
         // The key must stay out of persistent storage
         expect(localStorage.getItem("chili3d.app.ai.config")).not.toContain("sk-test");
@@ -509,6 +771,59 @@ describe("ChatPanel", () => {
         expect(anyPanel.configured).toBe(false);
     });
 
+    test("settings overlay carries the panel's own close button", () => {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        const onClose = rs.fn(() => {});
+        panel.onClose = onClose;
+
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+        const overlay = panel.querySelector(".settingsOverlay") as HTMLElement;
+        const buttons = overlay.querySelectorAll<HTMLButtonElement>(".settingsHeader .iconButton");
+        // Back, then close: the overlay covers the panel header, so it owes the user that exit.
+        expect(buttons.length).toBe(2);
+
+        buttons[1].click();
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+        // Closing the panel is not leaving the overlay — that stays the back button's job.
+        expect(overlay.style.display).toBe("flex");
+    });
+
+    test("offers the context window as the tiers models actually ship at", () => {
+        const panel = new ChatPanel();
+        const select = (panel as any).contextWindowSelect as HTMLSelectElement;
+
+        expect(Array.from(select.options).map((o) => o.value)).toEqual([
+            "200000",
+            "256000",
+            "400000",
+            "512000",
+            "1000000",
+        ]);
+        expect(select.options[0].textContent).toBe("200k");
+        // 1M must not read as "1000k".
+        expect(select.options[4].textContent).toBe("1M");
+    });
+
+    test("keeps a window size that is not one of the tiers", async () => {
+        // A value typed in while this was still a number field.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 300000 });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+
+        // It has to show, not blank out — a blank select saves the default and loses the value.
+        expect(anyPanel.contextWindowSelect.value).toBe("300000");
+        expect(anyPanel.contextWindowSelect.selectedOptions[0].textContent).toBe("300k");
+
+        (panel.querySelector(".settingsOverlay form") as HTMLFormElement).requestSubmit();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(loadConfig()?.contextWindow).toBe(300000);
+    });
+
     test("settings form carries password-manager semantics", () => {
         const panel = new ChatPanel();
         const anyPanel = panel as any;
@@ -525,6 +840,81 @@ describe("ChatPanel", () => {
         anyPanel.providerSelect.value = "openai";
         anyPanel.providerSelect.onchange?.(new Event("change"));
         expect(username?.value).toBe("openai");
+    });
+
+    test("a provider switch adopts the preset values the fields still hold", () => {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        // Nothing saved: the fields start as the anthropic preset's.
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+        expect(anyPanel.modelInput.value).toBe("claude-opus-5");
+
+        const switchTo = (id: string) => {
+            anyPanel.providerSelect.value = id;
+            anyPanel.providerSelect.onchange?.(new Event("change"));
+        };
+
+        switchTo("openai");
+        expect(anyPanel.baseURLInput.value).toBe("https://api.openai.com/v1");
+        expect(anyPanel.modelInput.value).toBe("gpt-5.5");
+
+        // And back: the field now holds openai's URL, which is still the preset's to change —
+        // the switch has to know where the value came from, not just that it is non-empty.
+        switchTo("anthropic");
+        expect(anyPanel.baseURLInput.value).toBe("https://api.anthropic.com");
+        expect(anyPanel.modelInput.value).toBe("claude-opus-5");
+    });
+
+    test("keeps the base URL and model the user has made their own", () => {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+        anyPanel.baseURLInput.value = "https://my-proxy.example/v1";
+        anyPanel.modelInput.value = "gpt-5.5-codex";
+
+        anyPanel.providerSelect.value = "responses";
+        anyPanel.providerSelect.onchange?.(new Event("change"));
+
+        // A switch is a routing choice, not a reset: what the user typed survives it, field by
+        // field — the base URL is theirs, while the model still only carries an edited value here.
+        expect(anyPanel.baseURLInput.value).toBe("https://my-proxy.example/v1");
+        expect(anyPanel.modelInput.value).toBe("gpt-5.5-codex");
+
+        // The window is a setting of the user's too, and a provider switch has no business
+        // resetting it to the default behind their back.
+        anyPanel.contextWindowSelect.value = "200000";
+        anyPanel.providerSelect.value = "anthropic";
+        anyPanel.providerSelect.onchange?.(new Event("change"));
+        expect(anyPanel.contextWindowSelect.value).toBe("200000");
+    });
+
+    test("follows the preset in the field the user did not change", () => {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+        anyPanel.modelInput.value = "my-model";
+
+        anyPanel.providerSelect.value = "responses";
+        anyPanel.providerSelect.onchange?.(new Event("change"));
+
+        // Per field, not per form: the base URL still holds anthropic's, so the preset re-points
+        // it; the model is the user's and stays.
+        expect(anyPanel.baseURLInput.value).toBe("https://api.openai.com/v1");
+        expect(anyPanel.modelInput.value).toBe("my-model");
+    });
+
+    test("fills a field the user has emptied when the provider changes", () => {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+        anyPanel.modelInput.value = "";
+
+        anyPanel.providerSelect.value = "responses";
+        anyPanel.providerSelect.onchange?.(new Event("change"));
+
+        // Empty says nothing worth keeping, so the preset has it — unlike a value that was typed
+        // and then changed to another, which stays the user's.
+        expect(anyPanel.modelInput.value).toBe("gpt-5.5");
     });
 
     test("offers the api key to the password manager when saving settings", async () => {
@@ -652,6 +1042,296 @@ describe("ChatPanel history", () => {
         ]);
     });
 
+    test("archives a turn's parts in the order they streamed", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onTextDelta("Looking");
+            opts.callbacks.onToolCall({ name: "screenshot", arguments: "{}", result: "{}" });
+            opts.callbacks.onTextDelta("Drawn");
+        });
+        (panel as any).input.value = "draw";
+        await (panel as any).send();
+
+        const saved = historyOn(document);
+        expect(saved[0].messages[1].parts).toEqual([
+            { type: "text", text: "Looking" },
+            { type: "tool", name: "screenshot", args: "{}", result: "{}" },
+            { type: "text", text: "Drawn" },
+        ]);
+        // `text` stays the paragraphs concatenated: the copy button and the model context read it
+        expect(saved[0].messages[1].text).toBe("LookingDrawn");
+    });
+
+    test("keeps the paragraphs a turn had already sealed when it errors mid-way", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onTextDelta("Looking");
+            opts.callbacks.onToolCall({ name: "screenshot", arguments: "{}", result: "{}" });
+            opts.callbacks.onTextDelta("half a sen");
+            throw new Error("connection lost");
+        });
+        (panel as any).input.value = "draw";
+        await (panel as any).send();
+
+        // The half-written paragraph goes; the sealed one stays, on screen and in the record. A
+        // `text` tallied off the raw stream would have dropped it along with the discarded tail,
+        // leaving a copy button that copies nothing over paragraphs the user can see.
+        const saved = historyOn(document)[0].messages[1];
+        expect(saved.parts).toEqual([
+            { type: "text", text: "Looking" },
+            { type: "tool", name: "screenshot", args: "{}", result: "{}" },
+        ]);
+        expect(saved.text).toBe("Looking");
+        expect(panel.querySelector(".markdown")?.textContent?.trim()).toBe("Looking");
+    });
+
+    test("reverts the document, the transcript and the model to before a turn", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const undoStack: IHistoryRecord[] = [];
+        const document = createMockDocument({
+            history: {
+                // A real stack, not a counter: the revert walks back to the record that was on top
+                // when the turn began, so the mock has to have records to compare against.
+                undoCount: () => undoStack.length,
+                undoTop: () => undoStack[undoStack.length - 1],
+                undo: () => {
+                    undoStack.pop();
+                },
+            },
+        });
+        // Every turn leaves one transaction behind.
+        agentMock.runAgent.mockImplementation(async (opts: any) => {
+            undoStack.push({ name: `turn ${undoStack.length}` } as IHistoryRecord);
+            opts.callbacks.onTextDelta("ok");
+        });
+        const panel = panelOn(document);
+        const anyPanel = panel as any;
+
+        anyPanel.input.value = "first";
+        await anyPanel.send();
+        anyPanel.input.value = "second";
+        await anyPanel.send();
+        expect(undoStack.length).toBe(2);
+
+        // Reaching an older turn means the newer one goes with it — one document stack, and a
+        // model that must not be left answering a question that is no longer on screen.
+        (panel.querySelectorAll(".userUndo")[0] as HTMLButtonElement).click();
+
+        expect(undoStack.length).toBe(0);
+        expect(anyPanel.input.value).toBe("first");
+        expect(panel.querySelectorAll(".userRow").length).toBe(0);
+        expect(panel.querySelectorAll(".assistant").length).toBe(0);
+        expect(anyPanel.messages.length).toBe(0);
+        expect(readConversations(document)[0].messages.length).toBe(0);
+    });
+
+    test("reverts a turn whose mark has been evicted from a full undo stack", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        // The stack sitting at its cap: every `add` shifts the oldest record out, so `undoCount`
+        // reports the same number however much a turn does. Only the top of the stack moves.
+        const stack: IHistoryRecord[] = [];
+        const limit = 3;
+        const push = (name: string) => {
+            stack.push({ name, undo: () => {}, redo: () => {}, dispose: () => {} });
+            if (stack.length > limit) stack.shift()?.dispose();
+        };
+        for (let i = 0; i < limit; i++) push(`older ${i}`);
+
+        const document = createMockDocument({
+            history: {
+                undoLimits: limit,
+                undoCount: () => stack.length,
+                undoTop: () => stack[stack.length - 1],
+                undo: () => {
+                    stack.pop();
+                },
+            },
+        });
+        agentMock.runAgent.mockImplementation(async (opts: any) => {
+            push("from the turn");
+            opts.callbacks.onTextDelta("ok");
+        });
+        const panel = panelOn(document);
+        const anyPanel = panel as any;
+
+        anyPanel.input.value = "make a box";
+        await anyPanel.send();
+        expect(stack.length).toBe(limit);
+
+        (panel.querySelector(".userUndo") as HTMLButtonElement).click();
+
+        // The turn's own record went with it, and the transcript went with the record. Without the
+        // top of the stack to rewind to, a count would have read "nothing to do" and left the
+        // document holding the shape the model made.
+        expect(stack.map((r) => r.name)).toEqual(["older 1", "older 2"]);
+        expect(panel.querySelectorAll(".userRow").length).toBe(0);
+        expect(anyPanel.messages.length).toBe(0);
+        expect(readConversations(document)[0].messages.length).toBe(0);
+    });
+
+    test("recomputes the context reading when a turn is taken back", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 1_000_000 });
+        const document = createMockDocument({ history: { undoCount: () => 0, undo: () => {} } });
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onUsage({
+                inputTokens: 500_000,
+                outputTokens: 10,
+                cacheReadTokens: 0,
+                cacheCreationTokens: 0,
+            });
+            opts.callbacks.onTextDelta("ok");
+        });
+        const panel = panelOn(document);
+        const anyPanel = panel as any;
+
+        anyPanel.input.value = "x".repeat(400);
+        await anyPanel.send();
+        expect(panel.querySelector(".contextText")!.textContent).toBe("500k / 1M");
+
+        // The window shrank with the transcript; leaving 500k on screen would point the user at a
+        // context that is not there any more.
+        (panel.querySelector(".userUndo") as HTMLButtonElement).click();
+
+        expect(panel.querySelector(".contextText")!.textContent).toBe("0 / 1M");
+        expect((panel.querySelector(".contextFill") as HTMLElement).style.width).toBe("0.0%");
+    });
+
+    test("cuts a run loose when the turn it belongs to is taken back", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = panelOn(createMockDocument());
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        (panel as any).input.value = "make a box";
+        const sending = (panel as any).send();
+        callbacks.onTextDelta("working");
+
+        // Reverting mid-run: the run has to stop, or it writes its tail into what just went away.
+        (panel.querySelector(".userUndo") as HTMLButtonElement).click();
+        agentMock.pending.shift()!.resolve();
+        await sending;
+
+        expect((panel as any).sending).toBe(false);
+        expect(panel.querySelector(".assistant")).toBeNull();
+        expect((panel as any).messages.length).toBe(0);
+    });
+
+    test("leaves no turn behind when a run stopped mid-reasoning fails", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((_resolve, reject) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve: () => reject(new Error("aborted")) });
+                }),
+        );
+
+        (panel as any).input.value = "make a box";
+        const sending = (panel as any).send();
+        callbacks.onThinkingDelta("weighing it up");
+        expect(panel.querySelector(".thinkingBlock")).not.toBeNull();
+
+        (panel as any).interrupt();
+        agentMock.pending.shift()!.resolve();
+        await sending;
+
+        // Reasoning and nothing after it is not an answer: the bubble it streamed into goes with
+        // the run, and the record has to go with the bubble. Reasoning kept on its own would come
+        // back as a turn the user never saw, whenever the conversation was reopened.
+        expect(panel.querySelector(".assistant")).toBeNull();
+        expect(historyOn(document)).toEqual([]);
+    });
+
+    test("gives back what the message carried, images included", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument({
+            history: { undoCount: () => 0, undo: () => {} },
+        });
+        agentMock.runAgent.mockImplementationOnce(async () => {});
+        const panel = panelOn(document);
+        const anyPanel = panel as any;
+        const image = { mediaType: "image/png", data: "abc" };
+
+        anyPanel.pendingImages.push(image);
+        anyPanel.input.value = "cut this out";
+        await anyPanel.send();
+        // Sending empties the tray, so the revert is what has to put it back.
+        expect(anyPanel.pendingImages.length).toBe(0);
+
+        (panel.querySelector(".userUndo") as HTMLButtonElement).click();
+
+        expect(anyPanel.input.value).toBe("cut this out");
+        expect(anyPanel.pendingImages).toEqual([image]);
+        expect(panel.querySelector(".imageThumb")).not.toBeNull();
+    });
+
+    test("offers no revert control for turns restored from the archive", () => {
+        const document = documentWith("d1", conversationOf("c1", [userMessage("hi", 1)]));
+        const panel = panelOn(document);
+
+        // Nothing in this session's stack corresponds to a turn that was merely read back.
+        expect(panel.querySelector(".user")).not.toBeNull();
+        expect(panel.querySelector(".userUndo")).toBeNull();
+    });
+
+    test("meters how full the context is, in the send row", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 100_000 });
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            opts.callbacks.onUsage({
+                inputTokens: 1000,
+                outputTokens: 500,
+                cacheReadTokens: 8000,
+                cacheCreationTokens: 500,
+            });
+            opts.callbacks.onTextDelta("ok");
+        });
+        const document = createMockDocument();
+        const panel = panelOn(document);
+        const meter = panel.querySelector(".contextMeter") as HTMLElement;
+        // Nothing has been sent, so there is no reading to show.
+        expect(meter.style.display).toBe("none");
+
+        (panel as any).input.value = "make a box";
+        await (panel as any).send();
+
+        // 1000 + 8000 + 500 = 9.5k of the window: cached input still occupies the context, while
+        // output is the reply, which only joins it next turn.
+        expect(meter.style.display).toBe("");
+        expect(panel.querySelector(".contextText")!.textContent).toBe("9.5k / 100k");
+        expect((panel.querySelector(".contextFill") as HTMLElement).style.width).toBe("9.5%");
+
+        // The reading goes into the message, or reopening the conversation would have nothing to
+        // put back on the meter — the transcript alone cannot say how full the window was.
+        expect(historyOn(document)[0].messages[1].usage).toEqual({
+            inputTokens: 1000,
+            outputTokens: 500,
+            cacheReadTokens: 8000,
+            cacheCreationTokens: 500,
+        });
+
+        (panel as any).startConversation();
+        expect(meter.style.display).toBe("none");
+        (panel as any).openConversation(historyOn(document)[0]);
+
+        expect(meter.style.display).toBe("");
+        expect(panel.querySelector(".contextText")!.textContent).toBe("9.5k / 100k");
+    });
+
     test("restores the transcript and a context the model can resume from", () => {
         const document = documentWith(
             "d1",
@@ -666,8 +1346,8 @@ describe("ChatPanel history", () => {
         expect(panel.querySelector(".user")?.textContent).toBe("make a box");
         expect(panel.querySelector(".markdown")?.textContent?.trim()).toBe("Made a box.");
         expect(panel.querySelector(".toolCard .toolName")?.textContent).toBe("run_program");
-        // A restored turn reads like any finished one: collapsed work block, footer included
-        expect(panel.querySelector(".workBlock")?.classList.contains("open")).toBe(false);
+        // A restored turn reads like any finished one: cards collapsed, footer included
+        expect(panel.querySelector(".toolCard")?.classList.contains("open")).toBe(false);
         expect(panel.querySelector(".msgFooter")).not.toBeNull();
 
         // The model resumes from text and images only — no thinking, no tool exchange
@@ -677,7 +1357,7 @@ describe("ChatPanel history", () => {
         ]);
     });
 
-    test("keeps each restored turn's tool cards in their own work block", () => {
+    test("keeps each restored turn's tool cards inside that turn", () => {
         const document = documentWith(
             "d1",
             conversationOf("c1", [
@@ -690,10 +1370,69 @@ describe("ChatPanel history", () => {
 
         const panel = panelOn(document);
 
-        const blocks = panel.querySelectorAll(".workBlock");
-        expect(blocks.length).toBe(2);
-        expect(blocks[0].querySelector(".toolName")?.textContent).toBe("tool_a");
-        expect(blocks[1].querySelector(".toolName")?.textContent).toBe("tool_b");
+        const turns = panel.querySelectorAll(".assistant");
+        expect(turns.length).toBe(2);
+        expect(turns[0].querySelector(".toolName")?.textContent).toBe("tool_a");
+        expect(turns[1].querySelector(".toolName")?.textContent).toBe("tool_b");
+    });
+
+    test("restores a turn saved before parts as cards above the reply it belonged to", () => {
+        const document = documentWith(
+            "d1",
+            conversationOf("c1", [userMessage("hi", 1), assistantMessage("Made a box.", 2, "run_program")]),
+        );
+
+        const panel = panelOn(document);
+
+        // The flat layout had no interleaving to restore: its top-down order is rebuilt instead.
+        const turn = panel.querySelector(".assistant")!;
+        expect(Array.from(turn.children).map((c) => c.className.split(" ")[0])).toEqual([
+            "toolCard",
+            "markdown",
+            "msgFooter",
+        ]);
+    });
+
+    test("restores the interleaving of a turn saved with parts", () => {
+        const stored: StoredMessage = {
+            role: "assistant",
+            text: "Drawn",
+            time: 2,
+            parts: [
+                { type: "thinking", text: "let me see what is there", ms: 3000 },
+                { type: "text", text: "Looking" },
+                { type: "tool", name: "screenshot", args: "{}", result: "{}" },
+                { type: "text", text: "Drawn" },
+            ],
+            workedMs: 2000,
+            usage: {
+                inputTokens: 10,
+                outputTokens: 20,
+                cacheReadTokens: 30,
+                cacheCreationTokens: 40,
+            },
+        };
+        const document = documentWith("d1", conversationOf("c1", [userMessage("draw", 1), stored]));
+
+        const panel = panelOn(document);
+
+        const turn = panel.querySelector(".assistant")!;
+        expect(Array.from(turn.children).map((c) => c.className.split(" ")[0])).toEqual([
+            "thinkingBlock",
+            "markdown",
+            "toolCard",
+            "markdown",
+            "msgFooter",
+        ]);
+        expect(turn.querySelector(".markdown")?.textContent?.trim()).toBe("Looking");
+        expect(turn.querySelector(".msgWorked")?.textContent).toBe("ai.workedFor");
+        // The meter picks the context back up, so reopening a conversation is not read as empty.
+        expect(panel.querySelector(".contextText")?.textContent).toBe("80 / 1M");
+        // Reasoning comes back folded: it is context for reading the turn, not the turn itself.
+        const thinking = turn.querySelector(".thinkingBlock")!;
+        expect(thinking.classList.contains("open")).toBe(false);
+        expect(thinking.querySelector(".thinkingSummary")?.textContent).toBe("ai.thoughtFor");
+        expect(thinking.querySelector(".thinkingBody")?.textContent).toBe("let me see what is there");
     });
 
     test("keeps the original footer time when a turn is restored", () => {
@@ -791,6 +1530,23 @@ describe("ChatPanel history", () => {
         }
     });
 
+    test("history overlay carries the panel's own close button", () => {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        const onClose = rs.fn(() => {});
+        panel.onClose = onClose;
+
+        anyPanel.showHistory();
+        const overlay = panel.querySelector(".historyOverlay") as HTMLElement;
+        const buttons = overlay.querySelectorAll<HTMLButtonElement>(".historyHeader .iconButton");
+        expect(buttons.length).toBe(2);
+
+        buttons[1].click();
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(overlay.style.display).toBe("flex");
+    });
+
     test("titles a conversation whose first message carried no text as untitled", () => {
         const document = documentWith("d1", conversationOf("c1", [userMessage("", 1)]));
 
@@ -842,7 +1598,7 @@ describe("ChatPanel questions", () => {
         return (panel as any).send();
     }
 
-    test("asks above the assistant reply and resumes with the clicked option", async () => {
+    test("takes the composer's place while it waits, then lands in the turn", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         const panel = panelOn(createMockDocument());
 
@@ -852,20 +1608,30 @@ describe("ChatPanel questions", () => {
         const card = panel.querySelector(".askCard")!;
         expect(card.querySelector(".askQuestion")?.textContent).toBe("how big?");
         expect(card.querySelectorAll(".askOption").length).toBe(2);
-        // The card belongs before the assistant bubble; appending it after would read backwards.
-        const children = Array.from((panel as any).messageList.children) as Element[];
-        const assistantAt = children.findIndex((c) => c.classList.contains("assistant"));
-        expect(children.indexOf(card)).toBeLessThan(assistantAt);
+        // Blocked on the answer, the question stands where the hands already are — not up in the
+        // transcript, where a long turn would carry it out of view.
+        const composer = panel.querySelector(".composer")!;
+        const composerCard = panel.querySelector(".composerCard") as HTMLElement;
+        expect(composer.contains(card)).toBe(true);
+        expect(composerCard.style.display).toBe("none");
 
         (card.querySelectorAll(".askOption")[1] as HTMLButtonElement).click();
         await sending;
 
         expect(card.classList.contains("askAnswered")).toBe(true);
         expect(card.querySelector(".askAnswer")?.textContent).toBe("8mm");
+        // Answered, it falls back into the turn where the question was asked, and the composer
+        // returns — the card's controls are gone, so the input has to.
+        const assistantEl = panel.querySelector(".assistant")!;
+        expect(assistantEl.contains(card)).toBe(true);
+        expect(composer.querySelector(".askCard")).toBeNull();
+        expect(composerCard.style.display).toBe("");
+        // The reply that came after the answer is drawn below the card, in stream order.
+        expect(card.nextElementSibling?.className).toBe("markdown");
+        expect(panel.querySelector(".markdown")?.textContent).toContain("done");
         // The handler drew this card, so onToolCall must not have drawn a second one for it
         expect(panel.querySelectorAll(".askCard").length).toBe(1);
         expect(panel.querySelector(".toolCard")).toBeNull();
-        expect(panel.querySelector(".markdown")?.textContent).toContain("done");
     });
 
     test("takes a typed answer on Enter", async () => {
@@ -882,6 +1648,58 @@ describe("ChatPanel questions", () => {
         await sending;
 
         expect(card.querySelector(".askAnswer")?.textContent).toBe("12.5mm");
+    });
+
+    test("brings the waiting dots back once the user has answered", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = panelOn(createMockDocument());
+        let answered: (answer: string) => void = () => {};
+        let resume: () => void = () => {};
+        const seen = new Promise<string>((resolve) => (answered = resolve));
+        agentMock.runAgent.mockImplementationOnce(async (opts: any) => {
+            const tool = opts.tools.find((t: { name: string }) => t.name === "ask_user");
+            const answer = String(
+                await tool.handler({ question: "how big?", options: ["6mm"] }, opts.signal),
+            );
+            // Stand in for the round trip the model takes before its first token: the run is
+            // back at work the moment the answer lands, and the dots have to say so.
+            answered(answer);
+            await new Promise<void>((resolve) => (resume = resolve));
+            opts.callbacks.onTextDelta("done");
+        });
+
+        const anyPanel = panel as any;
+        anyPanel.input.value = "cut a hole";
+        const sending = anyPanel.send();
+        await flush();
+
+        // Waiting on the user is not work — the card itself is the indicator.
+        expect(panel.querySelector(".thinkingDots")).toBeNull();
+
+        (panel.querySelector(".askOption") as HTMLButtonElement).click();
+        await seen;
+        expect(panel.querySelector(".thinkingDots")).not.toBeNull();
+
+        resume();
+        await sending;
+        expect(panel.querySelector(".thinkingDots")).toBeNull();
+    });
+
+    test("stops the run from the question card itself", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = panelOn(createMockDocument());
+
+        const sending = startAsk(panel, { question: "how big?" });
+        await flush();
+        const card = panel.querySelector(".askCard")!;
+
+        // The card holds the composer's place, so it has to carry the composer's way out too.
+        (card.querySelector(".askStop") as HTMLButtonElement).click();
+        await sending;
+
+        expect(card.querySelector(".askAnswer")?.textContent).toBe("ai.ask.notAnswered");
+        expect(card.querySelector(".askStop")).toBeNull();
+        expect((panel.querySelector(".composerCard") as HTMLElement).style.display).toBe("");
     });
 
     test("stopping the run releases a question that is still waiting", async () => {

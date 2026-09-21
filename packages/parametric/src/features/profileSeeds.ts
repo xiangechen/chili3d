@@ -5,7 +5,7 @@ import { type IEdge, type IFace, type Matrix4, ShapeTypes, type XYZLike } from "
 import { edgeLiesOnImage, profileEdgeEntityIds, profileEntityIds } from "./profileEntities";
 import { captureRegionFingerprint } from "./profileRef";
 import { distance, MATCH_TOLERANCE, plainVec } from "./refGeometry";
-import { boundaryId, derivedId, idsOverlap, uncontested } from "./trackedId";
+import { boundaryId, derivedId, writeUncontestedIds } from "./trackedId";
 
 /**
  * Content-derived seed keys for profile regions and their boundary edges.
@@ -306,20 +306,14 @@ export function attributeSweepEdges(
             // failure into a JS-level throw): it stays unnamed.
         }
     });
-    // Both directions: one edge gets one candidate, and no candidate is shared by two edges
-    // (a mirrored or duplicated profile can offer the same seed twice).
-    //
-    // A candidate also loses to an id already in `edgeIds` — the names the sweep's IDENTITY pass
-    // gave the edges it copies from the input (`trackedIds`). A sketch profile cannot collide
-    // there (its stems are minted for this sweep), but an externally-seeded sweep can: pressing a
-    // box's side face takes that face's own ids as identities, and the image of the face's BOTTOM
-    // edge then computes `<bottomEdgeId>:top` — which is exactly what the body's convention
-    // already calls the face's TOP edge, so the image would answer to a stranger's name 40mm away.
-    const identities = edgeIds.filter((id): id is string => id !== undefined);
-    for (const [index, id] of uncontested(candidates)) {
-        if (identities.some((taken) => idsOverlap(taken, id))) continue;
-        edgeIds[index] = id;
-    }
+    // An externally-seeded sweep is where the second half of `writeUncontestedIds` bites: a
+    // candidate can lose to an id already in `edgeIds` — the names the sweep's IDENTITY pass gave
+    // the edges it copies from the input (`trackedIds`). A sketch profile cannot collide there (its
+    // stems are minted for this sweep), but pressing a box's side face takes that face's own ids as
+    // identities, and the image of the face's BOTTOM edge then computes `<bottomEdgeId>:top` —
+    // which is exactly what the body's convention already calls the face's TOP edge, so the image
+    // would answer to a stranger's name 40mm away.
+    writeUncontestedIds(edgeIds, candidates);
 }
 
 /**

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type ChatPanel, createChatPanel } from "@chili3d/ai";
+import { ChatPanel } from "@chili3d/ai";
 import {
     type IApplication,
     type ICommand,
@@ -74,7 +74,7 @@ export class Editor extends HTMLElement {
 
     private ensureChatPanel(): ChatPanel {
         if (this.chatPanel) return this.chatPanel;
-        const chat = createChatPanel();
+        const chat = new ChatPanel();
         chat.onClose = () => this.hideChat();
         chat.onDock = () => this.dockChat();
         this.attachDragToDetach(chat.header);

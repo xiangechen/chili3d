@@ -11,6 +11,7 @@ import {
     type StreamChatOptions,
     type StreamEvent,
     type SystemPrompt,
+    type TokenUsage,
     type Tool,
     type ToolCallBuffer,
 } from "./types";
@@ -36,6 +37,8 @@ export class CompletionsProvider implements LLMProvider {
                 tools: opts.tools.map(toTool) as any,
                 stream: true,
                 parallel_tool_calls: false,
+                // Without this the endpoint never reports usage on a stream at all.
+                stream_options: { include_usage: true },
             },
             { signal: opts.signal },
         );
@@ -54,8 +57,21 @@ export function* convertChunk(
     chunk: OpenAI.Chat.Completions.ChatCompletionChunk,
     toolBuf: ToolCallBuffer,
 ): Iterable<StreamEvent> {
+    // The usage chunk arrives with an EMPTY `choices` array — per the SDK's own docs on
+    // ChatCompletionChunk.choices — so it has to be read before the guard below, or the one chunk
+    // carrying the numbers is the one that gets dropped.
+    if (chunk.usage) {
+        yield { type: "usage", usage: toUsage(chunk.usage) };
+    }
     const choice = chunk.choices[0];
     if (!choice) return;
+    // `reasoning_content` is not in OpenAI's own schema — DeepSeek, Kimi and other compatible
+    // reasoning models stream their reasoning under this extension field, so it is read loosely
+    // and only if present. Endpoints that do not use it behave exactly as before.
+    const reasoning = (choice.delta as { reasoning_content?: string }).reasoning_content;
+    if (reasoning) {
+        yield { type: "thinking_delta", text: reasoning };
+    }
     if (choice.delta.content) {
         yield { type: "text", text: choice.delta.content };
     }
@@ -64,6 +80,20 @@ export function* convertChunk(
         yield* flushToolCalls(toolBuf);
         yield { type: "done", stopReason: choice.finish_reason };
     }
+}
+
+function toUsage(usage: OpenAI.CompletionUsage): TokenUsage {
+    const cached = usage.prompt_tokens_details?.cached_tokens ?? 0;
+    return {
+        // `prompt_tokens` already includes the cached part, where Anthropic reports it separately.
+        // Subtracting keeps `TokenUsage`'s three fields disjoint, which is what `contextTokens`
+        // assumes — leaving it in would count the cached half twice.
+        inputTokens: usage.prompt_tokens - cached,
+        outputTokens: usage.completion_tokens,
+        cacheReadTokens: cached,
+        // OpenAI's prompt cache is written for free; there is no separate write count to report.
+        cacheCreationTokens: 0,
+    };
 }
 
 function accumulateToolCalls(

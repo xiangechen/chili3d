@@ -80,6 +80,24 @@ describe("History", () => {
         expect(history.undoCount()).toBe(3);
     });
 
+    test("undoTop keeps naming the newest record once undoLimits starts evicting", () => {
+        const obj = { val: 0 };
+        const history = new History();
+        history.undoLimits = 3;
+        const records = [0, 1, 2, 3, 4].map((i) => new PropertyHistoryRecord(obj, "val", i, i + 1));
+        for (const record of records.slice(0, 3)) history.add(record);
+        const mark = history.undoTop();
+
+        // The stack is full, so `undoCount` cannot move — but the top does, and it is what says
+        // how far back a turn has to rewind.
+        history.add(records[3]);
+        expect(history.undoCount()).toBe(3);
+        expect(history.undoTop()).not.toBe(mark);
+
+        history.undo();
+        expect(history.undoTop()).toBe(mark);
+    });
+
     test("should dispose all records and clear history", () => {
         const obj = { val: "a" };
         const history = new History();

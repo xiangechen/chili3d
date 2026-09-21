@@ -10,6 +10,7 @@ import {
     type LLMProvider,
     type StreamChatOptions,
     type StreamEvent,
+    type TokenUsage,
     type Tool,
 } from "./types";
 
@@ -50,33 +51,143 @@ export class ResponsesProvider implements LLMProvider {
                 input: input as any,
                 tools: opts.tools.map(toTool) as any,
                 stream: true,
+                // Without this the API produces no reasoning events at all, and the branch that
+                // reads them below simply never fires. `auto` lets the model decide how much of
+                // its reasoning to summarise.
+                reasoning: { summary: "auto" },
             },
             { signal: opts.signal },
         );
 
-        const toolArgs: ToolArgsBuffer = new Map();
+        const state: ConvertState = { toolArgs: new Map(), reasoned: false };
+        const unconsumed = new Set<string>();
         for await (const event of stream) {
-            yield* convertEvent(event, toolArgs);
+            // Which events a backend actually sends varies by model and endpoint, and a missing
+            // one shows up as a feature that silently does nothing. Name each unhandled type once
+            // per stream (console.debug, so it stays out of the way until someone looks).
+            if (!KNOWN_EVENTS.has(event.type) && !unconsumed.has(event.type)) {
+                unconsumed.add(event.type);
+                console.debug(`[ai] responses: unhandled stream event "${event.type}"`);
+            }
+            yield* convertEvent(event, state);
         }
     }
 }
 
-function* convertEvent(event: ResponseStreamEvent, toolArgs: ToolArgsBuffer): Iterable<StreamEvent> {
+/**
+ * Acted on, or deliberately ignored. The second group is the lifecycle and framing events every
+ * backend sends around the content — logging those once taught us nothing. Anything outside this
+ * set is reported once per stream: that is how a backend quietly carrying content in a shape we
+ * never read gets noticed, which is exactly how the reasoning here was found.
+ *
+ * The set is what a plain chat request draws from, not everything the SDK declares: the events of
+ * features this app never asks for (audio, code interpreter, file search, MCP, web search) are
+ * left out deliberately, so that a backend enabling one of them behind our back still logs. The
+ * `*.done` twins of the deltas below are framing — the text has already arrived — and listing them
+ * is what keeps a reasoning turn, which sends four of them, from reading as four unknown events.
+ */
+const KNOWN_EVENTS = new Set([
+    // Acted on.
+    "response.output_text.delta",
+    "response.reasoning_summary_text.delta",
+    "response.reasoning_text.delta",
+    "response.function_call_arguments.delta",
+    "response.output_item.done",
+    "response.completed",
+    // Frames the stream but carries nothing we use; the content arrived as deltas above.
+    "response.queued",
+    "response.created",
+    "response.in_progress",
+    "response.output_item.added",
+    "response.content_part.added",
+    "response.content_part.done",
+    "response.output_text.done",
+    "response.output_text.annotation.added",
+    "response.reasoning_summary_part.added",
+    "response.reasoning_summary_part.done",
+    "response.reasoning_summary_text.done",
+    "response.reasoning_text.done",
+    "response.function_call_arguments.done",
+]);
+
+export interface ConvertState {
+    toolArgs: ToolArgsBuffer;
+    /** Whether reasoning text has already been shown, so a finished item will not repeat it. */
+    reasoned: boolean;
+}
+
+/** Everything readable a reasoning item carries: its summary parts, then any raw text parts. */
+function reasoningItemText(item: { summary?: { text: string }[]; content?: { text: string }[] }): string {
+    return [...(item.summary ?? []), ...(item.content ?? [])]
+        .map((part) => part.text)
+        .filter(Boolean)
+        .join("\n\n");
+}
+
+export function* convertEvent(event: ResponseStreamEvent, state: ConvertState): Iterable<StreamEvent> {
     if (event.type === "response.output_text.delta") {
         yield { type: "text", text: event.delta };
+    } else if (
+        event.type === "response.reasoning_summary_text.delta" ||
+        event.type === "response.reasoning_text.delta"
+    ) {
+        // Both families are reasoning text: the summary is what most backends send, the raw text
+        // is what some send instead. Display only — unlike Anthropic's thinking blocks there is
+        // no signature to replay, so no `thinking` block is emitted for the agent to carry back.
+        state.reasoned = true;
+        yield { type: "thinking_delta", text: event.delta };
     } else if (event.type === "response.function_call_arguments.delta") {
-        toolArgs.set(event.item_id, (toolArgs.get(event.item_id) ?? "") + event.delta);
+        state.toolArgs.set(event.item_id, (state.toolArgs.get(event.item_id) ?? "") + event.delta);
     } else if (event.type === "response.output_item.done") {
-        if (event.item.type !== "function_call") return;
+        const item = event.item;
+        if (item.type === "reasoning") {
+            // The SDK notes that while streaming, the finished item is the reliable source for a
+            // reasoning item's content — so a backend that sends no deltas is covered here. The
+            // rule is not the deltas' rule above: this text is the whole of it, so it is only for
+            // a turn that streamed none, where every delta is a fragment and all of them belong.
+            if (!state.reasoned) {
+                const text = reasoningItemText(item);
+                if (text) {
+                    state.reasoned = true;
+                    yield { type: "thinking_delta", text };
+                }
+            }
+            return;
+        }
+        if (item.type !== "function_call") return;
         yield {
             type: "tool_call",
-            id: event.item.call_id,
-            name: event.item.name,
-            arguments: event.item.arguments || toolArgs.get(event.item.id ?? "") || "",
+            id: item.call_id,
+            name: item.name,
+            arguments: item.arguments || state.toolArgs.get(item.id ?? "") || "",
         };
     } else if (event.type === "response.completed") {
+        if (event.response.usage) {
+            // One line that separates the two reasons a thinking panel can come up empty: the
+            // model never reasoned, or it reasoned and the backend returned nothing readable.
+            console.debug(
+                `[ai] responses: reasoning tokens=${event.response.usage.output_tokens_details?.reasoning_tokens ?? 0}` +
+                    `, reasoning text=${state.reasoned ? "shown" : "none"}`,
+            );
+            yield { type: "usage", usage: toUsage(event.response.usage) };
+        }
         yield { type: "done", stopReason: event.response.status ?? "completed" };
     }
+}
+
+function toUsage(usage: OpenAI.Responses.ResponseUsage): TokenUsage {
+    const details = usage.input_tokens_details;
+    const cached = details?.cached_tokens ?? 0;
+    const written = details?.cache_write_tokens ?? 0;
+    return {
+        // OpenAI counts cached input inside `input_tokens`, where Anthropic reports it in fields
+        // of its own. `TokenUsage` keeps the three apart, so they must be subtracted out here or
+        // `contextTokens` counts the cached half twice and the meter reads double.
+        inputTokens: usage.input_tokens - cached - written,
+        outputTokens: usage.output_tokens,
+        cacheReadTokens: cached,
+        cacheCreationTokens: written,
+    };
 }
 
 function toTool(t: Tool) {
