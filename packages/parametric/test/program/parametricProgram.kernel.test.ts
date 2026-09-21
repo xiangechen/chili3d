@@ -176,6 +176,10 @@ describe("sketch and extrude", () => {
         expect(extent(body)).toEqual([0, 0, 0, 40, 30, 30]);
         // Only the sketch was created — the extrude joined the existing body.
         expect(second.created.map((created) => created.id)).toEqual(["s2"]);
+        // Consumed by the join, so hidden — a sketch that grew a body is as spent as one that
+        // stood for a new body, and the model keeps both around either way.
+        const sketches = doc.modelManager.findNodes((node) => node instanceof SketchNode);
+        expect(sketches.map((sketch) => sketch.visible)).toEqual([false, false]);
     });
 });
 

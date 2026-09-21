@@ -38,7 +38,7 @@ export function buildAskUserTool(): Tool {
     return {
         name: "ask_user",
         description:
-            "Ask the user a question and wait for their answer before doing anything else. Reach for it only when the answer is the user's intent and cannot be read off the document, the selection or a screenshot: how big, which face, keep or discard. Give 2-4 concrete options whenever the choices are enumerable, so the user can answer in one click. Never ask for something another tool could find out.",
+            "Ask the user a question and wait for their answer before doing anything else. The run stays blocked until they answer, and the card carries one question with its options as buttons, so an enumerable answer takes one click. The document, the selection and a screenshot already answer what the model's state is; intent — how big, which face, keep or discard — is what only the user can answer.",
         parameters: {
             type: "object",
             properties: {

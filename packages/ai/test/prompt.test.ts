@@ -19,7 +19,7 @@ describe("buildSystemPrompt", () => {
 
         // Splitting on the first ". " used to stop at this description's "— e.g." and leave the
         // index showing a fragment; the sentence has to run to its end.
-        expect(selectLine).toContain("then call fit_content to focus them.");
+        expect(selectLine).toContain("e.g. the ones a run just created or changed.");
         expect(stable).not.toMatch(/^\s*- .*\be\.g\.$/m);
     });
 

@@ -424,6 +424,10 @@ function runExtrudeOp(state: State, op: ExtrudeOp): void {
     }
     const body = resolveBody(state, op.body);
     appendFeature(state, body, { ...feature, operation: op.operation });
+    // Consumed is consumed, whichever way the feature landed: a sketch that grew an existing
+    // body is as spent as one that stood for a new body, and hides the same way. The
+    // interactive command hides in both of its branches too (extrudeCommand).
+    sketch.visible = false;
     // An op that edits a body is registered as another name for it, so a later op can
     // reference the result of this one the same way it references a freshly built body.
     state.refs.set(op.id, body.id);

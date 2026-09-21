@@ -85,12 +85,12 @@ ${navigationProfiles()}
 - Left-click a shape to select its whole node; left-click empty space to clear the selection.
 - Shift+click toggles a node in the viewport selection. (Ctrl+click does not toggle there; in the model tree Ctrl+click toggles and Shift+click selects a range.)
 - A left-drag rubber band selects every node whose bounding box falls inside it.
-- Hovering highlights a shape in green and a selected shape keeps a green highlight, so the colour alone is a weak confirmation: check the property panel or the status bar prompt instead of trusting the tint.
+- Hover and selection are both drawn in green, so a green shape does not say which of the two it is; the property panel and the status bar prompt name the selected node.
 - Escape clears the selection, or cancels the command in progress. While picking, Enter or Space accepts the current pick, and Tab cycles to the next overlapping shape under the cursor.`,
 
     `## Reorienting the view
 - The coloured X/Y/Z bubbles in the top-right corner are an axis gizmo — there is no view cube. Click a bubble to snap the camera to look straight along that axis; drag the gizmo to orbit freely.
-- Hiding the shapes you do not need (eye icon in the model tree) is usually easier than fighting the camera.`,
+- Occluding geometry: either hide the node (the eye icon in the model tree) or move the camera around it.`,
 
     `## Model tree and property panel
 - The model tree selects nodes exactly as the viewport does; the eye icon on a row shows or hides that node.
@@ -126,9 +126,11 @@ The workflow to teach:
 - If a feature fails, the body keeps the last shape that did build and the failing row shows the error: fix it or suppress that feature.
 - References resolve against the timeline position of the feature that owns them, so a feature added later cannot break an earlier reference.
 - Suppressed features are skipped when rebuilding but keep their place in the list.
-- The features are added from the Parametric tab: {feature.extrude} (operation New/Join/Cut/Intersect, symmetric, start offset, depth), {feature.revolve}, {feature.fillet}, {feature.chamfer}, {feature.fuse}, {feature.cut} and {feature.common}.
-- {feature.variable} opens the document-wide Parameters dialog: each parameter has a name, a type (length / angle / unitless), an expression and an optional description. Parameters are shared by the whole document — any feature parameter or sketch dimension may reference one by name, and a variable may reference the ones listed above it.
-- An expression takes numbers, other parameter names, + - * / %, parentheses, pi/e, and abs, sqrt, floor, ceil, round, min, max, sin, cos, tan, asin, acos, atan, atan2 — angles are in degrees throughout. Types are checked: a length parameter in an angle slot is an error, sqrt wants even exponents, and a variable cannot reference one declared below it.`,
+- The features are added from the Parametric tab: {feature.extrude} (operation New/Join/Cut/Intersect, symmetric, start offset, depth), {feature.revolve}, {feature.fillet}, {feature.chamfer}, {feature.fuse}, {feature.cut} and {feature.common}.`,
+
+    `## Document variables
+- {feature.variable} opens the document-wide Variables dialog: each variable has a name, a type (length / angle / unitless), an expression and an optional description. Variables are shared by the whole document — any feature parameter or sketch dimension may reference one by name, and a variable may reference the ones listed above it.
+- An expression takes numbers, other variable names, + - * / %, parentheses, pi/e, and abs, sqrt, floor, ceil, round, min, max, sin, cos, tan, asin, acos, atan, atan2 — angles are in degrees throughout. Types are checked: a length variable in an angle slot is an error, sqrt wants even exponents, and a variable cannot reference one declared below it.`,
 
     `## Documents and files
 - The app opens on a start screen: {doc.new}, {doc.open}, the recent documents and the settings (see below).

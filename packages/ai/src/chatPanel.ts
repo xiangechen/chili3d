@@ -223,6 +223,21 @@ export class ChatPanel extends HTMLElement {
 
     private readonly messages: ChatMessage[] = [];
     private readonly messageList: HTMLElement;
+    /**
+     * Whether the reader is being carried along as the transcript grows — the one thing that stops
+     * it is the reader themselves scrolling away, back to true when they return to the bottom.
+     * A flag rather than a measurement, because content landing never moves `scrollTop`: asking the
+     * geometry at the moment content arrives answers "did the reader scroll", only later and only
+     * if nothing has grown since — which is exactly what a stream of output keeps doing.
+     */
+    private following = true;
+    /**
+     * The `scrollTop` this panel last wrote. The scroll event that write produces arrives a frame
+     * later, by which time the transcript may have grown past it and a fresh measurement would read
+     * a reader who never moved as having scrolled away. The echo is what this marks off; anything
+     * else in the handler is the reader's own doing.
+     */
+    private followingMark = 0;
     private readonly emptyState: HTMLElement;
     private readonly composer: HTMLElement;
     /** The composer's input card, hidden while a question stands in for it. */
@@ -310,7 +325,11 @@ export class ChatPanel extends HTMLElement {
         super();
         this.className = style.root;
 
-        this.messageList = div({ className: style.messageList });
+        this.messageList = div({ className: style.messageList, onscroll: this.onMessageScrolled });
+        // An attachment is sized by bytes that decode after the layout which made room for it, and
+        // a reply may carry images of its own. `load` does not bubble, so the transcript catches
+        // them on the way down — which is what keeps a late-sized picture under the reader's eyes.
+        this.messageList.addEventListener("load", this.onContentLoaded, true);
         this.input = this.createInput();
         this.sendButton = this.createSendButton();
         this.header = this.createHeader();
@@ -754,6 +773,9 @@ export class ChatPanel extends HTMLElement {
         this.conversation = newConversation();
         this.messages.length = 0;
         this.turnParts = [];
+        // An empty transcript has no "scrolled away" to speak of: the next turn starts with the
+        // reader at the bottom of it whatever they were doing in the last conversation.
+        this.following = true;
         this.messageList.innerHTML = "";
         this.contextNoticeEl = undefined;
         this.contextUsed = undefined;
@@ -1030,6 +1052,9 @@ export class ChatPanel extends HTMLElement {
         // Nothing worth a turn — no reply text, no cards, no question — leaves nothing behind.
         if (showFooter || turn.parts.length > 0) this.archiveTurn(turn);
         this.clearTurnState();
+        // The footer the turn just earned is content like any other: a reader who scrolled up to
+        // study something keeps their place, and one who was following gets the last of the reply.
+        this.followBottom();
     }
 
     /**
@@ -1085,9 +1110,6 @@ export class ChatPanel extends HTMLElement {
         this.sending = false;
         this.abortController = undefined;
         this.setStopMode(false);
-        // The turn ending is the run's doing too: a reader who scrolled up to study something
-        // keeps their place, and one who was following gets the last of the reply.
-        if (this.isAtBottom()) this.scrollToBottom();
     }
 
     /** The config to run with, or undefined after sending the user to the settings overlay. */
@@ -1164,9 +1186,6 @@ export class ChatPanel extends HTMLElement {
         const stream = this.stream;
         const assistantEl = this.activeAssistantEl;
         if (!stream || !assistantEl) return;
-        // Read before the DOM grows: afterwards the metrics describe the taller layout, and the
-        // reader who was being carried along would read as having scrolled away.
-        const following = this.isAtBottom();
         if (!stream.block) {
             // The reply starting is what ends the reasoning that led to it.
             this.sealStream();
@@ -1177,7 +1196,7 @@ export class ChatPanel extends HTMLElement {
         stream.blockText += t;
         stream.raw += t;
         stream.block.innerHTML = renderMarkdown(stream.blockText);
-        if (following) this.scrollToBottom();
+        this.followBottom();
     }
 
     /**
@@ -1189,7 +1208,6 @@ export class ChatPanel extends HTMLElement {
         const stream = this.stream;
         const assistantEl = this.activeAssistantEl;
         if (!stream || !assistantEl) return;
-        const following = this.isAtBottom();
         if (!stream.thinking) {
             stream.thinking = this.buildThinkingBlock(I18n.translate("ai.thinking"), "");
             // Open while it streams: the point is watching the model work.
@@ -1205,9 +1223,9 @@ export class ChatPanel extends HTMLElement {
             body.textContent = stream.thinkingText;
             // The block is capped in height and scrolls inside itself, so carrying the reader
             // along means carrying this too — the newest reasoning is the part being written.
-            if (following) body.scrollTop = body.scrollHeight;
+            if (this.following) body.scrollTop = body.scrollHeight;
         }
-        if (following) this.scrollToBottom();
+        this.followBottom();
     }
 
     /** A folded reasoning block; the caller opens it if it is the one streaming right now. */
@@ -1318,14 +1336,32 @@ export class ChatPanel extends HTMLElement {
         return false;
     }
 
+    /** Put the reader at the bottom, and keep them there until they say otherwise. */
     private scrollToBottom() {
         this.messageList.scrollTop = this.messageList.scrollHeight;
+        // Read back rather than assume: the write clamps against the scrollable range, and the echo
+        // that follows reports where the browser actually settled — the value this has to match.
+        this.followingMark = this.messageList.scrollTop;
+        this.following = true;
     }
 
+    /** The rule every piece of content landing in the transcript follows. */
+    private followBottom() {
+        if (this.following) this.scrollToBottom();
+    }
+
+    private readonly onMessageScrolled = () => {
+        // The echo of our own write is not the reader moving, however much has grown since.
+        if (this.messageList.scrollTop === this.followingMark) return;
+        this.following = this.isAtBottom();
+    };
+
+    private readonly onContentLoaded = () => this.followBottom();
+
     /**
-     * Whether the reader is at the bottom of the transcript, and so wants to be carried along as
-     * it grows. Read BEFORE the content that would move it: a delta that has already landed makes
-     * the layout taller, and someone who was being carried along then reads as having scrolled away.
+     * Whether the reader is at the bottom of the transcript. Measured on a scroll that is theirs to
+     * make — which is the only moment its answer is about them, and not about content that landed
+     * after the last time they moved.
      */
     private isAtBottom(): boolean {
         const { scrollTop, scrollHeight, clientHeight } = this.messageList;
@@ -1393,6 +1429,9 @@ export class ChatPanel extends HTMLElement {
             textContent: I18n.translate("ai.contextTrimmed"),
         });
         this.messageList.prepend(this.contextNoticeEl);
+        // Rows went off the front and a marker went on: everything the reader was looking at moved
+        // down by the difference, which the follow has to make up.
+        this.followBottom();
     }
 
     /**
@@ -1557,9 +1596,7 @@ export class ChatPanel extends HTMLElement {
         this.turnParts.push({ type: "tool", ...tool });
         this.activeAssistantEl?.append(this.toolCardElement(tool));
         this.showThinking();
-        // A card landing is the run's own doing, so it carries a reader only if they were already
-        // at the bottom — the same rule the deltas follow.
-        if (this.isAtBottom()) this.scrollToBottom();
+        this.followBottom();
     }
 
     private toolCardElement(tool: StoredToolCall): HTMLElement {
@@ -1790,6 +1827,7 @@ export class ChatPanel extends HTMLElement {
         this.messageList.append(
             div({ className: style.error, textContent: I18n.translate("ai.error.prefix", message) }),
         );
+        this.followBottom();
     }
 }
 

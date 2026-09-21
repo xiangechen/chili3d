@@ -138,6 +138,29 @@ afterEach(() => {
     setAskHandler(undefined);
 });
 
+/**
+ * Stand in for the layout engine, which happy-dom does not have: `height` states how tall the
+ * transcript is right now, and `scrollTop` clamps to the range that implies — as a browser does.
+ * Without the clamp a scroll the panel asked for lands past the end, and the follow rule could not
+ * be told from its absence the way it read in a real engine.
+ */
+function fakeGeometry(list: HTMLElement, height: () => number, clientHeight = 200) {
+    let scrollTop = 0;
+    const bottom = () => Math.max(0, height() - clientHeight);
+    Object.defineProperties(list, {
+        scrollTop: {
+            get: () => scrollTop,
+            set: (v: number) => {
+                scrollTop = Math.min(Math.max(0, v), bottom());
+            },
+            configurable: true,
+        },
+        scrollHeight: { get: height, configurable: true },
+        clientHeight: { value: clientHeight, configurable: true },
+    });
+    return { bottom };
+}
+
 describe("ChatPanel", () => {
     test("ignores a re-entrant send while a run is in flight", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
@@ -598,6 +621,9 @@ describe("ChatPanel", () => {
                 scrollHeight: { value: 1000, configurable: true },
                 clientHeight: { value: 200, configurable: true },
             });
+            // The panel reads the reader's position off the scrolling they do, so a test that only
+            // writes the number in has to fire the event a real drag would.
+            list.dispatchEvent(new Event("scroll"));
         };
 
         // Scrolled up into the middle of what is already there: the reply must not drag the
@@ -615,6 +641,67 @@ describe("ChatPanel", () => {
         callbacks.onTextDelta(" done");
         expect(list.scrollTop).toBe(1000);
 
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("a tool card landing does not leave a following reader behind", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+        const list = anyPanel.messageList as HTMLElement;
+        // A layout that grows with the transcript, the way a real one does: every element the turn
+        // draws adds height, and the card is several of them landing at once — more than the slack
+        // can absorb, under a reader who has not moved.
+        const { bottom } = fakeGeometry(list, () => 200 + list.querySelectorAll("*").length * 20);
+
+        anyPanel.input.value = "make a box";
+        const sending = anyPanel.send();
+        callbacks.onTextDelta("working");
+        expect(list.scrollTop).toBe(bottom());
+
+        callbacks.onToolCall({ name: "create_box", arguments: "{}", result: "{}" });
+
+        expect(list.scrollTop).toBe(bottom());
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("an attachment that decodes late is carried past rather than left below the fold", async () => {
+        let decoded = false;
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        agentMock.runAgent.mockImplementationOnce(
+            () =>
+                new Promise<void>((resolve) => {
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+        const list = anyPanel.messageList as HTMLElement;
+        // The bubble is laid out empty and only takes its height when the bytes have decoded, which
+        // is a frame or more after the transcript was scrolled to make room for it.
+        const { bottom } = fakeGeometry(list, () => (decoded ? 1060 : 1000));
+
+        anyPanel.pendingImages.push({ mediaType: "image/png", data: "abc" });
+        anyPanel.input.value = "what is this?";
+        const sending = anyPanel.send();
+        const image = list.querySelector("img");
+        expect(image).not.toBeNull();
+        expect(list.scrollTop).toBe(bottom());
+
+        decoded = true;
+        image!.dispatchEvent(new Event("load"));
+
+        expect(list.scrollTop).toBe(bottom());
         agentMock.pending.shift()!.resolve();
         await sending;
     });

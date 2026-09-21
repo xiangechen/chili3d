@@ -47,7 +47,7 @@ prism/revolve on a polygon wire returns a shell or breaks downstream booleans �
 
 'ref "x" is a <kind>, but a shape is required' — the op wanted a shape and got a curve/surface ref (or the reverse). Pass a ref of the kind the parameter takes (see the modeling-api skill).
 
-click_view "hits": [] — nothing of that shapeType at the pixel. Retake capture_screenshot (the view may have moved), nudge coordinates toward the target's center, and prefer shapeType face over edge — edges are only a few pixels wide. If several attempts miss, fall back to shape.findSubShapes + geometry, or ask the user to describe the shape in words.
+click_view "hits": [] — nothing of that shapeType at the pixel. Retake capture_screenshot (the view may have moved), nudge coordinates toward the target's center — an edge is only a few pixels wide where a face fills the pixels around it, so the same click lands on a face far more often. If several attempts miss, fall back to shape.findSubShapes + geometry, or ask the user to describe the shape in words.
 
 The highlight in a click_view screenshot is on the wrong shape — the pixel missed, or several shapes overlap there. Re-click using the hit list's point (it names the world position you actually hit) or switch to shape.findSubShapes on the node and pick indices by geometry. Never operate on a selection you have not seen highlighted.
 

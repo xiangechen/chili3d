@@ -37,14 +37,10 @@ left half-built.
   action: "setParameter" (key, value) | "rename" (value) | "suppress" (value) | "moveTo" (index) | "remove"
 - { op: "features", body }   // reads the feature list: ids, names, parameters, errors
 
-Variables. Every feature parameter (extrude depth/startOffset, revolve angle, fillet radius,
-chamfer distance) takes either a number or an EXPRESSION STRING, so "width * 2" follows the
-document variable width instead of freezing a number into the feature. Create them with
-document_variables first — {"action":"set","variables":[{"name":"width","type":"length","expression":"40"}]}
-— then name them in the ops. A variable may reference only the ones declared ABOVE it. This is
-what makes the model parametric rather than merely feature-based: when the user changes width,
-every feature that names it rebuilds. Reach for a variable when a dimension is one the user is
-likely to come back to, and a plain number when it is incidental.
+Number or expression. Every feature parameter (extrude depth/startOffset, revolve angle, fillet
+radius, chamfer distance) and every sketch dimension datum takes a plain number or an expression
+string over the document's named values — "width * 2" is a depth as much as 80 is, and
+document_variables holds those values.
 
 Selecting edges for fillet/chamfer: "edgeIndexes" index the body's current edge list (findSubShapes
 order). Get them with a run_program query on the body node first — shape.findSubShapes(target: "b1",
@@ -68,7 +64,7 @@ type (line: 0=start 1=end; circle: 0=center; arc: 0=center 1=start 2=end).
   { kind: "P2PCoincident", refs: [{entity:1,point:1},{entity:2,point:0}] }   // join two endpoints
   { kind: "Horizontal", refs: [{entity:1,point:0},{entity:1,point:1}] }
   { kind: "P2PDistance", refs: [{entity:1,point:0},{entity:2,point:0}], datum: 40 }
-Dimension kinds take a "datum": a number, or an expression naming a document parameter (e.g. "width").
+Dimension kinds take a "datum" — a number or an expression, as above.
 Coincident endpoints, Horizontal/Vertical and a few dimensions are enough for a well-formed rectangle —
 an under-constrained sketch still works, it just has free degrees of freedom.
 

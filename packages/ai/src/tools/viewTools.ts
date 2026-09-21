@@ -307,7 +307,7 @@ function fitContentTool(): Tool {
     return {
         name: "fit_content",
         description:
-            "Zoom the viewport camera to fit content. When nodes are selected, it fits only the selection; otherwise it fits all visible content. Call after creating or modifying models so the result is in view.",
+            "Zoom the viewport camera to fit content. When nodes are selected, it fits only the selection; otherwise it fits all visible content.",
         parameters: { type: "object", properties: {} },
         handler: async () => {
             const view = globalThis.app.activeView;
@@ -371,7 +371,7 @@ function rotateViewTool(): Tool {
     return {
         name: "rotate_view",
         description:
-            "Rotate the viewport camera around the current target, keeping its distance. Either a preset standard view, or relative orbit angles in degrees (azimuth orbits around the Z axis, elevation climbs above the XY plane). Combine with capture_screenshot to inspect the model from another angle.",
+            "Rotate the viewport camera around the current target, keeping its distance. Either a preset standard view, or relative orbit angles in degrees (azimuth orbits around the Z axis, elevation climbs above the XY plane).",
         parameters: {
             type: "object",
             properties: {

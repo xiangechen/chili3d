@@ -129,7 +129,7 @@ function selectNodesTool(): Tool {
     return {
         name: "select_nodes",
         description:
-            "Select nodes in the viewport so the user sees them highlighted — e.g. select the nodes you just created or modified, then call fit_content to focus them. Pass an empty array to clear the selection.",
+            "Select nodes in the viewport so the user sees them highlighted — e.g. the ones a run just created or changed. Pass an empty array to clear the selection.",
         parameters: {
             type: "object",
             properties: {

@@ -75,7 +75,7 @@ const OPS_SCHEMA = {
                     },
                     datum: {
                         description:
-                            "Value for dimension constraints (a number, or an expression naming a document parameter)",
+                            "Value for dimension constraints — a number, or an expression over document variables",
                     },
                     datums: { description: "Multi-value datum, e.g. Fix = [x, y]" },
                 },
@@ -83,7 +83,7 @@ const OPS_SCHEMA = {
             },
         },
         sketch: { type: "string", description: "The sketch op id (or an existing sketch's node id)" },
-        depth: { description: "Extrude distance in mm (a number or an expression)" },
+        depth: { description: "Extrude distance in mm — a number, or an expression over document variables" },
         symmetric: { type: "boolean", description: "Extrude by `depth` in both directions" },
         startOffset: { description: "Distance the extrusion starts away from the profile plane" },
         axis: {

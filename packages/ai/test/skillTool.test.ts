@@ -30,6 +30,22 @@ describe("skillTool", () => {
         expect(api).toContain("Placement:");
     });
 
+    test("the parametric skill describes variables rather than ranking them", async () => {
+        const tool = buildSkillTool();
+        // Whitespace-normalized: the skill wraps its prose by hand, so a phrase can straddle a line.
+        const content = ((await tool.handler({ name: "parametric-modeling" })) as string).replace(
+            /\s+/g,
+            " ",
+        );
+
+        // The model loads this before every run_parametric call, so how it puts variables is what
+        // decides whether "a 40x30x20 plate" comes back with a parameter table attached. It used to
+        // call a body without them "merely feature-based" — a ranking, when what the model needs is
+        // the two forms a dimension accepts and what each one does.
+        expect(content).toContain("takes a plain number or an expression string");
+        expect(content).not.toContain("merely feature-based");
+    });
+
     test("the app guide teaches the app, not the modeling API", async () => {
         const tool = buildSkillTool();
         const guide = (await tool.handler({ name: "app-guide" })) as string;

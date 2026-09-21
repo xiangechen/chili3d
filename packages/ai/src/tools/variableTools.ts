@@ -6,7 +6,7 @@ import type { Tool } from "../llm/types";
 import { requireDocument } from "./documentContext";
 
 /**
- * The document's named parameters, as the model sees them: declared fields plus what each
+ * The document's variables, as the model sees them: declared fields plus what each
  * row currently resolves to. A row that does not resolve is still returned — the table is
  * designed to keep a bad row from taking the rest down, so its `error` is the answer, not
  * an exception.
@@ -88,7 +88,7 @@ export function buildVariableTools(): Tool[] {
     return [
         {
             name: "document_variables",
-            description: `Read and write the document's named parameters — the values a feature parameter can reference by name instead of repeating a number. Actions: "list" (default) returns every variable with what it resolves to and any error; "set" upserts the given entries by name, leaving the others alone; "remove" drops the given names. A variable is ordered: its expression may reference the variables declared ABOVE it and no others, so declare a value before the one that uses it. type is length | angle | unitless and decides what the expression must resolve to. The expression syntax is + - * / %, parentheses, other variable names, pi and e, and abs/sqrt/floor/ceil/round/min/max/sin/cos/tan/asin/acos/atan/atan2 — angles are in degrees throughout. Feature parameters (run_parametric's depth, radius, distance, angle, startOffset) accept an expression string naming a variable instead of a number, which is the point of the table: one edit re-drives every feature that references it.`,
+            description: `Read and write the document's variables — the named values a feature parameter or sketch dimension may reference. Actions: "list" (default) returns every variable with what it resolves to and any error; "set" upserts the given entries by name, leaving the others alone; "remove" drops the given names. A variable is ordered: its expression may reference the variables declared ABOVE it and no others, so declare a value before the one that uses it. type is length | angle | unitless and decides what the expression must resolve to. The expression syntax is + - * / %, parentheses, other variable names, pi and e, and abs/sqrt/floor/ceil/round/min/max/sin/cos/tan/asin/acos/atan/atan2 — angles are in degrees throughout. Feature parameters (run_parametric's depth, radius, distance, angle, startOffset) and sketch dimension datums take either a number or an expression string over these names.`,
             parameters: {
                 type: "object",
                 properties: {
@@ -99,7 +99,8 @@ export function buildVariableTools(): Tool[] {
                     },
                     variables: {
                         type: "array",
-                        description: "set: entries to write, matched to existing ones by name",
+                        description:
+                            'set: entries to write, matched to existing ones by name — e.g. [{"name":"width","type":"length","expression":"40"}]',
                         items: {
                             type: "object",
                             properties: {
