@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type CameraTransitionOptions,
     type CameraType,
     type ICameraController,
     MathUtils,
@@ -36,8 +37,32 @@ const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e6;
 const MIN_CARME_TO_TARGET = 50;
 const SHAPE_EMPTY_SIZE = 800;
+// A frame that arrives late (a background tab waking up) must not skip the whole fly-to.
+const MAX_TRANSITION_STEP_MS = 100;
+
+const NO_ROTATION = new Quaternion();
 
 Camera.DEFAULT_UP = new Vector3(0, 0, 1);
+
+/** A camera pose: where it sits, what it looks at, and which way is up. */
+interface CameraPose {
+    position: Vector3;
+    target: Vector3;
+    up: Vector3;
+}
+
+interface CameraTransition {
+    readonly from: CameraPose;
+    readonly to: CameraPose;
+    /** Carries `from.up` onto `to.up`; a quaternion so that opposite ups don't collapse to zero. */
+    readonly upRotation: Quaternion;
+    elapsed: number;
+    readonly duration: number;
+}
+
+function easeInOutCubic(t: number): number {
+    return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
 
 export class CameraController extends Observable implements ICameraController {
     private _width: number = 100;
@@ -46,6 +71,7 @@ export class CameraController extends Observable implements ICameraController {
     private _position: Vector3 = new Vector3(1500, 1500, 1500);
     private _rotateCenter: Vector3 | undefined;
     private _camera: PerspectiveCamera | OrthographicCamera;
+    private _transition?: CameraTransition;
 
     get cameraType(): CameraType {
         return this.getPrivateValue("cameraType", "perspective");
@@ -120,6 +146,7 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     pan(dx: number, dy: number): void {
+        this.cancelTransition();
         const ratio = PAN_SPEED_FACTOR * this._target.distanceTo(this._position);
         const direction = this._target.clone().sub(this._position).normalize();
         const hor = direction.clone().cross(this.camera.up).normalize();
@@ -161,6 +188,7 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     startRotate(x: number, y: number): void {
+        this.cancelTransition();
         this._rotateCenter = this.selectedNodesCenter();
         if (this._rotateCenter) {
             return;
@@ -194,6 +222,7 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     rotate(dx: number, dy: number): void {
+        this.cancelTransition();
         const newRotation = this.getRotation(dx * ROTATE_SPEED_FACTOR, dy * ROTATE_SPEED_FACTOR);
 
         this._camera.up.copy(new Vector3(0, 1, 0).applyQuaternion(newRotation));
@@ -234,7 +263,7 @@ export class CameraController extends Observable implements ICameraController {
         return tmpRotation.clone().multiply(rotationDx);
     }
 
-    fitContent(): void {
+    fitContent(options?: CameraTransitionOptions): void {
         const context = this.view.document.visual.context as ThreeVisualContext;
         const sphere = this.getBoundingSphere(context);
         let fieldOfView = CAMERA_FOV / 2.0;
@@ -243,16 +272,19 @@ export class CameraController extends Observable implements ICameraController {
         }
 
         const distance = Math.abs(sphere.radius / Math.sin(fieldOfView * DEG_TO_RAD));
-        const direction = this._target.clone().sub(this._position).normalize();
-        this._target.copy(sphere.center);
-        this._position.copy(this._target.clone().sub(direction.clone().multiplyScalar(distance)));
+        // Framed along the direction the camera is heading, not a mid-flight one, so the lookAt that
+        // opens a sketch still decides the orientation when a fitContent follows it immediately.
+        const base = this.settledPose();
+        const direction = base.target.clone().sub(base.position).normalize();
 
-        if (this._camera instanceof OrthographicCamera) {
-            this.updateOrthographicCamera(this._camera);
-        }
-
-        this.updateCameraNearFar();
-        this.updateCameraPosionTarget();
+        this.beginTransition(
+            {
+                position: sphere.center.clone().sub(direction.multiplyScalar(distance)),
+                target: sphere.center.clone(),
+                up: base.up,
+            },
+            options?.duration,
+        );
     }
 
     private getBoundingSphere(context: ThreeVisualContext) {
@@ -280,6 +312,7 @@ export class CameraController extends Observable implements ICameraController {
     }
 
     zoom(x: number, y: number, delta: number): void {
+        this.cancelTransition();
         const vector = this._target.clone().sub(this._position);
 
         const zoomFactor = this.caclueZoomFactor(x, y, vector);
@@ -297,10 +330,7 @@ export class CameraController extends Observable implements ICameraController {
                 .add(vector.clone().normalize().multiplyScalar(MIN_CARME_TO_TARGET));
         }
 
-        if (this._camera instanceof OrthographicCamera) {
-            this.updateOrthographicCamera(this._camera);
-        }
-        this.updateCameraNearFar();
+        this.updateLens();
         this.updateCameraPosionTarget();
     }
 
@@ -335,11 +365,104 @@ export class CameraController extends Observable implements ICameraController {
         return mouse;
     }
 
-    lookAt(eye: XYZLike, target: XYZLike, up: XYZLike): void {
-        this._position.set(eye.x, eye.y, eye.z);
-        this._target.set(target.x, target.y, target.z);
-        this.camera.up.set(up.x, up.y, up.z);
+    lookAt(eye: XYZLike, target: XYZLike, up: XYZLike, options?: CameraTransitionOptions): void {
+        this.beginTransition(
+            {
+                position: new Vector3(eye.x, eye.y, eye.z),
+                target: new Vector3(target.x, target.y, target.z),
+                up: new Vector3(up.x, up.y, up.z),
+            },
+            options?.duration,
+        );
+    }
+
+    /**
+     * Advances a fly-to by one frame. Returns true while the camera is still moving, so the caller
+     * keeps redrawing.
+     */
+    tick(deltaMs: number): boolean {
+        const transition = this._transition;
+        if (!transition) {
+            return false;
+        }
+
+        transition.elapsed += Math.min(Math.max(deltaMs, 0), MAX_TRANSITION_STEP_MS);
+        const t = Math.min(1, transition.elapsed / transition.duration);
+        const k = easeInOutCubic(t);
+
+        this._position.lerpVectors(transition.from.position, transition.to.position, k);
+        this._target.lerpVectors(transition.from.target, transition.to.target, k);
+        this._camera.up
+            .copy(transition.from.up)
+            .applyQuaternion(new Quaternion().slerpQuaternions(NO_ROTATION, transition.upRotation, k));
+        if (t >= 1) {
+            this._transition = undefined;
+        }
+
+        this.updateLens();
         this.updateCameraPosionTarget();
+        return true;
+    }
+
+    /**
+     * Reaches `to` over `duration` ms, or on the spot when there is none. A transition already under
+     * way is retargeted rather than restarted, and its new start is the pose on screen right now —
+     * so a caller that chains two pose changes (a lookAt then a fitContent) gets one continuous move.
+     */
+    private beginTransition(to: CameraPose, duration?: number): void {
+        if (duration === undefined || duration <= 0) {
+            this._transition = undefined;
+            this.commitPose(to);
+            return;
+        }
+
+        const from = this.currentPose();
+        this._transition = {
+            from,
+            to,
+            upRotation: new Quaternion().setFromUnitVectors(
+                from.up.clone().normalize(),
+                to.up.clone().normalize(),
+            ),
+            elapsed: 0,
+            duration,
+        };
+    }
+
+    private commitPose(pose: CameraPose): void {
+        this._position.copy(pose.position);
+        this._target.copy(pose.target);
+        this._camera.up.copy(pose.up);
+        this.updateLens();
+        this.updateCameraPosionTarget();
+    }
+
+    private cancelTransition(): void {
+        this._transition = undefined;
+    }
+
+    private currentPose(): CameraPose {
+        return {
+            position: this._position.clone(),
+            target: this._target.clone(),
+            up: this._camera.up.clone(),
+        };
+    }
+
+    /**
+     * The pose the camera is heading to: the transition target while one runs, the pose it sits at
+     * otherwise. Pose changes build on this so they compose with a fly-to still in flight.
+     */
+    private settledPose(): CameraPose {
+        return this._transition?.to ?? this.currentPose();
+    }
+
+    /** Keeps the projection in step with the camera distance — frustum and clip planes both track it. */
+    private updateLens(): void {
+        if (this._camera instanceof OrthographicCamera) {
+            this.updateOrthographicCamera(this._camera);
+        }
+        this.updateCameraNearFar();
     }
 
     private mouseToWorld(mx: number, my: number) {

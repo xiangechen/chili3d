@@ -382,3 +382,115 @@ describe("CameraController — updateCameraPosionTarget", () => {
         expect(cc.camera.position.x).toBeCloseTo(200);
     });
 });
+
+// ============================================================================
+// CameraController — transitions
+// ============================================================================
+
+describe("CameraController — transitions", () => {
+    function advance(cc: CameraController, steps = 3) {
+        for (let i = 0; i < steps; i++) {
+            cc.tick(100);
+        }
+    }
+
+    test("no transition is running on a fresh controller", () => {
+        const cc = new CameraController(createFakeView());
+        expect(cc.tick(16)).toBe(false);
+    });
+
+    test("a fly-to holds the camera until frames arrive", () => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 300, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 300 });
+
+        expect(cc.cameraPosition.x).toBeCloseTo(1500);
+    });
+
+    test("a fly-to lands on the requested pose and then reports itself done", () => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 300, y: 40, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 300 });
+
+        expect(cc.tick(100)).toBe(true);
+        expect(cc.tick(100)).toBe(true);
+        expect(cc.tick(100)).toBe(true);
+
+        expect(cc.cameraPosition.x).toBeCloseTo(300);
+        expect(cc.cameraPosition.y).toBeCloseTo(40);
+        expect(cc.cameraTarget.x).toBeCloseTo(10);
+        expect(cc.tick(16)).toBe(false);
+    });
+
+    test("a late frame cannot skip the rest of a fly-to", () => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 0, y: 0, z: 1000 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 300 });
+
+        cc.tick(10_000); // a background tab waking up
+
+        expect(cc.cameraPosition.z).toBeGreaterThan(1000);
+        expect(cc.cameraPosition.z).toBeLessThan(1500);
+    });
+
+    test("a fly-to turns the up vector instead of snapping it", () => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 0, y: 500, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 }, { duration: 300 });
+
+        cc.tick(150);
+
+        const up = cc.cameraUp;
+        expect(Math.hypot(up.x, up.y, up.z)).toBeCloseTo(1);
+        expect(up.x).toBeGreaterThan(0);
+        expect(up.x).toBeLessThan(1);
+    });
+
+    test("an orthographic fly-to keeps the frustum in step with the distance", () => {
+        const cc = new CameraController(createFakeView());
+        cc.cameraType = "orthographic";
+        cc.lookAt({ x: 0, y: 0, z: 200 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 300 });
+
+        advance(cc);
+
+        expect((cc.camera as OrthographicCamera).top).toBeCloseTo(200 * Math.tan((25 * Math.PI) / 180));
+    });
+
+    test("fitContent with a duration flies rather than snapping", () => {
+        const cc = new CameraController(createFakeView());
+        const distance = 800 / Math.sin((25 * Math.PI) / 180);
+
+        cc.fitContent({ duration: 300 });
+        expect(cc.cameraPosition.distanceTo(cc.cameraTarget)).toBeCloseTo(Math.hypot(1500, 1500, 1500));
+
+        advance(cc);
+        expect(cc.cameraPosition.distanceTo(cc.cameraTarget)).toBeCloseTo(distance);
+    });
+
+    test("a fitContent right after a lookAt frames the direction the lookAt asked for", () => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 0, y: 0, z: 500 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 300 });
+        cc.fitContent({ duration: 300 });
+
+        advance(cc);
+
+        // the top-down axis survives: the framing must not average in the pose the camera is
+        // mid-way from, which would leave it parked off to the side
+        expect(cc.cameraPosition.x).toBeCloseTo(0);
+        expect(cc.cameraPosition.y).toBeCloseTo(0);
+        expect(cc.cameraPosition.z).toBeCloseTo(800 / Math.sin((25 * Math.PI) / 180));
+    });
+
+    test.each([
+        ["pan", (cc: CameraController) => cc.pan(10, 10)],
+        ["rotate", (cc: CameraController) => cc.rotate(10, 10)],
+        ["zoom", (cc: CameraController) => cc.zoom(50, 50, 5)],
+        ["startRotate", (cc: CameraController) => cc.startRotate(50, 50)],
+    ])("%s takes the camera over from a fly-to in flight", (_name, takeOver) => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 0, y: 0, z: 1000 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 300 });
+        cc.tick(100);
+
+        takeOver(cc);
+        const position = cc.cameraPosition;
+
+        expect(cc.tick(100)).toBe(false);
+        expect(cc.cameraPosition.z).toBeCloseTo(position.z);
+    });
+});

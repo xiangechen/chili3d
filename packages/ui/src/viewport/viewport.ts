@@ -4,6 +4,7 @@
 import {
     type Act,
     Binding,
+    CAMERA_FLY_DURATION,
     type CameraType,
     I18n,
     type IConverter,
@@ -101,7 +102,7 @@ export class Viewport extends HTMLElement {
                 title: new Localize("viewport.fitContent"),
                 onclick: async (e) => {
                     e.stopPropagation();
-                    this.view.cameraController.fitContent();
+                    this.view.cameraController.fitContent({ duration: CAMERA_FLY_DURATION });
                     this.view.update();
                 },
             }),
@@ -144,6 +145,7 @@ export class Viewport extends HTMLElement {
                                         v.cameraPosition,
                                         v.cameraTarget,
                                         v.cameraUp,
+                                        { duration: CAMERA_FLY_DURATION },
                                     );
                                     this.view.update();
                                 },

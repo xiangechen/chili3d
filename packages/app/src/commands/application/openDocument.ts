@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CAMERA_FLY_DURATION,
     command,
     I18n,
     type IApplication,
@@ -25,7 +26,9 @@ export class OpenDocument implements ICommand {
                 if (files.isOk) {
                     const json: Serialized = JSON.parse(files.value[0].data);
                     const document = await app.loadDocument(json);
-                    document?.application.activeView?.cameraController.fitContent();
+                    document?.application.activeView?.cameraController.fitContent({
+                        duration: CAMERA_FLY_DURATION,
+                    });
                 }
             },
             "toast.excuting{0}",

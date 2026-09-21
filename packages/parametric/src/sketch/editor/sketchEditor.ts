@@ -3,6 +3,7 @@
 
 import {
     type AsyncController,
+    CAMERA_FLY_DURATION,
     type CameraType,
     type I18nKeys,
     type IDisposable,
@@ -438,8 +439,10 @@ export class SketchEditor implements IDisposable {
         const plane = this.node.plane;
         const distance = controller.cameraPosition?.distanceTo(controller.cameraTarget) || 1000;
         controller.cameraType = "orthographic";
-        controller.lookAt(plane.origin.add(plane.normal.multiply(distance)), plane.origin, plane.yvec);
-        controller.fitContent();
+        controller.lookAt(plane.origin.add(plane.normal.multiply(distance)), plane.origin, plane.yvec, {
+            duration: CAMERA_FLY_DURATION,
+        });
+        controller.fitContent({ duration: CAMERA_FLY_DURATION });
         view.workplane = plane;
     }
 
@@ -775,7 +778,9 @@ export class SketchEditor implements IDisposable {
         this.view.workplane = this.savedWorkplane;
         const controller = this.view.cameraController;
         if (this.savedCamera.position && this.savedCamera.target && this.savedCamera.up) {
-            controller.lookAt(this.savedCamera.position, this.savedCamera.target, this.savedCamera.up);
+            controller.lookAt(this.savedCamera.position, this.savedCamera.target, this.savedCamera.up, {
+                duration: CAMERA_FLY_DURATION,
+            });
         }
         controller.cameraType = this.savedCamera.type;
     }

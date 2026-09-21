@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CAMERA_FLY_DURATION,
     type CommandKeys,
     DOCUMENT_FILE_EXTENSION,
     I18n,
@@ -162,7 +163,7 @@ export class Application extends Observable implements IApplication {
                 for (const file of opens) {
                     const json: Serialized = JSON.parse(await file.text());
                     await this.loadDocument(json);
-                    this.activeView?.cameraController.fitContent();
+                    this.activeView?.cameraController.fitContent({ duration: CAMERA_FLY_DURATION });
                 }
             },
             "toast.excuting{0}",

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CAMERA_FLY_DURATION,
     Constants,
     I18n,
     type I18nKeys,
@@ -367,7 +368,9 @@ export class Home extends HTMLElement {
                 "showPermanent",
                 async () => {
                     const document = await this.app.openDocument(item.id);
-                    document?.application.activeView?.cameraController.fitContent();
+                    document?.application.activeView?.cameraController.fitContent({
+                        duration: CAMERA_FLY_DURATION,
+                    });
                 },
                 "toast.excuting{0}",
                 I18n.translate("command.doc.open"),

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type IApplication, PubSub, Transaction } from "@chili3d/core";
+import { CAMERA_FLY_DURATION, I18n, type IApplication, PubSub, Transaction } from "@chili3d/core";
 
 export async function importFiles(application: IApplication, files: File[] | FileList) {
     const document = application.activeView?.document ?? (await application.newDocument("Untitled"));
@@ -11,7 +11,9 @@ export async function importFiles(application: IApplication, files: File[] | Fil
             await Transaction.executeAsync(document, "import model", async () => {
                 await document.application.dataExchange.import(document, files);
             });
-            document.application.activeView?.cameraController.fitContent();
+            document.application.activeView?.cameraController.fitContent({
+                duration: CAMERA_FLY_DURATION,
+            });
         },
         "toast.excuting{0}",
         I18n.translate("command.file.import"),

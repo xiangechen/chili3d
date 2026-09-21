@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CAMERA_FLY_DURATION,
     I18n,
     type I18nKeys,
     type IDocument,
@@ -1612,7 +1613,7 @@ export class ChatPanel extends HTMLElement {
             .filter((node): node is INode => node !== undefined);
         if (nodes.length === 0) return;
         document.selection.setSelectedNodes(nodes, false);
-        document.application?.activeView?.cameraController.fitContent();
+        document.application?.activeView?.cameraController.fitContent({ duration: CAMERA_FLY_DURATION });
     }
 
     /**

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IViewGizmo, XYZ } from "@chili3d/core";
+import { CAMERA_FLY_DURATION, type IViewGizmo, XYZ } from "@chili3d/core";
 import { Matrix4, Vector3 } from "three";
 import type { CameraController } from "./cameraController";
 import type { ThreeView } from "./threeView";
@@ -201,15 +201,12 @@ export class ViewGizmo extends HTMLElement implements IViewGizmo {
                 .clone()
                 .multiplyScalar(distance)
                 .add(this.cameraController.target);
-            this.cameraController.camera.position.copy(position);
             let up = new XYZ({ x: 0, y: 0, z: 1 });
             if (this._selectedAxis.axis === "z") up = new XYZ({ x: 0, y: 1, z: 0 });
             else if (this._selectedAxis.axis === "-z") up = new XYZ({ x: 0, y: -1, z: 0 });
-            this.cameraController.lookAt(
-                this.cameraController.camera.position,
-                this.cameraController.target,
-                up,
-            );
+            this.cameraController.lookAt(position, this.cameraController.target, up, {
+                duration: CAMERA_FLY_DURATION,
+            });
             this.view.update();
         }
     };

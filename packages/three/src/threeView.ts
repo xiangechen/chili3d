@@ -100,6 +100,7 @@ function keepsSubShape(shapeType: ShapeType, subType: ShapeType): boolean {
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
     private _needsUpdate: boolean = false;
+    private _lastFrameTime?: number;
     private _workplane: Plane;
     private _isolatedNodes?: INode[];
 
@@ -317,6 +318,14 @@ export class ThreeView extends Observable implements IView {
         requestAnimationFrame(() => {
             this.animate();
         });
+
+        const now = Date.now();
+        const delta = this._lastFrameTime === undefined ? 0 : now - this._lastFrameTime;
+        this._lastFrameTime = now;
+        if (this.cameraController.tick(delta)) {
+            this.update();
+        }
+
         if (!this._needsUpdate) return;
 
         const dir = this.camera.position.clone().sub(this.cameraController.target);

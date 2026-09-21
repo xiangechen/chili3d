@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { XYZ } from "@chili3d/core";
+import { CAMERA_FLY_DURATION, type XYZ } from "@chili3d/core";
 import { PerspectiveCamera, Vector3 } from "three";
 import type { CameraController } from "../src/cameraController";
 import type { ThreeView } from "../src/threeView";
@@ -272,14 +272,20 @@ describe("ViewGizmo — click to align camera", () => {
 
         (gizmo as any)._onClick(pointerEvent({}));
 
-        expect(cc.camera.position.x).toBeCloseTo(expectedPos[0]);
-        expect(cc.camera.position.y).toBeCloseTo(expectedPos[1]);
-        expect(cc.camera.position.z).toBeCloseTo(expectedPos[2]);
         expect(cc.lookAt).toHaveBeenCalledTimes(1);
-        const up = cc.lookAt.mock.calls[0][2] as XYZ;
+        const [eye, , up, options] = cc.lookAt.mock.calls[0] as unknown as [
+            XYZ,
+            XYZ,
+            XYZ,
+            { duration: number },
+        ];
+        expect(eye.x).toBeCloseTo(expectedPos[0]);
+        expect(eye.y).toBeCloseTo(expectedPos[1]);
+        expect(eye.z).toBeCloseTo(expectedPos[2]);
         expect(up.x).toBe(expectedUp[0]);
         expect(up.y).toBe(expectedUp[1]);
         expect(up.z).toBe(expectedUp[2]);
+        expect(options.duration).toBe(CAMERA_FLY_DURATION);
         expect(update).toHaveBeenCalledTimes(1);
     });
 });
@@ -338,6 +344,14 @@ describe("ViewGizmo — update rendering", () => {
 
         (gizmo as any)._onClick(pointerEvent({}));
         expect(cc.lookAt).toHaveBeenCalledTimes(1);
-        expect(cc.camera.position.y).toBeCloseTo(100);
+        const [eye, , , options] = cc.lookAt.mock.calls[0] as unknown as [
+            XYZ,
+            XYZ,
+            XYZ,
+            { duration: number },
+        ];
+        expect(eye.y).toBeCloseTo(100);
+        // clicking the cube flies the camera over rather than teleporting it
+        expect(options.duration).toBe(CAMERA_FLY_DURATION);
     });
 });

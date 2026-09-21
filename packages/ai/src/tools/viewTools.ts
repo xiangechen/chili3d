@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CAMERA_FLY_DURATION,
     I18n,
     type IDocument,
     type INode,
@@ -311,7 +312,7 @@ function fitContentTool(): Tool {
         handler: async () => {
             const view = globalThis.app.activeView;
             if (!view) return textResult({ error: "no active view" });
-            view.cameraController.fitContent();
+            view.cameraController.fitContent({ duration: CAMERA_FLY_DURATION });
             view.update();
             return textResult({ ok: true });
         },
@@ -410,7 +411,7 @@ const rotateViewHandler: Tool["handler"] = async (args) => {
     );
     if (typeof orientation === "string") return textResult({ error: orientation });
 
-    camera.lookAt(orientation.eye, target, orientation.up);
+    camera.lookAt(orientation.eye, target, orientation.up, { duration: CAMERA_FLY_DURATION });
     view.update();
     return textResult({ ok: true, eye: toPlainPoint(orientation.eye) });
 };
