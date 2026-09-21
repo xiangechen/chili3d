@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Material, PhongMaterial, PhysicalMaterial, Texture, XY } from "../src";
+import { InternalClassName, Material, MaterialPresets, PropertyUtils, Serializer, Texture, XY } from "../src";
 import { TestDocument } from "../test-utils";
 
 describe("Material classes", () => {
@@ -104,9 +104,60 @@ describe("Material classes", () => {
             });
 
             test("should set default property values", () => {
-                expect(material.vertexColors).toBe(false);
-                expect(material.transparent).toBe(true);
                 expect(material.opacity).toBe(1);
+                expect(material.roughness).toBe(0.5);
+                expect(material.metalness).toBe(0);
+                expect(material.normalScale.x).toBe(1);
+                expect(material.normalScale.y).toBe(1);
+                expect(material.bumpScale).toBe(1);
+                expect(material.emissive).toBe(0x000000);
+                expect(material.emissiveIntensity).toBe(1);
+            });
+        });
+
+        describe("property set", () => {
+            test("should expose exactly the physically based properties to the property panel", () => {
+                const names = PropertyUtils.getProperties(material).map((x) => x.name);
+                expect(names).toEqual([
+                    "name",
+                    "color",
+                    "opacity",
+                    "map",
+                    "roughness",
+                    "roughnessMap",
+                    "metalness",
+                    "metalnessMap",
+                    "normalMap",
+                    "normalScale",
+                    "bumpMap",
+                    "bumpScale",
+                    "emissive",
+                    "emissiveIntensity",
+                    "emissiveMap",
+                ]);
+            });
+        });
+
+        describe("scalar properties", () => {
+            test.each([
+                { name: "roughness", value: 0.3 },
+                { name: "metalness", value: 0.8 },
+                { name: "bumpScale", value: 2 },
+                { name: "emissiveIntensity", value: 4 },
+            ] as const)("should set and get $name", ({ name, value }) => {
+                material[name] = value;
+                expect(material[name]).toBe(value);
+            });
+
+            test("should set and get normalScale", () => {
+                material.normalScale = new XY({ x: 2, y: 3 });
+                expect(material.normalScale.x).toBe(2);
+                expect(material.normalScale.y).toBe(3);
+            });
+
+            test("should set and get emissive as string", () => {
+                material.emissive = "#00ff00";
+                expect(material.emissive).toBe("#00ff00");
             });
         });
 
@@ -144,22 +195,38 @@ describe("Material classes", () => {
             });
         });
 
-        describe("map property", () => {
-            test("should set and get map texture", () => {
+        describe("texture maps", () => {
+            test.each([
+                "map",
+                "roughnessMap",
+                "metalnessMap",
+                "normalMap",
+                "bumpMap",
+                "emissiveMap",
+            ] as const)("should set and get %s", (name) => {
                 const texture = new Texture({ document });
-                material.map = texture;
-                expect(material.map).toBe(texture);
+                material[name] = texture;
+                expect(material[name]).toBe(texture);
             });
 
-            test("should have default map texture", () => {
+            test("should have default texture maps", () => {
                 expect(material.map).toBeInstanceOf(Texture);
+                expect(material.roughnessMap).toBeInstanceOf(Texture);
+                expect(material.metalnessMap).toBeInstanceOf(Texture);
+                expect(material.normalMap).toBeInstanceOf(Texture);
+                expect(material.bumpMap).toBeInstanceOf(Texture);
+                expect(material.emissiveMap).toBeInstanceOf(Texture);
             });
         });
 
         describe("clone", () => {
-            test("should create a clone with correct properties", () => {
+            test("should copy every shown property, sharing textures and taking a new id", () => {
                 material.name = "Original";
                 material.color = 0x123456;
+                material.roughness = 0.25;
+                material.metalness = 0.75;
+                material.emissive = 0x00ff00;
+                material.normalScale = new XY({ x: 2, y: 3 });
                 const texture = new Texture({ document });
                 material.map = texture;
 
@@ -168,223 +235,66 @@ describe("Material classes", () => {
                 expect(clone).toBeInstanceOf(Material);
                 expect(clone.name).toBe("Original clone");
                 expect(clone.color).toBe(0x123456);
+                expect(clone.roughness).toBe(0.25);
+                expect(clone.metalness).toBe(0.75);
+                expect(clone.emissive).toBe(0x00ff00);
+                expect(clone.normalScale.x).toBe(2);
+                expect(clone.normalScale.y).toBe(3);
                 expect(clone.map).toBe(texture);
                 expect(clone.id).not.toBe(material.id);
             });
         });
-    });
 
-    describe("PhongMaterial", () => {
-        let phongMaterial: PhongMaterial;
+        describe("serialization", () => {
+            test("should persist under the Material class marker and come back whole", () => {
+                material.roughness = 0.25;
+                material.metalness = 0.75;
+                material.emissive = 0x00ff00;
+                material.emissiveIntensity = 3;
+                material.normalScale = new XY({ x: 2, y: 3 });
+                material.map.image = "data:image/png;base64,AAAA";
 
-        beforeEach(() => {
-            phongMaterial = new PhongMaterial({
-                document,
-                name: "PhongMaterial",
-                color: 0xff0000,
-                id: "phong-id",
-            });
-        });
+                const serialized = Serializer.serializeObject(material);
+                expect(serialized[InternalClassName]).toBe("Material");
 
-        describe("constructor", () => {
-            test("should create phong material with default values", () => {
-                expect(phongMaterial.name).toBe("PhongMaterial");
-                expect(phongMaterial.color).toBe(0xff0000);
-                expect(phongMaterial.id).toBe("phong-id");
-            });
-        });
-
-        describe("specular property", () => {
-            test("should set and get specular as number", () => {
-                phongMaterial.specular = 0xffffff;
-                expect(phongMaterial.specular).toBe(0xffffff);
-            });
-
-            test("should set and get specular as string", () => {
-                phongMaterial.specular = "#ffffff";
-                expect(phongMaterial.specular).toBe("#ffffff");
-            });
-        });
-
-        describe("shininess property", () => {
-            test("should set and get shininess value", () => {
-                phongMaterial.shininess = 100;
-                expect(phongMaterial.shininess).toBe(100);
-            });
-        });
-
-        describe("emissive property", () => {
-            test("should set and get emissive as number", () => {
-                phongMaterial.emissive = 0x00ff00;
-                expect(phongMaterial.emissive).toBe(0x00ff00);
-            });
-
-            test("should set and get emissive as string", () => {
-                phongMaterial.emissive = "#00ff00";
-                expect(phongMaterial.emissive).toBe("#00ff00");
-            });
-        });
-
-        describe("texture maps", () => {
-            test("should set and get specularMap", () => {
-                const texture = new Texture({ document });
-                phongMaterial.specularMap = texture;
-                expect(phongMaterial.specularMap).toBe(texture);
-            });
-
-            test("should set and get bumpMap", () => {
-                const texture = new Texture({ document });
-                phongMaterial.bumpMap = texture;
-                expect(phongMaterial.bumpMap).toBe(texture);
-            });
-
-            test("should set and get normalMap", () => {
-                const texture = new Texture({ document });
-                phongMaterial.normalMap = texture;
-                expect(phongMaterial.normalMap).toBe(texture);
-            });
-
-            test("should set and get emissiveMap", () => {
-                const texture = new Texture({ document });
-                phongMaterial.emissiveMap = texture;
-                expect(phongMaterial.emissiveMap).toBe(texture);
-            });
-
-            test("should have default texture maps", () => {
-                expect(phongMaterial.specularMap).toBeInstanceOf(Texture);
-                expect(phongMaterial.bumpMap).toBeInstanceOf(Texture);
-                expect(phongMaterial.normalMap).toBeInstanceOf(Texture);
-                expect(phongMaterial.emissiveMap).toBeInstanceOf(Texture);
+                const restored = Serializer.deserializeObject(document, serialized) as Material;
+                expect(restored).toBeInstanceOf(Material);
+                expect(restored.id).toBe(material.id);
+                expect(restored.roughness).toBe(0.25);
+                expect(restored.metalness).toBe(0.75);
+                expect(restored.emissive).toBe(0x00ff00);
+                expect(restored.emissiveIntensity).toBe(3);
+                expect(restored.normalScale.x).toBe(2);
+                expect(restored.normalScale.y).toBe(3);
+                expect(restored.map.image).toBe("data:image/png;base64,AAAA");
             });
         });
     });
 
-    describe("PhysicalMaterial", () => {
-        let physicalMaterial: PhysicalMaterial;
-
-        beforeEach(() => {
-            physicalMaterial = new PhysicalMaterial({
-                document,
-                name: "PhysicalMaterial",
-                color: 0xff0000,
-                id: "physical-id",
-            });
-        });
-
-        describe("constructor", () => {
-            test("should create physical material with default values", () => {
-                expect(physicalMaterial.name).toBe("PhysicalMaterial");
-                expect(physicalMaterial.color).toBe(0xff0000);
-                expect(physicalMaterial.id).toBe("physical-id");
-            });
-        });
-
-        describe("metalness property", () => {
-            test("should set and get metalness value", () => {
-                physicalMaterial.metalness = 0.8;
-                expect(physicalMaterial.metalness).toBe(0.8);
-            });
-
-            test("should handle metalness boundary values", () => {
-                physicalMaterial.metalness = 0;
-                expect(physicalMaterial.metalness).toBe(0);
-
-                physicalMaterial.metalness = 1;
-                expect(physicalMaterial.metalness).toBe(1);
-            });
-        });
-
-        describe("roughness property", () => {
-            test("should set and get roughness value", () => {
-                physicalMaterial.roughness = 0.3;
-                expect(physicalMaterial.roughness).toBe(0.3);
-            });
-
-            test("should handle roughness boundary values", () => {
-                physicalMaterial.roughness = 0;
-                expect(physicalMaterial.roughness).toBe(0);
-
-                physicalMaterial.roughness = 1;
-                expect(physicalMaterial.roughness).toBe(1);
-            });
-        });
-
-        describe("emissive property", () => {
-            test("should set and get emissive as number", () => {
-                physicalMaterial.emissive = 0x00ff00;
-                expect(physicalMaterial.emissive).toBe(0x00ff00);
-            });
-
-            test("should set and get emissive as string", () => {
-                physicalMaterial.emissive = "#00ff00";
-                expect(physicalMaterial.emissive).toBe("#00ff00");
-            });
-        });
-
-        describe("texture maps", () => {
-            test("should set and get metalnessMap", () => {
-                const texture = new Texture({ document });
-                physicalMaterial.metalnessMap = texture;
-                expect(physicalMaterial.metalnessMap).toBe(texture);
-            });
-
-            test("should set and get roughnessMap", () => {
-                const texture = new Texture({ document });
-                physicalMaterial.roughnessMap = texture;
-                expect(physicalMaterial.roughnessMap).toBe(texture);
-            });
-
-            test("should set and get bumpMap", () => {
-                const texture = new Texture({ document });
-                physicalMaterial.bumpMap = texture;
-                expect(physicalMaterial.bumpMap).toBe(texture);
-            });
-
-            test("should set and get normalMap", () => {
-                const texture = new Texture({ document });
-                physicalMaterial.normalMap = texture;
-                expect(physicalMaterial.normalMap).toBe(texture);
-            });
-
-            test("should set and get emissiveMap", () => {
-                const texture = new Texture({ document });
-                physicalMaterial.emissiveMap = texture;
-                expect(physicalMaterial.emissiveMap).toBe(texture);
-            });
-
-            test("should have default texture maps", () => {
-                expect(physicalMaterial.metalnessMap).toBeInstanceOf(Texture);
-                expect(physicalMaterial.roughnessMap).toBeInstanceOf(Texture);
-                expect(physicalMaterial.bumpMap).toBeInstanceOf(Texture);
-                expect(physicalMaterial.normalMap).toBeInstanceOf(Texture);
-                expect(physicalMaterial.emissiveMap).toBeInstanceOf(Texture);
-            });
+    describe("MaterialPresets", () => {
+        test("should cover a matte plastic, a satin plastic, a metal and a glass", () => {
+            expect(MaterialPresets.map((x) => x.name)).toEqual([
+                "Matte Plastic",
+                "Satin Plastic",
+                "Metal",
+                "Glass",
+            ]);
+            // The metal is the only metallic one, the glass the only one that is not opaque.
+            expect(MaterialPresets.filter((x) => x.metalness > 0).map((x) => x.name)).toEqual(["Metal"]);
+            expect(MaterialPresets.filter((x) => (x.opacity ?? 1) < 1).map((x) => x.name)).toEqual(["Glass"]);
         });
     });
 
-    describe("Inheritance", () => {
-        test("PhongMaterial should inherit from Material", () => {
-            const phongMaterial = new PhongMaterial({ document, name: "Test", color: 0xff0000 });
-            expect(phongMaterial).toBeInstanceOf(Material);
-            expect(phongMaterial).toBeInstanceOf(PhongMaterial);
-        });
+    describe("Material.fromPreset", () => {
+        test.each([...MaterialPresets])("should build $name from its values", (preset) => {
+            const material = Material.fromPreset(document, preset);
 
-        test("PhysicalMaterial should inherit from Material", () => {
-            const physicalMaterial = new PhysicalMaterial({ document, name: "Test", color: 0xff0000 });
-            expect(physicalMaterial).toBeInstanceOf(Material);
-            expect(physicalMaterial).toBeInstanceOf(PhysicalMaterial);
-        });
-
-        test("PhongMaterial should have access to Material properties", () => {
-            const phongMaterial = new PhongMaterial({ document, name: "Test", color: 0xff0000 });
-            phongMaterial.opacity = 0.5;
-            expect(phongMaterial.opacity).toBe(0.5);
-        });
-
-        test("PhysicalMaterial should have access to Material properties", () => {
-            const physicalMaterial = new PhysicalMaterial({ document, name: "Test", color: 0xff0000 });
-            physicalMaterial.opacity = 0.7;
-            expect(physicalMaterial.opacity).toBe(0.7);
+            expect(material).toBeInstanceOf(Material);
+            expect(material.name).toBe(preset.name);
+            expect(material.color).toBe(preset.color);
+            expect(material.roughness).toBe(preset.roughness);
+            expect(material.metalness).toBe(preset.metalness);
+            expect(material.opacity).toBe(preset.opacity ?? 1);
         });
     });
 });

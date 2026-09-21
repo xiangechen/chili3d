@@ -11,18 +11,10 @@ import {
     PropertyUtils,
     PubSub,
     Transaction,
-    XY,
-    XYZ,
 } from "@chili3d/core";
 import type { Tool } from "../llm/types";
 import { findNode, requireDocument, requireNode } from "./documentContext";
-
-/**
- * Property kinds as the model sees them. Mirrors what the property panel can render: the panel
- * picks a control from `Property.type` first (color/materialId) and from the value's class
- * otherwise, and warns + skips anything else — so the AI reads and writes the same set.
- */
-type PropertyKind = "number" | "string" | "boolean" | "xyz" | "xy" | "color" | "materialId" | "unsupported";
+import { describeProperties, prepareUpdates } from "./propertyBag";
 
 /**
  * The properties the panel shows for a node, in its order: the ones Node itself declares
@@ -35,113 +27,8 @@ function panelProperties(node: INode): Property[] {
     ];
 }
 
-function kindOf(prop: Property, value: unknown): PropertyKind {
-    if (prop.type === "color") return "color";
-    if (prop.type === "materialId") return "materialId";
-    if (typeof value === "number") return "number";
-    if (typeof value === "string") return "string";
-    if (typeof value === "boolean") return "boolean";
-    if (value instanceof XYZ) return "xyz";
-    if (value instanceof XY) return "xy";
-    return "unsupported";
-}
-
-/** Plain-value form of a property, the same encodings the modeling tools take back. */
-function encodeValue(kind: PropertyKind, value: unknown): unknown {
-    if (kind === "xyz") {
-        const xyz = value as XYZ;
-        return { x: xyz.x, y: xyz.y, z: xyz.z };
-    }
-    if (kind === "xy") {
-        const xy = value as XY;
-        return { x: xy.x, y: xy.y };
-    }
-    return kind === "unsupported" ? undefined : value;
-}
-
-/** Whether the panel offers this property for editing — a getter without a setter is read-only. */
-function hasSetter(node: INode, name: string): boolean {
-    let target: object | null = node;
-    while (target !== null) {
-        const descriptor = Object.getOwnPropertyDescriptor(target, name);
-        if (descriptor !== undefined) return typeof descriptor.set === "function";
-        target = Object.getPrototypeOf(target);
-    }
-    return false;
-}
-
-function availableMaterialIds(doc: IDocument): string[] {
-    return doc.modelManager.materials.map((material) => material.id);
-}
-
-/** A rejected write, in the shape the tool's error response takes. */
-function rejectValue(prop: Property, expected: string): { error: string } {
-    return { error: `"${prop.name}" takes ${expected}` };
-}
-
-function rejectionOf(value: unknown): string | undefined {
-    return value !== null && typeof value === "object" && "error" in value
-        ? (value as { error: string }).error
-        : undefined;
-}
-
-/** Builds the geometry class a point property's setter assigns, or the rejection for a bad point. */
-function coercePoint(prop: Property, kind: "xyz" | "xy", value: unknown): unknown {
-    const point = value as { x?: unknown; y?: unknown; z?: unknown };
-    const expected = kind === "xyz" ? "a point {x,y,z}" : "a point {x,y}";
-    if (typeof point?.x !== "number" || typeof point.y !== "number") return rejectValue(prop, expected);
-    if (kind === "xy") return new XY(point.x, point.y);
-    return typeof point.z === "number" ? new XYZ(point.x, point.y, point.z) : rejectValue(prop, expected);
-}
-
-/** A material property may only name materials this document actually has. */
-function coerceMaterialId(doc: IDocument, prop: Property, value: unknown): unknown {
-    const ids = Array.isArray(value) ? value : [value];
-    if (ids.length === 0 || !ids.every((id) => typeof id === "string")) {
-        return rejectValue(prop, "a material id, or an array of them");
-    }
-    const known = availableMaterialIds(doc);
-    const unknown = ids.filter((id) => !known.includes(id as string));
-    return unknown.length > 0
-        ? rejectValue(prop, `one of this document's materials (${known.join(", ")})`)
-        : value;
-}
-
-/**
- * A property value from the model's JSON, coerced to what the property's setter expects. The
- * panel's converters do the same job for typed text; here the input is already JSON, so the
- * only real work is turning {x,y,z} into the geometry class the setter assigns.
- */
-function coerceValue(doc: IDocument, prop: Property, kind: PropertyKind, value: unknown): unknown {
-    if (kind === "number") return typeof value === "number" ? value : rejectValue(prop, "a number");
-    if (kind === "string") return typeof value === "string" ? value : rejectValue(prop, "a string");
-    if (kind === "boolean") return typeof value === "boolean" ? value : rejectValue(prop, "true or false");
-    if (kind === "xyz" || kind === "xy") return coercePoint(prop, kind, value);
-    if (kind === "materialId") return coerceMaterialId(doc, prop, value);
-    // Material.color takes 0xRRGGBB or a CSS color string, exactly as the panel's picker gives it.
-    if (kind === "color") {
-        return typeof value === "number" || typeof value === "string"
-            ? value
-            : rejectValue(prop, "a color as 0xRRGGBB or a CSS string");
-    }
-    return rejectValue(prop, "a plain value — appearance properties are set with set_material");
-}
-
 function describeNode(node: INode, doc: IDocument) {
-    const properties = panelProperties(node).map((prop) => {
-        const value = (node as unknown as Record<string, unknown>)[prop.name];
-        const kind = kindOf(prop, value);
-        const encoded = encodeValue(kind, value);
-        return {
-            name: prop.name,
-            label: I18n.translate(prop.display),
-            kind,
-            ...(encoded === undefined ? {} : { value: encoded }),
-            ...(hasSetter(node, prop.name) ? {} : { readOnly: true }),
-            // A material property is useless to write without knowing what may be assigned.
-            ...(kind === "materialId" ? { options: availableMaterialIds(doc) } : {}),
-        };
-    });
+    const properties = describeProperties(node, panelProperties(node), doc);
 
     const display = (node as { display?: () => Parameters<typeof I18n.translate>[0] }).display;
     return {
@@ -222,56 +109,6 @@ function setNodePropertiesTool(): Tool {
     };
 }
 
-/** One requested write after checking: the value to assign, or the error response to return. */
-type Prepared = { value: unknown } | { error: string; available?: string[] };
-
-function prepareUpdate(
-    node: INode,
-    doc: IDocument,
-    properties: Property[],
-    name: string,
-    value: unknown,
-): Prepared {
-    const prop = properties.find((p) => p.name === name);
-    if (prop === undefined) {
-        return {
-            error: `"${name}" is not a property of this node`,
-            available: properties.map((p) => p.name),
-        };
-    }
-    if (!hasSetter(node, name)) {
-        return { error: `"${name}" is read-only`, available: writableNames(node) };
-    }
-    const current = (node as unknown as Record<string, unknown>)[name];
-    const coerced = coerceValue(doc, prop, kindOf(prop, current), value);
-    const rejection = rejectionOf(coerced);
-    return rejection === undefined ? { value: coerced } : { error: rejection };
-}
-
-/**
- * Validate every requested write against the node: the property has to exist, be writable, and
- * take the value given. Returns the values to assign, or the serialized error response.
- */
-function prepareUpdates(
-    node: INode,
-    doc: IDocument,
-    requested: Record<string, unknown>,
-): Map<string, unknown> | string {
-    const properties = panelProperties(node);
-    const updates = new Map<string, unknown>();
-
-    for (const [name, value] of Object.entries(requested)) {
-        const prepared = prepareUpdate(node, doc, properties, name, value);
-        if ("error" in prepared) return JSON.stringify(prepared);
-        updates.set(name, prepared.value);
-    }
-
-    if (updates.size === 0) {
-        return JSON.stringify({ error: "no properties given", available: writableNames(node) });
-    }
-    return updates;
-}
-
 /** Assign the values and refresh the panel, the way the property panel itself writes. */
 function applyUpdates(doc: IDocument, node: INode, updates: Map<string, unknown>): void {
     // Assignment inside one transaction, so a parameter edit is a single undo step and the
@@ -302,7 +139,8 @@ const setNodePropertiesHandler: Tool["handler"] = async (args) => {
         });
     }
 
-    const updates = prepareUpdates(node, doc, (args["properties"] ?? {}) as Record<string, unknown>);
+    const requested = (args["properties"] ?? {}) as Record<string, unknown>;
+    const updates = prepareUpdates(node, panelProperties(node), doc, requested, "this node");
     if (typeof updates === "string") return updates;
 
     applyUpdates(doc, node, updates);
@@ -311,12 +149,6 @@ const setNodePropertiesHandler: Tool["handler"] = async (args) => {
         updated: describeNode(node, doc).properties.filter((p) => updates.has(p.name)),
     });
 };
-
-function writableNames(node: INode): string[] {
-    return panelProperties(node)
-        .filter((prop) => hasSetter(node, prop.name))
-        .map((prop) => prop.name);
-}
 
 export function buildPropertyTools(): Tool[] {
     return [getNodePropertiesTool(), setNodePropertiesTool()];

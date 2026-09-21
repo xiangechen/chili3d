@@ -6,6 +6,7 @@ import { Logger, ObservableCollection, PubSub } from "@chili3d/core";
 import { createMockView, createMockVisualWithDocument } from "@chili3d/core/test-utils";
 import { afterEach, beforeEach, describe, expect, rs, test } from "@rstest/core";
 import { Application } from "../src/application";
+import { Document } from "../src/document";
 
 // IMPORTANT: Application constructor calls setCurrentApplication(this), which
 // throws if called more than once per module. We can only create ONE Application
@@ -33,7 +34,7 @@ function makeVisualFactory(): IVisualFactory {
 
 function makeSerializedDocData(name: string, id: string): Serialized {
     return {
-        version: "0.7.1",
+        version: Document.version,
         name,
         id,
         models: {

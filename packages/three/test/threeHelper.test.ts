@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Material, Matrix4, PhongMaterial, PhysicalMaterial, XYZ } from "@chili3d/core";
+import { Material, Matrix4, XY, XYZ } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
 import {
     Box3,
@@ -9,8 +9,6 @@ import {
     BufferGeometry,
     Mesh,
     MeshBasicMaterial,
-    MeshLambertMaterial,
-    MeshPhongMaterial,
     MeshPhysicalMaterial,
     Object3D,
     OrthographicCamera,
@@ -239,9 +237,9 @@ describe("ThreeHelper", () => {
     });
 
     describe("parseToThreeMaterial", () => {
-        test("parses PhysicalMaterial to ThreePhysicalMaterial", () => {
+        test("carries the physically based properties onto a MeshPhysicalMaterial", () => {
             const doc = new TestDocument();
-            const coreMaterial = new PhysicalMaterial({
+            const coreMaterial = new Material({
                 document: doc,
                 name: "test-physical",
                 color: 0xff0000,
@@ -249,36 +247,61 @@ describe("ThreeHelper", () => {
             coreMaterial.roughness = 0.5;
             coreMaterial.metalness = 0.8;
             coreMaterial.opacity = 0.9;
+            coreMaterial.bumpScale = 2;
+            coreMaterial.emissive = 0x00ff00;
+            coreMaterial.emissiveIntensity = 3;
+            coreMaterial.normalScale = new XY({ x: 2, y: 3 });
+
             const threeMat = ThreeHelper.parseToThreeMaterial(coreMaterial);
+
             expect(threeMat).toBeInstanceOf(MeshPhysicalMaterial);
             expect(threeMat.name).toBe("test-physical");
+            expect(threeMat.roughness).toBe(0.5);
+            expect(threeMat.metalness).toBe(0.8);
+            expect(threeMat.opacity).toBe(0.9);
+            expect(threeMat.transparent).toBe(true);
+            expect(threeMat.bumpScale).toBe(2);
+            expect(threeMat.emissive.getHex()).toBe(0x00ff00);
+            expect(threeMat.emissiveIntensity).toBe(3);
+            expect(threeMat.normalScale.x).toBe(2);
+            expect(threeMat.normalScale.y).toBe(3);
         });
 
-        test("parses PhongMaterial to ThreePhongMaterial", () => {
+        test("treats an opaque material as opaque", () => {
             const doc = new TestDocument();
-            const coreMaterial = new PhongMaterial({
-                document: doc,
-                name: "test-phong",
-                color: 0x00ff00,
-            });
-            coreMaterial.shininess = 32;
-            coreMaterial.opacity = 0.8;
+            const coreMaterial = new Material({ document: doc, name: "opaque", color: 0xff0000 });
+
             const threeMat = ThreeHelper.parseToThreeMaterial(coreMaterial);
-            expect(threeMat).toBeInstanceOf(MeshPhongMaterial);
-            expect(threeMat.name).toBe("test-phong");
+
+            expect(threeMat.opacity).toBe(1);
+            expect(threeMat.transparent).toBe(false);
         });
 
-        test("parses base Material to MeshLambertMaterial", () => {
+        test("gives color maps an sRGB colour space and data maps a linear one", () => {
             const doc = new TestDocument();
-            const coreMaterial = new Material({
-                document: doc,
-                name: "test-basic",
-                color: 0x0000ff,
-            });
-            coreMaterial.opacity = 0.7;
+            const coreMaterial = new Material({ document: doc, name: "textured", color: 0xff0000 });
+            coreMaterial.map.image = "data:image/png;base64,AAAA";
+            coreMaterial.normalMap.image = "data:image/png;base64,BBBB";
+
             const threeMat = ThreeHelper.parseToThreeMaterial(coreMaterial);
-            expect(threeMat).toBeInstanceOf(MeshLambertMaterial);
-            expect(threeMat.name).toBe("test-basic");
+
+            expect(threeMat.map?.colorSpace).toBe("srgb");
+            expect(threeMat.normalMap?.colorSpace).toBe("");
+        });
+
+        test("carries the texture offset", () => {
+            const doc = new TestDocument();
+            const coreMaterial = new Material({ document: doc, name: "offset", color: 0xff0000 });
+            coreMaterial.map.image = "data:image/png;base64,AAAA";
+            coreMaterial.map.offset = new XY({ x: 0.25, y: 0.5 });
+            coreMaterial.map.repeat = new XY({ x: 2, y: 3 });
+
+            const threeMat = ThreeHelper.parseToThreeMaterial(coreMaterial);
+
+            expect(threeMat.map?.offset.x).toBe(0.25);
+            expect(threeMat.map?.offset.y).toBe(0.5);
+            expect(threeMat.map?.repeat.x).toBe(2);
+            expect(threeMat.map?.repeat.y).toBe(3);
         });
     });
 

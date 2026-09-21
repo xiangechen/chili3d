@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, Material, Observable } from "@chili3d/core";
+import { type IDocument, Material, type MaterialPreset, Observable } from "@chili3d/core";
 
 let count = 1;
 
@@ -32,9 +32,12 @@ export class MaterialDataContent extends Observable {
         this.document.modelManager.materials.remove(tempMaterial);
     }
 
-    addMaterial() {
+    /** Adds a material — wearing `preset`'s surface, or a plain grey one when none is given. */
+    addMaterial(preset?: MaterialPreset) {
         this.document.modelManager.materials.push(
-            new Material({ document: this.document, name: `Material ${count++}`, color: 0xdddddd }),
+            preset === undefined
+                ? new Material({ document: this.document, name: `Material ${count++}`, color: 0xdddddd })
+                : Material.fromPreset(this.document, preset),
         );
     }
 

@@ -125,7 +125,64 @@ describe("set_material tool", () => {
         expect((await run({ id: "n1", texture: "checkerboard" })).error).toContain(
             "texture must be an image data URL",
         );
-        expect((await run({ id: "n1" })).error).toContain("provide at least one of color, opacity, texture");
+        expect((await run({ id: "n1" })).error).toContain(
+            "provide at least one of color, opacity, texture, preset",
+        );
+    });
+
+    test("applies a preset's surface and names the material after it", async () => {
+        const { doc } = stubNode();
+
+        const result = await run({ id: "n1", preset: "Satin Plastic" });
+
+        const created = materials(doc)[0];
+        expect(created.name).toBe("Satin Plastic");
+        expect(created.color).toBe(0xdedede);
+        expect(created.roughness).toBe(0.45);
+        expect(created.metalness).toBe(0);
+        expect(result).toMatchObject({ color: 0xdedede, roughness: 0.45, metalness: 0 });
+    });
+
+    // "make it satin plastic" is about the whole surface, so the preset's colour comes too —
+    // unless the caller passes one, which wins.
+    test("lets a colour passed with a preset override the preset's", async () => {
+        const { doc } = stubNode();
+
+        await run({ id: "n1", preset: "satin plastic", color: "red" });
+
+        const created = materials(doc)[0];
+        expect(created.color).toBe(0xff0000);
+        expect(created.roughness).toBe(0.45);
+    });
+
+    test("reuses a material that already carries exactly the preset", async () => {
+        const { doc } = stubNode();
+        await run({ id: "n1", preset: "Metal" });
+
+        await run({ id: "n1", preset: "Metal" });
+
+        expect(materials(doc)).toHaveLength(1);
+    });
+
+    test("does not reuse a material whose finish has since changed", async () => {
+        const { doc } = stubNode();
+        await run({ id: "n1", preset: "Satin Plastic" });
+        // the same colour, a different surface: reusing this one would make the preset a no-op
+        materials(doc)[0].roughness = 0.1;
+
+        await run({ id: "n1", preset: "Satin Plastic" });
+
+        expect(materials(doc)).toHaveLength(2);
+        expect(materials(doc)[1].roughness).toBe(0.45);
+    });
+
+    test("rejects a preset it does not have, listing the ones it does", async () => {
+        stubNode();
+
+        const result = await run({ id: "n1", preset: "chrome" });
+
+        expect(result.error).toContain('unknown preset "chrome"');
+        expect(result.error).toContain("Metal");
     });
 
     test("removes a texture with an empty string", async () => {

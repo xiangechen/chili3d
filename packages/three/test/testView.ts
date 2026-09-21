@@ -90,4 +90,7 @@ export class TestView extends ThreeView {
         container.appendChild(render.domElement);
         return render;
     }
+
+    // PMREMGenerator drives a real WebGL renderer; the fake above cannot stand in for it.
+    protected override initEnvironment() {}
 }

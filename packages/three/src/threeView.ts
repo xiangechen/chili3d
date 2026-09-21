@@ -157,6 +157,7 @@ export class ThreeView extends Observable implements IView {
         this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
         this._cssRenderer = this.initCssRenderer();
+        this.initEnvironment();
         this._scene.add(this.dynamicLight);
         this._gizmo = this.initGizmo();
         this.camera.layers.enableAll();
@@ -210,6 +211,11 @@ export class ThreeView extends Observable implements IView {
     protected initCssRenderer() {
         const renderer = new CSS2DRenderer();
         return renderer;
+    }
+
+    /** Needs the renderer, so a subclass that replaces it has to decide about the environment. */
+    protected initEnvironment() {
+        this.content.initEnvironment(this._renderer);
     }
 
     protected initGizmo(): IViewGizmo {

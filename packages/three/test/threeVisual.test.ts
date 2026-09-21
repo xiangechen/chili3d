@@ -3,7 +3,7 @@
 
 import type { IEventHandler, IView } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
-import { Scene } from "three";
+import { AmbientLight, AxesHelper, Scene } from "three";
 import { ThreeMeshExporter } from "../src/meshExporter";
 import { ThreeHighlighter } from "../src/threeHighlighter";
 import { ThreeVisual } from "../src/threeVisual";
@@ -38,10 +38,12 @@ describe("ThreeVisual", () => {
         return { doc, visual, eventHandler };
     }
 
-    test("initScene creates scene with ambient light and axes helper", () => {
+    test("initScene creates a scene with the axes helper and no flat fill light", () => {
         const { visual } = createTestVisual();
         expect(visual.scene).toBeInstanceOf(Scene);
-        expect(visual.scene.children.length).toBeGreaterThanOrEqual(2);
+        expect(visual.scene.children.some((x) => x instanceof AxesHelper)).toBe(true);
+        // The fill light is the image-based environment the context builds, not an AmbientLight
+        expect(visual.scene.children.some((x) => x instanceof AmbientLight)).toBe(false);
     });
 
     test("context, highlighter, meshExporter are initialized", () => {

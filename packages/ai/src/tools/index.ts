@@ -6,6 +6,7 @@ import { buildSkillTool } from "../skills";
 import { buildAskUserTool } from "./askUser";
 import { buildCapabilityTools } from "./capabilityEngine";
 import { buildFileTools } from "./fileTools";
+import { buildMaterialTools } from "./materialTools";
 import { buildNodeTools } from "./nodeTools";
 import { buildParametricTools } from "./parametricTools";
 import { buildPropertyTools } from "./propertyTools";
@@ -32,5 +33,6 @@ export function buildTools(): Tool[] {
         ...buildParametricTools(),
         ...buildVariableTools(),
         buildAskUserTool(),
+        ...buildMaterialTools(),
     ];
 }

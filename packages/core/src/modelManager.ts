@@ -10,7 +10,7 @@ import {
     ObservableCollection,
     Transaction,
 } from "./foundation";
-import { type Material, PhongMaterial } from "./material";
+import { Material } from "./material";
 import type { Component } from "./model/component";
 import { FolderNode } from "./model/folderNode";
 import { type INode, type INodeLinkedList, NodeUtils } from "./model/node";
@@ -146,7 +146,7 @@ export class ModelManager extends Observable {
      * list are separate arrays, and an interrupted or hand-edited save can leave them out of step.
      *
      * The placeholder keeps the referenced id, so every node resolves; it is a grey
-     * `PhongMaterial` the user can restyle.
+     * `Material` the user can restyle.
      */
     private ensureMaterials() {
         const known = new Set(this.materials.map((x) => x.id));
@@ -158,7 +158,7 @@ export class ModelManager extends Observable {
                 if (id === "" || known.has(id)) continue;
                 known.add(id);
                 this.materials.push(
-                    new PhongMaterial({ id, document: this.document, name: "replaced", color: 0xaaaaaa }),
+                    new Material({ id, document: this.document, name: "replaced", color: 0xaaaaaa }),
                 );
             }
         };

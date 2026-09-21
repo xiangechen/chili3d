@@ -6,6 +6,8 @@ import {
     type IConverter,
     Localize,
     type Material,
+    type MaterialPreset,
+    MaterialPresets,
     PathBinding,
     type Property,
     PropertyUtils,
@@ -14,6 +16,7 @@ import {
     Texture,
 } from "@chili3d/core";
 import { button, ColorConverter, collection, div, span, svg, UrlStringConverter } from "@chili3d/element";
+import { DropdownController } from "../../ribbon/dropdownController";
 import { propertyControl } from "../complexPropertyUtils";
 import type { MaterialDataContent } from "./materialDataContent";
 import style from "./materialEditor.module.css";
@@ -29,6 +32,7 @@ class ActiveStyleConverter implements IConverter<Material> {
 export class MaterialEditor extends HTMLElement {
     private readonly editingControl: HTMLElement;
     private readonly colorConverter = new ColorConverter();
+    private readonly presets = new DropdownController(style.presets);
 
     constructor(readonly dataContent: MaterialDataContent) {
         super();
@@ -51,9 +55,47 @@ export class MaterialEditor extends HTMLElement {
         return div(
             { className: style.title },
             span({ textContent: new Localize("common.material") }),
-            this.iconButton("icon-plus", () => this.dataContent.addMaterial()),
+            this.addButton(),
             this.iconButton("icon-clone", () => this.dataContent.copyMaterial()),
             this.iconButton("icon-trash", () => this.dataContent.deleteMaterial()),
+        );
+    }
+
+    /** Opens the preset list, so a new material starts as a surface rather than a grey blank. */
+    private addButton() {
+        return svg({
+            icon: "icon-plus",
+            onclick: (e: MouseEvent) => {
+                // keep the click off `document`: the dropdown closes on any click outside
+                // itself, and this one is still bubbling when the list opens
+                e.stopPropagation();
+                this.presets.open(e.currentTarget as HTMLElement, (dropdown) => {
+                    // A plain material is the common ask and what this button used to do on its
+                    // own, so it leads — right where the click landed. The presets, which are a
+                    // different kind of choice ("no preset" is not a fifth surface), follow the
+                    // divider.
+                    dropdown.append(this.presetItem(undefined));
+                    dropdown.append(div({ className: style.presetDivider }));
+                    for (const preset of MaterialPresets) dropdown.append(this.presetItem(preset));
+                });
+            },
+        });
+    }
+
+    private presetItem(preset: MaterialPreset | undefined) {
+        return div(
+            {
+                className: style.preset,
+                onclick: () => {
+                    this.dataContent.addMaterial(preset);
+                    this.presets.close();
+                },
+            },
+            div({
+                className: style.presetSwatch,
+                style: { backgroundColor: preset ? `#${preset.color.toString(16).padStart(6, "0")}` : "" },
+            }),
+            span({ textContent: preset?.name ?? "Blank" }),
         );
     }
 
@@ -113,6 +155,8 @@ export class MaterialEditor extends HTMLElement {
 
     disconnectedCallback() {
         PubSub.default.remove("showProperties", this._handleShowProperty);
+        // the preset list lives on `document.body`, so removing the editor is not enough
+        this.presets.dispose();
     }
 
     private readonly _handleShowProperty = () => {

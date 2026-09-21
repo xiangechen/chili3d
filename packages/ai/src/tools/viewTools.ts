@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type IDocument, type INode, Material, Transaction, type XYZLike } from "@chili3d/core";
+import {
+    I18n,
+    type IDocument,
+    type INode,
+    Material,
+    type MaterialPreset,
+    MaterialPresets,
+    Transaction,
+    type XYZLike,
+} from "@chili3d/core";
 import type { Tool, ToolResult } from "../llm/types";
 import { findNode, getDocument } from "./documentContext";
 
@@ -106,7 +115,7 @@ function setMaterialTool(): Tool {
     return {
         name: "set_material",
         description:
-            "Set the appearance of a node by id: color, opacity and/or surface texture. Pass at least one of the three; the omitted ones keep their current value. Materials are shared between nodes, so a material with exactly these values is reused when one exists and created otherwise — the other nodes are never changed.",
+            "Set the appearance of a node by id: color, opacity and/or surface texture. Pass at least one of them (preset names a ready-made surface); the omitted ones keep their current value, or the preset's when one is given. Materials are shared between nodes, so a material with exactly these values is reused when one exists and created otherwise — the other nodes are never changed. This styles one node; to change a material itself — a colour on a surface several nodes share, or how shiny it is — read it with get_material and write it with set_material_properties.",
         parameters: {
             type: "object",
             properties: {
@@ -124,6 +133,12 @@ function setMaterialTool(): Tool {
                     description:
                         'Surface texture as an image data URL ("data:image/png;base64,..."), an http(s)/blob URL or a same-origin path; "" removes the texture',
                 },
+                preset: {
+                    type: "string",
+                    enum: MaterialPresets.map((x) => x.name),
+                    description:
+                        "A ready-made surface: its colour, opacity, roughness and metalness are applied, and a colour or opacity you pass as well overrides the preset's.",
+                },
             },
             required: ["id"],
         },
@@ -140,10 +155,13 @@ const setMaterialHandler: Tool["handler"] = async (args) => {
         return textResult({ error: `node not found or has no material: ${id}` });
     }
 
-    const appearance = resolveAppearance(doc, node, args);
+    const preset = resolvePreset(args["preset"]);
+    if (typeof preset === "string") return textResult({ error: preset });
+
+    const appearance = resolveAppearance(doc, node, args, preset);
     if (typeof appearance === "string") return textResult({ error: appearance });
 
-    const material = ensureMaterial(doc, appearance.color, appearance.opacity, appearance.texture);
+    const material = ensureMaterial(doc, appearance, preset?.name);
     Transaction.execute(doc, "AI set material", () => {
         (node as { materialId: string | string[] }).materialId = material.id;
     });
@@ -156,40 +174,74 @@ const setMaterialHandler: Tool["handler"] = async (args) => {
     });
 };
 
-/** color / opacity / texture to apply, or the message saying why the arguments do not work. */
+/** The surface to apply: every value the material will carry, or the message saying why not. */
+interface Appearance {
+    color: number;
+    opacity: number;
+    texture: string;
+    roughness: number;
+    metalness: number;
+}
+
+/** The preset the arguments name, `undefined` when none is given, or the message listing them. */
+function resolvePreset(arg: unknown): MaterialPreset | undefined | string {
+    if (arg === undefined) return undefined;
+    if (typeof arg === "string") {
+        const preset = MaterialPresets.find((x) => x.name.toLowerCase() === arg.toLowerCase());
+        if (preset !== undefined) return preset;
+    }
+    return `unknown preset ${describe(arg)} — one of: ${MaterialPresets.map((x) => x.name).join(", ")}`;
+}
+
+/** colour / opacity / texture / preset to apply, or the message saying why the arguments do not. */
 function resolveAppearance(
     doc: IDocument,
     node: unknown,
     args: Record<string, unknown>,
-): { color: number; opacity: number; texture: string } | string {
-    if (args["color"] === undefined && args["opacity"] === undefined && args["texture"] === undefined) {
-        return "provide at least one of color, opacity, texture";
+    preset: MaterialPreset | undefined,
+): Appearance | string {
+    if (
+        args["color"] === undefined &&
+        args["opacity"] === undefined &&
+        args["texture"] === undefined &&
+        preset === undefined
+    ) {
+        return "provide at least one of color, opacity, texture, preset";
     }
-    // An omitted field keeps what the node already has, so setting only the opacity does not
-    // silently reset the colour of a node that was styled before.
+    // An omitted field keeps what the node already has — or, when a preset was asked for, that
+    // preset's value: "make it satin plastic" is about the whole surface, so passing only the
+    // preset must not leave the node's old colour on it.
     const current = materialOf(doc, node);
-    const color = resolveColor(args["color"], current);
+    const color = resolveColor(args["color"], preset ?? current);
     if ("error" in color) return color.error;
-    const opacity = resolveOpacity(args["opacity"], current);
+    const opacity = resolveOpacity(args["opacity"], preset ?? current);
     if ("error" in opacity) return opacity.error;
     const texture = resolveTexture(args["texture"], current);
     if ("error" in texture) return texture.error;
-    return { color: color.value, opacity: opacity.value, texture: texture.value };
+    return {
+        color: color.value,
+        opacity: opacity.value,
+        texture: texture.value,
+        // the last resort is what a fresh Material carries; read from it rather than restated here
+        roughness: preset?.roughness ?? current?.roughness ?? Material.DefaultRoughness,
+        metalness: preset?.metalness ?? current?.metalness ?? Material.DefaultMetalness,
+    };
 }
 
 type Resolved<T> = { value: T } | { error: string };
 
-function resolveColor(arg: unknown, current: Material | undefined): Resolved<number> {
+function resolveColor(arg: unknown, fallback: Material | MaterialPreset | undefined): Resolved<number> {
     if (arg !== undefined) {
         const color = parseToolColor(arg);
         return typeof color === "string" ? { error: color } : { value: color };
     }
-    // An omitted colour keeps the node's own, in the numeric form ensureMaterial compares in.
-    return { value: current === undefined ? DEFAULT_MATERIAL_COLOR : parseColor(current.color) };
+    if (fallback === undefined) return { value: DEFAULT_MATERIAL_COLOR };
+    // In the numeric form `ensureMaterial` compares in.
+    return { value: typeof fallback.color === "number" ? fallback.color : parseColor(fallback.color) };
 }
 
-function resolveOpacity(arg: unknown, current: Material | undefined): Resolved<number> {
-    const opacity = arg === undefined ? (current?.opacity ?? 1) : arg;
+function resolveOpacity(arg: unknown, fallback: Material | MaterialPreset | undefined): Resolved<number> {
+    const opacity = arg === undefined ? (fallback?.opacity ?? 1) : arg;
     return typeof opacity === "number" && Number.isFinite(opacity) && opacity >= 0 && opacity <= 1
         ? { value: opacity }
         : { error: `opacity must be a number in [0,1], got ${describe(opacity)}` };
@@ -220,17 +272,32 @@ function describe(value: unknown): string {
     return typeof value === "string" ? JSON.stringify(value) : String(value);
 }
 
-/** Finds the document's material with exactly these values, creating one when none matches. */
-function ensureMaterial(doc: IDocument, color: number, opacity: number, texture: string): Material {
+/**
+ * Finds the document's material with exactly these values, creating one when none matches. Every
+ * value the caller applies is compared: matching on colour alone would hand back a material whose
+ * roughness or metalness differs, and silently restyle the node with it.
+ */
+function ensureMaterial(doc: IDocument, appearance: Appearance, presetName?: string): Material {
     // Material.color is number | string; normalize both sides before comparing.
     const existing = doc.modelManager.materials.find(
-        (m) => parseColor(m.color) === color && m.opacity === opacity && m.map.image === texture,
+        (m) =>
+            parseColor(m.color) === appearance.color &&
+            m.opacity === appearance.opacity &&
+            m.map.image === appearance.texture &&
+            m.roughness === appearance.roughness &&
+            m.metalness === appearance.metalness,
     );
-    if (existing) return existing;
+    if (existing !== undefined) return existing;
 
-    const material = new Material({ document: doc, name: `AI ${color.toString(16)}`, color });
-    material.opacity = opacity;
-    material.map.image = texture;
+    const material = new Material({
+        document: doc,
+        name: presetName ?? `AI ${appearance.color.toString(16)}`,
+        color: appearance.color,
+    });
+    material.opacity = appearance.opacity;
+    material.roughness = appearance.roughness;
+    material.metalness = appearance.metalness;
+    material.map.image = appearance.texture;
     doc.modelManager.materials.push(material);
     return material;
 }

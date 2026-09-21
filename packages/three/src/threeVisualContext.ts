@@ -43,16 +43,28 @@ import {
     Mesh,
     type MeshLambertMaterial,
     Object3D,
+    PMREMGenerator,
     Points,
     type Scene,
     type Material as ThreeMaterial,
     Vector3,
+    type WebGLRenderer,
+    type WebGLRenderTarget,
 } from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { ThreeRefSegmentAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { GroupVisualObject, ThreeComponentObject, ThreeMeshObject } from "./threeVisualObject";
+
+/**
+ * How much of the studio environment reaches the scene. `RoomEnvironment` is bright — it lights a
+ * mid-grey surface to white on its own, six times over what the `AmbientLight` it replaced
+ * contributed — so it is dialled down to deliver that same fill and let the surfaces keep their
+ * own colour. Raising it flattens everything toward white, and reflections grow stronger with it.
+ */
+const environmentIntensity = 0.15;
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _visualNodeMap = new Map<IVisualObject, INode>();
@@ -62,6 +74,7 @@ export class ThreeVisualContext implements IVisualContext {
     readonly visualShapes: Group;
     readonly tempShapes: Group;
     readonly cssObjects: Group;
+    private _environmentTarget?: WebGLRenderTarget;
 
     constructor(
         readonly visual: IVisual,
@@ -73,6 +86,25 @@ export class ThreeVisualContext implements IVisualContext {
         scene.add(this.visualShapes, this.tempShapes, this.cssObjects);
         visual.document.modelManager.addNodeObserver(this.handleNodeChanged);
         visual.document.modelManager.materials.onCollectionChanged(this.onMaterialCollectionChanged);
+    }
+
+    /**
+     * Image-based lighting for the physically based materials, from a neutral studio room: a
+     * metallic surface has nothing to reflect without it and renders near-black, so raising
+     * `metalness` would otherwise make a body darker rather than shinier. It also carries the
+     * fill light the `AmbientLight` used to provide. The scene is shared by every view of a
+     * document, so the first view to be created sets it up and the others reuse it.
+     */
+    initEnvironment(renderer: WebGLRenderer) {
+        if (this._environmentTarget !== undefined) return;
+
+        const room = new RoomEnvironment();
+        const pmrem = new PMREMGenerator(renderer);
+        this._environmentTarget = pmrem.fromScene(room, 0.04);
+        this.scene.environment = this._environmentTarget.texture;
+        this.scene.environmentIntensity = environmentIntensity;
+        pmrem.dispose();
+        room.dispose();
     }
 
     private readonly onMaterialCollectionChanged = (args: CollectionChangedArgs) => {
@@ -103,10 +135,22 @@ export class ThreeVisualContext implements IVisualContext {
         const { isOk, value } = DeepObserver.getPathValue(source, path);
         if (!isOk) return;
 
-        if (path === "color") {
-            material.color.set(value);
-        } else if (!path.includes(".")) {
-            material[path] = value instanceof Texture ? ThreeHelper.loadTexture(value) : value;
+        // A three.js Color/Vector2 has to be written through `set`: assigning the document's
+        // own value over it would replace the three.js object itself, and the shader would
+        // read a plain number (or an XY) from then on. The flags are three.js's own, so a new
+        // color- or vector-valued material property keeps working without a list to maintain.
+        const target = material[path];
+        if (target?.isColor === true) {
+            target.set(value);
+            return;
+        }
+        if (target?.isVector2 === true) {
+            target.set(value.x, value.y);
+            return;
+        }
+
+        if (!path.includes(".")) {
+            material[path] = value instanceof Texture ? ThreeHelper.loadTexture(value, path) : value;
             if (path === "opacity") {
                 material["transparent"] = value < 1;
             }
@@ -118,7 +162,7 @@ export class ThreeVisualContext implements IVisualContext {
     private setTextureValue(material: any, threeMaterial: any, path: string, value: any) {
         const paths = path.split(".");
         if (path.endsWith(".image") && material[paths[0]] instanceof Texture && paths[0] in threeMaterial) {
-            threeMaterial[paths[0]] = ThreeHelper.loadTexture(material[paths[0]]);
+            threeMaterial[paths[0]] = ThreeHelper.loadTexture(material[paths[0]], paths[0]);
             return;
         }
 
@@ -164,6 +208,9 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     dispose() {
+        this._environmentTarget?.dispose();
+        this._environmentTarget = undefined;
+        this.scene.environment = null;
         this.visualShapes.traverse((x) => {
             if (isDisposable(x)) x.dispose();
         });
