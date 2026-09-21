@@ -182,6 +182,7 @@ interface Appearance {
     texture: string;
     roughness: number;
     metalness: number;
+    envMapIntensity: number;
 }
 
 /** The preset the arguments name, `undefined` when none is given, or the message listing them. */
@@ -226,6 +227,8 @@ function resolveAppearance(
         // the last resort is what a fresh Material carries; read from it rather than restated here
         roughness: preset?.roughness ?? current?.roughness ?? Material.DefaultRoughness,
         metalness: preset?.metalness ?? current?.metalness ?? Material.DefaultMetalness,
+        envMapIntensity:
+            preset?.envMapIntensity ?? current?.envMapIntensity ?? Material.DefaultEnvMapIntensity,
     };
 }
 
@@ -286,7 +289,8 @@ function ensureMaterial(doc: IDocument, appearance: Appearance, presetName?: str
             m.opacity === appearance.opacity &&
             m.map.image === appearance.texture &&
             m.roughness === appearance.roughness &&
-            m.metalness === appearance.metalness,
+            m.metalness === appearance.metalness &&
+            m.envMapIntensity === appearance.envMapIntensity,
     );
     if (existing !== undefined) return existing;
 
@@ -298,6 +302,7 @@ function ensureMaterial(doc: IDocument, appearance: Appearance, presetName?: str
     material.opacity = appearance.opacity;
     material.roughness = appearance.roughness;
     material.metalness = appearance.metalness;
+    material.envMapIntensity = appearance.envMapIntensity;
     material.map.image = appearance.texture;
     doc.modelManager.materials.push(material);
     return material;

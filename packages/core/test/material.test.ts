@@ -105,6 +105,7 @@ describe("Material classes", () => {
 
             test("should set default property values", () => {
                 expect(material.opacity).toBe(1);
+                expect(material.envMapIntensity).toBe(Material.DefaultEnvMapIntensity);
                 expect(material.roughness).toBe(0.5);
                 expect(material.metalness).toBe(0);
                 expect(material.normalScale.x).toBe(1);
@@ -122,6 +123,7 @@ describe("Material classes", () => {
                     "name",
                     "color",
                     "opacity",
+                    "envMapIntensity",
                     "map",
                     "roughness",
                     "roughnessMap",
@@ -279,8 +281,16 @@ describe("Material classes", () => {
                 "Metal",
                 "Glass",
             ]);
-            // The metal is the only metallic one, the glass the only one that is not opaque.
-            expect(MaterialPresets.filter((x) => x.metalness > 0).map((x) => x.name)).toEqual(["Metal"]);
+            // The metal is the only one that asks for more reflection than the studio gives.
+            expect(MaterialPresets.filter((x) => (x.envMapIntensity ?? 1) > 1).map((x) => x.name)).toEqual([
+                "Metal",
+            ]);
+            // The glass carries a little metalness too — a see-through surface with no diffuse
+            // term behind it reads as a mirror otherwise.
+            expect(MaterialPresets.filter((x) => x.metalness > 0).map((x) => x.name)).toEqual([
+                "Metal",
+                "Glass",
+            ]);
             expect(MaterialPresets.filter((x) => (x.opacity ?? 1) < 1).map((x) => x.name)).toEqual(["Glass"]);
         });
     });

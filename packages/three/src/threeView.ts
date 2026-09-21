@@ -111,7 +111,7 @@ export class ThreeView extends Observable implements IView {
     private readonly _resizeObserver: ResizeObserver;
 
     readonly cameraController: CameraController;
-    readonly dynamicLight = new DirectionalLight(0xffffff, 2);
+    readonly dynamicLight = new DirectionalLight(0xffffff, 1);
 
     get name(): string {
         return this.getPrivateValue("name");

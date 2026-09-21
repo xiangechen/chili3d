@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { MaterialPresets } from "@chili3d/core";
 import { createMockDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { buildViewTools, parseColor, parseToolColor } from "../src/tools/viewTools";
@@ -141,6 +142,28 @@ describe("set_material tool", () => {
         expect(created.roughness).toBe(0.45);
         expect(created.metalness).toBe(0);
         expect(result).toMatchObject({ color: 0xdedede, roughness: 0.45, metalness: 0 });
+    });
+
+    test("carries a preset's reflection weight, which is what keeps a metal bright", async () => {
+        const { doc } = stubNode();
+
+        await run({ id: "n1", preset: "Metal" });
+
+        // the preset asks for more reflection than the studio gives; without it the metal reads dark
+        const metal = MaterialPresets.find((x) => x.name === "Metal");
+        expect(materials(doc)[0].envMapIntensity).toBe(metal?.envMapIntensity);
+    });
+
+    test("keeps the weight a material already has when no preset says otherwise", async () => {
+        const { doc } = stubNode();
+        await run({ id: "n1", preset: "Metal" });
+        materials(doc)[0].envMapIntensity = 3;
+
+        // the node's own material is the fallback, so its weight is what the call keeps
+        await run({ id: "n1", color: "red" });
+
+        expect(materials(doc)).toHaveLength(2);
+        expect(materials(doc)[1].envMapIntensity).toBe(3);
     });
 
     // "make it satin plastic" is about the whole surface, so the preset's colour comes too —

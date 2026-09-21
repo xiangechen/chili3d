@@ -91,7 +91,10 @@ describe("TextureProperty", () => {
         });
 
         test("should assign the picked file data URL to the texture image", async () => {
-            readFileAsyncMock.mockResolvedValue({ value: [{ data: "data:image/png;base64,new" }] });
+            readFileAsyncMock.mockResolvedValue({
+                isOk: true,
+                value: [{ data: "data:image/png;base64,new" }],
+            });
             const texture = createTexture();
             const prop = new TextureProperty(createMockDocument(), display, texture);
 
@@ -102,6 +105,21 @@ describe("TextureProperty", () => {
 
             expect(readFileAsyncMock).toHaveBeenCalledWith(".png, .jpg, .jpeg", false, "readAsDataURL");
             expect(texture.image).toBe("data:image/png;base64,new");
+        });
+
+        test("should keep the texture when the pick comes back as an error", async () => {
+            // a cancelled dialog resolves with an error Result whose value is undefined; reading
+            // on would throw inside the click handler and leave the surface unchanged in silence
+            readFileAsyncMock.mockResolvedValue({ isOk: false, error: "cancel", value: undefined });
+            const texture = createTexture();
+            texture.image = "data:image/png;base64,kept";
+            const prop = new TextureProperty(createMockDocument(), display, texture);
+
+            const img = mustQuery(prop, ".tx-image img");
+            const onclick = (img as unknown as { _onclick?: () => Promise<void> })._onclick;
+            await onclick?.();
+
+            expect(texture.image).toBe("data:image/png;base64,kept");
         });
     });
 });

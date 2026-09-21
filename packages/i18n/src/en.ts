@@ -310,6 +310,7 @@ export default {
         "material.emissive": "Emissive",
         "material.emissiveIntensity": "Emissive Intensity",
         "material.emissiveMap": "Emissive Map",
+        "material.envMapIntensity": "Reflection Strength",
         "material.map": "Map",
         "material.metalness": "Metalness",
         "material.metalnessMap": "Metalness Map",

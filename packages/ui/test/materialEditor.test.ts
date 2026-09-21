@@ -122,8 +122,8 @@ describe("MaterialEditor", () => {
         test.each([
             { index: 0, roughness: 0.85, metalness: 0, opacity: 1 },
             { index: 1, roughness: 0.45, metalness: 0, opacity: 1 },
-            { index: 2, roughness: 0.35, metalness: 1, opacity: 1 },
-            { index: 3, roughness: 0.05, metalness: 0, opacity: 0.3 },
+            { index: 2, roughness: 0.5, metalness: 1, opacity: 1 },
+            { index: 3, roughness: 0.05, metalness: 0.1, opacity: 0.3 },
         ])("should start the new material at preset $index", ({ index, roughness, metalness, opacity }) => {
             openPresets();
 

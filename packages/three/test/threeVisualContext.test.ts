@@ -1,10 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IDocument, IVisual, IVisualObject, Matrix4, VisualNode } from "@chili3d/core";
-import { VisualStates } from "@chili3d/core";
-import { createMockVisual } from "@chili3d/core/test-utils";
-import { Group, MeshBasicMaterial, Object3D, Scene } from "three";
+import {
+    type IDocument,
+    type IVisual,
+    type IVisualObject,
+    Material,
+    type Matrix4,
+    type VisualNode,
+    VisualStates,
+} from "@chili3d/core";
+import { createMockVisual, TestDocument } from "@chili3d/core/test-utils";
+import { Group, MeshBasicMaterial, type MeshPhysicalMaterial, Object3D, Scene, Texture } from "three";
 import { ThreeVisualContext } from "../src/threeVisualContext";
 import { createTestGeometryNode } from "./mocks";
 
@@ -15,6 +22,7 @@ import { createTestGeometryNode } from "./mocks";
 function createVisualWithObserverTracking(): {
     visual: IVisual;
     nodeObservers: Array<(records: unknown[]) => void>;
+    materialHandlers: Array<(args: unknown) => void>;
 } {
     const nodeObservers: Array<(records: unknown[]) => void> = [];
     const collectionHandlers: Array<(args: unknown) => void> = [];
@@ -38,7 +46,7 @@ function createVisualWithObserverTracking(): {
         },
     } as unknown as IDocument;
 
-    return { visual: createMockVisual({ document }), nodeObservers };
+    return { visual: createMockVisual({ document }), nodeObservers, materialHandlers: collectionHandlers };
 }
 
 describe("ThreeVisualContext (real instance)", () => {
@@ -46,11 +54,13 @@ describe("ThreeVisualContext (real instance)", () => {
     let scene: Scene;
     let visual: IVisual;
     let nodeObservers: Array<(records: unknown[]) => void>;
+    let materialHandlers: Array<(args: unknown) => void>;
 
     beforeEach(() => {
         const tracked = createVisualWithObserverTracking();
         visual = tracked.visual;
         nodeObservers = tracked.nodeObservers;
+        materialHandlers = tracked.materialHandlers;
         scene = new Scene();
         context = new ThreeVisualContext(visual, scene);
     });
@@ -71,6 +81,76 @@ describe("ThreeVisualContext (real instance)", () => {
 
         test("should register node observer on model manager", () => {
             expect(nodeObservers.length).toBeGreaterThan(0);
+        });
+    });
+
+    describe("material environment", () => {
+        /** Announces a material the way the model manager does, and hands back its three material. */
+        function addMaterial(material: Material): MeshPhysicalMaterial {
+            materialHandlers[0]({ action: "add", items: [material] });
+            return context.materialMap.get(material.id) as MeshPhysicalMaterial;
+        }
+
+        function documentMaterial() {
+            return new Material({ document: new TestDocument(), name: "m", color: 0x112233 });
+        }
+
+        test("should leave a material alone until the scene has an environment", () => {
+            const material = documentMaterial();
+            material.envMapIntensity = 2;
+
+            const threeMaterial = addMaterial(material);
+
+            expect(scene.environment).toBeNull();
+            expect(threeMaterial.envMap).toBeNull();
+        });
+
+        test("should attach the scene's environment, at the material's own reflection strength", () => {
+            const environment = new Texture();
+            scene.environment = environment;
+            const material = documentMaterial();
+            material.envMapIntensity = 2;
+
+            const threeMaterial = addMaterial(material);
+
+            expect(threeMaterial.envMap).toBe(environment);
+            expect(threeMaterial.envMapIntensity).toBe(2);
+        });
+
+        test("should rebuild the program when a material gets a texture", () => {
+            const material = documentMaterial();
+            const threeMaterial = addMaterial(material);
+            const builtWithout = threeMaterial.version;
+
+            material.map.image = "data:image/png;base64,AAAA";
+
+            // the program was compiled without a map, so it has to be rebuilt for the shader to
+            // sample one at all — a refreshed uniform would not be enough
+            expect(threeMaterial.map).not.toBeNull();
+            expect(threeMaterial.version).toBeGreaterThan(builtWithout);
+        });
+
+        test("should take the map away when the image is cleared", () => {
+            const material = documentMaterial();
+            material.map.image = "data:image/png;base64,AAAA";
+            const threeMaterial = addMaterial(material);
+            expect(threeMaterial.map).not.toBeNull();
+
+            material.map.image = "";
+
+            expect(threeMaterial.map).toBeNull();
+        });
+
+        test("should follow the strength as it changes", () => {
+            // the renderer overwrites a material's intensity with the scene's while the environment
+            // comes from the scene, which is why the material is given the map itself
+            scene.environment = new Texture();
+            const material = documentMaterial();
+
+            const threeMaterial = addMaterial(material);
+            material.envMapIntensity = 3;
+
+            expect(threeMaterial.envMapIntensity).toBe(3);
         });
     });
 

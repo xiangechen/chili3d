@@ -300,6 +300,7 @@ export const I18N_KEYS = [
     "material.emissive",
     "material.emissiveIntensity",
     "material.emissiveMap",
+    "material.envMapIntensity",
     "material.map",
     "material.metalness",
     "material.metalnessMap",

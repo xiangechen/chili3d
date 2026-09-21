@@ -103,10 +103,10 @@ describe("ThreeView — construction", () => {
         expect(view.isClosed).toBe(false);
     });
 
-    test("dynamicLight is a DirectionalLight", () => {
+    test("dynamicLight is the key light, in the budget the environment shares", () => {
         const { view } = createTestView();
         expect(view.dynamicLight).toBeInstanceOf(DirectionalLight);
-        expect(view.dynamicLight.intensity).toBe(2);
+        expect(view.dynamicLight.intensity).toBe(1);
     });
 
     test("registers itself in document.application.views", () => {

@@ -306,6 +306,7 @@ export default {
         "material.emissive": "自发光",
         "material.emissiveIntensity": "自发光强度",
         "material.emissiveMap": "自发光贴图",
+        "material.envMapIntensity": "反射强度",
         "material.map": "贴图",
         "material.metalness": "金属度",
         "material.metalnessMap": "金属度贴图",

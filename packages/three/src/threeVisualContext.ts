@@ -42,6 +42,7 @@ import {
     LineSegments,
     Mesh,
     type MeshLambertMaterial,
+    type MeshPhysicalMaterial,
     Object3D,
     PMREMGenerator,
     Points,
@@ -58,13 +59,10 @@ import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import { GroupVisualObject, ThreeComponentObject, ThreeMeshObject } from "./threeVisualObject";
 
-/**
- * How much of the studio environment reaches the scene. `RoomEnvironment` is bright — it lights a
- * mid-grey surface to white on its own, six times over what the `AmbientLight` it replaced
- * contributed — so it is dialled down to deliver that same fill and let the surfaces keep their
- * own colour. Raising it flattens everything toward white, and reflections grow stronger with it.
- */
-const environmentIntensity = 0.15;
+/** Whether a material in `materialMap` is one of the document's physically based surfaces. */
+function isPhysicalMaterial(material: ThreeMaterial): material is MeshPhysicalMaterial {
+    return (material as Partial<MeshPhysicalMaterial>).isMeshPhysicalMaterial === true;
+}
 
 export class ThreeVisualContext implements IVisualContext {
     private readonly _visualNodeMap = new Map<IVisualObject, INode>();
@@ -94,6 +92,11 @@ export class ThreeVisualContext implements IVisualContext {
      * `metalness` would otherwise make a body darker rather than shinier. It also carries the
      * fill light the `AmbientLight` used to provide. The scene is shared by every view of a
      * document, so the first view to be created sets it up and the others reuse it.
+     *
+     * The room goes in as it ships, and `scene.environmentIntensity` is the fraction of it that
+     * the materials *without* an environment of their own are lit at: the highlight, selection and
+     * lock overlays, which are lit Lambert surfaces. A document material carries the environment
+     * itself, so its `Material.envMapIntensity` decides how much of the room it reflects.
      */
     initEnvironment(renderer: WebGLRenderer) {
         if (this._environmentTarget !== undefined) return;
@@ -102,9 +105,33 @@ export class ThreeVisualContext implements IVisualContext {
         const pmrem = new PMREMGenerator(renderer);
         this._environmentTarget = pmrem.fromScene(room, 0.04);
         this.scene.environment = this._environmentTarget.texture;
-        this.scene.environmentIntensity = environmentIntensity;
+        this.scene.environmentIntensity = 0.1;
         pmrem.dispose();
         room.dispose();
+
+        // The materials that were made before this view existed hold no environment yet.
+        for (const material of this.visual.document.modelManager.materials) {
+            const threeMaterial = this.materialMap.get(material.id);
+            if (threeMaterial !== undefined) this.attachEnvironment(threeMaterial, material);
+        }
+    }
+
+    /**
+     * Hands a document material the scene's environment as its own. Materials that go through the
+     * scene keep three's `scene.environmentIntensity` for the uniform — and that is overwritten on
+     * every frame after the first, so a material's own `envMapIntensity` is only honoured when the
+     * environment is attached to the material. With this a material can reflect more than the
+     * bodies around it, which is what a metal needs: it has no diffuse term to light it.
+     */
+    private attachEnvironment(threeMaterial: ThreeMaterial, material: Material) {
+        const environment = this.scene.environment;
+        // the map is typed as three's Material; only the physically based ones take an environment
+        if (environment === null || !isPhysicalMaterial(threeMaterial)) return;
+
+        threeMaterial.envMap = environment;
+        threeMaterial.envMapIntensity = material.envMapIntensity;
+        // swapping a map recompiles the material's program
+        threeMaterial.needsUpdate = true;
     }
 
     private readonly onMaterialCollectionChanged = (args: CollectionChangedArgs) => {
@@ -117,6 +144,7 @@ export class ThreeVisualContext implements IVisualContext {
 
     private createThreeMaterial(material: Material) {
         const result = ThreeHelper.parseToThreeMaterial(material);
+        this.attachEnvironment(result, material);
         DeepObserver.addDeepPropertyChangedHandler(material, this.onMaterialPropertyChanged);
         this.materialMap.set(material.id, result);
     }
@@ -150,7 +178,11 @@ export class ThreeVisualContext implements IVisualContext {
         }
 
         if (!path.includes(".")) {
-            material[path] = value instanceof Texture ? ThreeHelper.loadTexture(value, path) : value;
+            if (value instanceof Texture) {
+                this.setTexture(material, path, value);
+            } else {
+                material[path] = value;
+            }
             if (path === "opacity") {
                 material["transparent"] = value < 1;
             }
@@ -159,10 +191,21 @@ export class ThreeVisualContext implements IVisualContext {
         }
     };
 
+    /**
+     * Puts a texture into a material slot. A program compiles its map slots in — whether `USE_MAP`
+     * is defined is decided when it is built — so a material that had no map there keeps sampling
+     * nothing however often the uniform is refreshed. Giving the slot a texture (or taking one
+     * away) therefore has to rebuild the program, which is what `needsUpdate` asks for.
+     */
+    private setTexture(threeMaterial: any, slot: string, texture: Texture) {
+        threeMaterial[slot] = ThreeHelper.loadTexture(texture, slot);
+        threeMaterial.needsUpdate = true;
+    }
+
     private setTextureValue(material: any, threeMaterial: any, path: string, value: any) {
         const paths = path.split(".");
         if (path.endsWith(".image") && material[paths[0]] instanceof Texture && paths[0] in threeMaterial) {
-            threeMaterial[paths[0]] = ThreeHelper.loadTexture(material[paths[0]], paths[0]);
+            this.setTexture(threeMaterial, paths[0], material[paths[0]]);
             return;
         }
 

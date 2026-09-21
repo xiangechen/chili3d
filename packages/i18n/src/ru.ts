@@ -260,6 +260,7 @@ export default {
         "material.emissive": "Свечение",
         "material.emissiveIntensity": "Интенсивность свечения",
         "material.emissiveMap": "Карта свечения",
+        "material.envMapIntensity": "Интенсивность отражения",
         "material.map": "Карта",
         "material.metalness": "Металлизация",
         "material.metalnessMap": "Карта металлизации",

@@ -98,26 +98,26 @@ export interface MaterialPreset {
     readonly roughness: number;
     readonly metalness: number;
     readonly opacity?: number;
+    readonly envMapIntensity?: number;
 }
 
 export const MaterialPresets: readonly MaterialPreset[] = [
     { name: "Matte Plastic", color: 0xdedede, roughness: 0.85, metalness: 0 },
     { name: "Satin Plastic", color: 0xdedede, roughness: 0.45, metalness: 0 },
-    // A mirror-smooth metal has only the room to reflect and comes out nearly black against it,
-    // so this is brushed enough to gather light from every direction and still read as metal.
-    { name: "Metal", color: 0xffffff, roughness: 0.35, metalness: 1 },
+    // A metal is lit by the room alone, so at the default level its dark faces read dull; asking
+    // for more reflection brightens this surface and nothing else, which is what a grey body would
+    // have paid for if the room itself were turned up.
+    { name: "Metal", color: 0xffffff, roughness: 0.5, metalness: 1, envMapIntensity: 1.1 },
     // As close to glass as this material model reaches: shiny and see-through by opacity. There is
     // no transmission or IOR, so it reads as tinted glass rather than refracting like it.
-    { name: "Glass", color: 0xeaf4f7, roughness: 0.05, metalness: 0, opacity: 0.3 },
+    { name: "Glass", color: 0xeaf4f7, roughness: 0.05, metalness: 0.1, opacity: 0.3 },
 ];
 /**
  * The document's one material — a physically based (metalness/roughness) surface, mirroring
  * the core of three.js `MeshPhysicalMaterial`. Every node and every face references one by id,
  * and each property maps onto the same-named three.js one; the ones with a `Map` companion take
  * a `Texture` slot. Properties three.js needs but a document has no source for (iridescence,
- * sheen, transmission, …) are deliberately absent, and so is `envMapIntensity`: the environment
- * is the scene's, and three overwrites a material's own intensity with the scene's while the
- * environment comes from there, so the control would do nothing.
+ * sheen, transmission, …) are deliberately absent.
  */
 @serializable()
 export class Material extends HistoryObservable {
@@ -125,6 +125,8 @@ export class Material extends HistoryObservable {
      *  neutral plastic the CG side settled on (three.js defaults to fully rough, Blender to 0.5). */
     static readonly DefaultRoughness = 0.5;
     static readonly DefaultMetalness = 0;
+    /** 1 = the amount of reflection the rest of the viewport gets. */
+    static readonly DefaultEnvMapIntensity = 0.3;
 
     @serialize()
     readonly id: string;
@@ -154,6 +156,21 @@ export class Material extends HistoryObservable {
     }
     set opacity(value: number) {
         this.setProperty("opacity", value);
+    }
+
+    /**
+     * How much of the studio environment this surface reflects — a weight, the way Onshape's
+     * appearances carry one. What a new material starts with is `Material.DefaultEnvMapIntensity`;
+     * a surface that should stand out asks for more, which is what a metal needs, having no
+     * diffuse term and the environment as its only light.
+     */
+    @serialize()
+    @property("material.envMapIntensity")
+    get envMapIntensity(): number {
+        return this.getPrivateValue("envMapIntensity", Material.DefaultEnvMapIntensity);
+    }
+    set envMapIntensity(value: number) {
+        this.setProperty("envMapIntensity", value);
     }
 
     @serialize()
@@ -281,6 +298,7 @@ export class Material extends HistoryObservable {
         material.roughness = preset.roughness;
         material.metalness = preset.metalness;
         if (preset.opacity !== undefined) material.opacity = preset.opacity;
+        if (preset.envMapIntensity !== undefined) material.envMapIntensity = preset.envMapIntensity;
 
         return material;
     }

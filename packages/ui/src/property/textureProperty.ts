@@ -53,6 +53,9 @@ export class TextureProperty extends Expander {
 
     private readonly selectTexture = async () => {
         const file = await readFileAsync(".png, .jpg, .jpeg", false, "readAsDataURL");
+        // A cancelled dialog and a file that cannot be read both come back as an error Result:
+        // there is no image to assign, so the texture stays as it is.
+        if (!file.isOk) return;
         this.texture.image = file.value[0].data;
     };
 }
