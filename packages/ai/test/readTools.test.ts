@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { EditableShapeNode, type IShape, ShapeTypes } from "@chili3d/core";
 import { createMockApplication, createMockDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { buildReadTools, documentSnapshot } from "../src/tools/readTools";
@@ -33,6 +34,40 @@ describe("readTools", () => {
             expect(result.hasActiveDocument).toBe(true);
             expect(result.name).toBe("part");
             expect(result.nodes).toEqual([{ id: "a", type: "BoxNode", name: "box" }]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    // shapeKind is what decides which shape queries apply to a node: a body, a boolean result and
+    // an import are compounds, and a model that cannot see that writes a solid query against one.
+    test("get_document_state reports a shape node's kind and nothing for a shape-less node", async () => {
+        const doc = createMockDocument({ name: "part" });
+        const body = new EditableShapeNode({
+            document: doc,
+            name: "Body",
+            id: "b1",
+            shape: { shapeType: ShapeTypes.compound } as unknown as IShape,
+        });
+        const folder = { id: "f1", name: "Parts", constructor: { name: "FolderNode" } };
+        (doc.modelManager as any).findNodes = rs.fn(() => [folder, body]);
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+        try {
+            const tool = buildReadTools().find((t) => t.name === "get_document_state")!;
+            const result = JSON.parse((await tool.handler({})) as string);
+
+            expect(result.nodes[0]).toEqual({ id: "f1", type: "FolderNode", name: "Parts" });
+            // Absent, not undefined: a folder holds no shape, and the key says so by not being there.
+            expect(Object.keys(result.nodes[0])).toEqual(["id", "type", "name"]);
+            expect(result.nodes[1]).toEqual({
+                id: "b1",
+                type: "EditableShapeNode",
+                name: "Body",
+                shapeKind: "compound",
+            });
         } finally {
             rs.unstubAllGlobals();
         }

@@ -44,6 +44,14 @@ export interface IShape extends IDisposable {
     boundingBox(): BoundingBox;
     orientedBoundingBox(): OrientedBoundingBox;
     extremaDistance(other: IShape): number;
+    /**
+     * Whether `point` lies in this shape: inside it, or on it when `containsBoundary` is set. The
+     * reading follows the shape's own dimension — a solid's volume (a compound's: any of its solids),
+     * a face's region, an edge's curve within its parameter window, a wire's edges, a shell's faces,
+     * a vertex's own point. A kind with no interior answers the boundary reading only, so
+     * `containsBoundary` false is false for it.
+     */
+    containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean;
     checkShape(): boolean;
     checkFaces(): { index: number; isValid: boolean; status: string[] }[];
     fixShape(tolerance: number): IShape;
@@ -113,14 +121,11 @@ export interface IFace extends IShape {
               start: number;
               end: number;
           };
-    containsPoint(point: XYZLike, containsEdge: boolean, tolerance: number): boolean;
 }
 
 export interface IShell extends IShape {}
 
-export interface ISolid extends IShape {
-    containsPoint(point: XYZLike, containsSurface: boolean, tolerance: number): boolean;
-}
+export interface ISolid extends IShape {}
 
 export interface ICompound extends IShape {}
 

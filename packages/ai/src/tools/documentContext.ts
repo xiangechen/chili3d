@@ -1,7 +1,27 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type IDocument, type INode } from "@chili3d/core";
+import { I18n, type IDocument, type INode, ShapeNode, ShapeTypes, ShapeTypeUtils } from "@chili3d/core";
+
+/** The kind names a node can report, lower-cased to match what `shape.shapeType` answers with. */
+const SHAPE_KINDS = new Set(
+    Object.values(ShapeTypes).map((type) => ShapeTypeUtils.stringValue(type).toLowerCase()),
+);
+
+/**
+ * The kind of shape a node holds — "solid", "compound", … — or nothing when it holds no shape.
+ * A body of several features, a boolean result and an import are compounds, which is the one thing
+ * about a node that decides which shape queries apply to it; a model reading a node list without it
+ * has only the node class name to go on, and writes a solid query against a compound.
+ *
+ * Read off what has already been computed: a `ParameterShapeNode` evaluates through its `shape`
+ * getter, and listing a document is no reason to rebuild a body nobody is looking at.
+ */
+export function shapeKindOf(node: INode): string | undefined {
+    if (!(node instanceof ShapeNode)) return undefined;
+    const kind = node.shapeType.toLowerCase();
+    return SHAPE_KINDS.has(kind) ? kind : undefined;
+}
 
 /**
  * The active document, or undefined when none is open. `globalThis.app` is a core getter that

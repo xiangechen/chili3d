@@ -3,12 +3,19 @@
 
 import type { IDocument, INode } from "@chili3d/core";
 import type { Tool } from "../llm/types";
-import { getDocument } from "./documentContext";
+import { getDocument, shapeKindOf } from "./documentContext";
 
 function summarizeNode(node: INode) {
     // parentId is what makes the tree legible: a FolderNode's children share its id, and a
     // node moved by create_folder/move_nodes stays present here with its parent changed.
-    return { id: node.id, type: node.constructor.name, name: node.name, parentId: node.parent?.id };
+    // shapeKind is what says which shape queries apply to it (see documentContext.shapeKindOf).
+    return {
+        id: node.id,
+        type: node.constructor.name,
+        name: node.name,
+        parentId: node.parent?.id,
+        shapeKind: shapeKindOf(node),
+    };
 }
 
 function documentSummary(doc: IDocument) {
@@ -45,7 +52,7 @@ export function buildReadTools(): Tool[] {
         {
             name: "get_document_state",
             description:
-                "Read the current document: whether there is an active document, its name, node count, and each node's id/type/name/parentId. Nodes of type FolderNode are the groups; a node's parentId is the folder holding it.",
+                "Read the current document: whether there is an active document, its name, node count, and each node's id/type/name/parentId/shapeKind. Nodes of type FolderNode are the groups; a node's parentId is the folder holding it. shapeKind is the kind of shape the node holds (a compound is a body of several features, a boolean result or an import) — the shape-query skill's compound.* and solid.* sections say which queries each kind takes.",
             parameters: { type: "object", properties: {} },
             handler: readDocumentState,
         },

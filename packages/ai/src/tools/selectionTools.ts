@@ -11,7 +11,7 @@ import {
     VisualStates,
 } from "@chili3d/core";
 import type { Tool } from "../llm/types";
-import { findNode, getDocument } from "./documentContext";
+import { findNode, getDocument, shapeKindOf } from "./documentContext";
 import { imageResult } from "./viewTools";
 
 const PICKABLE_SHAPE_TYPES = ["shape", "solid", "shell", "face", "wire", "edge", "vertex"] as const;
@@ -49,7 +49,14 @@ function summarizeShape(s: VisualShapeData) {
 }
 
 function summarizeNode(node: INode) {
-    return { id: node.id, type: node.constructor.name, name: node.name };
+    // shapeKind with the id: the selected node is what a query is usually aimed at, and whether it
+    // is a solid or a compound decides which shape query takes it (see documentContext.shapeKindOf).
+    return {
+        id: node.id,
+        type: node.constructor.name,
+        name: node.name,
+        shapeKind: shapeKindOf(node),
+    };
 }
 
 const CLICK_VIEW_PARAMETERS = {

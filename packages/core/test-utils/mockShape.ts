@@ -89,6 +89,10 @@ export class MockShape implements IShape {
         return 0;
     }
 
+    containsPoint(_point: XYZLike, _containsBoundary: boolean, _tolerance: number): boolean {
+        return false;
+    }
+
     boundingBox(): BoundingBox {
         throw new Error("Method not implemented.");
     }

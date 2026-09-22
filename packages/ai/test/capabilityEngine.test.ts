@@ -573,6 +573,73 @@ describe("capabilityEngine", () => {
             }
         });
 
+        test("shape.containsPoint takes a compound target, with no owner to match", async () => {
+            // The shape family is asked of a shape of any kind, so a body — a compound — is a
+            // target like any other, and the reading of the point is the compound's own.
+            const containsPoint = rs.fn(
+                (_point: XYZ, _containsBoundary: boolean, _tolerance: number) => true,
+            );
+            const compound = { shapeType: ShapeTypes.compound, containsPoint };
+            const box = rs.fn(() => Result.ok({ shapeType: ShapeTypes.solid } as unknown as IShape));
+            const combine = rs.fn(() => Result.ok(compound as unknown as IShape));
+            setup({ box, combine });
+            try {
+                const result = await run([
+                    { id: "a", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                    { id: "c", method: "combine", args: { shapes: ["a"] } },
+                    {
+                        id: "p",
+                        method: "shape.containsPoint",
+                        target: "c",
+                        args: { point: { x: 5, y: 0, z: 0 }, containsBoundary: false, tolerance: 0.1 },
+                    },
+                ]);
+
+                expect(result.results.p).toBe(true);
+                // The arguments reach the shape, and the query creates no node of its own.
+                expect(containsPoint.mock.calls[0][0].x).toBe(5);
+                expect(containsPoint.mock.calls[0][1]).toBe(false);
+                expect(containsPoint.mock.calls[0][2]).toBe(0.1);
+                expect(result.created.length).toBe(2);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("a method under the wrong owner names the one that exists", async () => {
+            const box = rs.fn(() =>
+                Result.ok({
+                    shapeType: ShapeTypes.solid,
+                    containsPoint: (_p: XYZ, _b: boolean, _t: number) => true,
+                } as unknown as IShape),
+            );
+            setup({ box });
+            try {
+                const tool = buildCapabilityTools()[0];
+                await expect(
+                    tool.handler({
+                        ops: [
+                            { id: "a", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                            {
+                                id: "p",
+                                method: "solid.containsPoint",
+                                target: "a",
+                                args: {
+                                    point: { x: 5, y: 0, z: 0 },
+                                    containsBoundary: false,
+                                    tolerance: 0.1,
+                                },
+                            },
+                        ],
+                    }),
+                ).rejects.toThrow(
+                    'unknown method "solid.containsPoint" — shape.containsPoint is the query by that name',
+                );
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
         test("findSubShapes registers sub-shape refs usable as later targets", async () => {
             const area = rs.fn(() => 200);
             const face = { shapeType: ShapeTypes.face, area };

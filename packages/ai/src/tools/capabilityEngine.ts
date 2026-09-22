@@ -579,10 +579,15 @@ function checkQueryOwner(cap: QueryCapability, entry: LocalRef): void {
         const required = ShapeTypes[cap.owner as keyof typeof ShapeTypes];
         const actual = (entry.value as IShape).shapeType;
         if (actual !== required) {
-            const name = Object.keys(ShapeTypes).find(
-                (k) => ShapeTypes[k as keyof typeof ShapeTypes] === actual,
+            const name = nameOfShapeType(actual);
+            // A target is usually the kind the model cannot see — a body is a compound, not a solid —
+            // so name the query that does fit it whenever one exists, rather than leaving the
+            // mismatch to be guessed at. Silence when there is none: the owner is the only answer.
+            const fits = queryCapabilities.some((q) => q.owner === name && q.name === cap.name);
+            throw new Error(
+                `${cap.method} requires a ${cap.owner} target, got ${name}` +
+                    (fits ? ` — ${name}.${cap.name} is the one that answers a ${name}` : ""),
             );
-            throw new Error(`${cap.method} requires a ${cap.owner} target, got ${name ?? actual}`);
         }
     }
 }
@@ -1018,8 +1023,14 @@ function runQueryOp(
 ): void {
     const query = queryCapabilities.find((c) => c.method === op.method);
     if (!query) {
+        // A member the model knows under another owner — solid.containsPoint, where shape owns it —
+        // is a name it can be handed, rather than left to search the catalog for.
+        const bare = op.method.split(".").pop();
+        const moved = queryCapabilities.find((c) => c.name === bare)?.method;
         throw new Error(
-            `unknown method "${op.method}" — load_skill("modeling-api") lists the modeling methods and load_skill("shape-query") the query methods`,
+            `unknown method "${op.method}"` +
+                (moved ? ` — ${moved} is the query by that name` : "") +
+                ` — load_skill("modeling-api") lists the modeling methods and load_skill("shape-query") the query methods`,
         );
     }
     runQuery(query, op, doc, localRefs, results);

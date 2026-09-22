@@ -113,6 +113,10 @@ class TestPanelFace implements ISubShape {
     extremaDistance(other: IShape): number {
         throw new Error("Method not implemented.");
     }
+
+    containsPoint(_point: XYZLike, _containsBoundary: boolean, _tolerance: number): boolean {
+        throw new Error("Method not implemented.");
+    }
     checkShape(): boolean {
         throw new Error("Method not implemented.");
     }
@@ -236,6 +240,10 @@ class TestPanel implements IShape {
         throw new Error("Method not implemented.");
     }
     extremaDistance(other: IShape): number {
+        throw new Error("Method not implemented.");
+    }
+
+    containsPoint(_point: XYZLike, _containsBoundary: boolean, _tolerance: number): boolean {
         throw new Error("Method not implemented.");
     }
     checkShape(): boolean {

@@ -828,6 +828,107 @@ describe("OccSolid", () => {
 });
 
 // ============================================================================
+// containsPoint — one question, read by the shape's own kind
+// ============================================================================
+
+describe("containsPoint", () => {
+    /** Two 10mm boxes 5mm apart — a part of several solids, as a boolean or an import is. */
+    function twoBoxes() {
+        const near = unwrapOk(factory.box(Plane.XY, 10, 10, 10));
+        const offset = Plane.XY.translateTo(new XYZ({ x: 15, y: 0, z: 0 }));
+        const far = unwrapOk(factory.box(offset, 10, 10, 10));
+        return { near, part: unwrapOk(factory.combine([near, far])) };
+    }
+
+    test("a solid holds the points in its volume, its surface only when asked", () => {
+        const box = createBox(factory, 10, 10, 10);
+
+        expect(box.containsPoint({ x: 5, y: 5, z: 5 }, false, 1e-7)).toBe(true);
+        expect(box.containsPoint({ x: 5, y: 5, z: 0 }, false, 1e-7)).toBe(false);
+        expect(box.containsPoint({ x: 5, y: 5, z: 0 }, true, 1e-7)).toBe(true);
+        expect(box.containsPoint({ x: 15, y: 5, z: 5 }, true, 1e-7)).toBe(false);
+    });
+
+    test("a compound holds the points in any of its solids", () => {
+        const { near, part } = twoBoxes();
+
+        expect(part.shapeType).toBe(ShapeTypes.compound);
+        expect(part.containsPoint({ x: 5, y: 5, z: 5 }, false, 1e-7)).toBe(true);
+        // Inside the SECOND solid: against either solid alone the answer is false, which is why the
+        // part itself has to be the thing that answers.
+        expect(part.containsPoint({ x: 20, y: 5, z: 5 }, false, 1e-7)).toBe(true);
+        expect(near.containsPoint({ x: 20, y: 5, z: 5 }, false, 1e-7)).toBe(false);
+        // ...and the gap between them is outside the part, not inside it.
+        expect(part.containsPoint({ x: 12.5, y: 5, z: 5 }, false, 1e-7)).toBe(false);
+    });
+
+    test("a compound holding no solid holds nothing", () => {
+        const { part } = twoBoxes();
+        const faceOnly = unwrapOk(factory.combine([part.findSubShapes(ShapeTypes.face)[0]]));
+
+        expect(faceOnly.containsPoint({ x: 5, y: 5, z: 0 }, true, 1e-7)).toBe(false);
+    });
+
+    test("a face holds the points in its region, its edges only when asked", () => {
+        const box = createBox(factory, 10, 20, 30);
+        const bottom = (box.findSubShapes(ShapeTypes.face) as IFace[]).find(
+            (f) => f.normal(0.5, 0.5)[1].z === -1,
+        )!;
+
+        expect(bottom.containsPoint({ x: 5, y: 10, z: 0 }, false, 0.01)).toBe(true);
+        expect(bottom.containsPoint({ x: 50, y: 10, z: 0 }, false, 0.01)).toBe(false);
+        // (0, 0, 0) is a corner of that face: on its boundary, which the flag asks for.
+        expect(bottom.containsPoint({ x: 0, y: 0, z: 0 }, false, 0.01)).toBe(false);
+        expect(bottom.containsPoint({ x: 0, y: 0, z: 0 }, true, 0.01)).toBe(true);
+    });
+
+    test("an edge holds the points on its curve, within its own window", () => {
+        const box = createBox(factory, 10, 10, 10);
+        const edge = (box.findSubShapes(ShapeTypes.edge) as IEdge[]).find((e) => e.length() > 9.9)!;
+
+        // The midpoint of a 10mm edge, and its start point.
+        const middle = edge.pointAt((edge.firstParameter() + edge.lastParameter()) / 2);
+        expect(edge.containsPoint(middle, true, 0.01)).toBe(true);
+        expect(edge.containsPoint(edge.startPoint(), true, 0.01)).toBe(true);
+        // A vertex has no interior, so nothing is "inside" an edge.
+        expect(edge.containsPoint(middle, false, 0.01)).toBe(false);
+        // Off the curve entirely.
+        expect(edge.containsPoint({ x: 5, y: 5, z: 5 }, true, 0.01)).toBe(false);
+    });
+
+    test("a wire holds the points on any of its edges", () => {
+        const box = createBox(factory, 10, 10, 10);
+        const face = box.findSubShapes(ShapeTypes.face)[0] as OccFace;
+        const wire = face.outerWire();
+
+        const edge = wire.edgeLoop()[0];
+        const middle = edge.pointAt((edge.firstParameter() + edge.lastParameter()) / 2);
+        expect(wire.containsPoint(middle, true, 0.01)).toBe(true);
+        expect(wire.containsPoint(middle, false, 0.01)).toBe(false);
+        // The middle of the FACE the wire bounds is not on the wire itself.
+        expect(wire.containsPoint({ x: 5, y: 5, z: 0 }, true, 0.01)).toBe(false);
+    });
+
+    test("a shell holds the points on its faces", () => {
+        const box = createBox(factory, 10, 10, 10);
+        const shell = box.findSubShapes(ShapeTypes.shell)[0];
+
+        expect(shell.containsPoint({ x: 5, y: 5, z: 0 }, true, 1e-7)).toBe(true);
+        expect(shell.containsPoint({ x: 5, y: 5, z: 0 }, false, 1e-7)).toBe(false);
+        // The box's middle is inside the shell's volume, which is not what a shell is made of.
+        expect(shell.containsPoint({ x: 5, y: 5, z: 5 }, true, 1e-7)).toBe(false);
+    });
+
+    test("a vertex holds its own point", () => {
+        const vertex = unwrapOk(factory.point(new XYZ({ x: 3, y: 4, z: 5 })));
+
+        expect(vertex.containsPoint({ x: 3, y: 4, z: 5 }, true, 0.01)).toBe(true);
+        expect(vertex.containsPoint({ x: 3, y: 4, z: 5 }, false, 0.01)).toBe(false);
+        expect(vertex.containsPoint({ x: 3, y: 4, z: 5.5 }, true, 0.01)).toBe(false);
+    });
+});
+
+// ============================================================================
 // OccShape — shellSewing / hlr
 // ============================================================================
 

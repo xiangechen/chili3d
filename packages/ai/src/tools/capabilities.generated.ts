@@ -52,7 +52,6 @@ export type QueryOwner =
     | "edge"
     | "wire"
     | "face"
-    | "solid"
     | "curve"
     | "line"
     | "conic"
@@ -584,6 +583,18 @@ export const queryCapabilities: QueryCapability[] = [
         params: [{ name: "other", kind: "ref" }],
     },
     {
+        method: "shape.containsPoint",
+        name: "containsPoint",
+        owner: "shape",
+        family: "shape",
+        returnKind: "data",
+        params: [
+            { name: "point", kind: "xyz" },
+            { name: "containsBoundary", kind: "boolean" },
+            { name: "tolerance", kind: "number" },
+        ],
+    },
+    {
         method: "shape.checkShape",
         name: "checkShape",
         owner: "shape",
@@ -839,30 +850,6 @@ export const queryCapabilities: QueryCapability[] = [
         family: "shape",
         returnKind: "data",
         params: [{ name: "edge", kind: "ref" }],
-    },
-    {
-        method: "face.containsPoint",
-        name: "containsPoint",
-        owner: "face",
-        family: "shape",
-        returnKind: "data",
-        params: [
-            { name: "point", kind: "xyz" },
-            { name: "containsEdge", kind: "boolean" },
-            { name: "tolerance", kind: "number" },
-        ],
-    },
-    {
-        method: "solid.containsPoint",
-        name: "containsPoint",
-        owner: "solid",
-        family: "shape",
-        returnKind: "data",
-        params: [
-            { name: "point", kind: "xyz" },
-            { name: "containsSurface", kind: "boolean" },
-            { name: "tolerance", kind: "number" },
-        ],
     },
     {
         method: "curve.curveType",
@@ -1998,6 +1985,7 @@ export const queryApiDoc = `Shape query API (units: mm, angles: degrees — the 
 - kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} (XY-oriented through origin when normal is omitted) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid (the plural is accepted too, and shape.findSubShapes' subshapeType may be left out — it then means edge); ref/curveRef/surfaceRef take a ref string.
 - Type hierarchy: circle/ellipse/hyperbola/parabola are conic; conic/line/bezierCurve/bsplineCurve/trimmedCurve/offsetCurve are curve — curve.* and conic.* members apply to those targets too. Surfaces likewise: cylindricalSurface/planeSurface/sphericalSurface/... are elementarySurface, and every *Surface is a surface. Use curve.curveType to check what a curve ref actually is.
 - edge.curve ALWAYS yields a trimmedCurve (it carries the edge's parameter range), even for a straight or circular edge.
+- shape.containsPoint(target, point, containsBoundary, tolerance) asks whether the point lies in the shape, and reads it by the shape's own kind: a solid's volume — or, for the compound a body, a boolean result and an import all are (shape.shapeType reports it, and so does get_document_state's shapeKind), any of the solids it holds — a face's region, an edge's curve within its parameter window, a wire's edges, a shell's faces, a vertex's own point. containsBoundary says whether a point ON the boundary counts (a solid's surface, a face's own edges); a kind with no interior (edge, wire, shell, vertex) answers false unless it is set. The individual solids a compound is built from are shape.findSubShapes(target, solid) — those refs (q1#0) are what the solid, face and edge families take.
 - Auto-derivation: curve-family queries accept an edge shape ref directly (edge.curve is applied for you), and surface-family queries accept a face shape ref (face.surface). Type-specific curve members (circle.radius, line.direction, ...) additionally unwrap a trimmedCurve to its basisCurve, so circle.radius works straight on an edge ref. curve.curveType is the exception — it reports the target's own type, so on an edge or trimmedCurve it says "trimmedCurve"; chain trimmedCurve.basisCurve (callable on an edge ref too) to classify the underlying curve. Mutation queries (curve.reverse, trimmedCurve.setTrim) are strict: they need an explicit curve ref from edge.curve.
 - curve/surface refs come from edge.curve and face.surface; sub-shape refs from shape.findSubShapes / wire.edgeLoop. A face's SURFACE (face.surface → plane/cylinder/...) is NOT its boundary curve: to inspect the edges bounding a face (e.g. the circular rim of a cylinder's top face), run shape.findSubShapes with subshapeType=edge on the face or solid, then edge.curve on the edge refs.
 
@@ -2022,6 +2010,7 @@ shape.* (target must be a shape):
   shape.boundingBox(target) -> BoundingBox
   shape.orientedBoundingBox(target) -> OrientedBoundingBox
   shape.extremaDistance(target, other: ref) -> number
+  shape.containsPoint(target, point: xyz, containsBoundary: boolean, tolerance: number) -> boolean
   shape.checkShape(target) -> boolean
   shape.checkFaces(target) -> { index: number; isValid: boolean; status: string[]; }[]
   shape.fixShape(target, tolerance: number) -> shape ref (registered under the op id)
@@ -2062,10 +2051,6 @@ face.* (target must be a face):
   face.surface(target) -> surface ref (registered under the op id)
   face.intersectLine(target, point: xyz, direction: xyz, tolerance: number?) -> XYZ | undefined
   face.segmentsOfEdgeOnFace(target, edge: ref) -> { start: number; end: number; } | undefined
-  face.containsPoint(target, point: xyz, containsEdge: boolean, tolerance: number) -> boolean
-
-solid.* (target must be a solid):
-  solid.containsPoint(target, point: xyz, containsSurface: boolean, tolerance: number) -> boolean
 
 curve.* (target must be a curve (or a subtype of it)):
   curve.curveType(target) -> "line" | "circle" | "ellipse" | "hyperbola" | "parabola" | "bezierCurve" | "bsplineCurve" | "offsetCurve" | "otherCurve" | "trimmedCurve"
