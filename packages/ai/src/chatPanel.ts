@@ -70,6 +70,16 @@ const CONTEXT_BUDGET_RATIO = 0.8;
 const FOLLOW_BOTTOM_SLACK = 32;
 
 /**
+ * How much reasoning the streaming block holds in the DOM, and how much of the tail it keeps once
+ * past that. The block is a fixed-height window on a train of thought that runs to hundreds of
+ * kilobytes, and the browser lays out every line of it in the frame that draws into it — so what
+ * the block holds is bounded, and the rest is written back when the block folds (see
+ * `closeThinking`), where a hidden block costs no layout at all.
+ */
+const THINKING_DOM_LIMIT = 32_000;
+const THINKING_DOM_TAIL = 16_000;
+
+/**
  * Tool result handed back when a question is abandoned rather than answered. Protocol text, like
  * the error strings in tools/documentContext.ts — not UI copy, so it stays out of i18n.
  */
@@ -78,6 +88,22 @@ const ASK_INTERRUPTED =
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Whether a scroller sits at its end — the rule the transcript and the reasoning box both follow. */
+function atScrollEnd(scroller: HTMLElement): boolean {
+    const { scrollTop, scrollHeight, clientHeight } = scroller;
+    return scrollHeight - scrollTop - clientHeight <= FOLLOW_BOTTOM_SLACK;
+}
+
+/**
+ * Put a scroller at its end, and report where it actually landed. The write clamps against the
+ * scrollable range, so the value has to be read back — and that value is what tells the scroller's
+ * echo of this write apart from the reader moving it themselves.
+ */
+function pinToEnd(scroller: HTMLElement): number {
+    scroller.scrollTop = scroller.scrollHeight;
+    return scroller.scrollTop;
 }
 
 marked.use({
@@ -141,9 +167,18 @@ interface StreamState {
     block: HTMLElement | null;
     /** That paragraph's own text, reset each time a tool call or question closes it. */
     blockText: string;
+    /** What `block` was last drawn from, so a frame with nothing new in it draws nothing. */
+    blockRendered: string;
     /** The reasoning block streaming right now, until text or a tool call closes it. */
     thinking: HTMLElement | null;
     thinkingText: string;
+    /** That block's body, and the text node its deltas are appended to. */
+    thinkingBody: HTMLElement | null;
+    thinkingNode: Text | null;
+    /** Whether the reasoning box is being carried along, until the reader scrolls it away. */
+    thinkingFollowing: boolean;
+    /** The `scrollTop` this panel last wrote into that box, to tell its echo from the reader's. */
+    thinkingMark: number;
     /** When that reasoning block opened, for the "thought for Ns" summary. */
     thinkingStartedAt: number;
     /** The whole turn's text, across every paragraph — what the copy button and the record hold. */
@@ -292,6 +327,8 @@ export class ChatPanel extends HTMLElement {
     /** The waiting indicator, up until the turn produces its first visible part. */
     private thinkingEl?: HTMLElement;
     private stream?: StreamState;
+    /** The frame a stream's pending draw is waiting on, if one is queued. See `scheduleFlush`. */
+    private flushHandle?: number;
     /** Settles the question card currently waiting on the user, if one is up. */
     private settleAsk?: (answer: string, recorded?: string) => void;
     /**
@@ -1021,8 +1058,13 @@ export class ChatPanel extends HTMLElement {
         this.stream = {
             block: null,
             blockText: "",
+            blockRendered: "",
             thinking: null,
             thinkingText: "",
+            thinkingBody: null,
+            thinkingNode: null,
+            thinkingFollowing: true,
+            thinkingMark: 0,
             thinkingStartedAt: 0,
             raw: "",
         };
@@ -1102,6 +1144,7 @@ export class ChatPanel extends HTMLElement {
 
     /** Drop everything the turn in flight was holding, and hand the panel back to idle. */
     private clearTurnState(): void {
+        this.cancelFlush();
         this.turnParts = [];
         this.turnUsage = undefined;
         this.turnConversation = undefined;
@@ -1190,13 +1233,13 @@ export class ChatPanel extends HTMLElement {
             // The reply starting is what ends the reasoning that led to it.
             this.sealStream();
             stream.block = div({ className: style.markdown });
+            stream.blockRendered = "";
             assistantEl.append(stream.block);
             this.showThinking();
         }
         stream.blockText += t;
         stream.raw += t;
-        stream.block.innerHTML = renderMarkdown(stream.blockText);
-        this.followBottom();
+        this.scheduleFlush();
     }
 
     /**
@@ -1208,30 +1251,89 @@ export class ChatPanel extends HTMLElement {
         const stream = this.stream;
         const assistantEl = this.activeAssistantEl;
         if (!stream || !assistantEl) return;
-        if (!stream.thinking) {
-            stream.thinking = this.buildThinkingBlock(I18n.translate("ai.thinking"), "");
+        let node = stream.thinkingNode;
+        if (!node) {
+            node = document.createTextNode("");
+            const body = div({ className: style.thinkingBody }, node);
+            stream.thinking = this.buildThinkingBlock(I18n.translate("ai.thinking"), body);
             // Open while it streams: the point is watching the model work.
             stream.thinking.classList.add(style.open);
             stream.thinkingText = "";
+            stream.thinkingBody = body;
+            stream.thinkingNode = node;
+            stream.thinkingFollowing = true;
+            stream.thinkingMark = 0;
             stream.thinkingStartedAt = Date.now();
+            body.addEventListener("scroll", () => this.onThinkingScrolled(body));
             assistantEl.append(stream.thinking);
             this.showThinking();
         }
         stream.thinkingText += text;
-        const body = stream.thinking.querySelector(`.${style.thinkingBody}`);
-        if (body) {
-            body.textContent = stream.thinkingText;
-            // The block is capped in height and scrolls inside itself, so carrying the reader
-            // along means carrying this too — the newest reasoning is the part being written.
-            if (this.following) body.scrollTop = body.scrollHeight;
+        // Appended to the block's own text node rather than rewriting the whole body: a train of
+        // thought runs to tens of kilobytes, and copying it per token is work the page pays again
+        // for every one of them.
+        node.appendData(text);
+        // Trimmed a chunk at a time rather than a character at a time, so it is amortized: the box
+        // is a fixed-height window, and only the tail of it can be on screen anyway.
+        if (node.length > THINKING_DOM_LIMIT) node.deleteData(0, node.length - THINKING_DOM_TAIL);
+        this.scheduleFlush();
+    }
+
+    /** The reasoning box's own follow rule, told apart from this panel's own scroll of it. */
+    private onThinkingScrolled(body: HTMLElement) {
+        const stream = this.stream;
+        if (!stream || body.scrollTop === stream.thinkingMark) return;
+        stream.thinkingFollowing = atScrollEnd(body);
+    }
+
+    /**
+     * Queue the draw of whatever has streamed in since the last one. Deltas arrive tens to
+     * hundreds of times a second, and each one used to redraw its paragraph and re-scroll the
+     * transcript on the spot — a measure-and-lay-out per token, over a transcript that only grows
+     * as the conversation does. Coalescing them onto a frame draws each paragraph at most once per
+     * frame, whatever the model's token rate.
+     */
+    private scheduleFlush() {
+        this.flushHandle ??= requestAnimationFrame(this.onFlushFrame);
+    }
+
+    private readonly onFlushFrame = () => {
+        this.flushHandle = undefined;
+        this.renderStreamed();
+    };
+
+    /**
+     * Draw the streaming turn: the paragraph's markdown, and the reasoning block's own autoscroll.
+     * Every path that closes a block comes through here first, so a sealed block is never left a
+     * frame behind the text its record already carries.
+     */
+    private renderStreamed() {
+        this.cancelFlush();
+        const stream = this.stream;
+        if (!stream) return;
+        if (stream.block && stream.blockText !== stream.blockRendered) {
+            stream.block.innerHTML = renderMarkdown(stream.blockText);
+            stream.blockRendered = stream.blockText;
+        }
+        // The reasoning block is capped in height and scrolls inside itself, so carrying the
+        // reader along means carrying this too — the newest reasoning is the part being written.
+        // Its own follow, not the transcript's alone: a reader who scrolled up inside the box is
+        // reading it, and the transcript being at the bottom says nothing about that.
+        if (stream.thinkingBody && this.following && stream.thinkingFollowing) {
+            stream.thinkingMark = pinToEnd(stream.thinkingBody);
         }
         this.followBottom();
     }
 
+    private cancelFlush() {
+        if (this.flushHandle === undefined) return;
+        cancelAnimationFrame(this.flushHandle);
+        this.flushHandle = undefined;
+    }
+
     /** A folded reasoning block; the caller opens it if it is the one streaming right now. */
-    private buildThinkingBlock(summaryText: string, bodyText: string): HTMLElement {
+    private buildThinkingBlock(summaryText: string, body: HTMLElement): HTMLElement {
         const summary = span({ className: style.thinkingSummary, textContent: summaryText });
-        const body = div({ className: style.thinkingBody, textContent: bodyText });
         const root = div(
             { className: style.thinkingBlock },
             button(
@@ -1250,7 +1352,7 @@ export class ChatPanel extends HTMLElement {
             part.ms === undefined
                 ? I18n.translate("ai.thinking")
                 : I18n.translate("ai.thoughtFor", `${Math.round(part.ms / 1000)}s`),
-            part.text,
+            div({ className: style.thinkingBody, textContent: part.text }),
         );
     }
 
@@ -1262,9 +1364,15 @@ export class ChatPanel extends HTMLElement {
         const summary = stream.thinking.querySelector(`.${style.thinkingSummary}`);
         if (summary) summary.textContent = I18n.translate("ai.thoughtFor", `${Math.round(ms / 1000)}s`);
         stream.thinking.classList.remove(style.open);
+        // Folded first: hidden, the block lays none of this out, and what the streaming window
+        // trimmed off comes back — expanding it shows the whole of the reasoning, as a reopened
+        // conversation always did.
+        if (stream.thinkingBody) stream.thinkingBody.textContent = stream.thinkingText;
         this.turnParts.push({ type: "thinking", text: stream.thinkingText, ms });
         stream.thinking = null;
         stream.thinkingText = "";
+        stream.thinkingBody = null;
+        stream.thinkingNode = null;
     }
 
     /**
@@ -1273,6 +1381,9 @@ export class ChatPanel extends HTMLElement {
      * the recorded parts alike.
      */
     private sealStream() {
+        // Whatever is still pending belongs to the block being sealed, so it is drawn into it
+        // rather than left to land in whatever comes next.
+        this.renderStreamed();
         this.closeThinking();
         this.closeParagraph();
     }
@@ -1283,16 +1394,19 @@ export class ChatPanel extends HTMLElement {
         this.turnParts.push({ type: "text", text: stream.blockText });
         stream.block = null;
         stream.blockText = "";
+        stream.blockRendered = "";
     }
 
     /** Throw away the half-written paragraph a crashed turn left, so the retry starts clean. */
     private discardParagraph() {
         const stream = this.stream;
         if (!stream?.block) return;
+        this.cancelFlush();
         stream.raw = stream.raw.slice(0, stream.raw.length - stream.blockText.length);
         stream.block.remove();
         stream.block = null;
         stream.blockText = "";
+        stream.blockRendered = "";
     }
 
     private clearThinking() {
@@ -1338,10 +1452,7 @@ export class ChatPanel extends HTMLElement {
 
     /** Put the reader at the bottom, and keep them there until they say otherwise. */
     private scrollToBottom() {
-        this.messageList.scrollTop = this.messageList.scrollHeight;
-        // Read back rather than assume: the write clamps against the scrollable range, and the echo
-        // that follows reports where the browser actually settled — the value this has to match.
-        this.followingMark = this.messageList.scrollTop;
+        this.followingMark = pinToEnd(this.messageList);
         this.following = true;
     }
 
@@ -1364,8 +1475,7 @@ export class ChatPanel extends HTMLElement {
      * after the last time they moved.
      */
     private isAtBottom(): boolean {
-        const { scrollTop, scrollHeight, clientHeight } = this.messageList;
-        return scrollHeight - scrollTop - clientHeight <= FOLLOW_BOTTOM_SLACK;
+        return atScrollEnd(this.messageList);
     }
 
     private interrupt() {

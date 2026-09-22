@@ -22,6 +22,7 @@ Browser-based parametric 3D CAD: OCCT C++ kernel compiled to WebAssembly, render
 web ──> builder ──> app ──> core
                   ──> i18n / three / wasm ──> core
                   ──> ui ──> core + element
+                  ──> ai ──> core
                   ──> parametric ──> core
 ```
 
@@ -32,6 +33,7 @@ web ──> builder ──> app ──> core
 - **`element`** — Custom reactive DOM elements (radio groups, expanders, data converters)
 - **`ui`** — App chrome: main window, ribbon, property panels, project tree, dialogs, toast, status bar
 - **`app`** — `Application`, body nodes (`bodys/`), command implementations, `CommandService`, `HotkeyService`
+- **`ai`** — The in-app assistant: the chat panel, the tools it acts through, the skills it loads on demand, and the capability engine that runs its `run_program` modeling ops
 - **`builder`** — `AppBuilder` fluent chain (`.useIndexedDB().useWasmOcc().useParametric().useThree().useUI().build()`), default ribbon layout; `mergeRibbonProfiles` merges module contributions (`SketchRibbonProfiles` from `@chili3d/parametric`, `ParametricRibbonProfiles`) into `DefaultRibbon`
 - **`i18n`** / **`storage`** / **`web`** — Locale data (en, zh-cn, pt-br) / IndexedDB persistence / entry point (loading screen, `?plugin=`/`?url=`/`?model=` params)
 
@@ -52,7 +54,7 @@ OCCT v8.0.0 → `chili-wasm.wasm` via Emscripten. `cpp/src/`: `factory.cpp` (sha
 - **Undo/redo** — `Transaction` records snapshots, `History` keeps the stack; commands create transactions automatically.
 - **Plugins** — Loaded from URLs or `?plugin=`; manager in `core/src/plugin/` + `app/src/pluginManager.ts`; examples in `plugins/`.
 - **Global singleton** — `getCurrentApplication()` (from `core`) instead of DI threading.
-- **MCP server** — a separate package (`chili3d-mcp`, moved out of this repo): its `live_*` tools drive the user's open browser tab, and headless tools (`run_cad_program`, `render_preview`, …) are a server-side scratchpad. Units: millimetres; angles: degrees.
+- **AI ops** — the assistant's `run_program` ops are applied in one `Transaction` and land as `EditableShapeNode`s: a shape, never a body feature (`BoxNode`, `TextNode`, …). Features come from commands and the document, not from an op. Units: millimetres; angles: degrees.
 
 ## Testing
 
@@ -67,6 +69,7 @@ OCCT v8.0.0 → `chili-wasm.wasm` via Emscripten. `cpp/src/`: `factory.cpp` (sha
 
 - Biome: 4-space indent, 110-col width, double quotes, semicolons always
 - `I`-prefixed behavioral interfaces — plain data-carrier shapes stay unprefixed (`...Data`, `...Ref`, `...Options`, e.g. `SketchData`, `EdgeRef`); `camelCase` functions/variables/files; `PascalCase` classes; `UPPER_SNAKE_CASE` constants
+- Functions stay under ~30 lines unless there is a reason (a flat recipe often reads worse in pieces). Cut out the part that does something whole — a per-case translation, a per-item build — rather than by line count.
 - CSS Modules (`*.module.css`); type-only imports (`import type { IFoo }`)
 - Every TS file starts with the AGPL-3.0 header:
 

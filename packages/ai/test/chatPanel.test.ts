@@ -139,6 +139,12 @@ afterEach(() => {
 });
 
 /**
+ * Let the panel's frame-batched draw land. Streamed text is drawn once per animation frame rather
+ * than once per delta, so a delta's own assertion has to wait a frame — as a reader would.
+ */
+const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+
+/**
  * Stand in for the layout engine, which happy-dom does not have: `height` states how tall the
  * transcript is right now, and `scrollTop` clamps to the range that implies — as a browser does.
  * Without the clamp a scroll the panel asked for lands past the end, and the follow rule could not
@@ -498,11 +504,98 @@ describe("ChatPanel", () => {
         expect(block.querySelector(".thinkingBody")!.textContent).toBe("the user wants a box");
 
         callbacks.onTextDelta("Making it");
+        await nextFrame();
 
         expect(block.classList.contains("open")).toBe(false);
         expect(block.querySelector(".thinkingSummary")!.textContent).toBe("ai.thoughtFor");
         // The reply follows the reasoning it came out of.
         expect(panel.querySelector(".markdown")!.textContent?.trim()).toBe("Making it");
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("holds only the tail of a long train of thought while it streams, all of it once folded", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const document = createMockDocument();
+        const panel = new ChatPanel();
+        (panel as any).openDocument(document);
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        (panel as any).input.value = "make a box";
+        const sending = (panel as any).send();
+
+        // 120 x 400 characters — well past the 32k the streaming block holds.
+        const chunk = "推理".repeat(200);
+        for (let i = 0; i < 120; i++) callbacks.onThinkingDelta(chunk);
+
+        // What the block holds is the tail of it: the box is a fixed-height window, and dropping
+        // the head is what keeps the frame drawing into it from laying out the whole train.
+        const body = panel.querySelector(".thinkingBody") as HTMLElement;
+        expect(body.textContent!.length).toBeLessThan(chunk.length * 120);
+        expect(body.textContent!.endsWith(chunk)).toBe(true);
+
+        callbacks.onTextDelta("done");
+        agentMock.pending.shift()!.resolve();
+        await sending;
+
+        // Folded, it holds the whole of it again: hidden, the block lays out none of it, and a
+        // reader who expands it reads what a reopened conversation would replay.
+        expect(body.textContent!.length).toBe(chunk.length * 120);
+        expect(readConversations(document)[0].messages[1].parts).toEqual([
+            { type: "thinking", text: chunk.repeat(120), ms: expect.any(Number) },
+            { type: "text", text: "done" },
+        ]);
+    });
+
+    test("carries the reader down the reasoning box only while they are at its end", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        anyPanel.input.value = "make a box";
+        const sending = anyPanel.send();
+        callbacks.onThinkingDelta("weighing it up");
+        await nextFrame();
+
+        // happy-dom reports 0 for every scroll metric, which reads as "at the end" — so the box's
+        // geometry is stated outright, as the transcript's is in the follow tests.
+        const body = panel.querySelector(".thinkingBody") as HTMLElement;
+        Object.defineProperties(body, {
+            scrollTop: { value: 0, writable: true, configurable: true },
+            scrollHeight: { value: 900, configurable: true },
+            clientHeight: { value: 240, configurable: true },
+        });
+
+        // Scrolled up inside the box, where the transcript's own follow says nothing: the newest
+        // reasoning must not drag them back down under it.
+        body.scrollTop = 300;
+        body.dispatchEvent(new Event("scroll"));
+        callbacks.onThinkingDelta("still weighing");
+        await nextFrame();
+        expect(body.scrollTop).toBe(300);
+
+        // Back at its end — 900 - 240 = 660 — so the rest arrives under their eyes again.
+        body.scrollTop = 660;
+        body.dispatchEvent(new Event("scroll"));
+        callbacks.onThinkingDelta(" done");
+        await nextFrame();
+        expect(body.scrollTop).toBe(900);
 
         agentMock.pending.shift()!.resolve();
         await sending;
@@ -630,6 +723,7 @@ describe("ChatPanel", () => {
         // reader back down under it.
         scrollTo(300);
         callbacks.onTextDelta("still working");
+        await nextFrame();
         expect(list.scrollTop).toBe(300);
 
         callbacks.onToolCall({ name: "screenshot", arguments: "{}", result: "{}" });
@@ -639,6 +733,7 @@ describe("ChatPanel", () => {
         // under the reader's eyes again.
         scrollTo(800);
         callbacks.onTextDelta(" done");
+        await nextFrame();
         expect(list.scrollTop).toBe(1000);
 
         agentMock.pending.shift()!.resolve();
@@ -666,11 +761,59 @@ describe("ChatPanel", () => {
         anyPanel.input.value = "make a box";
         const sending = anyPanel.send();
         callbacks.onTextDelta("working");
+        await nextFrame();
         expect(list.scrollTop).toBe(bottom());
 
         callbacks.onToolCall({ name: "create_box", arguments: "{}", result: "{}" });
 
         expect(list.scrollTop).toBe(bottom());
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("draws a frame's worth of streamed text in one go, not once per delta", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+        // Counting the scroll writes stands in for counting the draws: every draw ends by carrying
+        // the reader down, and each of those measurements is what a delta used to cost.
+        const list = anyPanel.messageList as HTMLElement;
+        let scrolls = 0;
+        Object.defineProperties(list, {
+            scrollTop: { get: () => 0, set: () => scrolls++, configurable: true },
+            scrollHeight: { get: () => 1000, configurable: true },
+            clientHeight: { value: 200, configurable: true },
+        });
+
+        anyPanel.input.value = "make a box";
+        const sending = anyPanel.send();
+        callbacks.onTextDelta("开场");
+        await nextFrame();
+        const drawn = scrolls;
+
+        // A hundred tokens inside one frame: the paragraph they were added to is not redrawn and
+        // the transcript is not measured against it until the frame that closes them. Redrawing per
+        // delta made a long answer quadratic, and every one of those redraws measured a transcript
+        // that a long conversation had already made dear.
+        const tokens = Array.from({ length: 100 }, (_, i) => `第${i}段 `);
+        for (const token of tokens) callbacks.onTextDelta(token);
+
+        const markdown = panel.querySelector(".markdown") as HTMLElement;
+        expect(markdown.textContent?.trim()).toBe("开场");
+        expect(scrolls).toBe(drawn);
+
+        await nextFrame();
+        expect(markdown.textContent?.trim()).toBe(`开场${tokens.join("")}`.trim());
+        expect(scrolls).toBe(drawn + 1);
+
         agentMock.pending.shift()!.resolve();
         await sending;
     });
