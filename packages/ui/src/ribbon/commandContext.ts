@@ -22,6 +22,7 @@ import {
     PropertyUtils,
     PubSub,
     parseParameterValue,
+    Result,
     resolveUnitSpec,
     type Scope,
     type UnitSpec,
@@ -220,6 +221,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
         if (g.type === "materialId") {
             return this.materialEditor(g, noType);
+        } else if (g.type === "font") {
+            return this.fontEditor(g, noType);
         } else if (g.combobox) {
             return this.newCombobox(g, g.combobox);
         }
@@ -362,6 +365,31 @@ export class CommandContext extends HTMLElement implements IDisposable {
             className: style.button,
             textContent: new Localize(g.display),
             onclick: () => noType[g.name](),
+        });
+    }
+
+    /**
+     * The font row: a button that names the font in use and reopens the picker.
+     * Reading a font and laying text out again is the command's job, not the
+     * panel's, so the button only asks the command to do it.
+     *
+     * The name is bound rather than written once: picking a font sets the command's own
+     * property, which the button then follows — a panel built before the choice was made
+     * would go on naming the font it was built with. Nothing is named before there is a
+     * font, so the label stands in until there is.
+     */
+    private fontEditor(g: Property, noType: any) {
+        const name = () =>
+            new PathBinding(noType, g.name, {
+                convert: (value: string) => Result.ok(value || (I18n.translate(g.display) ?? "")),
+            });
+
+        return button({
+            className: style.materialButton,
+            textContent: name(),
+            // The strip cuts a long name short, so the whole of it stays on the button.
+            title: name(),
+            onclick: () => void noType.chooseFont?.(),
         });
     }
 

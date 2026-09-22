@@ -1,7 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, type IShape, Matrix4, Plane, Result, ShapeTypes } from "@chili3d/core";
+import {
+    BoundingBox,
+    FontCatalog,
+    type FontOutline,
+    type IShape,
+    Matrix4,
+    Plane,
+    Result,
+    rememberOutline,
+    ShapeTypes,
+    type XYZ,
+} from "@chili3d/core";
 import { createMockApplication, createMockDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { buildCapabilityTools, summarizeRefIds } from "../src/tools/capabilityEngine";
@@ -25,6 +36,7 @@ describe("capabilityEngine", () => {
         expect(methodEnum).toContain("curve.length");
         expect(methodEnum).toContain("surface.bounds");
         expect(methodEnum).toContain("transformedMul");
+        expect(methodEnum).toContain("text");
         expect(methodEnum).toContain("wire.toFace");
         expect(methodEnum).toContain("wire.offset");
         expect(methodEnum).toContain("face.outerWire");
@@ -1402,6 +1414,144 @@ describe("capabilityEngine", () => {
                         ],
                     }),
                 ).rejects.toThrow("circle.radius requires a circle curve, got line");
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+    });
+    describe("the text op", () => {
+        /** A font of one square glyph, so a line of it has faces without a real font file. */
+        function squareFont(): FontOutline {
+            return {
+                familyName: "Roboto",
+                unitsPerEm: 1000,
+                missingAdvance: 500,
+                glyph: (codePoint: number) =>
+                    codePoint === 0x41
+                        ? {
+                              advance: 600,
+                              contours: [
+                                  {
+                                      start: { x: 0, y: 0 },
+                                      segments: [
+                                          { kind: "line" as const, to: { x: 500, y: 0 } },
+                                          { kind: "line" as const, to: { x: 500, y: 700 } },
+                                          { kind: "line" as const, to: { x: 0, y: 700 } },
+                                          { kind: "line" as const, to: { x: 0, y: 0 } },
+                                      ],
+                                  },
+                              ],
+                          }
+                        : undefined,
+            };
+        }
+
+        /** A mock factory that answers every call, and the record of what the extrude was told. */
+        function stubFactory() {
+            const stub = () => Result.ok({ shapeType: ShapeTypes.solid } as unknown as IShape);
+            const prism = rs.fn((_shape: unknown, _vec: XYZ) => stub());
+            const factory = {
+                line: stub,
+                bezier: stub,
+                wire: stub,
+                face: stub,
+                combine: stub,
+                booleanFuse: stub,
+                prism,
+            };
+            return { factory, prism };
+        }
+
+        function stubScene(factory: Record<string, unknown>) {
+            const nodes: any[] = [];
+            const doc = createMockDocument();
+            (doc.modelManager as any).addNode = rs.fn((node: any) => {
+                nodes.push(node);
+                node.parent = { remove: () => nodes.splice(nodes.indexOf(node), 1) };
+            });
+            (doc.modelManager as any).findNodes = rs.fn((pred: (n: any) => boolean) => nodes.filter(pred));
+            (doc.visual as any).update = rs.fn(() => {});
+
+            const app = createMockApplication({ shapeProvider: { factory } as any });
+            (app as any).activeView = { document: doc };
+            rs.stubGlobal("app", app);
+            return nodes;
+        }
+
+        test("draws a line in a catalogue font, extruded by the depth it was given", async () => {
+            const { factory, prism } = stubFactory();
+            const nodes = stubScene(factory as any);
+            const roboto = FontCatalog.find((font) => font.family === "Roboto");
+            expect(roboto).not.toBeUndefined();
+            // In the session's memory, so nothing is fetched.
+            rememberOutline(roboto!.family, roboto!.url, squareFont());
+
+            try {
+                const result = JSON.parse(
+                    (await buildCapabilityTools()[0].handler({
+                        ops: [
+                            {
+                                id: "t",
+                                method: "text",
+                                name: "greeting",
+                                args: { text: "A", font: "Roboto", size: 20, depth: 5 },
+                            },
+                        ],
+                    })) as string,
+                );
+
+                expect(result.created.length).toBe(1);
+                expect(result.created[0].name).toBe("greeting");
+                expect(nodes.length).toBe(1);
+                expect(prism.mock.calls.length).toBe(1);
+                // The line stands on the XY plane, so it is extruded along that plane's normal.
+                expect(prism.mock.calls[0][1].z).toBeCloseTo(5, 6);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("stands the line on the plane it was given, extruding along that plane's normal", async () => {
+            const { factory, prism } = stubFactory();
+            stubScene(factory as any);
+            const roboto = FontCatalog[0];
+            rememberOutline(roboto.family, roboto.url, squareFont());
+
+            try {
+                await buildCapabilityTools()[0].handler({
+                    ops: [
+                        {
+                            method: "text",
+                            args: {
+                                text: "A",
+                                font: roboto.family,
+                                depth: 3,
+                                plane: { origin: { x: 0, y: 0, z: 0 }, normal: { x: 1, y: 0, z: 0 } },
+                            },
+                        },
+                    ],
+                });
+
+                expect(prism.mock.calls[0][1].x).toBeCloseTo(3, 6);
+                expect(prism.mock.calls[0][1].z).toBeCloseTo(0, 6);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("refuses a font the catalogue does not have, before anything is made", async () => {
+            const { factory } = stubFactory();
+            const nodes = stubScene(factory as any);
+
+            try {
+                await expect(
+                    buildCapabilityTools()[0].handler({
+                        ops: [{ method: "text", args: { text: "A", font: "Comic Sans MS" } }],
+                    }),
+                ).rejects.toThrow(/catalogue/);
+
+                // Nothing was created, and nothing was extruded.
+                expect(nodes.length).toBe(0);
             } finally {
                 rs.unstubAllGlobals();
             }

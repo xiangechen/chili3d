@@ -31,6 +31,18 @@
     }
 }
 
+/* The font row names a font, and a name can be long: in the strip, which is one line, the
+   button keeps the width the other buttons have rather than stretching the panel to fit the
+   name. Only the strip — a property panel has room for the whole name. */
+.panel .materialButton {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 12em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
 .panel::before {
     content: "";
     position: absolute;

@@ -2,7 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    cachedOutline,
+    DefaultFont,
     EditableShapeNode,
+    FontCatalog,
     I18n,
     type IDocument,
     type IEdge,
@@ -11,12 +14,14 @@ import {
     type IWire,
     Line,
     Matrix4,
+    outlineFor,
     Plane,
     Result,
     ShapeNode,
     type ShapeType,
     ShapeTypes,
     Transaction,
+    textSolid,
     XYZ,
 } from "@chili3d/core";
 import type { JsonSchema, Tool } from "../llm/types";
@@ -197,7 +202,7 @@ export const EDIT_METHODS: ReadonlySet<string> = new Set([
  * Creation-style ops handled by this engine directly rather than by IShapeFactory
  * (transformedMul lives on IShape). Listed in the run_program method enum.
  */
-export const EXTRA_OP_METHODS = ["transformedMul"] as const;
+export const EXTRA_OP_METHODS = ["transformedMul", "text"] as const;
 
 function activeDocument(): IDocument {
     const doc = globalThis.app.activeView?.document;
@@ -819,6 +824,10 @@ function recordSubShapeRefs(
 }
 
 async function runProgram(ops: Op[]): Promise<string> {
+    // What an op cannot wait for is read first: a font comes over the network, and the ops
+    // themselves run inside one synchronous transaction.
+    await resolveTextFonts(ops);
+
     const doc = activeDocument();
     const factory = globalThis.app.shapeProvider.factory;
     const localRefs = sessionRefs(doc);
@@ -908,6 +917,59 @@ function runTransformedMul(
     addCreatedNode(op, doc, localRefs, created, op.name ?? op.method, Result.ok(transformed));
 }
 
+/** The catalogue font an op names, or the default one; a name the catalogue does not have is an error. */
+function textFontOf(op: Op): { family: string; url: string } {
+    const named = op.args?.["font"];
+    const family = typeof named === "string" && named !== "" ? named : DefaultFont.family;
+    const font = FontCatalog.find((each) => each.family.toLowerCase() === family.toLowerCase());
+    if (font === undefined) {
+        const families = FontCatalog.map((each) => each.family).join(", ");
+        throw new Error(`text: no font named "${family}" — the catalogue has: ${families}`);
+    }
+    return font;
+}
+
+/** Read the fonts the program's text ops name, so the ops themselves can be synchronous. */
+async function resolveTextFonts(ops: readonly Op[]): Promise<void> {
+    for (const op of ops) {
+        if (op.method !== "text") continue;
+
+        const font = textFontOf(op);
+        const outline = await outlineFor(font.family, font.url);
+        if (!outline.isOk) throw new Error(`text: ${outline.error}`);
+    }
+}
+
+/**
+ * Derive op (not a factory method): a line of text as a solid, standing in a plane.
+ *
+ * The font is named rather than handed over — an op can only name one of the catalogue's
+ * families, since a font off somebody's disk is not something a name can point at.
+ */
+function runTextOp(op: Op, doc: IDocument, localRefs: Map<string, LocalRef>, created: CreatedNode[]): void {
+    const args = op.args ?? {};
+    const text = args["text"];
+    if (typeof text !== "string" || text === "") {
+        throw new Error("text requires args.text (the line to draw)");
+    }
+
+    const font = textFontOf(op);
+    const outline = cachedOutline(font.family, font.url);
+    if (outline === undefined) throw new Error(`text: the font "${font.family}" was not read`);
+
+    const size = args["size"];
+    const depth = args["depth"];
+    const shape = textSolid(outline, {
+        text,
+        size: typeof size === "number" ? size : 10,
+        depth: typeof depth === "number" ? depth : 2,
+        plane: coercePlane("plane", args["plane"] ?? {}),
+    });
+    if (!shape.isOk) throw new Error(shape.error);
+
+    addCreatedNode(op, doc, localRefs, created, op.name ?? text, Result.ok(shape.value));
+}
+
 /** Create the scene node for an op result, register its ref and report it as created. */
 function addCreatedNode(
     op: Op,
@@ -934,6 +996,10 @@ function runOp(
 ): void {
     if (op.method === "transformedMul") {
         runTransformedMul(op, doc, localRefs, created);
+        return;
+    }
+    if (op.method === "text") {
+        runTextOp(op, doc, localRefs, created);
         return;
     }
     const cap = shapeCapabilities.find((c) => c.method === op.method);

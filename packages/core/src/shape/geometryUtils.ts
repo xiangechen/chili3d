@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision, Result } from "../foundation";
-import { XYZ } from "../math";
+import { Plane, XYZ } from "../math";
 import { CurveUtils, type ICurve } from "./curve";
 import type { IEdge, IFace, IWire } from "./shape";
 import { ShapeTypes } from "./shapeType";
@@ -103,6 +103,20 @@ export class GeometryUtils {
             }
         }
         return Result.err("Cannot find next edge");
+    }
+
+    /**
+     * The plane a face lies in, anchored at the face's parameter origin. The x
+     * direction is world X where the face allows it and derived from world Z where
+     * it does not, so a horizontal face keeps the axes a drawing would expect.
+     */
+    static planeFromFace(face: IFace): Plane {
+        const [point, normal] = face.normal(0, 0);
+        let xvec = XYZ.unitX;
+        if (!normal.isParallelTo(XYZ.unitZ)) {
+            xvec = XYZ.unitZ.cross(normal).normalize() ?? XYZ.unitX;
+        }
+        return new Plane({ origin: point, normal, xvec });
     }
 
     static normal(shape: IFace | IWire | IEdge): XYZ {

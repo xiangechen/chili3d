@@ -33,6 +33,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         this.showTempShape(undefined);
         controller.onCancelled(() => this.handleCancel());
         controller.onCompleted(() => this.handleSuccess());
+        data.onPreviewReady?.(this.redrawPreview);
     }
 
     get snaped() {
@@ -207,6 +208,26 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
             ?.map((shape) => this.document.visual.context.displayMesh([shape], this.facePreviewOpion));
     }
 
+    /**
+     * Draw the preview again where the pointer last snapped to. This is the function
+     * `SnapData.onPreviewReady` is handed.
+     *
+     * What the preview is made of is the command's decision, and its parameters can be edited
+     * while the step is being picked — a line of text, a height, a font. Pointer movement is
+     * otherwise the only thing that redraws it, which would leave an edit showing nothing
+     * until the pointer happened to move next.
+     */
+    private readonly redrawPreview = () => {
+        // A caller is handed this function and may hold it past the step, so it has to be
+        // harmless then: drawing would leave temp shapes in the viewport that the cleanup
+        // the step already ran is not going to take away again.
+        if (this._state === "completed" || this._state === "cancelled") return;
+
+        this.removeTempShapes();
+        this.showTempShape(this._snaped?.point);
+        this.document.visual.update();
+    };
+
     private removeTempShapes() {
         if (this._tempPoint) {
             this.document.visual.context.removeMesh(this._tempPoint);
@@ -244,11 +265,7 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     keyDown(view: IView, event: KeyboardEvent): void {
-        this.data.onKeyDown?.(event, () => {
-            this.removeTempShapes();
-            this.showTempShape(this._snaped?.point);
-            view.document.visual.update();
-        });
+        this.data.onKeyDown?.(event);
 
         if (event.key === "Escape") {
             this._snaped = undefined;

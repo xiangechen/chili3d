@@ -8,6 +8,7 @@ export * from "./mathUtils";
 export * from "./matrix4";
 export * from "./plane";
 export * from "./planeAngle";
+export * from "./polygon";
 export * from "./quaternion";
 export * from "./ray";
 export * from "./xy";

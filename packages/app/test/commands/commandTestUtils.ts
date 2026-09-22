@@ -40,6 +40,8 @@ export interface SeedStepOptions {
     type?: SnapResult["type"];
     point?: XYZ;
     plane?: Plane | undefined;
+    /** What the snap landed on — a point snapped to a face reports that face. */
+    shapes?: VisualShapeData[];
 }
 
 /**
@@ -61,7 +63,7 @@ export function pointStepResult(opts: SeedStepOptions = {}): SnapResult {
         type: opts.type ?? "input",
         point: opts.point,
         plane: opts.plane,
-        shapes: [],
+        shapes: opts.shapes ?? [],
     };
 }
 
@@ -96,6 +98,7 @@ export function wireCommand<C>(cmd: C): { doc: IDocument; addedNodes: unknown[] 
             currentNode: undefined,
             rootNode: makeParent({ id: "root" }),
             materials: [{ id: "mat-default" }],
+            fonts: [],
         },
         visual: {
             update: rs.fn(),
@@ -146,9 +149,11 @@ export function seedStepDatas<C>(cmd: C, datas: SnapResult[]): void {
  * A fake IShape that satisfies the small slice node constructors and preview
  * callbacks touch: edgesMeshPosition / toFace / mesh.edges / dispose.
  */
-const fakeMesh = { edges: { type: "edges", positions: [], lineWidth: 0, color: 0 } };
+const fakeMesh = { edges: { type: "edges", position: new Float32Array(), lineWidth: 0, color: 0 } };
 const fakeShape = {
-    edgesMeshPosition: () => ({ type: "edges", positions: [] }),
+    // The field is `position`, as `EdgeMeshData` has it — a stub that renames it
+    // hides whatever the real one would have shown.
+    edgesMeshPosition: () => ({ type: "edges", position: new Float32Array() }),
     isClosed: () => true,
     isNull: () => false,
     toFace: () => Result.ok(fakeShape),

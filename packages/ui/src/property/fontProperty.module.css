@@ -1,0 +1,35 @@
+.root {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.font,
+.current,
+.add {
+    flex: 1 1 auto;
+    min-width: 72px;
+    font-size: 1rem;
+    padding: 4px;
+    outline: none;
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin: 0;
+
+    &:hover {
+        background-color: var(--hover-background-color);
+    }
+}
+
+.current {
+    border-color: var(--color);
+    font-weight: 600;
+}
+
+.add {
+    border-style: dashed;
+    opacity: 0.75;
+}

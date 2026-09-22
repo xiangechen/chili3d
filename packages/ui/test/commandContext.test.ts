@@ -45,6 +45,7 @@ const CMD_KEY = "test.context.command";
 const CANCEL_CMD_KEY = "test.context.cancelable";
 const MATERIAL_CMD_KEY = "test.context.material";
 const LENGTH_CMD_KEY = "test.context.length";
+const FONT_CMD_KEY = "test.context.font";
 
 class TestCommand extends Observable {
     async execute() {}
@@ -112,6 +113,22 @@ class TestCommand extends Observable {
     }
 }
 
+const FONT_LABEL = "test.font.select" as I18nKeys;
+
+/** A command with a font to name, which is a row the panel has to keep in step. */
+class FontCommand extends Observable {
+    async execute() {}
+
+    private _fontName = "";
+    @property(FONT_LABEL, { type: "font" })
+    get fontName() {
+        return this._fontName;
+    }
+    set fontName(value: string) {
+        this.setProperty("fontName", value);
+    }
+}
+
 class CancelableTestCommand extends Observable {
     async execute() {}
     cancel = rs.fn(async () => {});
@@ -157,6 +174,7 @@ describe("CommandContext", () => {
         CommandStore.registerCommand(TestCommand, { key: CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(CancelableTestCommand, { key: CANCEL_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(MaterialCommand, { key: MATERIAL_CMD_KEY, icon: "icon-ctx" });
+        CommandStore.registerCommand(FontCommand, { key: FONT_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(LengthCommand, { key: LENGTH_CMD_KEY, icon: "icon-ctx" });
         // I18n.isI18nKey (used by the combobox editor) reads the zh-CN translation table
         I18n.addLanguage({ display: "zh", language: "zh-CN", translation: {} as Locale["translation"] });
@@ -170,6 +188,7 @@ describe("CommandContext", () => {
         CommandStore.unregisterCommand(CMD_KEY);
         CommandStore.unregisterCommand(CANCEL_CMD_KEY);
         CommandStore.unregisterCommand(MATERIAL_CMD_KEY);
+        CommandStore.unregisterCommand(FONT_CMD_KEY);
         CommandStore.unregisterCommand(LENGTH_CMD_KEY);
         I18n.removeLanguage("zh-CN");
     });
@@ -445,6 +464,24 @@ describe("CommandContext", () => {
             expect(controller.cancel).toHaveBeenCalledTimes(1);
 
             PubSub.default.pub("clearSelectionControl");
+        });
+    });
+
+    describe("font property", () => {
+        test("names the font the command settles on rather than the one it started with", () => {
+            const command = new FontCommand();
+            const ctx = track(new CommandContext(command));
+            document.body.appendChild(ctx);
+            const button = mustQuery(ctx, ".cc-material-button");
+
+            // Nothing is named before there is a font, so the label stands in.
+            expect(button.textContent).toBe(String(I18n.translate(FONT_LABEL)));
+
+            command.fontName = "Roboto";
+
+            // The row follows what the command holds: a panel built before the font was
+            // chosen would go on naming the font it was built with.
+            expect(button.textContent).toBe("Roboto");
         });
     });
 

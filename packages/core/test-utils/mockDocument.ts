@@ -121,6 +121,7 @@ export function createMockDocument(overrides: MockDocumentOverrides = {}): IDocu
     const modelManager: ModelManager = {
         nodes: [],
         materials: [],
+        fonts: [],
         addNode: () => {},
         findNode: () => undefined,
         findNodes: () => [],

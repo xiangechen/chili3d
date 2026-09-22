@@ -31,4 +31,5 @@ export * from "./revolve";
 export * from "./section";
 export * from "./sphere";
 export * from "./sweep";
+export * from "./text";
 export * from "./thickSolid";

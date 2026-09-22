@@ -5,6 +5,7 @@ import {
     AsyncController,
     command,
     Dimensions,
+    GeometryUtils,
     I18n,
     type IApplication,
     type ICommand,
@@ -78,13 +79,8 @@ export class AlignToPlane implements ICommand {
         if (!data || data.shapes.length === 0) return;
         view.document.selection.clearSelection();
         const face = data.shapes[0].shape.transformedMul(data.shapes[0].transform) as IFace;
-        const [point, normal] = face.normal(0, 0);
+        view.workplane = GeometryUtils.planeFromFace(face);
         face.dispose();
-        let xvec = XYZ.unitX;
-        if (!normal.isParallelTo(XYZ.unitZ)) {
-            xvec = XYZ.unitZ.cross(normal).normalize()!;
-        }
-        view.workplane = new Plane({ origin: point, normal, xvec });
     }
 }
 

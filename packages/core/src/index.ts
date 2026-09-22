@@ -28,5 +28,6 @@ export * from "./shape";
 export * from "./snap";
 export * from "./snapType";
 export * from "./step";
+export * from "./text";
 export * from "./ui";
 export * from "./visual";

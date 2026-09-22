@@ -40,9 +40,22 @@ function applyProps(el: HTMLElement, props: any, opts: ElementMockOptions): void
     if (!props || typeof props !== "object" || props instanceof Node) return;
     if (props.className) el.className = String(props.className);
     if (props.id) el.id = String(props.id);
-    if (props.title) el.title = String(props.title);
-    if (props.textContent !== undefined && typeof props.textContent !== "object") {
-        el.textContent = String(props.textContent);
+    if (props.title !== undefined) {
+        if (typeof (props.title as { setBinding?: unknown })?.setBinding === "function") {
+            props.title.setBinding(el, "title");
+        } else {
+            el.title = String(props.title);
+        }
+    }
+    if (props.textContent !== undefined) {
+        // What the real `setProperties` does with a binding: it follows the property it was
+        // given, so a test can watch a control that is meant to stay in step. Recognised by
+        // what it can do rather than by its class, since this helper takes no imports.
+        if (typeof (props.textContent as { setBinding?: unknown })?.setBinding === "function") {
+            props.textContent.setBinding(el, "textContent");
+        } else if (typeof props.textContent !== "object") {
+            el.textContent = String(props.textContent);
+        }
     }
     if (props.type) (el as HTMLInputElement).type = String(props.type);
     if (typeof props.value === "string") (el as HTMLInputElement).value = props.value;

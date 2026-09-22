@@ -7,7 +7,9 @@ import {
     type IEdge,
     type IShape,
     type Plane,
+    type Polygon,
     Precision,
+    pointInPolygon,
     ShapeTypes,
     type XYZ,
 } from "@chili3d/core";
@@ -17,8 +19,10 @@ import { INCIDENCE_TOLERANCE } from "./refGeometry";
  * Planar primitives the profile builder reasons with — no knowledge of profiles,
  * sketches or refs. Two groups:
  *
- * - **Loop sampling and containment** (`sampleLoop`, `loopContains`, `pointInPolygon`),
- *   which is how even-odd nesting is decided.
+ * - **Loop sampling and containment** (`sampleLoop`, `loopContains`), which is how a
+ *   sketch's loops become polygons and how those are tested against each other. The
+ *   point-in-polygon test and the even-odd depth rule they feed are in `core`, where
+ *   anything else with loops to nest reads the same rule.
  * - **Edge relationship predicates** (`needsKernelSplit`, `groupConnected`,
  *   `hasBranchVertex`, …), which is how a bag of sketch edges is decided to be simple
  *   loops or to need the kernel's splitter.
@@ -36,9 +40,6 @@ import { INCIDENCE_TOLERANCE } from "./refGeometry";
  */
 const LOOP_SAMPLES = 64;
 
-/** A loop approximated as a 2D polygon in sketch-plane coordinates. */
-export type Polygon = [number, number][];
-
 /**
  * Approximates a loop as a 2D polygon in sketch-plane coordinates. The edges are
  * walked in chain order — each edge starts where the previous one ended — so the
@@ -46,7 +47,7 @@ export type Polygon = [number, number][];
  * jump between non-adjacent edges and corrupt the containment test with spurious chords.
  */
 export function sampleLoop(edges: IEdge[], plane: Plane): Polygon {
-    const points: Polygon = [];
+    const points: [number, number][] = [];
     if (edges.length === 0) return points;
 
     const remaining = edges.slice();
@@ -68,7 +69,7 @@ export function sampleLoop(edges: IEdge[], plane: Plane): Polygon {
 }
 
 /** Samples `edge` starting from its `from` endpoint, in sketch-plane coordinates. */
-function appendEdgeSamples(edge: IEdge, from: XYZ, points: Polygon, plane: Plane): void {
+function appendEdgeSamples(edge: IEdge, from: XYZ, points: [number, number][], plane: Plane): void {
     const reversed = !coincides(from, edge.startPoint());
     const start = reversed ? edge.lastParameter() : edge.firstParameter();
     const end = reversed ? edge.firstParameter() : edge.lastParameter();
@@ -93,21 +94,13 @@ function appendEdgeSamples(edge: IEdge, from: XYZ, points: Polygon, plane: Plane
  * path only sees non-crossing loops — disjoint or properly nested — so a loop is a
  * hole of another only when every sampled point lies inside it. A bare majority would
  * misread a partially-overlapping loop (an overlap near 50%) as a nesting.
+ *
+ * This is stricter than it has to be for loops that may only nest, and deliberately
+ * so: here the loop counts are all the solver can be asked for, and a sketch can hold
+ * two loops that overlap without either being a hole.
  */
 export function loopContains(outer: Polygon, inner: Polygon): boolean {
     return inner.every((point) => pointInPolygon(point, outer));
-}
-
-function pointInPolygon([x, y]: [number, number], polygon: [number, number][]): boolean {
-    let inside = false;
-    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-        const [xi, yi] = polygon[i];
-        const [xj, yj] = polygon[j];
-        if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
-            inside = !inside;
-        }
-    }
-    return inside;
 }
 
 export function collectEdges(shape: IShape): IEdge[] {

@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type IWire, type Plane, Result } from "@chili3d/core";
+import {
+    type IEdge,
+    type IFace,
+    type IWire,
+    type LoopNesting,
+    nestLoops,
+    type Plane,
+    type Polygon,
+    Result,
+} from "@chili3d/core";
 import { shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
 import {
@@ -18,7 +27,6 @@ import {
     hasBranchVertex,
     loopContains,
     needsKernelSplit,
-    type Polygon,
     sampleLoop,
 } from "./profileGeometry";
 import { matchProfileIndexes } from "./profileMatcher";
@@ -158,12 +166,13 @@ function connectivityProfiles(
     if (!loops.isOk) return Result.err(loops.error);
     const { wires, polygons, wireEntities, wireEdges } = loops.value;
 
-    // containedIn[i][j] = loop j contains loop i; depth = number of containing loops.
-    const containedIn = polygons.map((poly, i) =>
-        polygons.map((other, j) => i !== j && loopContains(other, poly)),
+    return buildFaces(
+        wires,
+        wireEntities,
+        wireEdges,
+        idByEdge,
+        nestLoops(polygons.length, (outer, inner) => loopContains(polygons[outer], polygons[inner])),
     );
-    const depth = containedIn.map((row) => row.filter(Boolean).length);
-    return buildFaces(wires, wireEntities, wireEdges, idByEdge, containedIn, depth);
 }
 
 /**
@@ -210,18 +219,15 @@ function buildFaces(
     wireEntities: number[][],
     wireEdges: IEdge[][],
     idByEdge: Map<IEdge, number>,
-    containedIn: boolean[][],
-    depth: number[],
+    nesting: LoopNesting,
 ): Result<SketchProfileSet> {
     const outer: IFace[] = [];
     const inner: IFace[] = [];
     const outerEntities: number[][] = [];
     const innerEntities: number[][] = [];
     for (const [index, wire] of wires.entries()) {
-        const isHole = depth[index] % 2 === 1;
-        const holeIndexes = isHole
-            ? []
-            : wires.flatMap((_, j) => (depth[j] === depth[index] + 1 && containedIn[j][index] ? [j] : []));
+        const isHole = nesting.holes.includes(index);
+        const holeIndexes = isHole ? [] : nesting.children[index];
         const face = shapeFactory.face([wire, ...holeIndexes.map((j) => wires[j])]);
         if (!face.isOk) return Result.err(face.error);
         // The outer wire's entities are the profile's identity; hole wires are incidental.

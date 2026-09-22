@@ -7,7 +7,7 @@ import type { UnitSpec } from "./parameters/unitSpec";
 import type { Combobox } from "./ui";
 
 /** The controls that are more than a plain value editor; everything else edits by value. */
-export type PropertyType = "color" | "materialId";
+export type PropertyType = "color" | "materialId" | "font";
 
 export interface Property {
     name: string;

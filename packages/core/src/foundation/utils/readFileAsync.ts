@@ -39,6 +39,12 @@ export interface FileData {
     data: string;
 }
 
+/** A file read as raw bytes, for the formats that are not text — a font is one. */
+export interface BinaryFileData {
+    fileName: string;
+    data: ArrayBuffer;
+}
+
 export async function readFileAsync(
     accept: string,
     multiple: boolean,
@@ -46,6 +52,24 @@ export async function readFileAsync(
 ): Promise<Result<FileData[]>> {
     const filesResult = await readFilesAsync(accept, multiple);
     return filesResult.isOk ? readInputedFiles(filesResult.value, method) : filesResult.parse();
+}
+
+export async function readBinaryFileAsync(
+    accept: string,
+    multiple = false,
+): Promise<Result<BinaryFileData[]>> {
+    const filesResult = await readFilesAsync(accept, multiple);
+    if (!filesResult.isOk) return filesResult.parse();
+
+    return Promise.try(async () => {
+        const files = await Promise.all(
+            Array.from(filesResult.value).map(async (file) => ({
+                fileName: file.name,
+                data: await file.arrayBuffer(),
+            })),
+        );
+        return Result.ok(files);
+    }).catch((error) => Result.err((error as Error).message));
 }
 
 async function readInputedFiles(

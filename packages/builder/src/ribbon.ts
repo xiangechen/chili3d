@@ -38,6 +38,7 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                     "create.bezier",
                     "create.helix",
                     "create.pipe",
+                    "create.text",
                 ],
             },
             {

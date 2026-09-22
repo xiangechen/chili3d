@@ -1,11 +1,11 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, Config, PubSub, XYZ } from "../src";
+import { AsyncController, Config, Observable, PubSub, XYZ } from "../src";
 import { Plane } from "../src/math";
 import type { PointSnapData } from "../src/snap";
 import { PointSnapEventHandler } from "../src/snap";
-import { createHandlerMockView, createPointerEvent, TestDocument } from "../test-utils";
+import { createHandlerMockView, createMockVisual, createPointerEvent, TestDocument } from "../test-utils";
 
 // ============================================================================
 // SnapEventHandler base class logic (tested via PointSnapEventHandler)
@@ -320,6 +320,95 @@ describe("SnapEventHandler — base class behaviour", () => {
             const view = createHandlerMockView();
             handler.keyDown(view, { key: "Tab" } as KeyboardEvent);
             expect(callbackCalled).toBe(true);
+        });
+    });
+
+    // --------------------------------------------------------------------------
+    // The preview following what it is made of
+    // --------------------------------------------------------------------------
+
+    describe("onPreviewReady", () => {
+        const corner = { point: new XYZ({ x: -300, y: -100, z: 0 }), prompt: "corner" };
+
+        /** What the preview is made of, as a command would be. */
+        class Params extends Observable {
+            private _text = "A";
+            get text() {
+                return this._text;
+            }
+            set text(value: string) {
+                this.setProperty("text", value);
+            }
+        }
+
+        /** What a command wires up: draw the preview again whenever its parameters change. */
+        const following = (params: Params) => ({
+            onPreviewReady: (redraw: () => void) => params.onPropertyChanged(redraw),
+        });
+
+        test("should draw the preview again at the point the pointer snapped to", () => {
+            const preview = rs.fn((_point: XYZ | undefined) => []);
+            const params = new Params();
+            const handler = new PointSnapEventHandler(document, controller, {
+                featurePoints: [corner],
+                preview,
+                ...following(params),
+            });
+            handler.pointerMove(createHandlerMockView({ document }), createPointerEvent());
+            const snapped = preview.mock.calls.at(-1)?.[0];
+            expect(snapped).not.toBeUndefined();
+
+            const drawn = preview.mock.calls.length;
+            params.text = "B";
+
+            // The same point, drawn once more: what the preview is made of changed while the
+            // pointer stood still.
+            expect(preview.mock.calls.length).toBe(drawn + 1);
+            expect(preview.mock.calls.at(-1)?.[0]).toBe(snapped);
+
+            handler.dispose();
+        });
+
+        test("should redraw the viewport, not only ask for the preview", () => {
+            const update = rs.fn();
+            const visual = createMockVisual();
+            visual.update = update;
+            const params = new Params();
+            const handler = new PointSnapEventHandler(new TestDocument({ visual }), controller, {
+                featurePoints: [corner],
+                preview: () => [],
+                ...following(params),
+            });
+            handler.pointerMove(createHandlerMockView(), createPointerEvent());
+            update.mockClear();
+
+            params.text = "B";
+
+            // Taking the old temp shapes away redraws as well; what matters is that the
+            // viewport is redrawn at all, or the new preview is never seen.
+            expect(update.mock.calls.length).toBeGreaterThan(0);
+
+            handler.dispose();
+        });
+
+        test("should draw nothing once the step is over, even by a caller that kept it", () => {
+            const preview = rs.fn((_point: XYZ | undefined) => []);
+            let kept: (() => void) | undefined;
+            const handler = new PointSnapEventHandler(document, controller, {
+                preview,
+                onPreviewReady: (redraw) => {
+                    kept = redraw;
+                },
+            });
+            handler.pointerMove(createHandlerMockView({ document }), createPointerEvent());
+            const drawn = preview.mock.calls.length;
+            handler.dispose();
+
+            kept?.();
+
+            // Drawing now would leave a temp shape in the viewport that the cleanup the step
+            // already ran will not take away again.
+            expect(preview.mock.calls.length).toBe(drawn);
         });
     });
 
