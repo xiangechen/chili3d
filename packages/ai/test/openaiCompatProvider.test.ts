@@ -2,7 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import { convertChunk, toMessages } from "../src/llm/completions";
-import type { ChatMessage, StreamEvent, ToolCallBuffer } from "../src/llm/types";
+import {
+    type ChatMessage,
+    openAIReasoningEffort,
+    type StreamEvent,
+    type ToolCallBuffer,
+} from "../src/llm/types";
 
 const IMAGE = { mediaType: "image/png", data: "AAA" };
 
@@ -124,5 +129,15 @@ describe("openaiCompat convertChunk", () => {
             { type: "tool_call", id: "b", name: "f2", arguments: "{}" },
             { type: "done", stopReason: "tool_calls" },
         ]);
+    });
+});
+describe("openAIReasoningEffort", () => {
+    test("passes the levels those endpoints know, and caps the rest at high", () => {
+        // low/medium/high are theirs; xhigh and max are Anthropic's, so asking for more than
+        // high on these endpoints sends high — the most they can be asked for.
+        const levels = ["low", "medium", "high"] as const;
+        expect(levels.map(openAIReasoningEffort)).toEqual(["low", "medium", "high"]);
+        expect(openAIReasoningEffort("xhigh")).toBe("high");
+        expect(openAIReasoningEffort("max")).toBe("high");
     });
 });

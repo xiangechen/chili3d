@@ -1624,4 +1624,121 @@ describe("capabilityEngine", () => {
             }
         });
     });
+
+    describe("ref disposal", () => {
+        function setup(factory: Record<string, unknown>) {
+            const nodes: any[] = [];
+            const doc = createMockDocument();
+            (doc.modelManager as any).addNode = rs.fn((node: any) => {
+                nodes.push(node);
+                node.parent = { remove: () => nodes.splice(nodes.indexOf(node), 1) };
+            });
+            (doc.modelManager as any).findNodes = rs.fn((pred: (n: any) => boolean) => nodes.filter(pred));
+            const app = createMockApplication({ shapeProvider: { factory } as any });
+            (app as any).activeView = { document: doc };
+            rs.stubGlobal("app", app);
+            return { nodes };
+        }
+
+        test("evicting past the ref cap disposes the dropped query wrappers once the program commits", async () => {
+            const disposed: number[] = [];
+            const faces = Array.from({ length: 300 }, (_, i) => ({
+                shapeType: ShapeTypes.face,
+                dispose: () => {
+                    disposed.push(i);
+                },
+            }));
+            const nodeDispose = rs.fn(() => {});
+            const solid = {
+                shapeType: ShapeTypes.solid,
+                findSubShapes: rs.fn(() => faces),
+                dispose: nodeDispose,
+            };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+            try {
+                const result = JSON.parse(
+                    (await buildCapabilityTools()[0].handler({
+                        ops: [
+                            { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                            {
+                                id: "f",
+                                method: "shape.findSubShapes",
+                                target: "b",
+                                args: { subshapeType: "face" },
+                            },
+                        ],
+                    })) as string,
+                );
+
+                expect(result.results.f.count).toBe(300);
+                // 301 registrations over the 256 cap evict 45: the box's root ref — which borrows
+                // the node's shape and must survive — and the 44 oldest derived wrappers.
+                expect(disposed).toEqual(Array.from({ length: 44 }, (_, i) => i));
+                expect(nodeDispose).not.toHaveBeenCalled();
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("a failed program disposes its own query wrappers and leaves earlier refs working", async () => {
+            const made: { dispose: ReturnType<typeof rs.fn> }[] = [];
+            const findSubShapes = rs.fn(() => {
+                const face = { shapeType: ShapeTypes.face, area: () => 42, dispose: rs.fn(() => {}) };
+                made.push(face);
+                return [face];
+            });
+            const solid = { shapeType: ShapeTypes.solid, findSubShapes };
+            const box = rs.fn(() => Result.ok(solid as unknown as IShape));
+            setup({ box });
+            try {
+                await buildCapabilityTools()[0].handler({
+                    ops: [
+                        { id: "b", method: "box", args: { dx: 1, dy: 1, dz: 1 } },
+                        {
+                            id: "q",
+                            method: "shape.findSubShapes",
+                            target: "b",
+                            args: { subshapeType: "face" },
+                        },
+                    ],
+                });
+                expect(made.length).toBe(1);
+                expect(made[0].dispose).not.toHaveBeenCalled();
+
+                // The failed program registered q2#0, then rolled back: its wrapper has no other
+                // owner and is released, while the session's earlier refs stay untouched.
+                await expect(
+                    buildCapabilityTools()[0].handler({
+                        ops: [
+                            {
+                                id: "q2",
+                                method: "shape.findSubShapes",
+                                target: "b",
+                                args: { subshapeType: "face" },
+                            },
+                            { id: "broken", method: "shape.findSubShapes" },
+                        ],
+                    }),
+                ).rejects.toThrow("requires a target");
+                expect(made.length).toBe(2);
+                expect(made[1].dispose).toHaveBeenCalledTimes(1);
+                expect(made[0].dispose).not.toHaveBeenCalled();
+
+                // The earlier ref still resolves: its derivation re-runs against the live node,
+                // and the wrapper it replaces is released once the program commits.
+                const result = JSON.parse(
+                    (await buildCapabilityTools()[0].handler({
+                        ops: [{ id: "a", method: "face.area", target: "q#0" }],
+                    })) as string,
+                );
+                expect(result.results.a).toBe(42);
+                expect(made.length).toBe(3);
+                expect(made[0].dispose).toHaveBeenCalledTimes(1);
+                expect(made[2].dispose).not.toHaveBeenCalled();
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+    });
 });

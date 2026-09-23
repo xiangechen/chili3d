@@ -61,6 +61,7 @@ function firstSentence(description: string): string {
 function policySection(): string {
     return `Usage policy:
 - Reference material: pull a skill with load_skill when its topic comes up (${SKILLS.map((s) => s.name).join(", ")}) instead of answering from memory.
+- A response may carry several calls at once and they run in the order listed, so independent reads belong together rather than in round trips of their own, and a call may use an id an earlier one returned.
 - When the user does something themselves — how do I, where is, which hotkey: load_skill app-guide for the teaching prose, call get_ribbon for the tabs, groups and buttons as they are right now (their language, their profile's hotkeys), then teach the click path. Don't answer from memory, and don't do the operation for them instead of teaching it unless they ask.
 - run_program ops run in order; reference only earlier ops by id (refs persist across calls and re-resolve against the live scene). Referencing a node never deletes it, EXCEPT for edit-style methods whose result replaces their inputs: ${[...EDIT_METHODS].join(", ")} — the response's "removed" lists the nodes consumed this way; they no longer exist, so never hide, delete or reference them afterward.
 - After creating or modifying the model, show the result: select_nodes the affected nodes, then fit_content, then capture_screenshot to verify before reporting done.

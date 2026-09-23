@@ -8,6 +8,7 @@ import {
     flattenSystem,
     type ImagePart,
     type LLMProvider,
+    openAIReasoningEffort,
     type StreamChatOptions,
     type StreamEvent,
     type TokenUsage,
@@ -54,12 +55,15 @@ export class ResponsesProvider implements LLMProvider {
                 // Without this the API produces no reasoning events at all, and the branch that
                 // reads them below simply never fires. `auto` lets the model decide how much of
                 // its reasoning to summarise.
-                reasoning: { summary: "auto" },
+                reasoning: {
+                    summary: "auto",
+                    ...(opts.effort ? { effort: openAIReasoningEffort(opts.effort) } : {}),
+                },
             },
             { signal: opts.signal },
         );
 
-        const state: ConvertState = { toolArgs: new Map(), reasoned: false };
+        const state: ConvertState = { toolArgs: new Map(), reasoned: false, texted: false, calls: 0 };
         const unconsumed = new Set<string>();
         for await (const event of stream) {
             // Which events a backend actually sends varies by model and endpoint, and a missing
@@ -94,6 +98,8 @@ const KNOWN_EVENTS = new Set([
     "response.function_call_arguments.delta",
     "response.output_item.done",
     "response.completed",
+    "response.incomplete",
+    "response.failed",
     // Frames the stream but carries nothing we use; the content arrived as deltas above.
     "response.queued",
     "response.created",
@@ -114,6 +120,10 @@ export interface ConvertState {
     toolArgs: ToolArgsBuffer;
     /** Whether reasoning text has already been shown, so a finished item will not repeat it. */
     reasoned: boolean;
+    /** The same for the answer: a backend that sends no text deltas still sends the message. */
+    texted: boolean;
+    /** Calls this stream produced, so the line below says what a long turn actually asked for. */
+    calls: number;
 }
 
 /** Everything readable a reasoning item carries: its summary parts, then any raw text parts. */
@@ -126,6 +136,7 @@ function reasoningItemText(item: { summary?: { text: string }[]; content?: { tex
 
 export function* convertEvent(event: ResponseStreamEvent, state: ConvertState): Iterable<StreamEvent> {
     if (event.type === "response.output_text.delta") {
+        state.texted = true;
         yield { type: "text", text: event.delta };
     } else if (
         event.type === "response.reasoning_summary_text.delta" ||
@@ -154,25 +165,67 @@ export function* convertEvent(event: ResponseStreamEvent, state: ConvertState): 
             }
             return;
         }
+        if (item.type === "message") {
+            // The same rule as the reasoning item above, for the answer: what the item holds is
+            // the whole of it, so it is only used when no delta streamed. Without this a backend
+            // that streams only finished items leaves the turn looking like a model with nothing
+            // to say — which is exactly how an "empty reply" gets filed as a model problem.
+            if (!state.texted) {
+                const text = messageItemText(item);
+                if (text) {
+                    state.texted = true;
+                    yield { type: "text", text };
+                }
+            }
+            return;
+        }
         if (item.type !== "function_call") return;
+        state.calls++;
         yield {
             type: "tool_call",
             id: item.call_id,
             name: item.name,
             arguments: item.arguments || state.toolArgs.get(item.id ?? "") || "",
         };
-    } else if (event.type === "response.completed") {
-        if (event.response.usage) {
-            // One line that separates the two reasons a thinking panel can come up empty: the
-            // model never reasoned, or it reasoned and the backend returned nothing readable.
-            console.debug(
-                `[ai] responses: reasoning tokens=${event.response.usage.output_tokens_details?.reasoning_tokens ?? 0}` +
-                    `, reasoning text=${state.reasoned ? "shown" : "none"}`,
-            );
-            yield { type: "usage", usage: toUsage(event.response.usage) };
-        }
+    } else if (event.type === "response.completed" || event.type === "response.incomplete") {
+        // `incomplete` is how a response that ran out of output budget arrives: not an error, and
+        // not a `completed` either. Leaving it unhandled is what made a turn that reasoned its
+        // budget away end with no stop reason, no text and nothing on screen saying why — the
+        // agent treats the status ("incomplete") as the truncation it is.
+        // Said at a level the console shows by default when the response stopped short, and not
+        // contingent on usage arriving — a relay that omits usage used to hide the one line that
+        // explains the missing reply.
+        (event.type === "response.completed" ? console.debug : console.warn)(
+            stopReport(event.response, state),
+        );
+        if (event.response.usage) yield { type: "usage", usage: toUsage(event.response.usage) };
         yield { type: "done", stopReason: event.response.status ?? "completed" };
+    } else if (event.type === "response.failed") {
+        throw new Error(`the model's response failed: ${event.response.error?.message ?? "no reason given"}`);
     }
+}
+
+/** Everything readable an assistant message carries: its `output_text` parts, in order. */
+function messageItemText(item: { content?: { type?: string; text?: string }[] }): string {
+    return (item.content ?? [])
+        .filter((part) => part.type === "output_text")
+        .map((part) => part.text ?? "")
+        .join("");
+}
+
+/**
+ * One line per finished response: what came back and why it stopped. It is the only thing that
+ * tells a run which reasoned its budget away from one whose answer the backend never sent — the
+ * panel shows both as "no text".
+ */
+function stopReport(response: OpenAI.Responses.Response, state: ConvertState): string {
+    const reason = response.incomplete_details?.reason;
+    return (
+        `[ai] responses: status=${response.status ?? "?"}${reason ? ` (${reason})` : ""}` +
+        ` text=${state.texted ? "yes" : "none"} calls=${state.calls}` +
+        ` reasoning=${state.reasoned ? "shown" : "none"}` +
+        ` tokens=${response.usage?.output_tokens_details?.reasoning_tokens ?? 0} reasoning`
+    );
 }
 
 function toUsage(usage: OpenAI.Responses.ResponseUsage): TokenUsage {

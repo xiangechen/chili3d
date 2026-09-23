@@ -9,11 +9,14 @@ import {
     Material,
     type MaterialPreset,
     MaterialPresets,
+    type ToImageOptions,
     Transaction,
     type XYZLike,
 } from "@chili3d/core";
 import type { Tool, ToolResult } from "../llm/types";
 import { findNode, getDocument } from "./documentContext";
+import { summarizeTexture } from "./propertyBag";
+import { rasterTextureSource } from "./textureImage";
 
 const Z_UP: XYZLike = { x: 0, y: 0, z: 1 };
 
@@ -81,12 +84,22 @@ export function buildViewTools(): Tool[] {
 }
 
 /**
+ * Long-edge cap and encoding for screenshots sent to the model. The API downsizes anything past
+ * ~1568px anyway, so a full-Retina PNG (a few MB of base64 each) buys nothing — and a verifying
+ * run accumulates one screenshot per check in the resent history.
+ */
+const SCREENSHOT_IMAGE: ToImageOptions = { maxSize: 1568, mimeType: "image/jpeg", quality: 0.85 };
+
+/**
  * The viewport image as a tool result: the JSON payload plus the screenshot itself, so the model
  * sees the result and the picture in one step. Shared with `click_view`, whose whole point after a
  * select is to show the highlight.
  */
-export function imageResult(view: { toImage(): string }, payload: Record<string, unknown>): ToolResult {
-    const dataUrl = view.toImage();
+export function imageResult(
+    view: { toImage(options?: ToImageOptions): string },
+    payload: Record<string, unknown>,
+): ToolResult {
+    const dataUrl = view.toImage(SCREENSHOT_IMAGE);
     const comma = dataUrl.indexOf(",");
     const mediaType = dataUrl.slice(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";")) || "image/png";
     return {
@@ -132,7 +145,12 @@ function setMaterialTool(): Tool {
                 texture: {
                     type: "string",
                     description:
-                        'Surface texture as an image data URL ("data:image/png;base64,..."), an http(s)/blob URL or a same-origin path; "" removes the texture',
+                        'Surface texture as an image data URL ("data:image/png;base64,..."), an http(s)/blob URL or a same-origin path; "" removes the texture. An SVG is rasterized to a PNG before it is stored. The image is never sent back to you — a result reads as the stored image\'s kind and size, so to put the same image on another node pass textureFrom rather than the image again.',
+                },
+                textureFrom: {
+                    type: "string",
+                    description:
+                        "Material id (from list_materials) whose texture this node should wear — the way to reuse an image the document already holds without passing it again. Pass either texture or textureFrom, not both.",
                 },
                 preset: {
                     type: "string",
@@ -159,7 +177,13 @@ const setMaterialHandler: Tool["handler"] = async (args) => {
     const preset = resolvePreset(args["preset"]);
     if (typeof preset === "string") return textResult({ error: preset });
 
-    const appearance = resolveAppearance(doc, node, args, preset);
+    const borrowed = borrowedTexture(doc, args);
+    if (typeof borrowed === "object") return textResult(borrowed); // the response, not an image to use
+
+    // An SVG source is stored as pixels rather than as a document every reader renders its own
+    // way — see `rasterTextureSource`.
+    const texture = await rasterTextureSource(borrowed ?? args["texture"]);
+    const appearance = resolveAppearance(doc, node, { ...args, texture }, preset);
     if (typeof appearance === "string") return textResult({ error: appearance });
 
     const material = ensureMaterial(doc, appearance, preset?.name);
@@ -167,13 +191,40 @@ const setMaterialHandler: Tool["handler"] = async (args) => {
         (node as { materialId: string | string[] }).materialId = material.id;
     });
     doc.visual.update();
+    // The appearance as the model gets it back: numbers, and a texture that is named rather than
+    // carried — see `summarizeTexture` for why the image itself must not come back.
     return textResult({
-        id,
         ...appearance,
-        texture: appearance.texture === "" ? null : appearance.texture,
+        texture: summarizeTexture(appearance.texture),
+        id,
         materialId: material.id,
     });
 };
+
+/** The image a `textureFrom` argument names, or the response saying why there is none to take. */
+type Borrowed = string | undefined | { error: string; available?: { id: string; name: string }[] };
+
+/**
+ * The texture on the material `textureFrom` names — the way an image the document already holds is
+ * reused without passing its bytes again. Undefined when the argument is not given; the error
+ * response when it disagrees with `texture`, or names a material with no image on it.
+ */
+function borrowedTexture(doc: IDocument, args: Record<string, unknown>): Borrowed {
+    const from = args["textureFrom"];
+    if (from === undefined) return undefined;
+    if (args["texture"] !== undefined) {
+        return { error: "pass either texture or textureFrom, not both" };
+    }
+    const source = doc.modelManager.materials.find((m) => m.id === from);
+    if (source === undefined) {
+        return {
+            error: `material not found: ${from}`,
+            available: doc.modelManager.materials.map((m) => ({ id: m.id, name: m.name })),
+        };
+    }
+    if (!source.map.image) return { error: `material ${from} has no texture to take` };
+    return source.map.image;
+}
 
 /** The surface to apply: every value the material will carry, or the message saying why not. */
 interface Appearance {

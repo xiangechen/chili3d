@@ -2,8 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import { PathBinding } from "@chili3d/core";
-import { rs } from "@rstest/core";
-import { setProperties, toBase64Img } from "../src/utils";
+import { stubImageRaster } from "@chili3d/core/test-utils";
+import { afterEach, rs } from "@rstest/core";
+import { imageToCanvas, setProperties, toBase64Img } from "../src/utils";
 
 describe("setProperties", () => {
     test("should set plain string values", () => {
@@ -102,5 +103,40 @@ describe("toBase64Img", () => {
 
     test("should throw for format without image extension", () => {
         expect(() => toBase64Img("readme.txt", "data")).toThrow("Unsupported icon format");
+    });
+});
+
+describe("imageToCanvas", () => {
+    afterEach(() => {
+        rs.restoreAllMocks();
+        rs.unstubAllGlobals();
+    });
+
+    test("draws the image into a canvas of its own intrinsic size", async () => {
+        stubImageRaster({ width: 512, height: 384 });
+
+        const canvas = await imageToCanvas("data:image/svg+xml,%3Csvg/%3E");
+
+        expect(canvas?.width).toBe(512);
+        expect(canvas?.height).toBe(384);
+    });
+
+    test("gives nothing back when the image cannot be loaded", async () => {
+        stubImageRaster({ width: 512, height: 512, fail: true });
+
+        expect(await imageToCanvas("data:image/png;base64,AAAA")).toBeUndefined();
+    });
+
+    test("gives nothing back when the canvas has no 2d context", async () => {
+        stubImageRaster({ width: 512, height: 512 });
+        rs.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+
+        expect(await imageToCanvas("data:image/png;base64,AAAA")).toBeUndefined();
+    });
+
+    test("gives nothing back for an image with no intrinsic size", async () => {
+        stubImageRaster({ width: 0, height: 0 });
+
+        expect(await imageToCanvas("data:image/svg+xml,%3Csvg/%3E")).toBeUndefined();
     });
 });

@@ -12,6 +12,7 @@ import {
 import type { Tool } from "../llm/types";
 import { requireDocument } from "./documentContext";
 import { describeProperties, prepareUpdates } from "./propertyBag";
+import { rasterTextureSource } from "./textureImage";
 
 /**
  * The tools that read and write a document material itself. `set_material` styles a *node* and
@@ -129,8 +130,10 @@ const setMaterialPropertiesHandler: Tool["handler"] = async (args) => {
     }
 
     const requested = (args["properties"] ?? {}) as Record<string, unknown>;
-    const updates = prepareUpdates(material, materialProperties(material), doc, requested, "this material");
+    const properties = materialProperties(material);
+    const updates = prepareUpdates(material, properties, doc, requested, "this material");
     if (typeof updates === "string") return updates;
+    await rasterizeTextureWrites(material, updates);
 
     // One transaction, so the whole edit is a single undo step. No `showProperties` republish
     // here: the material editor and the material strip bind to the material and follow it, while
@@ -147,11 +150,19 @@ const setMaterialPropertiesHandler: Tool["handler"] = async (args) => {
 
     return JSON.stringify({
         id,
-        updated: describeProperties(material, materialProperties(material), doc).filter((p) =>
-            updates.has(p.name),
-        ),
+        updated: describeProperties(material, properties, doc).filter((p) => updates.has(p.name)),
     });
 };
+
+/** Rasterizes the image any texture slot among these writes was given — see `rasterTextureSource`. */
+async function rasterizeTextureWrites(material: Material, updates: Map<string, unknown>): Promise<void> {
+    const source = material as unknown as Record<string, unknown>;
+    for (const name of [...updates.keys()]) {
+        if (source[name] instanceof Texture) {
+            updates.set(name, await rasterTextureSource(updates.get(name)));
+        }
+    }
+}
 
 export function buildMaterialTools(): Tool[] {
     return [listMaterialsTool(), getMaterialTool(), setMaterialPropertiesTool()];

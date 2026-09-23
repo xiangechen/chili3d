@@ -28,6 +28,7 @@ import {
     type ShapeType,
     ShapeTypes,
     ShapeTypeUtils,
+    type ToImageOptions,
     type ViewMode,
     type VisualNode,
     type VisualShapeData,
@@ -292,9 +293,26 @@ export class ThreeView extends Observable implements IView {
         return element;
     }
 
-    toImage(): string {
+    toImage(options?: ToImageOptions): string {
         this._renderer.render(this._scene, this.camera);
-        return this.renderer.domElement.toDataURL();
+        const source = this.renderer.domElement;
+        const maxSize = options?.maxSize ?? Number.POSITIVE_INFINITY;
+        if (Math.max(source.width, source.height) <= maxSize) {
+            return source.toDataURL(options?.mimeType, options?.quality);
+        }
+        return this.downscaleImage(source, maxSize, options);
+    }
+
+    private downscaleImage(source: HTMLCanvasElement, maxSize: number, options?: ToImageOptions): string {
+        const scale = maxSize / Math.max(source.width, source.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(source.width * scale));
+        canvas.height = Math.max(1, Math.round(source.height * scale));
+        // No 2d context (headless test runs) — the full-size frame is better than none.
+        const context = canvas.getContext("2d");
+        if (!context) return source.toDataURL(options?.mimeType, options?.quality);
+        context.drawImage(source, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL(options?.mimeType, options?.quality);
     }
 
     get workplane(): Plane {

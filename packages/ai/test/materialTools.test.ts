@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Material, XY } from "@chili3d/core";
-import { createMockDocument } from "@chili3d/core/test-utils";
+import { createMockDocument, stubImageRaster } from "@chili3d/core/test-utils";
 import { afterEach, describe, expect, rs, test } from "@rstest/core";
 import { buildMaterialTools } from "../src/tools/materialTools";
 
@@ -49,6 +49,7 @@ describe("material tools", () => {
     }
 
     afterEach(() => {
+        rs.restoreAllMocks();
         rs.unstubAllGlobals();
     });
 
@@ -89,8 +90,12 @@ describe("material tools", () => {
             expect(row(rows, "metalness")).toMatchObject({ kind: "number", value: 1 });
             expect(row(rows, "color")).toMatchObject({ kind: "color", value: 0x112233 });
             expect(row(rows, "normalScale")).toMatchObject({ kind: "xy", value: { x: 2, y: 3 } });
-            // a texture slot reads as the image on it
-            expect(row(rows, "map")).toMatchObject({ kind: "texture", value: "data:image/png;base64,AAAA" });
+            // a texture slot reads as what it holds, never as its bytes: "AAAA" is three bytes,
+            // and echoing the image itself is what used to fill the window (see summarizeTexture)
+            expect(row(rows, "map")).toMatchObject({
+                kind: "texture",
+                value: { mediaType: "image/png", bytes: 3 },
+            });
         });
 
         test("reports an unknown id along with the materials that do exist", async () => {
@@ -145,14 +150,36 @@ describe("material tools", () => {
         test("gives a texture slot the image it is handed, and clears it with an empty string", async () => {
             const { material } = stubDocument();
 
-            await run("set_material_properties", {
+            const written = await run("set_material_properties", {
                 id: material.id,
                 properties: { roughnessMap: "data:image/png;base64,BBBB" },
             });
             expect(material.roughnessMap.image).toBe("data:image/png;base64,BBBB");
+            // The document keeps the image; the answer says how big it is and never carries it,
+            // because it would then be replayed in every request from here on.
+            expect(row(written.updated, "roughnessMap").value).toEqual({
+                mediaType: "image/png",
+                bytes: 3,
+            });
 
-            await run("set_material_properties", { id: material.id, properties: { roughnessMap: "" } });
+            const cleared = await run("set_material_properties", {
+                id: material.id,
+                properties: { roughnessMap: "" },
+            });
             expect(material.roughnessMap.image).toBe("");
+            expect(row(cleared.updated, "roughnessMap").value).toBeNull();
+        });
+
+        test("stores an SVG a texture slot is handed as pixels", async () => {
+            const { material } = stubDocument();
+            stubImageRaster({ width: 4, height: 4, toDataURL: "data:image/png;base64,RASTERED" });
+
+            await run("set_material_properties", {
+                id: material.id,
+                properties: { map: "data:image/svg+xml,%3Csvg/%3E" },
+            });
+
+            expect(material.map.image).toBe("data:image/png;base64,RASTERED");
         });
 
         test("refuses a property the material does not have, listing the ones it does", async () => {

@@ -7,11 +7,13 @@ import {
     EditableShapeNode,
     FontCatalog,
     I18n,
+    type IDisposable,
     type IDocument,
     type IEdge,
     type IFace,
     type IShape,
     type IWire,
+    isDisposable,
     Line,
     Matrix4,
     outlineFor,
@@ -90,13 +92,46 @@ function sessionRefs(doc: IDocument): Map<string, LocalRef> {
     return refs;
 }
 
+/**
+ * Owned ref values replaced while a program runs, released when it commits. They cannot be
+ * disposed on the spot: a rollback restores the pre-program registry (restoreRefRegistries),
+ * and the restored entries must still point at live shapes.
+ */
+let pendingRefDisposals: IDisposable[] | undefined;
+
+/**
+ * The value an entry owns and the registry must release, if any. Owned values are the fresh
+ * wrappers query ops derived from a parent; a root ref borrows its node's live shape, and
+ * curve/surface entries can alias objects their source wrapper caches — neither is ours.
+ */
+function ownedRefValue(entry: LocalRef): IDisposable | undefined {
+    if (entry.parent === undefined || entry.kind !== "shape") return undefined;
+    if (entry.value === entry.parent.value) return undefined;
+    return isDisposable(entry.value) ? entry.value : undefined;
+}
+
+function releaseRefValue(entry: LocalRef): void {
+    const value = ownedRefValue(entry);
+    if (value === undefined) return;
+    if (pendingRefDisposals) pendingRefDisposals.push(value);
+    else value.dispose();
+}
+
 function setRef(refs: Map<string, LocalRef>, id: string, entry: LocalRef): void {
+    const previous = refs.get(id);
     refs.delete(id);
     refs.set(id, entry);
+    // An identical value is ownership handed over, not a replacement — releasing it would
+    // dispose the shape the new entry still points at.
+    if (previous !== undefined && previous !== entry && previous.value !== entry.value) {
+        releaseRefValue(previous);
+    }
     while (refs.size > MAX_REFS) {
         const oldest = refs.keys().next().value;
         if (oldest === undefined) break;
+        const evicted = refs.get(oldest);
         refs.delete(oldest);
+        if (evicted !== undefined) releaseRefValue(evicted);
     }
 }
 
@@ -339,7 +374,10 @@ function rederiveFromParent(
         entry.value = target;
         return;
     }
+    // The value the parent produced before this refresh is superseded; release its wrapper.
+    const previous = entry.value;
     entry.value = selectDerived(id, raw, entry.index);
+    if (entry.value !== previous) releaseRefValue({ ...entry, value: previous });
 }
 
 function resolveShape(
@@ -846,15 +884,22 @@ async function runProgram(ops: Op[]): Promise<string> {
     const nullRefs = sessionNullRefs(doc);
     const refSnapshot = new Map(localRefs);
     const nullSnapshot = new Set(nullRefs);
+    const outerPending = pendingRefDisposals;
+    const replacedValues: IDisposable[] = [];
+    pendingRefDisposals = replacedValues;
     try {
         Transaction.execute(doc, "AI program", () => {
             runOps(ops, doc, factory, localRefs, created, removed, results);
             doc.selection.clearSelection();
             doc.visual.update();
         });
+        // Committed: the values this program's registrations replaced are dead for good.
+        replacedValues.forEach((value) => value.dispose());
     } catch (e) {
         restoreRefRegistries(localRefs, nullRefs, refSnapshot, nullSnapshot);
         throw e;
+    } finally {
+        pendingRefDisposals = outerPending;
     }
 
     return JSON.stringify({ created, removed, results });
@@ -888,7 +933,11 @@ function restoreRefRegistries(
     nullSnapshot: Set<string>,
 ): void {
     for (const key of [...localRefs.keys()]) {
-        if (!refSnapshot.has(key)) localRefs.delete(key);
+        if (refSnapshot.has(key)) continue;
+        const entry = localRefs.get(key);
+        localRefs.delete(key);
+        // The failed program's own registrations die with it; nothing restores these values.
+        if (entry !== undefined) ownedRefValue(entry)?.dispose();
     }
     for (const [key, entry] of refSnapshot) {
         if (!localRefs.has(key)) localRefs.set(key, entry);

@@ -24,7 +24,7 @@ rs.mock("openai", () => ({
 const SYSTEM = { stable: "sys", volatile: "" };
 
 function run(events: unknown[]): StreamEvent[] {
-    const state = { toolArgs: new Map<string, string>(), reasoned: false };
+    const state = { toolArgs: new Map<string, string>(), reasoned: false, texted: false, calls: 0 };
     const out: StreamEvent[] = [];
     for (const event of events) out.push(...convertEvent(event as never, state));
     return out;
@@ -225,5 +225,59 @@ describe("responses request", () => {
 
         const unknown = logged.filter((line) => line.includes("unhandled stream event"));
         expect(unknown).toEqual(['[ai] responses: unhandled stream event "response.something_new"']);
+    });
+});
+describe("a response that stopped short", () => {
+    test("an incomplete response ends the turn and names the reason", () => {
+        const events = run([
+            {
+                type: "response.incomplete",
+                response: {
+                    status: "incomplete",
+                    incomplete_details: { reason: "max_output_tokens" },
+                    usage: { input_tokens: 10, output_tokens: 900 },
+                },
+            },
+        ]);
+
+        // Not an error and not a `completed`: the agent reads this status as the truncation it is
+        // and says so, where leaving the event unhandled ended the turn silently.
+        expect(events).toContainEqual({ type: "done", stopReason: "incomplete" });
+        expect(events.some((e) => e.type === "usage")).toBe(true);
+    });
+
+    test("a failed response is an error, not an empty answer", () => {
+        expect(() =>
+            run([{ type: "response.failed", response: { status: "failed", error: { message: "boom" } } }]),
+        ).toThrow("boom");
+    });
+
+    test("an answer only the finished item carries is not lost", () => {
+        // A backend that streams finished items instead of deltas used to leave the turn looking
+        // like a model with nothing to say.
+        const events = run([
+            {
+                type: "response.output_item.done",
+                item: { type: "message", content: [{ type: "output_text", text: "Done." }] },
+            },
+        ]);
+
+        expect(events).toEqual([{ type: "text", text: "Done." }]);
+    });
+
+    test("that item does not repeat an answer that streamed as deltas", () => {
+        const events = run([
+            { type: "response.output_text.delta", delta: "Do" },
+            { type: "response.output_text.delta", delta: "ne." },
+            {
+                type: "response.output_item.done",
+                item: { type: "message", content: [{ type: "output_text", text: "Done." }] },
+            },
+        ]);
+
+        expect(events).toEqual([
+            { type: "text", text: "Do" },
+            { type: "text", text: "ne." },
+        ]);
     });
 });

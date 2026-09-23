@@ -39,6 +39,16 @@ export type HtmlTextOptions = {
     onCreated?: (element: HTMLElement) => void;
 };
 
+/** How `toImage` encodes the frame; with no options the full-size PNG is returned as before. */
+export interface ToImageOptions {
+    /** Cap on the long edge in pixels; a larger frame is downscaled to fit. */
+    maxSize?: number;
+    /** Encoded MIME type, e.g. "image/jpeg"; defaults to the canvas's PNG. */
+    mimeType?: string;
+    /** Encoder quality 0..1 for lossy types. */
+    quality?: number;
+}
+
 export interface IView extends IPropertyChanged, IDisposable {
     readonly document: IDocument;
     readonly cameraController: ICameraController;
@@ -51,7 +61,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     workplane: Plane;
     update(): void;
     up(): XYZ;
-    toImage(): string;
+    toImage(options?: ToImageOptions): string;
     direction(): XYZ;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;

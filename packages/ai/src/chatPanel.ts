@@ -51,6 +51,8 @@ import {
     offerKeyToPasswordManager,
     PROVIDER_PRESETS,
     type ProviderPreset,
+    REASONING_EFFORTS,
+    type ReasoningEffort,
     saveConfig,
 } from "./settings";
 import { buildTools } from "./tools";
@@ -70,14 +72,16 @@ const CONTEXT_BUDGET_RATIO = 0.8;
 const FOLLOW_BOTTOM_SLACK = 32;
 
 /**
- * How much reasoning the streaming block holds in the DOM, and how much of the tail it keeps once
- * past that. The block is a fixed-height window on a train of thought that runs to hundreds of
- * kilobytes, and the browser lays out every line of it in the frame that draws into it — so what
- * the block holds is bounded, and the rest is written back when the block folds (see
- * `closeThinking`), where a hidden block costs no layout at all.
+ * How much of a train of thought is kept once it runs long: the head for how it began, the tail
+ * for where it ended, the middle let go. A reasoning stream runs to hundreds of kilobytes, and
+ * whatever is kept sits in the DOM and in the saved chats for the rest of the session — so the
+ * accumulation itself is bounded, not just what is drawn from it.
  */
-const THINKING_DOM_LIMIT = 32_000;
-const THINKING_DOM_TAIL = 16_000;
+const THINKING_KEEP_HEAD = 16_000;
+const THINKING_KEEP_TAIL = 16_000;
+
+/** How much of the newest reasoning the folded block previews while it streams, in characters. */
+const THINKING_PREVIEW_CHARS = 80;
 
 /**
  * Tool result handed back when a question is abandoned rather than answered. Protocol text, like
@@ -85,6 +89,42 @@ const THINKING_DOM_TAIL = 16_000;
  */
 const ASK_INTERRUPTED =
     "The user interrupted without answering — do not repeat the question; wait for their next message.";
+
+/**
+ * Accumulate a reasoning delta into the stream's bounded head+tail: the head fills first and is
+ * never dropped, the tail rolls over it, and once the tail overruns, the middle is gone for good.
+ */
+function appendThinking(stream: StreamState, text: string) {
+    const room = THINKING_KEEP_HEAD - stream.thinkingHead.length;
+    if (room > 0) {
+        stream.thinkingHead += text.slice(0, room);
+        text = text.slice(room);
+    }
+    stream.thinkingTail += text;
+    if (stream.thinkingTail.length > THINKING_KEEP_TAIL) {
+        stream.thinkingTail = stream.thinkingTail.slice(-THINKING_KEEP_TAIL);
+        stream.thinkingTruncated = true;
+    }
+}
+
+/** What a finished reasoning block keeps: everything, or head and tail with the middle marked. */
+function foldThinking(stream: StreamState): string {
+    if (!stream.thinkingTruncated) return stream.thinkingHead + stream.thinkingTail;
+    return `${stream.thinkingHead}\n…\n${stream.thinkingTail}`;
+}
+
+/** The line the folded block shows while streaming: the newest non-empty line of the reasoning. */
+function previewThinking(stream: StreamState): string {
+    const lines = (stream.thinkingTail || stream.thinkingHead).split("\n");
+    let line = "";
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim().length > 0) {
+            line = lines[i];
+            break;
+        }
+    }
+    return line.length > THINKING_PREVIEW_CHARS ? `…${line.slice(-THINKING_PREVIEW_CHARS)}` : line;
+}
 
 function escapeHtml(text: string): string {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -119,6 +159,39 @@ marked.use({
 
 function renderMarkdown(raw: string): string {
     return marked.parse(raw, { async: false });
+}
+
+/**
+ * How much of a streaming paragraph's markdown is final: everything up to and including the last
+ * blank line, so long as no code fence is still open. A block closed by a blank line cannot be
+ * retroactively rewritten by what streams in next — but a fence's content is one block however
+ * many blank lines it holds, so nothing past an unclosed fence counts. Whatever this misses
+ * (a fence indented past three spaces, say) errs toward freezing less, never more.
+ */
+function frozenMarkdownEnd(text: string): number {
+    let fenceChar = "";
+    let fenceLength = 0;
+    let end = 0;
+    let lineStart = 0;
+    while (lineStart < text.length) {
+        const newline = text.indexOf("\n", lineStart);
+        const line = newline === -1 ? text.slice(lineStart) : text.slice(lineStart, newline);
+        if (fenceChar) {
+            const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
+            if (close && close[1][0] === fenceChar && close[1].length >= fenceLength) fenceChar = "";
+        } else {
+            const open = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+            if (open) {
+                fenceChar = open[1][0];
+                fenceLength = open[1].length;
+            } else if (line.trim() === "" && newline !== -1) {
+                end = newline + 1;
+            }
+        }
+        if (newline === -1) break;
+        lineStart = newline + 1;
+    }
+    return end;
 }
 
 /** The parts of a tool result a chat card summarizes; anything else falls back to the raw text. */
@@ -167,18 +240,27 @@ interface StreamState {
     block: HTMLElement | null;
     /** That paragraph's own text, reset each time a tool call or question closes it. */
     blockText: string;
-    /** What `block` was last drawn from, so a frame with nothing new in it draws nothing. */
-    blockRendered: string;
+    /**
+     * How much of `blockText` is drawn into frozen blocks — markdown a blank line has closed for
+     * good, drawn once and never redrawn while the paragraph streams — and how many of the
+     * paragraph's child nodes those blocks are.
+     */
+    blockFrozenText: number;
+    blockFrozenNodes: number;
+    /** The not-yet-frozen tail of `blockText` as last drawn, so an unchanged tail draws nothing. */
+    blockTailRendered: string;
     /** The reasoning block streaming right now, until text or a tool call closes it. */
     thinking: HTMLElement | null;
-    thinkingText: string;
-    /** That block's body, and the text node its deltas are appended to. */
-    thinkingBody: HTMLElement | null;
-    thinkingNode: Text | null;
-    /** Whether the reasoning box is being carried along, until the reader scrolls it away. */
-    thinkingFollowing: boolean;
-    /** The `scrollTop` this panel last wrote into that box, to tell its echo from the reader's. */
-    thinkingMark: number;
+    /**
+     * The reasoning so far, kept bounded (see `appendThinking`): the block stays folded while it
+     * streams, so nothing larger than these is ever laid out or archived.
+     */
+    thinkingHead: string;
+    thinkingTail: string;
+    /** Whether the middle of the train of thought has been dropped — what `foldThinking` reads. */
+    thinkingTruncated: boolean;
+    /** The one-line preview inside the folded block, tracking the newest line of the reasoning. */
+    thinkingPreview: HTMLElement | null;
     /** When that reasoning block opened, for the "thought for Ns" summary. */
     thinkingStartedAt: number;
     /** The whole turn's text, across every paragraph — what the copy button and the record hold. */
@@ -221,25 +303,63 @@ function estimateContext(messages: ChatMessage[]): number {
 }
 
 /**
+ * The most one image can cost the context. The API bills an image by area — (width x height) / 750
+ * — and scales anything past 1568px on its long edge down to that, so a square image at that edge
+ * is the ceiling however many megabytes of base64 carry it. Measuring those characters by the text
+ * rule below instead charges a few-hundred-KB screenshot some twenty times what it really costs,
+ * and that error alone is enough to trim away a conversation that still fits the window.
+ */
+const IMAGE_TOKEN_BOUND = Math.ceil((1568 * 1568) / 750);
+
+/**
+ * What a run of base64 costs, per character. The four-characters-per-token rule assumes words;
+ * base64 has no word boundaries at all, so the tokenizer spends far more on it — measured on a
+ * real 320k-character data URL: 1.44 characters per token, three times the estimate. What still
+ * carries base64 in the history is a model passing an image through a tool argument (and a
+ * redacted reasoning block), and under-counting it by three is how an estimate that looked
+ * comfortable overruns the window.
+ */
+const BASE64_CHARS_PER_TOKEN = 1.5;
+
+/**
+ * Roughly what a string costs: prose by the four-characters-per-token rule, the body of an inline
+ * image by its own. Anchored on the data URL rather than on any long run of the base64 alphabet —
+ * a run of plain letters ("xxxx…", a padded id) is prose, and scoring it as base64 would send the
+ * estimate the other way.
+ */
+function tokensOf(text: string): number {
+    let plain = 0;
+    let base64 = 0;
+    let end = 0;
+    for (const url of text.matchAll(/data:[\w.+-]+\/[\w.+-]+;base64,([A-Za-z0-9+/=]{64,})/g)) {
+        plain += url.index - end;
+        base64 += url[1].length / BASE64_CHARS_PER_TOKEN;
+        end = url.index + url[0].length;
+    }
+    return (plain + text.length - end) / 4 + base64;
+}
+
+/**
  * Roughly what a message costs the context. There is no tokenizer in the browser, so this is the
  * usual four-characters-per-token rule of thumb, applied to everything that goes over the wire:
- * text, tool arguments, reasoning (which is replayed), and base64 images. It only has to pick a
- * trim point with room to spare — the exact count arrives with every response.
+ * text, tool arguments and reasoning (which is replayed) — with base64 runs scored at
+ * `BASE64_CHARS_PER_TOKEN` instead. Images are the other exception: their cost is set by area
+ * rather than by length, so they are bounded (see `IMAGE_TOKEN_BOUND`). It only has to pick a trim
+ * point with room to spare — the exact count arrives with every response.
  */
 function estimateTokens(message: ChatMessage): number {
-    let chars = message.content.length;
+    let tokens = tokensOf(message.content);
     if (message.role === "assistant") {
-        for (const call of message.toolCalls ?? []) chars += call.name.length + call.arguments.length;
+        for (const call of message.toolCalls ?? []) tokens += tokensOf(call.name + call.arguments);
         for (const block of message.thinking ?? []) {
-            chars +=
+            tokens +=
                 block.type === "thinking"
-                    ? block.thinking.length + block.signature.length
-                    : block.data.length;
+                    ? tokensOf(block.thinking) + block.signature.length / BASE64_CHARS_PER_TOKEN
+                    : tokensOf(block.data);
         }
-    } else {
-        for (const image of message.images ?? []) chars += image.data.length;
+        return Math.ceil(tokens);
     }
-    return Math.ceil(chars / 4);
+    return Math.ceil(tokens) + (message.images?.length ?? 0) * IMAGE_TOKEN_BOUND;
 }
 
 /** `1000` and `1_000_000` must not read as `1.0k` and `1000.0k`. */
@@ -341,6 +461,7 @@ export class ChatPanel extends HTMLElement {
     private baseURLInput!: HTMLInputElement;
     private modelInput!: HTMLInputElement;
     private contextWindowSelect!: HTMLSelectElement;
+    private effortSelect!: HTMLSelectElement;
     /**
      * The preset the model and base URL fields were last set from — what a provider switch compares
      * them against to tell the preset's own values from the user's (see `onProviderChanged`).
@@ -615,6 +736,13 @@ export class ChatPanel extends HTMLElement {
         );
         this.baseURLInput = input({ className: style.field, placeholder: "base URL (OpenAI-compatible)" });
         this.modelInput = input({ className: style.field, placeholder: "model" });
+        this.effortSelect = select(
+            { className: style.field },
+            // The empty value is the endpoint's own default, not a level: sending nothing is what
+            // keeps a relay that has never heard of the field working (see `LLMConfig`).
+            option({ value: "", textContent: I18n.translate("ai.effortDefault") }),
+            ...REASONING_EFFORTS.map((effort) => option({ value: effort, textContent: effort })),
+        );
         this.contextWindowSelect = select(
             { className: style.field },
             ...CONTEXT_WINDOW_OPTIONS.map((size) =>
@@ -675,6 +803,8 @@ export class ChatPanel extends HTMLElement {
                 this.settingsField(new Localize("ai.provider"), this.providerSelect),
                 this.settingsField(new Localize("ai.baseURL"), this.baseURLInput),
                 this.settingsField(new Localize("ai.model"), this.modelInput),
+                this.settingsField(new Localize("ai.reasoningEffort"), this.effortSelect),
+                div({ className: style.settingsHint, textContent: new Localize("ai.reasoningEffortHint") }),
                 this.settingsField(new Localize("ai.contextWindow"), this.contextWindowSelect),
                 this.settingsField(new Localize("ai.apiKey"), this.apiKeyInput),
                 div({ className: style.settingsHint, textContent: new Localize("ai.apiKeyHint") }),
@@ -731,6 +861,7 @@ export class ChatPanel extends HTMLElement {
         this.baseURLInput.value = preset.baseURL ?? "";
         this.modelInput.value = preset.defaultModel;
         this.syncContextWindowValue(DEFAULT_CONTEXT_WINDOW);
+        this.effortSelect.value = "";
         if (this.usernameInput) this.usernameInput.value = preset.id;
         this.appliedPreset = preset;
     }
@@ -767,6 +898,7 @@ export class ChatPanel extends HTMLElement {
             this.baseURLInput.value = saved.baseURL ?? "";
             this.modelInput.value = saved.model;
             this.syncContextWindowValue(saved.contextWindow ?? DEFAULT_CONTEXT_WINDOW);
+            this.effortSelect.value = saved.reasoningEffort ?? "";
             this.apiKeyInput.value = saved.apiKey;
             if (this.usernameInput) this.usernameInput.value = preset?.id ?? saved.provider;
         } else {
@@ -786,6 +918,7 @@ export class ChatPanel extends HTMLElement {
             baseURL: this.baseURLInput?.value || undefined,
             model: this.modelInput?.value ?? "",
             contextWindow: Number(this.contextWindowSelect?.value) || DEFAULT_CONTEXT_WINDOW,
+            reasoningEffort: (this.effortSelect?.value || undefined) as ReasoningEffort | undefined,
             apiKey: this.apiKeyInput?.value.trim() ?? "",
         };
         saveConfig(config);
@@ -1058,13 +1191,14 @@ export class ChatPanel extends HTMLElement {
         this.stream = {
             block: null,
             blockText: "",
-            blockRendered: "",
+            blockFrozenText: 0,
+            blockFrozenNodes: 0,
+            blockTailRendered: "",
             thinking: null,
-            thinkingText: "",
-            thinkingBody: null,
-            thinkingNode: null,
-            thinkingFollowing: true,
-            thinkingMark: 0,
+            thinkingHead: "",
+            thinkingTail: "",
+            thinkingTruncated: false,
+            thinkingPreview: null,
             thinkingStartedAt: 0,
             raw: "",
         };
@@ -1233,7 +1367,6 @@ export class ChatPanel extends HTMLElement {
             // The reply starting is what ends the reasoning that led to it.
             this.sealStream();
             stream.block = div({ className: style.markdown });
-            stream.blockRendered = "";
             assistantEl.append(stream.block);
             this.showThinking();
         }
@@ -1243,47 +1376,38 @@ export class ChatPanel extends HTMLElement {
     }
 
     /**
-     * Show reasoning as it streams, in a block that folds itself away once the model moves on.
-     * The API sends this both as deltas and as a finished block; only the deltas reach here —
-     * the block is what `parts.thinking` keeps for the replay.
+     * Show reasoning as it streams: a folded block whose header previews its newest line, so a
+     * long train of thought never fills the transcript — or the layout. Opening it mid-stream
+     * fills it with what has been kept so far. The API sends this both as deltas and as a
+     * finished block; only the deltas reach here — the block is what `parts.thinking` keeps.
      */
     private handleThinkingDelta(text: string) {
         const stream = this.stream;
         const assistantEl = this.activeAssistantEl;
         if (!stream || !assistantEl) return;
-        let node = stream.thinkingNode;
-        if (!node) {
-            node = document.createTextNode("");
-            const body = div({ className: style.thinkingBody }, node);
-            stream.thinking = this.buildThinkingBlock(I18n.translate("ai.thinking"), body);
-            // Open while it streams: the point is watching the model work.
-            stream.thinking.classList.add(style.open);
-            stream.thinkingText = "";
-            stream.thinkingBody = body;
-            stream.thinkingNode = node;
-            stream.thinkingFollowing = true;
-            stream.thinkingMark = 0;
+        if (!stream.thinking) {
+            const body = div({ className: style.thinkingBody });
+            const preview = span({ className: style.thinkingPreview });
+            const block = this.buildThinkingBlock(I18n.translate("ai.thinking"), body, {
+                preview,
+                onToggle: (open) => {
+                    // Expanded mid-stream: fill it from what the stream has kept. The identity
+                    // check keeps a later reasoning block in the same turn from rewriting this
+                    // one, and `closeThinking` having run from blanking it.
+                    if (open && stream.thinking === block) body.textContent = foldThinking(stream);
+                },
+            });
+            stream.thinking = block;
+            stream.thinkingPreview = preview;
             stream.thinkingStartedAt = Date.now();
-            body.addEventListener("scroll", () => this.onThinkingScrolled(body));
-            assistantEl.append(stream.thinking);
+            assistantEl.append(block);
             this.showThinking();
         }
-        stream.thinkingText += text;
-        // Appended to the block's own text node rather than rewriting the whole body: a train of
-        // thought runs to tens of kilobytes, and copying it per token is work the page pays again
-        // for every one of them.
-        node.appendData(text);
-        // Trimmed a chunk at a time rather than a character at a time, so it is amortized: the box
-        // is a fixed-height window, and only the tail of it can be on screen anyway.
-        if (node.length > THINKING_DOM_LIMIT) node.deleteData(0, node.length - THINKING_DOM_TAIL);
+        appendThinking(stream, text);
+        // One short line per delta is the whole live render: the body the text accumulates into
+        // stays folded away, and with it the layout of every line the train of thought adds.
+        if (stream.thinkingPreview) stream.thinkingPreview.textContent = previewThinking(stream);
         this.scheduleFlush();
-    }
-
-    /** The reasoning box's own follow rule, told apart from this panel's own scroll of it. */
-    private onThinkingScrolled(body: HTMLElement) {
-        const stream = this.stream;
-        if (!stream || body.scrollTop === stream.thinkingMark) return;
-        stream.thinkingFollowing = atScrollEnd(body);
     }
 
     /**
@@ -1303,26 +1427,45 @@ export class ChatPanel extends HTMLElement {
     };
 
     /**
-     * Draw the streaming turn: the paragraph's markdown, and the reasoning block's own autoscroll.
-     * Every path that closes a block comes through here first, so a sealed block is never left a
-     * frame behind the text its record already carries.
+     * Draw the streaming turn's paragraph. Every path that closes a block comes through here
+     * first, so a sealed block is never left a frame behind the text its record already carries.
      */
     private renderStreamed() {
         this.cancelFlush();
         const stream = this.stream;
         if (!stream) return;
-        if (stream.block && stream.blockText !== stream.blockRendered) {
-            stream.block.innerHTML = renderMarkdown(stream.blockText);
-            stream.blockRendered = stream.blockText;
-        }
-        // The reasoning block is capped in height and scrolls inside itself, so carrying the
-        // reader along means carrying this too — the newest reasoning is the part being written.
-        // Its own follow, not the transcript's alone: a reader who scrolled up inside the box is
-        // reading it, and the transcript being at the bottom says nothing about that.
-        if (stream.thinkingBody && this.following && stream.thinkingFollowing) {
-            stream.thinkingMark = pinToEnd(stream.thinkingBody);
-        }
+        if (stream.block) this.renderParagraph(stream);
         this.followBottom();
+    }
+
+    /**
+     * Draw the streaming paragraph. Markdown blocks are final once a blank line closes them, so
+     * completed blocks are drawn once and frozen, and a frame's work is the tail still being
+     * written — not the whole paragraph reparsed and rebuilt around every token.
+     */
+    private renderParagraph(stream: StreamState) {
+        const block = stream.block;
+        if (!block) return;
+        const text = stream.blockText;
+        const freezeAt = frozenMarkdownEnd(text);
+        if (freezeAt > stream.blockFrozenText) {
+            // The tail being replaced held the text these blocks now freeze, so it comes down
+            // first and is drawn again from what is left of it below.
+            while (block.childNodes.length > stream.blockFrozenNodes) block.lastChild?.remove();
+            block.insertAdjacentHTML(
+                "beforeend",
+                renderMarkdown(text.slice(stream.blockFrozenText, freezeAt)),
+            );
+            stream.blockFrozenText = freezeAt;
+            stream.blockFrozenNodes = block.childNodes.length;
+            stream.blockTailRendered = "";
+        }
+        const tail = text.slice(stream.blockFrozenText);
+        if (tail !== stream.blockTailRendered) {
+            while (block.childNodes.length > stream.blockFrozenNodes) block.lastChild?.remove();
+            block.insertAdjacentHTML("beforeend", renderMarkdown(tail));
+            stream.blockTailRendered = tail;
+        }
     }
 
     private cancelFlush() {
@@ -1331,14 +1474,29 @@ export class ChatPanel extends HTMLElement {
         this.flushHandle = undefined;
     }
 
-    /** A folded reasoning block; the caller opens it if it is the one streaming right now. */
-    private buildThinkingBlock(summaryText: string, body: HTMLElement): HTMLElement {
+    /**
+     * A reasoning block, folded until its header is clicked. The streaming one also carries a
+     * one-line preview of the newest reasoning in that header, and an `onToggle` that fills the
+     * body on demand — it is the streaming one's body that starts out empty.
+     */
+    private buildThinkingBlock(
+        summaryText: string,
+        body: HTMLElement,
+        options?: { preview?: HTMLElement; onToggle?: (open: boolean) => void },
+    ): HTMLElement {
         const summary = span({ className: style.thinkingSummary, textContent: summaryText });
         const root = div(
             { className: style.thinkingBlock },
             button(
-                { className: style.thinkingHeader, onclick: () => root.classList.toggle(style.open) },
+                {
+                    className: style.thinkingHeader,
+                    onclick: () => {
+                        root.classList.toggle(style.open);
+                        options?.onToggle?.(root.classList.contains(style.open));
+                    },
+                },
                 summary,
+                ...(options?.preview ? [options.preview] : []),
                 svg({ className: style.thinkingChevron, icon: "icon-angle-right" }),
             ),
             body,
@@ -1364,15 +1522,19 @@ export class ChatPanel extends HTMLElement {
         const summary = stream.thinking.querySelector(`.${style.thinkingSummary}`);
         if (summary) summary.textContent = I18n.translate("ai.thoughtFor", `${Math.round(ms / 1000)}s`);
         stream.thinking.classList.remove(style.open);
-        // Folded first: hidden, the block lays none of this out, and what the streaming window
-        // trimmed off comes back — expanding it shows the whole of the reasoning, as a reopened
-        // conversation always did.
-        if (stream.thinkingBody) stream.thinkingBody.textContent = stream.thinkingText;
-        this.turnParts.push({ type: "thinking", text: stream.thinkingText, ms });
+        // What it keeps is bounded either way — the whole train of thought would otherwise sit in
+        // the DOM and the saved transcript forever. The preview goes: the folded block is summary
+        // alone, like one redrawn from the transcript.
+        const text = foldThinking(stream);
+        const body = stream.thinking.querySelector(`.${style.thinkingBody}`);
+        if (body) body.textContent = text;
+        stream.thinkingPreview?.remove();
+        this.turnParts.push({ type: "thinking", text, ms });
         stream.thinking = null;
-        stream.thinkingText = "";
-        stream.thinkingBody = null;
-        stream.thinkingNode = null;
+        stream.thinkingHead = "";
+        stream.thinkingTail = "";
+        stream.thinkingTruncated = false;
+        stream.thinkingPreview = null;
     }
 
     /**
@@ -1391,10 +1553,16 @@ export class ChatPanel extends HTMLElement {
     private closeParagraph() {
         const stream = this.stream;
         if (!stream?.block) return;
+        // Drawn piecemeal as it streamed, which is right per block but not always across them —
+        // a link reference defined below its use, a list a later item loosens — so the paragraph
+        // gets one whole-text pass now that it is final.
+        stream.block.innerHTML = renderMarkdown(stream.blockText);
         this.turnParts.push({ type: "text", text: stream.blockText });
         stream.block = null;
         stream.blockText = "";
-        stream.blockRendered = "";
+        stream.blockFrozenText = 0;
+        stream.blockFrozenNodes = 0;
+        stream.blockTailRendered = "";
     }
 
     /** Throw away the half-written paragraph a crashed turn left, so the retry starts clean. */
@@ -1406,7 +1574,9 @@ export class ChatPanel extends HTMLElement {
         stream.block.remove();
         stream.block = null;
         stream.blockText = "";
-        stream.blockRendered = "";
+        stream.blockFrozenText = 0;
+        stream.blockFrozenNodes = 0;
+        stream.blockTailRendered = "";
     }
 
     private clearThinking() {
@@ -1494,23 +1664,18 @@ export class ChatPanel extends HTMLElement {
      * 40, say — has no relation to the window: the same 40 are 2% of a 1M context and over it in a
      * 32k one, so it either starves short conversations or overruns long ones.
      *
-     * Two things are not negotiable whatever the budget. Base64 images are stripped from all but
-     * the latest message that carries them — a screenshot is worth more than every message around
-     * it. And the kept window never starts mid tool-exchange: walk forward to the next user
-     * boundary so assistant tool_calls and their tool results stay paired, or are dropped together.
+     * Three things are not negotiable whatever the budget. Earlier turns' reasoning is dropped (the
+     * same rule, applied when a turn begins, as agent.ts's `dropSupersededThinking`): the API needs
+     * thinking only for the tool loop still open, and it is billed as input like everything else,
+     * so keeping it makes the window fill with the model's own past reasoning. Screenshots go with
+     * the turn that took them — the user's own images stay, whatever turn they came in on (see
+     * `dropEarlierScreenshots`). And the kept window never starts mid tool-exchange: walk forward to
+     * the next user boundary so assistant tool_calls and their tool results stay paired, or are
+     * dropped together.
      */
     private trimMessages() {
-        let lastWithImages = -1;
-        for (let i = this.messages.length - 1; i >= 0; i--) {
-            const m = this.messages[i];
-            if (m.role !== "assistant" && m.images?.length) {
-                lastWithImages = i;
-                break;
-            }
-        }
-        for (const [i, m] of this.messages.entries()) {
-            if (m.role !== "assistant" && i !== lastWithImages && m.images) m.images = undefined;
-        }
+        this.dropSupersededThinking();
+        this.dropEarlierScreenshots();
 
         const budget = (currentConfig().contextWindow ?? DEFAULT_CONTEXT_WINDOW) * CONTEXT_BUDGET_RATIO;
         let total = estimateContext(this.messages);
@@ -1525,6 +1690,42 @@ export class ChatPanel extends HTMLElement {
         while (start < this.messages.length && this.messages[start].role !== "user") start++;
         this.messages.splice(0, start);
         this.showContextNotice();
+    }
+
+    /**
+     * Drop every turn's reasoning but the one in flight. The API needs thinking blocks only while
+     * the tool loop that produced them is open, and bills whatever it is sent — a conversation that
+     * keeps them all re-sends the model's whole reasoning history on every request. Same rule as
+     * agent.ts's `dropSupersededThinking`, run here when a turn begins so that the trim below sizes
+     * the history that is actually going to be sent.
+     */
+    private dropSupersededThinking() {
+        // With no user message there is no newer turn to supersede anything, so nothing is dropped.
+        let boundary = 0;
+        for (let i = this.messages.length - 1; i >= 0; i--) {
+            if (this.messages[i].role === "user") {
+                boundary = i;
+                break;
+            }
+        }
+        for (const [i, message] of this.messages.entries()) {
+            if (i < boundary && message.role === "assistant") message.thinking = undefined;
+        }
+    }
+
+    /**
+     * Drop every screenshot the earlier turns took. A screenshot answers "what does it look like
+     * now", so the last turn's is a picture of a viewport that has moved on — and a model reading a
+     * stale one is worse off than a model without one, since another costs it a single tool call.
+     * Images the user attached are left alone whatever turn they came in on: those are the input
+     * the user gave, not a picture of a moment. agent.ts's `dropSupersededImages` covers the other
+     * half of the rule: within a run, the newest screenshot survives so the model can look at what
+     * it just captured.
+     */
+    private dropEarlierScreenshots() {
+        for (const message of this.messages) {
+            if (message.role === "tool") message.images = undefined;
+        }
     }
 
     /**

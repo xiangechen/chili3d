@@ -86,6 +86,7 @@ rs.mock("../src/chatPanel.module.css", () => ({
     thinkingSummary: "thinkingSummary",
     thinkingChevron: "thinkingChevron",
     thinkingBody: "thinkingBody",
+    thinkingPreview: "thinkingPreview",
     error: "error",
     bubbleImage: "bubbleImage",
     settingsOverlay: "settingsOverlay",
@@ -238,13 +239,8 @@ describe("ChatPanel", () => {
         const panel = new ChatPanel();
         const messages = (panel as any).messages as any[];
         for (let i = 0; i < 45; i++) {
-            messages.push({
-                role: "user",
-                // 40 characters — about 10 tokens each, so 45 of them overflow a 400-token window.
-                content: `m${i}`.padEnd(40, "x"),
-                // Empty data so the arithmetic below is about the text budget alone.
-                images: i % 10 === 0 ? [{ mediaType: "image/png", data: "" }] : undefined,
-            });
+            // 40 characters — about 10 tokens each, so 45 of them overflow a 400-token window.
+            messages.push({ role: "user", content: `m${i}`.padEnd(40, "x") });
         }
 
         (panel as any).trimMessages();
@@ -253,10 +249,125 @@ describe("ChatPanel", () => {
         expect(messages.length).toBe(32);
         expect(messages[0].content.startsWith("m13")).toBe(true);
         expect(messages.at(-1)!.content.startsWith("m44")).toBe(true);
-        // Only the latest screenshot survives, whatever the budget: base64 dwarfs everything else.
-        const withImages = messages.filter((m) => m.images);
-        expect(withImages.length).toBe(1);
-        expect(withImages[0].content.startsWith("m40")).toBe(true);
+    });
+
+    test("counts an inline image by what base64 costs, not by its length", () => {
+        // 300k characters of base64 against a 200k window: four characters to the token puts it at
+        // 75k and it fits. The tokenizer has no word boundaries to work with there and spends ~1.44
+        // characters per token, so it is ~200k — over the window, and the trim has to fire.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 200_000 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        messages.push({ role: "user", content: `data:image/png;base64,${"A".repeat(300_000)}` });
+        messages.push({ role: "user", content: "and now this" });
+
+        (panel as any).trimMessages();
+
+        expect(messages.length).toBe(1);
+        expect(messages[0].content).toBe("and now this");
+    });
+
+    test("drops the earlier turns' screenshots but keeps the user's own images", () => {
+        // A window the transcript's text never threatens, so the image rule is what is tested.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 1_000_000 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        const screenshot = [{ mediaType: "image/jpeg", data: "x".repeat(286_000) }];
+        const attachment = [{ mediaType: "image/png", data: "y".repeat(2_000) }];
+        messages.push(
+            // A turn that carried the user's own picture…
+            { role: "user", content: "make it red", images: attachment },
+            {
+                role: "assistant",
+                content: "",
+                toolCalls: [{ id: "t1", name: "capture_screenshot", arguments: "{}" }],
+            },
+            // …and one the model took for itself, of the viewport as it then was.
+            { role: "tool", toolCallId: "t1", name: "capture_screenshot", content: "{}", images: screenshot },
+            { role: "assistant", content: "done" },
+            // The new question carries no image of its own.
+            { role: "user", content: "and now thicker" },
+        );
+
+        (panel as any).trimMessages();
+
+        // The screenshot is of a state that has moved on, so the model works from a fresh one
+        // instead. The user's picture is still what the user is talking about, however many turns
+        // ago they gave it.
+        expect(messages.length).toBe(5);
+        expect(messages[2].images).toBeUndefined();
+        expect(messages[0].images).toBe(attachment);
+        expect(messages.filter((m: any) => m.images).length).toBe(1);
+    });
+
+    test("keeps the images the new message itself carries", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 1_000_000 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        const screenshot = [{ mediaType: "image/jpeg", data: "x".repeat(286_000) }];
+        const attachment = [{ mediaType: "image/png", data: "y".repeat(2_000) }];
+        messages.push(
+            { role: "user", content: "make it red" },
+            {
+                role: "assistant",
+                content: "",
+                toolCalls: [{ id: "t1", name: "capture_screenshot", arguments: "{}" }],
+            },
+            { role: "tool", toolCallId: "t1", name: "capture_screenshot", content: "{}", images: screenshot },
+            { role: "assistant", content: "done" },
+            { role: "user", content: "like this", images: attachment },
+        );
+
+        (panel as any).trimMessages();
+
+        expect(messages[2].images).toBeUndefined();
+        expect(messages[4].images).toBe(attachment);
+        expect(messages.filter((m: any) => m.images).length).toBe(1);
+    });
+
+    test("counts an image as the area it is, not as the base64 it carries", () => {
+        // 40 turns of 15k characters: 150k tokens of text against a 160k budget, so the text
+        // leaves the window room for an image. Read as its own base64 length, an image the size of
+        // a screenshot (~286k characters, some 71k by the text rule) does not fit that room — it
+        // trimmed the oldest 17 turns away when this was written. The API bills its area, ~3.3k,
+        // and nothing needs to go.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 200_000 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        for (let i = 0; i < 40; i++) {
+            messages.push({ role: "user", content: `${i}`.padEnd(15_000, "x") });
+        }
+        messages[39].images = [{ mediaType: "image/jpeg", data: "x".repeat(286_000) }];
+
+        (panel as any).trimMessages();
+
+        expect(messages.length).toBe(40);
+        expect(messages[39].images).toBeDefined();
+    });
+
+    test("drops earlier turns' reasoning when a turn begins", async () => {
+        // The ended turn's reasoning alone exceeds the window: counted, it would trim the turn
+        // away before the new one is sent.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 100_000 });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        const thinking = [{ type: "thinking", thinking: "x".repeat(400_000), signature: "sig" }];
+        anyPanel.messages.push(
+            { role: "user", content: "first" },
+            { role: "assistant", content: "done", thinking },
+        );
+
+        anyPanel.input.value = "second";
+        const run: Promise<void> = anyPanel.send();
+
+        // The API wants thinking only for the tool loop still open, so the turn that ended is sent
+        // without its reasoning — and the window that reasoning would have taken stays free.
+        expect(anyPanel.messages.length).toBe(3);
+        expect(anyPanel.messages[1].thinking).toBeUndefined();
+        expect(anyPanel.messages[2].content).toBe("second");
+
+        agentMock.pending[0].resolve();
+        await run;
     });
 
     test("trim cuts at a user boundary so tool_use/tool_result pairs stay intact", () => {
@@ -499,15 +610,19 @@ describe("ChatPanel", () => {
         callbacks.onThinkingDelta("a box");
 
         const block = panel.querySelector(".thinkingBlock")!;
-        // Open while it streams: watching it work is the whole point of showing it.
-        expect(block.classList.contains("open")).toBe(true);
-        expect(block.querySelector(".thinkingBody")!.textContent).toBe("the user wants a box");
+        // Folded while it streams — the header's one-line preview is the live view of it.
+        expect(block.classList.contains("open")).toBe(false);
+        expect(block.querySelector(".thinkingBody")!.textContent).toBe("");
+        expect(block.querySelector(".thinkingPreview")!.textContent).toBe("the user wants a box");
 
         callbacks.onTextDelta("Making it");
         await nextFrame();
 
         expect(block.classList.contains("open")).toBe(false);
         expect(block.querySelector(".thinkingSummary")!.textContent).toBe("ai.thoughtFor");
+        // Folding takes the preview with it and leaves the bounded text in the body.
+        expect(block.querySelector(".thinkingPreview")).toBeNull();
+        expect(block.querySelector(".thinkingBody")!.textContent).toBe("the user wants a box");
         // The reply follows the reasoning it came out of.
         expect(panel.querySelector(".markdown")!.textContent?.trim()).toBe("Making it");
 
@@ -515,7 +630,7 @@ describe("ChatPanel", () => {
         await sending;
     });
 
-    test("holds only the tail of a long train of thought while it streams, all of it once folded", async () => {
+    test("previews one line of a long train of thought while it streams, a bounded head+tail once folded", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         const document = createMockDocument();
         const panel = new ChatPanel();
@@ -532,30 +647,34 @@ describe("ChatPanel", () => {
         (panel as any).input.value = "make a box";
         const sending = (panel as any).send();
 
-        // 120 x 400 characters — well past the 32k the streaming block holds.
+        // 120 x 400 characters — far past what the stream keeps, let alone what it draws.
         const chunk = "推理".repeat(200);
         for (let i = 0; i < 120; i++) callbacks.onThinkingDelta(chunk);
 
-        // What the block holds is the tail of it: the box is a fixed-height window, and dropping
-        // the head is what keeps the frame drawing into it from laying out the whole train.
+        // Folded while it streams: the body holds nothing, and the header's preview is one
+        // bounded line of the newest reasoning — the train of thought is never laid out.
         const body = panel.querySelector(".thinkingBody") as HTMLElement;
-        expect(body.textContent!.length).toBeLessThan(chunk.length * 120);
-        expect(body.textContent!.endsWith(chunk)).toBe(true);
+        expect(body.textContent).toBe("");
+        const preview = panel.querySelector(".thinkingPreview") as HTMLElement;
+        expect(preview.textContent!.length).toBeLessThanOrEqual(81);
+        expect(preview.textContent!.startsWith("…")).toBe(true);
 
         callbacks.onTextDelta("done");
         agentMock.pending.shift()!.resolve();
         await sending;
 
-        // Folded, it holds the whole of it again: hidden, the block lays out none of it, and a
-        // reader who expands it reads what a reopened conversation would replay.
-        expect(body.textContent!.length).toBe(chunk.length * 120);
+        // Folded and archived, the whole train would sit in the DOM for the session and in the
+        // document's saved chats forever — so both keep a bounded head+tail of it instead.
+        const full = chunk.repeat(120);
+        const bounded = `${full.slice(0, 16_000)}\n…\n${full.slice(-16_000)}`;
+        expect(body.textContent).toBe(bounded);
         expect(readConversations(document)[0].messages[1].parts).toEqual([
-            { type: "thinking", text: chunk.repeat(120), ms: expect.any(Number) },
+            { type: "thinking", text: bounded, ms: expect.any(Number) },
             { type: "text", text: "done" },
         ]);
     });
 
-    test("carries the reader down the reasoning box only while they are at its end", async () => {
+    test("fills the reasoning body from what the stream has kept when expanded mid-stream", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         const panel = new ChatPanel();
         const anyPanel = panel as any;
@@ -571,34 +690,25 @@ describe("ChatPanel", () => {
         anyPanel.input.value = "make a box";
         const sending = anyPanel.send();
         callbacks.onThinkingDelta("weighing it up");
+        callbacks.onThinkingDelta("\nstill weighing");
         await nextFrame();
 
-        // happy-dom reports 0 for every scroll metric, which reads as "at the end" — so the box's
-        // geometry is stated outright, as the transcript's is in the follow tests.
-        const body = panel.querySelector(".thinkingBody") as HTMLElement;
-        Object.defineProperties(body, {
-            scrollTop: { value: 0, writable: true, configurable: true },
-            scrollHeight: { value: 900, configurable: true },
-            clientHeight: { value: 240, configurable: true },
-        });
+        const block = panel.querySelector(".thinkingBlock")!;
+        const body = block.querySelector(".thinkingBody") as HTMLElement;
+        expect(body.textContent).toBe("");
 
-        // Scrolled up inside the box, where the transcript's own follow says nothing: the newest
-        // reasoning must not drag them back down under it.
-        body.scrollTop = 300;
-        body.dispatchEvent(new Event("scroll"));
-        callbacks.onThinkingDelta("still weighing");
-        await nextFrame();
-        expect(body.scrollTop).toBe(300);
-
-        // Back at its end — 900 - 240 = 660 — so the rest arrives under their eyes again.
-        body.scrollTop = 660;
-        body.dispatchEvent(new Event("scroll"));
-        callbacks.onThinkingDelta(" done");
-        await nextFrame();
-        expect(body.scrollTop).toBe(900);
+        // Opened mid-stream, the block shows what has been kept so far — and the preview,
+        // which the open body now duplicates, is for the folded header only.
+        (block.querySelector(".thinkingHeader") as HTMLElement).click();
+        expect(block.classList.contains("open")).toBe(true);
+        expect(body.textContent).toBe("weighing it up\nstill weighing");
 
         agentMock.pending.shift()!.resolve();
         await sending;
+
+        // The model moved on without a word: the block folds back and keeps what was kept.
+        expect(block.classList.contains("open")).toBe(false);
+        expect(body.textContent).toBe("weighing it up\nstill weighing");
     });
 
     test("reveals the nodes a card names when its summary is clicked", async () => {
@@ -818,6 +928,101 @@ describe("ChatPanel", () => {
         await sending;
     });
 
+    test("freezes completed markdown blocks and redraws only the tail still streaming", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        anyPanel.input.value = "explain";
+        const sending = anyPanel.send();
+        callbacks.onTextDelta("first paragraph\n\nsecond start");
+        await nextFrame();
+
+        const markdown = panel.querySelector(".markdown") as HTMLElement;
+        const frozen = markdown.querySelector("p");
+        expect(frozen?.textContent).toBe("first paragraph");
+        expect(markdown.textContent).toContain("second start");
+
+        // The frozen block is the same node frame over frame — only the open tail is redrawn,
+        // so a long answer stops paying to reparse and rebuild everything it has already said.
+        callbacks.onTextDelta(" keeps going");
+        await nextFrame();
+        expect(markdown.querySelector("p")).toBe(frozen);
+        expect(markdown.textContent).toContain("second start keeps going");
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("holds an unclosed code fence in the streaming tail, blank lines and all", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        anyPanel.input.value = "write code";
+        const sending = anyPanel.send();
+        callbacks.onTextDelta("```js\nlet a = 1;\n\nlet b = 2;\n```\n\nafter");
+        await nextFrame();
+
+        const markdown = panel.querySelector(".markdown") as HTMLElement;
+        // The blank line inside the fence splits nothing: the code is one block, blanks intact.
+        const pres = markdown.querySelectorAll("pre");
+        expect(pres.length).toBe(1);
+        expect(pres[0].textContent).toContain("let a = 1;");
+        expect(pres[0].textContent).toContain("let b = 2;");
+        expect(markdown.querySelector("p")?.textContent).toBe("after");
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+    });
+
+    test("settles a paragraph with one whole-text render when it closes", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let callbacks: any;
+        agentMock.runAgent.mockImplementationOnce(
+            (opts: any) =>
+                new Promise<void>((resolve) => {
+                    callbacks = opts.callbacks;
+                    agentMock.pending.push({ resolve });
+                }),
+        );
+
+        anyPanel.input.value = "list the steps";
+        const sending = anyPanel.send();
+        callbacks.onTextDelta("1. first\n\n2. second");
+        await nextFrame();
+
+        const markdown = panel.querySelector(".markdown") as HTMLElement;
+        // Mid-stream the items are drawn as they arrived: the first froze before the second
+        // existed, so two lists stand where one is being said.
+        expect(markdown.querySelectorAll("ol").length).toBe(2);
+
+        agentMock.pending.shift()!.resolve();
+        await sending;
+
+        // Sealed, the paragraph is what one render of its whole text makes of it: a single list.
+        expect(markdown.querySelectorAll("ol").length).toBe(1);
+        expect(markdown.querySelectorAll("li").length).toBe(2);
+    });
+
     test("an attachment that decodes late is carried past rather than left below the fold", async () => {
         let decoded = false;
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
@@ -1034,6 +1239,37 @@ describe("ChatPanel", () => {
         expect(select.options[0].textContent).toBe("200k");
         // 1M must not read as "1000k".
         expect(select.options[4].textContent).toBe("1M");
+    });
+
+    test("offers the thinking depth, unset by default, and saves what is chosen", async () => {
+        const panel = new ChatPanel();
+        const select = (panel as any).effortSelect as HTMLSelectElement;
+
+        // The empty first option is the endpoint's own default: sending nothing is what keeps a
+        // relay that has never heard of the field working.
+        expect(Array.from(select.options).map((o) => o.value)).toEqual([
+            "",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+        ]);
+
+        select.value = "low";
+        (panel.querySelector(".settingsOverlay form") as HTMLFormElement).requestSubmit();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(loadConfig()?.reasoningEffort).toBe("low");
+    });
+
+    test("shows the thinking depth a saved config carries", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", reasoningEffort: "max" });
+        const panel = new ChatPanel();
+
+        (panel as any).settingsButtonEl.click();
+
+        expect((panel as any).effortSelect.value).toBe("max");
     });
 
     test("keeps a window size that is not one of the tiers", async () => {

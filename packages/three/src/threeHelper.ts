@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { type Material, MathUtils, Matrix4, type Texture, XYZ } from "@chili3d/core";
+import { imageToCanvas } from "@chili3d/element";
 import {
     Box3,
     type Camera,
@@ -12,10 +13,10 @@ import {
     type PerspectiveCamera,
     RepeatWrapping,
     SRGBColorSpace,
-    TextureLoader,
     Color as ThreeColor,
     Matrix4 as ThreeMatrix4,
     MeshPhysicalMaterial as ThreePhysicalMaterial,
+    Texture as ThreeTexture,
     Vector2,
     Vector3,
     type Vector3Like,
@@ -99,13 +100,18 @@ export class ThreeHelper {
      * `slot` is the material property the image goes into, which is what decides its colour space:
      * `map` and `emissiveMap` hold colour and are authored in sRGB, while roughness, metalness,
      * normal and bump carry data — decoding those as sRGB would bend the values the shader reads.
+     *
+     * The raster is drawn here, at one requested size, rather than uploaded from the URL by a
+     * texture loader: an SVG a loader rasterizes for upload is rasterized at whatever size the
+     * browser picks, which on a hidpi screen can be a bitmap most of which is empty — a face then
+     * samples nothing over most of its UVs. See `imageToCanvas`.
      */
     static loadTexture(item: Texture | undefined, slot: string) {
         if (!item?.image) {
             return null;
         }
 
-        const map = new TextureLoader().load(item.image);
+        const map = new ThreeTexture();
         map.colorSpace = colorMapSlots.has(slot) ? SRGBColorSpace : NoColorSpace;
         map.wrapS = RepeatWrapping;
         map.wrapT = RepeatWrapping;
@@ -113,6 +119,11 @@ export class ThreeHelper {
         map.offset.set(item.offset.x, item.offset.y);
         map.repeat.set(item.repeat.x, item.repeat.y);
         map.rotation = MathUtils.degToRad(item.rotation);
+        void imageToCanvas(item.image).then((canvas) => {
+            if (canvas === undefined) return;
+            map.image = canvas;
+            map.needsUpdate = true;
+        });
         return map;
     }
 

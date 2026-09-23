@@ -1,7 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { History, type IDocument, type PropertyHistoryRecord, Transaction } from "../src";
+import { FolderNode, History, type IDocument, type PropertyHistoryRecord, Transaction } from "../src";
+import { createPlainNode, TestDocument } from "../test-utils";
 
 describe("Transaction", () => {
     test("should record history via static add and execute", () => {
@@ -89,5 +90,28 @@ describe("Transaction", () => {
             });
         });
         expect(doc.history.undoCount()).toBe(1);
+    });
+
+    test("rollback disposes the nodes the failed transaction created", () => {
+        const doc = new TestDocument();
+        const folder = new FolderNode({ document: doc, name: "F" });
+        let disposed = 0;
+        const node = createPlainNode("n");
+        const baseDispose = node.dispose.bind(node);
+        (node as any).dispose = () => {
+            disposed++;
+            baseDispose();
+        };
+
+        expect(() =>
+            Transaction.execute(doc, "fail", () => {
+                folder.add(node);
+                throw new Error("boom");
+            }),
+        ).toThrow("boom");
+
+        expect(node.parent).toBeUndefined();
+        expect(disposed).toBe(1);
+        expect(doc.history.undoCount()).toBe(0);
     });
 });

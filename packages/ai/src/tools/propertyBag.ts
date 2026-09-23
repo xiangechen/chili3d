@@ -48,9 +48,38 @@ export function encodeValue(kind: PropertyKind, value: unknown): unknown {
         const xy = value as XY;
         return { x: xy.x, y: xy.y };
     }
-    // A texture slot reads as the image it holds; "" is a slot with no image on it.
-    if (kind === "texture") return (value as Texture).image;
+    if (kind === "texture") return summarizeTexture((value as Texture).image);
     return kind === "unsupported" ? undefined : value;
+}
+
+/**
+ * A texture slot as the model reads it: never the bytes.
+ *
+ * A slot holds an image, and an image the model pasted or the app rasterized is a data URL — a
+ * 234 KB PNG is a 320k-character string. Base64 has no word boundaries, so the tokenizer spends
+ * ~1.4 characters per token on it rather than the usual four, and 320k characters measured
+ * 221,838 tokens: one round more than a 200k window. Worse, a value echoed once is replayed in
+ * every request after it — which is how iterating on a material fills the context.
+ *
+ * The model can do nothing with those bytes (it cannot read a picture out of base64), so what it
+ * is told instead is what the slot holds: a source URL, which it can name again, or the kind and
+ * size of the stored image. `""` — a slot with no image — reads as null. Where a later write has
+ * to point at the same image, it points with the material id (`set_material`'s `textureFrom`).
+ */
+export function summarizeTexture(image: unknown): unknown {
+    if (typeof image !== "string" || image === "") return null;
+    // A path or URL is a name for the image rather than the image, and short enough to name again.
+    if (!image.startsWith("data:")) return image;
+    const comma = image.indexOf(",");
+    if (comma < 0) return image;
+    const mediaType = image.slice("data:".length, comma).split(";")[0] || "image";
+    return { mediaType, bytes: storedBytes(image.slice(comma + 1)) };
+}
+
+/** What a base64 body holds once decoded, from its length and the padding at its end. */
+function storedBytes(base64: string): number {
+    const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+    return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
 }
 
 /** Whether the panel offers this property for editing — a getter without a setter is read-only. */

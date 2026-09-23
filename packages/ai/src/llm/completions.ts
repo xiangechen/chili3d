@@ -8,6 +8,7 @@ import {
     flattenSystem,
     type ImagePart,
     type LLMProvider,
+    openAIReasoningEffort,
     type StreamChatOptions,
     type StreamEvent,
     type SystemPrompt,
@@ -36,7 +37,11 @@ export class CompletionsProvider implements LLMProvider {
                 messages: toMessages(opts.system, opts.messages) as any,
                 tools: opts.tools.map(toTool) as any,
                 stream: true,
-                parallel_tool_calls: false,
+                // Asked for only when the user chose a depth — see `LLMConfig.reasoningEffort`.
+                ...(opts.effort ? { reasoning_effort: openAIReasoningEffort(opts.effort) } : {}),
+                // Several calls may come back in one assistant message, as on the Anthropic side:
+                // the agent runs them in order, and one round trip is one step of the step budget.
+                parallel_tool_calls: true,
                 // Without this the endpoint never reports usage on a stream at all.
                 stream_options: { include_usage: true },
             },

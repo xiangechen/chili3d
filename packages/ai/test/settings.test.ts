@@ -24,6 +24,15 @@ describe("ai settings", () => {
         expect(loaded?.model).toBe("m");
     });
 
+    test("keeps the thinking depth the user chose, and leaves it out when they did not", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", reasoningEffort: "low" });
+        expect(loadConfig()?.reasoningEffort).toBe("low");
+
+        // Unset is not "medium": nothing is sent, and the endpoint's own default stands.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        expect(loadConfig()?.reasoningEffort).toBeUndefined();
+    });
+
     test("migrates a plaintext key persisted by older versions into session memory", () => {
         ObjectStorage.default.setValue("ai.config", {
             provider: "openai-compatible",

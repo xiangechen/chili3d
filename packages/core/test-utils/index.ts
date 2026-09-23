@@ -7,6 +7,7 @@ export * from "./mockApplication";
 export * from "./mockCurve";
 export * from "./mockDocument";
 export * from "./mockEvent";
+export * from "./mockImageRaster";
 export * from "./mockPicker";
 export * from "./mockShape";
 export * from "./mockShapeFactory";

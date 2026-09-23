@@ -1,6 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import type { ReasoningEffort } from "../settings";
+
 export type JsonSchema = Record<string, unknown>;
 
 /** A tool the AI can call. Providers read name/description/parameters; the agent reads handler. */
@@ -79,6 +81,15 @@ export interface SystemPrompt {
     volatile: string;
 }
 
+/**
+ * The depth as an OpenAI-shaped endpoint understands it. Their `reasoning_effort` knows low,
+ * medium and high only — `xhigh` and `max` are Anthropic's — so a request for more than high goes
+ * out as high, which is the most those endpoints can be asked for.
+ */
+export function openAIReasoningEffort(effort: ReasoningEffort): "low" | "medium" | "high" {
+    return effort === "low" || effort === "medium" ? effort : "high";
+}
+
 /** The two halves as the single string the providers without explicit caching send. */
 export function flattenSystem(system: SystemPrompt): string {
     return system.volatile ? `${system.stable}\n\n${system.volatile}` : system.stable;
@@ -86,6 +97,8 @@ export function flattenSystem(system: SystemPrompt): string {
 
 export interface StreamChatOptions {
     model: string;
+    /** How deep the model may think, when the user asked for a depth at all — see `LLMConfig`. */
+    effort?: ReasoningEffort;
     system: SystemPrompt;
     messages: ChatMessage[];
     tools: Tool[];

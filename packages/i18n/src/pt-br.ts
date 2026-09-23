@@ -20,6 +20,7 @@ export default {
         "ai.contextWindow": "Janela de contexto (tokens)",
         "ai.contextTrimmed": "As mensagens mais antigas acima não são mais enviadas ao modelo.",
         "ai.copy": "Copiar",
+        "ai.effortDefault": "Padrão",
         "ai.emptyAsk": "Ou pergunte como usar o Chili3D — ex.: “como faço um chanfro em uma aresta?”",
         "ai.emptyExample": "ex.: crie uma caixa 10×20×5 e depois um filete de 2mm",
         "ai.emptyHint": "Crie e edite modelos 3D com linguagem natural",
@@ -36,10 +37,15 @@ export default {
         "ai.historyDelete": 'Excluir "{0}"?',
         "ai.historyEmpty": "Nenhuma conversa ainda",
         "ai.inputPlaceholder": "Descreva um modelo, ex.: crie uma caixa 10×20×5",
+        "ai.lostToolCall":
+            '(O modelo pediu uma chamada de ferramenta que nunca chegou — o turno terminou aí. Diga "continuar" que eu sigo daqui.)',
         "ai.model": "Modelo",
         "ai.newChat": "Nova conversa",
         "ai.noReply": "(sem resposta de texto)",
         "ai.provider": "Provedor",
+        "ai.reasoningEffort": "Profundidade do raciocínio",
+        "ai.reasoningEffortHint":
+            "Quanto o modelo pode pensar antes de responder. O padrão deixa isso para o endpoint; reduza quando a resposta esgotar o orçamento de saída só pensando.",
         "ai.save": "Salvar",
         "ai.send": "Enviar",
         "ai.sendHint": "Enviar (Ctrl+Enter)",
@@ -53,6 +59,8 @@ export default {
         "ai.tool.created": "Criado {0}",
         "ai.tool.removed": "Removido {0}",
         "ai.tool.reveal": "Mostrar na vista",
+        "ai.truncated":
+            "(Este turno atingiu o limite de saída do modelo — o raciocínio pode estar consumindo o orçamento. Reduzir a profundidade do raciocínio nas configurações deixa espaço para a resposta.)",
         "ai.undoHint": "Reverter o documento e a conversa para antes desta mensagem e devolvê-la à caixa",
         "ai.untitled": "Conversa sem título",
         "ai.workedFor": "Processado em {0}",

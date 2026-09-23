@@ -57,12 +57,22 @@ export class AnthropicProvider implements LLMProvider {
         const stream = this.client.messages.stream(
             {
                 model: opts.model,
-                max_tokens: 64000,
+                // The ceiling, not a target: thinking, tool arguments and the answer all come out
+                // of it. It was 64k, which a model that reasons hard can spend on reasoning alone
+                // and then stop with nothing to say (see the truncation notice in agent.ts).
+                max_tokens: 128_000,
                 thinking: { type: "adaptive" },
+                // Asked for only when the user chose a depth: an endpoint that does not know the
+                // field is left without it (see `LLMConfig.reasoningEffort`).
+                ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
                 system: systemBlocks(opts.system),
                 messages: messages as any,
                 tools: opts.tools.map(toTool) as any,
-                disable_parallel_tool_use: true,
+                // Parallel tool use is left on. A model that wants the document and a skill reads
+                // them in one round trip instead of two, and round trips are what the run's step
+                // budget counts (agent.ts's MAX_AGENT_ITERATIONS) — the same turn used to spend
+                // four of them on what one response can ask for. `runToolCalls` runs a batch in the
+                // order the model listed it, so a call may reference what an earlier one returned.
             },
             { signal: opts.signal },
         );

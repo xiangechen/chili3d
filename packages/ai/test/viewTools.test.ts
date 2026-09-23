@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { MaterialPresets } from "@chili3d/core";
-import { createMockDocument } from "@chili3d/core/test-utils";
+import { createMockDocument, stubImageRaster } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { buildViewTools, parseColor, parseToolColor } from "../src/tools/viewTools";
 
@@ -53,15 +53,16 @@ describe("set_material tool", () => {
         return tool!;
     }
 
-    function stubNode(node: Record<string, unknown> = {}) {
+    function stubNode(node: Record<string, unknown> = {}, extra: Record<string, unknown>[] = []) {
         const doc = createMockDocument();
         const target = { id: "n1", materialId: undefined as string | undefined, ...node };
+        const others = extra.map((n) => ({ materialId: undefined as string | undefined, ...n }));
         (doc.modelManager as any).findNodes = rs.fn((pred: (n: any) => boolean) =>
-            pred(target) ? [target] : [],
+            [target, ...others].filter(pred),
         );
         (doc.visual as any).update = rs.fn(() => {});
         rs.stubGlobal("app", { activeView: { document: doc } });
-        return { doc, target };
+        return { doc, target, others };
     }
 
     /** The JSON body set_material answers with, success or error. */
@@ -85,6 +86,7 @@ describe("set_material tool", () => {
     }
 
     afterEach(() => {
+        rs.restoreAllMocks();
         rs.unstubAllGlobals();
     });
 
@@ -99,11 +101,51 @@ describe("set_material tool", () => {
         });
 
         expect(result).toMatchObject({ id: "n1", color: 0xff0000, opacity: 0.4 });
+        // the image it was handed is stored, and the result names it rather than echoing it
+        expect(result.texture).toEqual({ mediaType: "image/png", bytes: 3 });
         const created = materials(doc);
         expect(created).toHaveLength(1);
         expect(created[0].opacity).toBe(0.4);
         expect(created[0].map.image).toBe("data:image/png;base64,AAAA");
         expect(target.materialId).toBe(created[0].id);
+    });
+
+    test("stores an SVG texture as pixels, not as a document every reader renders its own way", async () => {
+        const { doc } = stubNode();
+        stubImageRaster({ width: 4, height: 4, toDataURL: "data:image/png;base64,RASTERED" });
+
+        const result = await run({ id: "n1", texture: "data:image/svg+xml,%3Csvg/%3E" });
+
+        // The document holds the pixels…
+        expect(materials(doc)[0].map.image).toBe("data:image/png;base64,RASTERED");
+        // …and the model is told what they are instead of being handed them back: 9 base64
+        // characters are 6 bytes, where echoing the data URL would replay them in every request.
+        expect(result.texture).toEqual({ mediaType: "image/png", bytes: 6 });
+    });
+
+    test("takes the texture off a material the document already has, instead of the bytes again", async () => {
+        const { doc, target } = stubNode({}, [{ id: "n2" }]);
+        await run({ id: "n1", texture: "data:image/png;base64,AAAA" });
+        const source = materials(doc).find((m) => m.id === target.materialId);
+
+        const result = await run({ id: "n2", textureFrom: source.id });
+
+        expect(materials(doc).find((m) => m.id === result.materialId)?.map.image).toBe(
+            "data:image/png;base64,AAAA",
+        );
+        expect(result.texture).toEqual({ mediaType: "image/png", bytes: 3 });
+    });
+
+    test("refuses both a texture and a textureFrom, and a material that has no texture", async () => {
+        const { doc } = stubNode();
+        await run({ id: "n1", color: "#ffffff" });
+        const plain = materials(doc)[0];
+
+        const both = await run({ id: "n1", texture: "data:image/png;base64,AAAA", textureFrom: plain.id });
+        expect(both.error).toContain("either texture or textureFrom");
+
+        expect((await run({ id: "n1", textureFrom: plain.id })).error).toContain("has no texture");
+        expect((await run({ id: "n1", textureFrom: "nope" })).error).toContain("material not found");
     });
 
     test("keeps the values it is not given, and reuses a material that already matches", async () => {

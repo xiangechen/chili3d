@@ -3,11 +3,24 @@
 
 import { ObjectStorage } from "@chili3d/core";
 
+/**
+ * How deep the model may think before it answers. Unset sends nothing at all and leaves whatever
+ * the endpoint does by itself — which is the right default on a relay that may reject a field it
+ * does not know. Lowering it is the lever for a model that spends its whole output budget on
+ * reasoning and never gets to the answer (see the truncation notice in agent.ts); `xhigh` and
+ * `max` are for a problem that needs more of it than the default.
+ */
+export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 export interface LLMConfig {
     provider: "anthropic" | "completions" | "responses";
     baseURL?: string;
     apiKey: string;
     model: string;
+    /** Omitted is not "medium" — it is "whatever this endpoint does when nothing is asked". */
+    reasoningEffort?: ReasoningEffort;
     /**
      * How many tokens the model can hold, used to turn a context reading into a fraction of what
      * is left. No provider reports it, so it is the user's to set — the meter says nothing without
@@ -87,6 +100,7 @@ export function loadConfig(): LLMConfig | undefined {
         provider: saved.provider,
         baseURL: saved.baseURL,
         model: saved.model,
+        reasoningEffort: saved.reasoningEffort,
         // Configs saved before the meter existed have no window; they get the default.
         contextWindow: saved.contextWindow ?? DEFAULT_CONTEXT_WINDOW,
         apiKey: sessionApiKey,

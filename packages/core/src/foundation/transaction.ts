@@ -91,6 +91,18 @@ export class Transaction {
         const transaction = Transaction._transactionMap.get(this.document);
         Transaction._transactionMap.delete(this.document);
 
-        transaction?.undo();
+        // Undo with the history disabled (what History.undo does) — otherwise undoing a node
+        // change notifies the model manager and the rollback records itself as a new entry.
+        // Then dispose: undoing flipped each record into the state that knows which of its
+        // values the rollback orphaned, so the dispose releases exactly those.
+        const history = this.document.history;
+        const wasDisabled = history.disabled;
+        history.disabled = true;
+        try {
+            transaction?.undo();
+        } finally {
+            history.disabled = wasDisabled;
+        }
+        transaction?.dispose();
     }
 }

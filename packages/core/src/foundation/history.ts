@@ -2,7 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import type { INode, INodeLinkedList } from "../model";
-import type { IDisposable } from "./disposable";
+import { type IDisposable, isDisposable } from "./disposable";
+import type { Result } from "./result";
 
 export interface IHistoryRecord extends IDisposable {
     readonly name: string;
@@ -40,6 +41,9 @@ export class History implements IDisposable {
     add(record: IHistoryRecord) {
         if (this.disabled) return;
 
+        // A new branch kills the redo line for good, and its records still hold whatever the
+        // undone changes detached — nodes, replaced shapes — so dispose them, not just drop them.
+        this._redos.forEach((record) => record.dispose());
         this._redos.length = 0;
         this._undos.push(record);
 
@@ -110,8 +114,40 @@ export class History implements IDisposable {
     }
 }
 
+/**
+ * The value a Result carries, or the value itself. Detected structurally rather than with
+ * `instanceof`: a value import of Result would close a module cycle
+ * (history → result → serialize → observer → history) that the bundler rejects.
+ */
+function unwrapResult(value: unknown): unknown {
+    if (
+        value != null &&
+        typeof value === "object" &&
+        "isOk" in value &&
+        typeof (value as Result<unknown>).unchecked === "function"
+    ) {
+        return (value as Result<unknown>).unchecked();
+    }
+    return value;
+}
+
+/** Dispose the dropped side of a property change — unwrapping Result — unless both sides name it. */
+function disposeStaleValue(stale: unknown, live: unknown): void {
+    const staleValue = unwrapResult(stale);
+    const liveValue = unwrapResult(live);
+    if (staleValue === undefined || staleValue === liveValue) return;
+    if (isDisposable(staleValue)) staleValue.dispose();
+}
+
 export class PropertyHistoryRecord implements IHistoryRecord {
     readonly name: string;
+
+    /**
+     * Whether the change is currently in effect, i.e. which of the two values the object still
+     * holds. Created with the change applied; undo flips it, redo flips it back.
+     */
+    #applied = true;
+
     constructor(
         readonly object: any,
         readonly property: string | symbol | number,
@@ -121,14 +157,26 @@ export class PropertyHistoryRecord implements IHistoryRecord {
         this.name = `change ${String(property)} property`;
     }
 
-    dispose(): void {}
+    /**
+     * Release the value the object no longer references: oldValue while the change stands,
+     * newValue once undone. The other one is live on the object and is never touched — and a
+     * dropped shape value is WASM heap the GC cannot see, so it has to be released explicitly.
+     */
+    dispose(): void {
+        disposeStaleValue(
+            this.#applied ? this.oldValue : this.newValue,
+            this.#applied ? this.newValue : this.oldValue,
+        );
+    }
 
     undo(): void {
         this.object[this.property] = this.oldValue;
+        this.#applied = false;
     }
 
     redo(): void {
         this.object[this.property] = this.newValue;
+        this.#applied = true;
     }
 }
 
@@ -146,17 +194,34 @@ export interface NodeRecord {
 export class NodeLinkedListHistoryRecord implements IHistoryRecord {
     readonly name: string;
 
+    /**
+     * Whether the recorded change is currently in effect. Created with the change applied;
+     * undo flips it, redo flips it back. It decides which side of each action this record owns.
+     */
+    #applied = true;
+
     constructor(readonly records: NodeRecord[]) {
         this.name = "change node";
     }
 
     dispose(): void {
         this.records.forEach((record) => {
-            if (record.action === "remove") {
+            // The parent check keeps a node alive that found its own way back into a document.
+            if (this.ownsNode(record) && record.node.parent === undefined) {
                 record.node.dispose();
             }
         });
         this.records.length = 0;
+    }
+
+    /**
+     * The record owns — and must eventually release — the nodes its change detached from the
+     * document: removed ones while the change stands, added or inserted ones once it is undone.
+     * Move and transfer keep their node inside a document in both states, so neither side owns it.
+     */
+    private ownsNode(record: NodeRecord): boolean {
+        if (this.#applied) return record.action === "remove";
+        return record.action === "add" || record.action === "insertAfter" || record.action === "insertBefore";
     }
 
     // A recorded anchor can go stale over time (e.g. the node was removed outside of the
@@ -227,10 +292,12 @@ export class NodeLinkedListHistoryRecord implements IHistoryRecord {
         for (let i = this.records.length - 1; i >= 0; i--) {
             this.handleUndo(this.records[i]);
         }
+        this.#applied = false;
     }
 
     redo(): void {
         this.records.forEach((record) => this.handleRedo(record));
+        this.#applied = true;
     }
 }
 
@@ -241,6 +308,7 @@ export class ArrayRecord implements IHistoryRecord {
 
     dispose(): void {
         this.records.forEach((r) => r.dispose());
+        this.records.length = 0;
     }
 
     undo() {

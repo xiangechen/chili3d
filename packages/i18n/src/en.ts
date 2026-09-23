@@ -18,6 +18,7 @@ export default {
         "ai.contextWindow": "Context window (tokens)",
         "ai.contextTrimmed": "Earlier messages are no longer sent to the model.",
         "ai.copy": "Copy",
+        "ai.effortDefault": "Default",
         "ai.emptyAsk": "Or ask how to use Chili3D — e.g. “how do I chamfer an edge?”",
         "ai.emptyExample": "e.g. create a 10×20×5 box, then fillet 2mm",
         "ai.emptyHint": "Create and edit 3D models with natural language",
@@ -34,10 +35,15 @@ export default {
         "ai.historyDelete": 'Delete "{0}"?',
         "ai.historyEmpty": "No conversations yet",
         "ai.inputPlaceholder": "Describe a model, e.g. create a 10×20×5 box",
+        "ai.lostToolCall":
+            '(The model asked for a tool call that never arrived — the turn ended there. Say "continue" and I will carry on.)',
         "ai.model": "Model",
         "ai.newChat": "New chat",
         "ai.noReply": "(no text response)",
         "ai.provider": "Provider",
+        "ai.reasoningEffort": "Thinking depth",
+        "ai.reasoningEffortHint":
+            "How much the model may think before it answers. The default leaves that to the endpoint; lower it when a reply runs out of output budget on reasoning alone.",
         "ai.save": "Save",
         "ai.send": "Send",
         "ai.sendHint": "Send (Ctrl+Enter)",
@@ -52,6 +58,8 @@ export default {
         "ai.tool.created": "Created {0}",
         "ai.tool.removed": "Removed {0}",
         "ai.tool.reveal": "Show in the viewport",
+        "ai.truncated":
+            "(This turn reached the model's output limit — the reasoning may be filling the budget. A lower thinking depth in settings leaves room for the answer.)",
         "ai.undoHint":
             "Revert the document and the conversation to before this message, and put it back in the box",
         "ai.untitled": "New conversation",

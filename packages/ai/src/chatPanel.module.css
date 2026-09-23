@@ -361,7 +361,8 @@
     font-size: 11px;
 }
 
-/* Reasoning: folded to one line once the model has moved on, open while it is still thinking. */
+/* Reasoning: folded to its header — a summary and, while it streams, a one-line preview of the
+   newest of it. The full text is a click away, and is only ever laid out while open. */
 .thinkingBlock {
     margin: 6px 0;
     border-left: 2px solid var(--border-color);
@@ -369,9 +370,10 @@
 }
 
 .thinkingHeader {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 4px;
+    width: 90%;
     background: none;
     border: none;
     padding: 1px 0;
@@ -379,6 +381,7 @@
     color: var(--foreground-muted-color);
     font-family: inherit;
     font-size: 11px;
+    text-align: left;
 }
 
 .thinkingHeader:hover {
@@ -386,10 +389,26 @@
 }
 
 .thinkingSummary {
+    flex: 0 0 auto;
     font-weight: 500;
 }
 
+/* The newest line of the reasoning, rolling by while the block itself stays folded. */
+.thinkingPreview {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.8;
+}
+
+.open .thinkingPreview {
+    display: none;
+}
+
 .thinkingChevron {
+    flex: 0 0 auto;
     width: 10px;
     height: 10px;
     transition: transform 0.15s ease;
@@ -710,8 +729,8 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 14px;
+    gap: 4px;
+    padding: 4px 14px 14px 14px;
 }
 
 .settingsField {
@@ -723,6 +742,7 @@
 .settingsLabel {
     color: var(--foreground-muted-color);
     font-size: 11px;
+    margin-top: 8px;
 }
 
 .settingsHint {
@@ -733,6 +753,7 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 8px 10px;
+    opacity: 0.56;
 }
 
 .settingsFooter {

@@ -1,8 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Material, Matrix4, XY, XYZ } from "@chili3d/core";
-import { TestDocument } from "@chili3d/core/test-utils";
+import { Material, Matrix4, Texture, XY, XYZ } from "@chili3d/core";
+import { stubImageRaster, TestDocument } from "@chili3d/core/test-utils";
+import { afterEach, rs } from "@rstest/core";
 import {
     Box3,
     BufferAttribute,
@@ -13,10 +14,16 @@ import {
     Object3D,
     OrthographicCamera,
     PerspectiveCamera,
+    RepeatWrapping,
     Matrix4 as ThreeMatrix4,
     Vector3,
 } from "three";
 import { ThreeHelper } from "../src/threeHelper";
+
+/** Lets the rasterization `loadTexture` starts settle. */
+function settle() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 describe("ThreeHelper", () => {
     describe("toMatrix / fromMatrix", () => {
@@ -302,6 +309,69 @@ describe("ThreeHelper", () => {
             expect(threeMat.map?.offset.y).toBe(0.5);
             expect(threeMat.map?.repeat.x).toBe(2);
             expect(threeMat.map?.repeat.y).toBe(3);
+        });
+    });
+
+    describe("loadTexture", () => {
+        afterEach(() => {
+            rs.restoreAllMocks();
+            rs.unstubAllGlobals();
+        });
+
+        test("gives nothing back for a texture with no image", () => {
+            const doc = new TestDocument();
+            const texture = new Texture({ document: doc });
+
+            expect(ThreeHelper.loadTexture(undefined, "map")).toBeNull();
+            expect(ThreeHelper.loadTexture(texture, "map")).toBeNull();
+        });
+
+        test("carries the wrapping and the transform onto the texture", () => {
+            const doc = new TestDocument();
+            const texture = new Texture({ document: doc });
+            texture.image = "data:image/png;base64,AAAA";
+            texture.offset = new XY({ x: 0.25, y: 0.5 });
+            texture.repeat = new XY({ x: 2, y: 3 });
+            texture.rotation = 90;
+
+            const map = ThreeHelper.loadTexture(texture, "map");
+
+            expect(map?.wrapS).toBe(RepeatWrapping);
+            expect(map?.wrapT).toBe(RepeatWrapping);
+            expect(map?.offset.x).toBe(0.25);
+            expect(map?.offset.y).toBe(0.5);
+            expect(map?.repeat.x).toBe(2);
+            expect(map?.repeat.y).toBe(3);
+            expect(map?.rotation).toBeCloseTo(Math.PI / 2);
+        });
+
+        test("draws the image into a canvas of one requested size, whatever the source", async () => {
+            stubImageRaster({ width: 512, height: 256 });
+            const doc = new TestDocument();
+            const texture = new Texture({ document: doc });
+            texture.image = "data:image/svg+xml,%3Csvg/%3E";
+
+            const map = ThreeHelper.loadTexture(texture, "map");
+            await settle();
+
+            expect(map?.image).toBeInstanceOf(HTMLCanvasElement);
+            expect((map?.image as HTMLCanvasElement).width).toBe(512);
+            expect((map?.image as HTMLCanvasElement).height).toBe(256);
+            expect(map?.version).toBeGreaterThan(0);
+        });
+
+        test("leaves the texture empty when the image cannot be loaded", async () => {
+            stubImageRaster({ width: 512, height: 512, fail: true });
+            const doc = new TestDocument();
+            const texture = new Texture({ document: doc });
+            texture.image = "data:image/png;base64,AAAA";
+
+            const map = ThreeHelper.loadTexture(texture, "map");
+            await settle();
+
+            // the texture keeps three's own empty image: no raster was drawn into it
+            expect(map?.image).toBeNull();
+            expect(map?.version).toBe(0);
         });
     });
 

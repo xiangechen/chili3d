@@ -8,6 +8,7 @@ import {
     History,
     NodeLinkedListHistoryRecord,
     PropertyHistoryRecord,
+    Result,
     Transaction,
 } from "../src";
 import { createPlainNode, TestDocument } from "../test-utils";
@@ -429,5 +430,110 @@ describe("History", () => {
         record.records.push(mockRecord);
         record.dispose();
         expect(disposeCalled).toBe(true);
+    });
+
+    test("add disposes the redo records it drops", () => {
+        const history = new History();
+        let disposed = 0;
+        const record: IHistoryRecord = {
+            name: "mock",
+            dispose: () => {
+                disposed++;
+            },
+            undo: () => {},
+            redo: () => {},
+        };
+        history.add(record);
+        history.undo();
+
+        history.add(new PropertyHistoryRecord({ val: 0 }, "val", 0, 1));
+        expect(disposed).toBe(1);
+        expect(history.redoCount()).toBe(0);
+    });
+
+    test("PropertyHistoryRecord dispose releases the value the object no longer holds", () => {
+        const disposed: string[] = [];
+        const shape = (id: string) => ({ dispose: () => disposed.push(id) });
+        const s1 = shape("s1");
+        const s2 = shape("s2");
+        const obj: { v: unknown } = { v: s2 };
+
+        // While the change stands the old value is the dropped one; the live one is never touched.
+        new PropertyHistoryRecord(obj, "v", s1, s2).dispose();
+        expect(disposed).toEqual(["s1"]);
+    });
+
+    test("PropertyHistoryRecord dropped from the redo stack releases the new value instead", () => {
+        const disposed: string[] = [];
+        const shape = (id: string) => ({ dispose: () => disposed.push(id) });
+        const s1 = shape("s1");
+        const s2 = shape("s2");
+        const obj: { v: unknown } = { v: s2 };
+
+        const record = new PropertyHistoryRecord(obj, "v", s1, s2);
+        record.undo();
+        record.dispose();
+        expect(disposed).toEqual(["s2"]);
+    });
+
+    test("PropertyHistoryRecord never disposes a value both sides name", () => {
+        const disposed: string[] = [];
+        const s1 = { dispose: () => disposed.push("s1") };
+        const obj: { v: unknown } = { v: s1 };
+        new PropertyHistoryRecord(obj, "v", s1, s1).dispose();
+        expect(disposed.length).toBe(0);
+    });
+
+    test("PropertyHistoryRecord unwraps Result values before disposing", () => {
+        const disposed: string[] = [];
+        const s1 = { dispose: () => disposed.push("s1") };
+        const obj: { v: unknown } = { v: Result.ok({}) };
+
+        new PropertyHistoryRecord(obj, "v", Result.ok(s1), obj.v).dispose();
+        expect(disposed).toEqual(["s1"]);
+    });
+
+    test("NodeLinkedListHistoryRecord dispose releases only the nodes the change detached", () => {
+        const disposed: string[] = [];
+        const node = (id: string, parent: unknown = undefined) => ({
+            id,
+            parent,
+            dispose: () => disposed.push(id),
+        });
+        // While the change stands the removed node is this record's to release; the added one
+        // still lives in its parent and is not.
+        const record = new NodeLinkedListHistoryRecord([
+            { node: node("removed") as any, action: "remove", oldParent: {} as any },
+            { node: node("added", {}) as any, action: "add", newParent: {} as any },
+        ]);
+        record.dispose();
+        expect(disposed).toEqual(["removed"]);
+    });
+
+    test("NodeLinkedListHistoryRecord dropped after undo releases the added node, keeps the restored one", () => {
+        const disposed: string[] = [];
+        const parent = {
+            add(n: any) {
+                n.parent = parent;
+            },
+            remove(n: any) {
+                n.parent = undefined;
+            },
+        };
+        const addedNode = { parent: parent as any, dispose: () => disposed.push("added") };
+        const removedNode = { parent: undefined as any, dispose: () => disposed.push("removed") };
+        const record = new NodeLinkedListHistoryRecord([
+            { node: addedNode as any, action: "add", newParent: parent as any },
+            { node: removedNode as any, action: "remove", oldParent: parent as any },
+        ]);
+
+        record.undo();
+        expect(addedNode.parent).toBeUndefined();
+        expect(removedNode.parent).toBe(parent);
+
+        // The undone "add" detached its node — the record owns it now — while the "remove" it
+        // reverted put that node back in its parent, where the record may not touch it.
+        record.dispose();
+        expect(disposed).toEqual(["added"]);
     });
 });
