@@ -1,0 +1,155 @@
+name: Code Quality
+
+on:
+    push:
+        branches: ["main", "develop"]
+    pull_request:
+        branches: ["main", "develop"]
+    schedule:
+        # Weekly scan so new advisories / rules surface even without commits.
+        - cron: "0 4 * * 1"
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    lint:
+        name: Lint & format (Biome, clang-format)
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - run: npm ci
+
+            - name: Biome
+              run: npx biome ci --reporter=github .
+
+            - name: clang-format (cpp/src)
+              run: npx clang-format --style=Webkit --sort-includes --dry-run -Werror cpp/src/*
+
+    typecheck:
+        name: Typecheck (tsc)
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - run: npm ci
+
+            - run: npx tsc --noEmit -p tsconfig.json
+
+    semgrep:
+        name: Semgrep (SAST)
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            security-events: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Install Semgrep
+              run: pipx install semgrep
+
+            - name: Scan
+              run: >
+                  semgrep scan
+                  --config p/default
+                  --config p/typescript
+                  --config p/secrets
+                  --metrics=off
+                  --sarif-output=semgrep.sarif
+                  --text
+
+            - name: Upload SARIF to code scanning
+              if: always() && github.event.pull_request.head.repo.fork != true
+              uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+              with:
+                  sarif_file: semgrep.sarif
+                  category: semgrep
+
+            # WARNING/INFO findings are reported in code scanning only; ERROR-level ones fail the job.
+            - name: Fail on ERROR-level findings
+              run: |
+                  count=$(jq '[.runs[].results[] | select(.level == "error")] | length' semgrep.sarif)
+                  echo "Semgrep ERROR findings: $count"
+                  test "$count" -eq 0
+
+    codeql:
+        name: CodeQL (${{ matrix.language }})
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            security-events: write
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - language: javascript-typescript
+                    - language: c-cpp
+                    - language: actions
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+              with:
+                  languages: ${{ matrix.language }}
+                  # No build: the C++ sources need Emscripten + OCCT, so extract them without compiling.
+                  build-mode: none
+                  queries: security-and-quality
+                  config: |
+                      paths-ignore:
+                          - packages/wasm/lib
+                          - public
+                          - dist
+
+            - uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
+              with:
+                  category: codeql-${{ matrix.language }}
+
+    dependencies:
+        name: Dependency audit
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 24
+                  cache: npm
+
+            - name: npm audit (runtime deps, high+)
+              run: npm audit --omit=dev --audit-level=high
+
+            - name: Dependency review
+              if: github.event_name == 'pull_request'
+              uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+              with:
+                  fail-on-severity: high
+                  comment-summary-in-pr: on-failure

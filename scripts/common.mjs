@@ -10,6 +10,8 @@ import { exec } from "node:child_process";
 export async function execAsync(cmd) {
     console.log(`> ${cmd}`);
     return new Promise((resolve, reject) => {
+        // Maintainer-run build/release helper: commands are repo-authored, never untrusted input.
+        // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
         exec(cmd, (err, stdout, stderr) => {
             if (err) {
                 reject(err);
