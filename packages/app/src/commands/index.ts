@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./aiChatCommand";
+export * from "./annotate";
 export * from "./application";
 export * from "./boolean";
 export * from "./checkShape";

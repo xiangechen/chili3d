@@ -17,7 +17,7 @@ import { SnapEventHandler } from "./snapEventHandler";
 export interface PointSnapData extends SnapData {
     dimension?: Dimension;
     refPoint?: () => XYZ;
-    plane?: () => Plane;
+    plane?: (point?: XYZ) => Plane;
 }
 
 export interface SnapPointOnCurveData extends PointSnapData {
@@ -178,7 +178,9 @@ export class SnapPointPlaneEventHandler extends PointSnapEventHandler {
         super.findSnapPoint(shapeType, view, event);
 
         if (this._snaped?.point) {
-            this._snaped.point = this.data.plane!().project(this._snaped.point);
+            // Re-evaluating the plane at the snapped point keeps this a fixed point
+            // for plane callbacks whose result depends on the pick position.
+            this._snaped.point = this.data.plane!(this._snaped.point).project(this._snaped.point);
         }
     }
 }

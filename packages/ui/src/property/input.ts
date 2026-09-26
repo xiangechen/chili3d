@@ -35,11 +35,18 @@ class ArrayValueConverter implements IConverter {
     ) {}
 
     convert(value: any): Result<string> {
-        return Result.ok(this.getDefaultValue());
+        return Result.ok(this.displayValue());
     }
 
     convertBack?(value: string): Result<any> {
         throw new Error("Method not implemented.");
+    }
+
+    /** What the input shows for the object array: the shared value, or "" when they differ. */
+    displayValue(): string {
+        const values = this.objects.map(this.getValueString.bind(this));
+        const uniqueValues = new Set(values);
+        return uniqueValues.size === 1 ? values[0] : "";
     }
 
     private getValueString(obj: any): string {
@@ -47,16 +54,11 @@ class ArrayValueConverter implements IConverter {
         const cvalue = this.converter?.convert(value);
         return cvalue?.isOk ? cvalue.value : String(value);
     }
-
-    private getDefaultValue() {
-        const values = this.objects.map(this.getValueString.bind(this));
-        const uniqueValues = new Set(values);
-        return uniqueValues.size === 1 ? values[0] : "";
-    }
 }
 
 export class InputProperty extends PropertyBase {
     readonly converter: IConverter | undefined;
+    private readonly arrayConverter: ArrayValueConverter;
 
     constructor(
         readonly document: IDocument,
@@ -65,14 +67,14 @@ export class InputProperty extends PropertyBase {
     ) {
         super(objects);
         this.converter = property.converter ?? this.getConverter();
-        const arrayConverter = new ArrayValueConverter(objects, property, this.converter);
+        this.arrayConverter = new ArrayValueConverter(objects, property, this.converter);
         this.append(
             div(
                 { className: commonStyle.panel },
                 span({ className: commonStyle.propertyName, textContent: new Localize(property.display) }),
                 input({
                     className: style.box,
-                    value: new Binding(objects[0], property.name, arrayConverter),
+                    value: new Binding(objects[0], property.name, this.arrayConverter),
                     readOnly: this.isReadOnly(),
                     onkeydown: this.handleKeyDown,
                     onblur: this.handleBlur,
@@ -109,7 +111,14 @@ export class InputProperty extends PropertyBase {
     };
 
     private readonly setValue = (input: HTMLInputElement) => {
-        if (this.isReadOnly() || input.value === "") return;
+        if (this.isReadOnly()) return;
+        // An empty edit means "unfinished" for numbers and points, but it is a
+        // legitimate value for a string (e.g. clearing a dimension text override).
+        if (input.value === "" && typeof this.objects[0][this.property.name] !== "string") return;
+        // An untouched edit commits nothing: with a mixed multi-selection the
+        // display reads "" while the underlying values differ, and blurring it
+        // must not write that "" into every object.
+        if (input.value === this.arrayConverter.displayValue()) return;
 
         const newValue = this.converter?.convertBack?.(input.value);
         if (!newValue?.isOk) {

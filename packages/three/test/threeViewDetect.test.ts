@@ -3,6 +3,7 @@
 
 import {
     BoundingBox,
+    DimensionAnnotation,
     type EdgeMeshData,
     type I18nKeys,
     type IDocument,
@@ -23,6 +24,9 @@ import {
     type XYZLike,
 } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
+import { rs } from "@rstest/core";
+import { type Object3D, Raycaster } from "three";
+import type { ThreeAnnotation } from "../src/threeAnnotation";
 import { ThreeVisual } from "../src/threeVisual";
 import { TestView } from "./testView";
 
@@ -422,6 +426,92 @@ describe("ThreeView detect — shapeFilter and nodeFilter actually apply", () =>
         const filtered = view.detectVisual(center.x, center.y, { allow: (node) => node !== near });
         expect(filtered.length).toBe(1);
         expect(filtered[0]).toBe(visual.context.getVisual(far));
+    });
+});
+
+describe("ThreeView detect — annotations through the batch", () => {
+    const flush = () => new Promise<void>((resolve) => queueMicrotask(resolve));
+
+    function createSceneWithAnnotation() {
+        const setup = createSceneWithPanels();
+        const anno = new DimensionAnnotation({
+            document: setup.doc,
+            annotationType: "dimension",
+            name: "dim",
+            startPoint: new XYZ({ x: -5, y: 20, z: 0 }),
+            endPoint: new XYZ({ x: -15, y: 20, z: 0 }),
+            textPoint: new XYZ({ x: -10, y: 25, z: 0 }),
+        });
+        setup.visual.context.addNode([anno]);
+        const annotationVisual = setup.visual.context.getVisual(anno) as unknown as ThreeAnnotation;
+        expect(annotationVisual).toBeDefined();
+        return { ...setup, anno, annotationVisual };
+    }
+
+    test("the raycast set holds the batch's visible objects, not the hidden grip dots", async () => {
+        const { view, annotationVisual } = createSceneWithAnnotation();
+        await flush();
+        const [lines] = annotationVisual.batch!.pickObjects();
+
+        const spy = rs.spyOn(Raycaster.prototype, "intersectObjects");
+        try {
+            const p = view.worldToScreen(new XYZ({ x: -10, y: 22, z: 0 }));
+            view.detectVisual(p.x, p.y);
+
+            expect(spy).toHaveBeenCalled();
+            const objects = spy.mock.calls.flatMap((call) => call[0] as Object3D[]);
+            const candidates = new Set(objects);
+            // the annotation's dimension lines are raycast once through the batch …
+            expect(candidates.has(lines)).toBe(true);
+            // … but not the grip dots: invisible while unselected, they must stay
+            // out of every hover raycast
+            const handles = annotationVisual.wholeVisual()[0];
+            expect(handles.visible).toBe(false);
+            expect(candidates.has(handles)).toBe(false);
+            expect(objects.length).toBeGreaterThan(0);
+            expect(objects.every((o) => o.visible)).toBe(true);
+        } finally {
+            spy.mockRestore();
+        }
+    });
+
+    test("a hit on a batched dimension line resolves to the annotation", async () => {
+        const { view, annotationVisual } = createSceneWithAnnotation();
+        await flush();
+
+        // the dimension line runs from (-5,25,0) to (-15,25,0)
+        const p = view.worldToScreen(new XYZ({ x: -10, y: 25, z: 0 }));
+        const detected = view.detectVisual(p.x, p.y);
+
+        expect(detected).toContain(annotationVisual);
+    });
+
+    test("a hidden annotation is neither raycast nor resolved", async () => {
+        const { view, anno, annotationVisual } = createSceneWithAnnotation();
+        await flush();
+        anno.visible = false;
+        await flush();
+
+        const p = view.worldToScreen(new XYZ({ x: -10, y: 25, z: 0 }));
+        const detected = view.detectVisual(p.x, p.y);
+
+        expect(annotationVisual.visible).toBe(false);
+        expect(detected).not.toContain(annotationVisual);
+    });
+
+    test("rectangle selection finds the annotation by its own bounds", async () => {
+        const { view, annotationVisual } = createSceneWithAnnotation();
+        await flush();
+
+        const corner1 = view.worldToScreen(new XYZ({ x: -18, y: 28, z: 0 }));
+        const corner2 = view.worldToScreen(new XYZ({ x: -2, y: 18, z: 0 }));
+        const detected = view.detectVisualRect(corner1.x, corner1.y, corner2.x, corner2.y);
+
+        expect(detected).toContain(annotationVisual);
+
+        const far1 = view.worldToScreen(new XYZ({ x: 40, y: 40, z: 0 }));
+        const far2 = view.worldToScreen(new XYZ({ x: 50, y: 50, z: 0 }));
+        expect(view.detectVisualRect(far1.x, far1.y, far2.x, far2.y)).not.toContain(annotationVisual);
     });
 });
 

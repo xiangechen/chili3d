@@ -3,6 +3,7 @@
 
 import {
     BoundingBox,
+    DimensionAnnotation,
     type ICurve,
     type IEdge,
     Matrix4,
@@ -15,6 +16,7 @@ import {
     type VisualNode,
     XYZ,
 } from "@chili3d/core";
+import { TestDocument } from "@chili3d/core/test-utils";
 import { describe, expect, rs, test } from "@rstest/core";
 import { ArrayCommand } from "../../../src/commands/modify/array";
 import {
@@ -466,6 +468,49 @@ describe("ArrayCommand", () => {
             }
         });
 
+        test("linear: transforms annotation clones through their transform (isGroup=false)", () => {
+            const restoreApp = installStubApp();
+            const restoreTx = stubTransactionRun();
+            try {
+                const cmd = new ArrayCommand();
+                const { addedNodes } = wireCommand(cmd);
+                cmd.isGroup = false;
+                cmd.count = 3;
+
+                const parent = makeParent({ id: "root" });
+                const anno = new DimensionAnnotation({
+                    document: new TestDocument() as any,
+                    annotationType: "dimension",
+                    name: "dim",
+                    startPoint: XYZ.zero,
+                    endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+                    textPoint: new XYZ({ x: 5, y: 8, z: 0 }),
+                });
+                anno.parent = parent as any;
+                (cmd as any).models = [anno];
+
+                seedStepDatas(cmd, [pointStep(XYZ.zero), pointStep(new XYZ({ x: 5, y: 0, z: 0 }))]);
+
+                (cmd as any).executeMainTask();
+
+                expect(addedNodes).toHaveLength(3);
+                (addedNodes as DimensionAnnotation[]).forEach((clone, i) => {
+                    // the points stay local; the array step lands in the transform
+                    expect(clone.startPoint).toEqual(XYZ.zero);
+                    expect(clone.endPoint).toEqual(new XYZ({ x: 10, y: 0, z: 0 }));
+                    expect(clone.textPoint).toEqual(new XYZ({ x: 5, y: 8, z: 0 }));
+                    expect(clone.transform.equals(Matrix4.fromTranslation(5 * i, 0, 0))).toBe(true);
+                });
+                // the original is untouched and leaves its parent
+                expect(anno.startPoint).toEqual(XYZ.zero);
+                expect(anno.transform.equals(Matrix4.identity())).toBe(true);
+                expect(parent.removed).toContain(anno);
+            } finally {
+                restoreTx();
+                restoreApp();
+            }
+        });
+
         test("rectangular: clones numberX*numberY*numberZ times per model (isGroup=false)", () => {
             const restoreApp = installStubApp();
             const restoreTx = stubTransactionRun();
@@ -612,6 +657,93 @@ describe("ArrayCommand", () => {
                 expect(components).toHaveLength(1);
                 expect(addedNodes.length).toBeGreaterThanOrEqual(1);
                 expect(parent.removed).toContain(model);
+            } finally {
+                restoreTx();
+                restoreApp();
+            }
+        });
+
+        test("isGroup=true: annotation clones join the component", () => {
+            const restoreApp = installStubApp();
+            const restoreTx = stubTransactionRun();
+            try {
+                const cmd = new ArrayCommand();
+                const { doc, addedNodes } = wireCommand(cmd);
+                const components: unknown[] = [];
+                (doc.modelManager as any).components = components;
+
+                cmd.isGroup = true;
+                cmd.count = 2;
+
+                const parent = makeParent({ id: "root" });
+                const anno = new DimensionAnnotation({
+                    document: new TestDocument() as any,
+                    annotationType: "dimension",
+                    name: "dim",
+                    startPoint: XYZ.zero,
+                    endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+                    textPoint: new XYZ({ x: 5, y: 8, z: 0 }),
+                });
+                anno.parent = parent as any;
+                (cmd as any).models = [anno];
+
+                seedStepDatas(cmd, [pointStep(XYZ.zero), pointStep(new XYZ({ x: 2, y: 0, z: 0 }))]);
+
+                (cmd as any).executeMainTask();
+
+                expect(components).toHaveLength(1);
+                const members = (components[0] as { nodes: DimensionAnnotation[] }).nodes;
+                expect(members).toHaveLength(2);
+                members.forEach((member, i) => {
+                    expect(member).toBeInstanceOf(DimensionAnnotation);
+                    expect(member.startPoint).toEqual(XYZ.zero);
+                    expect(member.transform.equals(Matrix4.fromTranslation(2 * i, 0, 0))).toBe(true);
+                });
+                // exactly one ComponentNode lands at document level
+                expect(addedNodes).toHaveLength(1);
+                expect(parent.removed).toContain(anno);
+            } finally {
+                restoreTx();
+                restoreApp();
+            }
+        });
+
+        test("isGroup=true: a mixed selection groups shapes and annotations together", () => {
+            const restoreApp = installStubApp();
+            const restoreTx = stubTransactionRun();
+            try {
+                const cmd = new ArrayCommand();
+                const { doc, addedNodes } = wireCommand(cmd);
+                const components: any[] = [];
+                (doc.modelManager as any).components = components;
+
+                cmd.isGroup = true;
+                cmd.count = 2;
+
+                const anno = new DimensionAnnotation({
+                    document: new TestDocument() as any,
+                    annotationType: "dimension",
+                    name: "dim",
+                    startPoint: XYZ.zero,
+                    endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+                    textPoint: new XYZ({ x: 5, y: 8, z: 0 }),
+                });
+                anno.parent = makeParent() as any;
+                (cmd as any).models = [makeMockModel(), anno];
+
+                seedStepDatas(cmd, [pointStep(XYZ.zero), pointStep(new XYZ({ x: 2, y: 0, z: 0 }))]);
+
+                (cmd as any).executeMainTask();
+
+                expect(components).toHaveLength(1);
+                // two shape clones and two annotation clones, all inside the component
+                expect(components[0].nodes).toHaveLength(4);
+                const annotationMembers = components[0].nodes.filter(
+                    (x: unknown) => x instanceof DimensionAnnotation,
+                );
+                expect(annotationMembers).toHaveLength(2);
+                // nothing stays at document level but the one ComponentNode
+                expect(addedNodes).toHaveLength(1);
             } finally {
                 restoreTx();
                 restoreApp();

@@ -2,13 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Annotation,
     BoundingBox,
-    type ComponentNode,
+    ComponentNode,
     type GroupNode,
     type IShape,
     type ISubShape,
     type IVisualObject,
-    type Matrix4,
+    Matrix4,
     type MeshNode,
     type ShapeMeshRange,
     type ShapeType,
@@ -40,6 +41,7 @@ import {
     lockFaceMaterial,
     lockLineMaterial,
 } from "./materials";
+import { createAnnotationVisual, type ThreeAnnotation } from "./threeAnnotation";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeVisualContext } from "./threeVisualContext";
@@ -329,6 +331,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
     private _faces?: Mesh;
     private _linesegments?: LineSegments2;
     private _surfaces?: Mesh;
+    private readonly _annotations: ThreeAnnotation[] = [];
 
     get edges() {
         return this._edges;
@@ -346,6 +349,10 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         return this._surfaces;
     }
 
+    get annotations() {
+        return this._annotations;
+    }
+
     constructor(
         readonly componentNode: ComponentNode,
         readonly context: ThreeVisualContext,
@@ -355,6 +362,29 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         this.initFaces();
         this.initLinesegments();
         this.initSurfaces();
+        this.initAnnotations(this.componentNode.component.nodes, Matrix4.identity());
+    }
+
+    // The merged component mesh has no room for annotations, so each member
+    // annotation gets its own visual, placed by the member's accumulated transform.
+    private initAnnotations(nodes: ReadonlyArray<VisualNode>, parentTransform: Matrix4) {
+        for (const node of nodes) {
+            if (node instanceof Annotation) {
+                const visual = createAnnotationVisual(this.context, node);
+                if (visual === undefined) continue;
+                visual.transform = node.transform.multiply(parentTransform);
+                this._annotations.push(visual);
+                this.add(visual);
+            } else if (node instanceof ComponentNode) {
+                this.initAnnotations(node.component.nodes, node.transform.multiply(parentTransform));
+            }
+        }
+    }
+
+    override dispose(): void {
+        super.dispose();
+        this._annotations.forEach((x) => x.dispose());
+        this._annotations.length = 0;
     }
 
     private initEdges() {

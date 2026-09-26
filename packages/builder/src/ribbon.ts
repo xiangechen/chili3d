@@ -92,6 +92,10 @@ export const DefaultRibbon: RibbonTabProfile[] = [
                 items: [["measure.length", "measure.angle", "measure.select"]],
             },
             {
+                groupName: "ribbon.group.annotation",
+                items: ["annotate.dimension", ["annotate.radius", "annotate.diameter", "annotate.angle"]],
+            },
+            {
                 groupName: "ribbon.group.act",
                 items: ["act.alignCamera"],
             },

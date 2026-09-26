@@ -176,6 +176,89 @@ describe("InputProperty", () => {
         });
     });
 
+    describe("empty input handling", () => {
+        function writable(initial: unknown) {
+            let stored = initial;
+            const obj = {};
+            Object.defineProperty(obj, "value", {
+                get: () => stored,
+                set: (v) => {
+                    stored = v;
+                },
+            });
+            return { obj, get: () => stored };
+        }
+
+        function blurWith(prop: InputProperty, value: string) {
+            const inputEl = mustQuery<HTMLInputElement>(prop, "input");
+            inputEl.value = value;
+            const blurHandler = (inputEl as any)._onblur as ((e: FocusEvent) => void) | undefined;
+            expect(blurHandler).toBeDefined();
+            blurHandler!({ target: inputEl } as unknown as FocusEvent);
+        }
+
+        test("allows clearing a string property back to empty", () => {
+            const doc = createMockDocument();
+            const { obj, get } = writable("abc");
+            const prop = new InputProperty(doc, [obj], valueProp);
+
+            const inputEl = mustQuery<HTMLInputElement>(prop, "input");
+            expect(inputEl.readOnly).toBe(false);
+
+            blurWith(prop, "");
+            expect(get()).toBe("");
+        });
+
+        test("accepts a non-empty edit for a string property", () => {
+            const doc = createMockDocument();
+            const { obj, get } = writable("abc");
+            const prop = new InputProperty(doc, [obj], valueProp);
+
+            blurWith(prop, "xyz");
+            expect(get()).toBe("xyz");
+        });
+
+        test("refuses an empty edit for a number property", () => {
+            const doc = createMockDocument();
+            const { obj, get } = writable(42);
+            const prop = new InputProperty(doc, [obj], valueProp);
+
+            blurWith(prop, "");
+            expect(get()).toBe(42);
+        });
+
+        test("blur without an edit keeps the differing values of a multi-selection", () => {
+            const doc = createMockDocument();
+            const a = writable("abc");
+            const b = writable("xyz");
+            const prop = new InputProperty(doc, [a.obj, b.obj], valueProp);
+
+            // the mixed display reads ""; blurring it must not clear both objects
+            blurWith(prop, "");
+            expect(a.get()).toBe("abc");
+            expect(b.get()).toBe("xyz");
+        });
+
+        test("blur without an edit writes nothing at all", () => {
+            const doc = createMockDocument();
+            let stored = "abc";
+            let writes = 0;
+            const obj = {};
+            Object.defineProperty(obj, "value", {
+                get: () => stored,
+                set: (v) => {
+                    writes++;
+                    stored = v;
+                },
+            });
+            const prop = new InputProperty(doc, [obj], valueProp);
+
+            blurWith(prop, "abc");
+            expect(writes).toBe(0);
+            expect(stored).toBe("abc");
+        });
+    });
+
     describe("converter resolution", () => {
         test("should resolve Number converter for Number-typed values", () => {
             const doc = createMockDocument();

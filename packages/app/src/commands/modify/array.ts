@@ -3,6 +3,7 @@
 
 import {
     AngleStep,
+    Annotation,
     AsyncController,
     BoundingBox,
     Combobox,
@@ -234,6 +235,9 @@ export class ArrayCommand extends MultistepCommand {
                 return model.mesh.edges?.position ? model.transform.ofPoints(model.mesh.edges.position) : [];
             } else if (model instanceof ComponentNode) {
                 return Array.from(BoundingBox.wireframe(model.boundingBox()!).position);
+            } else if (model instanceof Annotation) {
+                const box = model.boundingBox();
+                return box ? model.transform.ofPoints(Array.from(BoundingBox.wireframe(box).position)) : [];
             }
             return [];
         });

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Annotation,
     AsyncController,
     BoundingBox,
     ComponentNode,
@@ -82,6 +83,9 @@ export abstract class TransformedCommand extends MultistepCommand {
                 return model.mesh.edges?.position ? model.transform.ofPoints(model.mesh.edges.position) : [];
             } else if (model instanceof ComponentNode) {
                 return Array.from(BoundingBox.wireframe(model.boundingBox()!).position);
+            } else if (model instanceof Annotation) {
+                const box = model.boundingBox();
+                return box ? model.transform.ofPoints(Array.from(BoundingBox.wireframe(box).position)) : [];
             }
             return [];
         });

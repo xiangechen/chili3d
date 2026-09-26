@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Annotation,
     BoundingBox,
     type CollectionChangedArgs,
     ComponentNode,
@@ -23,7 +24,6 @@ import {
     type MeshOption,
     type NodeRecord,
     NodeUtils,
-    RefSegmentAnnotation,
     type ShapeMeshData,
     type ShapeNode,
     type ShapeType,
@@ -53,7 +53,8 @@ import {
     type WebGLRenderTarget,
 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { ThreeRefSegmentAnnotation } from "./threeAnnotation";
+import { AnnotationBatch } from "./annotationBatch";
+import { createAnnotationVisual, ThreeAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
@@ -67,6 +68,7 @@ function isPhysicalMaterial(material: ThreeMaterial): material is MeshPhysicalMa
 export class ThreeVisualContext implements IVisualContext {
     private readonly _visualNodeMap = new Map<IVisualObject, INode>();
     private readonly _NodeVisualMap = new Map<INode, IVisualObject & Object3D>();
+    private readonly _annotationBatches = new Map<Object3D, AnnotationBatch>();
     readonly materialMap = new Map<string, ThreeMaterial>();
 
     readonly visualShapes: Group;
@@ -244,6 +246,20 @@ export class ThreeVisualContext implements IVisualContext {
         }
     }
 
+    /**
+     * The batch drawing every annotation directly under `parent`, created on first
+     * ask. Batches prune themselves when their last annotation unregisters.
+     */
+    batchFor(parent: Object3D): AnnotationBatch {
+        let batch = this._annotationBatches.get(parent);
+        if (batch === undefined) {
+            batch = new AnnotationBatch(this, () => this._annotationBatches.delete(parent));
+            this._annotationBatches.set(parent, batch);
+            parent.add(batch);
+        }
+        return batch;
+    }
+
     removeVisualObject(object: IVisualObject): void {
         if (object instanceof Object3D) {
             this.visualShapes.remove(object);
@@ -264,6 +280,7 @@ export class ThreeVisualContext implements IVisualContext {
         this.visual.document.modelManager.removeNodeObserver(this.handleNodeChanged);
         this.materialMap.forEach((x) => x.dispose());
         this.materialMap.clear();
+        this._annotationBatches.clear();
         this.visualShapes.clear();
         this.tempShapes.clear();
         this._visualNodeMap.clear();
@@ -307,6 +324,8 @@ export class ThreeVisualContext implements IVisualContext {
         ]);
         return this.visuals().filter((x) => {
             const node = (x as ThreeGeometry)?.geometryNode;
+            // Annotations have no geometryNode — and no business in a shape filter.
+            if (node === undefined) return false;
             const shape = (node as ShapeNode)?.shape?.unchecked();
             if (filter && shape && !filter.allow(shape, node.transform)) {
                 return false;
@@ -333,7 +352,7 @@ export class ThreeVisualContext implements IVisualContext {
             obj instanceof ThreeGeometry ||
             obj instanceof ThreeMeshObject ||
             obj instanceof ThreeComponentObject ||
-            obj instanceof ThreeRefSegmentAnnotation
+            obj instanceof ThreeAnnotation
         ) {
             visuals.push(obj);
         }
@@ -474,8 +493,8 @@ export class ThreeVisualContext implements IVisualContext {
             visualObject = new GroupVisualObject(node);
         } else if (node instanceof ComponentNode) {
             visualObject = new ThreeComponentObject(node, this);
-        } else if (node instanceof RefSegmentAnnotation) {
-            visualObject = new ThreeRefSegmentAnnotation(this, node);
+        } else if (node instanceof Annotation) {
+            visualObject = createAnnotationVisual(this, node);
         }
 
         if (visualObject) {

@@ -4,6 +4,7 @@
 import {
     BoundingBox,
     ComponentNode,
+    DimensionAnnotation,
     GeometryNode,
     Matrix4,
     MeshNode,
@@ -12,6 +13,7 @@ import {
     VisualConfig,
     XYZ,
 } from "@chili3d/core";
+import { TestDocument } from "@chili3d/core/test-utils";
 import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { Move } from "../../../src/commands/modify/move";
 import {
@@ -437,6 +439,90 @@ describe("TransformedCommand (via Move)", () => {
                 pubSpy.mockRestore();
                 restore();
             }
+        });
+    });
+
+    describe("annotations", () => {
+        function dimension() {
+            return new DimensionAnnotation({
+                document: new TestDocument() as any,
+                annotationType: "dimension",
+                name: "dim",
+                startPoint: XYZ.zero,
+                endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+                textPoint: new XYZ({ x: 5, y: 8, z: 0 }),
+            });
+        }
+
+        test("moves an annotation through its transform, leaving the points local", () => {
+            const restore = stubTransactionRun();
+            try {
+                const cmd = new Move();
+                const anno = dimension();
+                wireCommand(cmd);
+                (cmd as any).models = [anno];
+                seedStepDatas(cmd, [
+                    pointStepResult({ point: XYZ.zero }),
+                    pointStepResult({ point: new XYZ({ x: 1, y: 2, z: 3 }) }),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                expect(anno.startPoint).toEqual(XYZ.zero);
+                expect(anno.endPoint).toEqual(new XYZ({ x: 10, y: 0, z: 0 }));
+                expect(anno.textPoint).toEqual(new XYZ({ x: 5, y: 8, z: 0 }));
+                expect(anno.transform.equals(Matrix4.fromTranslation(1, 2, 3))).toBe(true);
+            } finally {
+                restore();
+            }
+        });
+
+        test("clones an annotation onto the translated copy when isClone is true", () => {
+            const restore = stubTransactionRun();
+            try {
+                const cmd = new Move();
+                cmd.isClone = true;
+                const parent = makeParent({ id: "parent" });
+                const anno = dimension();
+                anno.parent = parent as any;
+                wireCommand(cmd);
+                (cmd as any).models = [anno];
+                seedStepDatas(cmd, [
+                    pointStepResult({ point: XYZ.zero }),
+                    pointStepResult({ point: new XYZ({ x: 5, y: 0, z: 0 }) }),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                expect(parent.insertedAfter).toHaveLength(1);
+                const clone = parent.insertedAfter[0].node as DimensionAnnotation;
+                expect(clone).not.toBe(anno);
+                expect(clone.startPoint).toEqual(XYZ.zero);
+                expect(clone.endPoint).toEqual(new XYZ({ x: 10, y: 0, z: 0 }));
+                expect(clone.textPoint).toEqual(new XYZ({ x: 5, y: 8, z: 0 }));
+                expect(clone.transform.equals(Matrix4.fromTranslation(5, 0, 0))).toBe(true);
+                // the original stays put
+                expect(anno.startPoint).toEqual(XYZ.zero);
+                expect(anno.transform.equals(Matrix4.identity())).toBe(true);
+            } finally {
+                restore();
+            }
+        });
+
+        test("previews an annotation through its transformed bounding-box wireframe", async () => {
+            const cmd = new Move();
+            const { doc } = wireCommand(cmd);
+            const anno = dimension();
+            anno.transform = Matrix4.fromTranslation(100, 0, 0);
+            (doc.selection as any).getSelectedVisualNodes = () => [anno];
+
+            const ok = await (cmd as any).canExcute();
+
+            expect(ok).toBe(true);
+            const positions = (cmd as any).positions as number[];
+            expect(positions.length).toBe(72);
+            // the wireframe's min corner moved with the annotation's transform
+            expect([positions[0], positions[1], positions[2]]).toEqual([100, 0, 0]);
         });
     });
 });

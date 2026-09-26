@@ -9,6 +9,7 @@ import { property } from "../property";
 import { serializable, serialize } from "../serialize";
 import { type EdgeMeshData, type FaceMeshData, Mesh } from "../shape";
 import { MeshUtils } from "../shape/meshUtils";
+import { Annotation } from "./annotation";
 import { MeshNode } from "./meshNode";
 import type { INode } from "./node";
 import { ShapeNode } from "./shapeNode";
@@ -174,6 +175,8 @@ export class Component {
                 this.mergeNodesMesh(visual, faceMaterialPair, node.component.nodes, totleTransform, offset);
             } else if (node instanceof MeshNode) {
                 this.mergeMeshNode(visual, node, totleTransform, offset);
+            } else if (node instanceof Annotation) {
+                // Annotations render per instance (ThreeComponentObject), not in the merged mesh.
             } else {
                 console.log(`****** to do merge MeshNode ******: ${Object.prototype.toString.call(node)}`);
             }

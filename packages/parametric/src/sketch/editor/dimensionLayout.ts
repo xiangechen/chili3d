@@ -4,7 +4,9 @@
 /**
  * uv-space layout for dimension annotations. All sizes derive from `px`
  * (world units per screen pixel) so arrows and gaps keep a constant
- * on-screen size at any zoom level.
+ * on-screen size at any zoom level. The arrow/gap/offset constants and the
+ * offset math are shared with the 3D counterpart — `model/dimensionLayout`
+ * in @chili3d/core — change them together.
  */
 
 export type { DimensionAnchor } from "../sketchModel";
@@ -12,7 +14,14 @@ export type { DimensionAnchor } from "../sketchModel";
 // `sketchModel` because the solver converts datums too and must not import the editor.
 export { toDisplayDatum, toStorageDatum } from "../sketchModel";
 
-import type { ParameterValue } from "@chili3d/core";
+import {
+    DIMENSION_ARROW_HALF_ANGLE,
+    DIMENSION_ARROW_LENGTH_PX,
+    DIMENSION_EXTENSION_GAP_PX,
+    DIMENSION_EXTENSION_OVERSHOOT_PX,
+    dimensionOffsets,
+    type ParameterValue,
+} from "@chili3d/core";
 import { ConstraintKind, toDisplayDatum } from "../sketchModel";
 
 /**
@@ -35,11 +44,6 @@ export interface DimensionGeometry {
     readonly textPosition: [number, number];
 }
 
-const ARROW_LENGTH_PX = 10;
-const ARROW_HALF_ANGLE = (20 * Math.PI) / 180;
-const EXTENSION_GAP_PX = 3;
-const EXTENSION_OVERSHOOT_PX = 4;
-const MIN_OFFSET_PX = 14;
 const RADIUS_LABEL_MARGIN_PX = 20;
 const MIN_ANGLE_RADIUS_PX = 24;
 const ANGLE_LABEL_MARGIN_PX = 14;
@@ -70,16 +74,11 @@ export function distanceDimension(
 
     const dir: Vec2 = [dx / length, dy / length];
     const normal: Vec2 = [-dir[1], dir[0]];
-    const sign = offset >= 0 ? 1 : -1;
-    const off = sign * Math.max(Math.abs(offset), MIN_OFFSET_PX * px);
+    const { off, gap, overshoot } = dimensionOffsets(offset, px);
     const at = (p: Vec2, d: number): Vec2 => [p[0] + normal[0] * d, p[1] + normal[1] * d];
 
     const a = at(p1, off);
     const b = at(p2, off);
-    // gap and overshoot follow the offset side, otherwise the extension line
-    // starts on the far side of the geometry and crosses it
-    const gap = sign * EXTENSION_GAP_PX * px;
-    const overshoot = off + sign * EXTENSION_OVERSHOOT_PX * px;
 
     const segments: DimensionGeometry["segments"] = [
         [...at(p1, gap), ...at(p1, overshoot)],
@@ -113,11 +112,14 @@ export function radiusDimension(
     };
 }
 
-/** Two wings pointing backward from `tip`; `outward` is the direction the arrow points to. */
+/**
+ * Two wings pointing backward from `tip`; `outward` is the direction the arrow points to.
+ * The 3D counterpart lives in core's `model/dimensionLayout`.
+ */
 function arrowhead(tip: Vec2, outward: Vec2, px: number): DimensionGeometry["segments"] {
-    const length = ARROW_LENGTH_PX * px;
-    const cos = Math.cos(ARROW_HALF_ANGLE);
-    const sin = Math.sin(ARROW_HALF_ANGLE);
+    const length = DIMENSION_ARROW_LENGTH_PX * px;
+    const cos = Math.cos(DIMENSION_ARROW_HALF_ANGLE);
+    const sin = Math.sin(DIMENSION_ARROW_HALF_ANGLE);
     // backward = -outward, rotated by ±half angle
     const back: Vec2 = [-outward[0], -outward[1]];
     const wing = (s: number): Vec2 => [
@@ -190,14 +192,9 @@ export function pointLineDistanceDimension(
 
     const dir: Vec2 = [(foot[0] - p[0]) / length, (foot[1] - p[1]) / length];
     const normal: Vec2 = [-dir[1], dir[0]];
-    const sign = offset >= 0 ? 1 : -1;
-    const off = sign * Math.max(Math.abs(offset), MIN_OFFSET_PX * px);
+    const { off, gap, overshoot } = dimensionOffsets(offset, px);
     const a = addDir(p, normal, off);
     const b = addDir(foot, normal, off);
-    // gap and overshoot follow the offset side, otherwise the extension line
-    // starts on the far side of the geometry and crosses it
-    const gap = sign * EXTENSION_GAP_PX * px;
-    const overshoot = off + sign * EXTENSION_OVERSHOOT_PX * px;
 
     return {
         segments: [
@@ -226,14 +223,15 @@ export function axisDistanceDimension(
     if (Math.abs(span) < 1e-9 || px <= 0) return undefined;
 
     const base = axis === "h" ? (p1[1] + p2[1]) / 2 : (p1[0] + p2[0]) / 2;
-    const sign = offset >= 0 ? 1 : -1;
-    const linePosition = base + sign * Math.max(Math.abs(offset), MIN_OFFSET_PX * px);
+    const { sign, off } = dimensionOffsets(offset, px);
+    const linePosition = base + off;
     const a: Vec2 = axis === "h" ? [p1[0], linePosition] : [linePosition, p1[1]];
     const b: Vec2 = axis === "h" ? [p2[0], linePosition] : [linePosition, p2[1]];
     const dir: Vec2 = axis === "h" ? [1, 0] : [0, 1];
+    // `out` carries the sign, so gap and overshoot stay unsigned here
     const out: Vec2 = axis === "h" ? [0, sign] : [sign, 0];
-    const gap = EXTENSION_GAP_PX * px;
-    const overshoot = EXTENSION_OVERSHOOT_PX * px;
+    const gap = DIMENSION_EXTENSION_GAP_PX * px;
+    const overshoot = DIMENSION_EXTENSION_OVERSHOOT_PX * px;
 
     return {
         segments: [

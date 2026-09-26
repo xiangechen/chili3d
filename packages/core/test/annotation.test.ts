@@ -1,14 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, XYZ } from "../src/math";
+import { XYZ } from "../src/math";
 import {
     type AnnotationOptions,
     AnnotationTypes,
+    DimensionAnnotation,
     RefInfiniteLineAnnotation,
     RefSegmentAnnotation,
     TextAnnotation,
 } from "../src/model/annotation";
+import { InternalClassName, Serializer } from "../src/serialize";
 import { TestDocument } from "../test-utils";
 
 describe("AnnotationTypes", () => {
@@ -319,5 +321,336 @@ describe("RefSegmentAnnotation", () => {
         expect(box).not.toBeNull();
         expect(box!.min.x).toBe(1);
         expect(box!.max.x).toBe(5);
+    });
+});
+
+describe("DimensionAnnotation", () => {
+    const doc = new TestDocument() as any;
+
+    test("should create with correct values and default dimensionType", () => {
+        const startPoint = new XYZ({ x: 0, y: 0, z: 0 });
+        const endPoint = new XYZ({ x: 3, y: 4, z: 0 });
+        const textPoint = new XYZ({ x: 1.5, y: 6, z: 0 });
+
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint,
+            endPoint,
+            textPoint,
+        });
+
+        expect(anno.annotationType).toBe("dimension");
+        expect(anno.name).toBe("test-dimension");
+        expect(anno.dimensionType).toBe("linear");
+        expect(anno.startPoint).toEqual(startPoint);
+        expect(anno.endPoint).toEqual(endPoint);
+        expect(anno.textPoint).toEqual(textPoint);
+    });
+
+    test("value should derive from the attachment points", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: XYZ.zero,
+        });
+
+        expect(anno.value).toBeCloseTo(5);
+        expect(anno.formattedValue()).toBe("5.00");
+        expect(anno.formattedValue(1)).toBe("5.0");
+    });
+
+    test("should set and get points", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: XYZ.unitX,
+            textPoint: XYZ.zero,
+        });
+
+        const newEnd = new XYZ({ x: 10, y: 0, z: 0 });
+        anno.endPoint = newEnd;
+        expect(anno.endPoint).toEqual(newEnd);
+        expect(anno.value).toBeCloseTo(10);
+
+        const newText = new XYZ({ x: 5, y: 8, z: 0 });
+        anno.textPoint = newText;
+        expect(anno.textPoint).toEqual(newText);
+    });
+
+    test("display should return annotation.dimension key", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: XYZ.unitX,
+            textPoint: XYZ.zero,
+        });
+
+        expect(anno.display()).toBe("annotation.dimension");
+    });
+
+    test("boundingBox should cover all three points", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+            textPoint: new XYZ({ x: 5, y: -3, z: 2 }),
+        });
+
+        const box = anno.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.min).toEqual(new XYZ({ x: 0, y: -3, z: 0 }));
+        expect(box!.max).toEqual(new XYZ({ x: 10, y: 0, z: 2 }));
+    });
+
+    test("textHeight defaults to the drafting height and refuses non-positive values", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: XYZ.unitX,
+            textPoint: XYZ.zero,
+        });
+
+        expect(anno.textHeight).toBeCloseTo(3.5);
+
+        anno.textHeight = 7;
+        expect(anno.textHeight).toBe(7);
+
+        anno.textHeight = 0;
+        expect(anno.textHeight).toBe(7);
+        anno.textHeight = -2;
+        expect(anno.textHeight).toBe(7);
+    });
+
+    test("textHeight can be given at construction", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: XYZ.unitX,
+            textPoint: XYZ.zero,
+            textHeight: 5,
+        });
+
+        expect(anno.textHeight).toBe(5);
+    });
+
+    test("textOverride replaces the measured value and expands the <> placeholder", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: XYZ.zero,
+        });
+
+        expect(anno.textOverride).toBe("");
+        expect(anno.formattedValue()).toBe("5.00");
+
+        anno.textOverride = "custom";
+        expect(anno.formattedValue()).toBe("custom");
+
+        anno.textOverride = "Ø<> ±0.1";
+        expect(anno.formattedValue()).toBe("Ø5.00 ±0.1");
+
+        anno.textOverride = "";
+        expect(anno.formattedValue()).toBe("5.00");
+    });
+
+    test("textOverride can be given at construction and survives serialization", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: XYZ.zero,
+            textOverride: "Ø<>",
+        });
+
+        expect(anno.textOverride).toBe("Ø<>");
+        expect(anno.formattedValue()).toBe("Ø5.00");
+
+        const restored = Serializer.deserializeObject(
+            doc,
+            Serializer.serializeObject(anno),
+        ) as DimensionAnnotation;
+        expect(restored.textOverride).toBe("Ø<>");
+        expect(restored.formattedValue()).toBe("Ø5.00");
+    });
+
+    test("should survive a serialization roundtrip", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "test-dimension",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: new XYZ({ x: 1.5, y: 6, z: 0 }),
+            color: 0xff0000,
+            textHeight: 5,
+        });
+
+        const serialized = Serializer.serializeObject(anno);
+        expect(serialized[InternalClassName]).toBe("DimensionAnnotation");
+
+        const restored = Serializer.deserializeObject(doc, serialized) as DimensionAnnotation;
+        expect(restored).toBeInstanceOf(DimensionAnnotation);
+        expect(restored.dimensionType).toBe("linear");
+        expect(restored.startPoint).toEqual(XYZ.zero);
+        expect(restored.endPoint).toEqual(new XYZ({ x: 3, y: 4, z: 0 }));
+        expect(restored.textPoint).toEqual(new XYZ({ x: 1.5, y: 6, z: 0 }));
+        expect(restored.textHeight).toBe(5);
+        expect(restored.color).toBe(0xff0000);
+        expect(restored.value).toBeCloseTo(5);
+    });
+
+    test("radial and diameter dimensions carry the R / Ø prefixes", () => {
+        const radial = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "radial",
+            dimensionType: "radial",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: new XYZ({ x: 8, y: 4, z: 0 }),
+        });
+        expect(radial.value).toBeCloseTo(5);
+        expect(radial.formattedValue()).toBe("R5.00");
+
+        const diameter = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "diameter",
+            dimensionType: "diameter",
+            startPoint: new XYZ({ x: -3, y: -4, z: 0 }),
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: new XYZ({ x: 12, y: 4, z: 0 }),
+        });
+        expect(diameter.value).toBeCloseTo(10);
+        expect(diameter.formattedValue()).toBe("Ø10.00");
+
+        // the override stays the full text — no affixes added
+        radial.textOverride = "drill <>";
+        expect(radial.formattedValue()).toBe("drill 5.00");
+    });
+
+    test("an angular dimension reports the drawn sweep in degrees, reflex included", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "angular",
+            dimensionType: "angular",
+            centerPoint: XYZ.zero,
+            startPoint: XYZ.unitX,
+            endPoint: XYZ.unitY,
+            textPoint: new XYZ({ x: 2, y: 2, z: 0 }),
+        });
+
+        expect(anno.value).toBeCloseTo(90);
+        expect(anno.formattedValue()).toBe("90.0°");
+
+        // dragging the text to the far side draws (and reports) the reflex angle
+        anno.textPoint = new XYZ({ x: -2, y: -2, z: 0 });
+        expect(anno.value).toBeCloseTo(270);
+        expect(anno.formattedValue()).toBe("270.0°");
+    });
+
+    test("an angular dimension without a vertex falls back to the point distance", () => {
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "angular",
+            dimensionType: "angular",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            textPoint: XYZ.zero,
+        });
+
+        expect(anno.centerPoint).toBeUndefined();
+        expect(anno.value).toBeCloseTo(5);
+    });
+
+    test("centerPoint survives a serialization roundtrip, absent stays absent", () => {
+        const center = new XYZ({ x: 1, y: 2, z: 3 });
+        const anno = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "angular",
+            dimensionType: "angular",
+            centerPoint: center,
+            startPoint: center.add(XYZ.unitX),
+            endPoint: center.add(XYZ.unitY),
+            textPoint: center.add(new XYZ({ x: 2, y: 2, z: 0 })),
+        });
+
+        const restored = Serializer.deserializeObject(
+            doc,
+            Serializer.serializeObject(anno),
+        ) as DimensionAnnotation;
+        expect(restored.dimensionType).toBe("angular");
+        expect(restored.centerPoint).toEqual(center);
+        expect(restored.value).toBeCloseTo(90);
+
+        const linear = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "linear",
+            startPoint: XYZ.zero,
+            endPoint: XYZ.unitX,
+            textPoint: XYZ.zero,
+        });
+        const restoredLinear = Serializer.deserializeObject(
+            doc,
+            Serializer.serializeObject(linear),
+        ) as DimensionAnnotation;
+        expect(restoredLinear.centerPoint).toBeUndefined();
+    });
+
+    test("planeNormal survives a serialization roundtrip, absent stays absent", () => {
+        const radial = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "radial",
+            dimensionType: "radial",
+            planeNormal: XYZ.unitZ,
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+            textPoint: new XYZ({ x: 20, y: 0, z: 0 }),
+        });
+
+        const restored = Serializer.deserializeObject(
+            doc,
+            Serializer.serializeObject(radial),
+        ) as DimensionAnnotation;
+        expect(restored.planeNormal).toEqual(XYZ.unitZ);
+
+        const linear = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "linear",
+            startPoint: XYZ.zero,
+            endPoint: XYZ.unitX,
+            textPoint: XYZ.zero,
+        });
+        const restoredLinear = Serializer.deserializeObject(
+            doc,
+            Serializer.serializeObject(linear),
+        ) as DimensionAnnotation;
+        expect(restoredLinear.planeNormal).toBeUndefined();
     });
 });

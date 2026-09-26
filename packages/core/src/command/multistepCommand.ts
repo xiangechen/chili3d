@@ -4,7 +4,7 @@
 import { Config, VisualConfig } from "../config";
 import { AsyncController, Result } from "../foundation";
 import type { XYZ } from "../math";
-import type { IShape, IShapeFactory } from "../shape";
+import type { IShape, IShapeFactory, LineType } from "../shape";
 import { MeshDataUtils } from "../shape";
 import type { SnapResult } from "../snap";
 import type { IStep } from "../step";
@@ -63,8 +63,14 @@ export abstract class MultistepCommand extends CancelableCommand {
         );
     }
 
-    protected meshLine(start: XYZ, end: XYZ, color = VisualConfig.defaultEdgeColor, lineWith?: number) {
-        const data = MeshDataUtils.createEdgeMesh(start, end, color, "solid");
+    protected meshLine(
+        start: XYZ,
+        end: XYZ,
+        color = VisualConfig.defaultEdgeColor,
+        lineWith?: number,
+        lineType: LineType = "solid",
+    ) {
+        const data = MeshDataUtils.createEdgeMesh(start, end, color, lineType);
         if (lineWith !== undefined) {
             data.lineWidth = lineWith;
         }

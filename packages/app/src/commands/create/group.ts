@@ -56,8 +56,8 @@ export class GroupCommand extends MultistepCommand {
     }
 
     protected override executeMainTask(): void {
-        const nodes = this.stepDatas[0].nodes?.filter((node) => node instanceof VisualNode);
-        if (!nodes || nodes.length === 0) {
+        const nodes = this.stepDatas[0].nodes?.filter((node) => node instanceof VisualNode) ?? [];
+        if (nodes.length === 0) {
             PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
@@ -79,7 +79,7 @@ export class GroupCommand extends MultistepCommand {
 
             const component = new Component({
                 name: definition.name,
-                nodes: this.stepDatas[0].nodes!,
+                nodes,
                 origin: definition.insert,
             });
             this.document.modelManager.components.push(component);

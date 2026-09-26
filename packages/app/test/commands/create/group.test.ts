@@ -4,6 +4,7 @@
 import {
     type Component,
     type ComponentNode,
+    DimensionAnnotation,
     type IApplication,
     type IStep,
     type IView,
@@ -14,7 +15,7 @@ import {
     type VisualNode,
     XYZ,
 } from "@chili3d/core";
-import { TestNode } from "@chili3d/core/test-utils";
+import { TestDocument, TestNode } from "@chili3d/core/test-utils";
 import { describe, expect, rs, test } from "@rstest/core";
 import { GroupCommand } from "../../../src/commands/create/group";
 import {
@@ -138,6 +139,78 @@ describe("GroupCommand", () => {
 
                 // filter((node) => node instanceof VisualNode) removes non-VisualNode
                 expect(toastMsg).toBe("toast.select.noSelected");
+            } finally {
+                PubSub.default.pub = originalPub;
+            }
+        });
+
+        test("should open the dialog when only annotations are selected", () => {
+            let toastMsg = "";
+            let dialogShown = false;
+            const originalPub = PubSub.default.pub;
+            PubSub.default.pub = ((channel: string, ...args: string[]) => {
+                if (channel === "showToast") {
+                    toastMsg = args[0] ?? "";
+                }
+                if (channel === "showDialog") {
+                    dialogShown = true;
+                }
+            }) as any;
+
+            try {
+                const cmd = new GroupCommand();
+                wireCommand(cmd);
+                const anno = new DimensionAnnotation({
+                    document: new TestDocument() as any,
+                    annotationType: "dimension",
+                    name: "dim",
+                    startPoint: XYZ.zero,
+                    endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+                    textPoint: new XYZ({ x: 5, y: 8, z: 0 }),
+                });
+                seedStepDatas(cmd, [nodeStepResult([anno as unknown as VisualNode])]);
+
+                (cmd as any).executeMainTask();
+
+                // annotations join groups like any other visual node
+                expect(toastMsg).toBe("");
+                expect(dialogShown).toBe(true);
+            } finally {
+                PubSub.default.pub = originalPub;
+            }
+        });
+
+        test("should group shapes and annotations together", () => {
+            let toastMsg = "";
+            let dialogShown = false;
+            const originalPub = PubSub.default.pub;
+            PubSub.default.pub = ((channel: string, ...args: string[]) => {
+                if (channel === "showToast") {
+                    toastMsg = args[0] ?? "";
+                }
+                if (channel === "showDialog") {
+                    dialogShown = true;
+                }
+            }) as any;
+
+            try {
+                const cmd = new GroupCommand();
+                wireCommand(cmd);
+                const anno = new DimensionAnnotation({
+                    document: new TestDocument() as any,
+                    annotationType: "dimension",
+                    name: "dim",
+                    startPoint: XYZ.zero,
+                    endPoint: new XYZ({ x: 10, y: 0, z: 0 }),
+                    textPoint: new XYZ({ x: 5, y: 8, z: 0 }),
+                });
+                const testNode = new TestNode("test-node", "node-1");
+                seedStepDatas(cmd, [nodeStepResult([anno, testNode] as unknown as VisualNode[])]);
+
+                (cmd as any).executeMainTask();
+
+                expect(toastMsg).toBe("");
+                expect(dialogShown).toBe(true);
             } finally {
                 PubSub.default.pub = originalPub;
             }

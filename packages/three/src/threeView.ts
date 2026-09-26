@@ -38,7 +38,9 @@ import {
 } from "@chili3d/core";
 import { div, span, svg } from "@chili3d/element";
 import {
+    Box3,
     DirectionalLight,
+    Frustum,
     type Intersection,
     Line,
     LineSegments,
@@ -56,9 +58,10 @@ import { SelectionBox } from "three/examples/jsm/interactive/SelectionBox.js";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
+import { AnnotationBatch } from "./annotationBatch";
 import { CameraController } from "./cameraController";
 import { Constants } from "./constants";
-import { ThreeRefSegmentAnnotation } from "./threeAnnotation";
+import { ThreeAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeHighlighter } from "./threeHighlighter";
@@ -487,7 +490,12 @@ export class ThreeView extends Observable implements IView {
         const visual: IVisualObject[] = [];
         const detecteds = this.findIntersectedNodes(x, y);
         for (const detected of detecteds) {
-            const threeObject = detected.object.parent as ThreeVisualObject;
+            let threeObject: Object3D | null = detected.object.parent;
+            if (threeObject instanceof AnnotationBatch) {
+                // A batch hit carries the owning annotation in its faceIndex.
+                const writer = threeObject.annotationOf(detected.object, detected.faceIndex ?? undefined);
+                threeObject = writer instanceof ThreeAnnotation ? writer : null;
+            }
             if (!threeObject) continue;
 
             const node = this.getNodeFromObject(threeObject);
@@ -495,7 +503,7 @@ export class ThreeView extends Observable implements IView {
             if (nodeFilter !== undefined && !nodeFilter.allow(node)) {
                 continue;
             }
-            visual.push(threeObject);
+            visual.push(threeObject as ThreeVisualObject);
         }
         return visual;
     }
@@ -520,7 +528,88 @@ export class ThreeView extends Observable implements IView {
             }
             visual.add(threeObject);
         }
+        this.detectAnnotationsInRect(this.selectionRectFrustum(mx1, my1, mx2, my2), nodeFilter, visual);
         return Array.from(visual);
+    }
+
+    // Annotations draw through shared batches, which a frustum test cannot attribute
+    // back to one annotation — test each annotation's own world box instead.
+    private detectAnnotationsInRect(
+        frustum: Frustum,
+        nodeFilter: INodeFilter | undefined,
+        visual: Set<IVisualObject>,
+    ) {
+        for (const x of this.document.visual.context.visuals()) {
+            if (!(x instanceof ThreeAnnotation) || !x.visible) continue;
+            const node = x.annotation;
+            if (!node.visible || !node.parentVisible) continue;
+            const box = x.boundingBox();
+            if (box === undefined) continue;
+            const worldBox = BoundingBox.transformed(box, x.worldTransform());
+            if (worldBox === undefined) continue;
+
+            const testBox = new Box3(
+                new Vector3(worldBox.min.x, worldBox.min.y, worldBox.min.z),
+                new Vector3(worldBox.max.x, worldBox.max.y, worldBox.max.z),
+            );
+            if (!frustum.intersectsBox(testBox)) continue;
+            if (nodeFilter !== undefined && !nodeFilter.allow(node)) continue;
+            visual.add(x);
+        }
+    }
+
+    /**
+     * The frustum a rectangle selection spans, built the way SelectionBox builds
+     * its own — which stays private there, so the annotation pass constructs its
+     * copy: corner rays for a perspective camera, a slab for an orthographic one.
+     */
+    private selectionRectFrustum(mx1: number, my1: number, mx2: number, my2: number): Frustum {
+        const start = this.screenToCameraRect(mx1, my1);
+        const end = this.screenToCameraRect(mx2, my2);
+        const left = Math.min(start.x, end.x);
+        const right = Math.max(start.x, end.x);
+        const top = Math.max(start.y, end.y);
+        const down = Math.min(start.y, end.y);
+        const camera = this.camera;
+        camera.updateProjectionMatrix();
+        camera.updateMatrixWorld();
+
+        const frustum = new Frustum();
+        const planes = frustum.planes;
+        const unproject = (x: number, y: number, z: number) => new Vector3(x, y, z).unproject(camera);
+        if (camera instanceof PerspectiveCamera) {
+            const near = new Vector3().setFromMatrixPosition(camera.matrixWorld);
+            const topLeft = unproject(left, top, 0.5);
+            const topRight = unproject(right, top, 0.5);
+            const downRight = unproject(right, down, 0.5);
+            const downLeft = unproject(left, down, 0.5);
+            const far = (v: Vector3) =>
+                v.clone().sub(near).normalize().multiplyScalar(Number.MAX_VALUE).add(near);
+            planes[0].setFromCoplanarPoints(near, topLeft, topRight);
+            planes[1].setFromCoplanarPoints(near, topRight, downRight);
+            planes[2].setFromCoplanarPoints(downRight, downLeft, near);
+            planes[3].setFromCoplanarPoints(downLeft, topLeft, near);
+            planes[4].setFromCoplanarPoints(topRight, downRight, downLeft);
+            planes[5].setFromCoplanarPoints(far(downRight), far(topRight), far(topLeft));
+            planes[5].normal.multiplyScalar(-1);
+        } else {
+            const topLeft = unproject(left, top, -1);
+            const topRight = unproject(right, top, -1);
+            const downRight = unproject(right, down, -1);
+            const downLeft = unproject(left, down, -1);
+            const farTopLeft = unproject(left, top, 1);
+            const farTopRight = unproject(right, top, 1);
+            const farDownRight = unproject(right, down, 1);
+            const farDownLeft = unproject(left, down, 1);
+            planes[0].setFromCoplanarPoints(topLeft, farTopLeft, farTopRight);
+            planes[1].setFromCoplanarPoints(topRight, farTopRight, farDownRight);
+            planes[2].setFromCoplanarPoints(farDownRight, farDownLeft, downLeft);
+            planes[3].setFromCoplanarPoints(farDownLeft, farTopLeft, topLeft);
+            planes[4].setFromCoplanarPoints(topRight, downRight, downLeft);
+            planes[5].setFromCoplanarPoints(farDownRight, farTopRight, farTopLeft);
+            planes[5].normal.multiplyScalar(-1);
+        }
+        return frustum;
     }
 
     private getNodeFromObject(threeObject: Object3D) {
@@ -531,7 +620,7 @@ export class ThreeView extends Observable implements IView {
             node = threeObject.geometryNode;
         } else if (threeObject instanceof ThreeComponentObject) {
             node = threeObject.componentNode;
-        } else if (threeObject instanceof ThreeRefSegmentAnnotation) {
+        } else if (threeObject instanceof ThreeAnnotation) {
             node = threeObject.annotation;
         }
         return node;
@@ -969,15 +1058,24 @@ export class ThreeView extends Observable implements IView {
 
     private findIntersectedNodes(mx: number, my: number) {
         let visuals: Object3D[] = [];
+        const batches = new Set<AnnotationBatch>();
         this.document.visual.context.visuals().forEach((x) => {
             if (!x.visible) return;
             if (x instanceof ThreeVisualObject && x.node.visible && x.node.parentVisible) {
                 visuals.push(...x.wholeVisual());
-            } else if (x instanceof ThreeRefSegmentAnnotation) {
+            } else if (x instanceof ThreeAnnotation) {
                 visuals.push(...x.wholeVisual());
+                // Annotations draw through their parent's batch: raycast the batch
+                // once, however many annotations share it.
+                if (x.batch !== undefined) batches.add(x.batch);
             }
         });
-        visuals = visuals.filter((x) => x !== undefined && x !== null);
+        for (const batch of batches) {
+            visuals.push(...batch.pickObjects());
+        }
+        // Raycasting ignores `visible` — filter it ourselves: hidden children (grip
+        // dots, an empty batch's objects) must not eat hover raycasts.
+        visuals = visuals.filter((x) => x !== undefined && x !== null && x.visible);
         return this.initRaycaster(mx, my).intersectObjects(visuals, false);
     }
 
