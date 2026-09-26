@@ -35,8 +35,9 @@ describe("distanceDimension", () => {
         const geometry = distanceDimension([0, 0], [10, 0], 10, PX)!;
         expect(geometry).not.toBeNull();
 
-        // 2 extension lines + 1 dimension line + 2 arrowheads × 2 wings
-        expect(geometry.segments.length).toBe(7);
+        // 2 extension lines + 1 dimension line; the arrowheads are solid triangles
+        expect(geometry.segments.length).toBe(3);
+        expect(geometry.triangles.length).toBe(2 * 3);
 
         // dimension line sits at y = offset and spans the measured segment
         const [x1, y1, x2, y2] = geometry.segments[2];
@@ -82,13 +83,20 @@ describe("distanceDimension", () => {
         expect(distanceDimension([0, 0], [10, 0], 4, 0)).toBeUndefined();
     });
 
-    test("arrowheads point inward along the dimension line", () => {
+    test("arrowheads are solid triangles with tips on the extension lines", () => {
         const geometry = distanceDimension([0, 0], [10, 0], 10, PX)!;
-        const leftWing = geometry.segments[3]; // tip at (0,10)
-        const rightWing = geometry.segments[5]; // tip at (10,10)
-        // left arrow wings go right (inward), right arrow wings go left
-        expect(leftWing[2]).toBeGreaterThan(leftWing[0]);
-        expect(rightWing[2]).toBeLessThan(rightWing[0]);
+        const triangles = geometry.triangles;
+        // left tip at (0,10), right tip at (10,10)
+        expect(triangles[0]).toEqual([0, 10]);
+        expect(triangles[3]).toEqual([10, 10]);
+        // the base corners sit inward of the tips along the dimension line
+        expect(triangles[1][0]).toBeGreaterThan(0);
+        expect(triangles[2][0]).toBeGreaterThan(0);
+        expect(triangles[4][0]).toBeLessThan(10);
+        expect(triangles[5][0]).toBeLessThan(10);
+        // and fan out across it: one corner above, one below
+        expect(triangles[1][1]).toBeGreaterThan(10);
+        expect(triangles[2][1]).toBeLessThan(10);
     });
 });
 
@@ -100,11 +108,16 @@ describe("radiusDimension", () => {
         expect([x2, y2]).toEqual([8, 0]); // label position from the anchor vector
         expect(geometry.textPosition).toEqual([8, 0]);
 
-        // arrow tip on the circumference
-        const tip = geometry.segments[1];
+        // solid arrowhead: tip on the circumference, base corners trailing back toward the center
+        expect(geometry.segments.length).toBe(1);
+        const [tip, corner1, corner2] = geometry.triangles;
         expect(Math.hypot(tip[0], tip[1])).toBeCloseTo(5, 9);
-        // wings point back toward the center
-        expect(tip[2]).toBeLessThan(tip[0]);
+        expect(corner1[0]).toBeLessThan(tip[0]);
+        expect(corner2[0]).toBeLessThan(tip[0]);
+        // the corners fan out across the leader: one above, one below
+        const cornerYs = [corner1[1], corner2[1]].sort((a, b) => a - b);
+        expect(cornerYs[0]).toBeLessThan(0);
+        expect(cornerYs[1]).toBeGreaterThan(0);
     });
 
     test("keeps the label outside the circle when the anchor is inside", () => {
@@ -201,8 +214,9 @@ describe("axisDistanceDimension", () => {
         const geometry = axisDistanceDimension([0, 0], [10, 4], "h", 20, 1)!;
         expect(geometry).not.toBeNull();
 
-        // 2 extension lines + 1 dimension line + 2 arrowheads × 2 wings
-        expect(geometry.segments.length).toBe(7);
+        // 2 extension lines + 1 dimension line; the arrowheads are solid triangles
+        expect(geometry.segments.length).toBe(3);
+        expect(geometry.triangles.length).toBe(2 * 3);
 
         // midline y = 2, dimension line horizontal at y = 22 spanning both points
         expect(geometry.segments[2]).toEqual([0, 22, 10, 22]);
@@ -238,7 +252,8 @@ describe("pointLineDistanceDimension", () => {
         expect(geometry).not.toBeNull();
 
         // foot = (0,0), direction p→foot = (0,-1), normal = (1,0)
-        expect(geometry.segments.length).toBe(7);
+        expect(geometry.segments.length).toBe(3);
+        expect(geometry.triangles.length).toBe(2 * 3);
         expect(geometry.segments[2]).toEqual([20, 10, 20, 0]);
         expect(geometry.textPosition).toEqual([20, 5]);
     });
@@ -269,8 +284,12 @@ describe("angleDimension", () => {
         const geometry = angleDimension([0, 0], [1, 0], [0, 1], 10, 1)!;
         expect(geometry).not.toBeNull();
 
-        // 90° sweep → 8 arc segments + 2 arrowheads × 2 wings
-        expect(geometry.segments.length).toBe(12);
+        // 90° sweep → 8 arc segments; the two arrowheads are solid triangles
+        expect(geometry.segments.length).toBe(8);
+        expect(geometry.triangles.length).toBe(2 * 3);
+        // arrow tips on the arc ends, at the clamped radius
+        expect(Math.hypot(geometry.triangles[0][0], geometry.triangles[0][1])).toBeCloseTo(24, 9);
+        expect(Math.hypot(geometry.triangles[3][0], geometry.triangles[3][1])).toBeCloseTo(24, 9);
 
         // label at 45° at distance 24 + 14
         expect(geometry.textPosition[0]).toBeCloseTo(38 * Math.SQRT1_2, 9);

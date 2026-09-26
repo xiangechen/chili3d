@@ -38,10 +38,24 @@ export function formatDatum(kind: ConstraintKind, value: ParameterValue): string
 }
 
 export interface DimensionGeometry {
-    /** uv-space segments: extension lines, dimension line, arrowhead wings. */
+    /** uv-space segments: extension lines, dimension line / leader / arc polyline. */
     readonly segments: [number, number, number, number][];
+    /** uv-space solid arrowheads: flat corner list, three corners per triangle. */
+    readonly triangles: [number, number][];
     /** uv position of the dimension text. */
     readonly textPosition: [number, number];
+}
+
+/** The drawing channels the annotation graphics are collected into. */
+export interface DimensionGraphics {
+    readonly segments: DimensionGeometry["segments"];
+    readonly triangles: DimensionGeometry["triangles"];
+}
+
+/** Appends one dimension's geometry to the collected channels. */
+export function pushDimensionGeometry(target: DimensionGraphics, geometry: DimensionGeometry): void {
+    target.segments.push(...geometry.segments);
+    target.triangles.push(...geometry.triangles);
 }
 
 const RADIUS_LABEL_MARGIN_PX = 20;
@@ -84,11 +98,10 @@ export function distanceDimension(
         [...at(p1, gap), ...at(p1, overshoot)],
         [...at(p2, gap), ...at(p2, overshoot)],
         [a[0], a[1], b[0], b[1]],
-        // CAD convention: arrow tips touch the extension lines, wings face inward
-        ...arrowhead(a, [-dir[0], -dir[1]], px),
-        ...arrowhead(b, dir, px),
     ];
-    return { segments, textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+    // CAD convention: arrow tips touch the extension lines, pointing outward
+    const triangles = [...arrowhead(a, [-dir[0], -dir[1]], px), ...arrowhead(b, dir, px)];
+    return { segments, triangles, textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
 }
 
 /** Radius dimension: leader from the center through the circumference, arrow outward. */
@@ -107,31 +120,29 @@ export function radiusDimension(
     const rim: Vec2 = [center[0] + dir[0] * radius, center[1] + dir[1] * radius];
 
     return {
-        segments: [[center[0], center[1], label[0], label[1]], ...arrowhead(rim, dir, px)],
+        segments: [[center[0], center[1], label[0], label[1]]],
+        triangles: arrowhead(rim, dir, px),
         textPosition: label,
     };
 }
 
 /**
- * Two wings pointing backward from `tip`; `outward` is the direction the arrow points to.
- * The 3D counterpart lives in core's `model/dimensionLayout`.
+ * A solid triangle: `tip` on the measured geometry, the base corners one arrow
+ * length back along `outward` — the silhouette of the drafting open arrowhead,
+ * filled. The 3D counterpart lives in core's `model/dimensionLayout`; both
+ * share the size constants from there.
  */
-function arrowhead(tip: Vec2, outward: Vec2, px: number): DimensionGeometry["segments"] {
+function arrowhead(tip: Vec2, outward: Vec2, px: number): [number, number][] {
     const length = DIMENSION_ARROW_LENGTH_PX * px;
     const cos = Math.cos(DIMENSION_ARROW_HALF_ANGLE);
     const sin = Math.sin(DIMENSION_ARROW_HALF_ANGLE);
     // backward = -outward, rotated by ±half angle
     const back: Vec2 = [-outward[0], -outward[1]];
-    const wing = (s: number): Vec2 => [
+    const corner = (s: number): Vec2 => [
         tip[0] + (back[0] * cos - back[1] * sin * s) * length,
         tip[1] + (back[0] * sin * s + back[1] * cos) * length,
     ];
-    const w1 = wing(1);
-    const w2 = wing(-1);
-    return [
-        [tip[0], tip[1], w1[0], w1[1]],
-        [tip[0], tip[1], w2[0], w2[1]],
-    ];
+    return [[tip[0], tip[1]], corner(1), corner(-1)];
 }
 
 function addDir(p: Vec2, dir: Vec2, d: number): Vec2 {
@@ -201,9 +212,8 @@ export function pointLineDistanceDimension(
             [...addDir(p, normal, gap), ...addDir(p, normal, overshoot)],
             [...addDir(foot, normal, gap), ...addDir(foot, normal, overshoot)],
             [a[0], a[1], b[0], b[1]],
-            ...arrowhead(a, [-dir[0], -dir[1]], px),
-            ...arrowhead(b, dir, px),
         ],
+        triangles: [...arrowhead(a, [-dir[0], -dir[1]], px), ...arrowhead(b, dir, px)],
         textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
     };
 }
@@ -238,9 +248,8 @@ export function axisDistanceDimension(
             [...addDir(p1, out, gap), ...addDir(a, out, overshoot)],
             [...addDir(p2, out, gap), ...addDir(b, out, overshoot)],
             [a[0], a[1], b[0], b[1]],
-            ...arrowhead(a, [-dir[0], -dir[1]], px),
-            ...arrowhead(b, dir, px),
         ],
+        triangles: [...arrowhead(a, [-dir[0], -dir[1]], px), ...arrowhead(b, dir, px)],
         textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
     };
 }
@@ -274,13 +283,16 @@ export function angleDimension(
         const s = (forward ? 1 : -1) * Math.sign(sweep);
         return [-Math.sin(angle) * s, Math.cos(angle) * s];
     };
-    segments.push(...arrowhead(arcPoint(a1), tangent(a1, false), px));
-    segments.push(...arrowhead(arcPoint(a1 + sweep), tangent(a1 + sweep, true), px));
+    const triangles = [
+        ...arrowhead(arcPoint(a1), tangent(a1, false), px),
+        ...arrowhead(arcPoint(a1 + sweep), tangent(a1 + sweep, true), px),
+    ];
 
     const mid = a1 + sweep / 2;
     const labelDistance = r + ANGLE_LABEL_MARGIN_PX * px;
     return {
         segments,
+        triangles,
         textPosition: [vertex[0] + labelDistance * Math.cos(mid), vertex[1] + labelDistance * Math.sin(mid)],
     };
 }

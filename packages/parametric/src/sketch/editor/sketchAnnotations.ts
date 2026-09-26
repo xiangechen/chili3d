@@ -6,8 +6,10 @@ import {
     CommandStore,
     debounce,
     type EdgeMeshData,
+    type FaceMeshData,
     type IDisposable,
     type IView,
+    type ShapeMeshData,
 } from "@chili3d/core";
 import {
     arcAngles,
@@ -28,12 +30,14 @@ import {
     axisDistanceDimension,
     type DimensionAnchor,
     type DimensionGeometry,
+    type DimensionGraphics,
     distanceDimension,
     formatDatum,
     lineIntersection,
     pointLineDistanceDimension,
     pointLineFoot,
     pointLineSignedDistance,
+    pushDimensionGeometry,
     radiusDimension,
     segmentOffset,
 } from "./dimensionLayout";
@@ -278,21 +282,22 @@ export class SketchAnnotationManager implements IDisposable {
         this.disposeItems();
         this.rebuilding = false;
         const px = this.pixelSize();
-        const segments: DimensionGeometry["segments"] = [];
-        this.addConstraintGraphics(px, segments);
-        this.addPreviewGraphics(px, segments);
+        const graphics: DimensionGraphics = { segments: [], triangles: [] };
+        this.addConstraintGraphics(px, graphics);
+        this.addPreviewGraphics(px, graphics);
 
-        if (segments.length > 0) {
-            this.meshId = this.view.document.visual.context.displayMesh([this.toEdgeMesh(segments)], {
-                onTop: true,
-            });
+        const meshes: ShapeMeshData[] = [];
+        if (graphics.segments.length > 0) meshes.push(this.toEdgeMesh(graphics.segments));
+        if (graphics.triangles.length > 0) meshes.push(this.toFaceMesh(graphics.triangles));
+        if (meshes.length > 0) {
+            this.meshId = this.view.document.visual.context.displayMesh(meshes, { onTop: true });
         }
         this.view.update();
     }
 
     // ------------------------------------------------------------------ Constraint badges and dimension geometry
 
-    private addConstraintGraphics(px: number, segments: DimensionGeometry["segments"]): void {
+    private addConstraintGraphics(px: number, graphics: DimensionGraphics): void {
         const coincidentGroups = new Set<string>();
         for (const constraint of this.solver.toData().constraints) {
             switch (constraint.kind) {
@@ -309,7 +314,7 @@ export class SketchAnnotationManager implements IDisposable {
                 case ConstraintKind.Angle:
                 case ConstraintKind.HorizontalDistance:
                 case ConstraintKind.VerticalDistance:
-                    this.addDatumDimension(constraint, px, segments);
+                    this.addDatumDimension(constraint, px, graphics);
                     break;
                 default:
                     this.addSymbolBadge(constraint, px);
@@ -461,11 +466,11 @@ export class SketchAnnotationManager implements IDisposable {
     private addDatumDimension(
         constraint: SketchConstraintData,
         px: number,
-        segments: DimensionGeometry["segments"],
+        graphics: DimensionGraphics,
     ): void {
         const geometry = this.dimensionGeometry(constraint, px);
         if (geometry === undefined) return;
-        segments.push(...geometry.segments);
+        pushDimensionGeometry(graphics, geometry);
         const prefix = constraint.kind === ConstraintKind.Radius ? "R" : "";
         // An expression reads as written — that is the whole point of naming it.
         this.addBadge(
@@ -534,41 +539,41 @@ export class SketchAnnotationManager implements IDisposable {
 
     // ------------------------------------------------------------------ Live dimension previews
 
-    private addPreviewGraphics(px: number, segments: DimensionGeometry["segments"]): void {
+    private addPreviewGraphics(px: number, graphics: DimensionGraphics): void {
         const preview = this.dimensionPreview;
         if (preview === undefined) return;
         if (preview.kind === "segment") {
-            segments.push([preview.p1[0], preview.p1[1], preview.p2[0], preview.p2[1]]);
+            graphics.segments.push([preview.p1[0], preview.p1[1], preview.p2[0], preview.p2[1]]);
             return;
         }
         if (preview.kind === "distance") {
-            this.previewDistance(preview, px, segments);
+            this.previewDistance(preview, px, graphics);
             return;
         }
         if (preview.kind === "radius") {
-            this.previewRadius(preview, px, segments);
+            this.previewRadius(preview, px, graphics);
             return;
         }
         if (preview.kind === "pointLine") {
-            this.previewPointLine(preview, px, segments);
+            this.previewPointLine(preview, px, graphics);
             return;
         }
         if (preview.kind === "axisDistance") {
-            this.previewAxisDistance(preview, px, segments);
+            this.previewAxisDistance(preview, px, graphics);
             return;
         }
-        this.previewAngle(preview, px, segments);
+        this.previewAngle(preview, px, graphics);
     }
 
     private previewDistance(
         preview: Extract<DimensionPreview, { kind: "distance" }>,
         px: number,
-        segments: DimensionGeometry["segments"],
+        graphics: DimensionGraphics,
     ): void {
         const offset = segmentOffset(preview.p1, preview.p2, preview.position);
         const geometry = distanceDimension(preview.p1, preview.p2, offset, px);
         if (geometry === undefined) return;
-        segments.push(...geometry.segments);
+        pushDimensionGeometry(graphics, geometry);
         const value = Math.hypot(preview.p2[0] - preview.p1[0], preview.p2[1] - preview.p1[1]);
         this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
     }
@@ -576,7 +581,7 @@ export class SketchAnnotationManager implements IDisposable {
     private previewRadius(
         preview: Extract<DimensionPreview, { kind: "radius" }>,
         px: number,
-        segments: DimensionGeometry["segments"],
+        graphics: DimensionGraphics,
     ): void {
         const [cx, cy] = preview.center;
         const geometry = radiusDimension(
@@ -586,21 +591,21 @@ export class SketchAnnotationManager implements IDisposable {
             preview.position[1] - cy,
             px,
         );
-        segments.push(...geometry.segments);
+        pushDimensionGeometry(graphics, geometry);
         this.addPreviewBadge(`R${preview.radius.toFixed(2)}`, geometry.textPosition);
     }
 
     private previewPointLine(
         preview: Extract<DimensionPreview, { kind: "pointLine" }>,
         px: number,
-        segments: DimensionGeometry["segments"],
+        graphics: DimensionGraphics,
     ): void {
         const foot = pointLineFoot(preview.p, preview.l1, preview.l2);
         if (foot === undefined) return;
         const offset = segmentOffset(preview.p, foot, preview.position);
         const geometry = pointLineDistanceDimension(preview.p, preview.l1, preview.l2, offset, px);
         if (geometry === undefined) return;
-        segments.push(...geometry.segments);
+        pushDimensionGeometry(graphics, geometry);
         this.addPreviewBadge(
             pointLineSignedDistance(preview.p, preview.l1, preview.l2).toFixed(2),
             geometry.textPosition,
@@ -610,14 +615,14 @@ export class SketchAnnotationManager implements IDisposable {
     private previewAxisDistance(
         preview: Extract<DimensionPreview, { kind: "axisDistance" }>,
         px: number,
-        segments: DimensionGeometry["segments"],
+        graphics: DimensionGraphics,
     ): void {
         const base =
             preview.axis === "h" ? (preview.p1[1] + preview.p2[1]) / 2 : (preview.p1[0] + preview.p2[0]) / 2;
         const offset = (preview.axis === "h" ? preview.position[1] : preview.position[0]) - base;
         const geometry = axisDistanceDimension(preview.p1, preview.p2, preview.axis, offset, px);
         if (geometry === undefined) return;
-        segments.push(...geometry.segments);
+        pushDimensionGeometry(graphics, geometry);
         const value = preview.axis === "h" ? preview.p2[0] - preview.p1[0] : preview.p2[1] - preview.p1[1];
         this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
     }
@@ -625,7 +630,7 @@ export class SketchAnnotationManager implements IDisposable {
     private previewAngle(
         preview: Extract<DimensionPreview, { kind: "angle" }>,
         px: number,
-        segments: DimensionGeometry["segments"],
+        graphics: DimensionGraphics,
     ): void {
         const vertex = lineIntersection(preview.a1, preview.a2, preview.b1, preview.b2) ?? [
             (preview.a1[0] + preview.a2[0] + preview.b1[0] + preview.b2[0]) / 4,
@@ -636,7 +641,7 @@ export class SketchAnnotationManager implements IDisposable {
         const radius = Math.hypot(preview.position[0] - vertex[0], preview.position[1] - vertex[1]) * 0.7;
         const geometry = angleDimension(vertex, d1, d2, radius, px);
         if (geometry === undefined) return;
-        segments.push(...geometry.segments);
+        pushDimensionGeometry(graphics, geometry);
         const len1 = Math.hypot(d1[0], d1[1]);
         const len2 = Math.hypot(d2[0], d2[1]);
         if (len1 < 1e-12 || len2 < 1e-12) return;
@@ -707,6 +712,29 @@ export class SketchAnnotationManager implements IDisposable {
             position.set([p1.x, p1.y, p1.z, p2.x, p2.y, p2.z], i * 6);
         });
         return { position, range: [], color: DIMENSION_COLOR, lineType: "solid" };
+    }
+
+    /** The solid arrowheads as one face mesh: three corners per triangle, indexed in order. */
+    private toFaceMesh(corners: DimensionGeometry["triangles"]): FaceMeshData {
+        const position = new Float32Array(corners.length * 3);
+        const normal = new Float32Array(corners.length * 3);
+        const index = new Uint32Array(corners.length);
+        const n = this.solver.plane.normal;
+        corners.forEach(([u, v], i) => {
+            const p = toWorld(this.solver.plane, u, v);
+            position.set([p.x, p.y, p.z], i * 3);
+            normal.set([n.x, n.y, n.z], i * 3);
+            index[i] = i;
+        });
+        return {
+            position,
+            normal,
+            index,
+            uv: new Float32Array(corners.length * 2),
+            groups: [{ start: 0, count: corners.length, materialIndex: 0 }],
+            range: [],
+            color: DIMENSION_COLOR,
+        };
     }
 
     /** Preview badge: not interactive — the position pick click must reach the viewport. */
