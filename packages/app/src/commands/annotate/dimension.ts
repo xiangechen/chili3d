@@ -5,6 +5,7 @@ import {
     command,
     DimensionAnnotation,
     Dimensions,
+    formatMeasurement,
     type IStep,
     type IView,
     nearestDimensionNormal,
@@ -16,7 +17,7 @@ import {
     type ShapeMeshData,
     XYZ,
 } from "@chili3d/core";
-import { DimensionCommandBase } from "./dimensionCommandBase";
+import { AnnotationCommandBase } from "./annotationCommandBase";
 
 /** Viewport axis-inference colors, matching the usual CAD red/green/blue axis convention. */
 function axisColor(axis: XYZ): number {
@@ -33,7 +34,7 @@ const MIN_SCREEN_DIRECTION_PX = 2;
     key: "annotate.dimension",
     icon: "icon-dDimension",
 })
-export class AnnotateDimension extends DimensionCommandBase {
+export class AnnotateDimension extends AnnotationCommandBase<DimensionAnnotation> {
     /** The axis the current position pick snapped to, set by `annotationPlane`. */
     private snappedAxis?: XYZ;
 
@@ -141,7 +142,7 @@ export class AnnotateDimension extends DimensionCommandBase {
     }
 
     private readonly dimensionPrompt = () => {
-        return this.stepDatas[0].point!.distanceTo(this.stepDatas[1].point!).toFixed(2);
+        return formatMeasurement("length", this.stepDatas[0].point!.distanceTo(this.stepDatas[1].point!));
     };
 
     protected createPreviewAnnotation(): DimensionAnnotation {

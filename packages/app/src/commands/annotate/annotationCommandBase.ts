@@ -2,9 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type Annotation,
     DIMENSION_TEXT_HEIGHT,
-    type DimensionAnnotation,
-    type DimensionAnnotationOptions,
     FolderNode,
     type IDocument,
     type INode,
@@ -14,21 +13,21 @@ import {
     Transaction,
 } from "@chili3d/core";
 
-interface DimensionPreview {
+interface AnnotationPreview<T extends Annotation> {
     readonly transaction: Transaction;
-    readonly annotation: DimensionAnnotation;
+    readonly annotation: T;
 }
 
 /**
- * The plumbing every dimension command shares: the live preview is the real
+ * The plumbing every annotation command shares: the live preview is the real
  * annotation node, created when the position pick begins, so what the cursor
  * draws — text, arrows, gaps — is what committing keeps; its transaction
  * commits on success and rolls back on cancel. The subclass answers where the
- * points go.
+ * points go and what kind of annotation it draws.
  */
-export abstract class DimensionCommandBase extends MultistepCommand {
-    private preview?: DimensionPreview;
-    private redrawPreview?: () => void;
+export abstract class AnnotationCommandBase<T extends Annotation> extends MultistepCommand {
+    private preview?: AnnotationPreview<T>;
+    protected redrawPreview?: () => void;
 
     @property("dimension.textHeight", { unit: LENGTH_UNITS })
     get textHeight(): number {
@@ -42,19 +41,19 @@ export abstract class DimensionCommandBase extends MultistepCommand {
     }
 
     /** The preview annotation, for the mouse-move callbacks to retarget. */
-    protected get previewAnnotation(): DimensionAnnotation | undefined {
+    protected get previewAnnotation(): T | undefined {
         return this.preview?.annotation;
     }
 
     /** Subclass: create the preview annotation with its current points. */
-    protected abstract createPreviewAnnotation(): DimensionAnnotation;
+    protected abstract createPreviewAnnotation(): T;
 
     /** Subclass: set the final picked points on the annotation. */
-    protected abstract commitAnnotation(annotation: DimensionAnnotation): void;
+    protected abstract commitAnnotation(annotation: T): void;
 
     /** PointSnapData.beforeExecute: the position pick begins — bring the preview up. */
     protected readonly startPreview = (): void => {
-        const transaction = new Transaction(this.document, "create DimensionAnnotation");
+        const transaction = new Transaction(this.document, "create Annotation");
         transaction.start();
         const annotation = this.createPreviewAnnotation();
         ensureAnnotationFolder(this.document).add(annotation);
@@ -71,7 +70,7 @@ export abstract class DimensionCommandBase extends MultistepCommand {
         const { transaction, annotation } = this.preview!;
         this.preview = undefined;
 
-        Transaction.execute(this.document, "create DimensionAnnotation", () => {
+        Transaction.execute(this.document, "create Annotation", () => {
             this.commitAnnotation(annotation);
             this.document.visual.update();
         });

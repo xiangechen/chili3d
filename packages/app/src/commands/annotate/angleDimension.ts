@@ -7,6 +7,7 @@ import {
     command,
     DimensionAnnotation,
     Dimensions,
+    formatMeasurement,
     type IEdge,
     type IShapeFilter,
     type IStep,
@@ -20,7 +21,7 @@ import {
     type SnapResult,
     type XYZ,
 } from "@chili3d/core";
-import { DimensionCommandBase } from "./dimensionCommandBase";
+import { AnnotationCommandBase } from "./annotationCommandBase";
 
 /** A picked straight edge in world space. */
 interface PickedLine {
@@ -64,7 +65,7 @@ function closestMidpoint(l1: PickedLine, l2: PickedLine): XYZ {
     key: "annotate.angle",
     icon: "icon-dAngle",
 })
-export class AnnotateAngleDimension extends DimensionCommandBase {
+export class AnnotateAngleDimension extends AnnotationCommandBase<DimensionAnnotation> {
     private angle?: PickedAngle;
 
     protected override getSteps(): IStep[] {
@@ -137,7 +138,7 @@ export class AnnotateAngleDimension extends DimensionCommandBase {
     private readonly anglePrompt = (point: XYZ | undefined) => {
         if (this.angle === undefined || point === undefined) return "";
         const sweep = angularDimensionSweep(this.angle.vertex, this.angle.p1, this.angle.p2, point);
-        return sweep === undefined ? "" : `${((Math.abs(sweep) * 180) / Math.PI).toFixed(1)}°`;
+        return sweep === undefined ? "" : formatMeasurement("angle", (Math.abs(sweep) * 180) / Math.PI);
     };
 
     protected createPreviewAnnotation(): DimensionAnnotation {

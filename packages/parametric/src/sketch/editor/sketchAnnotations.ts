@@ -5,6 +5,7 @@ import {
     type CommandKeys,
     CommandStore,
     debounce,
+    defaultFontService,
     type EdgeMeshData,
     type FaceMeshData,
     type IDisposable,
@@ -14,6 +15,7 @@ import {
 import {
     arcAngles,
     ConstraintKind,
+    type DimensionLabel,
     entityRadius,
     isDatumEntityId,
     pointRefKey,
@@ -22,24 +24,30 @@ import {
     type SketchPointRef,
     toUV,
     toWorld,
-    worldPerPixel,
+    viewPixelSize,
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import {
     angleDimension,
+    angleVertex,
     axisDistanceDimension,
     type DimensionAnchor,
     type DimensionGeometry,
     type DimensionGraphics,
+    type DimensionSize,
     distanceDimension,
     formatDatum,
-    lineIntersection,
+    labelOnAxis,
+    labelOnSegment,
+    measuresSupplement,
     pointLineDistanceDimension,
     pointLineFoot,
     pointLineSignedDistance,
     pushDimensionGeometry,
     radiusDimension,
-    segmentOffset,
+    SKETCH_TEXT_HEIGHT_PX,
+    signedSweep,
+    sketchDimensionSize,
 } from "./dimensionLayout";
 import style from "./sketchAnnotations.module.css";
 
@@ -81,6 +89,14 @@ export function badgeSymbol(kind: ConstraintKind): BadgeSymbol | undefined {
     if (entry === undefined) return undefined;
     const icon = CommandStore.getComandData(entry.command)?.icon;
     return { label: entry.label, icon: typeof icon === "string" ? icon : undefined };
+}
+
+/** A dimension label drawn as mesh glyphs: the text, its uv anchor and its baseline direction. */
+interface DimensionText {
+    readonly text: string;
+    readonly u: number;
+    readonly v: number;
+    readonly direction: [number, number];
 }
 
 /** Badge center offset from its geometry, in screen pixels. */
@@ -164,9 +180,11 @@ export type DimensionPreview =
  *   one badge per referenced entity, so each stays next to — and reachable from — its own
  *   geometry however far apart the entities are. The event handler keeps the entity hover alive
  *   while the cursor crosses the gap to a badge (`isNearVisibleBadge`).
- * - **Interaction.** Hovering a badge highlights its referenced entities; clicking a symbol
- *   badge selects it; selected constraints can be deleted; double-clicking a datum badge
- *   re-opens its value input.
+ * - **Interaction.** Datum text draws as mesh glyphs (parallel to the dimension line, like the
+ *   3D annotations); the badge stays behind it as an invisible layer keeping hover highlight,
+ *   label dragging and double-click editing alive. Hovering a badge highlights its referenced
+ *   entities; clicking a symbol badge selects it; selected constraints can be deleted;
+ *   double-clicking a datum badge re-opens its value input.
  * - **Dragging a datum badge.** Either press-drag-release, or click to pick the label up (it
  *   then follows the cursor) and click again — on the canvas or on the label itself — to drop
  *   it. Escape cancels and restores the previous anchor. The new anchor is committed (undoable)
@@ -184,6 +202,8 @@ export class SketchAnnotationManager implements IDisposable {
     private rebuilding = false;
     private suppressSymbols = false;
     private dimensionPreview?: DimensionPreview;
+    /** The labels collected during a refresh, drawn as mesh glyphs into the face channel. */
+    private texts: DimensionText[] = [];
     /**
      * Active datum label drag. `held` tracks the mouse button: a press-drag
      * commits on release; a click without movement releases the button with
@@ -200,6 +220,11 @@ export class SketchAnnotationManager implements IDisposable {
     };
     private dragCleanup?: () => void;
     private readonly onCameraChanged = debounce(() => this.refresh(), 20);
+    /**
+     * The default font arrives asynchronously (see `defaultFontService`); until it
+     * does the labels draw no glyphs at all, and its arrival is what refreshes them.
+     */
+    private readonly onFontLoaded = () => this.refresh();
 
     // ------------------------------------------------------------------ Selection and refresh
 
@@ -213,6 +238,10 @@ export class SketchAnnotationManager implements IDisposable {
     ) {
         // optional call: mock camera controllers in unit tests may lack the event API
         view.cameraController.onPropertyChanged?.(this.onCameraChanged);
+        if (defaultFontService.outline === undefined) {
+            defaultFontService.onLoaded(this.onFontLoaded);
+            defaultFontService.ensureLoaded();
+        }
     }
 
     /** True while a datum label is being dragged or follows the cursor for placement. */
@@ -283,12 +312,16 @@ export class SketchAnnotationManager implements IDisposable {
         this.rebuilding = false;
         const px = this.pixelSize();
         const graphics: DimensionGraphics = { segments: [], triangles: [] };
+        this.texts = [];
         this.addConstraintGraphics(px, graphics);
         this.addPreviewGraphics(px, graphics);
 
+        const corners: DimensionGeometry["triangles"] = [...graphics.triangles];
+        for (const text of this.texts) this.pushTextTriangles(corners, text, px);
+
         const meshes: ShapeMeshData[] = [];
         if (graphics.segments.length > 0) meshes.push(this.toEdgeMesh(graphics.segments));
-        if (graphics.triangles.length > 0) meshes.push(this.toFaceMesh(graphics.triangles));
+        if (corners.length > 0) meshes.push(this.toFaceMesh(corners));
         if (meshes.length > 0) {
             this.meshId = this.view.document.visual.context.displayMesh(meshes, { onTop: true });
         }
@@ -471,70 +504,76 @@ export class SketchAnnotationManager implements IDisposable {
         const geometry = this.dimensionGeometry(constraint, px);
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
-        const prefix = constraint.kind === ConstraintKind.Radius ? "R" : "";
         // An expression reads as written — that is the whole point of naming it.
-        this.addBadge(
-            `${prefix}${formatDatum(constraint.kind, constraint.datum ?? 0)}`,
-            ...geometry.textPosition,
-            constraint,
-            constraint.refs,
-            true,
-        );
+        const text = formatDatum(constraint.kind, constraint.datum ?? 0);
+        // A broken expression keeps a visible badge — it is the only place that says so.
+        const broken = this.solver.datumErrors.has(constraint.id);
+        if (!broken) {
+            this.texts.push({
+                text,
+                u: geometry.textPosition[0],
+                v: geometry.textPosition[1],
+                direction: geometry.textDirection,
+            });
+        }
+        this.addBadge(text, ...geometry.textPosition, constraint, constraint.refs, true, undefined, !broken);
     }
 
     private dimensionGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
+        const size = sketchDimensionSize(px);
         const anchor = this.anchors.get(constraint.id);
-        const offset = anchor?.kind === "offset" ? anchor.offset : 0;
+        // no anchor (never dragged or placed): the layout's own default, the minimum
+        // standoff on the positive side and the middle of the line
+        const label: DimensionLabel = anchor?.kind === "offset" ? anchor : { offset: 0 };
         switch (constraint.kind) {
             case ConstraintKind.P2PDistance:
                 return distanceDimension(
                     this.solver.pointOf(constraint.refs[0]),
                     this.solver.pointOf(constraint.refs[1]),
-                    offset,
-                    px,
+                    label,
+                    size,
                 );
             case ConstraintKind.Radius:
-                return this.radiusGeometry(constraint, px);
+                return this.radiusGeometry(constraint, size);
             case ConstraintKind.HorizontalDistance:
             case ConstraintKind.VerticalDistance:
                 return axisDistanceDimension(
                     this.solver.pointOf(constraint.refs[0]),
                     this.solver.pointOf(constraint.refs[1]),
                     constraint.kind === ConstraintKind.HorizontalDistance ? "h" : "v",
-                    offset,
-                    px,
+                    label,
+                    size,
                 );
             case ConstraintKind.P2LDistance:
                 return pointLineDistanceDimension(
                     this.solver.pointOf(constraint.refs[0]),
                     this.solver.pointOf(constraint.refs[1]),
                     this.solver.pointOf(constraint.refs[2]),
-                    offset,
-                    px,
+                    label,
+                    size,
                 );
             case ConstraintKind.Angle:
-                return this.angleGeometry(constraint, px);
+                return this.angleGeometry(constraint, size);
             default:
                 return undefined;
         }
     }
 
-    private angleGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
+    private angleGeometry(
+        constraint: SketchConstraintData,
+        size: DimensionSize,
+    ): DimensionGeometry | undefined {
         const [a1, a2, b1, b2] = constraint.refs.map((r) => this.solver.pointOf(r));
-        const vertex = lineIntersection(a1, a2, b1, b2) ?? [
-            (a1[0] + a2[0] + b1[0] + b2[0]) / 4,
-            (a1[1] + a2[1] + b1[1] + b2[1]) / 4,
-        ];
+        const vertex = angleVertex(a1, a2, b1, b2);
         const anchor = this.anchors.get(constraint.id);
-        // the anchor vector sets the arc radius: label distance shrinks towards the arc
-        const radius = anchor?.kind === "vector" ? Math.hypot(anchor.dx, anchor.dy) * 0.7 : 0;
-        return angleDimension(
-            vertex,
-            [a2[0] - a1[0], a2[1] - a1[1]],
-            [b2[0] - b1[0], b2[1] - b1[1]],
-            radius,
-            px,
-        );
+        // the anchor vector is the label the user placed: it picks the side of the
+        // vertex the arc lands on, and its distance sets the arc's radius
+        const labelPoint: [number, number] =
+            anchor?.kind === "vector" ? [vertex[0] + anchor.dx, vertex[1] + anchor.dy] : vertex;
+        const d1: [number, number] = [a2[0] - a1[0], a2[1] - a1[1]];
+        const d2: [number, number] = [b2[0] - b1[0], b2[1] - b1[1]];
+        // the stored pair already carries the supplement choice; the sweep is its short way
+        return angleDimension(vertex, d1, signedSweep(d1, d2), labelPoint, size);
     }
 
     // ------------------------------------------------------------------ Live dimension previews
@@ -570,12 +609,12 @@ export class SketchAnnotationManager implements IDisposable {
         px: number,
         graphics: DimensionGraphics,
     ): void {
-        const offset = segmentOffset(preview.p1, preview.p2, preview.position);
-        const geometry = distanceDimension(preview.p1, preview.p2, offset, px);
+        const label = labelOnSegment(preview.p1, preview.p2, preview.position);
+        const geometry = distanceDimension(preview.p1, preview.p2, label, sketchDimensionSize(px));
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
         const value = Math.hypot(preview.p2[0] - preview.p1[0], preview.p2[1] - preview.p1[1]);
-        this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+        this.pushPreviewText(value.toFixed(2), geometry);
     }
 
     private previewRadius(
@@ -587,12 +626,11 @@ export class SketchAnnotationManager implements IDisposable {
         const geometry = radiusDimension(
             preview.center,
             preview.radius,
-            preview.position[0] - cx,
-            preview.position[1] - cy,
-            px,
+            [preview.position[0] - cx, preview.position[1] - cy],
+            sketchDimensionSize(px),
         );
         pushDimensionGeometry(graphics, geometry);
-        this.addPreviewBadge(`R${preview.radius.toFixed(2)}`, geometry.textPosition);
+        this.pushPreviewText(`R${preview.radius.toFixed(2)}`, geometry);
     }
 
     private previewPointLine(
@@ -602,14 +640,17 @@ export class SketchAnnotationManager implements IDisposable {
     ): void {
         const foot = pointLineFoot(preview.p, preview.l1, preview.l2);
         if (foot === undefined) return;
-        const offset = segmentOffset(preview.p, foot, preview.position);
-        const geometry = pointLineDistanceDimension(preview.p, preview.l1, preview.l2, offset, px);
+        const label = labelOnSegment(preview.p, foot, preview.position);
+        const geometry = pointLineDistanceDimension(
+            preview.p,
+            preview.l1,
+            preview.l2,
+            label,
+            sketchDimensionSize(px),
+        );
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
-        this.addPreviewBadge(
-            pointLineSignedDistance(preview.p, preview.l1, preview.l2).toFixed(2),
-            geometry.textPosition,
-        );
+        this.pushPreviewText(pointLineSignedDistance(preview.p, preview.l1, preview.l2).toFixed(2), geometry);
     }
 
     private previewAxisDistance(
@@ -617,14 +658,18 @@ export class SketchAnnotationManager implements IDisposable {
         px: number,
         graphics: DimensionGraphics,
     ): void {
-        const base =
-            preview.axis === "h" ? (preview.p1[1] + preview.p2[1]) / 2 : (preview.p1[0] + preview.p2[0]) / 2;
-        const offset = (preview.axis === "h" ? preview.position[1] : preview.position[0]) - base;
-        const geometry = axisDistanceDimension(preview.p1, preview.p2, preview.axis, offset, px);
+        const label = labelOnAxis(preview.p1, preview.p2, preview.axis, preview.position);
+        const geometry = axisDistanceDimension(
+            preview.p1,
+            preview.p2,
+            preview.axis,
+            label,
+            sketchDimensionSize(px),
+        );
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
         const value = preview.axis === "h" ? preview.p2[0] - preview.p1[0] : preview.p2[1] - preview.p1[1];
-        this.addPreviewBadge(value.toFixed(2), geometry.textPosition);
+        this.pushPreviewText(value.toFixed(2), geometry);
     }
 
     private previewAngle(
@@ -632,21 +677,37 @@ export class SketchAnnotationManager implements IDisposable {
         px: number,
         graphics: DimensionGraphics,
     ): void {
-        const vertex = lineIntersection(preview.a1, preview.a2, preview.b1, preview.b2) ?? [
-            (preview.a1[0] + preview.a2[0] + preview.b1[0] + preview.b2[0]) / 4,
-            (preview.a1[1] + preview.a2[1] + preview.b1[1] + preview.b2[1]) / 4,
-        ];
+        const vertex = angleVertex(preview.a1, preview.a2, preview.b1, preview.b2);
         const d1: [number, number] = [preview.a2[0] - preview.a1[0], preview.a2[1] - preview.a1[1]];
         const d2: [number, number] = [preview.b2[0] - preview.b1[0], preview.b2[1] - preview.b1[1]];
-        const radius = Math.hypot(preview.position[0] - vertex[0], preview.position[1] - vertex[1]) * 0.7;
-        const geometry = angleDimension(vertex, d1, d2, radius, px);
+        // the label's sector picks the measured pair, just as the committing command will
+        const labelDirection: [number, number] = [
+            preview.position[0] - vertex[0],
+            preview.position[1] - vertex[1],
+        ];
+        const supplement = measuresSupplement(d1, d2, labelDirection);
+        const second: [number, number] = supplement ? [-d2[0], -d2[1]] : d2;
+        const geometry = angleDimension(
+            vertex,
+            d1,
+            signedSweep(d1, second),
+            preview.position,
+            sketchDimensionSize(px),
+        );
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
-        const len1 = Math.hypot(d1[0], d1[1]);
-        const len2 = Math.hypot(d2[0], d2[1]);
-        if (len1 < 1e-12 || len2 < 1e-12) return;
-        const cos = Math.max(-1, Math.min(1, (d1[0] * d2[0] + d1[1] * d2[1]) / (len1 * len2)));
-        this.addPreviewBadge(`${((Math.acos(cos) * 180) / Math.PI).toFixed(1)}°`, geometry.textPosition);
+        const sweep = signedSweep(d1, second);
+        this.pushPreviewText(`${((Math.abs(sweep) * 180) / Math.PI).toFixed(1)}°`, geometry);
+    }
+
+    /** Preview labels join the mesh text — there is no interactive badge while placing. */
+    private pushPreviewText(text: string, geometry: DimensionGeometry): void {
+        this.texts.push({
+            text,
+            u: geometry.textPosition[0],
+            v: geometry.textPosition[1],
+            direction: geometry.textDirection,
+        });
     }
 
     // ------------------------------------------------------------------ Visibility, graphics helpers and disposal
@@ -656,6 +717,7 @@ export class SketchAnnotationManager implements IDisposable {
         this.disposed = true;
         this.dragCleanup?.();
         this.view.cameraController.removePropertyChanged?.(this.onCameraChanged);
+        defaultFontService.removeLoaded(this.onFontLoaded);
         this.disposeItems();
     }
 
@@ -689,19 +751,22 @@ export class SketchAnnotationManager implements IDisposable {
         );
     }
 
-    private radiusGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
+    private radiusGeometry(
+        constraint: SketchConstraintData,
+        size: DimensionSize,
+    ): DimensionGeometry | undefined {
         const entity = this.solver.entity(constraint.refs[0].entityId);
         if (entity === undefined) return undefined;
         const center: [number, number] = [entity.params[0], entity.params[1]];
         const radius = entityRadius(entity);
         const anchor = this.anchors.get(constraint.id);
         const [dx, dy] = anchor?.kind === "vector" ? [anchor.dx, anchor.dy] : [radius, radius];
-        return radiusDimension(center, radius, dx, dy, px);
+        return radiusDimension(center, radius, [dx, dy], size);
     }
 
     /** World units per screen pixel at the view center (falls back to 1). */
     private pixelSize(): number {
-        return worldPerPixel(this.view, this.solver.plane, this.view.width / 2, this.view.height / 2) ?? 1;
+        return viewPixelSize(this.view, this.solver.plane.origin) ?? 1;
     }
 
     private toEdgeMesh(segments: [number, number, number, number][]): EdgeMeshData {
@@ -737,14 +802,37 @@ export class SketchAnnotationManager implements IDisposable {
         };
     }
 
-    /** Preview badge: not interactive — the position pick click must reach the viewport. */
-    private addPreviewBadge(text: string, [u, v]: [number, number]): void {
-        this.items.push(
-            this.view.htmlText(text, toWorld(this.solver.plane, u, v), {
-                hideDelete: true,
-                className: `${style.badge} ${style.preview}`,
-            }),
-        );
+    /**
+     * Lays one label out as glyph triangles and appends them to the face corners. The layout
+     * comes in ems, centered horizontally on the anchor with y up from the baseline; the local
+     * frame is the label direction and its left normal. Directions pointing left flip 180° so
+     * the text always reads left-to-right.
+     */
+    private pushTextTriangles(corners: [number, number][], item: DimensionText, px: number): void {
+        // nothing before the font arrives; `onFontLoaded` refreshes and lays the text out then
+        if (defaultFontService.outline === undefined) return;
+        const positions = defaultFontService.layout(item.text);
+        const em = SKETCH_TEXT_HEIGHT_PX * px;
+        let dirX = item.direction[0];
+        let dirY = item.direction[1];
+        let sideX = -dirY;
+        let sideY = dirX;
+        const angle = Math.atan2(dirY, dirX);
+        // A baseline pointing left would draw the text upside down: turn the whole frame
+        // half a turn so it reads left-to-right. (The 3D batch reaches the same reading
+        // through its camera-facing mirror test — the dimension plane's normal, derived
+        // from the direction, already flips when the baseline runs backwards.)
+        if (angle > Math.PI / 2 || angle <= -Math.PI / 2) {
+            dirX = -dirX;
+            dirY = -dirY;
+            sideX = -sideX;
+            sideY = -sideY;
+        }
+        for (let i = 0; i + 1 < positions.length; i += 2) {
+            const x = positions[i] * em;
+            const y = positions[i + 1] * em;
+            corners.push([item.u + dirX * x + sideX * y, item.v + dirY * x + sideY * y]);
+        }
     }
 
     private addBadge(
@@ -755,6 +843,7 @@ export class SketchAnnotationManager implements IDisposable {
         refs: readonly SketchPointRef[] = constraint.refs,
         draggable = false,
         icon?: string,
+        ghost = false,
     ): void {
         const id = constraint.id;
         const entityIds = [...new Set(refs.map((r) => r.entityId))];
@@ -763,7 +852,9 @@ export class SketchAnnotationManager implements IDisposable {
             this.view.htmlText(text, toWorld(this.solver.plane, u, v), {
                 hideDelete: true,
                 interactive: true,
-                className: style.badge,
+                // a ghost is invisible: the mesh glyphs carry the text, the badge
+                // only keeps the hover/drag/double-click interaction alive
+                className: ghost ? `${style.badge} ${style.ghost}` : style.badge,
                 onCreated: (element) => {
                     const list = this.badgeElements.get(id) ?? [];
                     list.push(element);
@@ -942,16 +1033,16 @@ export class SketchAnnotationManager implements IDisposable {
         const points = constraint.refs.map((r) => this.solver.pointOf(r));
         switch (constraint.kind) {
             case ConstraintKind.P2PDistance:
-                return { kind: "offset", offset: segmentOffset(points[0], points[1], uv) };
+                return { kind: "offset", ...labelOnSegment(points[0], points[1], uv) };
             case ConstraintKind.HorizontalDistance:
-                return { kind: "offset", offset: uv[1] - (points[0][1] + points[1][1]) / 2 };
+                return { kind: "offset", ...labelOnAxis(points[0], points[1], "h", uv) };
             case ConstraintKind.VerticalDistance:
-                return { kind: "offset", offset: uv[0] - (points[0][0] + points[1][0]) / 2 };
+                return { kind: "offset", ...labelOnAxis(points[0], points[1], "v", uv) };
             case ConstraintKind.P2LDistance: {
                 const foot = pointLineFoot(points[0], points[1], points[2]);
                 return foot === undefined
                     ? undefined
-                    : { kind: "offset", offset: segmentOffset(points[0], foot, uv) };
+                    : { kind: "offset", ...labelOnSegment(points[0], foot, uv) };
             }
             case ConstraintKind.Radius: {
                 const entity = this.solver.entity(constraint.refs[0].entityId);
@@ -959,10 +1050,7 @@ export class SketchAnnotationManager implements IDisposable {
                 return { kind: "vector", dx: uv[0] - entity.params[0], dy: uv[1] - entity.params[1] };
             }
             case ConstraintKind.Angle: {
-                const vertex = lineIntersection(points[0], points[1], points[2], points[3]) ?? [
-                    (points[0][0] + points[1][0] + points[2][0] + points[3][0]) / 4,
-                    (points[0][1] + points[1][1] + points[2][1] + points[3][1]) / 4,
-                ];
+                const vertex = angleVertex(points[0], points[1], points[2], points[3]);
                 return { kind: "vector", dx: uv[0] - vertex[0], dy: uv[1] - vertex[1] };
             }
             default:

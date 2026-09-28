@@ -135,6 +135,15 @@ export function rememberOutline(name: string, url: string, outline: FontOutline)
 }
 
 /**
+ * Drop a remembered outline, so the next `outlineFor` reads the font again. The way
+ * back out of `rememberOutline`: a test that must start from no font takes it, and so
+ * would a caller that wants an address re-read after its bytes changed.
+ */
+export function forgetOutline(name: string, url: string): void {
+    remembered.delete(keyOf(name, url));
+}
+
+/**
  * The outlines of a font the user just picked: the bytes they handed over, or
  * the address to fetch. Picking a font is the one moment its bytes are in hand,
  * which is why this is where a font that has no address gets parsed at all.

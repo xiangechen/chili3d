@@ -6,6 +6,7 @@ import {
     command,
     DimensionAnnotation,
     Dimensions,
+    formatMeasurement,
     type IEdge,
     type IShapeFilter,
     type IStep,
@@ -18,7 +19,7 @@ import {
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
-import { DimensionCommandBase } from "./dimensionCommandBase";
+import { AnnotationCommandBase } from "./annotationCommandBase";
 
 /** A picked circle/arc edge in world space. */
 interface PickedCircle {
@@ -47,7 +48,7 @@ function inPlaneDirection(axis: XYZ): XYZ {
  * the circle's plane; its direction from the center sets the leader angle and
  * its distance the label position.
  */
-abstract class RadialDimensionCommand extends DimensionCommandBase {
+abstract class RadialDimensionCommand extends AnnotationCommandBase<DimensionAnnotation> {
     protected abstract readonly dimensionType: "radial" | "diameter";
     private circle?: PickedCircle;
     /** The leader direction — survives a degenerate pick at the circle center. */
@@ -112,7 +113,8 @@ abstract class RadialDimensionCommand extends DimensionCommandBase {
 
     private readonly dimensionPrompt = () => {
         const radius = this.circle?.radius ?? 0;
-        return this.dimensionType === "radial" ? `R${radius.toFixed(2)}` : `Ø${(radius * 2).toFixed(2)}`;
+        const radial = this.dimensionType === "radial";
+        return formatMeasurement(radial ? "radius" : "diameter", radial ? radius : radius * 2);
     };
 
     /** The attachment points for a leader along `dir`: center→rim, or rim→rim across the center. */

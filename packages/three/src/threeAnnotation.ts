@@ -6,6 +6,7 @@ import {
     type BoundingBox,
     DimensionAnnotation,
     debounce,
+    defaultFontService,
     dimensionLayoutFor,
     dimensionLayoutScale,
     type INode,
@@ -21,8 +22,6 @@ import type { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import type { AnnotationBatch, IBatchedAnnotation } from "./annotationBatch";
 import { Constants } from "./constants";
 import type { IHighlightable } from "./highlightable";
-import { annotationFont } from "./text/annotationFont";
-import { layoutText } from "./text/glyphGeometry";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeVisualContext } from "./threeVisualContext";
 
@@ -204,8 +203,8 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
         this._handles = this.createHandles();
         this.add(this._handles);
 
-        annotationFont.ensureLoaded();
-        annotationFont.onLoaded(this.handleFontLoaded);
+        defaultFontService.ensureLoaded();
+        defaultFontService.onLoaded(this.handleFontLoaded);
         this.rebuild();
         this.transform = annotation.transform;
         annotation.onPropertyChanged(this.handleAnnotationChanged);
@@ -368,22 +367,18 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
         // own matrix — it accumulates a (possibly nested) component path, which
         // `annotation.transform` alone would drop.
         this.pushTransformed(target, this._triangles);
-        const outline = annotationFont.outline;
-        if (outline === undefined) return;
-        const laid = layoutText(
-            this.annotation.formattedValue(),
-            (codePoint) => annotationFont.glyph(codePoint),
-            annotationFont.missingAdvance,
-        );
+        // nothing to draw before the font arrives; `handleFontLoaded` rebuilds when it does
+        if (defaultFontService.outline === undefined) return;
+        const laid = defaultFontService.layout(this.annotation.formattedValue());
         // One em is the text height in world units — the fixed world size the
         // troika text had through fontSize × DIMENSION_LAYOUT_SCALE.
         const em = this.annotation.textHeight;
         const flip = this._mirrored ? -1 : 1;
         const matrix = this.transform;
-        for (let i = 0; i < laid.positions.length; i += 2) {
+        for (let i = 0; i < laid.length; i += 2) {
             const local = this._anchor
-                .add(this._direction.multiply(laid.positions[i] * em * flip))
-                .add(this._side.multiply(laid.positions[i + 1] * em));
+                .add(this._direction.multiply(laid[i] * em * flip))
+                .add(this._side.multiply(laid[i + 1] * em));
             const point = matrix.ofPoint(local);
             target.push(point.x, point.y, point.z);
         }
@@ -410,7 +405,7 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
         this.annotation.removePropertyChanged(this.handleAnnotationChanged);
         this.annotation.document.selection?.onNodeChanged?.remove(this.handleSelectionChanged);
         this.annotation.document.application?.views?.removeCollectionChanged?.(this.handleViewsChanged);
-        annotationFont.removeLoaded(this.handleFontLoaded);
+        defaultFontService.removeLoaded(this.handleFontLoaded);
         this._handles.geometry.dispose();
         (this._handles.material as PointsMaterial).dispose();
     }

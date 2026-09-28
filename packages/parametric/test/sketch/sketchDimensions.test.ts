@@ -180,6 +180,34 @@ describe("dimension commands", () => {
         }
     });
 
+    test("the label is anchored where the last pick put it, along the segment too", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // third pick at screen (430, 250) -> uv (30, 50): 30 along the segment, 50 above it
+            const run = new DistanceDimensionCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(400, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(500, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(430, 250));
+            await run;
+
+            const id = editor.solver.toData().constraints[0].id;
+            expect(editor.dimensionAnchors.get(id)).toEqual({ kind: "offset", offset: 50, along: 30 });
+            confirmDialog(dialog, "100");
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
     test("editDatum re-opens the dialog with the current value and updates it", () => {
         const { doc, dialog, restorePub, restoreFactory } = setup();
         try {
@@ -369,6 +397,48 @@ describe("dimension commands", () => {
                 { entityId: 2, pointIndex: 1 },
             ]);
             cancelDialog(dialog);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("angle dimension placed in a wide sector measures the supplement", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addLine(0, 0, 50, 50);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // line 1 midpoint (world (50,0)), line 2 midpoint (world (25,25)) — the two
+            // lines sit 45° apart — then a label at world (0,50), inside a 135° sector
+            const run = new AngleDimensionCommand().execute(app);
+            handler.pointerDown(view, pointerEvent(450, 300));
+            await tick();
+            handler.pointerDown(view, pointerEvent(425, 275));
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 250));
+            await run;
+
+            expect(dialogInput(dialog).value).toBe("135.00");
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints[0].kind).toBe(ConstraintKind.Angle);
+            // the second line's refs are stored backwards: that is what carries the supplement
+            expect(constraints[0].refs).toEqual([
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+                { entityId: 2, pointIndex: 1 },
+                { entityId: 2, pointIndex: 0 },
+            ]);
+            expect(constraints[0].datum).toBeCloseTo((-3 * Math.PI) / 4);
+            // 45° apart as picked: the reversed refs must not turn the line around
+            const end = editor.solver.pointOf({ entityId: 2, pointIndex: 1 });
+            expect(end[0]).toBeCloseTo(50, 6);
+            expect(end[1]).toBeCloseTo(50, 6);
             editor.exit();
         } finally {
             restorePub();

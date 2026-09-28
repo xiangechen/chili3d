@@ -2,8 +2,10 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./contourRegions";
+export * from "./defaultFont";
 export * from "./fontCatalog";
 export * from "./fontOutline";
+export * from "./glyphTriangles";
 export * from "./layout";
 export * from "./localFonts";
 export * from "./openTypeModule";

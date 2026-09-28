@@ -56,10 +56,10 @@ function setup() {
             };
         },
     );
-    const displayed: { id: number; colors: number[] }[] = [];
+    const displayed: { id: number; colors: number[]; datas: any[] }[] = [];
     let nextMeshId = 1;
     (doc.visual.context as any).displayMesh = rs.fn((datas: any[]) => {
-        displayed.push({ id: nextMeshId, colors: datas.map((d) => d.color) });
+        displayed.push({ id: nextMeshId, colors: datas.map((d) => d.color), datas });
         return nextMeshId++;
     });
     const removeMesh = rs.fn();
@@ -467,21 +467,23 @@ describe("SketchEditor dimension label dragging", () => {
         return { ...ctx, node, editor };
     }
 
-    test("dragging a distance label updates the offset anchor and commits on release", () => {
+    test("dragging a distance label updates its anchor and commits on release", () => {
         const { node, badges, editor, restoreFactory } = setupDistanceDimension();
         try {
             const badge = lastBadge(badges, "100.00");
             press(badge, 450, 250);
             expect(editor.annotations.isLabelDragging).toBe(false);
 
-            // offset (450, 200) -> uv (50, 100): 100 above the segment
+            // offset (450, 200) -> uv (50, 100): 100 above the segment, halfway along it
             move(450, 200);
             expect(editor.annotations.isLabelDragging).toBe(true);
-            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
 
             release(450, 200);
             expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            expect(node.data.anchors).toEqual([
+                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
+            ]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -499,13 +501,15 @@ describe("SketchEditor dimension label dragging", () => {
             expect(editor.annotations.isLabelDragging).toBe(true);
             expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 30 });
 
-            // offset (450, 200) -> uv (50, 100): 100 above the segment
+            // offset (450, 200) -> uv (50, 100): 100 above the segment, halfway along it
             move(450, 200);
-            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
 
             handler.pointerDown(view, pointerEvent(450, 200));
             expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            expect(node.data.anchors).toEqual([
+                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
+            ]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -521,7 +525,9 @@ describe("SketchEditor dimension label dragging", () => {
             // the refresh rebuilt the badge under the cursor; pressing it drops the label
             press(lastBadge(badges, "100.00"), 450, 200);
             expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            expect(node.data.anchors).toEqual([
+                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
+            ]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -535,7 +541,7 @@ describe("SketchEditor dimension label dragging", () => {
             press(lastBadge(badges, "100.00"), 450, 250);
             release(450, 250);
             move(450, 200);
-            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
 
             handler.keyDown(view, new KeyboardEvent("keydown", { key: "Escape" }));
             expect(editor.annotations.isLabelDragging).toBe(false);
@@ -581,7 +587,9 @@ describe("SketchEditor dimension label dragging", () => {
                 new MouseEvent("pointerup", { clientX: 450, clientY: 200, bubbles: true }),
             );
             expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            expect(node.data.anchors).toEqual([
+                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
+            ]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -601,12 +609,14 @@ describe("SketchEditor dimension label dragging", () => {
             expect(editor.annotations.isLabelDragging).toBe(true);
 
             move(450, 200);
-            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100 });
+            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
 
             // the refresh rebuilt the badge under the cursor; pressing it drops the label
             press(lastBadge(badges, "100.00"), 450, 200);
             expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([{ id: 1, anchor: { kind: "offset", offset: 100 } }]);
+            expect(node.data.anchors).toEqual([
+                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
+            ]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -642,7 +652,7 @@ describe("SketchEditor dimension label dragging", () => {
 
 describe("SketchEditor dimension preview", () => {
     test("distance preview follows the pointer during position pick and clears after", async () => {
-        const { doc, view, badges, displayed, restoreFactory } = setup();
+        const { doc, view, badges, displayed, removeMesh, restoreFactory } = setup();
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
@@ -661,13 +671,18 @@ describe("SketchEditor dimension preview", () => {
 
             const meshesBefore = displayed.length;
             handler.pointerMove(view, pointerEvent(450, 250));
-            expect(live()).toContain("100.00");
-            // the extension/dimension/arrow segments were rendered as one mesh
+            // the preview text draws as mesh glyphs, not as a badge
+            expect(live()).not.toContain("100.00");
             expect(displayed.length).toBe(meshesBefore + 1);
+            // face channel = 2 arrowheads (6 corners) + the preview text "100.00"
+            // (6 glyphs × 1 triangle of the test font)
+            const face = displayed[displayed.length - 1].datas.find((d) => "index" in d);
+            expect(face?.position.length).toBe(24 * 3);
 
-            // moving rebuilds the preview instead of stacking badges
+            // moving rebuilds the preview mesh instead of stacking overlays
             handler.pointerMove(view, pointerEvent(450, 200));
-            expect(live().filter((t) => t === "100.00").length).toBe(1);
+            expect(displayed.length).toBe(meshesBefore + 2);
+            expect(removeMesh).toHaveBeenCalledWith(displayed[meshesBefore].id);
 
             editor.annotations.setDimensionPreview(undefined);
             expect(live()).not.toContain("100.00");
@@ -681,7 +696,7 @@ describe("SketchEditor dimension preview", () => {
     });
 
     test("radius preview shows during position pick and disappears on cancel", async () => {
-        const { doc, view, badges, restoreFactory } = setup();
+        const { doc, view, badges, displayed, restoreFactory } = setup();
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
@@ -698,7 +713,11 @@ describe("SketchEditor dimension preview", () => {
                 ),
             );
             handler.pointerMove(view, pointerEvent(500, 300));
-            expect(live()).toContain("R30.00");
+            expect(live()).not.toContain("R30.00");
+            // face channel = 1 arrowhead (3 corners) + the preview text "R30.00"
+            // (6 glyphs × 1 triangle of the test font)
+            const face = displayed[displayed.length - 1].datas.find((d) => "index" in d);
+            expect(face?.position.length).toBe(21 * 3);
 
             editor.cancelPick();
             await expect(pick).resolves.toBeUndefined();

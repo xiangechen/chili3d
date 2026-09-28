@@ -47,11 +47,22 @@ export class AnnotationBatch extends Object3D {
         this.name = "AnnotationBatch";
         this.matrixAutoUpdate = false;
 
-        const lineMaterial = new LineMaterial({ linewidth: 1, vertexColors: true, side: DoubleSide });
+        const lineMaterial = new LineMaterial({
+            linewidth: 1,
+            vertexColors: true,
+            side: DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: -10,
+        });
         this._lines = new LineSegments2(new LineSegmentsGeometry(), lineMaterial);
         this._triangles = new Mesh(
             new BufferGeometry(),
-            new MeshBasicMaterial({ vertexColors: true, side: DoubleSide }),
+            new MeshBasicMaterial({
+                vertexColors: true,
+                side: DoubleSide,
+                polygonOffset: true,
+                polygonOffsetFactor: -10,
+            }),
         );
         // Annotations are not body geometry: enable every content layer so they
         // stay visible and pickable in solid, wireframe and combined modes alike.

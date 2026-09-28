@@ -27,6 +27,15 @@
     border-color: var(--badge-accent);
 }
 
+/* datum text draws as mesh glyphs; the badge stays only as the drag/edit interaction layer */
+.ghost,
+.ghost:hover {
+    color: transparent;
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
 .selected,
 .badge.selected:hover {
     color: var(--badge-selected);
@@ -66,6 +75,7 @@
     cursor: grabbing;
 }
 
+/* transient hint badges (e.g. the snap-target icon): display-only, never interactive */
 .preview {
     pointer-events: none;
     cursor: default;

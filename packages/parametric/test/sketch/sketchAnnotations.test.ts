@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type ICameraController, Plane, Result, XYZ } from "@chili3d/core";
+import {
+    type FaceMeshData,
+    type ICameraController,
+    Plane,
+    Result,
+    type ShapeMeshData,
+    XYZ,
+} from "@chili3d/core";
 import {
     createMockApplication,
     createMockView,
@@ -11,7 +18,9 @@ import {
 import { rs } from "@rstest/core";
 // side effect: registers the constraint commands so their decorator icons resolve
 import "../../src/sketch/commands/sketchConstraints";
+import { SKETCH_TEXT_HEIGHT_PX } from "../../src/sketch/editor/dimensionLayout";
 import { SketchAnnotationManager } from "../../src/sketch/editor/sketchAnnotations";
+import style from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { ConstraintKind } from "../../src/sketch/sketchModel";
@@ -143,6 +152,55 @@ describe("SketchAnnotations visibility", () => {
         }
     });
 
+    test("a radius dimension reads with its prefix, like every other dimension", () => {
+        const { doc, htmlTexts, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addCircle(0, 0, 30);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: 1, pointIndex: 0 }],
+                datum: 30,
+            });
+            editor.solve(true);
+
+            // the `R` is the dimension's own affix (see `dimensionText`), not the caller's
+            expect(htmlTexts).toContain("R30.00");
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("an angle dimension reads the supplement its stored refs carry", () => {
+        const { doc, htmlTexts, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solver.addLine(0, 0, 50, 50);
+            // the second line's refs run backwards — the 135° sector — with the label
+            // anchored in it, at world (0, 50)
+            const id = editor.solver.addConstraint({
+                kind: ConstraintKind.Angle,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                    { entityId: 2, pointIndex: 1 },
+                    { entityId: 2, pointIndex: 0 },
+                ],
+                datum: (-3 * Math.PI) / 4,
+            });
+            editor.dimensionAnchors.set(id, { kind: "vector", dx: 0, dy: 50 });
+            editor.solve(true);
+            expect(htmlTexts).toContain("135.0°");
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
     test("constraint badges stay visible while dragging a referenced point", () => {
         const { doc, view, htmlTexts, restoreFactory } = setup();
         try {
@@ -233,6 +291,153 @@ describe("SketchAnnotations visibility", () => {
             (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
             const iconHrefs = elements.map((el) => el.querySelector("use")?.getAttribute("href"));
             expect(iconHrefs).toContain("#icon-cHorizontal");
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("SketchAnnotationManager mesh text", () => {
+    // the test font in ./setup draws one triangle per character, so mesh sizes stay countable
+
+    function captureMesh(doc: TestDocument) {
+        const calls: ShapeMeshData[][] = [];
+        (doc.visual.context as any).displayMesh = rs.fn((meshes: ShapeMeshData[]) => {
+            calls.push(meshes);
+            return 1;
+        });
+        return calls;
+    }
+
+    function faceMeshOf(calls: ShapeMeshData[][]): FaceMeshData | undefined {
+        const last = calls[calls.length - 1] ?? [];
+        return last.find((mesh): mesh is FaceMeshData => "index" in mesh);
+    }
+
+    test("datum text draws as mesh glyphs parallel to the dimension line", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const calls = captureMesh(doc);
+            const badges: { text: string; className?: string }[] = [];
+            (view as any).htmlText = rs.fn((text: string, _point: XYZ, options?: any) => {
+                badges.push({ text, className: options?.className });
+                return { dispose: rs.fn() };
+            });
+
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+                datum: 10,
+            });
+            editor.solve(true);
+
+            // face mesh = 2 arrowheads (6 corners) + the text "10.00"
+            // (5 glyphs × 1 triangle of the test font)
+            const face = faceMeshOf(calls);
+            expect(face).toBeDefined();
+            expect(face?.position.length).toBe((6 + 15) * 3);
+
+            // px = 1 in the mock view: the clamped offset puts the dimension line at
+            // y = 14, the anchor half a text height above it; the first glyph corner
+            // (-2.5, -0.5) ems lands at (5 - 2.5·em, 14) — the em lift cancels out
+            const em = SKETCH_TEXT_HEIGHT_PX;
+            const position = Array.from(face?.position ?? []);
+            const hit = position.some(
+                (_, i) =>
+                    i % 3 === 0 &&
+                    Math.abs(position[i] - (5 - 2.5 * em)) < 1e-6 &&
+                    Math.abs(position[i + 1] - 14) < 1e-6 &&
+                    Math.abs(position[i + 2]) < 1e-6,
+            );
+            expect(hit).toBe(true);
+
+            // the badge stays only as the invisible interaction layer
+            const badge = badges.find((b) => b.text === "10.00");
+            expect(badge?.className).toContain(style.ghost);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("an along anchor draws the label where the user put it on the dimension line", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const calls = captureMesh(doc);
+            (view as any).htmlText = rs.fn(() => ({ dispose: rs.fn() }));
+
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            const id = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+                datum: 10,
+            });
+            // a quarter of the way along, 14 above the segment
+            editor.dimensionAnchors.set(id, { kind: "offset", offset: 14, along: 2.5 });
+            editor.solve(true);
+
+            // px = 1, so the first glyph corner (-2.5, -0.5) ems sits on the dimension
+            // line at x = 2.5 instead of the segment's middle
+            const em = SKETCH_TEXT_HEIGHT_PX;
+            const position = Array.from(faceMeshOf(calls)?.position ?? []);
+            const hit = position.some(
+                (_, i) =>
+                    i % 3 === 0 &&
+                    Math.abs(position[i] - (2.5 - 2.5 * em)) < 1e-6 &&
+                    Math.abs(position[i + 1] - 14) < 1e-6,
+            );
+            expect(hit).toBe(true);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a broken expression keeps the visible error badge and draws no text", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const calls = captureMesh(doc);
+            const elements: { text: string; element: HTMLElement; className?: string }[] = [];
+            (view as any).htmlText = rs.fn((text: string, _point: XYZ, options?: any) => {
+                const element = document.createElement("div");
+                options?.onCreated?.(element);
+                elements.push({ text, element, className: options?.className });
+                return { dispose: rs.fn() };
+            });
+
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+                datum: "nope*2",
+            });
+            editor.solve(true);
+
+            // arrows only — no text triangles for a broken expression
+            const face = faceMeshOf(calls);
+            expect(face?.position.length).toBe(6 * 3);
+
+            // the badge stays visible and carries the error styling
+            const badge = elements.find((b) => b.text === "nope*2");
+            expect(badge?.className).not.toContain(style.ghost);
+            expect(badge?.element.classList.contains(style.error)).toBe(true);
             editor.exit();
         } finally {
             restoreFactory();

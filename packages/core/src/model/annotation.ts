@@ -9,6 +9,7 @@ import { LENGTH_UNITS } from "../parameters/unitSpec";
 import { property } from "../property";
 import { serializable, serialize } from "../serialize";
 import { angularDimensionSweep, DIMENSION_TEXT_HEIGHT } from "./dimensionLayout";
+import { type DimensionMeasurement, measurementText } from "./dimensionText";
 import { VisualNode } from "./visualNode";
 
 export const AnnotationTypes = ["dimension", "text", "refInfiniteLine", "refSegment"] as const;
@@ -202,17 +203,29 @@ export class DimensionAnnotation extends Annotation {
         return this.startPoint.distanceTo(this.endPoint);
     }
 
+    /** How this dimension's kind reads: a radial dimension is a radius, an angular one an angle. */
+    get measurement(): DimensionMeasurement {
+        switch (this.dimensionType) {
+            case "radial":
+                return "radius";
+            case "diameter":
+                return "diameter";
+            case "angular":
+                return "angle";
+            default:
+                return "length";
+        }
+    }
+
     /**
-     * The dimension text: the override as written (with `<>` expanded), or the
-     * measured value with its kind's affix — `R12.00`, `Ø24.00`, `45.0°`.
+     * The dimension text: the override as written (with `<>` expanded to the digits), or
+     * the measured value with its kind's affix — `R12.00`, `Ø24.00`, `45.0°`. The digits
+     * and affixes are the ones every dimension reads with; see `dimensionText`.
      */
     formattedValue(digits?: number): string {
-        const places = digits ?? (this.dimensionType === "angular" ? 1 : 2);
-        const measured = this.value.toFixed(places);
-        if (this.textOverride !== "") return this.textOverride.replaceAll("<>", measured);
-        const prefix = this.dimensionType === "radial" ? "R" : this.dimensionType === "diameter" ? "Ø" : "";
-        const suffix = this.dimensionType === "angular" ? "°" : "";
-        return `${prefix}${measured}${suffix}`;
+        const text = measurementText(this.measurement, this.value, digits);
+        if (this.textOverride !== "") return this.textOverride.replaceAll("<>", text.value);
+        return `${text.prefix}${text.value}${text.suffix}`;
     }
 
     constructor(options: DimensionAnnotationOptions) {

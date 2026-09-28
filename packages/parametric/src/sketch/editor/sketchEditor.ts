@@ -26,7 +26,7 @@ import {
     type SketchData,
     type SketchEntityType,
     type SketchPointRef,
-    worldPerPixel,
+    viewPixelSize,
 } from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
@@ -537,11 +537,11 @@ export class SketchEditor implements IDisposable {
         return outcome;
     }
 
-    /** Tolerance of 8 screen pixels in sketch-plane units at the view center (0 when unavailable). */
+    /** Tolerance of 8 screen pixels in sketch-plane units at the sketch origin (0 when unavailable). */
     screenTolerance(): number {
         const view = this.document.application.activeView;
         if (view === undefined) return 0;
-        const size = worldPerPixel(view, this.node.plane, view.width / 2, view.height / 2);
+        const size = viewPixelSize(view, this.node.plane.origin);
         return size === undefined ? 0 : size * 8;
     }
 

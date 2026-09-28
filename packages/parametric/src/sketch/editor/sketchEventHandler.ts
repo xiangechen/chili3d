@@ -34,7 +34,7 @@ import {
     type SketchPointRef,
     toUV,
     toWorld,
-    worldPerPixel,
+    viewPixelSize,
 } from "../sketchModel";
 import { constraintTargetEntities } from "../solverEntities";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
@@ -199,7 +199,7 @@ export class SketchEventHandler implements IEventHandler {
         const view = this.editor.document.application.activeView;
         let visible = 0;
         if (view !== undefined) {
-            const px = worldPerPixel(view, this.editor.node.plane, view.width / 2, view.height / 2);
+            const px = viewPixelSize(view, this.editor.node.plane.origin);
             visible = px === undefined ? 0 : (px * Math.hypot(view.width, view.height)) / 2;
         }
         return Math.max(100, extent * 1.5, visible);
@@ -531,7 +531,9 @@ export class SketchEventHandler implements IEventHandler {
 
     /** Pick tolerance converted to sketch-plane units at the event position. */
     private worldTolerance(view: IView, event: PointerEvent): number | undefined {
-        const size = worldPerPixel(view, this.editor.node.plane, event.offsetX, event.offsetY);
+        const plane = this.editor.node.plane;
+        const point = plane.intersectRay(view.rayAt(event.offsetX, event.offsetY)) ?? plane.origin;
+        const size = viewPixelSize(view, point);
         return size === undefined ? undefined : size * PICK_TOLERANCE_PX;
     }
 
@@ -715,7 +717,7 @@ export class SketchEventHandler implements IEventHandler {
     private displaySnapHint(view: IView, snap: DragSnap): IDisposable {
         const plane = this.editor.node.plane;
         const symbol = snapHintSymbol(snap);
-        const px = worldPerPixel(view, plane, view.width / 2, view.height / 2) ?? 1;
+        const px = viewPixelSize(view, toWorld(plane, snap.position[0], snap.position[1])) ?? 1;
         const off = 18 * px * Math.SQRT1_2;
         return view.htmlText(symbol.label, toWorld(plane, snap.position[0] + off, snap.position[1] + off), {
             hideDelete: true,

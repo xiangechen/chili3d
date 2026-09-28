@@ -2,6 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./angleDimension";
+export * from "./annotationCommandBase";
 export * from "./dimension";
-export * from "./dimensionCommandBase";
 export * from "./radialDimension";

@@ -7,12 +7,15 @@ import {
     Component,
     ComponentNode,
     type Contour2D,
+    DefaultFont,
     DIMENSION_TEXT_HEIGHT,
     DimensionAnnotation,
     type DimensionLayout,
+    defaultFontService,
     diameterDimensionLayout,
     dimensionLayoutScale,
     type FontOutline,
+    forgetOutline,
     type IApplication,
     type INode,
     type IView,
@@ -21,6 +24,7 @@ import {
     ObservableCollection,
     type RefSegmentAnnotation,
     radialDimensionLayout,
+    rememberOutline,
     Signal,
     XYZ,
 } from "@chili3d/core";
@@ -40,7 +44,6 @@ import {
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import type { AnnotationBatch } from "../src/annotationBatch";
 import { Constants } from "../src/constants";
-import { annotationFont } from "../src/text/annotationFont";
 import {
     type ThreeAnnotation,
     ThreeDimensionAnnotation,
@@ -74,14 +77,10 @@ function fakeOutline(): FontOutline {
     };
 }
 
+/** Serves `fakeOutline` to the annotation text pipeline, and takes it away again. */
 function stubAnnotationFont() {
-    const font = annotationFont as unknown as { _outline?: FontOutline; _glyphs: Map<number, unknown> };
-    font._outline = fakeOutline();
-    font._glyphs.clear();
-    return () => {
-        font._outline = undefined;
-        font._glyphs.clear();
-    };
+    rememberOutline(DefaultFont.family, DefaultFont.url, fakeOutline());
+    return () => forgetOutline(DefaultFont.family, DefaultFont.url);
 }
 
 function createRefSegment(): RefSegmentAnnotation {
@@ -127,6 +126,26 @@ function expectPositionsClose(actual: ArrayLike<number>, expected: readonly numb
     expected.forEach((value, index) => {
         expect(actual[index]).toBeCloseTo(value, 5);
     });
+}
+
+function createMockView(camera: PerspectiveCamera | OrthographicCamera) {
+    const update = rs.fn();
+    const onPropertyChanged = rs.fn();
+    const removePropertyChanged = rs.fn();
+    const toXYZ = (v: { x: number; y: number; z: number }) => new XYZ(v.x, v.y, v.z);
+    const view = {
+        isClosed: false,
+        update,
+        cameraController: {
+            cameraPosition: toXYZ(camera.position),
+            cameraType: camera instanceof PerspectiveCamera ? "perspective" : "orthographic",
+            onPropertyChanged,
+            removePropertyChanged,
+        },
+        direction: () => toXYZ(camera.getWorldDirection(new Vector3())),
+        up: () => toXYZ(camera.up),
+    } as unknown as IView;
+    return { view, update, onPropertyChanged, removePropertyChanged };
 }
 
 describe("ThreeRefSegmentAnnotation", () => {
@@ -316,25 +335,6 @@ describe("ThreeDimensionAnnotation", () => {
     }
 
     /** An IView whose camera controller and direction mirror the given three camera. */
-    function createMockView(camera: PerspectiveCamera | OrthographicCamera) {
-        const update = rs.fn();
-        const onPropertyChanged = rs.fn();
-        const removePropertyChanged = rs.fn();
-        const toXYZ = (v: { x: number; y: number; z: number }) => new XYZ(v.x, v.y, v.z);
-        const view = {
-            isClosed: false,
-            update,
-            cameraController: {
-                cameraPosition: toXYZ(camera.position),
-                cameraType: camera instanceof PerspectiveCamera ? "perspective" : "orthographic",
-                onPropertyChanged,
-                removePropertyChanged,
-            },
-            direction: () => toXYZ(camera.getWorldDirection(new Vector3())),
-        } as unknown as IView;
-        return { view, update, onPropertyChanged, removePropertyChanged };
-    }
-
     function handlePositions(handles: Points): number[] {
         return [...(handles.geometry.getAttribute("position").array as Float32Array)];
     }
@@ -532,7 +532,7 @@ describe("ThreeDimensionAnnotation", () => {
         expect(texts.geometry.getAttribute("position").count).toBe(2 * 3);
 
         restoreFont = stubAnnotationFont();
-        const listeners = (annotationFont as unknown as { _listeners: Set<() => void> })._listeners;
+        const listeners = (defaultFontService as unknown as { _listeners: Set<() => void> })._listeners;
         listeners.forEach((listener) => listener());
         await flush();
 

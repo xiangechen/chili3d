@@ -2,312 +2,83 @@
 // See LICENSE file in the project root for full license information.
 
 /**
- * uv-space layout for dimension annotations. All sizes derive from `px`
- * (world units per screen pixel) so arrows and gaps keep a constant
- * on-screen size at any zoom level. The arrow/gap/offset constants and the
- * offset math are shared with the 3D counterpart — `model/dimensionLayout`
- * in @chili3d/core — change them together.
+ * What a sketch dimension needs on top of the shared planar layout: the sketch's own
+ * text size, the datum formatting, and the sizes a refresh passes down. The geometry
+ * itself — extension lines, arrows, arcs, the text anchor — is core's
+ * `model/planarDimensionLayout`, which the 3D annotations lift onto their own plane; the
+ * sketch draws it straight in uv.
+ *
+ * All furniture sizes derive from `px` (world units per screen pixel), so arrows and gaps
+ * keep a constant on-screen size at any zoom, while the text is a step taller than the
+ * drafting base — see `SKETCH_TEXT_HEIGHT_PX`.
  */
 
+export {
+    angleDimension,
+    angleVertex,
+    axisDistanceDimension,
+    type DimensionGeometry,
+    type DimensionGraphics,
+    type DimensionLabel,
+    type DimensionSize,
+    distanceDimension,
+    labelOnAxis,
+    labelOnSegment,
+    lineIntersection,
+    measuresSupplement,
+    type Point2,
+    pointLineDistance,
+    pointLineDistanceDimension,
+    pointLineFoot,
+    pointLineSignedDistance,
+    pushDimensionGeometry,
+    radiusDimension,
+    segmentAlong,
+    segmentOffset,
+    signedSweep,
+} from "@chili3d/core";
 export type { DimensionAnchor } from "../sketchModel";
-// Re-exported so the editor-side import sites keep working; the definitions moved to
-// `sketchModel` because the solver converts datums too and must not import the editor.
 export { toDisplayDatum, toStorageDatum } from "../sketchModel";
 
 import {
-    DIMENSION_ARROW_HALF_ANGLE,
-    DIMENSION_ARROW_LENGTH_PX,
-    DIMENSION_EXTENSION_GAP_PX,
-    DIMENSION_EXTENSION_OVERSHOOT_PX,
-    dimensionOffsets,
+    type DimensionMeasurement,
+    type DimensionSize,
+    formatMeasurement,
     type ParameterValue,
 } from "@chili3d/core";
 import { ConstraintKind, toDisplayDatum } from "../sketchModel";
 
 /**
- * The text a dimension annotation shows for a stored datum: an expression reads as
- * written — that name IS the user's intent — while a literal reads as its display
- * value. The radius `R` prefix stays with the caller, which knows the geometry; the
- * degree sign belongs to the datum itself.
+ * Sketch dimension text height in screen pixels — a step up from the 12px of the
+ * badges behind it, so the mesh text reads as the primary content. Note it is *not* the
+ * 12px the drafting furniture is sized against: the sketch's arrows and gaps stay at the
+ * drafting scale while its text reads bigger.
+ */
+export const SKETCH_TEXT_HEIGHT_PX = 23;
+
+/** The sizes one sketch refresh draws its dimensions at, from its world-units-per-pixel. */
+export function sketchDimensionSize(px: number): DimensionSize {
+    return { scale: px, textHeight: SKETCH_TEXT_HEIGHT_PX * px };
+}
+
+/** How a constraint kind reads: a radius dimension is a radius, an angle one an angle. */
+function measurementOf(kind: ConstraintKind): DimensionMeasurement {
+    switch (kind) {
+        case ConstraintKind.Radius:
+            return "radius";
+        case ConstraintKind.Angle:
+            return "angle";
+        default:
+            return "length";
+    }
+}
+
+/**
+ * The text a sketch dimension shows for a stored datum: an expression reads as written —
+ * that name IS the user's intent — while a literal reads as its display value, with the
+ * digits and the affixes every dimension reads with (`R`, `°`; see `dimensionText` in core).
  */
 export function formatDatum(kind: ConstraintKind, value: ParameterValue): string {
     if (typeof value === "string") return value;
-    const display = toDisplayDatum(kind, value);
-    const suffix = kind === ConstraintKind.Angle ? "°" : "";
-    return `${display.toFixed(kind === ConstraintKind.Angle ? 1 : 2)}${suffix}`;
-}
-
-export interface DimensionGeometry {
-    /** uv-space segments: extension lines, dimension line / leader / arc polyline. */
-    readonly segments: [number, number, number, number][];
-    /** uv-space solid arrowheads: flat corner list, three corners per triangle. */
-    readonly triangles: [number, number][];
-    /** uv position of the dimension text. */
-    readonly textPosition: [number, number];
-}
-
-/** The drawing channels the annotation graphics are collected into. */
-export interface DimensionGraphics {
-    readonly segments: DimensionGeometry["segments"];
-    readonly triangles: DimensionGeometry["triangles"];
-}
-
-/** Appends one dimension's geometry to the collected channels. */
-export function pushDimensionGeometry(target: DimensionGraphics, geometry: DimensionGeometry): void {
-    target.segments.push(...geometry.segments);
-    target.triangles.push(...geometry.triangles);
-}
-
-const RADIUS_LABEL_MARGIN_PX = 20;
-const MIN_ANGLE_RADIUS_PX = 24;
-const ANGLE_LABEL_MARGIN_PX = 14;
-
-type Vec2 = [number, number];
-
-/** Signed perpendicular offset of `position` from the segment p1→p2. */
-export function segmentOffset(p1: Vec2, p2: Vec2, position: Vec2): number {
-    const dx = p2[0] - p1[0];
-    const dy = p2[1] - p1[1];
-    const length = Math.hypot(dx, dy);
-    if (length < 1e-9) return 0;
-    // normal = (-dy, dx) / length; offset = (position - p1) · normal
-    return ((position[0] - p1[0]) * -dy + (position[1] - p1[1]) * dx) / length;
-}
-
-/** Aligned distance dimension: extension lines + dimension line + inward arrows. */
-export function distanceDimension(
-    p1: Vec2,
-    p2: Vec2,
-    offset: number,
-    px: number,
-): DimensionGeometry | undefined {
-    const dx = p2[0] - p1[0];
-    const dy = p2[1] - p1[1];
-    const length = Math.hypot(dx, dy);
-    if (length < 1e-9 || px <= 0) return undefined;
-
-    const dir: Vec2 = [dx / length, dy / length];
-    const normal: Vec2 = [-dir[1], dir[0]];
-    const { off, gap, overshoot } = dimensionOffsets(offset, px);
-    const at = (p: Vec2, d: number): Vec2 => [p[0] + normal[0] * d, p[1] + normal[1] * d];
-
-    const a = at(p1, off);
-    const b = at(p2, off);
-
-    const segments: DimensionGeometry["segments"] = [
-        [...at(p1, gap), ...at(p1, overshoot)],
-        [...at(p2, gap), ...at(p2, overshoot)],
-        [a[0], a[1], b[0], b[1]],
-    ];
-    // CAD convention: arrow tips touch the extension lines, pointing outward
-    const triangles = [...arrowhead(a, [-dir[0], -dir[1]], px), ...arrowhead(b, dir, px)];
-    return { segments, triangles, textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
-}
-
-/** Radius dimension: leader from the center through the circumference, arrow outward. */
-export function radiusDimension(
-    center: Vec2,
-    radius: number,
-    dx: number,
-    dy: number,
-    px: number,
-): DimensionGeometry {
-    const length = Math.hypot(dx, dy);
-    const dir: Vec2 = length < 1e-9 ? [Math.SQRT1_2, Math.SQRT1_2] : [dx / length, dy / length];
-    // respect the chosen label position; only push it out when placed inside the circle
-    const labelDistance = length < radius ? radius + RADIUS_LABEL_MARGIN_PX * px : length;
-    const label: Vec2 = [center[0] + dir[0] * labelDistance, center[1] + dir[1] * labelDistance];
-    const rim: Vec2 = [center[0] + dir[0] * radius, center[1] + dir[1] * radius];
-
-    return {
-        segments: [[center[0], center[1], label[0], label[1]]],
-        triangles: arrowhead(rim, dir, px),
-        textPosition: label,
-    };
-}
-
-/**
- * A solid triangle: `tip` on the measured geometry, the base corners one arrow
- * length back along `outward` — the silhouette of the drafting open arrowhead,
- * filled. The 3D counterpart lives in core's `model/dimensionLayout`; both
- * share the size constants from there.
- */
-function arrowhead(tip: Vec2, outward: Vec2, px: number): [number, number][] {
-    const length = DIMENSION_ARROW_LENGTH_PX * px;
-    const cos = Math.cos(DIMENSION_ARROW_HALF_ANGLE);
-    const sin = Math.sin(DIMENSION_ARROW_HALF_ANGLE);
-    // backward = -outward, rotated by ±half angle
-    const back: Vec2 = [-outward[0], -outward[1]];
-    const corner = (s: number): Vec2 => [
-        tip[0] + (back[0] * cos - back[1] * sin * s) * length,
-        tip[1] + (back[0] * sin * s + back[1] * cos) * length,
-    ];
-    return [[tip[0], tip[1]], corner(1), corner(-1)];
-}
-
-function addDir(p: Vec2, dir: Vec2, d: number): Vec2 {
-    return [p[0] + dir[0] * d, p[1] + dir[1] * d];
-}
-
-/** Foot of the perpendicular from `p` to the infinite line through `l1`–`l2`. */
-export function pointLineFoot(p: Vec2, l1: Vec2, l2: Vec2): Vec2 | undefined {
-    const dx = l2[0] - l1[0];
-    const dy = l2[1] - l1[1];
-    const lengthSquared = dx * dx + dy * dy;
-    if (lengthSquared < 1e-12) return undefined;
-    const t = ((p[0] - l1[0]) * dx + (p[1] - l1[1]) * dy) / lengthSquared;
-    return [l1[0] + t * dx, l1[1] + t * dy];
-}
-
-/** Perpendicular distance from `p` to the infinite line through `l1`–`l2`. */
-export function pointLineDistance(p: Vec2, l1: Vec2, l2: Vec2): number {
-    return Math.abs(pointLineSignedDistance(p, l1, l2));
-}
-
-/** Signed distance: positive when `p` is left of the l1→l2 direction. */
-export function pointLineSignedDistance(p: Vec2, l1: Vec2, l2: Vec2): number {
-    const dx = l2[0] - l1[0];
-    const dy = l2[1] - l1[1];
-    const length = Math.hypot(dx, dy);
-    if (length < 1e-12) return 0;
-    return (dx * (p[1] - l1[1]) - dy * (p[0] - l1[0])) / length;
-}
-
-/** Intersection of the infinite lines through `a1`–`a2` and `b1`–`b2`; undefined when parallel. */
-export function lineIntersection(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2): Vec2 | undefined {
-    const dax = a2[0] - a1[0];
-    const day = a2[1] - a1[1];
-    const dbx = b2[0] - b1[0];
-    const dby = b2[1] - b1[1];
-    const denominator = dax * dby - day * dbx;
-    if (Math.abs(denominator) < 1e-12) return undefined;
-    const t = ((b1[0] - a1[0]) * dby - (b1[1] - a1[1]) * dbx) / denominator;
-    return [a1[0] + t * dax, a1[1] + t * day];
-}
-
-/**
- * Point-to-line distance: dimension line parallel to the point→foot direction,
- * shifted sideways by `offset`; extension lines at the point and the foot.
- */
-export function pointLineDistanceDimension(
-    p: Vec2,
-    l1: Vec2,
-    l2: Vec2,
-    offset: number,
-    px: number,
-): DimensionGeometry | undefined {
-    const foot = pointLineFoot(p, l1, l2);
-    if (foot === undefined || px <= 0) return undefined;
-    const length = Math.hypot(p[0] - foot[0], p[1] - foot[1]);
-    if (length < 1e-9) return undefined;
-
-    const dir: Vec2 = [(foot[0] - p[0]) / length, (foot[1] - p[1]) / length];
-    const normal: Vec2 = [-dir[1], dir[0]];
-    const { off, gap, overshoot } = dimensionOffsets(offset, px);
-    const a = addDir(p, normal, off);
-    const b = addDir(foot, normal, off);
-
-    return {
-        segments: [
-            [...addDir(p, normal, gap), ...addDir(p, normal, overshoot)],
-            [...addDir(foot, normal, gap), ...addDir(foot, normal, overshoot)],
-            [a[0], a[1], b[0], b[1]],
-        ],
-        triangles: [...arrowhead(a, [-dir[0], -dir[1]], px), ...arrowhead(b, dir, px)],
-        textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
-    };
-}
-
-/**
- * Horizontal/vertical distance between two points: extension lines from each point
- * to an axis-parallel dimension line placed `offset` off the points' midline.
- */
-export function axisDistanceDimension(
-    p1: Vec2,
-    p2: Vec2,
-    axis: "h" | "v",
-    offset: number,
-    px: number,
-): DimensionGeometry | undefined {
-    const span = axis === "h" ? p2[0] - p1[0] : p2[1] - p1[1];
-    if (Math.abs(span) < 1e-9 || px <= 0) return undefined;
-
-    const base = axis === "h" ? (p1[1] + p2[1]) / 2 : (p1[0] + p2[0]) / 2;
-    const { sign, off } = dimensionOffsets(offset, px);
-    const linePosition = base + off;
-    const a: Vec2 = axis === "h" ? [p1[0], linePosition] : [linePosition, p1[1]];
-    const b: Vec2 = axis === "h" ? [p2[0], linePosition] : [linePosition, p2[1]];
-    const dir: Vec2 = axis === "h" ? [1, 0] : [0, 1];
-    // `out` carries the sign, so gap and overshoot stay unsigned here
-    const out: Vec2 = axis === "h" ? [0, sign] : [sign, 0];
-    const gap = DIMENSION_EXTENSION_GAP_PX * px;
-    const overshoot = DIMENSION_EXTENSION_OVERSHOOT_PX * px;
-
-    return {
-        segments: [
-            [...addDir(p1, out, gap), ...addDir(a, out, overshoot)],
-            [...addDir(p2, out, gap), ...addDir(b, out, overshoot)],
-            [a[0], a[1], b[0], b[1]],
-        ],
-        triangles: [...arrowhead(a, [-dir[0], -dir[1]], px), ...arrowhead(b, dir, px)],
-        textPosition: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
-    };
-}
-
-/**
- * Angle between two directions around `vertex`: an arc of pixel-constant minimum
- * radius swept the short way from `d1` to `d2`, arrows tangent at both ends.
- */
-export function angleDimension(
-    vertex: Vec2,
-    d1: Vec2,
-    d2: Vec2,
-    radius: number,
-    px: number,
-): DimensionGeometry | undefined {
-    if (px <= 0 || Math.hypot(d1[0], d1[1]) < 1e-12 || Math.hypot(d2[0], d2[1]) < 1e-12) return undefined;
-    const a1 = Math.atan2(d1[1], d1[0]);
-    let sweep = (Math.atan2(d2[1], d2[0]) - a1) % (Math.PI * 2);
-    if (sweep > Math.PI) sweep -= Math.PI * 2;
-    if (sweep < -Math.PI) sweep += Math.PI * 2;
-    if (Math.abs(sweep) < 1e-9) return undefined;
-
-    const r = Math.max(radius, MIN_ANGLE_RADIUS_PX * px);
-    const arcPoint = (angle: number): Vec2 => [
-        vertex[0] + r * Math.cos(angle),
-        vertex[1] + r * Math.sin(angle),
-    ];
-    const segments = arcPolyline(vertex, r, a1, sweep);
-    // tangent direction at an arc end, pointing along the sweep
-    const tangent = (angle: number, forward: boolean): Vec2 => {
-        const s = (forward ? 1 : -1) * Math.sign(sweep);
-        return [-Math.sin(angle) * s, Math.cos(angle) * s];
-    };
-    const triangles = [
-        ...arrowhead(arcPoint(a1), tangent(a1, false), px),
-        ...arrowhead(arcPoint(a1 + sweep), tangent(a1 + sweep, true), px),
-    ];
-
-    const mid = a1 + sweep / 2;
-    const labelDistance = r + ANGLE_LABEL_MARGIN_PX * px;
-    return {
-        segments,
-        triangles,
-        textPosition: [vertex[0] + labelDistance * Math.cos(mid), vertex[1] + labelDistance * Math.sin(mid)],
-    };
-}
-
-function arcPolyline(vertex: Vec2, r: number, a1: number, sweep: number): DimensionGeometry["segments"] {
-    const arcPoint = (angle: number): Vec2 => [
-        vertex[0] + r * Math.cos(angle),
-        vertex[1] + r * Math.sin(angle),
-    ];
-    const segments: DimensionGeometry["segments"] = [];
-    const count = Math.max(4, Math.ceil((Math.abs(sweep) / Math.PI) * 16));
-    for (let i = 0; i < count; i++) {
-        const p0 = arcPoint(a1 + (sweep * i) / count);
-        const p1 = arcPoint(a1 + (sweep * (i + 1)) / count);
-        segments.push([p0[0], p0[1], p1[0], p1[1]]);
-    }
-    return segments;
+    return formatMeasurement(measurementOf(kind), toDisplayDatum(kind, value));
 }

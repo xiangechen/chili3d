@@ -3,11 +3,14 @@
 
 import { AsyncController, command, type ParameterValue } from "@chili3d/core";
 import {
+    angleVertex,
     type DimensionAnchor,
-    lineIntersection,
+    labelOnAxis,
+    labelOnSegment,
+    measuresSupplement,
     pointLineFoot,
     pointLineSignedDistance,
-    segmentOffset,
+    signedSweep,
     toDisplayDatum,
     toStorageDatum,
 } from "../editor/dimensionLayout";
@@ -54,8 +57,6 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
         );
         if (position === undefined) return;
 
-        // anchor the label relative to the segment so it follows the geometry
-        const offset = segmentOffset(uv1, uv2, position);
         const initial = currentDistance(editor.solver, p1, p2);
         commitDimension(
             editor,
@@ -64,7 +65,7 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
                 refs: normalizeLineRefs(editor.solver, p1, p2),
                 datum: initial,
             },
-            { kind: "offset", offset },
+            { kind: "offset", ...labelOnSegment(uv1, uv2, position) },
             initial,
         );
     }
@@ -220,7 +221,6 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
         );
         if (position === undefined) return;
 
-        // anchor the label perpendicular to the point→foot segment so it follows the geometry
         const foot = pointLineFoot(uvP, uv1, uv2) ?? uv1;
         // signed datum (display convention: positive = left of the line direction);
         // a signed value keeps the point on its current side instead of mirroring it
@@ -232,7 +232,7 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
                 refs: [p, l1, l2],
                 datum: toStorageDatum(ConstraintKind.P2LDistance, initial),
             },
-            { kind: "offset", offset: segmentOffset(uvP, foot, position) },
+            { kind: "offset", ...labelOnSegment(uvP, foot, position) },
             initial,
             { positiveOnly: false },
         );
@@ -242,23 +242,10 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
 @command({ key: "dimension.angle", icon: "icon-dAngle" })
 export class AngleDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
-        // datum: true — angles against the X/Y axes are a common reference
-        const l1Id = await editor.pickEntity(
-            "prompt.pickSketchEntity",
-            "line",
-            { datum: true },
-            this.controller,
-        );
-        if (l1Id === undefined || !allowsConstraintOnEntity(ConstraintKind.Angle, l1Id)) return;
-        this.controller = new AsyncController();
-        const l2Id = await editor.pickEntity(
-            "prompt.pickSketchEntity",
-            "line",
-            { datum: true },
-            this.controller,
-        );
-        if (l2Id === undefined || !allowsConstraintOnEntity(ConstraintKind.Angle, l2Id)) return;
+        const l1Id = await this.pickLine(editor);
+        if (l1Id === undefined) return;
+        const l2Id = await this.pickLine(editor);
+        if (l2Id === undefined) return;
 
         const refs: SketchPointRef[] = [
             { entityId: l1Id, pointIndex: 0 },
@@ -276,26 +263,55 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
         );
         if (position === undefined) return;
 
-        // vertex = line intersection; parallel lines fall back to the centroid so the
-        // label anchor still has a sensible reference point
-        const vertex = lineIntersection(a1, a2, b1, b2) ?? [
-            (a1[0] + a2[0] + b1[0] + b2[0]) / 4,
-            (a1[1] + a2[1] + b1[1] + b2[1]) / 4,
-        ];
-        const d1: [number, number] = [a2[0] - a1[0], a2[1] - a1[1]];
-        const d2: [number, number] = [b2[0] - b1[0], b2[1] - b1[1]];
-        // signed sweep from d1 to d2: the sign records which side of the first
-        // line the second line sits on, so later magnitude edits keep the angle
-        // in place instead of flipping the line across its reference
-        const initialRad = Math.atan2(d1[0] * d2[1] - d1[1] * d2[0], d1[0] * d2[0] + d1[1] * d2[1]);
-
+        const measured = measureAngle(editor.solver, refs, position);
         commitDimension(
             editor,
-            { kind: ConstraintKind.Angle, refs, datum: initialRad },
-            { kind: "vector", dx: position[0] - vertex[0], dy: position[1] - vertex[1] },
-            toDisplayDatum(ConstraintKind.Angle, initialRad),
+            { kind: ConstraintKind.Angle, refs: measured.refs, datum: measured.datum },
+            {
+                kind: "vector",
+                dx: position[0] - measured.vertex[0],
+                dy: position[1] - measured.vertex[1],
+            },
+            toDisplayDatum(ConstraintKind.Angle, measured.datum),
         );
     }
+
+    /** One line of the angle; `datum: true` also lets the X/Y axes serve as a reference. */
+    private async pickLine(editor: SketchEditor): Promise<number | undefined> {
+        this.controller = new AsyncController();
+        const id = await editor.pickEntity(
+            "prompt.pickSketchEntity",
+            "line",
+            { datum: true },
+            this.controller,
+        );
+        return id !== undefined && allowsConstraintOnEntity(ConstraintKind.Angle, id) ? id : undefined;
+    }
+}
+
+/**
+ * The angle a placement asks for: the refs to store it with, its signed datum, and the
+ * vertex the label is anchored to. Reversing the second line's refs is what stores the
+ * label's choice between the angle and its supplement (see `measuresSupplement`) — the
+ * solver, the arc and the text all read that back off the geometry. The sweep's sign
+ * records which side of the first line the second sits on, so a later magnitude edit
+ * keeps the angle in place instead of flipping the line across its reference.
+ */
+function measureAngle(
+    solver: SketchSolver,
+    refs: readonly SketchPointRef[],
+    label: [number, number],
+): { refs: SketchPointRef[]; vertex: [number, number]; datum: number } {
+    const [a1, a2, b1, b2] = refs.map((r) => solver.pointOf(r));
+    const vertex = angleVertex(a1, a2, b1, b2);
+    const d1: [number, number] = [a2[0] - a1[0], a2[1] - a1[1]];
+    const d2: [number, number] = [b2[0] - b1[0], b2[1] - b1[1]];
+    const supplement = measuresSupplement(d1, d2, [label[0] - vertex[0], label[1] - vertex[1]]);
+    return {
+        refs: supplement ? [refs[0], refs[1], refs[3], refs[2]] : [...refs],
+        vertex,
+        datum: signedSweep(d1, supplement ? [-d2[0], -d2[1]] : d2),
+    };
 }
 
 abstract class AxisDistanceCommand extends SketchConstraintCommand {
@@ -319,9 +335,6 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
         );
         if (position === undefined) return;
 
-        // offset along the cross axis from the points' midline
-        const base = axis === "h" ? (uv1[1] + uv2[1]) / 2 : (uv1[0] + uv2[0]) / 2;
-        const offset = (axis === "h" ? position[1] : position[0]) - base;
         const initial = axis === "h" ? uv2[0] - uv1[0] : uv2[1] - uv1[1];
         commitDimension(
             editor,
@@ -330,7 +343,7 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
                 refs: [p1, p2],
                 datum: initial,
             },
-            { kind: "offset", offset },
+            { kind: "offset", ...labelOnAxis(uv1, uv2, axis, position) },
             initial,
             { positiveOnly: false },
         );

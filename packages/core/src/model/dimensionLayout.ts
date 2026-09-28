@@ -2,14 +2,28 @@
 // See LICENSE file in the project root for full license information.
 
 /**
- * 3D layout for dimension annotations. Sizes derive from a scale factor — the
- * callers pass `DIMENSION_LAYOUT_SCALE`, so text, arrows and gaps keep a fixed
- * world size (mm) like dimensions on a drafting sheet — the 3D counterpart of
- * the sketch editor's uv-space `dimensionLayout`.
+ * 3D layout for dimension annotations: the planar layout (`planarDimensionLayout`) laid
+ * out on the measured geometry's own frame and lifted back into space. Sizes derive from
+ * a scale factor — the callers pass `DIMENSION_LAYOUT_SCALE`, so text, arrows and gaps
+ * keep a fixed world size (mm) like dimensions on a drafting sheet.
  */
 
 import { MathUtils, XYZ } from "../math";
 import type { DimensionType } from "./annotation";
+import {
+    angleDimension,
+    DIMENSION_ANGLE_LABEL_MARGIN_PX,
+    DIMENSION_ARROW_HALF_ANGLE,
+    DIMENSION_ARROW_LENGTH_PX,
+    DIMENSION_BASE_TEXT_HEIGHT_PX,
+    DIMENSION_MIN_ANGLE_RADIUS_PX,
+    DIMENSION_RADIAL_LABEL_MARGIN_PX,
+    type DimensionGeometry,
+    type DimensionSize,
+    distanceDimension,
+    type Point2,
+    radiusDimension,
+} from "./planarDimensionLayout";
 
 export interface DimensionLayout {
     /** Flat xyz pairs: two extension lines, the dimension line / leader / arc polyline. */
@@ -26,14 +40,7 @@ export interface DimensionLayout {
     readonly side: XYZ;
 }
 
-// Shared with the sketch editor's 2D dimension layout (@chili3d/parametric,
-// sketch/editor/dimensionLayout) — change them together.
-export const DIMENSION_ARROW_LENGTH_PX = 10;
-export const DIMENSION_ARROW_HALF_ANGLE = (20 * Math.PI) / 180;
-export const DIMENSION_EXTENSION_GAP_PX = 3;
-export const DIMENSION_EXTENSION_OVERSHOOT_PX = 4;
-export const DIMENSION_MIN_OFFSET_PX = 14;
-const TEXT_HEIGHT_PX = 12;
+const TEXT_HEIGHT_PX = DIMENSION_BASE_TEXT_HEIGHT_PX;
 
 /**
  * Dimension text height in world units (mm), ISO/GB drafting-style: the whole
@@ -97,34 +104,6 @@ function dimensionPlane(dir: XYZ, start: XYZ, textPoint: XYZ): { normal: XYZ; si
     return { normal, side: normal.cross(dir).normalize()! };
 }
 
-export interface DimensionOffsets {
-    /** Side of the measured geometry the dimension sits on. */
-    readonly sign: number;
-    /** Signed distance from the geometry to the dimension line (clamped away from it). */
-    readonly off: number;
-    /** Signed gap between the geometry and the extension line start. */
-    readonly gap: number;
-    /** Signed distance from the geometry to the extension line end. */
-    readonly overshoot: number;
-}
-
-/**
- * Where the dimension line sits relative to the measured geometry: `off` is the
- * signed distance to it (clamped away from the geometry), `gap` and `overshoot`
- * follow its side so the extension line never crosses the geometry. Pure math so
- * the sketch editor's 2D layout shares it — change both sides together.
- */
-export function dimensionOffsets(offset: number, scale: number): DimensionOffsets {
-    const sign = offset >= 0 ? 1 : -1;
-    const off = sign * Math.max(Math.abs(offset), DIMENSION_MIN_OFFSET_PX * scale);
-    return {
-        sign,
-        off,
-        gap: sign * DIMENSION_EXTENSION_GAP_PX * scale,
-        overshoot: off + sign * DIMENSION_EXTENSION_OVERSHOOT_PX * scale,
-    };
-}
-
 /**
  * The fallback annotation plane when the cursor has said nothing yet: the plane
  * closest to containing `dir` wins — the axis most perpendicular to it,
@@ -152,11 +131,6 @@ export function nearestDimensionNormal(dir: XYZ, viewDirection: XYZ): XYZ {
     return best.sub(dir.multiply(best.dot(dir))).normalize()!;
 }
 
-// Shared with the sketch editor's 2D dimension layout — change them together.
-export const DIMENSION_RADIAL_LABEL_MARGIN_PX = 20;
-export const DIMENSION_MIN_ANGLE_RADIUS_PX = 24;
-export const DIMENSION_ANGLE_LABEL_MARGIN_PX = 14;
-
 /**
  * The plane frame of a radial/diameter dimension: the stored circle axis when
  * there is one — the leader direction and the text point are collinear by
@@ -177,7 +151,8 @@ function radialFrame(dir: XYZ, center: XYZ, textPoint: XYZ, planeNormal?: XYZ): 
  * Radial dimension of a circle/arc: a leader from `center` through `rim` to the
  * label, arrow on the rim pointing outward. `textPoint` picks the leader's
  * direction (through `rim`) and the label distance; a pick inside the circle
- * pushes the label out past the rim, like the 2D sketch editor does.
+ * pushes the label out past the rim, as it does in the sketch editor — both draw the
+ * planar `radiusDimension` laid out in the leader's own frame.
  * `planeNormal` is the circle's axis, keeping the arrows in the circle plane.
  */
 export function radialDimensionLayout(
@@ -192,16 +167,15 @@ export function radialDimensionLayout(
 
     const { normal, side } = radialFrame(dir, center, textPoint, planeNormal);
     const radius = center.distanceTo(rim);
-    const labelDistance = Math.max(
-        center.distanceTo(textPoint),
-        radius + DIMENSION_RADIAL_LABEL_MARGIN_PX * scale,
+    // The frame runs down the leader: the label vector is the picked distance along it,
+    // and the planar layout applies the rim margin.
+    const geometry = radiusDimension(
+        [0, 0],
+        radius,
+        [center.distanceTo(textPoint), 0],
+        annotationSize(scale),
     );
-    const label = center.add(dir.multiply(labelDistance));
-
-    const segments = segment(center, label);
-    const triangles = arrowhead(rim, dir, normal, scale);
-    const textPosition = label.add(side.multiply(TEXT_HEIGHT_PX * scale * 0.5));
-    return { segments, triangles, textPosition, normal, direction: dir, side };
+    return liftPlanar(center, dir, side, geometry, normal);
 }
 
 /**
@@ -283,7 +257,9 @@ export function angularDimensionSweep(vertex: XYZ, p1: XYZ, p2: XYZ, textPoint: 
 /**
  * Angular dimension between two directions around `vertex` (`p1`/`p2` carry the
  * directions): an arc swept from d1 to d2 through the side `textPoint` sits on,
- * arrows tangent at both ends, text on the bisector past the arc.
+ * arrows tangent at both ends, text on the bisector past the arc. The sweep is this
+ * system's reading of the label — the reflex when the label sits outside the narrow
+ * sector, where the sketch editor would measure the supplement.
  */
 export function angularDimensionLayout(
     vertex: XYZ,
@@ -294,36 +270,19 @@ export function angularDimensionLayout(
 ): DimensionLayout | undefined {
     const frame = angleFrame(vertex, p1, p2);
     if (frame === undefined || scale <= 0) return undefined;
+
     const { u, v, normal } = frame;
     const sweep = sweepInFrame(frame, vertex, textPoint);
-
-    const radius = Math.max(vertex.distanceTo(textPoint), DIMENSION_MIN_ANGLE_RADIUS_PX * scale);
-    const arcPoint = (angle: number) =>
-        vertex.add(u.multiply(radius * Math.cos(angle))).add(v.multiply(radius * Math.sin(angle)));
-
-    const segments: number[] = [];
-    const count = Math.max(4, Math.ceil((Math.abs(sweep) / Math.PI) * 16));
-    for (let i = 0; i < count; i++) {
-        segments.push(...segment(arcPoint((sweep * i) / count), arcPoint((sweep * (i + 1)) / count)));
-    }
-    // Tangent at an arc end, pointing along the sweep.
-    const tangent = (angle: number, forward: boolean): XYZ => {
-        const s = (forward ? 1 : -1) * Math.sign(sweep);
-        return u.multiply(-Math.sin(angle) * s).add(v.multiply(Math.cos(angle) * s));
-    };
-    const triangles = [
-        ...arrowhead(arcPoint(0), tangent(0, false), normal, scale),
-        ...arrowhead(arcPoint(sweep), tangent(sweep, true), normal, scale),
-    ];
-
-    const mid = sweep / 2;
-    const bisector = u.multiply(Math.cos(mid)).add(v.multiply(Math.sin(mid)));
-    const textPosition = vertex.add(bisector.multiply(radius + DIMENSION_ANGLE_LABEL_MARGIN_PX * scale));
-    // The text stands on the arc: baseline along the clockwise tangent at its
-    // midpoint, up along the bisector — direction × side = normal, the same
-    // right-handed text frame the linear layout returns.
-    const direction = u.multiply(Math.sin(mid)).sub(v.multiply(Math.cos(mid)));
-    return { segments, triangles, textPosition, normal, direction, side: bisector };
+    const geometry = angleDimension(
+        [0, 0],
+        // the frame runs down the first direction, so the arc starts on its x axis
+        [1, 0],
+        sweep,
+        planarPoint(vertex, u, v, textPoint),
+        annotationSize(scale),
+    );
+    if (geometry === undefined) return undefined;
+    return liftPlanar(vertex, u, v, geometry, normal);
 }
 
 /**
@@ -342,24 +301,61 @@ export function linearDimensionLayout(
     if (dir === undefined || scale <= 0) return undefined;
 
     const { normal, side } = dimensionPlane(dir, start, textPoint);
-    const rawOffset = textPoint.sub(start).dot(side);
-    const { sign, off, gap, overshoot } = dimensionOffsets(rawOffset, scale);
+    // The dimension is planar: lay it out on the measured line itself — start at the
+    // origin, end on the x axis — and lift the result back into the plane.
+    const [along, offset] = planarPoint(start, dir, side, textPoint);
+    const geometry = distanceDimension([0, 0], [length, 0], { offset, along }, annotationSize(scale));
+    if (geometry === undefined) return undefined;
+    return liftPlanar(start, dir, side, geometry, normal);
+}
 
-    const shift = (p: XYZ, d: number) => p.add(side.multiply(d));
-    const a = shift(start, off);
-    const b = shift(end, off);
+/**
+ * The point's coordinates in the frame (origin, x, y): its distance along `x`, then
+ * along `y`. The planar layouts take their inputs and return their geometry in this
+ * frame; everything 3D is a lift of it.
+ */
+function planarPoint(origin: XYZ, x: XYZ, y: XYZ, point: XYZ): Point2 {
+    const relative = point.sub(origin);
+    return [relative.dot(x), relative.dot(y)];
+}
 
-    const segments = [
-        ...segment(shift(start, gap), shift(start, overshoot)),
-        ...segment(shift(end, gap), shift(end, overshoot)),
-        ...segment(a, b),
-    ];
-    // CAD convention: arrow tips touch the extension lines, pointing outward
-    const triangles = [...arrowhead(a, dir.multiply(-1), normal, scale), ...arrowhead(b, dir, normal, scale)];
+/**
+ * The planar size a layout scale implies: an annotation keeps its text at the drafting
+ * ratio, one text height per `DIMENSION_BASE_TEXT_HEIGHT_PX` of furniture.
+ */
+function annotationSize(scale: number): DimensionSize {
+    return { scale, textHeight: TEXT_HEIGHT_PX * scale };
+}
 
-    const along = Math.min(Math.max(textPoint.sub(a).dot(dir), 0), length);
-    const textPosition = a.add(dir.multiply(along)).add(side.multiply(sign * TEXT_HEIGHT_PX * scale * 0.5));
-    return { segments, triangles, textPosition, normal, direction: dir, side };
+/**
+ * The planar geometry lifted onto the frame (origin, x, y): `(u, v)` maps to
+ * `origin + x·u + y·v`. The result is the planar layout's, vertex for vertex — that is
+ * the whole point of the split, so the sketch editor draws exactly what an annotation
+ * does, in its own coordinates.
+ */
+function liftPlanar(origin: XYZ, x: XYZ, y: XYZ, geometry: DimensionGeometry, normal: XYZ): DimensionLayout {
+    const at = (u: number, v: number) => origin.add(x.multiply(u)).add(y.multiply(v));
+    const segments: number[] = [];
+    for (const [u1, v1, u2, v2] of geometry.segments) {
+        segments.push(...segment(at(u1, v1), at(u2, v2)));
+    }
+    const triangles: number[] = [];
+    for (const [u, v] of geometry.triangles) {
+        const point = at(u, v);
+        triangles.push(point.x, point.y, point.z);
+    }
+    // The text's frame is the planar geometry's own: `textDirection` lifted, and its up
+    // axis, which is that direction's left normal in the plane.
+    const direction =
+        x.multiply(geometry.textDirection[0]).add(y.multiply(geometry.textDirection[1])).normalize() ?? x;
+    return {
+        segments,
+        triangles,
+        textPosition: at(geometry.textPosition[0], geometry.textPosition[1]),
+        normal,
+        direction,
+        side: normal.cross(direction).normalize() ?? y,
+    };
 }
 
 /**
