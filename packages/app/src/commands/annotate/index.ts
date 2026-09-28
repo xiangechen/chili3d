@@ -5,3 +5,4 @@ export * from "./angleDimension";
 export * from "./annotationCommandBase";
 export * from "./dimension";
 export * from "./radialDimension";
+export * from "./text";

@@ -93,7 +93,11 @@ export const DefaultRibbon: RibbonTabProfile[] = [
             },
             {
                 groupName: "ribbon.group.annotation",
-                items: ["annotate.dimension", ["annotate.radius", "annotate.diameter", "annotate.angle"]],
+                items: [
+                    "annotate.dimension",
+                    ["annotate.radius", "annotate.diameter", "annotate.angle"],
+                    "annotate.text",
+                ],
             },
             {
                 groupName: "ribbon.group.act",

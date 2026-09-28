@@ -137,6 +137,9 @@ export default {
         "command.sketch.toggleExternal": "Alternar Função Externa",
         "dialog.title.enterValue": "Insira o valor",
         "prompt.pickDimensionPosition": "escolha a posição da dimensão, ESC para cancelar",
+        "prompt.pickFistPoint": "escolha o primeiro ponto, ESC para cancelar",
+        "prompt.pickLeaderPoint": "escolha o ponto para onde a linha aponta, ESC para cancelar",
+        "prompt.pickTextPosition": "escolha a posição do texto, ESC para cancelar",
         "prompt.pickExternalRef":
             "escolha uma referência externa (roxa) para alternar sua função, ESC para concluir",
         "prompt.pickSketchEntity": "escolha uma entidade do esboço, ESC para cancelar",
@@ -161,6 +164,7 @@ export default {
         "command.annotate.angle": "Cota de Ângulo",
         "command.annotate.diameter": "Cota de Diâmetro",
         "command.annotate.radius": "Cota de Raio",
+        "command.annotate.text": "Texto",
         "command.create.arc": "Arco",
         "command.create.arcTTR": "Arco TTR",
         "command.create.box": "Caixa",

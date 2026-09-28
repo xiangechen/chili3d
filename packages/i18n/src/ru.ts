@@ -78,6 +78,7 @@ export default {
         "command.annotate.angle": "Угловой размер",
         "command.annotate.diameter": "Размер диаметра",
         "command.annotate.radius": "Размер радиуса",
+        "command.annotate.text": "Текст",
         "command.create.arc": "Дуга",
         "command.create.arc2point": "Дуга в 2 точки",
         "command.create.arc3point": "Дуга в 3 точки",
@@ -320,6 +321,8 @@ export default {
         "prompt.pickArcMid": "выберите точку на дуге, ESC для отмены",
         "prompt.pickCircleCenter": "выберите центр, ESC для отмены",
         "prompt.pickDimensionPosition": "выберите позицию размера, ESC для отмены",
+        "prompt.pickLeaderPoint": "выберите точку, на которую указывает выноска, ESC для отмены",
+        "prompt.pickTextPosition": "выберите положение текста, ESC для отмены",
         "prompt.pickExternalRef":
             "выберите внешнюю ссылку (фиолетовую) для переключения роли, ESC для завершения",
         "prompt.pickFistPoint": "выберите точку начала, ESC для отмены",

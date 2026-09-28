@@ -14,6 +14,7 @@ import {
     type IVisualObject,
     type Matrix4,
     RefSegmentAnnotation,
+    TextAnnotation,
     ViewUtils,
     XYZ,
 } from "@chili3d/core";
@@ -127,13 +128,16 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
     }
 }
 
-/** The visual for an annotation node; kinds without one (text, infinite line) get undefined. */
+/** The visual for an annotation node; kinds without one (infinite line) get undefined. */
 export function createAnnotationVisual(
     context: ThreeVisualContext,
     annotation: Annotation,
 ): ThreeAnnotation | undefined {
     if (annotation instanceof DimensionAnnotation) {
         return new ThreeDimensionAnnotation(context, annotation);
+    }
+    if (annotation instanceof TextAnnotation) {
+        return new ThreeTextAnnotation(context, annotation);
     }
     if (annotation instanceof RefSegmentAnnotation) {
         return new ThreeRefSegmentAnnotation(context, annotation);
@@ -178,6 +182,153 @@ export class ThreeRefSegmentAnnotation extends ThreeAnnotation implements IHighl
     override dispose(): void {
         super.dispose();
         this.annotation.removePropertyChanged(this.handlePropertyChanged);
+    }
+}
+
+/** How far the leader stops short of the text, in text heights. */
+const LEADER_GAP_EM = 0.25;
+
+/** The frame a note draws in before any view is known: the world XY plane. */
+const PLANAR_FRAME = { x: XYZ.unitX, y: XYZ.unitY };
+
+/**
+ * The frame a note's text is drawn in: facing the camera and reading left to right, so it
+ * is legible from wherever the user looks at it. A dimension's text lies in the plane it
+ * measures, which is right for a mark on the model; a note is read, not measured, and the
+ * troika text it replaces faced the camera too.
+ */
+function billboardFrame(view: IView): { x: XYZ; y: XYZ } {
+    const normal = view.direction().reverse().normalize();
+    if (normal === undefined) return PLANAR_FRAME;
+    // the camera's up, projected into the plane facing it
+    const up = view
+        .up()
+        .sub(normal.multiply(view.up().dot(normal)))
+        .normalize();
+    if (up === undefined) return PLANAR_FRAME;
+    return { x: up.cross(normal).normalize() ?? PLANAR_FRAME.x, y: up };
+}
+
+/**
+ * A note: mesh text at its position, and the leader from there back to what it is about.
+ * The text follows the camera (see `billboardFrame`), so the batch is rebuilt when the
+ * view turns; the leader is anchored in space and never moves.
+ */
+export class ThreeTextAnnotation extends ThreeAnnotation implements IHighlightable {
+    private _frame = PLANAR_FRAME;
+    private _view?: IView;
+    private _disposed = false;
+
+    constructor(
+        context: ThreeVisualContext,
+        readonly annotation: TextAnnotation,
+    ) {
+        super(context);
+        this.transform = annotation.transform;
+        annotation.onPropertyChanged(this.handleAnnotationChanged);
+        defaultFontService.ensureLoaded();
+        defaultFontService.onLoaded(this.handleFontLoaded);
+        // On document reload the view is registered after the visuals are created;
+        // pick it up as soon as it arrives, or the text keeps the fallback frame.
+        annotation.document.application?.views?.onCollectionChanged?.(this.handleViewsChanged);
+        this.refreshView();
+    }
+
+    private readonly handleViewsChanged = () => this.refreshView();
+
+    private readonly handleFontLoaded = () => this.markBatchDirty();
+
+    private readonly handleAnnotationChanged = (property: keyof TextAnnotation) => {
+        if (property === "transform") {
+            this.transform = this.annotation.transform;
+        }
+        this.markBatchDirty();
+        this.context.visual.update();
+    };
+
+    private readonly onCameraChanged = debounce(() => {
+        const view = this.view();
+        if (view) this.updateForView(view);
+    }, 20);
+
+    /** The (single) view displaying this annotation's document; subscribes on first use. */
+    private view(): IView | undefined {
+        if (this._view?.isClosed) {
+            this._view.cameraController.removePropertyChanged?.(this.onCameraChanged);
+            this._view = undefined;
+        }
+        if (this._view !== undefined) return this._view;
+        const document = this.context.visual.document;
+        this._view = document?.application?.views?.find((v) => v.document === document && !v.isClosed);
+        this._view?.cameraController.onPropertyChanged?.(this.onCameraChanged);
+        return this._view;
+    }
+
+    private refreshView(): void {
+        const view = this.view();
+        if (view) this.updateForView(view);
+        else this.context.visual.update();
+    }
+
+    /** Re-frames the text for `view`; only a turn of the camera changes anything. */
+    updateForView(view: IView): void {
+        if (this._disposed || view.isClosed) return;
+        const frame = billboardFrame(view);
+        // a fraction of a degree is below what the text can show, and rebuilding the
+        // batch on every camera nudge would redraw every annotation in the document
+        if (
+            Math.abs(frame.x.dot(this._frame.x)) > 1 - 1e-6 &&
+            Math.abs(frame.y.dot(this._frame.y)) > 1 - 1e-6
+        )
+            return;
+        this._frame = frame;
+        this.markBatchDirty();
+        this.context.visual.update();
+    }
+
+    override buildLineSegments(target: number[]): void {
+        const { leaderPoint, position } = this.annotation;
+        if (leaderPoint === undefined) return;
+        const dir = position.sub(leaderPoint).normalize();
+        if (dir === undefined) return;
+        // stop short of the text, whose left edge sits on `position`
+        const end = position.sub(dir.multiply(this.annotation.textHeight * LEADER_GAP_EM));
+        this.pushTransformed(target, [leaderPoint.x, leaderPoint.y, leaderPoint.z, end.x, end.y, end.z]);
+    }
+
+    override buildTriangles(target: number[]): void {
+        // nothing to draw before the font arrives; `handleFontLoaded` rebuilds when it does
+        if (defaultFontService.outline === undefined) return;
+        const laid = defaultFontService.layout(this.annotation.content);
+        const { x, y } = this._frame;
+        const em = this.annotation.textHeight;
+        // the layout centres the line on the origin; a note reads from the leader's end,
+        // so the line starts there instead
+        let left = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < laid.length; i += 2) left = Math.min(left, laid[i]);
+        const shift = Number.isFinite(left) ? -left : 0;
+
+        const matrix = this.transform;
+        for (let i = 0; i < laid.length; i += 2) {
+            const local = this.annotation.position
+                .add(x.multiply((laid[i] + shift) * em))
+                .add(y.multiply(laid[i + 1] * em));
+            const point = matrix.ofPoint(local);
+            target.push(point.x, point.y, point.z);
+        }
+    }
+
+    wholeVisual(): (Mesh | LineSegments2 | Points)[] {
+        return [];
+    }
+
+    override dispose(): void {
+        this._disposed = true;
+        this._view?.cameraController.removePropertyChanged?.(this.onCameraChanged);
+        this.annotation.removePropertyChanged(this.handleAnnotationChanged);
+        this.annotation.document.application?.views?.removeCollectionChanged?.(this.handleViewsChanged);
+        defaultFontService.removeLoaded(this.handleFontLoaded);
+        super.dispose();
     }
 }
 

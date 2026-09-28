@@ -51,6 +51,10 @@ export interface TextAnnotationOptions extends AnnotationOptionsBase {
     annotationType: "text";
     content: string;
     position: XYZ;
+    /** Where the leader points; leave it out for text that stands on its own. */
+    leaderPoint?: XYZ;
+    /** World-space text height (mm). Defaults to `DIMENSION_TEXT_HEIGHT`. */
+    textHeight?: number;
 }
 
 export interface RefInfiniteLineAnnotationOptions extends AnnotationOptionsBase {
@@ -259,11 +263,18 @@ export class DimensionAnnotation extends Annotation {
     }
 }
 
+/**
+ * A note: a line of text placed in space, with a leader back to whatever it is
+ * about. The leader is what makes it an annotation rather than a floating label —
+ * without one the text stands alone, which the model allows and the visual draws.
+ * The text faces the camera (see the visual), so a note reads from any side.
+ */
 @serializable()
 export class TextAnnotation extends Annotation {
     declare readonly annotationType: "text";
 
     @serialize()
+    @property("text.content")
     get content(): string {
         return this.getPrivateValue("content");
     }
@@ -271,6 +282,7 @@ export class TextAnnotation extends Annotation {
         this.setProperty("content", value);
     }
 
+    /** Where the text sits — the free end of the leader. */
     @serialize()
     get position(): XYZ {
         return this.getPrivateValue("position");
@@ -279,10 +291,37 @@ export class TextAnnotation extends Annotation {
         this.setProperty("position", value);
     }
 
+    /** The point the leader points at; undefined draws no leader at all. */
+    @serialize()
+    get leaderPoint(): XYZ | undefined {
+        return this.getPrivateValue("leaderPoint", undefined);
+    }
+    set leaderPoint(value: XYZ | undefined) {
+        this.setProperty("leaderPoint", value);
+    }
+
+    /** World-space height of the text (mm), the same size a dimension reads at. */
+    @serialize()
+    @property("dimension.textHeight", { unit: LENGTH_UNITS })
+    get textHeight(): number {
+        return this.getPrivateValue("textHeight", DIMENSION_TEXT_HEIGHT);
+    }
+    set textHeight(value: number) {
+        if (value > 0) this.setProperty("textHeight", value);
+    }
+
+    override boundingBox(): BoundingBox | undefined {
+        const points = [this.position];
+        if (this.leaderPoint !== undefined) points.push(this.leaderPoint);
+        return BoundingBox.fromPoints(points);
+    }
+
     constructor(options: TextAnnotationOptions) {
         super(options);
         this.setPrivateValue("content", options.content);
         this.setPrivateValue("position", options.position);
+        this.setPrivateValue("leaderPoint", options.leaderPoint);
+        if (options.textHeight !== undefined) this.setPrivateValue("textHeight", options.textHeight);
     }
 }
 

@@ -10,6 +10,7 @@ import {
     RefSegmentAnnotation,
     TextAnnotation,
 } from "../src/model/annotation";
+import { DIMENSION_TEXT_HEIGHT } from "../src/model/dimensionLayout";
 import { InternalClassName, Serializer } from "../src/serialize";
 import { TestDocument } from "../test-utils";
 
@@ -148,7 +149,36 @@ describe("TextAnnotation", () => {
         expect(anno.display()).toBe("annotation");
     });
 
-    test("boundingBox should return undefined", () => {
+    test("keeps and serializes a leader point, positions the box around it", () => {
+        const anno = new TextAnnotation({
+            document: doc,
+            annotationType: "text",
+            name: "test-text",
+            content: "Hello",
+            position: new XYZ({ x: 10, y: 0, z: 0 }),
+            leaderPoint: new XYZ({ x: 0, y: 5, z: 0 }),
+        });
+
+        expect(anno.leaderPoint).toEqual(new XYZ({ x: 0, y: 5, z: 0 }));
+        const box = anno.boundingBox()!;
+        expect(box.min).toEqual(new XYZ({ x: 0, y: 0, z: 0 }));
+        expect(box.max).toEqual(new XYZ({ x: 10, y: 5, z: 0 }));
+    });
+
+    test("a note without a leader still has a box, at its position", () => {
+        const anno = new TextAnnotation({
+            document: doc,
+            annotationType: "text",
+            name: "test-text",
+            content: "Hello",
+            position: new XYZ({ x: 3, y: 4, z: 0 }),
+        });
+
+        expect(anno.leaderPoint).toBeUndefined();
+        expect(anno.boundingBox()!.min).toEqual(new XYZ({ x: 3, y: 4, z: 0 }));
+    });
+
+    test("textHeight defaults to the drafting size and refuses a non-positive one", () => {
         const anno = new TextAnnotation({
             document: doc,
             annotationType: "text",
@@ -157,7 +187,11 @@ describe("TextAnnotation", () => {
             position: XYZ.zero,
         });
 
-        expect(anno.boundingBox()).toBeUndefined();
+        expect(anno.textHeight).toBe(DIMENSION_TEXT_HEIGHT);
+        anno.textHeight = 0;
+        expect(anno.textHeight).toBe(DIMENSION_TEXT_HEIGHT);
+        anno.textHeight = 7;
+        expect(anno.textHeight).toBe(7);
     });
 });
 

@@ -26,6 +26,7 @@ import {
     radialDimensionLayout,
     rememberOutline,
     Signal,
+    TextAnnotation,
     XYZ,
 } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
@@ -48,6 +49,7 @@ import {
     type ThreeAnnotation,
     ThreeDimensionAnnotation,
     ThreeRefSegmentAnnotation,
+    ThreeTextAnnotation,
 } from "../src/threeAnnotation";
 import { ThreeComponentObject } from "../src/threeVisualObject";
 import { createTestComponentNode, createTestContext } from "./mocks";
@@ -834,6 +836,195 @@ describe("ThreeDimensionAnnotation", () => {
         const [handles] = visual.wholeVisual() as [Points];
         select([annotation]);
         expect(handlePositions(handles)).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 0, 20, 20, 0]);
+    });
+});
+
+describe("ThreeTextAnnotation", () => {
+    let restoreFont: () => void;
+
+    beforeEach(() => {
+        restoreFont = stubAnnotationFont();
+    });
+    afterEach(() => {
+        restoreFont();
+    });
+
+    function createText(leader = true) {
+        return new TextAnnotation({
+            document: new TestDocument(),
+            annotationType: "text",
+            name: "note",
+            content: "Note",
+            position: new XYZ({ x: 10, y: 0, z: 0 }),
+            leaderPoint: leader ? XYZ.zero : undefined,
+        });
+    }
+
+    async function createVisual(annotation: TextAnnotation) {
+        const { context, visual: ivisual } = createTestContext();
+        const update = rs.fn();
+        ivisual.update = update;
+        const visual = new ThreeTextAnnotation(context, annotation);
+        context.visualShapes.add(visual);
+        await flush();
+        return { context, update, visual, ...batchParts(visual) };
+    }
+
+    function glyphPositions(texts: Mesh): Float32Array {
+        return texts.geometry.getAttribute("position").array as Float32Array;
+    }
+
+    test("draws the leader from the picked point to just short of the text", async () => {
+        const annotation = createText();
+        const { lines, visual } = await createVisual(annotation);
+
+        // 3.5 tall text at a quarter-text gap: the leader stops at 10 - 0.875
+        expectPositionsClose(linePositions(lines), [0, 0, 0, 9.125, 0, 0]);
+        visual.dispose();
+    });
+
+    test("draws the glyphs from the text position, in the plane facing the world", async () => {
+        const annotation = createText();
+        const { texts, visual } = await createVisual(annotation);
+
+        const positions = glyphPositions(texts);
+        expect(positions.length).toBeGreaterThan(0);
+        // the layout is left-aligned on the position, in the XY fallback frame
+        const xs = Array.from(positions).filter((_, i) => i % 3 === 0);
+        const zs = Array.from(positions).filter((_, i) => i % 3 === 2);
+        expect(Math.min(...xs)).toBeCloseTo(10, 5);
+        expect(Math.max(...xs)).toBeGreaterThan(10);
+        expect(zs.every((z) => Math.abs(z) < 1e-9)).toBe(true);
+        visual.dispose();
+    });
+
+    test("a note without a leader draws no line at all", async () => {
+        const annotation = createText(false);
+        const { lines, texts, visual } = await createVisual(annotation);
+
+        expect(linePositions(lines).length).toBe(0);
+        expect(glyphPositions(texts).length).toBeGreaterThan(0);
+        visual.dispose();
+    });
+
+    test("turns the text to face the camera", async () => {
+        const annotation = createText();
+        const { texts, visual } = await createVisual(annotation);
+        const before = Array.from(glyphPositions(texts));
+
+        // looking down -X from +X: the text plane becomes YZ, reading towards -Z
+        const camera = new PerspectiveCamera(50, 1, 0.1, 2000);
+        camera.position.set(100, 0, 0);
+        camera.lookAt(0, 0, 0);
+        visual.updateForView(createMockView(camera).view);
+        await flush();
+
+        const after = glyphPositions(texts);
+        expect(Array.from(after)).not.toEqual(before);
+        // every corner sits in the plane the camera faces, x = the text position
+        for (let i = 0; i < after.length; i += 3) {
+            expect(after[i]).toBeCloseTo(10, 5);
+        }
+        const ys = Array.from(after).filter((_, i) => i % 3 === 1);
+        // the ink straddles the position, so the leader meets the text at its middle
+        expect(Math.min(...ys)).toBeLessThan(0);
+        expect(Math.max(...ys)).toBeGreaterThan(0);
+        // and it reads left to right: the line starts at the position and runs along -Z,
+        // which is the reading direction of a frame facing a camera at +X
+        const zs = Array.from(after).filter((_, i) => i % 3 === 2);
+        expect(Math.max(...zs)).toBeCloseTo(0, 5);
+        expect(Math.min(...zs)).toBeLessThan(0);
+        visual.dispose();
+    });
+
+    test("does not rewrite the text while the camera keeps the same facing", async () => {
+        const annotation = createText();
+        const { texts, visual } = await createVisual(annotation);
+        const before = glyphPositions(texts);
+
+        const camera = new PerspectiveCamera(50, 1, 0.1, 2000);
+        camera.position.set(0, 0, 100);
+        camera.lookAt(0, 0, 0);
+        visual.updateForView(createMockView(camera).view);
+        await flush();
+
+        expect(glyphPositions(texts)).toBe(before);
+        visual.dispose();
+    });
+
+    test("faces the view that is registered after the visual is created", async () => {
+        const views = new ObservableCollection<IView>();
+        const document = new TestDocument({ application: { views } as unknown as IApplication });
+        const annotation = new TextAnnotation({
+            document,
+            annotationType: "text",
+            name: "note",
+            content: "Note",
+            position: new XYZ({ x: 10, y: 0, z: 0 }),
+            leaderPoint: XYZ.zero,
+        });
+        const { context } = createTestContext();
+        (context as { visual: unknown }).visual = { update: rs.fn(), document };
+        const visual = new ThreeTextAnnotation(context, annotation);
+        context.visualShapes.add(visual);
+        await flush();
+        const { texts } = batchParts(visual);
+        // no view yet: the text sits in the fallback world XY plane
+        const zs = Array.from(glyphPositions(texts)).filter((_, i) => i % 3 === 2);
+        expect(zs.length).toBeGreaterThan(0);
+        expect(zs.every((z) => Math.abs(z) < 1e-9)).toBe(true);
+
+        const camera = new PerspectiveCamera(50, 1, 0.1, 2000);
+        camera.position.set(100, 0, 0);
+        camera.lookAt(0, 0, 0);
+        const { view } = createMockView(camera);
+        (view as { document: unknown }).document = document;
+        views.push(view);
+        await flush();
+
+        // the text plane becomes the one the camera faces, through the text position
+        const after = glyphPositions(texts);
+        expect(after.length).toBeGreaterThan(0);
+        for (let i = 0; i < after.length; i += 3) {
+            expect(after[i]).toBeCloseTo(10, 5);
+        }
+        visual.dispose();
+    });
+
+    test("stops following the views collection once disposed", async () => {
+        const views = new ObservableCollection<IView>();
+        const document = new TestDocument({ application: { views } as unknown as IApplication });
+        const annotation = new TextAnnotation({
+            document,
+            annotationType: "text",
+            name: "note",
+            content: "Note",
+            position: new XYZ({ x: 10, y: 0, z: 0 }),
+            leaderPoint: XYZ.zero,
+        });
+        const { context } = createTestContext();
+        const update = rs.fn();
+        (context as { visual: unknown }).visual = { update, document };
+        const visual = new ThreeTextAnnotation(context, annotation);
+        context.visualShapes.add(visual);
+        await flush();
+        const camera = new PerspectiveCamera(50, 1, 0.1, 2000);
+        camera.position.set(100, 0, 0);
+        camera.lookAt(0, 0, 0);
+        const first = createMockView(camera);
+        (first.view as { document: unknown }).document = document;
+        views.push(first.view);
+        await flush();
+        expect(update).toHaveBeenCalled();
+
+        visual.dispose();
+        await flush();
+        update.mockClear();
+        const second = createMockView(camera);
+        (second.view as { document: unknown }).document = document;
+        views.push(second.view);
+        await flush();
+        expect(update).not.toHaveBeenCalled();
     });
 });
 
