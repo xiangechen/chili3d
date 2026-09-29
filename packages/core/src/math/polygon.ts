@@ -92,11 +92,12 @@ type Point2 = [number, number];
  * triangle, in the winding the outer ring came in.
  *
  * Holes are bridged into the outer ring one at a time, topmost point first, along a
- * vertical channel to the edge directly above; the bridged ring is then ear-clipped.
- * The channel's doubled edges make zero-area ears, which are cut but not emitted, so
- * the result covers the region and the holes stay empty. Glyph counters are the
- * standing case: convex-ish loops well inside their outline, which a vertical channel
- * bridges without crossing anything.
+ * zero-width channel to the ring — straight up to the edge directly above when that
+ * reaches it cleanly, to the nearest reachable vertex when a previous channel stands
+ * in the way. The bridged ring is then ear-clipped. The channel's doubled edges make
+ * zero-area ears, which are cut but not emitted, so the result covers the region and
+ * the holes stay empty. Glyph counters are the standing case: convex-ish loops well
+ * inside their outline, which a vertical channel bridges without crossing anything.
  */
 export function triangulatePolygon(outer: Polygon, holes: readonly Polygon[] = []): Point2[] {
     const ring = cleanRing(outer);
@@ -110,7 +111,15 @@ export function triangulatePolygon(outer: Polygon, holes: readonly Polygon[] = [
         .map((points) => (signedArea(points) > 0 ? [...points].reverse() : points))
         .map((points) => ({ points, top: topmost(points) }))
         .sort((a, b) => b.points[b.top][1] - a.points[a.top][1]);
-    for (const hole of sortedHoles) polygon = bridgeHole(polygon, hole.points, hole.top);
+    for (let h = 0; h < sortedHoles.length; h++) {
+        const { points, top } = sortedHoles[h];
+        polygon = bridgeHole(
+            polygon,
+            points,
+            top,
+            sortedHoles.slice(h + 1).map((hole) => hole.points),
+        );
+    }
 
     return earClip(polygon);
 }
@@ -147,39 +156,26 @@ const cross2 = (a: Point2, b: Point2, c: Point2) =>
     (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
 
 /**
- * Joins a hole to the outer ring with a zero-width channel from its topmost point
- * straight up: the edge first crossed decides the bridge end, unless a vertex stands
- * inside the channel triangle, in which case the most central such vertex does — the
- * channel then cannot cross an edge between the two ends. A hole nothing sits above
- * is dropped rather than bridged into nowhere.
+ * Joins a hole to the outer ring with a zero-width channel from its topmost point:
+ * straight up to the edge first crossed when that channel reaches the ring cleanly,
+ * to the nearest reachable vertex otherwise. A hole nothing can reach is dropped
+ * rather than bridged into nowhere. `pending` holds the holes still waiting for a
+ * channel — a channel may not cross them either.
+ *
+ * The two ends of a channel sit twice on the bridged ring, once per side, and no
+ * later channel may land on such a vertex again: two channels through one point
+ * coincide there, and ear clipping reads coincident corners of different channels
+ * as one vertex, cutting triangles across a hole.
  */
-function bridgeHole(polygon: Point2[], hole: Point2[], top: number): Point2[] {
+function bridgeHole(polygon: Point2[], hole: Point2[], top: number, pending: readonly Point2[][]): Point2[] {
     const m = hole[top];
-    let bridgeY = Infinity;
-    let candidate = -1;
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        if (a[0] > m[0] === b[0] > m[0]) continue;
-        const y = a[1] + ((b[1] - a[1]) * (m[0] - a[0])) / (b[0] - a[0]);
-        if (y <= m[1] || y >= bridgeY) continue;
-        bridgeY = y;
-        candidate = a[1] >= b[1] ? i : (i + 1) % polygon.length;
-    }
-    if (candidate < 0) return polygon;
+    const visits = new Map<string, number>();
+    for (const p of polygon) visits.set(`${p[0]},${p[1]}`, (visits.get(`${p[0]},${p[1]}`) ?? 0) + 1);
+    const channelPoint = (p: Point2) => (visits.get(`${p[0]},${p[1]}`) ?? 0) > 1;
 
-    // a vertex inside the channel triangle would leave the channel crossing its edges
-    const apex: Point2 = [m[0], bridgeY];
-    let bestDx = Infinity;
-    for (let i = 0; i < polygon.length; i++) {
-        const p = polygon[i];
-        if (p[1] <= m[1] || !strictlyInside(p, m, apex, polygon[candidate])) continue;
-        const dx = Math.abs(p[0] - m[0]);
-        if (dx < bestDx || (dx === bestDx && p[1] < polygon[candidate][1])) {
-            bestDx = dx;
-            candidate = i;
-        }
-    }
+    let candidate = bridgeCandidateUp(polygon, m, channelPoint);
+    if (candidate < 0) candidate = nearestReachable(polygon, hole, pending, m, channelPoint);
+    if (candidate < 0) return polygon;
 
     const rotated = [...hole.slice(top), ...hole.slice(0, top)];
     return [
@@ -190,6 +186,121 @@ function bridgeHole(polygon: Point2[], hole: Point2[], top: number): Point2[] {
         ...polygon.slice(candidate + 1),
     ];
 }
+
+/**
+ * The vertex a straight-up channel from `m` can end at, or -1 for none: the edge
+ * first crossed decides the bridge end, unless a vertex stands inside the channel
+ * triangle, in which case the most central such vertex does — the channel then
+ * cannot cross an edge between the two ends. Vertices already ending a channel are
+ * off-limits, as is any end the channel still meets the ring on the way to — a
+ * previous channel can block the way without a vertex inside the channel triangle.
+ */
+function bridgeCandidateUp(polygon: Point2[], m: Point2, channelPoint: (p: Point2) => boolean): number {
+    let bridgeY = Infinity;
+    let candidate = -1;
+    for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+        if (a[0] > m[0] === b[0] > m[0]) continue;
+        const y = a[1] + ((b[1] - a[1]) * (m[0] - a[0])) / (b[0] - a[0]);
+        if (y <= m[1] || y >= bridgeY) continue;
+        const higher = a[1] >= b[1] ? i : (i + 1) % polygon.length;
+        const lower = higher === i ? (i + 1) % polygon.length : i;
+        const end = channelPoint(polygon[higher]) && polygon[lower][1] > m[1] ? lower : higher;
+        if (channelPoint(polygon[end])) continue;
+        bridgeY = y;
+        candidate = end;
+    }
+    if (candidate < 0) return -1;
+
+    // a vertex inside the channel triangle would leave the channel crossing its edges
+    const apex: Point2 = [m[0], bridgeY];
+    let bestDx = Infinity;
+    for (let i = 0; i < polygon.length; i++) {
+        const p = polygon[i];
+        if (p[1] <= m[1] || channelPoint(p) || !strictlyInside(p, m, apex, polygon[candidate])) continue;
+        const dx = Math.abs(p[0] - m[0]);
+        if (dx < bestDx || (dx === bestDx && p[1] < polygon[candidate][1])) {
+            bestDx = dx;
+            candidate = i;
+        }
+    }
+    return channelCrosses(polygon, m, polygon[candidate], polygon[candidate]) ? -1 : candidate;
+}
+
+/**
+ * The nearest ring vertex a channel from `m` reaches without meeting the ring, the
+ * hole itself, or a hole still waiting for its channel — the fallback when no
+ * straight-up channel is clean. Vertices already ending a channel stay off-limits.
+ */
+function nearestReachable(
+    polygon: Point2[],
+    hole: Point2[],
+    pending: readonly Point2[][],
+    m: Point2,
+    channelPoint: (p: Point2) => boolean,
+): number {
+    let index = -1;
+    let distance = Infinity;
+    for (let i = 0; i < polygon.length; i++) {
+        const v = polygon[i];
+        if (channelPoint(v)) continue;
+        const d = (v[0] - m[0]) ** 2 + (v[1] - m[1]) ** 2;
+        if (d === 0 || d >= distance) continue;
+        if (channelCrosses(polygon, m, v, v) || channelCrosses(hole, m, v, m)) continue;
+        if (pending.some((waiting) => channelCrosses(waiting, m, v, undefined))) continue;
+        distance = d;
+        index = i;
+    }
+    return index;
+}
+
+/** Whether the channel `m`→`v` meets any of the ring's edges anywhere but at `touch`. */
+function channelCrosses(ring: readonly Point2[], m: Point2, v: Point2, touch: Point2 | undefined): boolean {
+    for (let i = 0; i < ring.length; i++) {
+        if (segmentsMeet(m, v, ring[i], ring[(i + 1) % ring.length], touch)) return true;
+    }
+    return false;
+}
+
+/**
+ * Whether the segments `m`→`v` and `a`→`b` meet anywhere but at `touch`, an endpoint
+ * of `m`→`v`: crossing interiors count, as does grazing a point of the other segment
+ * or overlapping it — only touching at `touch` alone is allowed.
+ */
+function segmentsMeet(m: Point2, v: Point2, a: Point2, b: Point2, touch: Point2 | undefined): boolean {
+    const d1 = cross2(a, b, m);
+    const d2 = cross2(a, b, v);
+    const d3 = cross2(m, v, a);
+    const d4 = cross2(m, v, b);
+    if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+        return true;
+    }
+    const touches = (p: Point2) => touch !== undefined && samePoint(p, touch);
+    if (d3 === 0 && d4 === 0) {
+        // collinear: project on the channel; shared length blocks, a lone shared point away from `touch` too
+        const dx = v[0] - m[0];
+        const dy = v[1] - m[1];
+        const len2 = dx * dx + dy * dy;
+        const ta = (a[0] - m[0]) * dx + (a[1] - m[1]) * dy;
+        const tb = (b[0] - m[0]) * dx + (b[1] - m[1]) * dy;
+        const lo = Math.max(0, Math.min(ta, tb));
+        const hi = Math.min(len2, Math.max(ta, tb));
+        if (hi < lo) return false;
+        const touchT = touch === undefined ? -1 : samePoint(touch, v) ? len2 : 0;
+        return hi > lo || hi !== touchT;
+    }
+    if (d3 === 0 && !touches(a) && onSegment(a, m, v)) return true;
+    if (d4 === 0 && !touches(b) && onSegment(b, m, v)) return true;
+    return false;
+}
+
+/** Whether `p` — known to sit on the line through `a` and `b` — lies between them. */
+const onSegment = (p: Point2, a: Point2, b: Point2) =>
+    p[0] >= Math.min(a[0], b[0]) &&
+    p[0] <= Math.max(a[0], b[0]) &&
+    p[1] >= Math.min(a[1], b[1]) &&
+    p[1] <= Math.max(a[1], b[1]);
 
 /** Whether `p` lies inside the triangle, boundary excluded. */
 function strictlyInside(p: Point2, a: Point2, b: Point2, c: Point2): boolean {

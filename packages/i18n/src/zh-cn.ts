@@ -506,6 +506,7 @@ export default {
             "布尔工具已被参数体消耗，无法复制/移动/删除——请通过所属参数体的特征列表进行编辑",
         "toast.delete{0}Objects": "删除了 {0} 个对象",
         "toast.dimension.parallelEdges": "两条边平行，无法创建角度标注",
+        "toast.text.defaultFontFailed": "默认字体加载失败——文字暂不显示，正在后台重试下载",
         "toast.text.fontMissing": "这个文字的字体已不在手边——重新选一次字体才能改文字",
         "toast.text.fontFailed": "文字字体加载失败",
         "toast.text.fontUnavailable": "字体未能应用到全部对象",

@@ -330,6 +330,7 @@ describe("runAgent", () => {
             },
         ];
         const messages: ChatMessage[] = [];
+        const deltas: string[] = [];
 
         await runAgent({
             config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
@@ -337,7 +338,7 @@ describe("runAgent", () => {
             messages,
             tools,
             callbacks: {
-                onTextDelta: () => {},
+                onTextDelta: (t) => deltas.push(t),
                 onToolCall: () => {},
                 onThinkingDelta: () => {},
                 onUsage: () => {},
@@ -345,9 +346,10 @@ describe("runAgent", () => {
             provider,
         });
 
-        // A cut after a call is work in hand, not a lost turn: the call runs and the run carries
-        // on normally.
+        // A cut after a call is work in hand, not a lost turn: the call runs, the run carries
+        // on normally, and no truncation notice is shown — the only text is the next turn's.
         expect(ran).toEqual(["probe"]);
+        expect(deltas).toEqual(["done"]);
         expect(messages.some((m) => m.role === "user" && m.content.startsWith("Your last message"))).toBe(
             false,
         );
@@ -729,6 +731,56 @@ describe("runAgent", () => {
         const content = (messages.find((m) => m.role === "tool") as { content: string }).content;
         expect(content).not.toContain(body);
         expect(content).toContain("data:image/png;base64,<293 KB omitted");
+    });
+
+    test("keeps image bytes out of a tool error", async () => {
+        const body = "A".repeat(400_000);
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* (opts) {
+                if (opts.messages.some((m) => m.role === "tool")) {
+                    yield { type: "done", stopReason: "end_turn" };
+                    return;
+                }
+                yield { type: "tool_call", id: "t1", name: "boom_texture", arguments: "{}" };
+                yield { type: "done", stopReason: "tool_use" };
+            },
+        };
+        const tools: Tool[] = [
+            {
+                name: "boom_texture",
+                description: "",
+                parameters: { type: "object" },
+                // Coercion errors quote the rejected value in full (`describe` stringifies it),
+                // so failing on an image argument echoes its whole data URL into the message.
+                handler: async () => {
+                    throw new Error(`invalid texture: {"texture":"data:image/png;base64,${body}"}`);
+                },
+            },
+        ];
+        const messages: ChatMessage[] = [];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages,
+            tools,
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+        });
+
+        // The error is replayed with the history exactly like a result, so the same redaction
+        // covers it — and the message around the bytes survives for the model to read.
+        const content = (messages.find((m) => m.role === "tool") as { content: string }).content;
+        const parsed = JSON.parse(content) as { error: string };
+        expect(parsed.error).not.toContain(body);
+        expect(parsed.error).toContain("data:image/png;base64,<293 KB omitted");
+        expect(parsed.error).toContain("invalid texture:");
     });
 
     test("leaves a data URL too small to be an image alone", async () => {

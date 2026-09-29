@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type Material, MathUtils, Matrix4, type Texture, XYZ } from "@chili3d/core";
+import { Logger, type Material, MathUtils, Matrix4, type Texture, XYZ } from "@chili3d/core";
 import { imageToCanvas } from "@chili3d/element";
 import {
     Box3,
@@ -120,7 +120,12 @@ export class ThreeHelper {
         map.repeat.set(item.repeat.x, item.repeat.y);
         map.rotation = MathUtils.degToRad(item.rotation);
         void imageToCanvas(item.image).then((canvas) => {
-            if (canvas === undefined) return;
+            if (canvas === undefined) {
+                // The texture keeps three's empty image; the source is usually a long data
+                // URL, so only its prefix goes into the log.
+                Logger.warn(`Failed to rasterize the texture image: ${item.image.slice(0, 64)}`);
+                return;
+            }
             map.image = canvas;
             map.needsUpdate = true;
         });

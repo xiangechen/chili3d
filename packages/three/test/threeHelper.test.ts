@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Material, Matrix4, Texture, XY, XYZ } from "@chili3d/core";
+import { Logger, Material, Matrix4, Texture, XY, XYZ } from "@chili3d/core";
 import { stubImageRaster, TestDocument } from "@chili3d/core/test-utils";
 import { afterEach, rs } from "@rstest/core";
 import {
@@ -362,6 +362,7 @@ describe("ThreeHelper", () => {
 
         test("leaves the texture empty when the image cannot be loaded", async () => {
             stubImageRaster({ width: 512, height: 512, fail: true });
+            const warn = rs.spyOn(Logger, "warn").mockImplementation(() => {});
             const doc = new TestDocument();
             const texture = new Texture({ document: doc });
             texture.image = "data:image/png;base64,AAAA";
@@ -372,6 +373,9 @@ describe("ThreeHelper", () => {
             // the texture keeps three's own empty image: no raster was drawn into it
             expect(map?.image).toBeNull();
             expect(map?.version).toBe(0);
+            // but the failure no longer passes silently, and the log names the source
+            expect(warn).toHaveBeenCalledTimes(1);
+            expect(warn.mock.calls[0][0]).toContain("data:image/png;base64,AAAA");
         });
     });
 

@@ -3,6 +3,7 @@
 
 import {
     command,
+    Dimensions,
     type IStep,
     Plane,
     PointOnPlaneStep,
@@ -46,6 +47,7 @@ export class TextAnnotationCommand extends AnnotationCommandBase<TextAnnotation>
 
     private readonly getPositionStepData = (): PointSnapData => {
         return {
+            dimension: Dimensions.D1D2D3,
             prompt: () => this.content,
             preview: this.textPreview,
             plane: this.textPlane,

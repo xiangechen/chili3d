@@ -513,6 +513,8 @@ export default {
             "Consumed boolean tools cannot be copied, moved or deleted — edit them through the owning body's feature list",
         "toast.delete{0}Objects": "Deleted {0} objects",
         "toast.dimension.parallelEdges": "The two edges are parallel — no angle to dimension",
+        "toast.text.defaultFontFailed":
+            "The default font could not be loaded — text stays hidden while the download is retried",
         "toast.text.fontMissing": "This text's font is not at hand — pick it again to change the text",
         "toast.text.fontFailed": "The text font could not be loaded",
         "toast.text.fontUnavailable": "The font could not be applied to every object",

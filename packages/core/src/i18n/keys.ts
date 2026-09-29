@@ -497,6 +497,7 @@ export const I18N_KEYS = [
     "toast.consumedTool.forbidden",
     "toast.delete{0}Objects",
     "toast.dimension.parallelEdges",
+    "toast.text.defaultFontFailed",
     "toast.text.fontMissing",
     "toast.text.fontFailed",
     "toast.text.fontUnavailable",

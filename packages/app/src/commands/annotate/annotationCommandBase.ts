@@ -68,13 +68,23 @@ export abstract class AnnotationCommandBase<T extends Annotation> extends Multis
     protected override executeMainTask(): void {
         if (!this.preview) this.startPreview();
         const { transaction, annotation } = this.preview!;
-        this.preview = undefined;
 
-        Transaction.execute(this.document, "create Annotation", () => {
-            this.commitAnnotation(annotation);
-            this.document.visual.update();
-        });
-        transaction.commit();
+        try {
+            Transaction.execute(this.document, "create Annotation", () => {
+                this.commitAnnotation(annotation);
+                this.document.visual.update();
+            });
+            transaction.commit();
+        } catch (e) {
+            // Roll the preview back here too: `execute` joins the preview transaction, so a
+            // failure would otherwise strand it — every later Transaction.execute would join
+            // the stranded one and never reach the history.
+            transaction.rollback();
+            this.preview = undefined;
+            throw e;
+        }
+
+        this.preview = undefined;
         this.repeatOperation = true;
     }
 

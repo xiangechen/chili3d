@@ -373,6 +373,8 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
                 const visual = createAnnotationVisual(this.context, node);
                 if (visual === undefined) continue;
                 visual.transform = node.transform.multiply(parentTransform);
+                // Pick paths read this flag (rendering inherits it from the parent).
+                visual.visible = this.visible;
                 this._annotations.push(visual);
                 this.add(visual);
             } else if (node instanceof ComponentNode) {

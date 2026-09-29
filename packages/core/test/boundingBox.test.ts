@@ -78,6 +78,40 @@ describe("BoundingBox.transformed", () => {
         expect(transformed.min).toEqual(new XYZ({ x: 2, y: 3, z: 4 }));
         expect(transformed.max).toEqual(new XYZ({ x: 3, y: 4, z: 5 }));
     });
+
+    test("refits the AABB around a box rotated by 45 degrees", () => {
+        const box = new BoundingBox(new XYZ({ x: -5, y: -5, z: -1 }), new XYZ({ x: 5, y: 5, z: 1 }));
+        const matrix = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI / 4);
+        const transformed = BoundingBox.transformed(box, matrix);
+
+        // the rotated square section spans a 10√2 × 10√2 AABB around the unchanged center
+        const halfSide = 5 * Math.SQRT2;
+        expect(transformed.min.x).toBeCloseTo(-halfSide);
+        expect(transformed.min.y).toBeCloseTo(-halfSide);
+        expect(transformed.min.z).toBeCloseTo(-1);
+        expect(transformed.max.x).toBeCloseTo(halfSide);
+        expect(transformed.max.y).toBeCloseTo(halfSide);
+        expect(transformed.max.z).toBeCloseTo(1);
+
+        const center = BoundingBox.center(transformed);
+        expect(center.x).toBeCloseTo(0);
+        expect(center.y).toBeCloseTo(0);
+        expect(center.z).toBeCloseTo(0);
+    });
+
+    test("keeps the box valid under a 90 degree rotation", () => {
+        const box = new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 2, y: 4, z: 6 }));
+        const matrix = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI / 2);
+        const transformed = BoundingBox.transformed(box, matrix);
+
+        expect(BoundingBox.isValid(transformed)).toBe(true);
+        expect(transformed.min.x).toBeCloseTo(-4);
+        expect(transformed.min.y).toBeCloseTo(0);
+        expect(transformed.min.z).toBeCloseTo(0);
+        expect(transformed.max.x).toBeCloseTo(0);
+        expect(transformed.max.y).toBeCloseTo(2);
+        expect(transformed.max.z).toBeCloseTo(6);
+    });
 });
 
 describe("BoundingBox.center", () => {

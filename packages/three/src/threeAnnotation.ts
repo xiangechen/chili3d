@@ -84,11 +84,14 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
     }
 
     highlight(): void {
+        // A batch rebuild redraws every annotation of the parent — skip no-op transitions.
+        if (this._highlighted) return;
         this._highlighted = true;
         this.markBatchDirty();
     }
 
     unhighlight(): void {
+        if (!this._highlighted) return;
         this._highlighted = false;
         this.markBatchDirty();
     }
@@ -275,12 +278,10 @@ export class ThreeTextAnnotation extends ThreeAnnotation implements IHighlightab
         if (this._disposed || view.isClosed) return;
         const frame = billboardFrame(view);
         // a fraction of a degree is below what the text can show, and rebuilding the
-        // batch on every camera nudge would redraw every annotation in the document
-        if (
-            Math.abs(frame.x.dot(this._frame.x)) > 1 - 1e-6 &&
-            Math.abs(frame.y.dot(this._frame.y)) > 1 - 1e-6
-        )
-            return;
+        // batch on every camera nudge would redraw every annotation in the document.
+        // Signed dots: a jump to the opposite side flips the frame's x axis, and keeping
+        // the old frame would draw the text mirrored for the now-facing camera.
+        if (frame.x.dot(this._frame.x) > 1 - 1e-6 && frame.y.dot(this._frame.y) > 1 - 1e-6) return;
         this._frame = frame;
         this.markBatchDirty();
         this.context.visual.update();
@@ -300,7 +301,12 @@ export class ThreeTextAnnotation extends ThreeAnnotation implements IHighlightab
         // nothing to draw before the font arrives; `handleFontLoaded` rebuilds when it does
         if (defaultFontService.outline === undefined) return;
         const laid = defaultFontService.layout(this.annotation.content);
-        const { x, y } = this._frame;
+        // The frame is a world-space billboard (from the view); bring it into the
+        // annotation's local space, or a rotated/mirrored/instanced transform applies
+        // it a second time and drags the text out of the plane facing the camera.
+        const inverse = this.worldTransform().invert();
+        const x = inverse?.ofVector(this._frame.x) ?? this._frame.x;
+        const y = inverse?.ofVector(this._frame.y) ?? this._frame.y;
         const em = this.annotation.textHeight;
         // the layout centres the line on the origin; a note reads from the leader's end,
         // so the line starts there instead
@@ -339,6 +345,7 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
     private _view?: IView;
     private _disposed = false;
     private _mirrored = false;
+    private _flipped = false;
     private _segments: number[] = [];
     private _triangles: number[] = [];
     private _anchor = XYZ.zero;
@@ -428,8 +435,8 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
         this.refreshView();
     };
 
-    // The layout size does not depend on the camera, but which side of the dimension
-    // plane the camera sits on still decides whether the text needs its anti-mirror flip.
+    // The layout size does not depend on the camera, but the camera still decides the
+    // text's anti-mirror flip and the readability turn for a cross-line text point.
     private readonly onCameraChanged = debounce(() => {
         const view = this.view();
         if (view) this.updateForView(view);
@@ -450,7 +457,7 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
         return this._view;
     }
 
-    /** Recomputes the anti-mirror state for `view` and requests a redraw. */
+    /** Recomputes the view-dependent text state (anti-mirror and readability turn) for `view`. */
     updateForView(view: IView): void {
         if (this._disposed || view.isClosed) return;
         if (this._layoutValid) {
@@ -464,8 +471,14 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
             const toCamera = ViewUtils.directionAt(view, anchor).reverse();
             const normal = world.ofVector(this._normal);
             const mirrored = normal.dot(toCamera) < 0;
-            if (mirrored !== this._mirrored) {
+            // A text point dropped across the measured line reverses the layout's up
+            // axis, leaving the text upside down on screen. Turning the text frame
+            // half a turn (direction and up together) keeps it upright — a rotation,
+            // not a mirror like the flip above.
+            const flipped = world.ofVector(this._side).dot(view.up()) < 0;
+            if (mirrored !== this._mirrored || flipped !== this._flipped) {
                 this._mirrored = mirrored;
+                this._flipped = flipped;
                 this.markBatchDirty();
             }
         }
@@ -514,7 +527,8 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
 
     override buildTriangles(target: number[]): void {
         // The arrowheads keep their world orientation whatever side the camera is
-        // on; only the text flips to never read mirrored. Both bake the visual's
+        // on; only the text flips to never read mirrored, and turns half a turn when
+        // a cross-line text point would leave it upside down. Both bake the visual's
         // own matrix — it accumulates a (possibly nested) component path, which
         // `annotation.transform` alone would drop.
         this.pushTransformed(target, this._triangles);
@@ -525,11 +539,12 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
         // troika text had through fontSize × DIMENSION_LAYOUT_SCALE.
         const em = this.annotation.textHeight;
         const flip = this._mirrored ? -1 : 1;
+        const turn = this._flipped ? -1 : 1;
         const matrix = this.transform;
         for (let i = 0; i < laid.length; i += 2) {
             const local = this._anchor
-                .add(this._direction.multiply(laid[i] * em * flip))
-                .add(this._side.multiply(laid[i + 1] * em));
+                .add(this._direction.multiply(laid[i] * em * flip * turn))
+                .add(this._side.multiply(laid[i + 1] * em * turn));
             const point = matrix.ofPoint(local);
             target.push(point.x, point.y, point.z);
         }

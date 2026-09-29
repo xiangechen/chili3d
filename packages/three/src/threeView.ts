@@ -101,6 +101,81 @@ function keepsSubShape(shapeType: ShapeType, subType: ShapeType): boolean {
     return true;
 }
 
+/** The four corners of a camera rect at NDC depth `z`, in world space, clockwise from top-left. */
+type RectCorners = [topLeft: Vector3, topRight: Vector3, downRight: Vector3, downLeft: Vector3];
+
+function rectCorners(
+    camera: PerspectiveCamera | OrthographicCamera,
+    left: number,
+    right: number,
+    top: number,
+    down: number,
+    z: number,
+): RectCorners {
+    const unproject = (x: number, y: number) => new Vector3(x, y, z).unproject(camera);
+    return [unproject(left, top), unproject(right, top), unproject(right, down), unproject(left, down)];
+}
+
+/**
+ * SelectionBox's perspective frustum: each side plane passes through the camera position and
+ * one rect edge; the caps close the frustum at the rect corners and at the far end of the rays.
+ */
+function perspectiveRectFrustum(
+    camera: PerspectiveCamera,
+    left: number,
+    right: number,
+    top: number,
+    down: number,
+): Frustum {
+    const near = new Vector3().setFromMatrixPosition(camera.matrixWorld);
+    const [topLeft, topRight, downRight, downLeft] = rectCorners(camera, left, right, top, down, 0.5);
+    const far = (v: Vector3) => v.clone().sub(near).normalize().multiplyScalar(Number.MAX_VALUE).add(near);
+
+    const frustum = new Frustum();
+    const planes = frustum.planes;
+    planes[0].setFromCoplanarPoints(near, topLeft, topRight);
+    planes[1].setFromCoplanarPoints(near, topRight, downRight);
+    planes[2].setFromCoplanarPoints(downRight, downLeft, near);
+    planes[3].setFromCoplanarPoints(downLeft, topLeft, near);
+    planes[4].setFromCoplanarPoints(topRight, downRight, downLeft);
+    planes[5].setFromCoplanarPoints(far(downRight), far(topRight), far(topLeft));
+    planes[5].normal.multiplyScalar(-1);
+    return frustum;
+}
+
+/**
+ * SelectionBox's orthographic frustum: a slab whose near corners sit at NDC z=-1 and far
+ * corners at z=+1; each side plane runs through a matching pair of near and far corners.
+ */
+function orthographicRectFrustum(
+    camera: OrthographicCamera,
+    left: number,
+    right: number,
+    top: number,
+    down: number,
+): Frustum {
+    const [topLeft, topRight, downRight, downLeft] = rectCorners(camera, left, right, top, down, -1);
+    const [farTopLeft, farTopRight, farDownRight, farDownLeft] = rectCorners(
+        camera,
+        left,
+        right,
+        top,
+        down,
+        1,
+    );
+
+    const frustum = new Frustum();
+    const planes = frustum.planes;
+    planes[0].setFromCoplanarPoints(topLeft, farTopLeft, farTopRight);
+    planes[1].setFromCoplanarPoints(topRight, farTopRight, farDownRight);
+    planes[2].setFromCoplanarPoints(farDownRight, farDownLeft, downLeft);
+    planes[3].setFromCoplanarPoints(farDownLeft, farTopLeft, topLeft);
+    planes[4].setFromCoplanarPoints(topRight, downRight, downLeft);
+    planes[5].setFromCoplanarPoints(farDownRight, farTopRight, farTopLeft);
+    planes[5].normal.multiplyScalar(-1);
+    return frustum;
+}
+
 export class ThreeView extends Observable implements IView {
     private _dom?: HTMLElement;
     private _needsUpdate: boolean = false;
@@ -567,49 +642,28 @@ export class ThreeView extends Observable implements IView {
         const start = this.screenToCameraRect(mx1, my1);
         const end = this.screenToCameraRect(mx2, my2);
         const left = Math.min(start.x, end.x);
-        const right = Math.max(start.x, end.x);
-        const top = Math.max(start.y, end.y);
+        let right = Math.max(start.x, end.x);
+        let top = Math.max(start.y, end.y);
         const down = Math.min(start.y, end.y);
+
+        // The "avoid invalid frustum" guard from the SelectionBox code this copies: a rect
+        // with zero width or height would build planes with a zero normal, and a zero-normal
+        // plane intersects every box instead of none.
+        if (left === right) {
+            right += Number.EPSILON;
+        }
+        if (down === top) {
+            top += Number.EPSILON;
+        }
+
         const camera = this.camera;
         camera.updateProjectionMatrix();
         camera.updateMatrixWorld();
 
-        const frustum = new Frustum();
-        const planes = frustum.planes;
-        const unproject = (x: number, y: number, z: number) => new Vector3(x, y, z).unproject(camera);
         if (camera instanceof PerspectiveCamera) {
-            const near = new Vector3().setFromMatrixPosition(camera.matrixWorld);
-            const topLeft = unproject(left, top, 0.5);
-            const topRight = unproject(right, top, 0.5);
-            const downRight = unproject(right, down, 0.5);
-            const downLeft = unproject(left, down, 0.5);
-            const far = (v: Vector3) =>
-                v.clone().sub(near).normalize().multiplyScalar(Number.MAX_VALUE).add(near);
-            planes[0].setFromCoplanarPoints(near, topLeft, topRight);
-            planes[1].setFromCoplanarPoints(near, topRight, downRight);
-            planes[2].setFromCoplanarPoints(downRight, downLeft, near);
-            planes[3].setFromCoplanarPoints(downLeft, topLeft, near);
-            planes[4].setFromCoplanarPoints(topRight, downRight, downLeft);
-            planes[5].setFromCoplanarPoints(far(downRight), far(topRight), far(topLeft));
-            planes[5].normal.multiplyScalar(-1);
-        } else {
-            const topLeft = unproject(left, top, -1);
-            const topRight = unproject(right, top, -1);
-            const downRight = unproject(right, down, -1);
-            const downLeft = unproject(left, down, -1);
-            const farTopLeft = unproject(left, top, 1);
-            const farTopRight = unproject(right, top, 1);
-            const farDownRight = unproject(right, down, 1);
-            const farDownLeft = unproject(left, down, 1);
-            planes[0].setFromCoplanarPoints(topLeft, farTopLeft, farTopRight);
-            planes[1].setFromCoplanarPoints(topRight, farTopRight, farDownRight);
-            planes[2].setFromCoplanarPoints(farDownRight, farDownLeft, downLeft);
-            planes[3].setFromCoplanarPoints(farDownLeft, farTopLeft, topLeft);
-            planes[4].setFromCoplanarPoints(topRight, downRight, downLeft);
-            planes[5].setFromCoplanarPoints(farDownRight, farTopRight, farTopLeft);
-            planes[5].normal.multiplyScalar(-1);
+            return perspectiveRectFrustum(camera, left, right, top, down);
         }
-        return frustum;
+        return orthographicRectFrustum(camera, left, right, top, down);
     }
 
     private getNodeFromObject(threeObject: Object3D) {

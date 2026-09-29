@@ -42,15 +42,29 @@ export class AsyncController implements IDisposable {
     }
 
     onCancelled(listener: (result: AsyncResult) => void): void {
-        this._cancelListeners.add(listener);
+        this.addListener(this._cancelListeners, "cancel", listener);
     }
 
     onCompleted(listener: (result: AsyncResult) => void): void {
-        this._successListeners.add(listener);
+        this.addListener(this._successListeners, "success", listener);
     }
 
     onFailed(listener: (result: AsyncResult) => void): void {
-        this._failListeners.add(listener);
+        this.addListener(this._failListeners, "fail", listener);
+    }
+
+    // A listener registered after the result was settled is replayed with that result right
+    // away — the notification it waits for already went out and will never come again.
+    private addListener(
+        listeners: Set<(result: AsyncResult) => void>,
+        status: AsyncResult["status"],
+        listener: (result: AsyncResult) => void,
+    ) {
+        if (this._result?.status === status) {
+            listener(this._result);
+            return;
+        }
+        listeners.add(listener);
     }
 
     dispose() {

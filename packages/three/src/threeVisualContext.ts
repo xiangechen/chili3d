@@ -348,10 +348,14 @@ export class ThreeVisualContext implements IVisualContext {
         const group = obj as Group;
         if (group.type === "Group") {
             group.children.forEach((x) => this._getVisualObject(visuals, x));
+        } else if (obj instanceof ThreeComponentObject) {
+            visuals.push(obj);
+            // Member annotations hang under the component object (the merged mesh has no
+            // room for them): descend, or picking and rectangle selection never see them.
+            obj.annotations.forEach((x) => this._getVisualObject(visuals, x));
         } else if (
             obj instanceof ThreeGeometry ||
             obj instanceof ThreeMeshObject ||
-            obj instanceof ThreeComponentObject ||
             obj instanceof ThreeAnnotation
         ) {
             visuals.push(obj);
@@ -446,6 +450,11 @@ export class ThreeVisualContext implements IVisualContext {
         const shape = this.getVisual(node);
         if (shape === undefined || shape.visible === visible) return;
         shape.visible = visible;
+        if (shape instanceof ThreeComponentObject) {
+            // Three's own traversal hides member annotations on render, but the pick
+            // paths read the flag on the annotation visual itself.
+            shape.annotations.forEach((x) => (x.visible = visible));
+        }
     }
 
     setNodeOnTop(nodes: INode[], onTop: boolean): void {
@@ -502,6 +511,14 @@ export class ThreeVisualContext implements IVisualContext {
             parent.add(visualObject);
             this._visualNodeMap.set(visualObject, node);
             this._NodeVisualMap.set(node, visualObject);
+            if (visualObject instanceof ThreeComponentObject) {
+                // Member annotations are displayed by the component object, not through
+                // node records — register them so getNode/getVisual resolve for picking.
+                visualObject.annotations.forEach((annotation) => {
+                    this._visualNodeMap.set(annotation, annotation.annotation);
+                    this._NodeVisualMap.set(annotation.annotation, annotation);
+                });
+            }
         }
     }
 
@@ -511,6 +528,15 @@ export class ThreeVisualContext implements IVisualContext {
             this._NodeVisualMap.delete(m);
             if (!visual) return;
             this._visualNodeMap.delete(visual);
+            if (visual instanceof ThreeComponentObject) {
+                visual.annotations.forEach((annotation) => {
+                    this._visualNodeMap.delete(annotation);
+                    // A sibling instance of the same component may own the node's entry now.
+                    if (this._NodeVisualMap.get(annotation.annotation) === annotation) {
+                        this._NodeVisualMap.delete(annotation.annotation);
+                    }
+                });
+            }
             visual.parent?.remove(visual);
             visual.dispose();
         });

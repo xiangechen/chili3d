@@ -2,12 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AsyncController,
     CommandStore,
+    Dimensions,
     type IDocument,
     MeshDataUtils,
     Plane,
     PointOnPlaneStep,
     PointStep,
+    SnapPointPlaneEventHandler,
     TextAnnotation,
     XY,
     XYZ,
@@ -79,6 +82,24 @@ describe("TextAnnotationCommand", () => {
             (cmd as any).content = "Torque here";
 
             expect((cmd as any).getPositionStepData().prompt()).toBe("Torque here");
+        });
+
+        test("numeric coordinate input passes the position pick's validation", () => {
+            const cmd = textCommand(new TestDocument());
+            const data = (cmd as any).getPositionStepData();
+            expect(data.dimension).toBe(Dimensions.D1D2D3);
+
+            const controller = new AsyncController();
+            try {
+                const handler = new SnapPointPlaneEventHandler(new TestDocument(), controller, data);
+                expect((handler as any).inputError("10,20,30")).toBeUndefined();
+                expect((handler as any).inputError("#10,20,30")).toBeUndefined();
+                // the pick has no refPoint, so two numbers cannot be placed — the same answer
+                // the dimension commands' position pick gives, not "unsupportedInputs"
+                expect((handler as any).inputError("10,20")).toBe("error.input.threeNumberCanBeInput");
+            } finally {
+                controller.dispose();
+            }
         });
 
         test("preview draws the leader's point, and a line to the cursor from there", () => {

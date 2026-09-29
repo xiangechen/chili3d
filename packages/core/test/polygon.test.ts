@@ -137,6 +137,57 @@ describe("triangulatePolygon", () => {
         expect(triangles.some((_, i) => i % 3 === 0 && pointInEar(triangles, i, [16, 10]))).toBe(false);
     });
 
+    // Holes at different heights: a later hole's bridge channel must neither land on
+    // a previous channel's endpoint (a vertex already twice on the ring) nor cross
+    // a previous channel or a hole still waiting for its own — each variant below
+    // produced triangles covering a hole before (area well past the frame at worst).
+    test.each([
+        {
+            name: "the lower hole's channel triangle holds the upper hole's top",
+            holes: [square(9, 10, 4), square(4, 2, 4)],
+            probes: [
+                [11, 12],
+                [6, 4],
+            ] as [number, number][],
+            area: 400 - 16 - 16,
+        },
+        {
+            name: "a small upper hole above a larger lower one",
+            holes: [square(9, 10, 2), square(4, 2, 4)],
+            probes: [
+                [10, 11],
+                [6, 4],
+            ] as [number, number][],
+            area: 400 - 4 - 16,
+        },
+        {
+            name: "vertically aligned holes, the lower one bridging to the upper one's corner",
+            holes: [square(8, 12, 4), square(8, 2, 4)],
+            probes: [
+                [10, 14],
+                [10, 4],
+            ] as [number, number][],
+            area: 400 - 16 - 16,
+        },
+        {
+            name: "three holes low in the frame, an early channel passing over a later hole",
+            holes: [square(9.859, 1.283, 3.443), square(13.642, 1.576, 3.28), square(4.32, 3.263, 5.065)],
+            probes: [
+                [9.859 + 3.443 / 2, 1.283 + 3.443 / 2],
+                [13.642 + 3.28 / 2, 1.576 + 3.28 / 2],
+                [4.32 + 5.065 / 2, 3.263 + 5.065 / 2],
+            ] as [number, number][],
+            area: 400 - 3.443 ** 2 - 3.28 ** 2 - 5.065 ** 2,
+        },
+    ])("holes at different heights stay empty: $name", ({ holes, probes, area }) => {
+        const triangles = triangulatePolygon(square(0, 0, 20), holes);
+        expect(areaOf(triangles)).toBeCloseTo(area, 9);
+        expect(probes.length).toBe(holes.length);
+        for (const probe of probes) {
+            expect(triangles.some((_, i) => i % 3 === 0 && pointInEar(triangles, i, probe))).toBe(false);
+        }
+    });
+
     test("a hole whose top point sits below an outer vertex bridges cleanly", () => {
         // the hole's top is level with nothing: the vertical channel meets an edge
         const triangles = triangulatePolygon(square(0, 0, 10), [

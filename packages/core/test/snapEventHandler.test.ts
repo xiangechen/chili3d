@@ -100,6 +100,23 @@ describe("SnapEventHandler — base class behaviour", () => {
             handler.dispose();
             expect(handler.state).toBe("completed");
         });
+
+        test("should be cancelled when constructed with an already-cancelled controller", () => {
+            controller.cancel();
+            const handler = new PointSnapEventHandler(document, controller, {});
+            expect(handler.state).toBe("cancelled");
+        });
+
+        test("should stay cancelled without re-notifying when constructed after cancel", () => {
+            controller.cancel();
+            let cancelCount = 0;
+            controller.onCancelled(() => {
+                cancelCount++;
+            });
+            new PointSnapEventHandler(document, controller, {});
+            expect(cancelCount).toBe(1);
+            expect(controller.result?.status).toBe("cancel");
+        });
     });
 
     // --------------------------------------------------------------------------

@@ -153,8 +153,10 @@ const SHORT_STOPS = new Set([...TRUNCATED, ...TOOL_STOPS]);
 function endingOf(turn: TurnParts, continues: number): { askForTheRest?: boolean; notice?: I18nKeys } {
     if (turn.stopReason === undefined) return {};
     if (TRUNCATED.has(turn.stopReason)) {
-        const worthAsking = turn.toolCalls.length === 0 && continues < MAX_TRUNCATION_CONTINUES;
-        return worthAsking ? { askForTheRest: true } : { notice: "ai.truncated" };
+        // A call the turn did carry is work in hand — the loop runs it and carries on, so the
+        // cut cost the run nothing and there is nothing to announce.
+        if (turn.toolCalls.length > 0) return {};
+        return continues < MAX_TRUNCATION_CONTINUES ? { askForTheRest: true } : { notice: "ai.truncated" };
     }
     const claimed = turn.toolCalls.length === 0 && TOOL_STOPS.has(turn.stopReason);
     return claimed ? { notice: "ai.lostToolCall" } : {};
@@ -347,6 +349,8 @@ async function invokeTool(
         }
         return { content: redactDataUrls(result.content), images: result.images };
     } catch (err) {
-        return { content: JSON.stringify({ error: (err as Error).message }) };
+        // A thrown message can quote the rejected value in full (coercion errors do), so it is
+        // held to the same rule as a result: image bytes stay out of the replayed history.
+        return { content: JSON.stringify({ error: redactDataUrls((err as Error).message) }) };
     }
 }

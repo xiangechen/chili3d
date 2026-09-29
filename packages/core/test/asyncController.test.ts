@@ -137,6 +137,62 @@ describe("AsyncController", () => {
         });
     });
 
+    describe("late registration (replay)", () => {
+        test("should replay the cancel result to a listener registered after cancel", () => {
+            controller.cancel("gone");
+            let receivedResult: AsyncResult | undefined;
+            controller.onCancelled((result) => {
+                receivedResult = result;
+            });
+            expect(receivedResult?.status).toBe("cancel");
+            expect(receivedResult?.message).toBe("gone");
+        });
+
+        test("should replay the success result to a listener registered after success", () => {
+            controller.success("done");
+            let receivedResult: AsyncResult | undefined;
+            controller.onCompleted((result) => {
+                receivedResult = result;
+            });
+            expect(receivedResult?.status).toBe("success");
+            expect(receivedResult?.message).toBe("done");
+        });
+
+        test("should replay the fail result to a listener registered after fail", () => {
+            controller.fail("boom");
+            let receivedResult: AsyncResult | undefined;
+            controller.onFailed((result) => {
+                receivedResult = result;
+            });
+            expect(receivedResult?.status).toBe("fail");
+            expect(receivedResult?.message).toBe("boom");
+        });
+
+        test("should not replay to a listener registered for a different status", () => {
+            controller.cancel();
+            let completedCount = 0;
+            let failedCount = 0;
+            controller.onCompleted(() => completedCount++);
+            controller.onFailed(() => failedCount++);
+            expect(completedCount).toBe(0);
+            expect(failedCount).toBe(0);
+        });
+
+        test("should replay only the first result when settled repeatedly before registration", () => {
+            controller.cancel("first");
+            controller.cancel("second");
+            controller.success("third");
+            let cancelCount = 0;
+            let receivedResult: AsyncResult | undefined;
+            controller.onCancelled((result) => {
+                cancelCount++;
+                receivedResult = result;
+            });
+            expect(cancelCount).toBe(1);
+            expect(receivedResult?.message).toBe("first");
+        });
+    });
+
     describe("dispose", () => {
         test("should clear all listeners", () => {
             let count = 0;

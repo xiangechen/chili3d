@@ -131,11 +131,15 @@ function unwrapResult(value: unknown): unknown {
     return value;
 }
 
-/** Dispose the dropped side of a property change — unwrapping Result — unless both sides name it. */
-function disposeStaleValue(stale: unknown, live: unknown): void {
+/**
+ * Dispose the dropped side of a property change — unwrapping Result — unless both sides name it
+ * or the object currently holds it: a later change may have restored the same instance (A→B→A),
+ * and freeing it here would then dispose the live value out from under the object.
+ */
+function disposeStaleValue(stale: unknown, live: unknown, current: unknown): void {
     const staleValue = unwrapResult(stale);
-    const liveValue = unwrapResult(live);
-    if (staleValue === undefined || staleValue === liveValue) return;
+    if (staleValue === undefined) return;
+    if (staleValue === unwrapResult(live) || staleValue === unwrapResult(current)) return;
     if (isDisposable(staleValue)) staleValue.dispose();
 }
 
@@ -166,6 +170,7 @@ export class PropertyHistoryRecord implements IHistoryRecord {
         disposeStaleValue(
             this.#applied ? this.oldValue : this.newValue,
             this.#applied ? this.newValue : this.oldValue,
+            this.object[this.property],
         );
     }
 

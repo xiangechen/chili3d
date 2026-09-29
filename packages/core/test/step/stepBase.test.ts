@@ -327,6 +327,75 @@ describe("SnapStep", () => {
         });
     });
 
+    describe("beforeExecute cancellation", () => {
+        /**
+         * Mirrors the real Picker (app/src/picker.ts): the pick promise's listeners are
+         * registered only when pickAsync runs, i.e. after beforeExecute, and a failure is
+         * logged and swallowed rather than rethrown. A settle inside beforeExecute must
+         * still finish that promise instead of hanging the step.
+         */
+        function registerOnPick(doc: TestDocument) {
+            doc.picker.pickAsync = async (_handler, _tip, controller) => {
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        controller.onCompleted(() => resolve());
+                        controller.onCancelled(() => resolve());
+                        controller.onFailed((e) => reject(new Error(e.message ?? "pick failed")));
+                    });
+                } catch {
+                    // Picker.pickAsync logs and resolves on a failed pick.
+                }
+            };
+        }
+
+        test("execute should settle when beforeExecute cancels the controller", async () => {
+            const controller = new AsyncController();
+            const step = new TestSnapStep(
+                tip() as never,
+                () => ({
+                    beforeExecute: () => controller.cancel(),
+                }),
+                true,
+            );
+            const doc = new TestDocument();
+            registerOnPick(doc);
+
+            const result = await Promise.race([
+                step.execute(doc, controller),
+                new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 1000)),
+            ]);
+
+            expect(result).not.toBe("timeout");
+            expect(result).toBeUndefined();
+            expect(controller.result?.status).toBe("cancel");
+            expect(step.disposed).toBe(true);
+            controller.dispose();
+        });
+
+        test("execute should settle when beforeExecute fails the controller", async () => {
+            const controller = new AsyncController();
+            const step = new TestSnapStep(
+                tip() as never,
+                () => ({
+                    beforeExecute: () => controller.fail("no angle plane"),
+                }),
+                true,
+            );
+            const doc = new TestDocument();
+            registerOnPick(doc);
+
+            const result = await Promise.race([
+                step.execute(doc, controller),
+                new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 1000)),
+            ]);
+
+            expect(result).not.toBe("timeout");
+            expect(result).toBeUndefined();
+            expect(controller.result?.status).toBe("fail");
+            controller.dispose();
+        });
+    });
+
     describe("validator wrapping", () => {
         test("wrapped validator should combine old and base validators", async () => {
             let oldCalled = false;

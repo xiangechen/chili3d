@@ -27,10 +27,21 @@ export class BoundingBox {
     static readonly zero = new BoundingBox(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 0, y: 0, z: 0 }));
 
     static transformed(box: BoundingBox, matrix: Matrix4) {
-        const min = matrix.ofPoint(box.min);
-        const max = matrix.ofPoint(box.max);
+        // Rotation can push any corner to an extreme, so transform all 8 and refit the AABB —
+        // transforming only min and max can leave the box inverted or degenerate.
+        const { min, max } = box;
+        const corners = [
+            matrix.ofPoint({ x: min.x, y: min.y, z: min.z }),
+            matrix.ofPoint({ x: min.x, y: min.y, z: max.z }),
+            matrix.ofPoint({ x: min.x, y: max.y, z: min.z }),
+            matrix.ofPoint({ x: min.x, y: max.y, z: max.z }),
+            matrix.ofPoint({ x: max.x, y: min.y, z: min.z }),
+            matrix.ofPoint({ x: max.x, y: min.y, z: max.z }),
+            matrix.ofPoint({ x: max.x, y: max.y, z: min.z }),
+            matrix.ofPoint({ x: max.x, y: max.y, z: max.z }),
+        ];
 
-        return new BoundingBox(min, max);
+        return BoundingBox.fromPoints(corners);
     }
 
     static center(box: BoundingBox | undefined) {

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AsyncController,
     CommandStore,
     DimensionAnnotation,
     FolderNode,
@@ -208,6 +209,43 @@ describe("AnnotateAngleDimension", () => {
         expect((cmd as any).angle).toBeUndefined();
         expect(pub).toHaveBeenCalledWith("showToast", "toast.dimension.parallelEdges");
         expect((cmd as any).controller.cancel).toHaveBeenCalled();
+        expect(dimensionAnnotations(doc)).toHaveLength(0);
+
+        (cmd as any).afterExecute();
+    });
+
+    test("the parallel-edge cancel settles a pick registered after beforeExecute", async () => {
+        const parallel = lineShape(new XYZ({ x: 0, y: 5, z: 0 }), new XYZ({ x: 10, y: 5, z: 0 }));
+        const doc = new TestDocument();
+        const cmd = angleCommand(doc, [X_EDGE, parallel]);
+        const controller = new AsyncController();
+        (cmd as any).controller = controller;
+
+        (cmd as any).getPositionData().beforeExecute();
+        expect(controller.result?.status).toBe("cancel");
+
+        // The real Picker registers its listeners only when pickAsync runs — after the
+        // step's beforeExecute. Before the replay fix this promise never settled and the
+        // command (and with it every later command) hung for good.
+        let settledWith: string | undefined;
+        const pick = new Promise<void>((resolve, reject) => {
+            controller.onCompleted(() => {
+                settledWith = "success";
+                resolve();
+            });
+            controller.onCancelled(() => {
+                settledWith = "cancel";
+                resolve();
+            });
+            controller.onFailed((e) => reject(new Error(e.message ?? "pick failed")));
+        });
+        const outcome = await Promise.race([
+            pick,
+            new Promise<"timeout">((resolve) => setTimeout(() => resolve("timeout"), 1000)),
+        ]);
+
+        expect(outcome).not.toBe("timeout");
+        expect(settledWith).toBe("cancel");
         expect(dimensionAnnotations(doc)).toHaveLength(0);
 
         (cmd as any).afterExecute();

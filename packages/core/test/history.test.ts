@@ -493,6 +493,86 @@ describe("History", () => {
         expect(disposed).toEqual(["s1"]);
     });
 
+    test("PropertyHistoryRecord keeps the value a later change restored to the object (A→B→A rollback)", () => {
+        const disposed: string[] = [];
+        const shape = (id: string) => ({ dispose: () => disposed.push(id) });
+        const a = shape("a");
+        const b = shape("b");
+        const obj: { v: unknown } = { v: a };
+        const history = new History();
+
+        history.add(new PropertyHistoryRecord(obj, "v", a, b));
+        obj.v = b;
+        history.add(new PropertyHistoryRecord(obj, "v", b, a));
+        obj.v = a;
+
+        // Rolling both changes back leaves the object holding the same `a` instance again.
+        history.undo();
+        history.undo();
+        expect(obj.v).toBe(a);
+
+        history.dispose();
+        expect(disposed).toEqual(["b"]);
+    });
+
+    test("PropertyHistoryRecord dropped from the redo stack keeps the value the object holds again", () => {
+        const disposed: string[] = [];
+        const shape = (id: string) => ({ dispose: () => disposed.push(id) });
+        const a = shape("a");
+        const b = shape("b");
+        const obj: { v: unknown } = { v: a };
+        const history = new History();
+
+        history.add(new PropertyHistoryRecord(obj, "v", a, b));
+        obj.v = b;
+        history.add(new PropertyHistoryRecord(obj, "v", b, a));
+        obj.v = a;
+
+        history.undo();
+        history.undo();
+
+        // The new edit kills the redo line and disposes its records; `a` is live on the object.
+        history.add(new PropertyHistoryRecord(obj, "v", a, shape("c")));
+        expect(disposed).toEqual(["b"]);
+    });
+
+    test("PropertyHistoryRecord dropped from the redo stack still releases a value the object dropped", () => {
+        const disposed: string[] = [];
+        const shape = (id: string) => ({ dispose: () => disposed.push(id) });
+        const a = shape("a");
+        const b = shape("b");
+        const obj: { v: unknown } = { v: a };
+        const history = new History();
+
+        history.add(new PropertyHistoryRecord(obj, "v", a, b));
+        obj.v = b;
+        history.undo();
+        expect(obj.v).toBe(a);
+
+        history.add(new PropertyHistoryRecord(obj, "v", a, shape("c")));
+        expect(disposed).toEqual(["b"]);
+    });
+
+    test("PropertyHistoryRecord unwraps the object's current Result value before comparing", () => {
+        const disposed: string[] = [];
+        const shape = (id: string) => ({ dispose: () => disposed.push(id) });
+        const a = shape("a");
+        const b = shape("b");
+        const obj: { v: unknown } = { v: Result.ok(a) };
+        const history = new History();
+
+        history.add(new PropertyHistoryRecord(obj, "v", Result.ok(a), Result.ok(b)));
+        obj.v = Result.ok(b);
+        history.add(new PropertyHistoryRecord(obj, "v", Result.ok(b), Result.ok(a)));
+        obj.v = Result.ok(a);
+
+        history.undo();
+        history.undo();
+
+        history.add(new PropertyHistoryRecord(obj, "v", Result.ok(a), Result.ok(shape("c"))));
+        expect(disposed).toEqual(["b"]);
+    });
+
     test("NodeLinkedListHistoryRecord dispose releases only the nodes the change detached", () => {
         const disposed: string[] = [];
         const node = (id: string, parent: unknown = undefined) => ({

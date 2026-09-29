@@ -185,6 +185,38 @@ describe("ThreeRefSegmentAnnotation", () => {
         expect(annotation.batchColor).toBe(0xffff00);
     });
 
+    test("re-highlighting an already highlighted annotation does not rebuild the batch", async () => {
+        const { context, visual: ivisual } = createTestContext();
+        const update = rs.fn();
+        ivisual.update = update;
+        const annotation = new ThreeRefSegmentAnnotation(context, createRefSegment());
+        context.visualShapes.add(annotation);
+        await flush();
+        update.mockClear();
+
+        annotation.highlight();
+        await flush();
+        expect(update).toHaveBeenCalledTimes(1);
+
+        annotation.highlight();
+        await flush();
+        expect(update).toHaveBeenCalledTimes(1);
+    });
+
+    test("unhighlighting an annotation that is not highlighted does not rebuild the batch", async () => {
+        const { context, visual: ivisual } = createTestContext();
+        const update = rs.fn();
+        ivisual.update = update;
+        const annotation = new ThreeRefSegmentAnnotation(context, createRefSegment());
+        context.visualShapes.add(annotation);
+        await flush();
+        update.mockClear();
+
+        annotation.unhighlight();
+        await flush();
+        expect(update).not.toHaveBeenCalled();
+    });
+
     test("bakes the transform into the batch geometry", async () => {
         const { context } = createTestContext();
         const model = createRefSegment();
@@ -482,6 +514,39 @@ describe("ThreeDimensionAnnotation", () => {
         await flush();
 
         expect(textPositions(texts)).toBe(before);
+    });
+
+    /** The centre x of the first glyph of "10.00" in the batch's text mesh. */
+    function firstGlyphCenterX(texts: Mesh, layout: DimensionLayout): number {
+        const glyph = textPositions(texts).slice(layout.triangles.length, layout.triangles.length + 18);
+        let minX = Infinity;
+        let maxX = -Infinity;
+        for (let i = 0; i < glyph.length; i += 3) {
+            minX = Math.min(minX, glyph[i]);
+            maxX = Math.max(maxX, glyph[i]);
+        }
+        return (minX + maxX) / 2;
+    }
+
+    test.each([
+        { textPoint: new XYZ(5, 8, 0), name: "above" },
+        // across the measured line: the layout's up axis reverses, and without a
+        // readability turn the text would draw upside down
+        { textPoint: new XYZ(5, -8, 0), name: "below" },
+    ])("keeps the text readable with the text point $name the line", async ({ textPoint }) => {
+        const annotation = createDimension();
+        annotation.textPoint = textPoint;
+        const { texts, visual } = await createVisual(annotation);
+
+        const camera = new PerspectiveCamera(50, VIEWPORT.x / VIEWPORT.y, 0.1, 2000);
+        camera.position.set(5, 20, 100);
+        camera.lookAt(0, 0, 0);
+        visual.updateForView(createMockView(camera).view);
+        await flush();
+
+        // reading left to right: the first glyph sits left of the text anchor
+        const layout = expectLayout(annotation);
+        expect(firstGlyphCenterX(texts, layout)).toBeLessThan(layout.textPosition.x);
     });
 
     test("bakes the annotation transform into the batch slices", async () => {
@@ -949,6 +1014,62 @@ describe("ThreeTextAnnotation", () => {
         await flush();
 
         expect(glyphPositions(texts)).toBe(before);
+        visual.dispose();
+    });
+
+    test("rebuilds the text when the camera jumps to the opposite side", async () => {
+        const annotation = createText();
+        const { texts, visual } = await createVisual(annotation);
+
+        // facing a camera at +X: the text plane is YZ and the line reads along -Z
+        const camera = new PerspectiveCamera(50, 1, 0.1, 2000);
+        camera.position.set(100, 0, 0);
+        camera.lookAt(0, 0, 0);
+        visual.updateForView(createMockView(camera).view);
+        await flush();
+        const before = glyphPositions(texts);
+        const beforeZs = Array.from(before).filter((_, i) => i % 3 === 2);
+        expect(Math.min(...beforeZs)).toBeLessThan(0);
+
+        // teleporting to -X flips the billboard frame's x axis; keeping the old
+        // frame would draw the text mirrored for the now-facing camera
+        camera.position.set(-100, 0, 0);
+        camera.lookAt(0, 0, 0);
+        visual.updateForView(createMockView(camera).view);
+        await flush();
+
+        const after = glyphPositions(texts);
+        expect(after).not.toBe(before);
+        // still the plane the camera faces, through the text position — reading +Z now
+        for (let i = 0; i < after.length; i += 3) {
+            expect(after[i]).toBeCloseTo(10, 5);
+        }
+        const zs = Array.from(after).filter((_, i) => i % 3 === 2);
+        expect(Math.min(...zs)).toBeCloseTo(0, 5);
+        expect(Math.max(...zs)).toBeGreaterThan(0);
+        visual.dispose();
+    });
+
+    test("keeps the text facing the camera under a rotated transform", async () => {
+        const annotation = createText();
+        const { texts, visual } = await createVisual(annotation);
+
+        // the fallback frame is the world XY plane; rotating 90° about Y carries the
+        // position from (10,0,0) to (0,0,-10) — and must not carry the text plane
+        annotation.transform = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitY, Math.PI / 2);
+        await flush();
+
+        const positions = glyphPositions(texts);
+        expect(positions.length).toBeGreaterThan(0);
+        // the glyphs still lie in a plane perpendicular to the view direction (+Z),
+        // at the rotated position
+        const zs = Array.from(positions).filter((_, i) => i % 3 === 2);
+        expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(0, 5);
+        expect(zs[0]).toBeCloseTo(-10, 4);
+        // and the line still reads along the world +X from the rotated position
+        const xs = Array.from(positions).filter((_, i) => i % 3 === 0);
+        expect(Math.min(...xs)).toBeCloseTo(0, 4);
+        expect(Math.max(...xs)).toBeGreaterThan(0.5);
         visual.dispose();
     });
 

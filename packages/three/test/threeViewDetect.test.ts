@@ -513,6 +513,42 @@ describe("ThreeView detect — annotations through the batch", () => {
         const far2 = view.worldToScreen(new XYZ({ x: 50, y: 50, z: 0 }));
         expect(view.detectVisualRect(far1.x, far1.y, far2.x, far2.y)).not.toContain(annotationVisual);
     });
+
+    // Without the EPSILON guard SelectionBox keeps, a degenerate rect builds zero-normal
+    // planes — and a zero-normal plane "intersects" every box, selecting every annotation.
+    describe("degenerate rectangles select nothing", () => {
+        test("a zero-area rect away from everything hits nothing", async () => {
+            const { view, annotationVisual, empty } = createSceneWithAnnotation();
+            await flush();
+
+            const detected = view.detectVisualRect(empty.x, empty.y, empty.x, empty.y);
+
+            expect(detected.length).toBe(0);
+            expect(detected).not.toContain(annotationVisual);
+        });
+
+        test("a zero-width rect across the annotation's height still misses it", async () => {
+            const { view, annotationVisual, empty } = createSceneWithAnnotation();
+            await flush();
+
+            const annoPos = view.worldToScreen(new XYZ({ x: -10, y: 25, z: 0 }));
+            const detected = view.detectVisualRect(empty.x, annoPos.y - 20, empty.x, annoPos.y + 20);
+
+            expect(detected.length).toBe(0);
+            expect(detected).not.toContain(annotationVisual);
+        });
+
+        test("a zero-height rect across the annotation's width still misses it", async () => {
+            const { view, annotationVisual, empty } = createSceneWithAnnotation();
+            await flush();
+
+            const annoPos = view.worldToScreen(new XYZ({ x: -10, y: 25, z: 0 }));
+            const detected = view.detectVisualRect(annoPos.x - 20, empty.y, annoPos.x + 20, empty.y);
+
+            expect(detected.length).toBe(0);
+            expect(detected).not.toContain(annotationVisual);
+        });
+    });
 });
 
 describe("ThreeView detect — rectangle selection", () => {
