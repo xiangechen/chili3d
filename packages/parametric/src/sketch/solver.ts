@@ -371,13 +371,26 @@ export class SketchSolver implements ExternalEntityHost {
      * anything else.
      */
     hasIncidenceOn(ref: SketchPointRef, kinds: readonly ConstraintKind[]): boolean {
+        return this.incidenceConstraintOn(ref, kinds) !== undefined;
+    }
+
+    /**
+     * The first constraint of one of `kinds` pinning `ref` to geometry outside its
+     * own entity, or undefined — the record form of `hasIncidenceOn`.
+     */
+    incidenceConstraintOn(
+        ref: SketchPointRef,
+        kinds: readonly ConstraintKind[],
+    ): SketchConstraintData | undefined {
         const key = pointRefKey(ref);
-        return [...this.constraints.values()].some(
+        const record = [...this.constraints.values()].find(
             (c) =>
                 kinds.includes(c.kind) &&
                 c.refs.some((r) => pointRefKey(r) === key) &&
                 c.refs.some((r) => r.entityId !== ref.entityId),
         );
+        if (record === undefined) return undefined;
+        return { id: record.id, kind: record.kind, refs: record.refs.map((r) => ({ ...r })) };
     }
 
     /** Whether an identical constraint (same kind and refs, order-insensitive) already exists. */

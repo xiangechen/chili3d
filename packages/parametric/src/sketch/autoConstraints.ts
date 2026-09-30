@@ -12,6 +12,7 @@ import {
     isDatumEntityId,
     originRef,
     pointRefKey,
+    SKETCH_ORIGIN_ID,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
     type SketchConstraintData,
@@ -245,7 +246,9 @@ const TENTATIVE_ENTITY_ID = 0;
 /**
  * Settles a just-finished drag: if the point is still near an existing point,
  * line/axis or circle/arc, adds the matching incidence constraint and snaps the
- * point onto it. Returns the added constraints. Call `solve` afterwards.
+ * point onto it. Snapping onto a point of the very entity an existing incidence
+ * pins the point to fuses it there instead: the coincidence replaces the now
+ * redundant incidence. Returns the added constraints. Call `solve` afterwards.
  */
 export function applyDragAutoConstraints(
     solver: SketchSolver,
@@ -279,10 +282,43 @@ export function applyPointAutoConstraints(
 
         const constraint = snapConstraint(ref, snap);
         solver.setPointPosition(ref, snap.position[0], snap.position[1]);
+        // fusing the point onto a point of the entity its incidence already pins
+        // it to makes that incidence redundant — the coincidence replaces it
+        if (snap.kind === "point") {
+            const subsumed = subsumedIncidence(solver, ref, snap.point);
+            if (subsumed !== undefined) solver.removeConstraint(subsumed);
+        }
         solver.addConstraint(constraint);
         added.push(constraint);
     }
     return added;
+}
+
+/**
+ * The incidence a point snap onto `target` makes redundant: the constraint pinning
+ * the point — directly or through a coincident-linked partner — onto the very
+ * entity the target belongs to (fusing to the entity's own point pins it there
+ * absolutely). The datum origin counts as a point of both axes. Returns the
+ * redundant constraint's id.
+ */
+function subsumedIncidence(
+    solver: SketchSolver,
+    ref: SketchPointRef,
+    target: SketchPointRef,
+): number | undefined {
+    for (const member of solver.coincidentGroup(ref)) {
+        const incidence = solver.incidenceConstraintOn(member, INCIDENCE_KINDS);
+        if (incidence === undefined) continue;
+        const incidenceTarget = incidence.refs[1].entityId;
+        if (incidenceTarget === target.entityId) return incidence.id;
+        if (
+            target.entityId === SKETCH_ORIGIN_ID &&
+            (incidenceTarget === SKETCH_X_AXIS_ID || incidenceTarget === SKETCH_Y_AXIS_ID)
+        ) {
+            return incidence.id;
+        }
+    }
+    return undefined;
 }
 
 /** Nearest snap for a dragged point (its own entity excluded), or undefined. */
@@ -298,7 +334,8 @@ function findDragSnap(
 /**
  * Nearest snap for a point, excluding `excludeEntityIds`, or undefined. Points win
  * over curves, real lines and axes over circles and arcs — the same precedence the
- * drawing feedback shows.
+ * drawing feedback shows. Curve snaps also skip the coincident group's entities:
+ * the point already lies on those through the coincidence.
  */
 function findPointSnap(
     solver: SketchSolver,
@@ -312,14 +349,46 @@ function findPointSnap(
     const entities = constraintTargetEntities(solver);
     if (options.pointTolerance > 0) {
         const snap = nearestPointSnap(solver, entities, ref, probe, excludeEntityIds, options.pointTolerance);
-        if (snap !== undefined) return { kind: "point", point: snap.ref, position: snap.position };
+        if (snap !== undefined) {
+            // fusing the point onto a spot a sibling point of its own entity sits
+            // on — directly or through a coincident link — would collapse the
+            // entity (a zero-length line, a zero-sweep arc), so no snap applies
+            if (collapsesOntoSibling(solver, ownPointRefs(solver, ref), ref, snap.position)) return undefined;
+            return { kind: "point", point: snap.ref, position: snap.position };
+        }
     }
 
     const curveTolerance = options.lineTolerance ?? options.pointTolerance;
     if (curveTolerance <= 0 || hasIncidence(solver, ref)) return undefined;
-    const line = nearestLineOrAxisSnap(solver, entities, excludeEntityIds, probe, curveTolerance);
+    const excluded = curveSnapExclusions(solver, ref, excludeEntityIds);
+    const line = nearestLineOrAxisSnap(solver, entities, excluded, probe, curveTolerance);
     if (line !== undefined) return { kind: "line", lineRefs: line.lineRefs, position: line.position };
-    return nearestCurveSnap(entities, excludeEntityIds, probe, curveTolerance);
+    return nearestCurveSnap(entities, excluded, probe, curveTolerance);
+}
+
+/**
+ * Curve-snap exclusions: the caller's excluded entities plus every entity one of
+ * the point's coincident-linked points belongs to. The drag moves the whole
+ * coincident group, so the probe always sits exactly on those entities — an
+ * incidence constraint onto one would only restate the coincidence.
+ */
+function curveSnapExclusions(
+    solver: SketchSolver,
+    ref: SketchPointRef,
+    excludeEntityIds: ReadonlySet<number> | undefined,
+): Set<number> {
+    const excluded = new Set(excludeEntityIds);
+    for (const member of solver.coincidentGroup(ref)) {
+        excluded.add(member.entityId);
+    }
+    return excluded;
+}
+
+/** Every point ref of `ref`'s own entity — the sibling set the collapse guard checks. */
+function ownPointRefs(solver: SketchSolver, ref: SketchPointRef): SketchPointRef[] {
+    const type = solver.entity(ref.entityId)?.type;
+    if (type === undefined) return [ref];
+    return snappablePointIndices(type).map((pointIndex) => ({ entityId: ref.entityId, pointIndex }));
 }
 
 interface SnapCandidate {
@@ -628,6 +697,9 @@ function alignToAxis(
 ): void {
     const kinds = solver.constraintKindsOn(p1.entityId);
     if (kinds.includes(ConstraintKind.Horizontal) || kinds.includes(ConstraintKind.Vertical)) return;
+    // both endpoints pinned onto the same line (or axis) leave the line collinear
+    // with it — Horizontal/Vertical would only restate that
+    if (pinnedCollinear(solver, p1, p2, added)) return;
 
     const [x1, y1] = solver.pointOf(p1);
     const [x2, y2] = solver.pointOf(p2);
@@ -648,6 +720,57 @@ function alignToAxis(
     const constraint = { kind, refs: [p1, p2] };
     solver.addConstraint(constraint);
     added.push(constraint);
+}
+
+/**
+ * Whether the snaps just added pin both endpoints onto the same line or axis:
+ * the new line is then collinear with it by construction. An endpoint counts as
+ * pinned onto a line through a PointOnLine onto it or through a coincidence with
+ * one of its endpoints; the datum origin counts as a point of both axes.
+ */
+function pinnedCollinear(
+    solver: SketchSolver,
+    p1: SketchPointRef,
+    p2: SketchPointRef,
+    added: Omit<SketchConstraintData, "id">[],
+): boolean {
+    const targets = lineTargetsOf(solver, p1, added);
+    for (const target of lineTargetsOf(solver, p2, added)) {
+        if (targets.has(target)) return true;
+    }
+    return false;
+}
+
+/** Ids of the lines/axes `ref` was just snapped onto (see `pinnedCollinear`). */
+function lineTargetsOf(
+    solver: SketchSolver,
+    ref: SketchPointRef,
+    added: Omit<SketchConstraintData, "id">[],
+): Set<number> {
+    const key = pointRefKey(ref);
+    const ids = new Set<number>();
+    for (const constraint of added) {
+        if (constraint.kind === ConstraintKind.PointOnLine && pointRefKey(constraint.refs[0]) === key) {
+            ids.add(constraint.refs[1].entityId);
+        } else if (constraint.kind === ConstraintKind.P2PCoincident) {
+            const other = coincidentPartner(constraint.refs, key);
+            if (other === undefined) continue;
+            if (other.entityId === SKETCH_ORIGIN_ID) {
+                ids.add(SKETCH_X_AXIS_ID);
+                ids.add(SKETCH_Y_AXIS_ID);
+            } else if (solver.entity(other.entityId)?.type === "line") {
+                ids.add(other.entityId);
+            }
+        }
+    }
+    return ids;
+}
+
+/** The other ref of a two-ref coincidence, or undefined when `key` is not part of it. */
+function coincidentPartner(refs: SketchPointRef[], key: string): SketchPointRef | undefined {
+    if (pointRefKey(refs[0]) === key) return refs[1];
+    if (pointRefKey(refs[1]) === key) return refs[0];
+    return undefined;
 }
 
 /**

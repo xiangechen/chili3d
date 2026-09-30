@@ -19,6 +19,11 @@ import {
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
+/** The solver's constraints without ids — which relations exist, not their numbering. */
+function constraintsOf(solver: SketchSolver) {
+    return solver.toData().constraints.map(({ kind, refs }) => ({ kind, refs }));
+}
+
 describe("applyAutoConstraints", () => {
     test("snaps a line endpoint onto a nearby existing point and adds coincident", () => {
         const solver = new SketchSolver(Plane.XY);
@@ -104,6 +109,64 @@ describe("applyAutoConstraints", () => {
         const added = applyAutoConstraints(solver, id, { pointTolerance: 0 });
 
         expect(added).toEqual([]);
+        solver.dispose();
+    });
+
+    test("adds no Horizontal to a line drawn along the X axis", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const id = solver.addLine(2, 0.1, 8, 0.2);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        // both endpoints pinned onto the axis already make the line horizontal
+        expect(added.map((x) => x.kind)).toEqual([ConstraintKind.PointOnLine, ConstraintKind.PointOnLine]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("adds no Horizontal to a line from the origin along the X axis", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const id = solver.addLine(0.1, 0.05, 8, 0.2);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added.map((x) => x.kind)).toEqual([ConstraintKind.P2PCoincident, ConstraintKind.PointOnLine]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("adds no Horizontal to a line drawn back along an existing line from its endpoint", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const base = solver.addLine(0, 10, 10, 10);
+        solver.addConstraint({
+            kind: ConstraintKind.Horizontal,
+            refs: [
+                { entityId: base, pointIndex: 0 },
+                { entityId: base, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+        const id = solver.addLine(10.1, 10.1, 4, 10.2);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added.map((x) => x.kind)).toEqual([ConstraintKind.P2PCoincident, ConstraintKind.PointOnLine]);
+        solver.dispose();
+    });
+
+    test("still adds Horizontal when only one endpoint is pinned", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addLine(0, 5, 10, 5);
+        solver.solve(true);
+        // p1 snaps onto the base line's end; p2 stays clear of the base line
+        const id = solver.addLine(10.1, 5.1, 18, 5.6);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+
+        expect(added.map((x) => x.kind)).toEqual([ConstraintKind.P2PCoincident, ConstraintKind.Horizontal]);
         solver.dispose();
     });
 
@@ -787,6 +850,54 @@ describe("dragSnapPosition", () => {
         expect(snap).toBeUndefined();
         solver.dispose();
     });
+
+    test("does not snap onto a line the point is coincident-linked to", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const a = solver.addLine(5, 5, 12, 8);
+        const b = solver.addLine(12, 8, 20, 14);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 1 },
+                { entityId: b, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 1 };
+        const { position, snap } = dragSnapPosition(solver, ref, [12.1, 8.1], {
+            pointTolerance: 0.5,
+            lineTolerance: 0.5,
+        });
+
+        expect(position).toEqual([12.1, 8.1]);
+        expect(snap).toBeUndefined();
+        solver.dispose();
+    });
+
+    test("does not snap onto the spot a sibling point is coincident-linked to", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const a = solver.addLine(5, 5, 12, 8);
+        const b = solver.addLine(12, 8, 20, 14);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 1 },
+                { entityId: b, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        // the free endpoint dragged onto the junction its sibling sits on
+        const { position, snap } = dragSnapPosition(solver, { entityId: a, pointIndex: 0 }, [12.05, 8.05], {
+            pointTolerance: 0.5,
+            lineTolerance: 0.5,
+        });
+
+        expect(position).toEqual([12.05, 8.05]);
+        expect(snap).toBeUndefined();
+        solver.dispose();
+    });
 });
 
 describe("applyDragAutoConstraints", () => {
@@ -892,6 +1003,335 @@ describe("applyDragAutoConstraints", () => {
         const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
 
         expect(added).toEqual([]);
+        solver.dispose();
+    });
+
+    test("does not add point-on-line onto a line the dragged point is coincident with", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const a = solver.addLine(5, 5, 12, 8);
+        const b = solver.addLine(12, 8, 20, 14);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 1 },
+                { entityId: b, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 1 };
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+
+        expect(added).toEqual([]);
+        solver.dispose();
+    });
+
+    test("does not add point-on-arc onto an arc the dragged point is coincident with", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const arc = solver.addArc(20, 20, 25, 20, 20, 25);
+        const a = solver.addLine(25, 20, 30, 28);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 0 },
+                { entityId: arc, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 0 };
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+
+        expect(added).toEqual([]);
+        solver.dispose();
+    });
+
+    test("does not fuse a dragged endpoint onto the spot its sibling is coincident-linked to", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const a = solver.addLine(5, 5, 12, 8);
+        const b = solver.addLine(12, 8, 20, 14);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 1 },
+                { entityId: b, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        // the free endpoint settles on the junction its sibling sits on
+        const ref = { entityId: a, pointIndex: 0 };
+        solver.setPointPosition(ref, 12.05, 8.05);
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([]);
+        const [x1, y1] = solver.pointOf({ entityId: a, pointIndex: 0 });
+        const [x2, y2] = solver.pointOf({ entityId: a, pointIndex: 1 });
+        expect(Math.hypot(x2 - x1, y2 - y1)).toBeGreaterThan(Precision.Distance);
+        solver.dispose();
+    });
+
+    test("does not fuse an arc's dragged start onto the spot its end is coincident-linked to", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const arc = solver.addArc(20, 20, 25, 20, 20, 25);
+        const b = solver.addLine(20, 25, 30, 32);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: arc, pointIndex: 2 },
+                { entityId: b, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        // the start settles on the junction its sibling end sits on
+        const ref = { entityId: arc, pointIndex: 1 };
+        solver.setPointPosition(ref, 20.05, 25.05);
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([]);
+        const [sx, sy] = solver.pointOf({ entityId: arc, pointIndex: 1 });
+        const [ex, ey] = solver.pointOf({ entityId: arc, pointIndex: 2 });
+        expect(Math.hypot(ex - sx, ey - sy)).toBeGreaterThan(Precision.Distance);
+        solver.dispose();
+    });
+
+    test("still snaps a coincident-linked point onto an unrelated line", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const a = solver.addLine(5, 9.9, 12, 9.9);
+        const b = solver.addLine(12, 9.9, 20, 14);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 1 },
+                { entityId: b, pointIndex: 0 },
+            ],
+        });
+        const c = solver.addLine(0, 10, 25, 10);
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 1 };
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.1, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.PointOnLine,
+                refs: [
+                    { entityId: a, pointIndex: 1 },
+                    { entityId: c, pointIndex: 0 },
+                    { entityId: c, pointIndex: 1 },
+                ],
+            },
+        ]);
+        // the sketch is underconstrained (line c moves to meet the point), so
+        // assert the incidence the constraint guarantees rather than a position
+        const [px, py] = solver.pointOf(ref);
+        const [cx1, cy1] = solver.pointOf({ entityId: c, pointIndex: 0 });
+        const [cx2, cy2] = solver.pointOf({ entityId: c, pointIndex: 1 });
+        const distance =
+            Math.abs((cx2 - cx1) * (cy1 - py) - (cx1 - px) * (cy2 - cy1)) / Math.hypot(cx2 - cx1, cy2 - cy1);
+        expect(distance).toBeLessThan(Precision.Distance);
+        solver.dispose();
+    });
+
+    test("snapping an on-line point onto the line's endpoint replaces the incidence", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const b = solver.addLine(0, 0, 10, 0);
+        const a = solver.addLine(5, 0, 5, 8);
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnLine,
+            refs: [
+                { entityId: a, pointIndex: 0 },
+                { entityId: b, pointIndex: 0 },
+                { entityId: b, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 0 };
+        solver.setPointPosition(ref, 9.9, 0); // the drag slid the point along b to its end
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: b, pointIndex: 1 }],
+            },
+        ]);
+        expect(constraintsOf(solver)).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: b, pointIndex: 1 }],
+            },
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        expect(solver.pointOf(ref)).toEqual(solver.pointOf({ entityId: b, pointIndex: 1 }));
+        solver.dispose();
+    });
+
+    test("snapping an on-arc point onto the arc's start replaces the incidence", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const arc = solver.addArc(20, 20, 25, 20, 20, 25);
+        const a = solver.addLine(24.9, 20.1, 30, 28);
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnArc,
+            refs: [
+                { entityId: a, pointIndex: 0 },
+                { entityId: arc, pointIndex: 0 },
+                { entityId: arc, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 0 };
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: arc, pointIndex: 1 }],
+            },
+        ]);
+        // the arc's own structural PointOnArc stays; only the subsumed one goes
+        expect(constraintsOf(solver)).toEqual([
+            {
+                kind: ConstraintKind.PointOnArc,
+                refs: [
+                    { entityId: arc, pointIndex: 2 },
+                    { entityId: arc, pointIndex: 0 },
+                    { entityId: arc, pointIndex: 1 },
+                ],
+            },
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: arc, pointIndex: 1 }],
+            },
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("snapping an on-axis point onto the origin replaces the incidence", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const a = solver.addLine(5, 0, 5, 8);
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnLine,
+            refs: [{ entityId: a, pointIndex: 0 }, ...axisLineRefs(SKETCH_X_AXIS_ID)],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 0 };
+        solver.setPointPosition(ref, 0.1, 0); // the drag slid the point along the axis
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, originRef()],
+            },
+        ]);
+        expect(constraintsOf(solver)).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, originRef()],
+            },
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        expect(solver.pointOf(ref)).toEqual([0, 0]);
+        solver.dispose();
+    });
+
+    test("snapping onto the endpoint replaces an incidence held through the coincident group", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const b = solver.addLine(0, 0, 10, 0);
+        const a1 = solver.addLine(5, 0, 5, 8);
+        const a2 = solver.addLine(5, 0, 8, 4);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a1, pointIndex: 0 },
+                { entityId: a2, pointIndex: 0 },
+            ],
+        });
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnLine,
+            refs: [
+                { entityId: a2, pointIndex: 0 },
+                { entityId: b, pointIndex: 0 },
+                { entityId: b, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        // the drag moved the whole coincident group to b's end
+        const ref = { entityId: a1, pointIndex: 0 };
+        solver.setPointPosition(ref, 10, 0);
+        solver.setPointPosition({ entityId: a2, pointIndex: 0 }, 10, 0);
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: b, pointIndex: 1 }],
+            },
+        ]);
+        expect(constraintsOf(solver)).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: a1, pointIndex: 0 },
+                    { entityId: a2, pointIndex: 0 },
+                ],
+            },
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: b, pointIndex: 1 }],
+            },
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("snapping onto another entity's point keeps the incidence", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const b = solver.addLine(0, 0, 10, 0);
+        const d = solver.addLine(6, 0, 6, 5); // its lower endpoint sits on b
+        const a = solver.addLine(7, 0, 9, 4);
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnLine,
+            refs: [
+                { entityId: a, pointIndex: 0 },
+                { entityId: b, pointIndex: 0 },
+                { entityId: b, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 0 };
+        solver.setPointPosition(ref, 6.05, 0); // the drag slid the point along b to d's endpoint
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        // the coincidence attaches d's endpoint to b through the point — the
+        // incidence on b still does real work and stays
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: d, pointIndex: 0 }],
+            },
+        ]);
+        expect(solver.toData().constraints.map((x) => x.kind)).toEqual([
+            ConstraintKind.PointOnLine,
+            ConstraintKind.P2PCoincident,
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
         solver.dispose();
     });
 });
