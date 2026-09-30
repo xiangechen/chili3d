@@ -27,6 +27,13 @@
     border-color: var(--badge-accent);
 }
 
+/* panel-row hover gives the badge the hover look; ghosts stay invisible —
+   the dimension mesh is their face */
+.hovered:not(.ghost) {
+    background-color: color-mix(in srgb, var(--badge-accent) 16%, var(--panel-background-color));
+    border-color: var(--badge-accent);
+}
+
 /* datum text draws as mesh glyphs; the badge stays only as the drag/edit interaction layer */
 .ghost,
 .ghost:hover {
@@ -36,8 +43,10 @@
     box-shadow: none;
 }
 
+/* selected green survives panel-row hover, same as the conflict red / redundant amber below */
 .selected,
-.badge.selected:hover {
+.badge.selected:hover,
+.badge.selected.hovered {
     color: var(--badge-selected);
     background-color: color-mix(in srgb, var(--badge-selected) 12%, var(--panel-background-color));
     border-color: var(--badge-selected);
@@ -49,6 +58,42 @@
     color: var(--error-color);
     background-color: color-mix(in srgb, var(--error-color) 12%, var(--panel-background-color));
     border-color: var(--error-color);
+}
+
+/* a constraint in conflict with others — solid red, as in Onshape's constraint manager;
+   the red survives both pointer hover and panel-row hover */
+.conflicting,
+.badge.conflicting:hover,
+.badge.conflicting.hovered {
+    color: #fff;
+    background-color: var(--error-color);
+    border-color: var(--error-color);
+}
+
+/* a conflicting datum stays invisible: the red dimension mesh is its signal */
+.ghost.conflicting,
+.ghost.conflicting:hover {
+    color: transparent;
+    background-color: transparent;
+    border-color: transparent;
+}
+
+/* a redundant constraint — solid amber with dark text (white on amber does not read);
+   survives pointer hover and panel-row hover like the conflict red */
+.redundant,
+.badge.redundant:hover,
+.badge.redundant.hovered {
+    color: #1f1f1f;
+    background-color: var(--warning-color);
+    border-color: var(--warning-color);
+}
+
+/* a redundant datum stays invisible: the amber dimension mesh is its signal */
+.ghost.redundant,
+.ghost.redundant:hover {
+    color: transparent;
+    background-color: transparent;
+    border-color: transparent;
 }
 
 /* symbol badges show the toolbar constraint icon instead of text */

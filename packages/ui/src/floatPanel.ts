@@ -160,32 +160,70 @@ export class FloatPanel extends HTMLElement {
 
 customElements.define("chili-float-panel", FloatPanel);
 
+/** Closes the panel when a `closeFloatPanel` event names its content element. Returns the unwatch. */
+function watchProgrammaticClose(content: HTMLElement, close: () => void): () => void {
+    const handler = (closedContent: HTMLElement) => {
+        if (closedContent === content) close();
+    };
+    PubSub.default.sub("closeFloatPanel", handler);
+    return () => PubSub.default.remove("closeFloatPanel", handler);
+}
+
+/**
+ * A panel bound to a document closes with it: `Document.close` disposes the state the
+ * panel reads and writes, and one left up throws out of its next edit. `onClose` is
+ * skipped here — it would touch that disposed state. Returns the unwatch, or undefined
+ * when the panel is not document-bound.
+ */
+function watchBoundDocument(
+    boundDocument: IDocument | undefined,
+    disposeQuietly: () => void,
+): (() => void) | undefined {
+    if (boundDocument === undefined) return undefined;
+    const handler = (closedDocument: IDocument) => {
+        if (closedDocument === boundDocument) disposeQuietly();
+    };
+    PubSub.default.sub("documentClosed", handler);
+    return () => PubSub.default.remove("documentClosed", handler);
+}
+
 export function showFloatPanel(options: FloatPanelOptions): FloatPanel {
-    let stopWatching: () => void = () => {};
-    const panel = new FloatPanel({
-        ...options,
-        onClose: () => {
-            stopWatching();
+    let closed = false;
+    // every watch stops with the close, or it would hold the removed panel alive
+    const unwatchers: (() => void)[] = [];
+    const unwatchAll = () => {
+        for (const unwatch of unwatchers) unwatch();
+    };
+
+    const removePanel = () => {
+        unwatchAll();
+        panel.remove();
+        panel.dispose();
+    };
+    // The close button and a programmatic `closeFloatPanel` both close through here —
+    // the button's own finally then just repeats a harmless remove/dispose.
+    const close = () => {
+        if (closed) return;
+        closed = true;
+        try {
             options.onClose?.();
-        },
-    });
+        } finally {
+            removePanel();
+        }
+    };
+    // the document-closed teardown shares the teardown but skips `onClose`
+    const disposeQuietly = () => {
+        if (closed) return;
+        closed = true;
+        removePanel();
+    };
+    const panel = new FloatPanel({ ...options, onClose: close });
+
+    unwatchers.push(watchProgrammaticClose(options.content, close));
+    const unwatchDocument = watchBoundDocument(options.document, disposeQuietly);
+    if (unwatchDocument !== undefined) unwatchers.push(unwatchDocument);
+
     const host = app.mainWindow ?? document.body;
     host.appendChild(panel);
-
-    // A panel bound to a document closes with it: `Document.close` disposes the state the
-    // panel reads and writes, and one left up throws out of its next edit. Closing the panel
-    // first has to stop the watch, or every open would leave a subscription holding the
-    // removed panel alive.
-    const boundDocument = options.document;
-    if (boundDocument !== undefined) {
-        const handleDocumentClosed = (closed: IDocument) => {
-            if (closed !== boundDocument) return;
-            stopWatching();
-            panel.remove();
-            panel.dispose();
-        };
-        PubSub.default.sub("documentClosed", handleDocumentClosed);
-        stopWatching = () => PubSub.default.remove("documentClosed", handleDocumentClosed);
-    }
     return panel;
 }

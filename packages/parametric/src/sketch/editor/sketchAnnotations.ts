@@ -18,6 +18,7 @@ import {
     type DimensionLabel,
     entityRadius,
     isDatumEntityId,
+    isStructuralConstraint,
     pointRefKey,
     type SketchConstraintData,
     type SketchEntityData,
@@ -97,7 +98,12 @@ interface DimensionText {
     readonly u: number;
     readonly v: number;
     readonly direction: [number, number];
+    /** Flagged constraints draw in their tone's color instead of DIMENSION_COLOR. */
+    readonly tone?: DimensionTone;
 }
+
+/** How a flagged constraint's annotation reads: red for conflicting, amber for redundant. */
+type DimensionTone = "conflict" | "redundant";
 
 /** Badge center offset from its geometry, in screen pixels. */
 const BADGE_OFFSET_PX = 18;
@@ -110,6 +116,25 @@ const LABEL_DRAG_THRESHOLD_PX = 4;
  * behind the badges' `--badge-accent`; green is reserved for hover/selection highlights.
  */
 const DIMENSION_COLOR = 0x4a9eff;
+
+/**
+ * Red for conflicting-constraint graphics — matches the dark-theme `--error-color`
+ * (#ff6b6b), the badge conflict style uses the CSS variable itself.
+ */
+const CONFLICT_COLOR = 0xff6b6b;
+
+/**
+ * Amber for redundant-constraint graphics — matches the dark-theme `--warning-color`
+ * (#ffd93d), the badge redundant style uses the CSS variable itself.
+ */
+const REDUNDANT_COLOR = 0xffd93d;
+
+/** Mesh colors per tone, normal dimensions included. */
+const TONE_COLORS: Record<DimensionTone | "normal", number> = {
+    normal: DIMENSION_COLOR,
+    conflict: CONFLICT_COLOR,
+    redundant: REDUNDANT_COLOR,
+};
 
 /**
  * True when a pointer event target is (or is inside) an annotation badge.
@@ -172,9 +197,11 @@ export type DimensionPreview =
  *   simple. Dimension graphics use pixel-relative sizes, so the camera controller is subscribed
  *   to re-render on zoom.
  * - **When symbols are visible.** While one of their referenced entities is highlighted
- *   (hovered, dragged or selected), or while the badge itself is hovered/selected. They are
- *   suppressed entirely while a pick is active, so they cannot occlude the geometry being
- *   picked. Datum dimensions stay visible regardless.
+ *   (hovered, dragged or selected), while the badge itself or its panel row is hovered
+ *   or the badge is selected, or while the constraint is conflicting — a conflict must
+ *   be findable without hunting for it. They are suppressed entirely while a pick is
+ *   active, so they cannot occlude the geometry being picked. Datum dimensions stay
+ *   visible regardless.
  * - **Placement.** Symbol badges sit a screen-constant distance from their geometry so they
  *   never cover the clickable line/point. A multi-entity constraint (parallel, tangent, …) gets
  *   one badge per referenced entity, so each stays next to — and reachable from — its own
@@ -185,6 +212,11 @@ export type DimensionPreview =
  *   label dragging and double-click editing alive. Hovering a badge highlights its referenced
  *   entities; clicking a symbol badge selects it; selected constraints can be deleted;
  *   double-clicking a datum badge re-opens its value input.
+ * - **Flagged constraints.** Constraints the solver flags read in the issue color —
+ *   conflicting red, redundant amber. A symbol badge goes solid (white-on-color), a
+ *   datum dimension redraws its whole graphics (extension lines, arrows, text) in the
+ *   tone color — its invisible badge keeps the regular look so only the mesh carries
+ *   the signal.
  * - **Dragging a datum badge.** Either press-drag-release, or click to pick the label up (it
  *   then follows the cursor) and click again — on the canvas or on the label itself — to drop
  *   it. Escape cancels and restores the previous anchor. The new anchor is committed (undoable)
@@ -197,7 +229,13 @@ export class SketchAnnotationManager implements IDisposable {
     private meshId?: number;
     private disposed = false;
     private highlightedEntities = new Set<number>();
+    /** Constraint ids the last fine solve flagged as conflicting — their annotations read red. */
+    private conflictingConstraints = new Set<number>();
+    /** Constraint ids the last fine solve flagged as redundant — their annotations read amber. */
+    private redundantConstraints = new Set<number>();
     private hoveredConstraint?: number;
+    /** Constraint whose panel row is hovered — its badge takes the hover look. */
+    private panelHoveredConstraint?: number;
     private readonly selectedConstraints = new Set<number>();
     private rebuilding = false;
     private suppressSymbols = false;
@@ -219,6 +257,8 @@ export class SketchAnnotationManager implements IDisposable {
         moved: boolean;
     };
     private dragCleanup?: () => void;
+    /** Selection-change notification — the constraint list panel mirrors the badge selection. */
+    onSelectionChanged?: (ids: number[]) => void;
     private readonly onCameraChanged = debounce(() => this.refresh(), 20);
     /**
      * The default font arrives asynchronously (see `defaultFontService`); until it
@@ -262,6 +302,33 @@ export class SketchAnnotationManager implements IDisposable {
         return [...this.selectedConstraints];
     }
 
+    /** Constraints the last fine solve flagged as conflicting — their annotations read red. */
+    setConflictingConstraints(ids: Iterable<number>): void {
+        this.conflictingConstraints = new Set(ids);
+    }
+
+    /** Constraints the last fine solve flagged as redundant — their annotations read amber. */
+    setRedundantConstraints(ids: Iterable<number>): void {
+        this.redundantConstraints = new Set(ids);
+    }
+
+    /** The tone a flagged constraint's annotation draws in, undefined for the normal blue. */
+    private toneOf(id: number): DimensionTone | undefined {
+        if (this.conflictingConstraints.has(id)) return "conflict";
+        if (this.redundantConstraints.has(id)) return "redundant";
+        return undefined;
+    }
+
+    /**
+     * Panel-row hover: the constraint's badge stays visible with the hover look while
+     * the pointer is over the list. Refresh is skipped when unchanged.
+     */
+    highlightConstraint(id?: number): void {
+        if (this.disposed || this.panelHoveredConstraint === id) return;
+        this.panelHoveredConstraint = id;
+        this.refresh();
+    }
+
     /** Shows constraint symbols for these entities; refresh is skipped when unchanged. */
     setHighlightedEntities(entityIds: Iterable<number>): void {
         if (this.disposed) return;
@@ -280,6 +347,15 @@ export class SketchAnnotationManager implements IDisposable {
         if (this.selectedConstraints.size === 0) return;
         this.selectedConstraints.clear();
         this.applySelectionClasses();
+        this.onSelectionChanged?.([]);
+    }
+
+    /** Replaces the selection wholesale — the constraint list panel drives this. */
+    selectConstraints(ids: Iterable<number>): void {
+        this.selectedConstraints.clear();
+        for (const id of ids) this.selectedConstraints.add(id);
+        this.applySelectionClasses();
+        this.onSelectionChanged?.(this.selectedConstraintIds);
     }
 
     /** Drops deleted constraints from the hover/selection state. */
@@ -300,7 +376,10 @@ export class SketchAnnotationManager implements IDisposable {
         }
         // a deleted hovered badge leaves its entity highlight behind otherwise
         if (hoverCleared) this.onHighlightEntities([]);
-        if (changed) this.applySelectionClasses();
+        if (changed) {
+            this.applySelectionClasses();
+            this.onSelectionChanged?.(this.selectedConstraintIds);
+        }
     }
 
     refresh(): void {
@@ -311,17 +390,32 @@ export class SketchAnnotationManager implements IDisposable {
         this.disposeItems();
         this.rebuilding = false;
         const px = this.pixelSize();
-        const graphics: DimensionGraphics = { segments: [], triangles: [] };
+        // flagged datum dimensions route to their tone's bucket and draw in its color
+        const graphics: Record<DimensionTone | "normal", DimensionGraphics> = {
+            normal: { segments: [], triangles: [] },
+            conflict: { segments: [], triangles: [] },
+            redundant: { segments: [], triangles: [] },
+        };
         this.texts = [];
         this.addConstraintGraphics(px, graphics);
-        this.addPreviewGraphics(px, graphics);
+        this.addPreviewGraphics(px, graphics.normal);
 
-        const corners: DimensionGeometry["triangles"] = [...graphics.triangles];
-        for (const text of this.texts) this.pushTextTriangles(corners, text, px);
+        const corners: Record<DimensionTone | "normal", DimensionGeometry["triangles"]> = {
+            normal: [...graphics.normal.triangles],
+            conflict: [...graphics.conflict.triangles],
+            redundant: [...graphics.redundant.triangles],
+        };
+        for (const text of this.texts) {
+            this.pushTextTriangles(corners[text.tone ?? "normal"], text, px);
+        }
 
         const meshes: ShapeMeshData[] = [];
-        if (graphics.segments.length > 0) meshes.push(this.toEdgeMesh(graphics.segments));
-        if (corners.length > 0) meshes.push(this.toFaceMesh(corners));
+        for (const tone of ["normal", "conflict", "redundant"] as const) {
+            if (graphics[tone].segments.length > 0) {
+                meshes.push(this.toEdgeMesh(graphics[tone].segments, TONE_COLORS[tone]));
+            }
+            if (corners[tone].length > 0) meshes.push(this.toFaceMesh(corners[tone], TONE_COLORS[tone]));
+        }
         if (meshes.length > 0) {
             this.meshId = this.view.document.visual.context.displayMesh(meshes, { onTop: true });
         }
@@ -330,7 +424,10 @@ export class SketchAnnotationManager implements IDisposable {
 
     // ------------------------------------------------------------------ Constraint badges and dimension geometry
 
-    private addConstraintGraphics(px: number, graphics: DimensionGraphics): void {
+    private addConstraintGraphics(
+        px: number,
+        graphics: Record<DimensionTone | "normal", DimensionGraphics>,
+    ): void {
         const coincidentGroups = new Set<string>();
         for (const constraint of this.solver.toData().constraints) {
             switch (constraint.kind) {
@@ -347,7 +444,7 @@ export class SketchAnnotationManager implements IDisposable {
                 case ConstraintKind.Angle:
                 case ConstraintKind.HorizontalDistance:
                 case ConstraintKind.VerticalDistance:
-                    this.addDatumDimension(constraint, px, graphics);
+                    this.addDatumDimension(constraint, px, graphics[this.toneOf(constraint.id) ?? "normal"]);
                     break;
                 default:
                     this.addSymbolBadge(constraint, px);
@@ -375,14 +472,7 @@ export class SketchAnnotationManager implements IDisposable {
     private addSymbolBadge(constraint: SketchConstraintData, px: number): void {
         const symbol = badgeSymbol(constraint.kind);
         if (symbol === undefined) return;
-        // an arc's structural PointOnArc (all refs on the arc itself) stays invisible —
-        // it is part of the entity, deleting it would break the arc geometry
-        if (
-            constraint.kind === ConstraintKind.PointOnArc &&
-            constraint.refs.every((r) => r.entityId === constraint.refs[0].entityId)
-        ) {
-            return;
-        }
+        if (isStructuralConstraint(constraint)) return;
         if (!this.isConstraintVisible(constraint)) return;
         const anchors = this.symbolAnchors(constraint, px).filter(
             // drop duplicates (e.g. a symmetric constraint on the same point twice)
@@ -514,6 +604,7 @@ export class SketchAnnotationManager implements IDisposable {
                 u: geometry.textPosition[0],
                 v: geometry.textPosition[1],
                 direction: geometry.textDirection,
+                tone: this.toneOf(constraint.id),
             });
         }
         this.addBadge(text, ...geometry.textPosition, constraint, constraint.refs, true, undefined, !broken);
@@ -745,7 +836,12 @@ export class SketchAnnotationManager implements IDisposable {
     ): boolean {
         if (this.suppressSymbols) return false;
         return (
+            // a conflict must be findable without hunting for it — the badge stays up
+            // whether or not its entities are highlighted; redundant badges likewise
+            this.conflictingConstraints.has(constraint.id) ||
+            this.redundantConstraints.has(constraint.id) ||
             this.hoveredConstraint === constraint.id ||
+            this.panelHoveredConstraint === constraint.id ||
             this.selectedConstraints.has(constraint.id) ||
             refs.some((ref) => this.highlightedEntities.has(ref.entityId))
         );
@@ -769,18 +865,24 @@ export class SketchAnnotationManager implements IDisposable {
         return viewPixelSize(this.view, this.solver.plane.origin) ?? 1;
     }
 
-    private toEdgeMesh(segments: [number, number, number, number][]): EdgeMeshData {
+    private toEdgeMesh(
+        segments: [number, number, number, number][],
+        color: number = DIMENSION_COLOR,
+    ): EdgeMeshData {
         const position = new Float32Array(segments.length * 6);
         segments.forEach(([x1, y1, x2, y2], i) => {
             const p1 = toWorld(this.solver.plane, x1, y1);
             const p2 = toWorld(this.solver.plane, x2, y2);
             position.set([p1.x, p1.y, p1.z, p2.x, p2.y, p2.z], i * 6);
         });
-        return { position, range: [], color: DIMENSION_COLOR, lineType: "solid" };
+        return { position, range: [], color, lineType: "solid" };
     }
 
     /** The solid arrowheads as one face mesh: three corners per triangle, indexed in order. */
-    private toFaceMesh(corners: DimensionGeometry["triangles"]): FaceMeshData {
+    private toFaceMesh(
+        corners: DimensionGeometry["triangles"],
+        color: number = DIMENSION_COLOR,
+    ): FaceMeshData {
         const position = new Float32Array(corners.length * 3);
         const normal = new Float32Array(corners.length * 3);
         const index = new Uint32Array(corners.length);
@@ -798,7 +900,7 @@ export class SketchAnnotationManager implements IDisposable {
             uv: new Float32Array(corners.length * 2),
             groups: [{ start: 0, count: corners.length, materialIndex: 0 }],
             range: [],
-            color: DIMENSION_COLOR,
+            color,
         };
     }
 
@@ -860,6 +962,13 @@ export class SketchAnnotationManager implements IDisposable {
                     list.push(element);
                     this.badgeElements.set(id, list);
                     element.classList.toggle(style.selected, this.selectedConstraints.has(id));
+                    // a conflicting constraint reads solid red — for a ghost datum the badge
+                    // stays invisible (`.ghost.conflicting`) and the red mesh is the signal
+                    element.classList.toggle(style.conflicting, this.conflictingConstraints.has(id));
+                    // redundant reads amber on the same terms
+                    element.classList.toggle(style.redundant, this.redundantConstraints.has(id));
+                    // panel-row hover puts the badge in its hover look (the pointer is on the list)
+                    element.classList.toggle(style.hovered, this.panelHoveredConstraint === id);
                     // A datum whose expression stopped resolving keeps its last geometry
                     // (`SketchSolver.datumOf`) — this badge is the only place that says so,
                     // so it carries the reason as its tooltip and reads as broken.
@@ -1070,6 +1179,7 @@ export class SketchAnnotationManager implements IDisposable {
             this.selectedConstraints.add(id);
         }
         this.applySelectionClasses();
+        this.onSelectionChanged?.(this.selectedConstraintIds);
     }
 
     private applySelectionClasses(): void {

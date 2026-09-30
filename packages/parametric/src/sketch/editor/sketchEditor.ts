@@ -30,10 +30,11 @@ import {
 } from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
-import { SketchSolver, type SolveOutcome } from "../solver";
+import { type SketchDiagnostics, SketchSolver, type SolveOutcome } from "../solver";
 import * as datumPrompt from "./datumPrompt";
 import { type DimensionAnchor, toDisplayDatum, toStorageDatum } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
+import { SketchConstraintsPanel } from "./sketchConstraintsPanel";
 import { SketchEventHandler } from "./sketchEventHandler";
 
 /**
@@ -111,6 +112,10 @@ export class SketchEditor implements IDisposable {
      * lists and the undo history never see it.
      */
     private readonly rollback: RollbackMap;
+    /** The outcome and diagnostics of the last fine solve — republished after picks, rendered by the panel. */
+    private lastOutcome: SolveOutcome = { result: "Ok", dofs: 0 };
+    private sketchDiagnostics: SketchDiagnostics = { dofs: 0, conflicting: [], redundant: [] };
+    private constraintsPanel?: SketchConstraintsPanel;
 
     /**
      * At most one sketch is edited at a time (`enter` exits any previous session),
@@ -496,7 +501,7 @@ export class SketchEditor implements IDisposable {
         this.pickRequest = undefined;
         request?.resolve(undefined);
         this.annotations.suppressConstraintSymbols = false;
-        this.publishSolveStatus({ result: "Ok", dofs: this.solver.dofs() });
+        this.publishSolveStatus();
     }
 
     /**
@@ -532,8 +537,14 @@ export class SketchEditor implements IDisposable {
 
     solve(fine: boolean): SolveOutcome {
         const outcome = this.solver.solve(fine);
+        this.lastOutcome = outcome;
+        // garlic's diagnose only has the expected semantics right after a solve
+        if (fine) this.sketchDiagnostics = this.solver.diagnose();
+        this.annotations.setConflictingConstraints(this.sketchDiagnostics.conflicting);
+        this.annotations.setRedundantConstraints(this.sketchDiagnostics.redundant);
         this.annotations.refresh();
-        this.publishSolveStatus(outcome);
+        this.publishSolveStatus();
+        this.constraintsPanel?.refresh();
         return outcome;
     }
 
@@ -762,6 +773,7 @@ export class SketchEditor implements IDisposable {
     }
 
     private teardownSession(): void {
+        this.closeConstraintsPanel();
         this.document.variables.removePropertyChanged(this.handleVariablesChanged);
         this.eventHandler.dispose();
         this.annotations.dispose();
@@ -802,13 +814,70 @@ export class SketchEditor implements IDisposable {
         });
     }
 
-    private publishSolveStatus(outcome: SolveOutcome): void {
-        const key: I18nKeys = outcome.result.startsWith("Conflict")
-            ? "sketch.conflicting"
-            : outcome.dofs === 0
-              ? "sketch.fullyConstrained"
-              : "sketch.underConstrained";
-        PubSub.default.pub("statusBarTip", key);
+    private publishSolveStatus(): void {
+        const outcome = this.lastOutcome;
+        if (outcome.result === "Conflicting") {
+            PubSub.default.pub("statusBarTip", "sketch.conflicting");
+        } else if (outcome.dofs === 0) {
+            PubSub.default.pub("statusBarTip", "sketch.fullyConstrained");
+        } else {
+            PubSub.default.pub("statusBarTip", "sketch.dofs{0}", outcome.dofs);
+        }
+    }
+
+    /** Diagnostics of the last fine solve — the constraint list panel renders these. */
+    get diagnostics(): SketchDiagnostics {
+        return this.sketchDiagnostics;
+    }
+
+    /**
+     * The FreeCAD-style constraint list panel: solver diagnostics up top, every
+     * user constraint below. Toggled from the sketch ribbon, closed with the session.
+     */
+    toggleConstraintsPanel(): void {
+        if (this.disposed) return;
+        if (this.constraintsPanel !== undefined) {
+            this.closeConstraintsPanel();
+            return;
+        }
+        const panel = new SketchConstraintsPanel(this);
+        this.constraintsPanel = panel;
+        PubSub.default.pub("showFloatPanel", {
+            title: "sketch.constraints",
+            content: panel.element,
+            width: 300,
+            height: 380,
+            minWidth: 220,
+            minHeight: 160,
+            document: this.document,
+            onClose: () => {
+                panel.dispose();
+                if (this.constraintsPanel === panel) this.constraintsPanel = undefined;
+            },
+        });
+        panel.refresh();
+    }
+
+    private closeConstraintsPanel(): void {
+        const panel = this.constraintsPanel;
+        if (panel === undefined) return;
+        this.constraintsPanel = undefined;
+        PubSub.default.pub("closeFloatPanel", panel.element);
+        // without a ui subscriber (unit tests) onClose never runs — clean up directly
+        panel.dispose();
+    }
+
+    /** Constraint-badge hover equivalent for panel rows: highlight the badge and its entities; undefined clears. */
+    highlightConstraint(constraintId: number | undefined): void {
+        if (this.disposed) return;
+        this.annotations.highlightConstraint(constraintId);
+        if (constraintId === undefined) {
+            this.eventHandler.highlightConstraintEntities([]);
+            return;
+        }
+        const constraint = this.solver.toData().constraints.find((c) => c.id === constraintId);
+        if (constraint === undefined) return;
+        this.eventHandler.highlightConstraintEntities([...new Set(constraint.refs.map((r) => r.entityId))]);
     }
 
     private setCanRotate(value: boolean): void {

@@ -333,4 +333,33 @@ describe("showFloatPanel lifetime", () => {
         expect(panel.isConnected).toBe(false);
         expect(pubSubRecorder.handlers.has("documentClosed")).toBe(false);
     });
+
+    test("closeFloatPanel closes the panel through the same path as the close button", () => {
+        const content = window.document.createElement("div");
+        let onCloseCalls = 0;
+        const panel = showFloatPanel({
+            title: "Test" as I18nKeys,
+            content,
+            onClose: () => onCloseCalls++,
+        });
+
+        const handler = pubSubRecorder.handlers.get("closeFloatPanel");
+        expect(handler).toBeDefined();
+        handler!(content);
+
+        expect(onCloseCalls).toBe(1);
+        expect(panel.isConnected).toBe(false);
+        // the watch stopped with the close — a second event must not re-run onClose
+        handler!(content);
+        expect(onCloseCalls).toBe(1);
+    });
+
+    test("closeFloatPanel for another panel's content leaves it open", () => {
+        const panel = open();
+
+        pubSubRecorder.handlers.get("closeFloatPanel")?.(window.document.createElement("div"));
+
+        expect(panel.isConnected).toBe(true);
+        panel.remove();
+    });
 });

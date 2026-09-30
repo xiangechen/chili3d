@@ -222,7 +222,7 @@ export class WasmSystem {
     /**
      * 诊断：conflicting / redundant 约束清单与 DOF（先 solve 再 diagnose
      * 才有预期语义，见 diagnose 模块文档）。
-     * @returns {any}
+     * @returns {DiagReportInfo}
      */
     diagnose() {
         const ret = wasm.wasmsystem_diagnose(this.__wbg_ptr);
@@ -258,12 +258,13 @@ export class WasmSystem {
     /**
      * 从 Sketch 对象加载草图（静态方法；docs/04「序列化与互操作」）。`sketch` 可以是
      * `save_sketch` 返回对象的 `.sketch` 字段，或 JSON 落盘后的解析结果。
-     * 格式版本不符/未知约束 kind/参数索引越界均报 JsError。
+     * 格式版本不符/未知约束 kind/参数索引越界均报 JsError；入参结构形状不符
+     * （缺字段/类型错误）在 ABI 边界的 serde 反序列化处直接抛异常。
      *
      * **句柄语义**：加载产生的是全新系统——参数/约束 id 从 0 重排、无
      * tombstone，旧 `WasmSystem` 实例的句柄（ParamId/ConstraintId）与
      * 新实例不可混用；旧实例本身不受影响，可继续使用。
-     * @param {any} sketch
+     * @param {Sketch} sketch
      * @returns {WasmSystem}
      */
     static load_sketch(sketch) {
@@ -324,7 +325,7 @@ export class WasmSystem {
      *  （u32 数组）。数据不是错误——内建约束永不进此列表，正常为空；
      *   非空时导入结果的求解结局可能不同，调用方按需提示用户。
      * tombstone 与禁用 tag 组的约束不导出；dragged 等交互瞬态不保存。
-     * @returns {any}
+     * @returns {SaveResultInfo}
      */
     save_sketch() {
         const ret = wasm.wasmsystem_save_sketch(this.__wbg_ptr);
@@ -346,10 +347,8 @@ export class WasmSystem {
     }
     /**
      * 求解。fine = true 精解（鼠标抬起/显式重解），false 粗解（拖拽每帧）。
-     * 返回 SolveReport 对象（result 为字符串，如 "Ok" / "OkUnderconstrained" /
-     * "Conflicting" / "Diverged" / "Stalled"）。
      * @param {boolean} fine
-     * @returns {any}
+     * @returns {SolveReportInfo}
      */
     solve(fine) {
         const ret = wasm.wasmsystem_solve(this.__wbg_ptr, fine);
@@ -367,59 +366,9 @@ function __wbg_get_imports() {
             const ret = Error(getStringFromWasm0(arg0, arg1));
             return ret;
         },
-        __wbg_Number_3890faa6d3ff057d: function(arg0) {
-            const ret = Number(arg0);
-            return ret;
-        },
-        __wbg_String_8564e559799eccda: function(arg0, arg1) {
-            const ret = String(arg1);
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len1 = WASM_VECTOR_LEN;
-            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
-            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
-        },
-        __wbg___wbindgen_boolean_get_c9c83ebd41b34df3: function(arg0) {
-            const v = arg0;
-            const ret = typeof(v) === 'boolean' ? v : undefined;
-            return isLikeNone(ret) ? 0xFFFFFF : ret ? 1 : 0;
-        },
-        __wbg___wbindgen_debug_string_a57024b9c6e4a48b: function(arg0, arg1) {
-            const ret = debugString(arg1);
-            const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-            const len1 = WASM_VECTOR_LEN;
-            getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
-            getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
-        },
-        __wbg___wbindgen_in_ac983077f137f2e6: function(arg0, arg1) {
-            const ret = arg0 in arg1;
-            return ret;
-        },
-        __wbg___wbindgen_is_function_5e4570eb24ffa122: function(arg0) {
-            const ret = typeof(arg0) === 'function';
-            return ret;
-        },
-        __wbg___wbindgen_is_object_a2790eb24c211ea0: function(arg0) {
-            const val = arg0;
-            const ret = typeof(val) === 'object' && val !== null;
-            return ret;
-        },
-        __wbg___wbindgen_is_string_e6f02f0ea5f20a32: function(arg0) {
-            const ret = typeof(arg0) === 'string';
-            return ret;
-        },
         __wbg___wbindgen_is_undefined_6cff064c44e0d823: function(arg0) {
             const ret = arg0 === undefined;
             return ret;
-        },
-        __wbg___wbindgen_jsval_loose_eq_acf2776254a8d832: function(arg0, arg1) {
-            const ret = arg0 == arg1;
-            return ret;
-        },
-        __wbg___wbindgen_number_get_136b9679cab35cfb: function(arg0, arg1) {
-            const obj = arg1;
-            const ret = typeof(obj) === 'number' ? obj : undefined;
-            getDataViewMemory0().setFloat64(arg0 + 8 * 1, isLikeNone(ret) ? 0 : ret, true);
-            getDataViewMemory0().setInt32(arg0 + 4 * 0, !isLikeNone(ret), true);
         },
         __wbg___wbindgen_string_get_d154f1e671052120: function(arg0, arg1) {
             const obj = arg1;
@@ -432,18 +381,6 @@ function __wbg_get_imports() {
         __wbg___wbindgen_throw_bb96b2010945f0bc: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
-        __wbg_call_1c5886ab9c57d1c7: function() { return handleError(function (arg0, arg1) {
-            const ret = arg0.call(arg1);
-            return ret;
-        }, arguments); },
-        __wbg_done_669171204c3dcae2: function(arg0) {
-            const ret = arg0.done;
-            return ret;
-        },
-        __wbg_entries_7774d489e1da5f4f: function(arg0) {
-            const ret = Object.entries(arg0);
-            return ret;
-        },
         __wbg_error_757e9472f8410341: function(arg0, arg1) {
             let deferred0_0;
             let deferred0_1;
@@ -455,95 +392,14 @@ function __wbg_get_imports() {
                 wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
             }
         },
-        __wbg_get_c0c8f8d7da0c03dd: function(arg0, arg1) {
-            const ret = arg0[arg1 >>> 0];
-            return ret;
-        },
-        __wbg_get_d173c0308df22d37: function() { return handleError(function (arg0, arg1) {
-            const ret = Reflect.get(arg0, arg1);
-            return ret;
-        }, arguments); },
-        __wbg_get_unchecked_e20b893aeafc3fca: function(arg0, arg1) {
-            const ret = arg0[arg1 >>> 0];
-            return ret;
-        },
-        __wbg_get_with_ref_key_6412cf3094599694: function(arg0, arg1) {
-            const ret = arg0[arg1];
-            return ret;
-        },
-        __wbg_instanceof_ArrayBuffer_993d02d2d254cad1: function(arg0) {
-            let result;
-            try {
-                result = arg0 instanceof ArrayBuffer;
-            } catch (_) {
-                result = false;
-            }
-            const ret = result;
-            return ret;
-        },
-        __wbg_instanceof_Uint8Array_f935dbb0aa7cdeed: function(arg0) {
-            let result;
-            try {
-                result = arg0 instanceof Uint8Array;
-            } catch (_) {
-                result = false;
-            }
-            const ret = result;
-            return ret;
-        },
-        __wbg_isArray_6339f732981044bf: function(arg0) {
-            const ret = Array.isArray(arg0);
-            return ret;
-        },
-        __wbg_isSafeInteger_f3d6cd19ccfe4512: function(arg0) {
-            const ret = Number.isSafeInteger(arg0);
-            return ret;
-        },
-        __wbg_iterator_5cebbb86e33c6dd6: function() {
-            const ret = Symbol.iterator;
-            return ret;
-        },
-        __wbg_length_36bd29c6848c2144: function(arg0) {
-            const ret = arg0.length;
-            return ret;
-        },
-        __wbg_length_ecfa2c63d3d0d82c: function(arg0) {
-            const ret = arg0.length;
-            return ret;
-        },
-        __wbg_new_116be93542d39019: function() {
-            const ret = new Array();
-            return ret;
-        },
         __wbg_new_227d7c05414eb861: function() {
             const ret = new Error();
             return ret;
         },
-        __wbg_new_77cc4f4f472aeb81: function(arg0) {
-            const ret = new Uint8Array(arg0);
-            return ret;
-        },
-        __wbg_new_ebe3e0f6837f0879: function() {
-            const ret = new Object();
-            return ret;
-        },
-        __wbg_next_42cf16ee0dafc9e2: function() { return handleError(function (arg0) {
-            const ret = arg0.next();
+        __wbg_parse_1cc93481b0865939: function() { return handleError(function (arg0, arg1) {
+            const ret = JSON.parse(getStringFromWasm0(arg0, arg1));
             return ret;
         }, arguments); },
-        __wbg_next_8f26b64fa5e9f64b: function(arg0) {
-            const ret = arg0.next;
-            return ret;
-        },
-        __wbg_prototypesetcall_de8e0d9553586985: function(arg0, arg1, arg2) {
-            Uint8Array.prototype.set.call(getArrayU8FromWasm0(arg0, arg1), arg2);
-        },
-        __wbg_set_6be42768c690e380: function(arg0, arg1, arg2) {
-            arg0[arg1] = arg2;
-        },
-        __wbg_set_a80955eb93b145c6: function(arg0, arg1, arg2) {
-            arg0[arg1 >>> 0] = arg2;
-        },
         __wbg_stack_3b0d974bbf31e44f: function(arg0, arg1) {
             const ret = arg1.stack;
             const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -551,25 +407,10 @@ function __wbg_get_imports() {
             getDataViewMemory0().setInt32(arg0 + 4 * 1, len1, true);
             getDataViewMemory0().setInt32(arg0 + 4 * 0, ptr1, true);
         },
-        __wbg_value_1e2369fab29b420e: function(arg0) {
-            const ret = arg0.value;
+        __wbg_stringify_f93a4ebae9231922: function() { return handleError(function (arg0) {
+            const ret = JSON.stringify(arg0);
             return ret;
-        },
-        __wbindgen_cast_0000000000000001: function(arg0) {
-            // Cast intrinsic for `F64 -> Externref`.
-            const ret = arg0;
-            return ret;
-        },
-        __wbindgen_cast_0000000000000002: function(arg0, arg1) {
-            // Cast intrinsic for `Ref(String) -> Externref`.
-            const ret = getStringFromWasm0(arg0, arg1);
-            return ret;
-        },
-        __wbindgen_cast_0000000000000003: function(arg0) {
-            // Cast intrinsic for `U64 -> Externref`.
-            const ret = BigInt.asUintN(64, arg0);
-            return ret;
-        },
+        }, arguments); },
         __wbindgen_init_externref_table: function() {
             const table = wasm.__wbindgen_externrefs;
             const offset = table.grow(4);
@@ -596,71 +437,6 @@ function addToExternrefTable0(obj) {
     return idx;
 }
 
-function debugString(val) {
-    // primitive types
-    const type = typeof val;
-    if (type == 'number' || type == 'boolean' || val == null) {
-        return  `${val}`;
-    }
-    if (type == 'string') {
-        return `"${val}"`;
-    }
-    if (type == 'symbol') {
-        const description = val.description;
-        if (description == null) {
-            return 'Symbol';
-        } else {
-            return `Symbol(${description})`;
-        }
-    }
-    if (type == 'function') {
-        const name = val.name;
-        if (typeof name == 'string' && name.length > 0) {
-            return `Function(${name})`;
-        } else {
-            return 'Function';
-        }
-    }
-    // objects
-    if (Array.isArray(val)) {
-        const length = val.length;
-        let debug = '[';
-        if (length > 0) {
-            debug += debugString(val[0]);
-        }
-        for(let i = 1; i < length; i++) {
-            debug += ', ' + debugString(val[i]);
-        }
-        debug += ']';
-        return debug;
-    }
-    // Test for built-in
-    const builtInMatches = /\[object ([^\]]+)\]/.exec(toString.call(val));
-    let className;
-    if (builtInMatches && builtInMatches.length > 1) {
-        className = builtInMatches[1];
-    } else {
-        // Failed to match the standard '[object ClassName]'
-        return toString.call(val);
-    }
-    if (className == 'Object') {
-        // we're a user defined class or Object
-        // JSON.stringify avoids problems with cycles, and is generally much
-        // easier than looping through ownProperties of `val`.
-        try {
-            return 'Object(' + JSON.stringify(val) + ')';
-        } catch (_) {
-            return 'Object';
-        }
-    }
-    // errors
-    if (val instanceof Error) {
-        return `${val.name}: ${val.message}\n${val.stack}`;
-    }
-    // TODO we could test for more things here, like `Set`s and `Map`s.
-    return className;
-}
-
 function getArrayF64FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
@@ -669,11 +445,6 @@ function getArrayF64FromWasm0(ptr, len) {
 function getArrayU32FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
-}
-
-function getArrayU8FromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
 }
 
 let cachedDataViewMemory0 = null;

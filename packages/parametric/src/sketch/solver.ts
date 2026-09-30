@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { EMPTY_SCOPE, type ParameterValue, type Plane, Result, type Scope } from "@chili3d/core";
-import type { WasmSystem } from "../../lib/garlic";
+import type { SolveResultInfo, WasmSystem } from "../../lib/garlic";
 import { INCIDENCE_TOLERANCE } from "../features/refGeometry";
 import { ENTITY_PARAM_KINDS, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH } from "./entityLayout";
 import {
@@ -56,8 +56,21 @@ function projectOntoCircle(
 }
 
 export interface SolveOutcome {
-    result: string;
+    result: SolveResultInfo;
     dofs: number;
+}
+
+/**
+ * What the solver can say about the constraint set beyond the solve result: the
+ * degrees of freedom left and the constraints (sketch ids, not garlic ids) it
+ * flags as conflicting or redundant. Structural constraints the user never sees
+ * (datum pins, external-entity pins) are filtered out by the garlicId → sketch id
+ * mapping — they are not in `constraints`.
+ */
+export interface SketchDiagnostics {
+    dofs: number;
+    conflicting: number[];
+    redundant: number[];
 }
 
 /** One datum as it goes into garlic: what to persist alongside the value it resolved to. */
@@ -389,7 +402,7 @@ export class SketchSolver implements ExternalEntityHost {
             this.refreshCache();
         }
         return {
-            result: typeof report === "string" ? report : String(report?.result),
+            result: report.result,
             dofs: this.system.dofs(),
         };
     }
@@ -491,6 +504,60 @@ export class SketchSolver implements ExternalEntityHost {
 
     dofs(): number {
         return this.system.dofs();
+    }
+
+    /**
+     * Constraint diagnostics — garlic semantics require a solve first (`solve`
+     * then `diagnose`), so callers run this after a fine solve. The garlic
+     * report keys constraints by garlic id; they are mapped back to sketch
+     * constraint ids here, which silently drops the structural pins (they have
+     * no `ConstraintRecord`).
+     *
+     * Both lists cover the WHOLE group, not only the constraint garlic happened
+     * to flag: a conflict group names just the failing constraint, a redundant
+     * group just the one judged excess — but any member of either group is an
+     * equally valid fix (drop either side of a contradiction, or any one of a
+     * duplicating set), so the counterparts/sources are merged in and the user
+     * sees the full choice set rather than the solver's arbitrary pick.
+     */
+    diagnose(): SketchDiagnostics {
+        const report = this.system.diagnose();
+        const byGarlicId = this.recordsByGarlicId();
+        return {
+            dofs: this.system.dofs(),
+            conflicting: this.groupSketchIds(report.conflictGroups, byGarlicId, (g) => [
+                g.constraint,
+                ...g.counterparts,
+            ]),
+            redundant: this.groupSketchIds(report.redundantGroups, byGarlicId, (g) => [
+                g.constraint,
+                ...g.sources,
+            ]),
+        };
+    }
+
+    private recordsByGarlicId(): Map<number, number> {
+        const byGarlicId = new Map<number, number>();
+        for (const record of this.constraints.values()) {
+            byGarlicId.set(record.garlicId, record.id);
+        }
+        return byGarlicId;
+    }
+
+    /** Every member of each group, mapped to sketch ids: the flagged constraint plus the ones it involves. */
+    private groupSketchIds<T>(
+        groups: readonly T[],
+        byGarlicId: Map<number, number>,
+        members: (group: T) => number[],
+    ): number[] {
+        const ids = new Set<number>();
+        for (const group of groups) {
+            for (const garlicId of members(group)) {
+                const sketchId = byGarlicId.get(garlicId);
+                if (sketchId !== undefined) ids.add(sketchId);
+            }
+        }
+        return [...ids].sort((a, b) => a - b);
     }
 
     // ------------------------------------------------------------------ Queries

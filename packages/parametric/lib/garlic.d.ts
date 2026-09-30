@@ -1,5 +1,217 @@
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * `diagnose` 的返回（ConstraintId 展开为 u32；camelCase 字段）
+ */
+export interface DiagReportInfo {
+    /**
+     * 逐子系统诊断
+     */
+    subsystems: SubSystemDiagInfo[];
+    /**
+     * 被 substitution 消元的约束
+     */
+    substituted: number[];
+    /**
+     * 自由参数个数
+     */
+    freeParams: number;
+    /**
+     * 全系统自由度
+     */
+    dofs: number;
+    /**
+     * 冗余约束
+     */
+    redundant: number[];
+    /**
+     * 冲突约束
+     */
+    conflicting: number[];
+    /**
+     * 冲突组
+     */
+    conflictGroups: ConflictGroupInfo[];
+    /**
+     * 冗余组
+     */
+    redundantGroups: RedundantGroupInfo[];
+}
+
+/**
+ * `save_sketch` 的返回：`sketch` 可直接交 `load_sketch`；`skipped` = 因未实现
+ * `export_kind` 而被跳过的外部自定义约束 id（docs/04「序列化与互操作」的
+ * 「数据不是错误」；内建约束永不进此列表）
+ */
+export interface SaveResultInfo {
+    /**
+     * 草图文档（version/params/constraints）
+     */
+    sketch: Sketch;
+    /**
+     * 被跳过的自定义约束 id
+     */
+    skipped: number[];
+}
+
+/**
+ * `solve` 的返回（camelCase 字段）
+ */
+export interface SolveReportInfo {
+    /**
+     * 总体结局
+     */
+    result: SolveResultInfo;
+    /**
+     * 逐子系统结局
+     */
+    subResults: SolveResultInfo[];
+    /**
+     * 迭代数
+     */
+    iterations: number;
+    /**
+     * 参与求解的子系统数
+     */
+    subsystemsSolved: number;
+}
+
+/**
+ * solve 结局（serde 序列化为字符串字面量，TS 侧为字符串联合类型）。
+ * 本模块所有 `*Info` 类型的 TS 声明都由 Tsify 派生从字段类型自动注入 d.ts，
+ * 改字段即改 d.ts，无需手工同步
+ */
+export type SolveResultInfo = "Ok" | "OkUnderconstrained" | "Conflicting" | "Diverged" | "Stalled";
+
+/**
+ * 冗余组（启发式候选）
+ */
+export interface RedundantGroupInfo {
+    /**
+     * 被判 redundant 的约束 id
+     */
+    constraint: number;
+    /**
+     * 推出它的来源约束（各行并集）
+     */
+    sources: number[];
+}
+
+/**
+ * 冲突组（启发式候选，非删除保证，见 diagnose 模块文档）
+ */
+export interface ConflictGroupInfo {
+    /**
+     * 被判 conflicting 的约束 id
+     */
+    constraint: number;
+    /**
+     * 冲突另一方候选（多行取交集）
+     */
+    counterparts: number[];
+    /**
+     * 失配量级（约束自身残差单位）
+     */
+    mismatch: number;
+}
+
+/**
+ * 单子系统诊断（camelCase 字段）
+ */
+export interface SubSystemDiagInfo {
+    /**
+     * 子系统内约束
+     */
+    constraints: number[];
+    /**
+     * 冗余约束
+     */
+    redundant: number[];
+    /**
+     * 冲突约束
+     */
+    conflicting: number[];
+    /**
+     * 冲突组
+     */
+    conflictGroups: ConflictGroupInfo[];
+    /**
+     * 冗余组
+     */
+    redundantGroups: RedundantGroupInfo[];
+    /**
+     * 子系统自由度
+     */
+    dofs: number;
+}
+
+/**
+ * 参数记录：量纲类别 + 当前值
+ */
+export interface ParamRec {
+    /**
+     * 量纲类别
+     */
+    kind: ParamKind;
+    /**
+     * 当前值
+     */
+    value: number;
+}
+
+/**
+ * 参数量纲类别，供 scaling 估计特征长度 L（docs/03「`scaling.rs`」）。
+ * serde 序列化供草图格式使用（docs/04「序列化与互操作」，serialize/wasm feature 门控）；
+ * wasm feature 下派生 Tsify，TS 类型自动注入 pkg 的 d.ts
+ */
+export type ParamKind = "Coordinate" | "Length" | "Dimensionless";
+
+/**
+ * 约束记录：类型标签 + 参数索引 + driving/tag/相切分支
+ */
+export interface ConRec {
+    /**
+     * `Constraint::export_kind()` 的类型标签（如「distance」「tangentlc」）
+     */
+    kind: string;
+    /**
+     * 参数索引（指向 `Sketch::params` 的下标），布局 = 该约束 `params()` 顺序
+     */
+    params: number[];
+    /**
+     * 驱动（datum 是输入）/ 从动（datum 求解后闭式写回）
+     */
+    driving: boolean;
+    /**
+     * 分组标签（`TagId` 的原始 i32）
+     */
+    tag: number;
+    /**
+     * 附加 token（`export_extra()`）：相切分支 positive/negative、
+     * external/internal；其余约束为 `None`
+     */
+    extra: string | null;
+}
+
+/**
+ * 草图文档：参数表 + 约束表（字段语义见模块文档「格式」节；wasm feature 下
+ * 派生 Tsify，`save_sketch`/`load_sketch` 的 TS 类型自动从本结构体生成）
+ */
+export interface Sketch {
+    /**
+     * 格式版本号，导出恒为 [`SKETCH_FORMAT_VERSION`]
+     */
+    version: number;
+    /**
+     * 参数表：数组下标即参数 id（约束以此下标引用）
+     */
+    params: ParamRec[];
+    /**
+     * 约束表（活跃约束，声明序）
+     */
+    constraints: ConRec[];
+}
+
 
 /**
  * 内建约束枚举（docs/05「ConstraintKind 枚举与 params 布局」；params 布局严格等于各约束 `params()` 的顺序，
@@ -171,7 +383,7 @@ export class WasmSystem {
      * 诊断：conflicting / redundant 约束清单与 DOF（先 solve 再 diagnose
      * 才有预期语义，见 diagnose 模块文档）。
      */
-    diagnose(): any;
+    diagnose(): DiagReportInfo;
     /**
      * 全系统自由度
      */
@@ -183,13 +395,14 @@ export class WasmSystem {
     /**
      * 从 Sketch 对象加载草图（静态方法；docs/04「序列化与互操作」）。`sketch` 可以是
      * `save_sketch` 返回对象的 `.sketch` 字段，或 JSON 落盘后的解析结果。
-     * 格式版本不符/未知约束 kind/参数索引越界均报 JsError。
+     * 格式版本不符/未知约束 kind/参数索引越界均报 JsError；入参结构形状不符
+     * （缺字段/类型错误）在 ABI 边界的 serde 反序列化处直接抛异常。
      *
      * **句柄语义**：加载产生的是全新系统——参数/约束 id 从 0 重排、无
      * tombstone，旧 `WasmSystem` 实例的句柄（ParamId/ConstraintId）与
      * 新实例不可混用；旧实例本身不受影响，可继续使用。
      */
-    static load_sketch(sketch: any): WasmSystem;
+    static load_sketch(sketch: Sketch): WasmSystem;
     /**
      * 拖拽协议·按下：先 set_param 预设鼠标位置，再调用本方法标记
      * （docs/05「导出 API 设计」；语义同 System::mark_dragged）
@@ -217,17 +430,15 @@ export class WasmSystem {
      *   非空时导入结果的求解结局可能不同，调用方按需提示用户。
      * tombstone 与禁用 tag 组的约束不导出；dragged 等交互瞬态不保存。
      */
-    save_sketch(): any;
+    save_sketch(): SaveResultInfo;
     /**
      * 写单个参数值（未知 id 报错）
      */
     set_param(id: number, value: number): void;
     /**
      * 求解。fine = true 精解（鼠标抬起/显式重解），false 粗解（拖拽每帧）。
-     * 返回 SolveReport 对象（result 为字符串，如 "Ok" / "OkUnderconstrained" /
-     * "Conflicting" / "Diverged" / "Stalled"）。
      */
-    solve(fine: boolean): any;
+    solve(fine: boolean): SolveReportInfo;
 }
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
@@ -251,10 +462,10 @@ export interface InitOutput {
     readonly wasmsystem_solve: (a: number, b: number) => [number, number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_exn_store: (a: number) => void;
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }

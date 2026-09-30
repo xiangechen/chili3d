@@ -108,6 +108,16 @@ describe("Statusbar", () => {
             expect(i18nSetMock).toHaveBeenCalledWith(bar.tip, ...DEFAULT_TIP_ARGS);
         });
 
+        test("should forward tip arguments to I18n.set", () => {
+            const bar = new Statusbar("test-bar");
+            i18nSetMock.mockClear();
+
+            const tipHandler = pubSubRecorder.handlers.get("statusBarTip");
+            expect(tipHandler).toBeDefined();
+            tipHandler!("sketch.dofs{0}" as I18nKeys, 3);
+            expect(i18nSetMock).toHaveBeenCalledWith(bar.tip, "textContent", "sketch.dofs{0}", 3);
+        });
+
         test("should refresh the default tip when navigation3D config changes", () => {
             const bar = new Statusbar("test-bar");
             i18nSetMock.mockClear();

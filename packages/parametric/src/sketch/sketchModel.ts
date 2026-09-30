@@ -67,6 +67,18 @@ export interface SketchConstraintData {
 }
 
 /**
+ * The arc's structural PointOnArc (all refs on the arc itself) is part of the entity,
+ * not a user constraint — it gets no badge and no row in the constraint list, and
+ * deleting it would break the arc geometry.
+ */
+export function isStructuralConstraint(constraint: SketchConstraintData): boolean {
+    return (
+        constraint.kind === ConstraintKind.PointOnArc &&
+        constraint.refs.every((r) => r.entityId === constraint.refs[0].entityId)
+    );
+}
+
+/**
  * The unit a dimension of `kind` measures — what an expression driving it must
  * resolve to, and what `toDatumSource`/`resolveDatumSource` convert between.
  */

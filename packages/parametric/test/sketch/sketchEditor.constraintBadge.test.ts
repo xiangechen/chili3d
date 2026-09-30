@@ -9,6 +9,7 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import annotationsStyle from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { ConstraintKind } from "../../src/sketch/sketchModel";
@@ -756,6 +757,186 @@ describe("SketchEditor dimension preview", () => {
 
             editor.cancelPick();
             await expect(pick).resolves.toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("SketchEditor conflicting constraint display", () => {
+    // CONFLICT_COLOR / REDUNDANT_COLOR / DIMENSION_COLOR in sketchAnnotations.ts are module-private
+    const CONFLICT_COLOR = 0xff6b6b;
+    const REDUNDANT_COLOR = 0xffd93d;
+    const DIMENSION_COLOR = 0x4a9eff;
+
+    // a line that is told to be both horizontal and vertical, with two contradictory
+    // length dimensions — garlic flags the constraints that contradict the established
+    // (satisfied) horizontal: the vertical, and the two dimensions against each other
+    function setupConflicts() {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        editor.solver.addLine(0, 0, 100, 0);
+        const refs = [
+            { entityId: 1, pointIndex: 0 },
+            { entityId: 1, pointIndex: 1 },
+        ];
+        const horizontalId = editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+        const verticalId = editor.solver.addConstraint({ kind: ConstraintKind.Vertical, refs });
+        const distanceId = editor.solver.addConstraint({
+            kind: ConstraintKind.P2PDistance,
+            refs,
+            datum: 100,
+        });
+        const conflictId = editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 50 });
+        editor.solve(true);
+        return { ...ctx, node, editor, horizontalId, verticalId, distanceId, conflictId };
+    }
+
+    const liveBadge = (badges: MockBadge[], text: string): MockBadge => {
+        const badge = badges.findLast((b) => b.text === text && !b.disposed);
+        expect(badge).toBeDefined();
+        return badge as MockBadge;
+    };
+
+    // the annotation meshes are the ones carrying a dimension color — entity hover and
+    // selection highlights use VisualConfig colors instead
+    const lastAnnotationColors = (displayed: { colors: number[] }[]): number[] => {
+        const entry = displayed.findLast((d) =>
+            d.colors.some((c) => c === CONFLICT_COLOR || c === REDUNDANT_COLOR || c === DIMENSION_COLOR),
+        );
+        expect(entry).toBeDefined();
+        return entry!.colors;
+    };
+
+    test("conflicting constraints read red: symbol badges, datum badges and dimension meshes", () => {
+        const { doc, view, badges, displayed, editor, restoreFactory, ...ids } = setupConflicts();
+        try {
+            expect([...editor.diagnostics.conflicting].sort((a, b) => a - b)).toEqual(
+                [ids.verticalId, ids.distanceId, ids.conflictId].sort((a, b) => a - b),
+            );
+
+            // a conflicting symbol badge shows without any hover or selection —
+            // the satisfied horizontal stays hidden until its entity is highlighted
+            expect(liveBadge(badges, "V").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                true,
+            );
+            expect(badges.findLast((b) => b.text === "H" && !b.disposed)).toBeUndefined();
+            expect(liveBadge(badges, "100.00").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                true,
+            );
+            expect(liveBadge(badges, "50.00").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                true,
+            );
+
+            // highlighting the entity shows the horizontal too — still not red
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            handler.pointerDown(view, pointerEvent(450, 300));
+            handler.pointerUp(view, pointerEvent(450, 300));
+            expect(liveBadge(badges, "H").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                false,
+            );
+
+            // both dimensions are conflicting, so no normal-blue annotation mesh remains
+            const colors = lastAnnotationColors(displayed);
+            expect(colors).toContain(CONFLICT_COLOR);
+            expect(colors).not.toContain(DIMENSION_COLOR);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("redundant constraints read amber: the whole duplicating pair is marked", () => {
+        const ctx = setup();
+        try {
+            const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            const refs = [
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+            ];
+            const originalH = editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            const redundantH = editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            const originalD = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs,
+                datum: 100,
+            });
+            const redundantD = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs,
+                datum: 100,
+            });
+            editor.solve(true);
+
+            expect(editor.diagnostics.conflicting).toEqual([]);
+            expect(editor.diagnostics.redundant).toEqual([originalH, redundantH, originalD, redundantD]);
+
+            // both horizontals of the pair show an amber badge without any hover
+            const hBadges = ctx.badges.filter((b) => b.text === "H" && !b.disposed);
+            expect(hBadges.length).toBe(2);
+            expect(hBadges.every((b) => b.element.classList.contains(annotationsStyle.redundant))).toBe(true);
+
+            // both datum badges of the pair read amber too
+            const datumBadges = ctx.badges.filter((b) => b.text === "100.00" && !b.disposed);
+            expect(datumBadges.length).toBe(2);
+            expect(datumBadges.every((b) => b.element.classList.contains(annotationsStyle.redundant))).toBe(
+                true,
+            );
+
+            // both datum meshes draw amber, so no normal-blue annotation mesh remains
+            const colors = lastAnnotationColors(ctx.displayed);
+            expect(colors).toContain(REDUNDANT_COLOR);
+            expect(colors).not.toContain(DIMENSION_COLOR);
+            expect(colors).not.toContain(CONFLICT_COLOR);
+            editor.exit();
+        } finally {
+            ctx.restoreFactory();
+        }
+    });
+
+    test("resolving a conflict re-colors only the constraints it involved", () => {
+        const { doc, view, badges, displayed, editor, restoreFactory, ...ids } = setupConflicts();
+        try {
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            handler.pointerDown(view, pointerEvent(450, 300));
+            handler.pointerUp(view, pointerEvent(450, 300));
+
+            // deleting the "50.00" dimension leaves the vertical/dimension conflict
+            editor.deleteConstraints([ids.conflictId]);
+            expect([...editor.diagnostics.conflicting].sort((a, b) => a - b)).toEqual(
+                [ids.verticalId, ids.distanceId].sort((a, b) => a - b),
+            );
+            expect(badges.findLast((b) => b.text === "50.00" && !b.disposed)).toBeUndefined();
+            expect(liveBadge(badges, "V").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                true,
+            );
+            expect(liveBadge(badges, "100.00").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                true,
+            );
+            expect(liveBadge(badges, "H").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                false,
+            );
+            // the surviving dimension is still conflicting, so its mesh stays red
+            const stillRed = lastAnnotationColors(displayed);
+            expect(stillRed).toContain(CONFLICT_COLOR);
+            expect(stillRed).not.toContain(DIMENSION_COLOR);
+
+            // deleting the vertical clears the last conflict: everything draws normal again
+            editor.deleteConstraints([ids.verticalId]);
+            expect(editor.diagnostics.conflicting).toEqual([]);
+            expect(liveBadge(badges, "H").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                false,
+            );
+            expect(liveBadge(badges, "100.00").element.classList.contains(annotationsStyle.conflicting)).toBe(
+                false,
+            );
+            const colors = lastAnnotationColors(displayed);
+            expect(colors).toContain(DIMENSION_COLOR);
+            expect(colors).not.toContain(CONFLICT_COLOR);
             editor.exit();
         } finally {
             restoreFactory();

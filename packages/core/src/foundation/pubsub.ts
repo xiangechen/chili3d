@@ -19,6 +19,7 @@ export interface PubSubEventMap {
     clearInput: () => void;
     clearSelectionControl: () => void;
     clearStatusBarTip: () => void;
+    closeFloatPanel: (content: HTMLElement) => void;
     closeCommandContext: () => void;
     displayError: (message: string) => void;
     displayHome: (show: boolean) => void;
@@ -38,7 +39,7 @@ export interface PubSubEventMap {
     showProperties(document: IDocument, nodes: INode[]): void;
     showSelectionControl: (controller: AsyncController) => void;
     showToast: (message: I18nKeys, ...args: any[]) => void;
-    statusBarTip: (tip: I18nKeys) => void;
+    statusBarTip: (tip: I18nKeys, ...args: any[]) => void;
     toggleChatPanel: () => void;
     viewClosed: (view: IView) => void;
     viewCursor: (cursor: CursorType) => void;

@@ -1,0 +1,199 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    overflow: auto;
+    font-size: 12px;
+    color: var(--foreground-color);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 6px 6px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+/* solve-state dot — muted while under-constrained, green when fully constrained */
+.dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--foreground-muted-color);
+    flex-shrink: 0;
+}
+
+.header.ok .dot {
+    background-color: #1f9e2c;
+}
+
+:root[theme="dark"] .header.ok .dot {
+    background-color: #3fb950;
+}
+
+.header.conflicting .dot {
+    background-color: var(--error-color);
+}
+
+.header.redundant .dot {
+    background-color: var(--warning-color);
+}
+
+.headerLabel {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--foreground-muted-color);
+}
+
+.count {
+    min-width: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 10px;
+    line-height: 16px;
+    color: var(--foreground-secondary-color);
+    background-color: var(--hover-background-color);
+}
+
+/* the issue chip a flagged row carries next to its name */
+.chip {
+    flex-shrink: 0;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    line-height: 15px;
+    font-weight: 500;
+
+    &.conflicting {
+        color: var(--error-color);
+        background-color: color-mix(in srgb, var(--error-color) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--error-color) 35%, transparent);
+    }
+
+    &.redundant {
+        color: var(--warning-color);
+        background-color: color-mix(in srgb, var(--warning-color) 12%, transparent);
+        border: 1px solid color-mix(in srgb, var(--warning-color) 35%, transparent);
+    }
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    overflow: auto;
+}
+
+.empty {
+    color: var(--foreground-muted-color);
+    padding: 16px 6px;
+    text-align: center;
+}
+
+.row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.row:hover {
+    background-color: var(--hover-background-color);
+}
+
+.row.selected {
+    background-color: color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+
+/* after .row.selected: a flagged row keeps its issue tint, even selected or hovered */
+.row.conflicting {
+    background-color: color-mix(in srgb, var(--error-color) 12%, transparent);
+}
+
+.row.redundant {
+    background-color: color-mix(in srgb, var(--warning-color) 12%, transparent);
+}
+
+.row.conflicting .icon,
+.row.conflicting .value {
+    color: var(--error-color);
+}
+
+.row.redundant .icon,
+.row.redundant .value {
+    color: var(--warning-color);
+}
+
+.icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    flex-shrink: 0;
+    color: var(--foreground-secondary-color);
+}
+
+.name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.value {
+    flex-shrink: 0;
+    padding: 0 6px;
+    border-radius: 6px;
+    font-family: monospace;
+    line-height: 16px;
+    color: var(--foreground-secondary-color);
+    /* stays visible on row hover, which tints with --hover-background-color */
+    background-color: color-mix(in srgb, var(--foreground-color) 8%, transparent);
+}
+
+.broken .name,
+.broken .value {
+    color: var(--error-color);
+}
+
+.delete {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--foreground-secondary-color);
+    cursor: pointer;
+    flex-shrink: 0;
+
+    svg {
+        width: 10px;
+        height: 10px;
+        display: block;
+    }
+
+    &:hover {
+        color: var(--error-color);
+        background-color: var(--hover-background-color);
+    }
+}
+
+.row:hover .delete {
+    display: flex;
+}

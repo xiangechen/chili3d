@@ -39,9 +39,9 @@ export class Statusbar extends HTMLElement {
         );
     }
 
-    private readonly statusBarTip = (tip: I18nKeys) => {
+    private readonly statusBarTip = (tip: I18nKeys, ...args: any[]) => {
         this._isDefaultTip = false;
-        I18n.set(this.tip, "textContent", tip);
+        I18n.set(this.tip, "textContent", tip, ...args);
     };
 
     private readonly setDefaultTip = () => {

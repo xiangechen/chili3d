@@ -238,3 +238,10 @@ export class ExitSketch implements ICommand {
         SketchEditor.exit();
     }
 }
+
+@command({ key: "sketch.constraints", icon: "icon-layer-group" })
+export class ToggleSketchConstraintsPanel implements ICommand {
+    async execute(): Promise<void> {
+        SketchEditor.getActive()?.toggleConstraintsPanel();
+    }
+}
