@@ -35,6 +35,9 @@ const SQUARE: SketchData = {
     constraints: [],
 };
 
+/** The box both the section body and the preview loft report, so the join target probe hits. */
+const BODY_BOX = new BoundingBox(XYZ.zero, new XYZ({ x: 10, y: 10, z: 20 }));
+
 /** A pinched profile section reference, for the `section.profile` assertions. */
 type ProfileSection = { kind: string; nodeId: string; profile: ProfileRef };
 
@@ -117,6 +120,7 @@ function mockShapeFactory() {
         mesh: { faces: { color: 0 } },
         isEqual: () => false,
         findSubShapes: () => [],
+        boundingBox: () => BODY_BOX,
         dispose: rs.fn(() => {}),
     };
     const loft = rs.fn((_sections: any[], _isSolid: boolean, _isRuled: boolean, _continuity: string) =>
@@ -147,6 +151,8 @@ function trackFaces(body: ParametricBodyNode, faceIds: (string | undefined)[]) {
         isEqual: () => false,
         dispose: () => {},
         findSubShapes: () => [],
+        // The join/cut target probe reads this (see `findIntersectingBody`).
+        boundingBox: () => BODY_BOX,
     };
     (body as any)._shape = Result.ok(shape);
     (body as any)._timeline.commit([{ json: "", input: undefined, refs: new Map(), shape, faceIds }], []);
@@ -459,6 +465,115 @@ describe("LoftFeatureCommand solid-face sections", () => {
             expect(committed()).toBeUndefined();
         } finally {
             pub.mockRestore();
+            restore();
+        }
+    });
+});
+
+describe("LoftFeatureCommand operation", () => {
+    test("join appends the loft to the intersecting body instead of creating one", async () => {
+        const { restore, app, doc, source, cmd, loft } = scenario();
+        doc.picker = {
+            pickShape: scriptedPicker(cmd, [
+                () => {
+                    // The option panel remembers the LAST command's values across tests
+                    // (`CancelableCommand._propertiesCache`), so every test states its own.
+                    cmd.isSolid = true;
+                    cmd.operation = "option.command.operation.join";
+                },
+                facePick(source, faceShape(XYZ.zero), 0),
+                facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
+            ]),
+        } as any;
+        try {
+            await cmd.execute(app);
+
+            expect(source.features).toHaveLength(1);
+            expect(source.features[0]).toMatchObject({ type: "loft", operation: "fuse" });
+            // No standalone body: the feature went onto the target's chain.
+            expect(
+                doc.modelManager.findNode((node) => node instanceof ParametricBodyNode && node !== source),
+            ).toBeUndefined();
+            // The probe is a second, thrown-away loft build (the preview is the first).
+            expect(loft).toHaveBeenCalledTimes(2);
+        } finally {
+            restore();
+        }
+    });
+
+    test("cut maps to the common boolean and intersect to the fuse's counterpart", async () => {
+        const { restore, app, doc, source, cmd } = scenario();
+        doc.picker = {
+            pickShape: scriptedPicker(cmd, [
+                () => {
+                    cmd.isSolid = true;
+                    cmd.operation = "option.command.operation.cut";
+                },
+                facePick(source, faceShape(XYZ.zero), 0),
+                facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
+            ]),
+        } as any;
+        try {
+            await cmd.execute(app);
+            expect(source.features[0]).toMatchObject({ operation: "cut" });
+        } finally {
+            restore();
+        }
+    });
+
+    test("a shell loft drops the operation and stands alone", async () => {
+        const { restore, app, doc, source, cmd, committed } = scenario();
+        doc.picker = {
+            pickShape: scriptedPicker(cmd, [
+                () => {
+                    cmd.isSolid = false;
+                    cmd.operation = "option.command.operation.join";
+                },
+                facePick(source, faceShape(XYZ.zero), 0),
+                facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
+            ]),
+        } as any;
+        try {
+            await cmd.execute(app);
+
+            // A shell has no volume to combine with: no operation is stored, and the
+            // target chain is left untouched.
+            expect(source.features).toHaveLength(0);
+            const feature = (committed() as ParametricBodyNode).features[0] as LoftFeatureData;
+            expect(feature).toMatchObject({ type: "loft", isSolid: false });
+            expect(feature.operation).toBeUndefined();
+        } finally {
+            restore();
+        }
+    });
+
+    test("an operation that finds no target still stands the loft up as its own body", async () => {
+        const { restore, app, doc, source, cmd, committedFeature } = scenario();
+        // Nothing intersects: the section body's box is empty and the preview's is disjoint.
+        (source as any)._shape = Result.ok({
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            dispose: () => {},
+            findSubShapes: () => [],
+            boundingBox: () =>
+                new BoundingBox(new XYZ({ x: 100, y: 100, z: 100 }), new XYZ({ x: 110, y: 110, z: 110 })),
+        });
+        doc.picker = {
+            pickShape: scriptedPicker(cmd, [
+                () => {
+                    cmd.isSolid = true;
+                    cmd.operation = "option.command.operation.join";
+                },
+                facePick(source, faceShape(XYZ.zero), 0),
+                facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
+            ]),
+        } as any;
+        try {
+            await cmd.execute(app);
+
+            expect(source.features).toHaveLength(0);
+            expect(committedFeature().operation).toBeUndefined();
+        } finally {
             restore();
         }
     });

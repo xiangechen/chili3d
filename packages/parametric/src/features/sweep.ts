@@ -28,7 +28,7 @@ import {
     trackedFaceIds,
     trackedIds,
 } from "./feature";
-import { mapToHost } from "./loft";
+import { mapToHost } from "./hostSpace";
 import { applyTrackedOperation } from "./operation";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { captureProfileRef } from "./profileRef";

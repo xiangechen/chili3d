@@ -18,6 +18,7 @@ import {
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
+import { trackedBoolean } from "./boolean";
 import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
 import { captureEdgeRef, type EdgeRef, edgeMidPoint } from "./edgeRef";
 import { findSketch } from "./extrude";
@@ -27,10 +28,11 @@ import {
     type FeatureHandler,
     type RevolveFeatureData,
     registerFeature,
-    type ShapeTracking,
     trackedFaceIds,
     trackedIds,
 } from "./feature";
+import { mapToHost, mapToolToHost } from "./hostSpace";
+import { applyTrackedOperation } from "./operation";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { captureProfileRef } from "./profileRef";
 import { attributeSweepEdges, profileEdgeSeeds } from "./profileSeeds";
@@ -67,34 +69,141 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     },
 
     evaluate(feature, context): Result<IShape> {
-        const sketch = findSketch(context.document, feature.sketchId);
-        if (sketch === undefined) return Result.err("Sketch not found");
+        const resolved = resolveRevolve(feature, context);
+        if (!resolved.isOk) return Result.err(resolved.error);
 
-        const angle = resolveUnitSpec(feature.angle, context.scope, ANGLE_UNITS);
-        if (!angle.isOk) return Result.err(angle.error);
-        const { axis, anchor } = resolveAxis(feature, context);
-        const profiles = resolveProfiles(sketch, feature.profiles);
-        if (!profiles.isOk) return Result.err(profiles.error);
-        const tracking = context.tracking;
-        if (tracking !== undefined) {
-            // Re-anchored refs for the body's write-back (see ShapeTracking).
-            if (anchor !== undefined) tracking.resolvedEdges = [anchor];
-            if (feature.profiles !== undefined && feature.profiles.length > 0) {
-                tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
-            }
-        }
-        if (tracking === undefined || shapeFactory.revolveTracked === undefined) {
-            const shapes: IShape[] = [];
-            for (const { face } of profiles.value) {
-                const shape = shapeFactory.revolve(face, axis, angle.value);
-                if (!shape.isOk) return Result.err(shape.error);
-                shapes.push(shape.value);
-            }
-            return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
-        }
-        return revolveTracked(sketch, axis, angle.value, profiles.value, tracking);
+        const tracked = evaluateOperationTracked(feature, context, resolved.value);
+        if (tracked !== undefined) return tracked;
+
+        const built = buildRevolved(resolved.value, context);
+        if (!built.isOk) return Result.err(built.error);
+        return combineWithInput(built, feature, context);
     },
 };
+
+/** A revolve's inputs resolved against the document, plus the axis's re-anchored ref. */
+interface ResolvedRevolve {
+    readonly sketch: SketchNode;
+    readonly axis: Line;
+    readonly angle: number;
+    readonly profiles: ResolvedProfile[];
+}
+
+/** The revolved geometry and the ids its kernel history named, in findSubShapes order. */
+interface RevolveTool {
+    readonly shape: IShape;
+    readonly faceIds: (string | undefined)[];
+    readonly edgeIds: (string | undefined)[];
+}
+
+/**
+ * Resolves everything the revolve reads — the sketch, the resolved angle, the live axis
+ * and the profiles — and hands the body the refs re-anchored this run (see
+ * `ShapeTracking.resolvedProfiles`/`resolvedEdges`).
+ */
+function resolveRevolve(feature: RevolveFeatureData, context: FeatureContext): Result<ResolvedRevolve> {
+    const sketch = findSketch(context.document, feature.sketchId);
+    if (sketch === undefined) return Result.err("Sketch not found");
+
+    const angle = resolveUnitSpec(feature.angle, context.scope, ANGLE_UNITS);
+    if (!angle.isOk) return Result.err(angle.error);
+    const { axis, anchor } = resolveAxis(feature, context);
+    const profiles = resolveProfiles(sketch, feature.profiles);
+    if (!profiles.isOk) return Result.err(profiles.error);
+    const tracking = context.tracking;
+    if (tracking !== undefined) {
+        // Re-anchored refs for the body's write-back (see ShapeTracking).
+        if (anchor !== undefined) tracking.resolvedEdges = [anchor];
+        if (feature.profiles !== undefined && feature.profiles.length > 0) {
+            tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
+        }
+    }
+    return Result.ok({ sketch, axis, angle: angle.value, profiles: profiles.value });
+}
+
+/**
+ * Join/cut/intersect on the tracked path: the revolved solid combines with the chain
+ * input through the tracked boolean, so the body's own sub-shape ids survive past this
+ * feature (the extrude/sweep contract, see `applyTrackedOperation`). Returns undefined
+ * when no operation was asked for, or when a tracking capability is missing — the
+ * caller then falls back to the plain path.
+ */
+function evaluateOperationTracked(
+    feature: RevolveFeatureData,
+    context: FeatureContext,
+    resolved: ResolvedRevolve,
+): Result<IShape> | undefined {
+    if (feature.operation === undefined) return undefined;
+    const tracking = context.tracking;
+    const tracked = trackedBoolean(feature.operation);
+    if (tracking === undefined || tracked === undefined || shapeFactory.revolveTracked === undefined) {
+        return undefined;
+    }
+    const input = context.input;
+    if (input === undefined) {
+        return Result.err("Revolve join/cut/intersect requires a preceding feature");
+    }
+    const tool = revolveTool(resolved);
+    if (!tool.isOk) return Result.err(tool.error);
+    const owned: IShape[] = [];
+    try {
+        // The revolve is built in world coordinates (sketch profiles, world axis); the
+        // boolean runs in the host's space.
+        return applyTrackedOperation(input, tracking, tracked, mapToolToHost(tool.value, context, owned));
+    } finally {
+        // The revolved solid is an intermediate input — the kernel reads it eagerly.
+        owned.forEach((x) => x.dispose());
+        tool.value.shape.dispose();
+    }
+}
+
+/** Combines the freshly revolved solid with the chain input, when an operation was asked for. */
+function combineWithInput(
+    built: Result<IShape>,
+    feature: RevolveFeatureData,
+    context: FeatureContext,
+): Result<IShape> {
+    if (!built.isOk || feature.operation === undefined) return built;
+    if (context.input === undefined) {
+        built.value.dispose();
+        return Result.err("Revolve join/cut/intersect requires a preceding feature");
+    }
+    const owned: IShape[] = [];
+    try {
+        // The revolved solid is built in world coordinates; the chain input is the host's
+        // own shape — the boolean runs in the host's space (see `mapToHost`).
+        const tool = mapToHost(built.value, undefined, context, owned);
+        switch (feature.operation) {
+            case "cut":
+                return shapeFactory.booleanCut([context.input], [tool]);
+            case "common":
+                return shapeFactory.booleanCommon([context.input], [tool]);
+            default:
+                return shapeFactory.booleanFuse([context.input], [tool], true);
+        }
+    } finally {
+        // The revolved solid is an intermediate input — the kernel reads it eagerly.
+        owned.forEach((x) => x.dispose());
+        built.value.dispose();
+    }
+}
+
+/**
+ * Revolves every profile. The tracked path names the sub-shapes from the kernel history;
+ * without that capability — or with an operation whose tracked path already declined — the
+ * solids are combined without ids (downstream refs then re-match geometrically).
+ */
+function buildRevolved(resolved: ResolvedRevolve, context: FeatureContext): Result<IShape> {
+    const tracking = context.tracking;
+    if (tracking === undefined || shapeFactory.revolveTracked === undefined) {
+        return revolvePlain(resolved);
+    }
+    const tool = revolveTool(resolved);
+    if (!tool.isOk) return Result.err(tool.error);
+    tracking.outputFaceIds = tool.value.faceIds;
+    tracking.outputEdgeIds = tool.value.edgeIds;
+    return Result.ok(tool.value.shape);
+}
 
 /**
  * The axis as a live reference: the fingerprinted edge is re-matched against the source node's
@@ -211,25 +320,41 @@ function matchAxis(
     };
 }
 
-function revolveTracked(
-    sketch: SketchNode,
-    axis: Line,
-    angle: number,
-    profiles: ResolvedProfile[],
-    tracking: ShapeTracking,
-): Result<IShape> {
+function revolveTool(resolved: ResolvedRevolve): Result<RevolveTool> {
+    if (shapeFactory.revolveTracked === undefined) return Result.err("Revolve tracking is unavailable");
     const shapes: IShape[] = [];
-    const outputFaceIds: (string | undefined)[] = [];
-    const outputEdgeIds: (string | undefined)[] = [];
-    for (const profile of profiles) {
-        const revolved = revolveProfileTracked(sketch, axis, angle, profile);
+    const faceIds: (string | undefined)[] = [];
+    const edgeIds: (string | undefined)[] = [];
+    for (const profile of resolved.profiles) {
+        const revolved = revolveProfileTracked(resolved.sketch, resolved.axis, resolved.angle, profile);
         if (!revolved.isOk) return Result.err(revolved.error);
         shapes.push(revolved.value.shape);
-        outputFaceIds.push(...revolved.value.faceIds);
-        outputEdgeIds.push(...revolved.value.edgeIds);
+        faceIds.push(...revolved.value.faceIds);
+        edgeIds.push(...revolved.value.edgeIds);
     }
-    tracking.outputFaceIds = outputFaceIds;
-    tracking.outputEdgeIds = outputEdgeIds;
+    const combined = combineAll(shapes);
+    if (!combined.isOk) return Result.err(combined.error);
+    return Result.ok({ shape: combined.value, faceIds, edgeIds });
+}
+
+/** Revolves every profile without kernel history — the fallback when tracking is unavailable. */
+function revolvePlain(resolved: ResolvedRevolve): Result<IShape> {
+    const shapes: IShape[] = [];
+    for (const { face } of resolved.profiles) {
+        const shape = shapeFactory.revolve(face, resolved.axis, resolved.angle);
+        if (!shape.isOk) return Result.err(shape.error);
+        shapes.push(shape.value);
+    }
+    return combineAll(shapes);
+}
+
+/**
+ * One profile revolves to itself; several combine into one compound. A combined shape's
+ * ids stay the profiles' concatenation — the same approximation `sweepProfiles` makes for
+ * the extrude tool (the compound's own sub-shape order is not the concatenation order for
+ * every kernel build).
+ */
+function combineAll(shapes: IShape[]): Result<IShape> {
     return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
 }
 

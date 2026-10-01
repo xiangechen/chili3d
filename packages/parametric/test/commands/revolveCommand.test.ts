@@ -12,7 +12,7 @@ import {
     ShapeTypes,
     XYZ,
 } from "@chili3d/core";
-import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
+import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { RevolveFeatureCommand } from "../../src/commands/revolveCommand";
 import type { RevolveFeatureData } from "../../src/features/feature";
@@ -30,6 +30,17 @@ const square: SketchData = {
     constraints: [],
 };
 
+/** A stand-in solid for the mocked kernel calls that only need a shape back. */
+function solid() {
+    return {
+        shapeType: ShapeTypes.solid,
+        isEqual: () => false,
+        dispose: () => {},
+        findSubShapes: () => [],
+        boundingBox: () => BoundingBox.zero,
+    };
+}
+
 function mockShapeFactory() {
     const previous = Object.getOwnPropertyDescriptor(globalThis, "shapeFactory");
     Object.defineProperty(globalThis, "shapeFactory", {
@@ -41,9 +52,25 @@ function mockShapeFactory() {
                     endPoint: () => end,
                     firstParameter: () => 0,
                     lastParameter: () => 1,
+                    // `endpointOnInterior` probes an edge's curve while resolving profiles.
+                    curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
                     pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
                     intersect: () => [],
                     isEqual: () => false,
+                    // `needsKernelSplit` reads this while resolving the sketch profiles.
+                    boundingBox: () =>
+                        new BoundingBox(
+                            {
+                                x: Math.min(start.x, end.x),
+                                y: Math.min(start.y, end.y),
+                                z: Math.min(start.z, end.z),
+                            },
+                            {
+                                x: Math.max(start.x, end.x),
+                                y: Math.max(start.y, end.y),
+                                z: Math.max(start.z, end.z),
+                            },
+                        ),
                 }),
             combine: (edges: any[]) =>
                 Result.ok({
@@ -71,7 +98,12 @@ function mockShapeFactory() {
                     isEqual: () => false,
                     dispose: () => {},
                     findSubShapes: () => [],
+                    // The join/cut target probe reads this (see `findIntersectingBody`).
+                    boundingBox: () => BoundingBox.zero,
                 }),
+            booleanFuse: (_a: any[], _b: any[], _simplify: boolean) => Result.ok(solid()),
+            booleanCut: (_a: any[], _b: any[]) => Result.ok(solid()),
+            booleanCommon: (_a: any[], _b: any[]) => Result.ok(solid()),
         },
         writable: true,
         configurable: true,
@@ -200,43 +232,43 @@ describe("RevolveFeatureCommand axis step", () => {
     });
 });
 
+function scenario(angle: number, withProfileFace = true) {
+    const restoreFactory = mockShapeFactory();
+    const app = createMockApplication();
+    const doc = new TestDocument({ application: app });
+    (app as any).activeView = { document: doc };
+    const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: square });
+    doc.modelManager.addNode(sketch);
+
+    const cmd = new RevolveFeatureCommand();
+    (cmd as any)._application = app;
+    cmd.angle = angle;
+    // The axis edge comes from another node with a translation transform —
+    // the axis is not restricted to the revolved sketch.
+    const axisNode = new SketchNode({ document: doc, plane: Plane.XY, data: square });
+    (cmd as any).stepDatas = [
+        {
+            shapes: withProfileFace ? [profileFaceData(sketch)] : [],
+            nodes: [sketch],
+            type: "shape",
+        },
+        {
+            shapes: [
+                lineEdgeData(
+                    axisNode,
+                    new XYZ({ x: 5, y: 0, z: 0 }),
+                    XYZ.unitY,
+                    Matrix4.fromTranslation(100, 0, 0),
+                ),
+            ],
+            nodes: [axisNode],
+            type: "shape",
+        },
+    ];
+    return { restoreFactory, doc, sketch, axisNode, cmd };
+}
+
 describe("RevolveFeatureCommand execution", () => {
-    function scenario(angle: number, withProfileFace = true) {
-        const restoreFactory = mockShapeFactory();
-        const app = createMockApplication();
-        const doc = new TestDocument({ application: app });
-        (app as any).activeView = { document: doc };
-        const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: square });
-        doc.modelManager.addNode(sketch);
-
-        const cmd = new RevolveFeatureCommand();
-        (cmd as any)._application = app;
-        cmd.angle = angle;
-        // The axis edge comes from another node with a translation transform —
-        // the axis is not restricted to the revolved sketch.
-        const axisNode = new SketchNode({ document: doc, plane: Plane.XY, data: square });
-        (cmd as any).stepDatas = [
-            {
-                shapes: withProfileFace ? [profileFaceData(sketch)] : [],
-                nodes: [sketch],
-                type: "shape",
-            },
-            {
-                shapes: [
-                    lineEdgeData(
-                        axisNode,
-                        new XYZ({ x: 5, y: 0, z: 0 }),
-                        XYZ.unitY,
-                        Matrix4.fromTranslation(100, 0, 0),
-                    ),
-                ],
-                nodes: [axisNode],
-                type: "shape",
-            },
-        ];
-        return { restoreFactory, doc, sketch, axisNode, cmd };
-    }
-
     test("commits immediately with the angle from the options tab", () => {
         const { restoreFactory, doc, sketch, axisNode, cmd } = scenario(90);
         try {
@@ -300,6 +332,68 @@ describe("RevolveFeatureCommand execution", () => {
             expect(doc.modelManager.findNode((node) => node instanceof ParametricBodyNode)).toBeUndefined();
         } finally {
             pub.mockRestore();
+            restoreFactory();
+        }
+    });
+});
+
+describe("RevolveFeatureCommand operation", () => {
+    /** A target body overlapping the probe — the mocked revolve reports `BoundingBox.zero`. */
+    function joinScenario() {
+        // No picked profile faces: the feature then revolves the whole sketch, whose
+        // edges come from the mock factory — rich enough for the body to evaluate.
+        const base = scenario(90, false);
+        const target = new ParametricBodyNode({ document: base.doc, features: [] });
+        (target as any)._shape = Result.ok({
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            dispose: () => {},
+            findSubShapes: () => [],
+            boundingBox: () => BoundingBox.zero,
+        });
+        base.doc.modelManager.addNode(target);
+        return { ...base, target };
+    }
+
+    /** The bodies other than `target`, i.e. the standalone ones a "new" revolve would add. */
+    function standalone(doc: TestDocument, target: ParametricBodyNode) {
+        return doc.modelManager.findNode((node) => node instanceof ParametricBodyNode && node !== target);
+    }
+
+    test("join appends the revolve feature to the intersecting body instead of creating one", () => {
+        const { restoreFactory, doc, target, cmd } = joinScenario();
+        try {
+            cmd.operation = "option.command.operation.join";
+            (cmd as any).executeMainTask();
+
+            expect(target.features).toHaveLength(1);
+            expect(target.features[0]).toMatchObject({ type: "revolve", operation: "fuse" });
+            expect(standalone(doc, target)).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("cut reaches the feature as the cut boolean", () => {
+        const { restoreFactory, target, cmd } = joinScenario();
+        try {
+            cmd.operation = "option.command.operation.cut";
+            (cmd as any).executeMainTask();
+
+            expect(target.features[0]).toMatchObject({ type: "revolve", operation: "cut" });
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("the default new leaves the target alone and stands the revolve up as its own body", () => {
+        const { restoreFactory, doc, target, cmd } = joinScenario();
+        try {
+            (cmd as any).executeMainTask();
+
+            expect(target.features).toHaveLength(0);
+            expect(standalone(doc, target)).toBeInstanceOf(ParametricBodyNode);
+        } finally {
             restoreFactory();
         }
     });

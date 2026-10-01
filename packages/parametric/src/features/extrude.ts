@@ -12,6 +12,7 @@ import {
     registerFeature,
     type ShapeTracking,
 } from "./feature";
+import { mapToHost, mapToolToHost } from "./hostSpace";
 import { applyTrackedOperation, trackOperation } from "./operation";
 import { extrudeFromSourceFaces } from "./pressPull";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
@@ -133,17 +134,22 @@ function combineWithInput(
         built.value.dispose();
         return Result.err("Extrude join/cut/intersect requires a preceding feature");
     }
+    const owned: IShape[] = [];
     try {
+        // The prism is built from world-space profiles; the chain input is the host's own
+        // shape — the boolean runs in the host's space (see `mapToolToHost`).
+        const tool = mapToHost(built.value, undefined, context, owned);
         switch (feature.operation) {
             case "cut":
-                return shapeFactory.booleanCut([context.input], [built.value]);
+                return shapeFactory.booleanCut([context.input], [tool]);
             case "common":
-                return shapeFactory.booleanCommon([context.input], [built.value]);
+                return shapeFactory.booleanCommon([context.input], [tool]);
             default:
-                return shapeFactory.booleanFuse([context.input], [built.value], true);
+                return shapeFactory.booleanFuse([context.input], [tool], true);
         }
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
+        owned.forEach((x) => x.dispose());
         built.value.dispose();
     }
 }
@@ -266,16 +272,25 @@ function pressPullOperationTracked(
     }
     const built = extrudeFromSourceFaces(feature, context, depth, startOffset);
     if (!built.isOk) return Result.err(built.error);
+    const owned: IShape[] = [];
     try {
-        const result = tracked([context.input], [built.value.shape]);
+        // Source faces arrive in world space; the boolean runs in the host's space.
+        const tool = mapToolToHost(built.value, context, owned);
+        const result = tracked([context.input], [tool.shape]);
         if (!result.isOk) return Result.err(result.error);
         // Empty when the source face carried no id — an untracked tool, not a misnamed one.
-        const tool = { faceIds: built.value.faceIds, edgeIds: built.value.edgeIds };
-        const completed = completeTrackedHistory([context.input, built.value.shape], result.value);
-        trackOperation(context.input, tracking, tool, completed, result.value);
+        const completed = completeTrackedHistory([context.input, tool.shape], result.value);
+        trackOperation(
+            context.input,
+            tracking,
+            { faceIds: tool.faceIds, edgeIds: tool.edgeIds },
+            completed,
+            result.value,
+        );
         return Result.ok(result.value.shape);
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
+        owned.forEach((x) => x.dispose());
         built.value.shape.dispose();
     }
 }
@@ -311,10 +326,13 @@ function extrudeOperationTracked(
     const offsetVec = resolved.value.sketch.plane.normal.multiply(startOffset);
     const tool = sweepProfiles(resolved.value.sketch, vecs, resolved.value.profiles, offsetVec);
     if (!tool.isOk) return Result.err(tool.error);
+    const owned: IShape[] = [];
     try {
-        return applyTrackedOperation(input, tracking, tracked, tool.value);
+        // Sketch profiles are world coordinates; the boolean runs in the host's space.
+        return applyTrackedOperation(input, tracking, tracked, mapToolToHost(tool.value, context, owned));
     } finally {
         // The prism is an intermediate input — the kernel reads it eagerly.
+        owned.forEach((x) => x.dispose());
         tool.value.shape.dispose();
     }
 }

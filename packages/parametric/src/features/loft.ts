@@ -14,6 +14,7 @@ import {
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
 import { isBodyTrackingNode } from "./bodyTracking";
+import { trackedBoolean } from "./boolean";
 import { matchEdgesAnchored } from "./edgeMatcher";
 import type { EdgeRef } from "./edgeRef";
 import { findSketch } from "./extrude";
@@ -27,6 +28,8 @@ import {
     trackedFaceIds,
     trackedIds,
 } from "./feature";
+import { mapToHost } from "./hostSpace";
+import { applyTrackedOperation } from "./operation";
 import { resolveProfiles } from "./profileBuilder";
 import { captureProfileRef, type ProfileRef } from "./profileRef";
 import { profileEdgeSeeds } from "./profileSeeds";
@@ -38,10 +41,15 @@ import { matchVertex, type VertexRef } from "./vertexRef";
  * Loft: a solid or shell through an ordered list of sections (`LoftFeatureData`).
  *
  * Sections are picked from other nodes — sketch profiles, solid faces (their outer
- * wires), closed edges, or vertices (ends only) — so a loft is always the FIRST
- * feature of its own body; it never touches `context.input`. Each section is stored
- * as a ref (`LoftSectionData`) and re-matched against the referenced node's current
- * shape on every rebuild, which is what makes an upstream edit propagate.
+ * wires), closed edges, or vertices (ends only). Each section is stored as a ref
+ * (`LoftSectionData`) and re-matched against the referenced node's current shape on
+ * every rebuild, which is what makes an upstream edit propagate.
+ *
+ * Without an `operation` the loft is the FIRST feature of its own body and never
+ * touches `context.input`; a solid loft with join/cut/intersect is appended to a
+ * target body instead and combines with that chain's input (the extrude/sweep
+ * contract). A section may then reference the host body's own face — the press-pull
+ * self-source case, resolved against the feature's input by `resolveSourceFaces`.
  *
  * Sub-shape naming (tracked kernel only): a side face takes the seed of the section
  * edge that generated it (`faceEdgeMap`), an output edge that of the input edge it
@@ -134,6 +142,12 @@ const loftHandler: FeatureHandler<LoftFeatureData> = {
         if (!Continuities.includes(feature.continuity)) {
             return Result.err(`Invalid continuity: ${feature.continuity}`);
         }
+        // A shell has no volume to combine with. Refuse rather than quietly ignore the
+        // operation: an ignored join would leave the loft's shell as the chain's output,
+        // silently discarding the body it was appended to.
+        if (feature.operation !== undefined && !feature.isSolid) {
+            return Result.err("A shell loft cannot join/cut/intersect");
+        }
         const resolved = resolveSections(feature, context);
         if (!resolved.isOk) return Result.err(resolved.error);
         try {
@@ -141,27 +155,112 @@ const loftHandler: FeatureHandler<LoftFeatureData> = {
                 context.tracking.resolvedProfiles = resolved.value.profiles;
                 context.tracking.resolvedEdges = resolved.value.edges;
             }
-            const tracked = evaluateTracked(feature, resolved.value.sections, context);
+            const tracked = evaluateOperationTracked(feature, context, resolved.value.sections);
             if (tracked !== undefined) return tracked;
-            return shapeFactory.loft(
-                resolved.value.sections.map((x) => x.shape),
-                feature.isSolid,
-                feature.isRuled,
-                feature.continuity,
-            );
+            const built = buildLoft(feature, resolved.value.sections, context);
+            if (!built.isOk) return Result.err(built.error);
+            return combineWithInput(built, feature, context);
         } finally {
             resolved.value.owned.forEach((x) => x.dispose());
         }
     },
 };
 
-function evaluateTracked(
+/** The lofted geometry and the ids its kernel history named, in findSubShapes order. */
+interface LoftTool {
+    readonly shape: IShape;
+    readonly faceIds: (string | undefined)[];
+    readonly edgeIds: (string | undefined)[];
+}
+
+/**
+ * Join/cut/intersect on the tracked path: the lofted solid combines with the chain input
+ * through the tracked boolean, so the body's own sub-shape ids survive past this feature
+ * (the extrude/sweep contract, see `applyTrackedOperation`). Returns undefined when no
+ * operation applies, or when a tracking capability is missing — the caller then falls
+ * back to the plain path.
+ */
+function evaluateOperationTracked(
+    feature: LoftFeatureData,
+    context: FeatureContext,
+    sections: ResolvedSection[],
+): Result<IShape> | undefined {
+    const operation = feature.operation;
+    if (operation === undefined) return undefined;
+    const tracking = context.tracking;
+    const tracked = trackedBoolean(operation);
+    if (tracking === undefined || tracked === undefined || shapeFactory.loftTracked === undefined) {
+        return undefined;
+    }
+    const input = context.input;
+    if (input === undefined) {
+        return Result.err("Loft join/cut/intersect requires a preceding feature");
+    }
+    const tool = loftTool(feature, sections);
+    if (!tool.isOk) return Result.err(tool.error);
+    try {
+        return applyTrackedOperation(input, tracking, tracked, tool.value);
+    } finally {
+        // The lofted solid is an intermediate input — the kernel reads it eagerly.
+        tool.value.shape.dispose();
+    }
+}
+
+/** Combines the freshly lofted solid with the chain input, when an operation was asked for. */
+function combineWithInput(
+    built: Result<IShape>,
+    feature: LoftFeatureData,
+    context: FeatureContext,
+): Result<IShape> {
+    const operation = feature.operation;
+    if (!built.isOk || operation === undefined) return built;
+    if (context.input === undefined) {
+        built.value.dispose();
+        return Result.err("Loft join/cut/intersect requires a preceding feature");
+    }
+    try {
+        switch (operation) {
+            case "cut":
+                return shapeFactory.booleanCut([context.input], [built.value]);
+            case "common":
+                return shapeFactory.booleanCommon([context.input], [built.value]);
+            default:
+                return shapeFactory.booleanFuse([context.input], [built.value], true);
+        }
+    } finally {
+        // The lofted solid is an intermediate input — the kernel reads it eagerly.
+        built.value.dispose();
+    }
+}
+
+/**
+ * Builds the loft. The tracked path names the sub-shapes from the kernel history; without
+ * that capability — or with an operation whose tracked path already declined — the loft is
+ * built without ids (downstream refs then re-match geometrically).
+ */
+function buildLoft(
     feature: LoftFeatureData,
     sections: ResolvedSection[],
     context: FeatureContext,
-): Result<IShape> | undefined {
+): Result<IShape> {
     const tracking = context.tracking;
-    if (tracking === undefined || shapeFactory.loftTracked === undefined) return undefined;
+    if (tracking === undefined || shapeFactory.loftTracked === undefined) {
+        return shapeFactory.loft(
+            sections.map((x) => x.shape),
+            feature.isSolid,
+            feature.isRuled,
+            feature.continuity,
+        );
+    }
+    const tool = loftTool(feature, sections);
+    if (!tool.isOk) return Result.err(tool.error);
+    tracking.outputFaceIds = tool.value.faceIds;
+    tracking.outputEdgeIds = tool.value.edgeIds;
+    return Result.ok(tool.value.shape);
+}
+
+function loftTool(feature: LoftFeatureData, sections: ResolvedSection[]): Result<LoftTool> {
+    if (shapeFactory.loftTracked === undefined) return Result.err("Loft tracking is unavailable");
     const shapes = sections.map((x) => x.shape);
     const result = shapeFactory.loftTracked(shapes, feature.isSolid, feature.isRuled, feature.continuity);
     if (!result.isOk) return Result.err(result.error);
@@ -172,9 +271,11 @@ function evaluateTracked(
     const completed = completeTrackedHistory(shapes, result.value);
     const faceIds = trackedFaceIds([], edgeSeeds, completed.faceMap, result.value.faceEdgeMap);
     seedLoftCaps(faceIds, sections, result.value.capFaces ?? []);
-    tracking.outputFaceIds = faceIds;
-    tracking.outputEdgeIds = trackedIds(edgeSeeds, completed.edgeMap);
-    return Result.ok(result.value.shape);
+    return Result.ok({
+        shape: result.value.shape,
+        faceIds,
+        edgeIds: trackedIds(edgeSeeds, completed.edgeMap),
+    });
 }
 
 /**
@@ -357,30 +458,6 @@ function wireEdgeSeeds(
         const index = faceEdges.findIndex((candidate) => candidate.isSame(edge));
         return index < 0 ? undefined : faceSeeds[index];
     });
-}
-
-/**
- * Maps a resolved section into the host body's space. Body-face sections arrive in
- * world space already (`resolveSourceFaces`, `node` undefined); sketch, edge and
- * vertex sections in their node's space, so they first take the node's own
- * transform. Identity transforms reuse the shape; copies are pushed to `owned`.
- */
-export function mapToHost(
-    shape: IShape,
-    node: ShapeNode | undefined,
-    context: FeatureContext,
-    owned: IShape[],
-): IShape {
-    const hostInverse = context.host.worldTransform().invert();
-    let transform = hostInverse;
-    if (node !== undefined) {
-        const world = node.worldTransform();
-        transform = hostInverse === undefined ? world : hostInverse.multiply(world);
-    }
-    if (transform === undefined || transform.equals(Matrix4.identity())) return shape;
-    const mapped = shape.transformedMul(transform);
-    owned.push(mapped);
-    return mapped;
 }
 
 registerFeature("loft", loftHandler);

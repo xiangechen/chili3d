@@ -2,7 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    BoundingBox,
     Combobox,
     command,
     type I18nKeys,
@@ -30,6 +29,7 @@ import { captureProfileRef } from "../features/profileRef";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
 import { SelectSketchProfilesStep } from "./extrudeCommand";
+import { findIntersectingBody } from "./intersectingBody";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -96,7 +96,7 @@ export class SweepFeatureCommand extends MultistepCommand {
         const node = this.sourceNode;
         const feature = this.buildFeature();
         const operation = SWEEP_OPERATIONS[this.operation];
-        const target = operation === undefined ? undefined : this.findIntersectingBody();
+        const target = operation === undefined ? undefined : this.findTargetBody();
         Transaction.execute(this.document, "execute feature.sweep", () => {
             if (operation !== undefined && target !== undefined) {
                 target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
@@ -182,21 +182,15 @@ export class SweepFeatureCommand extends MultistepCommand {
     }
 
     /**
-     * The join/cut/intersect target, auto-detected: the first parametric body whose
-     * bounding box intersects the swept tool's. (Bounds only — a real interference
-     * check would cost a boolean per candidate; overlapping boxes with disjoint
-     * geometry just produce a no-op boolean.)
+     * The join/cut/intersect target: the swept tool is built first to give the shared
+     * detection its box (see `findIntersectingBody`). Undefined when the tool cannot be
+     * built at all, which leaves the feature standalone.
      */
-    private findIntersectingBody(): ParametricBodyNode | undefined {
+    private findTargetBody(): ParametricBodyNode | undefined {
         const built = this.buildToolShape();
         if (built === undefined) return undefined;
         try {
-            return this.document.modelManager.findNode(
-                (target) =>
-                    target instanceof ParametricBodyNode &&
-                    target.shape.isOk &&
-                    BoundingBox.isIntersect(built.boundingBox(), target.shape.value.boundingBox()),
-            ) as ParametricBodyNode | undefined;
+            return findIntersectingBody(this.document, built.boundingBox());
         } finally {
             built.dispose();
         }

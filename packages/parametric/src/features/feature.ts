@@ -101,6 +101,13 @@ export interface RevolveFeatureData extends FeatureBase {
      * empty revolves every closed profile of the sketch.
      */
     readonly profiles?: ProfileRef[];
+    /**
+     * How the revolved shape combines with the preceding feature's shape on the host
+     * body — Fusion-style join (fuse) / cut / intersect (common). Undefined creates
+     * standalone geometry; set when the revolve command appends the feature to a
+     * target body.
+     */
+    readonly operation?: BooleanOperation;
 }
 
 export interface FilletFeatureData extends FeatureBase {
@@ -152,6 +159,14 @@ export interface LoftFeatureData extends FeatureBase {
     readonly isRuled: boolean;
     /** Smoothness of the transitions between sections; ignored when `isRuled`. */
     readonly continuity: Continuity;
+    /**
+     * How the lofted shape combines with the preceding feature's shape on the host
+     * body — Fusion-style join (fuse) / cut / intersect (common). Undefined creates
+     * standalone geometry; set when the loft command appends the feature to a target
+     * body. A shell has no volume to combine with, so a shell loft (`isSolid: false`)
+     * carrying one fails to build rather than ignoring it.
+     */
+    readonly operation?: BooleanOperation;
 }
 
 export interface SweepFeatureData extends FeatureBase {

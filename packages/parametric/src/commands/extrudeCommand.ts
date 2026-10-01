@@ -45,6 +45,7 @@ import {
     planeOfPickedFace,
     SELECTED_PROFILE_STATE,
 } from "./extrudeDragStep";
+import { findIntersectingBody } from "./intersectingBody";
 import { prioritizeSketchFaces } from "./profileFaceSort";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
@@ -341,7 +342,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     private applyOperationPreview(prism: IShape): { shape: IShape; target?: ParametricBodyNode } {
         const operation = EXTRUDE_OPERATIONS[this.operation];
         if (operation === undefined) return { shape: prism };
-        const target = this.findIntersectingNode(prism.boundingBox());
+        const target = findIntersectingBody(this.document, prism.boundingBox());
         if (target === undefined) return { shape: prism };
         const result = this.booleanPreview(operation, target, prism);
         if (!result.isOk) return { shape: prism };
@@ -363,16 +364,6 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             default:
                 return shapeFactory.booleanFuse([target.shape.value], [prism], true);
         }
-    }
-
-    /** The first parametric body whose bounding box intersects `box` (bounds-only check). */
-    private findIntersectingNode(box: BoundingBox): ParametricBodyNode | undefined {
-        return this.document.modelManager.findNode(
-            (target) =>
-                target instanceof ParametricBodyNode &&
-                target.shape.isOk &&
-                BoundingBox.isIntersect(box, target.shape.value.boundingBox()),
-        ) as ParametricBodyNode | undefined;
     }
 
     /** Faces to preview: the picked faces in world coordinates, or the whole sketch's outer profiles. */
@@ -545,7 +536,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     ): void {
         const operation = EXTRUDE_OPERATIONS[this.operation];
         const target =
-            operation === undefined ? undefined : this.findIntersectingBody(node, depth, normal, worldFaces);
+            operation === undefined ? undefined : this.findTargetBody(node, depth, normal, worldFaces);
         if (operation !== undefined && target !== undefined) {
             target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
         } else {
@@ -556,12 +547,11 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     }
 
     /**
-     * The join/cut/intersect target, auto-detected: the first parametric body whose
-     * bounding box intersects the prism's. (Bounds only — a real interference check
-     * would cost a boolean per candidate; overlapping boxes with disjoint geometry just
-     * produce a no-op boolean.)
+     * The join/cut/intersect target: the prism is built first to give the shared
+     * detection its box (see `findIntersectingBody`). Undefined when the prism cannot
+     * be built at all, which leaves the feature standalone.
      */
-    private findIntersectingBody(
+    private findTargetBody(
         node: SketchNode | ParametricBodyNode,
         depth: number,
         normal: XYZ,
@@ -580,7 +570,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         );
         if (!built.isOk) return undefined;
         try {
-            return this.findIntersectingNode(built.value.boundingBox());
+            return findIntersectingBody(this.document, built.value.boundingBox());
         } finally {
             built.value.dispose();
         }

@@ -8,6 +8,7 @@ import {
     Continuities,
     type Continuity,
     command,
+    type I18nKeys,
     Id,
     type IEdge,
     type IFace,
@@ -28,13 +29,23 @@ import {
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "../features/bodyTracking";
 import { captureEdgeRef } from "../features/edgeRef";
-import type { LoftFeatureData, LoftSectionData } from "../features/feature";
+import type { BooleanOperation, LoftFeatureData, LoftSectionData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { validateLoftSections } from "../features/loft";
 import { captureProfileRef } from "../features/profileRef";
 import { captureVertexRef } from "../features/vertexRef";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
+import { findIntersectingBody } from "./intersectingBody";
+
+const OPERATION_NEW: I18nKeys = "option.command.operation.new";
+
+/** Maps the command's operation dropdown values to boolean operations; new has none. */
+const LOFT_OPERATIONS: Record<string, BooleanOperation> = {
+    "option.command.operation.join": "fuse",
+    "option.command.operation.cut": "cut",
+    "option.command.operation.intersect": "common",
+};
 
 /**
  * Creates a loft feature: pick sections in order (sketch profiles, solid faces, closed
@@ -42,6 +53,10 @@ import { SketchNode } from "../sketch/sketchNode";
  * them through `loftTracked`. The pick loop and live preview mirror the direct
  * modeler's `create.loft`; the committed body is a `ParametricBodyNode` whose feature
  * re-matches every section against its node's rebuilt shape.
+ *
+ * A solid loft's join/cut/intersect appends the feature to the auto-detected
+ * intersecting body (Fusion-style, see the extrude command); "new" creates a standalone
+ * body. A shell drops the operation — it has no volume to combine with.
  */
 @command({ key: "feature.loft", icon: "icon-loft" })
 export class LoftFeatureCommand extends CancelableCommand {
@@ -58,6 +73,26 @@ export class LoftFeatureCommand extends CancelableCommand {
     }
     set isSolid(value: boolean) {
         this.setProperty("isSolid", value, () => this.displayVisual());
+    }
+
+    /**
+     * A shell has no volume to combine with, so the dropdown only shows while the loft is
+     * a solid (the same rule the feature applies when replaying — see `loft.ts`).
+     */
+    @property("option.command.operation", {
+        dependencies: [{ property: "isSolid", value: true }],
+        combobox: Combobox.from([
+            OPERATION_NEW,
+            "option.command.operation.join",
+            "option.command.operation.cut",
+            "option.command.operation.intersect",
+        ] satisfies I18nKeys[]),
+    })
+    get operation(): I18nKeys {
+        return this.getPrivateValue("operation", OPERATION_NEW);
+    }
+    set operation(value: I18nKeys) {
+        this.setProperty("operation", value);
     }
 
     @property("option.command.isRuled")
@@ -284,10 +319,18 @@ export class LoftFeatureCommand extends CancelableCommand {
             isRuled: this.isRuled,
             continuity: this.continuity,
         };
+        // A shell has no volume to combine with, so the operation is dropped here rather
+        // than stored and ignored (the dropdown is hidden in that state anyway).
+        const operation = this.isSolid ? LOFT_OPERATIONS[this.operation] : undefined;
+        const target = operation === undefined ? undefined : this.findTargetBody();
         Transaction.execute(this.document, "execute feature.loft", () => {
-            this.document.modelManager.addNode(
-                new ParametricBodyNode({ document: this.document, features: [feature] }),
-            );
+            if (operation !== undefined && target !== undefined) {
+                target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
+            } else {
+                this.document.modelManager.addNode(
+                    new ParametricBodyNode({ document: this.document, features: [feature] }),
+                );
+            }
             // Consumed sketches are hidden in the same transaction, so undo restores
             // the visibility together with the body (the extrude convention).
             for (const nodeId of new Set(this.sections.map((x) => x.nodeId))) {
@@ -296,5 +339,21 @@ export class LoftFeatureCommand extends CancelableCommand {
             }
             this.document.visual.update();
         });
+    }
+
+    /**
+     * The join/cut/intersect target: the preview loft gives the shared detection its
+     * bounds (see `findIntersectingBody`). Undefined when the preview cannot be built,
+     * which leaves the feature standalone.
+     */
+    private findTargetBody(): ParametricBodyNode | undefined {
+        if (this.sectionShapes.length < 2) return undefined;
+        const preview = shapeFactory.loft(this.sectionShapes, this.isSolid, this.isRuled, this.continuity);
+        if (!preview.isOk) return undefined;
+        try {
+            return findIntersectingBody(this.document, preview.value.boundingBox());
+        } finally {
+            preview.value.dispose();
+        }
     }
 }
