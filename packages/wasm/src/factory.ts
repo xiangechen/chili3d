@@ -801,6 +801,24 @@ export class ShapeFactory implements IShapeFactory {
             "Loft Error",
         );
     }
+    loftTracked(
+        sections: (IVertex | IEdge | IWire)[],
+        isSolid: boolean,
+        isRuled: boolean,
+        continuity: Continuity,
+    ): Result<TrackedShape> {
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            if (section.shapeType === ShapeTypes.edge) {
+                sections[i] = this.wire([section as IEdge]).value;
+            }
+        }
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.loftTracked,
+            [ensureOccShape(sections), isSolid, isRuled, convertFromContinuity(continuity)],
+            "Loft Error",
+        );
+    }
     curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.curveProjection,

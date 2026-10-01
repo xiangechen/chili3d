@@ -83,6 +83,7 @@
 #include <deque>
 #include <gp_Ax2.hxx>
 #include <gp_Circ.hxx>
+#include <memory>
 #include <set>
 
 using namespace emscripten;
@@ -136,6 +137,9 @@ struct TrackedShapeResult {
     // (it would claim the profile face's index and collide with the identical
     // bottom/start face). Empty for non-sweeps and for a full 360° revolve, where the
     // first and last shapes coincide and there is no distinct cap.
+    // A solid LOFT reports BOTH caps instead, in [start, end] section order (a vertex
+    // end has no cap): loft inputs are wires/vertices, so no derivation channel can
+    // name a cap, and the two ends never coincide.
     std::vector<int> capFaces = {};
 };
 
@@ -245,6 +249,64 @@ static std::vector<int> sweepCapFaces(BRepPrimAPI_MakeSweep& sweep, const TopoDS
         }
     }
     return capFaces;
+}
+
+// Face indexes (MapShapes order on `output`, matching the history maps) of a loft's
+// START and END caps — the faces BRepOffsetAPI_ThruSections builds from the first/last
+// wire sections when isSolid. Both ends are reported (unlike a sweep's single
+// LastShape cap): loft inputs are wires/vertices, so the derivation channels can never
+// name a cap. Vertex end sections have no cap. A cap face is detected either through
+// the builder's Generated(section wire) or by identity: ThruSections builds its caps
+// from the section wires as-is, so the cap is the face whose ENTIRE edge set is shared
+// with the section's (IsSame) — a side face shares only its one generating edge, which
+// is why a subset test would misfire on single-edge sections (a circle cap and the
+// cylindrical side face share that one edge, but the side face also has the next
+// section's edge).
+static std::vector<int> loftCapFaces(BRepOffsetAPI_ThruSections& builder, const std::vector<TopoDS_Shape>& sections,
+    const TopoDS_Shape& output)
+{
+    std::vector<int> caps;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outFaces;
+    TopExp::MapShapes(output, TopAbs_FACE, outFaces);
+
+    auto collectCap = [&](const TopoDS_Shape& section) {
+        if (section.ShapeType() != TopAbs_WIRE) {
+            return;
+        }
+        try {
+            for (const TopoDS_Shape& generated : builder.Generated(section)) {
+                int outIndex = outFaces.FindIndex(generated);
+                if (outIndex > 0 && generated.ShapeType() == TopAbs_FACE) {
+                    caps.push_back(outIndex - 1);
+                }
+            }
+        } catch (const Standard_Failure&) {
+        }
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> sectionEdges;
+        TopExp::MapShapes(section, TopAbs_EDGE, sectionEdges);
+        for (int i = 1; i <= outFaces.Extent(); i++) {
+            NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> faceEdges;
+            TopExp::MapShapes(outFaces.FindKey(i), TopAbs_EDGE, faceEdges);
+            bool allShared = faceEdges.Extent() > 0;
+            for (int e = 1; e <= faceEdges.Extent() && allShared; e++) {
+                allShared = sectionEdges.Contains(faceEdges.FindKey(e));
+            }
+            if (allShared) {
+                caps.push_back(i - 1);
+            }
+        }
+    };
+    collectCap(sections.front());
+    collectCap(sections.back());
+    // Keep [start caps, end caps] order — the caller seeds them with the first/last
+    // section's identity; dedup only repeats (both channels hitting the same face).
+    std::vector<int> unique;
+    for (int index : caps) {
+        if (std::find(unique.begin(), unique.end(), index) == unique.end()) {
+            unique.push_back(index);
+        }
+    }
+    return unique;
 }
 
 // Compute the plane formed by two edges at their shared vertex from their tangent vectors.
@@ -1579,33 +1641,83 @@ public:
         return ShapesResult { ShapeArray(buildEdgeTriple(newE1, chamferEdge, newE2)), true, "" };
     }
 
-    static ShapeResult loft(const ShapeArray& sections, bool isSolid, bool isRuled, GeomAbs_Shape continuity)
+    // Shared build of `loft`/`loftTracked`: validates the sections and runs
+    // BRepOffsetAPI_ThruSections, returning the LIVE builder — the tracked variant
+    // queries its shape history afterwards, so it must outlive the call.
+    // `sectionVector` receives the converted sections (their order defines the history
+    // input enumeration). Null on failure, with `error` set.
+    static std::unique_ptr<BRepOffsetAPI_ThruSections> buildLoft(const ShapeArray& sections, bool isSolid,
+        bool isRuled, GeomAbs_Shape continuity, std::vector<TopoDS_Shape>& sectionVector, std::string& error)
     {
-        std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(sections);
-        if (shapeVector.size() < 2) {
-            return ShapeResult { TopoDS_Shape(), false, "Failed to loft: at least 2 sections are required" };
+        sectionVector = emscripten::vecFromJSArray<TopoDS_Shape>(sections);
+        if (sectionVector.size() < 2) {
+            error = "Failed to loft: at least 2 sections are required";
+            return nullptr;
         }
-        if (shapeVector.size() == 2 && shapeVector[0].ShapeType() == TopAbs_VERTEX && shapeVector[1].ShapeType() == TopAbs_VERTEX) {
-            return ShapeResult { TopoDS_Shape(), false, "Failed to loft: must have at least 1 wires" };
+        if (sectionVector.size() == 2 && sectionVector[0].ShapeType() == TopAbs_VERTEX
+            && sectionVector[1].ShapeType() == TopAbs_VERTEX) {
+            error = "Failed to loft: must have at least 1 wires";
+            return nullptr;
         }
 
-        BRepOffsetAPI_ThruSections loftBuilder(isSolid, isRuled);
+        auto loftBuilder = std::make_unique<BRepOffsetAPI_ThruSections>(isSolid, isRuled);
         if (!isRuled) {
-            loftBuilder.SetContinuity(continuity);
+            loftBuilder->SetContinuity(continuity);
         }
-
-        for (auto& profile : shapeVector) {
+        for (auto& profile : sectionVector) {
             if (profile.ShapeType() == TopAbs_WIRE) {
-                loftBuilder.AddWire(TopoDS::Wire(profile));
+                loftBuilder->AddWire(TopoDS::Wire(profile));
             } else if (profile.ShapeType() == TopAbs_VERTEX) {
-                loftBuilder.AddVertex(TopoDS::Vertex(profile));
+                loftBuilder->AddVertex(TopoDS::Vertex(profile));
             }
         }
-        loftBuilder.Build();
-        if (!loftBuilder.IsDone()) {
-            return ShapeResult { TopoDS_Shape(), false, "Failed to loft" };
+        loftBuilder->Build();
+        if (!loftBuilder->IsDone()) {
+            error = "Failed to loft";
+            return nullptr;
         }
-        return ShapeResult { loftBuilder.Shape(), true, "" };
+        return loftBuilder;
+    }
+
+    static ShapeResult loft(const ShapeArray& sections, bool isSolid, bool isRuled, GeomAbs_Shape continuity)
+    {
+        std::vector<TopoDS_Shape> sectionVector;
+        std::string error;
+        auto loftBuilder = buildLoft(sections, isSolid, isRuled, continuity, sectionVector, error);
+        if (!loftBuilder) {
+            return ShapeResult { TopoDS_Shape(), false, error };
+        }
+        return ShapeResult { loftBuilder->Shape(), true, "" };
+    }
+
+    // Tracked loft: the history input is the compound of ALL sections in order, so the
+    // edge indexes enumerate section 0's edges first, then section 1's, and so on (the
+    // caller enumerates the same way). Loft inputs carry no faces, so faceHistory is
+    // always empty; the caps (isSolid) travel through the dedicated capFaces channel.
+    static TrackedShapeResult loftTracked(const ShapeArray& sections, bool isSolid, bool isRuled,
+        GeomAbs_Shape continuity)
+    {
+        std::vector<TopoDS_Shape> sectionVector;
+        std::string error;
+        auto loftBuilder = buildLoft(sections, isSolid, isRuled, continuity, sectionVector, error);
+        if (!loftBuilder) {
+            return TrackedShapeResult { TopoDS_Shape(), false, error, {}, {} };
+        }
+
+        TopoDS_Compound inputCompound;
+        BRep_Builder compoundBuilder;
+        compoundBuilder.MakeCompound(inputCompound);
+        for (const auto& section : sectionVector) {
+            compoundBuilder.Add(inputCompound, section);
+        }
+
+        TrackedShapeResult result { loftBuilder->Shape(), true, "", faceHistory(*loftBuilder, inputCompound, loftBuilder->Shape()),
+            edgeHistory(*loftBuilder, inputCompound, loftBuilder->Shape()),
+            faceFromEdgeHistory(*loftBuilder, inputCompound, loftBuilder->Shape()) };
+        if (isSolid) {
+            result.capFaces = loftCapFaces(*loftBuilder, sectionVector, loftBuilder->Shape());
+        }
+        return result;
     }
 
     static ShapeResult curveProjection(const TopoDS_Shape& curve, const TopoDS_Shape& targetFace, const gp_Dir& dir)
@@ -1878,6 +1990,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("chamfer", &ShapeFactory::chamfer)
         .class_function("revolveTracked", &ShapeFactory::revolveTracked)
         .class_function("prismTracked", &ShapeFactory::prismTracked)
+        .class_function("loftTracked", &ShapeFactory::loftTracked)
         .class_function("booleanCommonTracked", &ShapeFactory::booleanCommonTracked)
         .class_function("booleanCutTracked", &ShapeFactory::booleanCutTracked)
         .class_function("booleanFuseTracked", &ShapeFactory::booleanFuseTracked)

@@ -138,7 +138,13 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
         groups: [
             {
                 groupName: "ribbon.group.feature",
-                items: ["feature.extrude", "feature.revolve", "feature.fillet", "feature.chamfer"],
+                items: [
+                    "feature.extrude",
+                    "feature.revolve",
+                    "feature.loft",
+                    "feature.fillet",
+                    "feature.chamfer",
+                ],
             },
             {
                 groupName: "ribbon.group.boolean",

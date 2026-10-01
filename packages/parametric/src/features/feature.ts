@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type Continuity,
     type FeatureParameter,
     type I18nKeys,
     type IDocument,
@@ -25,6 +26,7 @@ import {
     verifiedFaceAncestors,
 } from "./historyCompletion";
 import type { ProfileRef } from "./profileRef";
+import type { VertexRef } from "./vertexRef";
 
 export interface FeatureBase {
     readonly id: string;
@@ -41,7 +43,8 @@ export type FeatureData =
     | RevolveFeatureData
     | FilletFeatureData
     | ChamferFeatureData
-    | BooleanFeatureData;
+    | BooleanFeatureData
+    | LoftFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -123,6 +126,31 @@ export interface BooleanFeatureData extends FeatureBase {
      * the scene, still listed and editable under the body in the model tree.
      */
     readonly consumeTools?: boolean;
+}
+
+/**
+ * One ordered loft section:
+ * - `profile` — a sketch profile (raw sketch-space fingerprint, `profileRef.ts`) or a
+ *   solid face's outer wire (world-space fingerprint + the face's tracked id, the
+ *   press-pull `source` contract); the node type decides which.
+ * - `edge` — a single closed edge of a body, fingerprinted in the body's LOCAL space
+ *   (it re-matches through `matchEdgesAnchored` on the node's own shape).
+ * - `vertex` — a point section, allowed only as the first or last section; vertices
+ *   carry no tracked ids, so the ref is a bare position (`vertexRef.ts`).
+ */
+export type LoftSectionData =
+    | { readonly kind: "profile"; readonly nodeId: string; readonly profile: ProfileRef }
+    | { readonly kind: "edge"; readonly nodeId: string; readonly edge: EdgeRef }
+    | { readonly kind: "vertex"; readonly nodeId: string; readonly vertex: VertexRef };
+
+export interface LoftFeatureData extends FeatureBase {
+    readonly type: "loft";
+    /** The sections to loft through, in order — at least two, at least one of them a wire. */
+    readonly sections: LoftSectionData[];
+    readonly isSolid: boolean;
+    readonly isRuled: boolean;
+    /** Smoothness of the transitions between sections; ignored when `isRuled`. */
+    readonly continuity: Continuity;
 }
 
 /**

@@ -371,13 +371,13 @@ describe("ParametricBodyNode", () => {
     test("unknown feature types fail with a clear error", () => {
         const body = new ParametricBodyNode({
             document: doc,
-            featuresJson: JSON.stringify([{ id: "f9", type: "loft" }]),
+            featuresJson: JSON.stringify([{ id: "f9", type: "teleport" }]),
         });
         doc.modelManager.addNode(body);
 
         expect(body.shape.isOk).toBe(false);
-        expect(body.shape.error).toBe("Unknown feature type: loft");
-        expect(body.featureItems()[0].error).toBe("Unknown feature type: loft");
+        expect(body.shape.error).toBe("Unknown feature type: teleport");
+        expect(body.featureItems()[0].error).toBe("Unknown feature type: teleport");
     });
 
     test("featureItems exposes localized display and parameters", () => {

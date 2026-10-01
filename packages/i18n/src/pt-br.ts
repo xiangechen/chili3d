@@ -184,6 +184,8 @@ export default {
         "command.create.extrude": "Extrusão",
         "command.feature.extrude": "Extrusão",
         "command.feature.revolve": "Revolve",
+        "command.feature.loft": "Loft",
+        "feature.loft.section": "Seção",
         "command.feature.fillet": "Arredondamento",
         "command.feature.chamfer": "Chanfro",
         "command.feature.fuse": "Unir",

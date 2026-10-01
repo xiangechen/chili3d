@@ -673,6 +673,7 @@ interface EmbindModule {
     booleanCut(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     booleanFuse(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     combine(_0: Array<TopoDS_Shape>): ShapeResult;
+    loftTracked(_0: Array<TopoDS_Shape>, _1: boolean, _2: boolean, _3: GeomAbs_Shape): TrackedShapeResult;
     booleanCommonTracked(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TrackedShapeResult;
     booleanCutTracked(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TrackedShapeResult;
     booleanFuseTracked(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): TrackedShapeResult;

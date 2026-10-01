@@ -167,6 +167,7 @@ describe("ParametricRibbonProfiles", () => {
             "sketch.enter",
             "feature.extrude",
             "feature.revolve",
+            "feature.loft",
             "feature.fillet",
             "feature.chamfer",
             "feature.fuse",

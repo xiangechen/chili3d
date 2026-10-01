@@ -51,6 +51,9 @@ export interface TrackedShape {
      * derivation: the cap must not claim the profile face's ancestors and collide
      * with the identical bottom/start face. Absent when the kernel predates this
      * channel — callers then fall back to the history-less-face heuristic.
+     * A solid loft reports BOTH caps here instead, in [start, end] section order
+     * (a vertex end has no cap): loft inputs are wires/vertices, so no derivation
+     * channel can name a cap.
      */
     capFaces?: number[];
 }
@@ -141,6 +144,18 @@ export interface IShapeFactory {
     chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
     revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;
+    /**
+     * Tracked loft: the history input enumerates the sections' edges in section order
+     * (section 0's edges first), faces of the input are always empty (loft inputs are
+     * wires/vertices), and a solid loft's start AND end cap face indexes travel through
+     * `capFaces` — neither cap can be named by the derivation channels.
+     */
+    loftTracked?(
+        sections: (IVertex | IEdge | IWire)[],
+        isSolid: boolean,
+        isRuled: boolean,
+        continuity: Continuity,
+    ): Result<TrackedShape>;
     booleanCommonTracked?(shape1: IShape[], shape2: IShape[]): Result<TrackedShape>;
     booleanCutTracked?(shape1: IShape[], shape2: IShape[]): Result<TrackedShape>;
     booleanFuseTracked?(shape1: IShape[], shape2: IShape[]): Result<TrackedShape>;
