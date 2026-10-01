@@ -19,6 +19,12 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
         readonly tip: I18nKeys,
         private readonly handleStepData: () => D,
         private readonly keepSelected: boolean = false,
+        /**
+         * Show the bare confirm/cancel bar while this step snaps, so a loop that keeps
+         * calling it can be ended from the viewport instead of a button on the command
+         * panel. Off by default: a step that takes one point per click needs no bar.
+         */
+        private readonly showConfirmControl: boolean = false,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
@@ -34,7 +40,13 @@ export abstract class SnapStep<D extends SnapData> implements IStep {
         this.setValidator(data);
 
         const executorHandler = this.getEventHandler(document, controller, data);
-        await document.picker.pickAsync(executorHandler, this.tip, controller, false, this.cursor);
+        await document.picker.pickAsync(
+            executorHandler,
+            this.tip,
+            controller,
+            this.showConfirmControl ? "confirm" : "none",
+            this.cursor,
+        );
         const snaped = executorHandler.snaped;
 
         executorHandler.dispose();

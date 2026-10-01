@@ -1,7 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, ShapeTypes } from "../../src";
+import { rs } from "@rstest/core";
+import { AsyncController, type I18nKeys, type PickShapeOptions, ShapeTypes } from "../../src";
 import type { INodeFilter, IShapeFilter } from "../../src/selectionFilter";
 import { GetOrSelectNodeStep, GetOrSelectShapeStep, SelectNodeStep, SelectShapeStep } from "../../src/step";
 import type { IView, VisualShapeData } from "../../src/visual";
@@ -56,6 +57,21 @@ describe("SelectShapeStep", () => {
         expect(result!.type).toBe("shape");
         expect(result!.shapes.length).toBe(1);
         expect(result!.shapes[0]).toBe(shapeData);
+        controller.dispose();
+    });
+
+    test("should forward showConfirmControl to the picker", async () => {
+        const pickShape = rs.fn(
+            (_prompt: I18nKeys, _controller: AsyncController, _options?: PickShapeOptions) =>
+                Promise.resolve([]),
+        );
+        const doc = new TestDocument({ picker: { pickShape } as never, selection: createMockSelection() });
+        const controller = new AsyncController();
+
+        const step = new SelectShapeStep(ShapeTypes.edge, tip() as never, { showConfirmControl: true });
+        await step.execute(doc, controller);
+
+        expect(pickShape.mock.calls[0][2]?.showConfirmControl).toBe(true);
         controller.dispose();
     });
 

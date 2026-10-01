@@ -30,11 +30,6 @@ export class Pipe extends MultistepCommand {
         this.setProperty("radius", value);
     }
 
-    @property("common.confirm")
-    readonly confirm = () => {
-        this.controller?.success();
-    };
-
     protected override executeMainTask(): void {
         const points = this.stepDatas.map((s) => s.point).filter((p): p is XYZ => !!p);
         if (points.length < 2) return;
@@ -75,7 +70,8 @@ export class Pipe extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         const firstStep = new PointStep("prompt.pickFistPoint");
-        const secondStep = new PointStep("prompt.pickNextPoint", this.getNextData);
+        // A click drops one point; the viewport bar's confirm is what ends the list.
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getNextData, false, true);
         return [firstStep, secondStep];
     }
 

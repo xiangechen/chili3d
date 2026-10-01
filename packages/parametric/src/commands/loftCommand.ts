@@ -119,11 +119,12 @@ export class LoftFeatureCommand extends CancelableCommand {
         this.setProperty("continuity", value, () => this.displayVisual());
     }
 
-    @property("common.confirm")
-    readonly confirm = () => {
-        this.controller?.success();
-    };
-
+    /**
+     * The pick loop: a click accepts a section, and the viewport bar's confirm (up for
+     * every pick — see `pickSection`) ends the list. A click already completes a
+     * `multi: false` pick, so the next pick starts with nothing selected and the bar's
+     * confirm resolves it with no shapes — which is exactly the "done" signal.
+     */
     protected override async executeAsync(): Promise<void> {
         try {
             while (true) {
@@ -147,6 +148,9 @@ export class LoftFeatureCommand extends CancelableCommand {
             shapeType: (ShapeTypes.face | ShapeTypes.edge | ShapeTypes.vertex) as ShapeType,
             multi: false,
             nodeFilter: { allow: (node) => node instanceof ShapeNode },
+            // A click accepts a section; the bar's confirm is what ends the section list,
+            // so it has to be up even though this pick finishes on click (`multi: false`).
+            showConfirmControl: true,
         });
         return shapes[0];
     }

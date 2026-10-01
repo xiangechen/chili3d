@@ -54,7 +54,7 @@ export class Trim extends CancelableCommand {
                 handler,
                 "prompt.select.edges",
                 this.controller,
-                false,
+                "none",
                 "select.default",
             );
             if (this.controller.result?.status !== "success" || !handler.selected) {

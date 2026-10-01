@@ -27,11 +27,6 @@ import { CreateFaceableCommand } from "../createCommand";
 export class Polygon extends CreateFaceableCommand {
     private isConfirm = false;
 
-    @property("common.confirm")
-    readonly confirm = () => {
-        this.controller?.success();
-    };
-
     protected override geometryNode(): GeometryNode {
         const node = new PolygonNode({
             document: this.document,
@@ -50,7 +45,12 @@ export class Polygon extends CreateFaceableCommand {
             this.controller = new AsyncController();
             const data = await step.execute(this.document, this.controller);
             if (data === undefined) {
-                return this.isConfirm;
+                // Two ways to finish without closing the polygon: Enter/Space, which the
+                // step reports as a cancel and sets `isConfirm` first; or the confirm
+                // button, which succeeds with no point under the cursor. Either is the
+                // user saying "done" — a cancelled pick with neither (the close button,
+                // Escape) aborts instead.
+                return this.isConfirm || this.controller.result?.status === "success";
             }
             this.stepDatas.push(data);
             if (this.isClose(data)) {
@@ -68,7 +68,8 @@ export class Polygon extends CreateFaceableCommand {
 
     protected override getSteps(): IStep[] {
         const firstStep = new PointStep("prompt.pickFistPoint");
-        const secondStep = new PointStep("prompt.pickNextPoint", this.getNextData);
+        // A click drops one point; the viewport bar's confirm is what ends the list.
+        const secondStep = new PointStep("prompt.pickNextPoint", this.getNextData, false, true);
         return [firstStep, secondStep];
     }
 

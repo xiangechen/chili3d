@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { XYZ } from "@chili3d/core";
+import { AsyncController, type IDocument, XYZ } from "@chili3d/core";
 import { afterAll, beforeAll, describe, expect, test } from "@rstest/core";
 import { PolygonNode } from "../../../src/bodys";
 import { Polygon } from "../../../src/commands/create/polygon";
@@ -24,11 +24,6 @@ describe("Polygon", () => {
     test("should extend CreateFaceableCommand", () => {
         const cmd = new Polygon();
         expect(cmd.isFace).toBe(true);
-    });
-
-    test("confirm should be a function", () => {
-        const cmd = new Polygon();
-        expect(typeof cmd.confirm).toBe("function");
     });
 
     test("getSteps should return two steps", () => {
@@ -126,6 +121,79 @@ describe("Polygon", () => {
             const data = (cmd as any).getNextData();
             const preview = data.preview(new XYZ({ x: 3, y: 3, z: 0 }));
             expect(preview.length).toBeGreaterThan(0);
+        });
+    });
+
+    /**
+     * Drives the real step and pick lifecycle: one `pickAsync` call per click. A click
+     * succeeds with the point under the cursor; the confirm button succeeds with nothing
+     * under it, which is the state the pointer is in once it leaves the viewport for the
+     * command panel (`SnapEventHandler.pointerOut`).
+     */
+    function drivePicks(doc: IDocument, points: (XYZ | undefined)[]) {
+        let call = 0;
+        (doc.picker as any).pickAsync = async (handler: any, _tip: unknown, controller: AsyncController) => {
+            const point = points[call++];
+            handler["_snaped"] = point === undefined ? undefined : { point, shapes: [], nodes: [] };
+            controller.success();
+        };
+    }
+
+    describe("finishing early", () => {
+        test("the confirm button commits the points placed so far", async () => {
+            const cmd = new Polygon() as any;
+            const { doc } = wireCommand(cmd);
+            drivePicks(doc, [
+                new XYZ({ x: 0, y: 0, z: 0 }),
+                new XYZ({ x: 5, y: 0, z: 0 }),
+                new XYZ({ x: 5, y: 5, z: 0 }),
+                undefined,
+            ]);
+
+            expect(await cmd.executeSteps()).toBe(true);
+            expect(cmd.stepDatas).toHaveLength(3);
+        });
+
+        test("a cancel with no confirm aborts and commits nothing", async () => {
+            const cmd = new Polygon() as any;
+            const { doc } = wireCommand(cmd);
+            let call = 0;
+            (doc.picker as any).pickAsync = async (
+                handler: any,
+                _tip: unknown,
+                controller: AsyncController,
+            ) => {
+                if (call++ === 0) {
+                    handler["_snaped"] = { point: XYZ.zero, shapes: [], nodes: [] };
+                    controller.success();
+                    return;
+                }
+                controller.cancel();
+            };
+
+            expect(await cmd.executeSteps()).toBe(false);
+        });
+
+        test("the second step asks for the viewport confirm bar", async () => {
+            const cmd = new Polygon() as any;
+            const { doc } = wireCommand(cmd);
+            // The step's own data reads the point placed before it.
+            seedStepDatas(cmd, [pointStepResult({ point: XYZ.zero })]);
+            const controls: unknown[] = [];
+            (doc.picker as any).pickAsync = async (
+                _handler: any,
+                _tip: unknown,
+                controller: AsyncController,
+                control: unknown,
+            ) => {
+                controls.push(control);
+                controller.success();
+            };
+
+            const steps = cmd.getSteps();
+            await steps[1].execute(doc, new AsyncController());
+
+            expect(controls).toEqual(["confirm"]);
         });
     });
 });

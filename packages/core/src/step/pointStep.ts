@@ -23,8 +23,13 @@ function defaultSnapedData(): PointSnapData {
 }
 
 export class PointStep extends SnapStep<PointSnapData> {
-    constructor(tip: I18nKeys, handleData: () => PointSnapData = defaultSnapedData, keepSelected = false) {
-        super(tip, handleData, keepSelected);
+    constructor(
+        tip: I18nKeys,
+        handleData: () => PointSnapData = defaultSnapedData,
+        keepSelected = false,
+        showConfirmControl = false,
+    ) {
+        super(tip, handleData, keepSelected, showConfirmControl);
     }
 
     protected getEventHandler(document: IDocument, controller: AsyncController, data: PointSnapData) {

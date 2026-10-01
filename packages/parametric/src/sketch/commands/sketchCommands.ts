@@ -162,7 +162,7 @@ function capturePlaneOwner(
 async function pickPlane(document: IDocument, controller: AsyncController): Promise<PickedPlane | undefined> {
     document.selection.clearSelection();
     const handler = new PlanePickHandler(document, controller);
-    await document.picker.pickAsync(handler, "prompt.select.plane", controller, false, "select.default");
+    await document.picker.pickAsync(handler, "prompt.select.plane", controller, "none", "select.default");
     controller.dispose();
     handler.dispose();
     document.selection.clearSelection();

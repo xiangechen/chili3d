@@ -20,6 +20,13 @@ export interface SelectShapeOptions {
     keepSelection?: boolean;
     /** In multiple mode, finish the selection automatically once this returns true. */
     canFinish?: (selected: VisualShapeData[]) => boolean;
+    /**
+     * Show the bare confirm/cancel bar while this step picks, so the step can be ended from
+     * the viewport rather than a button on the command panel — for a loop that keeps calling
+     * this step and needs a "done" action beside the picking (see
+     * `PickShapeOptions.showConfirmControl`).
+     */
+    showConfirmControl?: boolean;
     beforeSelection?: () => void;
     afterSelection?: () => void;
 }
@@ -61,6 +68,7 @@ export class SelectShapeStep extends SelectStep {
             selectedState: this.options?.selectedState,
             highlightState: this.options?.highlightState,
             canFinish: this.options?.canFinish,
+            showConfirmControl: this.options?.showConfirmControl,
         });
         if (shapes.length === 0) return undefined;
         return {

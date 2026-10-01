@@ -166,18 +166,18 @@ function trackFaces(body: ParametricBodyNode, faceIds: (string | undefined)[]) {
 type PickStep = VisualShapeData | (() => void);
 
 /**
- * Feeds the pick loop a script; once the script runs out it presses the option panel's ✓,
- * which is what ends the loop and commits.
+ * Feeds the pick loop a script; once the script runs out it confirms through the pick's
+ * own controller — what the viewport bar's ✓ does — which ends the loop and commits.
  */
-function scriptedPicker(cmd: LoftFeatureCommand, script: PickStep[]) {
+function scriptedPicker(script: PickStep[]) {
     let index = 0;
-    return rs.fn((_prompt: string, _controller: AsyncController, _options?: any) => {
+    return rs.fn((_prompt: string, controller: AsyncController, _options?: any) => {
         while (index < script.length) {
             const step = script[index++];
             if (typeof step !== "function") return Promise.resolve([step]);
             step();
         }
-        cmd.confirm();
+        controller.success();
         return Promise.resolve([]);
     });
 }
@@ -214,7 +214,7 @@ function scenario(faceIds: (string | undefined)[] = ["f:bottom", "f:top"]) {
 describe("LoftFeatureCommand section pick", () => {
     test("asks for one face, edge or vertex of any shape node", async () => {
         const { restore, app, doc, source, cmd } = scenario();
-        const pickShape = scriptedPicker(cmd, []);
+        const pickShape = scriptedPicker([]);
         doc.picker = { pickShape } as any;
         try {
             await cmd.execute(app);
@@ -226,6 +226,9 @@ describe("LoftFeatureCommand section pick", () => {
             expect(options.multi).toBe(false);
             expect(options.nodeFilter.allow(source)).toBe(true);
             expect(options.nodeFilter.allow({})).toBe(false);
+            // A click accepts a section, so the pick finishes on click and would show no
+            // bar at all — the command asks for one to carry the "done" action.
+            expect(options.showConfirmControl).toBe(true);
         } finally {
             restore();
         }
@@ -238,7 +241,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
         const bottom = faceShape(XYZ.zero);
         const top = faceShape(new XYZ({ x: 0, y: 0, z: 20 }));
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [facePick(source, bottom, 0), facePick(source, top, 1)]),
+            pickShape: scriptedPicker([facePick(source, bottom, 0), facePick(source, top, 1)]),
         } as any;
         try {
             await cmd.execute(app);
@@ -283,7 +286,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
         (local as any).transformedMul = rs.fn((_matrix: Matrix4) => world);
         const movedPick = facePick(source, local, 0, Matrix4.fromTranslation(100, 0, 0));
         const stillPick = facePick(source, faceShape(XYZ.zero), 1);
-        doc.picker = { pickShape: scriptedPicker(cmd, [movedPick, stillPick]) } as any;
+        doc.picker = { pickShape: scriptedPicker([movedPick, stillPick]) } as any;
         try {
             await cmd.execute(app);
 
@@ -313,7 +316,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
         const world = faceShape(new XYZ({ x: 50, y: 0, z: 0 }));
         (local as any).transformedMul = rs.fn((_matrix: Matrix4) => world);
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 facePick(sketch, local, 0, Matrix4.fromTranslation(50, 0, 0)),
                 facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 0),
             ]),
@@ -346,7 +349,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
     test("a tracked body's unnamed face is reported instead of silently degrading", async () => {
         const { restore, app, doc, source, cmd, committedFeature } = scenario([undefined, "f:top"]);
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 facePick(source, faceShape(XYZ.zero), 0),
                 facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
             ]),
@@ -371,7 +374,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
             "f:bottom",
         ]);
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 facePick(source, faceShape(XYZ.zero), 0),
                 facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 2),
             ]),
@@ -397,7 +400,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
             cmd.continuity = "c1";
         };
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 facePick(source, faceShape(XYZ.zero), 0),
                 toShellRuled,
                 facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
@@ -427,7 +430,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
         const { restore, app, doc, source, cmd, committedFeature } = scenario();
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 {
                     shape: { shapeType: ShapeTypes.compound },
                     owner: { node: source },
@@ -453,7 +456,7 @@ describe("LoftFeatureCommand solid-face sections", () => {
     test("✓ on a single section is refused with a toast and commits nothing", async () => {
         const { restore, app, doc, source, cmd, committed } = scenario();
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
-        doc.picker = { pickShape: scriptedPicker(cmd, [facePick(source, faceShape(XYZ.zero), 0)]) } as any;
+        doc.picker = { pickShape: scriptedPicker([facePick(source, faceShape(XYZ.zero), 0)]) } as any;
         try {
             await cmd.execute(app);
 
@@ -474,7 +477,7 @@ describe("LoftFeatureCommand operation", () => {
     test("join appends the loft to the intersecting body instead of creating one", async () => {
         const { restore, app, doc, source, cmd, loft } = scenario();
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 () => {
                     // The option panel remembers the LAST command's values across tests
                     // (`CancelableCommand._propertiesCache`), so every test states its own.
@@ -504,7 +507,7 @@ describe("LoftFeatureCommand operation", () => {
     test("cut maps to the common boolean and intersect to the fuse's counterpart", async () => {
         const { restore, app, doc, source, cmd } = scenario();
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 () => {
                     cmd.isSolid = true;
                     cmd.operation = "option.command.operation.cut";
@@ -524,7 +527,7 @@ describe("LoftFeatureCommand operation", () => {
     test("a shell loft drops the operation and stands alone", async () => {
         const { restore, app, doc, source, cmd, committed } = scenario();
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 () => {
                     cmd.isSolid = false;
                     cmd.operation = "option.command.operation.join";
@@ -559,7 +562,7 @@ describe("LoftFeatureCommand operation", () => {
                 new BoundingBox(new XYZ({ x: 100, y: 100, z: 100 }), new XYZ({ x: 110, y: 110, z: 110 })),
         });
         doc.picker = {
-            pickShape: scriptedPicker(cmd, [
+            pickShape: scriptedPicker([
                 () => {
                     cmd.isSolid = true;
                     cmd.operation = "option.command.operation.join";

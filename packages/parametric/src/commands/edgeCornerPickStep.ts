@@ -214,7 +214,7 @@ export class EdgeCornerSelectStep implements IStep {
                 handler,
                 "prompt.select.edges",
                 controller,
-                true,
+                "selection",
                 "select.default",
             );
         } finally {

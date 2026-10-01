@@ -38,6 +38,7 @@ describe("Picker", () => {
             "viewCursor",
             "statusBarTip",
             "showSelectionControl",
+            "showConfirmControl",
             "clearSelectionControl",
             "clearStatusBarTip",
         ];
@@ -105,7 +106,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const pickPromise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const pickPromise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
 
             expect(document.visual.eventHandler).toBe(handler);
 
@@ -117,7 +118,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.success();
             await promise;
 
@@ -132,7 +133,7 @@ describe("Picker", () => {
                 handler,
                 "common.ok" as I18nKeys,
                 controller,
-                false,
+                "none",
                 "select.default",
             );
             controller.success();
@@ -150,7 +151,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "command.box" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "command.box" as I18nKeys, controller, "none");
             controller.success();
             await promise;
 
@@ -163,7 +164,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.success();
             await expect(promise).resolves.toBeUndefined();
         });
@@ -172,7 +173,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.cancel();
             await expect(promise).resolves.toBeUndefined();
         });
@@ -181,7 +182,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.cancel();
             await promise;
 
@@ -192,7 +193,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.success();
             await promise;
 
@@ -200,11 +201,11 @@ describe("Picker", () => {
             expect(lastCursorEvent!.args[0]).toBe("default");
         });
 
-        test("should show selection control when showControl is true", async () => {
+        test("should show the count bar for a selection control", async () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, true);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "selection");
             controller.success();
             await promise;
 
@@ -212,11 +213,11 @@ describe("Picker", () => {
             expect(showControlEvents.length).toBe(1);
         });
 
-        test("should not show selection control when showControl is false", async () => {
+        test("should show no bar for a none control", async () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.success();
             await promise;
 
@@ -224,11 +225,11 @@ describe("Picker", () => {
             expect(showControlEvents.length).toBe(0);
         });
 
-        test("should clear selection control in finally when showControl is true", async () => {
+        test("should clear the bar in finally when a control was shown", async () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, true);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "selection");
             controller.success();
             await promise;
 
@@ -236,11 +237,25 @@ describe("Picker", () => {
             expect(clearEvents.length).toBe(1);
         });
 
+        test("should publish the confirm bar for a confirm control", async () => {
+            const controller = new AsyncController();
+            const handler = createMockHandler();
+
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "confirm");
+            controller.success();
+            await promise;
+
+            expect(collectedEvents.filter((e) => e.event === "showConfirmControl").length).toBe(1);
+            expect(collectedEvents.filter((e) => e.event === "showSelectionControl").length).toBe(0);
+            // Both bars come down through the one clear event.
+            expect(collectedEvents.filter((e) => e.event === "clearSelectionControl").length).toBe(1);
+        });
+
         test("should clear status bar tip in finally block", async () => {
             const controller = new AsyncController();
             const handler = createMockHandler();
 
-            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, false);
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
             controller.cancel();
             await promise;
 
@@ -263,7 +278,7 @@ describe("Picker", () => {
             expect(Array.isArray(result)).toBe(true);
         });
 
-        test("should use multi=false (showControl=false) by default", async () => {
+        test("should use the none control by default", async () => {
             let pickAsyncArgs: any[] = [];
             picker.pickAsync = async (...args: any[]) => {
                 pickAsyncArgs = args;
@@ -272,10 +287,10 @@ describe("Picker", () => {
             const controller = new AsyncController();
             await picker.pickNode("common.ok" as I18nKeys, controller);
 
-            expect(pickAsyncArgs[3]).toBe(false);
+            expect(pickAsyncArgs[3]).toBe("none");
         });
 
-        test("should pass multi=true (showControl=true) when options.multi is true", async () => {
+        test("should use the selection control when options.multi is true", async () => {
             let pickAsyncArgs: any[] = [];
             picker.pickAsync = async (...args: any[]) => {
                 pickAsyncArgs = args;
@@ -284,7 +299,7 @@ describe("Picker", () => {
             const controller = new AsyncController();
             await picker.pickNode("common.ok" as I18nKeys, controller, { multi: true });
 
-            expect(pickAsyncArgs[3]).toBe(true);
+            expect(pickAsyncArgs[3]).toBe("selection");
         });
     });
 
@@ -302,7 +317,7 @@ describe("Picker", () => {
             expect(Array.isArray(result)).toBe(true);
         });
 
-        test("should pass multi=false as default showControl", async () => {
+        test("should use the none control for a single pick by default", async () => {
             let pickAsyncArgs: any[] = [];
             picker.pickAsync = async (...args: any[]) => {
                 pickAsyncArgs = args;
@@ -311,10 +326,10 @@ describe("Picker", () => {
             const controller = new AsyncController();
             await picker.pickShape("common.ok" as I18nKeys, controller);
 
-            expect(pickAsyncArgs[3]).toBe(false);
+            expect(pickAsyncArgs[3]).toBe("none");
         });
 
-        test("should pass multi=true as showControl when options.multi is true", async () => {
+        test("should use the selection control when options.multi is true", async () => {
             let pickAsyncArgs: any[] = [];
             picker.pickAsync = async (...args: any[]) => {
                 pickAsyncArgs = args;
@@ -323,7 +338,34 @@ describe("Picker", () => {
             const controller = new AsyncController();
             await picker.pickShape("common.ok" as I18nKeys, controller, { multi: true });
 
-            expect(pickAsyncArgs[3]).toBe(true);
+            expect(pickAsyncArgs[3]).toBe("selection");
+        });
+
+        test("should use the confirm bar for a single pick that asks for one", async () => {
+            let pickAsyncArgs: any[] = [];
+            picker.pickAsync = async (...args: any[]) => {
+                pickAsyncArgs = args;
+            };
+
+            const controller = new AsyncController();
+            await picker.pickShape("common.ok" as I18nKeys, controller, { showConfirmControl: true });
+
+            expect(pickAsyncArgs[3]).toBe("confirm");
+        });
+
+        test("should keep the count bar for a multi pick even when the confirm bar is asked for", async () => {
+            let pickAsyncArgs: any[] = [];
+            picker.pickAsync = async (...args: any[]) => {
+                pickAsyncArgs = args;
+            };
+
+            const controller = new AsyncController();
+            await picker.pickShape("common.ok" as I18nKeys, controller, {
+                multi: true,
+                showConfirmControl: true,
+            });
+
+            expect(pickAsyncArgs[3]).toBe("selection");
         });
 
         test("should wire canFinish onto the selection handler", async () => {

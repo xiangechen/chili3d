@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Continuities, PubSub, ShapeTypes } from "@chili3d/core";
-import { afterAll, beforeAll, describe, expect, test } from "@rstest/core";
+import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { LoftCommand } from "../../../src/commands/create/loft";
 import { ensureGlobalStubApp, mockShape, wireCommand } from "../commandTestUtils";
 
@@ -30,11 +30,6 @@ describe("LoftCommand", () => {
         expect(cmd.isRuled).toBe(false);
     });
 
-    test("confirm should be a function", () => {
-        const cmd = new LoftCommand();
-        expect(typeof cmd.confirm).toBe("function");
-    });
-
     test("continuity should default to the first continuity option", () => {
         const cmd = new LoftCommand();
         expect(cmd.continuity).toBe(Continuities[0]);
@@ -60,20 +55,6 @@ describe("LoftCommand", () => {
             wireCommand(cmd);
             cmd.continuity = Continuities[1];
             expect(cmd.continuity).toBe(Continuities[1]);
-        });
-    });
-
-    describe("confirm", () => {
-        test("should succeed the controller when one is present", () => {
-            const cmd = new LoftCommand() as any;
-            const calls: string[] = [];
-            cmd.controller = {
-                success: () => {
-                    calls.push("success");
-                },
-            };
-            cmd.confirm();
-            expect(calls).toEqual(["success"]);
         });
     });
 
@@ -169,12 +150,14 @@ describe("LoftCommand", () => {
                 shape: mockShape({ shapeType: ShapeTypes.wire }),
                 owner: { node: { worldTransform: () => identityLikeMatrix() } },
             };
+            const pickOptions: any[] = [];
             let pickCall = 0;
-            (doc.picker as any).pickShape = async (_prompt: unknown, controller: any) => {
+            (doc.picker as any).pickShape = async (_prompt: unknown, controller: any, options: any) => {
                 pickCall += 1;
+                pickOptions.push(options);
                 controller.success();
-                // First pick returns a shape; second returns empty to terminate the loop.
-                return pickCall === 1 ? [pickedShape] : [];
+                // Two picks build a loft; the third returns empty to terminate the loop.
+                return pickCall <= 2 ? [pickedShape] : [];
             };
             // selectSection reads document.application.activeView; wire a minimal app.
             (doc as any).application = { activeView: (cmd as any)._application.activeView };
@@ -183,10 +166,48 @@ describe("LoftCommand", () => {
 
             await cmd.executeAsync();
 
-            // The selected shape should have been collected.
-            expect(cmd.shapes).toHaveLength(1);
+            // Both selections should have been collected.
+            expect(cmd.shapes).toHaveLength(2);
             // A loft node should have been added to the document.
             expect(addedNodes).toHaveLength(1);
+            // A click settles a section, so the step asks for the viewport bar to carry the
+            // "done" action instead of a confirm button on the command panel.
+            expect(pickOptions[0]?.showConfirmControl).toBe(true);
+        });
+
+        test("should refuse to commit, with a toast, when too few sections were picked", async () => {
+            const cmd = new LoftCommand() as any;
+            const { doc, addedNodes } = wireCommand(cmd);
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            let pickCall = 0;
+            (doc.picker as any).pickShape = async (_prompt: unknown, controller: any) => {
+                pickCall += 1;
+                controller.success();
+                // One section, then confirm: not enough for a loft.
+                return pickCall === 1
+                    ? [
+                          {
+                              shape: mockShape({ shapeType: ShapeTypes.wire }),
+                              owner: { node: { worldTransform: () => identityLikeMatrix() } },
+                          },
+                      ]
+                    : [];
+            };
+            (doc as any).application = { activeView: (cmd as any)._application.activeView };
+            (doc.visual.highlighter as any).clear = () => {};
+
+            try {
+                await cmd.executeAsync();
+
+                expect(addedNodes).toHaveLength(0);
+                expect(pub).toHaveBeenCalledWith(
+                    "showToast",
+                    "error.default:{0}",
+                    "Loft requires at least 2 sections",
+                );
+            } finally {
+                pub.mockRestore();
+            }
         });
 
         test("should return early without adding a node when the first selection is cancelled", async () => {

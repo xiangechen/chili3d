@@ -84,11 +84,6 @@ export class LoftCommand extends CancelableCommand {
         this.setProperty("deleteObjects", value);
     }
 
-    @property("common.confirm")
-    readonly confirm = () => {
-        this.controller?.success();
-    };
-
     protected override async executeAsync(): Promise<void> {
         try {
             while (true) {
@@ -112,8 +107,21 @@ export class LoftCommand extends CancelableCommand {
         }
     }
 
-    /** Adds the lofted node and drops the picked sections, as one undo step. */
+    /**
+     * Adds the lofted node and drops the picked sections, as one undo step.
+     *
+     * `shape` is only filled once there is a loft to build (`displayVisual`), so it is still
+     * the initial failure when the user confirms with fewer than two sections — committing
+     * that would drop an empty node under the cursor. The kernel refusing the picked
+     * sections leaves the same failure behind, and `displayVisual` has already said so.
+     */
     private commitLoft(): void {
+        if (!this.shape.isOk) {
+            if (this.shapes.length < 2) {
+                PubSub.default.pub("showToast", "error.default:{0}", "Loft requires at least 2 sections");
+            }
+            return;
+        }
         Transaction.execute(this.document, "loft", () => {
             this.document.modelManager.addNode(
                 new EditableShapeNode({ document: this.document, name: "loft", shape: this.shape }),
@@ -131,6 +139,9 @@ export class LoftCommand extends CancelableCommand {
         const step = new SelectShapeStep(
             (ShapeTypes.vertex | ShapeTypes.wire | ShapeTypes.edge) as ShapeType,
             "prompt.select.section",
+            // A click accepts a section and completes the pick; the viewport bar's confirm
+            // is what ends the section list (it resolves with nothing selected).
+            { showConfirmControl: true },
         );
         return await step.execute(this.document, this.controller);
     }

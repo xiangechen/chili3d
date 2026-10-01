@@ -103,7 +103,7 @@ export class ExtrudeDragStep implements IStep {
         const data = this.handleStepData();
         const handler = new ExtrudeDragHandler(document, controller, data);
         try {
-            await document.picker.pickAsync(handler, this.tip, controller, false, "draw");
+            await document.picker.pickAsync(handler, this.tip, controller, "none", "draw");
         } finally {
             // Dispose first, always: the handler's cleanup is what puts back the nodes a
             // boolean preview hid, and a body left invisible is a far louder failure than

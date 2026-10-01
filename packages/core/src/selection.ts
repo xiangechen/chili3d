@@ -23,7 +23,24 @@ export interface PickShapeOptions {
      * shapes that overlap in the viewport.
      */
     sortDetected?: (detected: VisualShapeData[]) => VisualShapeData[];
+    /**
+     * Show the bare confirm/cancel bar for a single pick — one that finishes on click and
+     * would otherwise show no bar at all. A step that collects shapes one at a time has no
+     * picked-count to report, but still needs a "done" affordance in the viewport, which is
+     * what the bar's confirm supplies. Ignored when `multi` is set: a multi pick always
+     * shows the count bar.
+     */
+    showConfirmControl?: boolean;
 }
+
+/**
+ * Which bar the viewport shows while a pick runs:
+ * - `"selection"` — the picked-shape count plus confirm/cancel. The default for a multi pick.
+ * - `"confirm"` — confirm/cancel only, for a step that collects one shape at a time (see
+ *   `PickShapeOptions.showConfirmControl`).
+ * - `"none"` — a single pick finishes on click, so it needs no bar.
+ */
+export type PickControl = "none" | "confirm" | "selection";
 
 export interface PickNodeOptions {
     nodeFilter?: INodeFilter;
@@ -56,7 +73,7 @@ export interface IPicker {
         handler: IEventHandler,
         prompt: I18nKeys,
         controller: AsyncController,
-        showControl: boolean,
+        control: PickControl,
         cursor: CursorType,
     ): Promise<void>;
 }

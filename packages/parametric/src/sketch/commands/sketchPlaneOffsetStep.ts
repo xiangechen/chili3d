@@ -51,7 +51,7 @@ export class SketchPlaneOffsetStep implements IStep {
         const data = this.handleStepData();
         const handler = new SketchPlaneOffsetHandler(document, controller, data);
         try {
-            await document.picker.pickAsync(handler, this.tip, controller, false, "draw");
+            await document.picker.pickAsync(handler, this.tip, controller, "none", "draw");
         } finally {
             handler.dispose();
         }

@@ -10,6 +10,7 @@ import {
     type IPicker,
     Logger,
     NodeSelectionHandler,
+    type PickControl,
     type PickNodeOptions,
     type PickShapeOptions,
     PubSub,
@@ -46,7 +47,7 @@ export class Picker implements IPicker {
             options?.highlightState ?? (isFacePick ? VisualStates.faceHighlight : VisualStates.edgeHighlight);
         handler.canFinish = options?.canFinish;
         handler.sortDetected = options?.sortDetected;
-        await this.pickAsync(handler, prompt, controller, multi);
+        await this.pickAsync(handler, prompt, controller, pickControl(multi, options));
         return this.document.selection.getSelectedShapes();
     }
 
@@ -57,7 +58,7 @@ export class Picker implements IPicker {
     ): Promise<VisualNode[]> {
         const multi = options?.multi ?? false;
         const handler = new NodeSelectionHandler(this.document, multi, controller, options?.nodeFilter);
-        await this.pickAsync(handler, prompt, controller, multi);
+        await this.pickAsync(handler, prompt, controller, multi ? "selection" : "none");
         return this.document.selection.getSelectedNodes() as VisualNode[];
     }
 
@@ -65,14 +66,14 @@ export class Picker implements IPicker {
         handler: IEventHandler,
         prompt: I18nKeys,
         controller: AsyncController,
-        showControl: boolean,
+        control: PickControl,
         cursor: CursorType = "select.default",
     ): Promise<void> {
         const oldHandler = this.document.visual.eventHandler;
         this.document.visual.eventHandler = handler;
         PubSub.default.pub("viewCursor", cursor);
         PubSub.default.pub("statusBarTip", prompt);
-        if (showControl) PubSub.default.pub("showSelectionControl", controller);
+        if (control !== "none") PubSub.default.pub(bars[control], controller);
 
         try {
             await new Promise<void>((resolve, reject) => {
@@ -86,10 +87,22 @@ export class Picker implements IPicker {
         } catch (e: unknown) {
             Logger.warn("pick error: ", e);
         } finally {
-            if (showControl) PubSub.default.pub("clearSelectionControl");
+            if (control !== "none") PubSub.default.pub("clearSelectionControl");
             PubSub.default.pub("clearStatusBarTip");
             this.document.visual.eventHandler = oldHandler;
             PubSub.default.pub("viewCursor", "default");
         }
     }
+}
+
+/** Both bars clear through `clearSelectionControl` — one bar is up at a time. */
+const bars = {
+    confirm: "showConfirmControl",
+    selection: "showSelectionControl",
+} as const;
+
+/** A multi pick always reports its count; a single pick shows a bar only when asked. */
+function pickControl(multi: boolean, options: PickShapeOptions | undefined): PickControl {
+    if (multi) return "selection";
+    return options?.showConfirmControl === true ? "confirm" : "none";
 }

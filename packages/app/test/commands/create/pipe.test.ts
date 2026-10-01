@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    AsyncController,
     type IEdge,
     type IStep,
     type IView,
@@ -39,11 +40,6 @@ describe("Pipe", () => {
         const cmd = new Pipe();
         cmd.radius = 10;
         expect(cmd.radius).toBe(10);
-    });
-
-    test("confirm should be a function", () => {
-        const cmd = new Pipe();
-        expect(typeof cmd.confirm).toBe("function");
     });
 
     test("getSteps should return two steps", () => {
@@ -209,6 +205,48 @@ describe("Pipe", () => {
             (cmd as any).executeMainTask();
 
             expect(addedNodes.length).toBe(0);
+        });
+    });
+
+    describe("finishing early", () => {
+        test("the confirm button commits the points placed so far", async () => {
+            const cmd = new Pipe() as any;
+            const { doc } = wireCommand(cmd);
+            const points = [
+                new XYZ({ x: 0, y: 0, z: 0 }),
+                new XYZ({ x: 5, y: 0, z: 0 }),
+                new XYZ({ x: 5, y: 5, z: 0 }),
+                undefined,
+            ];
+            let call = 0;
+            (doc.picker as any).pickAsync = async (handler: any, _tip: unknown, controller: any) => {
+                const point = points[call++];
+                handler["_snaped"] = point === undefined ? undefined : { point, shapes: [], nodes: [] };
+                controller.success();
+            };
+
+            expect(await cmd.executeSteps()).toBe(true);
+            expect(cmd.stepDatas).toHaveLength(3);
+        });
+
+        test("the second step asks for the viewport confirm bar", async () => {
+            const cmd = new Pipe() as any;
+            const { doc } = wireCommand(cmd);
+            const controls: unknown[] = [];
+            (doc.picker as any).pickAsync = async (
+                _handler: any,
+                _tip: unknown,
+                controller: any,
+                control: unknown,
+            ) => {
+                controls.push(control);
+                controller.success();
+            };
+
+            const steps = cmd.getSteps();
+            await steps[1].execute(doc, new AsyncController());
+
+            expect(controls).toEqual(["confirm"]);
         });
     });
 });

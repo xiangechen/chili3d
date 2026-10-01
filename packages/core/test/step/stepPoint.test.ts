@@ -62,6 +62,41 @@ describe("PointStep", () => {
         expect(handler).toBeInstanceOf(PointSnapEventHandler);
         controller.dispose();
     });
+
+    /**
+     * What a command's confirm button does to a point step: `success()` is the whole
+     * contract, and the step hands back whatever the pointer last snapped — the button
+     * places the point under the cursor, it does not "finish" the step. A command that
+     * wants a finish gesture has to read its own key/click handling instead.
+     */
+    test("success resolves with the point the pointer last snapped", async () => {
+        const step = new PointStep(tip() as never);
+        const doc = new TestDocument();
+        (doc as any).selection = { clearSelection: () => {} };
+        const controller = new AsyncController();
+        const point = new XYZ({ x: 1, y: 2, z: 3 });
+        doc.picker.pickAsync = async (handler: any) => {
+            // Stands in for a pointerMove, then for the confirm button.
+            handler["_snaped"] = { point, shapes: [], nodes: [] };
+            controller.success();
+        };
+
+        const result = await step.execute(doc, controller);
+
+        expect(result?.point).toBe(point);
+    });
+
+    test("success with nothing under the pointer resolves to undefined", async () => {
+        const step = new PointStep(tip() as never);
+        const doc = new TestDocument();
+        (doc as any).selection = { clearSelection: () => {} };
+        const controller = new AsyncController();
+        doc.picker.pickAsync = async () => {
+            controller.success();
+        };
+
+        await expect(step.execute(doc, controller)).resolves.toBeUndefined();
+    });
 });
 
 // ============================================================================
