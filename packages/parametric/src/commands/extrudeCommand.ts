@@ -23,13 +23,12 @@ import {
     PubSub,
     property,
     Result,
-    type ShapeMeshData,
     ShapeTypes,
     ShapeTypeUtils,
     type SnapResult,
     Transaction,
     type VisualShapeData,
-    XYZ,
+    type XYZ,
 } from "@chili3d/core";
 import type { BooleanOperation, ExtrudeFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
@@ -38,13 +37,11 @@ import { captureProfileRef } from "../features/profileRef";
 import { fuseProfiles } from "../features/sweepGeometry";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
-import { ARROW_COLOR, ARROW_HOVER_COLOR, ARROW_LENGTH, arrowMeshes } from "./arrowHandle";
 import {
     type ExtrudeDragHandler,
     type ExtrudeDragState,
     ExtrudeDragStep,
     type ExtrudePreview,
-    extrudeArrowSegment,
     planeOfPickedFace,
     SELECTED_PROFILE_STATE,
 } from "./extrudeDragStep";
@@ -232,7 +229,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         this.setProperty("depth", value);
         if (!this._dragHandler || this._syncingFromDrag) return;
         const resolved = this.resolveLength(value);
-        if (resolved !== undefined) this._dragHandler.setDepth(resolved);
+        if (resolved !== undefined) this._dragHandler.setValue(resolved);
     }
 
     /** A length field's numeric value, or undefined when its expression does not resolve. */
@@ -289,7 +286,6 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             depth: this.depthValue,
             startOffset: this.startOffsetValue,
             buildPreview: this.buildPreview,
-            meshArrow: this.meshArrow,
             onReady: (handler: ExtrudeDragHandler) => {
                 this._dragHandler = handler;
             },
@@ -459,40 +455,6 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         const translated = face.transformedMul(Matrix4.fromTranslation(vec.x, vec.y, vec.z)) as IFace;
         owned.push(translated);
         return translated;
-    }
-
-    /**
-     * Arrow geometry is fixed (cylinder shaft + cone head), so it is meshed once per
-     * direction+color at the origin and cached; each call returns translated copies.
-     */
-    private readonly _arrowCache = new Map<string, ShapeMeshData[]>();
-
-    private readonly meshArrow = (state: ExtrudeDragState): ShapeMeshData[] => {
-        const color = state.arrowHovered ? ARROW_HOVER_COLOR : ARROW_COLOR;
-        const { start, end } = extrudeArrowSegment(state);
-        const dir = end.sub(start).normalize()!;
-        const key = `${dir.x},${dir.y},${dir.z},${color}`;
-        let meshes = this._arrowCache.get(key);
-        if (meshes === undefined) {
-            meshes = arrowMeshes(XYZ.zero, dir, ARROW_LENGTH, color);
-            this._arrowCache.set(key, meshes);
-        }
-        const scale = (state.arrowLength ?? ARROW_LENGTH) / ARROW_LENGTH;
-        return meshes.map((mesh) => ({
-            ...mesh,
-            position: ExtrudeFeatureCommand.transform(mesh.position, start, scale),
-        }));
-    };
-
-    /** Uniformly scales the canonical geometry and translates it to `offset`. */
-    private static transform(data: Float32Array, offset: XYZ, scale: number): Float32Array {
-        const out = new Float32Array(data.length);
-        for (let i = 0; i < data.length; i += 3) {
-            out[i] = data[i] * scale + offset.x;
-            out[i + 1] = data[i + 1] * scale + offset.y;
-            out[i + 2] = data[i + 2] * scale + offset.z;
-        }
-        return out;
     }
 
     protected override executeMainTask(): void {

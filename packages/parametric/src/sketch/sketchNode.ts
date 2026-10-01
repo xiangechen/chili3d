@@ -9,12 +9,14 @@ import {
     type IShape,
     type IShapeMeshData,
     isPropertyChanged,
+    LENGTH_UNITS,
     Matrix4,
     MultiShapeMesh,
     ParameterShapeNode,
     type Plane,
     Precision,
     PubSub,
+    property,
     Result,
     serializable,
     serialize,
@@ -24,7 +26,7 @@ import { syncNodeWatches } from "../nodeWatch";
 import { ensureVariableSync } from "../variableSync";
 import { normalizeSnapshot } from "./entityLayout";
 import { type ExternalResolveResult, resolveExternalRefs } from "./externalRef";
-import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
+import { type DatumPlaneName, datumPlaneOf, type PlaneFaceRef, resolveFacePlane } from "./planeRef";
 import {
     arcAngles,
     type ExternalRefData,
@@ -46,6 +48,10 @@ export interface SketchNodeOptions {
     planeRef?: PlaneFaceRef;
     /** Serialized form produced by the Serializer; takes precedence over `planeRef`. */
     planeRefJson?: string;
+    /** Present when the plane was picked on a global datum; the sketch offsets from it. */
+    datumPlane?: DatumPlaneName;
+    /** Signed distance from the base plane along its normal. See `planeOffset`. */
+    planeOffset?: number;
     data?: SketchData;
     /** Serialized form produced by the Serializer; takes precedence over `data`. */
     dataJson?: string;
@@ -84,6 +90,37 @@ export class SketchNode extends ParameterShapeNode {
     get planeRef(): PlaneFaceRef | undefined {
         const json = this.planeRefJson;
         return json === undefined ? undefined : (JSON.parse(json) as PlaneFaceRef);
+    }
+
+    /**
+     * The global datum plane the sketch was created on, when it was not a solid face.
+     * Together with `planeOffset` it is what `plane` is re-derived from.
+     */
+    @serialize()
+    get datumPlane(): DatumPlaneName | undefined {
+        return this.getPrivateValue("datumPlane");
+    }
+
+    /**
+     * Signed distance of the sketch plane from its base plane, along that plane's
+     * normal. With the base plane — `planeRef` for a solid face, `datumPlane` for a
+     * global datum — this is the authoritative definition of where the sketch sits;
+     * `plane` is the derived result (see `reapplyPlane`). A plan without a recorded
+     * base (a document saved before this existed) simply keeps its stored `plane`.
+     */
+    @serialize()
+    @property("option.command.planeOffset", { unit: LENGTH_UNITS })
+    get planeOffset(): number {
+        return this.getPrivateValue("planeOffset", 0);
+    }
+    /** Editing the offset moves the plane, so this is a shape-changing write. */
+    set planeOffset(value: number) {
+        if (this.planeOffset === value) return;
+        if (this.setProperty("planeOffset", value)) {
+            // Re-derive before regenerating: generateShape reads the plane.
+            this.reapplyPlane();
+            this.setShape(this.generateShape());
+        }
     }
 
     /**
@@ -140,6 +177,8 @@ export class SketchNode extends ParameterShapeNode {
             options.planeRefJson ??
                 (options.planeRef === undefined ? undefined : JSON.stringify(options.planeRef)),
         );
+        this.setPrivateValue("datumPlane", options.datumPlane);
+        this.setPrivateValue("planeOffset", options.planeOffset ?? 0);
         this.setPrivateValue(
             "dataJson",
             options.dataJson ?? JSON.stringify(options.data ?? { entities: [], constraints: [] }),
@@ -344,17 +383,39 @@ export class SketchNode extends ParameterShapeNode {
      *   the plane stays wedged at the old spot for good.
      */
     private followPlaneRef(): boolean {
+        // Only a face reference moves; the datum planes never do.
+        if (this.planeRef === undefined) return false;
+        return this.reapplyPlane();
+    }
+
+    /**
+     * The plane the offset is measured from: a global datum by name, or the referenced
+     * face re-resolved on the source's current geometry. Undefined when there is no base
+     * to re-derive from — then `plane` keeps whatever it was saved with.
+     */
+    private resolveBasePlane(): Plane | undefined {
+        if (this.datumPlane !== undefined) return datumPlaneOf(this.datumPlane);
         const ref = this.planeRef;
-        if (ref === undefined) return false;
+        if (ref === undefined) return undefined;
         // A frozen source (a transient rollback preview, see `isFrozenSource`) yields no
         // plane, exactly like a face that is gone mid-rebuild — the sketch keeps the
         // last one. The session owner passes `includeRolledBackSources` so an
         // undercutting rollback still freezes; the restore on session exit re-resolves
         // with the flag already cleared.
-        const plane = resolveFacePlane(this.document, ref, this.data.refPositions, {
+        return resolveFacePlane(this.document, ref, this.data.refPositions, {
             includeRolledBackSources: this._editingSession,
         });
-        if (plane === undefined || this.isSamePlane(plane)) return false;
+    }
+
+    /**
+     * Re-derives `plane` from the base plane and the current offset. Derived state, so
+     * the write is untransacted: every trigger re-derives it anyway.
+     */
+    private reapplyPlane(): boolean {
+        const base = this.resolveBasePlane();
+        if (base === undefined) return false;
+        const plane = base.offsetAlongNormal(this.planeOffset);
+        if (this.isSamePlane(plane)) return false;
         // setProperty (not the shape-changing variant): the caller regenerates.
         this.withoutHistory(() => this.setProperty("plane", plane));
         return true;

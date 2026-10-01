@@ -5,18 +5,13 @@ import {
     type AsyncController,
     type I18nKeys,
     type IDocument,
-    type IEventHandler,
     type IFace,
     type INode,
     type IStep,
     type IView,
     type IVisualObject,
-    Line,
     Plane,
     Precision,
-    PubSub,
-    Result,
-    type ShapeMeshData,
     ShapeTypes,
     type SnapResult,
     type VisualShapeData,
@@ -27,10 +22,9 @@ import {
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { planeOfFace } from "../sketch/planeRef";
 import { SketchNode } from "../sketch/sketchNode";
-import { ARROW_HOVER_TOLERANCE, ARROW_LENGTH, distanceToSegment, pxSizedArrowLength } from "./arrowHandle";
+import { ARROW_LENGTH } from "./arrowHandle";
+import { AxisDragHandler, type DragPreview } from "./axisDragHandler";
 import { prioritizeSketchFaces } from "./profileFaceSort";
-
-const DRAG_THRESHOLD_SQ = 9; // px², below this a press-release is a click, not a drag
 
 /**
  * State of a profile face picked for the extrude: the translucent fill a selection
@@ -41,18 +35,6 @@ export const SELECTED_PROFILE_STATE = VisualStateUtils.addState(
     VisualStates.faceTransparent,
     VisualStates.edgeSelected,
 );
-
-/**
- * The arrow's shaft segment in world space: base sits at the extrude's end face
- * (anchor + normal * (dist + startOffset)) and the arrow keeps a fixed length,
- * pointing in the drag direction. Shared by the handler's hit test and the command's
- * rendering.
- */
-export function extrudeArrowSegment(state: ExtrudeDragState): { start: XYZ; end: XYZ } {
-    const dir = state.dist < -Precision.Float ? state.normal.multiply(-1) : state.normal;
-    const start = state.anchor.add(state.normal.multiply(state.dist + state.startOffset));
-    return { start, end: start.add(dir.multiply(state.arrowLength ?? ARROW_LENGTH)) };
-}
 
 /**
  * Mutable state of a drag session. The handler updates it when the user drags the
@@ -69,22 +51,10 @@ export interface ExtrudeDragState {
     dist: number;
     /** Bottom offset of the extrude along `normal` (startOffset). */
     startOffset: number;
-    /** True while the pointer hovers the arrow; the command renders it highlighted. */
-    arrowHovered: boolean;
-    /** World-space arrow length, adapted by the handler so the arrow is zoom-independent. */
-    arrowLength?: number;
 }
 
-export interface ExtrudePreview {
-    meshes: ShapeMeshData[];
-    /**
-     * Nodes whose display the preview replaces — hidden for as long as it is shown.
-     * A boolean preview *is* the target body with the operation applied, so the body
-     * has to come down: drawn together, the two overlap and the result reads as a
-     * ghost over the geometry it replaces instead of as the geometry itself.
-     */
-    hide?: INode[];
-}
+/** The preview of a boolean target body: it *is* the result, so the body comes down. */
+export type ExtrudePreview = DragPreview;
 
 export interface ExtrudeDragData {
     node: INode;
@@ -98,7 +68,6 @@ export interface ExtrudeDragData {
     /** The command's current start offset, so the arrow starts at the extruded end face. */
     startOffset?: number;
     buildPreview(state: ExtrudeDragState): ExtrudePreview;
-    meshArrow(state: ExtrudeDragState): ShapeMeshData[];
     /** The handler registers itself so the command can push option/depth changes back. */
     onReady?(handler: ExtrudeDragHandler): void;
     /** The handler reports its cleanup so the command can drop the reference. */
@@ -120,8 +89,8 @@ export function planeOfPickedFace(face: VisualShapeData): Plane {
  * start. Two gestures set the depth: drag the arrow with the left button held, or
  * click the arrow and then click a second point (classic click-move-click) — both
  * project the mouse ray onto the extrude normal. A plain click on another profile face
- * (sketch profile or planar solid face) switches the target (Shift toggles faces of
- * the current node). Typing a number enters an exact length. Confirm (button/Enter)
+ * (sketch profile or planar solid face) switches the target (Shift toggles faces of the
+ * current node). Typing a number enters an exact length. Confirm (button/Enter)
  * commits once a non-zero depth exists; Escape cancels (exiting click-move mode first).
  */
 export class ExtrudeDragStep implements IStep {
@@ -166,37 +135,22 @@ export class ExtrudeDragStep implements IStep {
     }
 }
 
-export class ExtrudeDragHandler implements IEventHandler {
-    isEnabled: boolean = true;
-
+export class ExtrudeDragHandler extends AxisDragHandler {
     readonly state: ExtrudeDragState;
-    commitView: IView | undefined;
 
-    private _downX: number | undefined;
-    private _downY: number | undefined;
-    private _dragging = false;
-    /** Click-move-click mode: the arrow was clicked, the next click commits the distance. */
-    private _awaitingClick = false;
-    /** Projection of the grab point on the axis minus dist at grab time; keeps dragging continuous. */
-    private _grabOffset = 0;
-    private _arrowIds: number[] = [];
-    private _previewIds: number[] = [];
-    /** Nodes the displayed preview hid (see `ExtrudePreview.hide`). */
-    private _hidden: INode[] = [];
-    /** Visual currently ghosted for the drag (see `syncSourceGhost`). */
-    private _ghosted: IVisualObject | undefined;
     private _hovered: VisualShapeData | undefined;
     /** The face the arrow is anchored to; re-detection yields new points, so track identity. */
     private _anchorFace: VisualShapeData | undefined;
-    /** The view whose camera changes are tracked for arrow rescaling. */
-    private _cameraView: IView | undefined;
-    private _cleaned = false;
+    /** Visual currently ghosted for the drag (see `syncSourceGhost`). */
+    private _ghosted: IVisualObject | undefined;
+    private _arrowHovered = false;
 
     constructor(
-        readonly document: IDocument,
-        readonly controller: AsyncController,
+        document: IDocument,
+        controller: AsyncController,
         readonly data: ExtrudeDragData,
     ) {
+        super(document, controller);
         this.state = {
             node: data.node,
             faces: [...data.faces],
@@ -205,196 +159,125 @@ export class ExtrudeDragHandler implements IEventHandler {
             anchor: data.anchor,
             dist: data.depth ?? 0,
             startOffset: data.startOffset ?? 0,
-            arrowHovered: false,
         };
         // The initial anchor is the first face's pick point (see the command's getDragData).
         this._anchorFace = data.faces[0]?.point !== undefined ? data.faces[0] : undefined;
-        controller.onCancelled(() => this.cleanup());
-        controller.onCompleted(() => this.cleanup());
-        controller.onFailed(() => this.cleanup());
-        if (document.application.activeView !== undefined) {
-            this.trackCamera(document.application.activeView);
-        }
-        this.refreshTempShapes(document.application.activeView);
-        this.publishConfirmControl();
-        data.onReady?.(this);
+        this.start();
     }
 
-    pointerMove(view: IView, event: PointerEvent): void {
-        this.trackCamera(view);
-        if (this._awaitingClick) {
-            this.updateDrag(view, event);
-        } else if (this._downX !== undefined) {
-            if (!this._dragging) {
-                const dx = event.offsetX - this._downX;
-                const dy = event.offsetY - this._downY!;
-                if (dx * dx + dy * dy <= DRAG_THRESHOLD_SQ) return;
-                this._dragging = true;
-                this._grabOffset = this.projectDist(view, event) - this.state.dist;
-                this.clearHover();
-            }
-            this.updateDrag(view, event);
-        } else {
-            this.updateHover(view, event);
-        }
+    // ------------------------------------------------------------------ AxisDragHandler hooks
+
+    /** The depth is measured from the plane origin, along its normal. */
+    protected override axis(): { origin: XYZ; normal: XYZ } {
+        return { origin: this.state.origin, normal: this.state.normal };
     }
 
-    pointerDown(view: IView, event: PointerEvent): void {
-        if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
-        this.trackCamera(view);
-        if (this._awaitingClick) return; // the release commits; nothing to track
-        this._downX = event.offsetX;
-        this._downY = event.offsetY;
-        this._dragging = false;
+    /**
+     * The arrow's shaft: base sits at the extrude's end face (anchor + normal *
+     * (dist + startOffset)) and the arrow keeps its length, pointing in the drag direction.
+     */
+    protected override arrowSegment(): { start: XYZ; end: XYZ } {
+        const { dist, normal, anchor, startOffset } = this.state;
+        const dir = dist < -Precision.Float ? normal.multiply(-1) : normal;
+        const start = anchor.add(normal.multiply(dist + startOffset));
+        return { start, end: start.add(dir.multiply(this.arrowLength ?? ARROW_LENGTH)) };
     }
 
-    pointerUp(view: IView, event: PointerEvent): void {
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-        if (this._awaitingClick) {
-            this.finishMoveMode(view);
-            return;
-        }
-        if (this._downX === undefined) return;
-        const wasDragging = this._dragging;
-        this._downX = undefined;
-        this._downY = undefined;
-        this._dragging = false;
+    /** Measured at the fixed anchor, not at the moving depth (see the base class). */
+    protected override scaleAnchor(): XYZ {
+        return this.state.anchor;
+    }
 
-        if (wasDragging && Math.abs(this.state.dist) >= Precision.Float) {
-            this.commitView = view;
-            return;
-        }
-        // A plain click on the arrow starts the click-move-click gesture; Shift keeps
-        // its face-toggle meaning even on the arrow.
-        if (!event.shiftKey && this.isOverArrow(view, event)) {
-            this.enterMoveMode(view, event);
-            return;
-        }
+    protected override currentValue(): number {
+        return this.state.dist;
+    }
+
+    protected override setCurrentValue(value: number): void {
+        this.state.dist = value;
+        this.data.onDist?.(value);
+    }
+
+    protected override get arrowHovered(): boolean {
+        return this._arrowHovered;
+    }
+    protected override set arrowHovered(value: boolean) {
+        this._arrowHovered = value;
+    }
+
+    protected override canConfirm(): boolean {
+        return Math.abs(this.state.dist) >= Precision.Float;
+    }
+
+    protected override buildPreview(): ExtrudePreview {
+        if (Math.abs(this.state.dist) < Precision.Float) return { meshes: [] };
+        return this.data.buildPreview(this.state);
+    }
+
+    protected override onReady(): void {
+        this.data.onReady?.(this);
+    }
+
+    protected override onHover(view: IView, event: PointerEvent): void {
+        this.updateHover(view, event);
+    }
+
+    protected override onClick(view: IView, event: PointerEvent): void {
         this.handleClick(view, event);
     }
 
-    /** The second click of click-move-click: commits a non-zero depth, else just leaves the mode. */
-    private finishMoveMode(view: IView) {
-        this._awaitingClick = false;
-        if (Math.abs(this.state.dist) >= Precision.Float) {
-            this.commitView = view;
-        } else {
-            // Second click landed at (near) zero depth: just leave the move mode.
-            this.setArrowHover(view, false);
-            PubSub.default.pub("clearFloatTip");
-        }
+    protected override afterPreview(): void {
+        this.syncSourceGhost();
     }
 
-    pointerOut(view: IView, _event: PointerEvent): void {
-        this.clearHover();
-        if (!this._awaitingClick) this.setArrowHover(view, false);
-        view.update();
+    protected override onCleanup(): void {
+        this.clearSourceGhost();
+        this.data.onDone?.();
     }
 
-    mouseWheel(view: IView, event: WheelEvent): void {
-        this.trackCamera(view);
-        view.update();
-    }
-
-    keyDown(view: IView, event: KeyboardEvent): void {
-        if (event.key === "Escape") {
-            if (this._awaitingClick) {
-                // The first Escape only leaves the click-move mode; the next cancels.
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                this.exitMoveMode(view);
-                return;
-            }
-            this.controller.cancel();
-        } else if (event.key === "Enter" || event.key === " ") {
-            // Enter/Space confirms the pending extrude (and must not trigger HotKeyService).
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            this.confirm();
-        } else {
-            this.handleNumericInput(view, event);
-        }
-    }
-
-    dispose(): void {
-        this.cleanup();
-    }
-
-    /** The command pushes a new depth (from the options-tab input) into the drag state. */
-    setDepth(dist: number): void {
-        if (Math.abs(this.state.dist - dist) < Precision.Float) return;
-        this.state.dist = dist;
-        this.refreshTempShapes();
-    }
+    // ------------------------------------------------------------------ Extrude-only gestures
 
     /** The command pushes a new start offset; the arrow base must follow the end face. */
     setStartOffset(value: number): void {
         if (Math.abs(this.state.startOffset - value) < Precision.Float) return;
         this.state.startOffset = value;
-        this.refreshTempShapes();
+        this.refresh();
     }
 
-    /** The command asks for a preview rebuild after an option changed (operation/symmetric). */
-    refresh(): void {
-        this.refreshTempShapes();
-    }
-
-    /**
-     * Shows the confirm/cancel buttons for the whole drag step (not just after a
-     * release). The confirm button guards against a zero depth so it cannot commit an
-     * empty extrude before the user has dragged.
-     */
-    private publishConfirmControl() {
-        PubSub.default.pub("showSelectionControl", {
-            success: () => this.confirm(),
-            cancel: () => this.controller.cancel(),
-        } as unknown as AsyncController);
-    }
-
-    /** Confirms the extrude once a non-zero depth exists; a zero depth is a no-op. */
-    private confirm() {
-        if (Math.abs(this.state.dist) >= Precision.Float) {
-            // The button/Enter has no pointer event to provide the view, so fall back to
-            // the active view; without it the step returns undefined and the command
-            // closes as if cancelled (e.g. confirming a cached depth without dragging).
-            if (this.commitView === undefined) {
-                this.commitView = this.document.application.activeView;
-            }
-            this.controller.success();
+    private updateHover(view: IView, event: PointerEvent) {
+        // Covers the case where no active view was available at construction time.
+        if (this.arrowLength === undefined) this.refreshArrow(view);
+        if (this.isOverArrow(view, event)) {
+            this.clearHover();
+            this.setArrowHover(view, true);
+            return;
         }
-    }
-
-    /** Enters click-move-click mode: grabs the current projection so the depth does not jump. */
-    private enterMoveMode(view: IView, event: PointerEvent) {
-        this._awaitingClick = true;
-        this._grabOffset = this.projectDist(view, event) - this.state.dist;
-        this.clearHover();
-        this.setArrowHover(view, true);
-    }
-
-    /** Leaves click-move-click mode without committing, resetting the preview depth. */
-    private exitMoveMode(view: IView) {
-        this._awaitingClick = false;
-        this.state.dist = 0;
-        this.data.onDist?.(0);
         this.setArrowHover(view, false);
-        this.refreshTempShapes(view);
-        PubSub.default.pub("clearFloatTip");
-        view.document.visual.update();
+
+        const face = this.detectProfileFace(view, event);
+        if (face === this._hovered) return;
+
+        this.clearHover();
+        this._hovered = face;
+        if (face !== undefined) {
+            this.document.visual.highlighter.addState(
+                face.owner,
+                VisualStates.faceHighlight,
+                ShapeTypes.face,
+                ...face.indexes,
+            );
+        }
+        view.update();
     }
 
-    private updateDrag(view: IView, event: PointerEvent) {
-        this.state.dist = this.projectDist(view, event) - this._grabOffset;
-        this.data.onDist?.(this.state.dist);
-        this.refreshTempShapes(view);
-        view.document.visual.update();
-    }
-
-    /** Projects the mouse ray onto the extrude axis and returns the signed distance. */
-    private projectDist(view: IView, event: PointerEvent): number {
-        const ray = view.rayAt(event.offsetX, event.offsetY);
-        const axis = new Line({ point: this.state.origin, direction: this.state.normal });
-        return axis.nearestTo(ray.toLine()).sub(this.state.origin).dot(this.state.normal);
+    protected override clearHover() {
+        if (this._hovered === undefined) return;
+        this.document.visual.highlighter.removeState(
+            this._hovered.owner,
+            VisualStates.faceHighlight,
+            ShapeTypes.face,
+            ...this._hovered.indexes,
+        );
+        this._hovered = undefined;
     }
 
     private handleClick(view: IView, event: PointerEvent) {
@@ -409,8 +292,7 @@ export class ExtrudeDragHandler implements IEventHandler {
             this.switchTarget(face);
         }
 
-        this.state.dist = 0;
-        this.data.onDist?.(0);
+        this.setCurrentValue(0);
         // Refresh the arrow before syncing the selection: a throwing selection
         // subscriber must not leave the arrow at the stale position.
         this.refreshTempShapes(view);
@@ -456,48 +338,6 @@ export class ExtrudeDragHandler implements IEventHandler {
         this._anchorFace = face.point !== undefined ? face : undefined;
     }
 
-    private updateHover(view: IView, event: PointerEvent) {
-        // Covers the case where no active view was available at construction time.
-        if (this.state.arrowLength === undefined) this.refreshArrow(view);
-
-        if (this.isOverArrow(view, event)) {
-            this.clearHover();
-            this.setArrowHover(view, true);
-            return;
-        }
-        this.setArrowHover(view, false);
-
-        const face = this.detectProfileFace(view, event);
-        if (face === this._hovered) return;
-
-        this.clearHover();
-        this._hovered = face;
-        if (face !== undefined) {
-            this.document.visual.highlighter.addState(
-                face.owner,
-                VisualStates.faceHighlight,
-                ShapeTypes.face,
-                ...face.indexes,
-            );
-        }
-        view.update();
-    }
-
-    /** Screen-space hit test against the arrow shaft segment. */
-    private isOverArrow(view: IView, event: PointerEvent): boolean {
-        const { start, end } = extrudeArrowSegment(this.state);
-        const a = view.worldToScreen(start);
-        const b = view.worldToScreen(end);
-        return distanceToSegment(event.offsetX, event.offsetY, a, b) <= ARROW_HOVER_TOLERANCE;
-    }
-
-    private setArrowHover(view: IView, hovered: boolean) {
-        if (this.state.arrowHovered === hovered) return;
-        this.state.arrowHovered = hovered;
-        this.refreshArrow(view);
-        view.update();
-    }
-
     /** Sketch profile faces, or planar faces of a parametric body (press-pull). */
     private detectProfileFace(view: IView, event: PointerEvent): VisualShapeData | undefined {
         const faces = prioritizeSketchFaces(view.detectShapes(ShapeTypes.face, event.offsetX, event.offsetY));
@@ -506,52 +346,6 @@ export class ExtrudeDragHandler implements IEventHandler {
                 x.owner.node instanceof SketchNode ||
                 (x.owner.node instanceof ParametricBodyNode && (x.shape as IFace).surface().isPlanar()),
         );
-    }
-
-    private clearHover() {
-        if (this._hovered === undefined) return;
-        this.document.visual.highlighter.removeState(
-            this._hovered.owner,
-            VisualStates.faceHighlight,
-            ShapeTypes.face,
-            ...this._hovered.indexes,
-        );
-        this._hovered = undefined;
-    }
-
-    private handleNumericInput(view: IView, event: KeyboardEvent) {
-        if (!["#", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
-
-        PubSub.default.pub("showInput", event.key, (text: string) => {
-            if (Number.isNaN(Number(text))) return Result.err("error.input.invalidNumber" as I18nKeys);
-
-            const value = Number(text);
-            this.state.dist = this.state.dist < -Precision.Float ? -value : value;
-            this.data.onDist?.(this.state.dist);
-            this.commitView = view;
-            return Result.ok(text);
-        });
-    }
-
-    private refreshTempShapes(view?: IView) {
-        this.refreshArrow(view);
-        for (const id of this._previewIds) {
-            this.document.visual.context.removeMesh(id);
-        }
-        this._previewIds = [];
-        this.restoreHiddenNodes();
-        if (Math.abs(this.state.dist) >= Precision.Float) {
-            const preview = this.data.buildPreview(this.state);
-            for (const mesh of preview.meshes) {
-                this._previewIds.push(this.document.visual.context.displayMesh([mesh], { meshOpacity: 1 }));
-            }
-            for (const node of preview.hide ?? []) {
-                this.document.visual.context.setVisible(node, false);
-                this._hidden.push(node);
-            }
-        }
-        this.syncSourceGhost();
-        this.document.visual.update();
     }
 
     /**
@@ -586,80 +380,6 @@ export class ExtrudeDragHandler implements IEventHandler {
             ShapeTypes.shape,
         );
         this._ghosted = undefined;
-    }
-
-    /**
-     * Brings back the nodes the displayed preview hid. Each goes back to what its own
-     * flags say rather than to visible: `findIntersectingNode` filters on geometry only,
-     * so a hidden body can be the preview's target.
-     */
-    private restoreHiddenNodes() {
-        for (const node of this._hidden) {
-            this.document.visual.context.setVisible(node, node.visible && node.parentVisible);
-        }
-        this._hidden = [];
-    }
-
-    private refreshArrow(view?: IView) {
-        if (view !== undefined) this.updateArrowScale(view);
-        for (const id of this._arrowIds) {
-            this.document.visual.context.removeMesh(id);
-        }
-        this._arrowIds = [];
-        const context = this.document.visual.context;
-        for (const mesh of this.data.meshArrow(this.state)) {
-            this._arrowIds.push(context.displayMesh([mesh], { meshOpacity: 1, onTop: true }));
-        }
-        this.document.visual.update();
-    }
-
-    /** Adapts the world-space arrow length so the arrow renders at a fixed pixel size. */
-    private updateArrowScale(view: IView) {
-        // Measure at the fixed anchor, not at the moving extrude depth: under a
-        // perspective camera the depth change would make the arrow pulsing while dragging.
-        const length = pxSizedArrowLength(view, this.state.anchor, this.state.normal);
-        if (length !== undefined) this.state.arrowLength = length;
-    }
-
-    /**
-     * The viewport dispatches the wheel event to this handler before the camera zooms,
-     * so rescaling there would use the stale camera. Track camera changes instead:
-     * `cameraPosition` is emitted after every zoom/pan/rotate.
-     */
-    private trackCamera(view: IView) {
-        if (this._cameraView === view) return;
-        this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
-        this._cameraView = view;
-        view.cameraController.onPropertyChanged(this.handleCameraChanged);
-    }
-
-    private readonly handleCameraChanged = () => {
-        if (this._cameraView !== undefined && !this._cleaned) {
-            this.refreshArrow(this._cameraView);
-        }
-    };
-
-    private removeTempShapes() {
-        for (const id of [...this._arrowIds, ...this._previewIds]) {
-            this.document.visual.context.removeMesh(id);
-        }
-        this._arrowIds = [];
-        this._previewIds = [];
-        this.restoreHiddenNodes();
-    }
-
-    private cleanup() {
-        if (this._cleaned) return;
-        this._cleaned = true;
-        this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
-        this._cameraView = undefined;
-        this.removeTempShapes();
-        this.clearSourceGhost();
-        this.clearHover();
-        PubSub.default.pub("clearInput");
-        PubSub.default.pub("clearSelectionControl");
-        this.data.onDone?.();
-        this.document.visual.update();
     }
 
     private static sameFace(a: VisualShapeData, b: VisualShapeData): boolean {

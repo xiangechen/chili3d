@@ -22,6 +22,7 @@ import {
     createMockSelection,
     createMockVisualWithDocument,
     createPointerEvent,
+    setupShapeFactoryMock,
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
@@ -29,13 +30,24 @@ import {
     type ExtrudeDragData,
     ExtrudeDragHandler,
     ExtrudeDragStep,
-    extrudeArrowSegment,
     SELECTED_PROFILE_STATE,
 } from "../../src/commands/extrudeDragStep";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
 const fakeMesh = (): ShapeMeshData => ({ position: new Float32Array(), range: [] });
+
+/**
+ * The arrow is meshed through `arrowMeshes`, which runs on the shape factory — absent
+ * outside the wasm package. A shape that reports a mesh and disposes is all it needs.
+ */
+function stubArrowGeometry() {
+    const shape = () => {
+        const value = { mesh: { faces: fakeMesh() }, dispose: () => {} };
+        return { isOk: true, value };
+    };
+    setupShapeFactoryMock({ cylinder: shape, cone: shape });
+}
 
 function faceData(node: unknown, indexes = [0], point?: XYZ, owner?: unknown) {
     return { shape: { shapeType: ShapeTypes.face }, owner: owner ?? { node }, indexes, point } as any;
@@ -56,6 +68,7 @@ describe("ExtrudeDragHandler", () => {
         sketch = newSketch(doc, Plane.XY);
         other = newSketch(doc, new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY }));
         controller = new AsyncController();
+        stubArrowGeometry();
     });
 
     afterEach(() => {
@@ -70,7 +83,6 @@ describe("ExtrudeDragHandler", () => {
             normal: XYZ.unitZ,
             anchor: new XYZ({ x: 1, y: 1, z: 0 }),
             buildPreview: rs.fn((_state: any) => ({ meshes: [fakeMesh()] })),
-            meshArrow: rs.fn((_state: any) => [fakeMesh()]),
         };
     }
 
@@ -90,7 +102,7 @@ describe("ExtrudeDragHandler", () => {
         const view = dragView();
 
         // The confirm/cancel buttons show as soon as the step starts.
-        const confirmControl = pub.mock.calls.find((x) => x[0] === "showSelectionControl")?.[1] as any;
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showConfirmControl")?.[1] as any;
         expect(confirmControl).toBeDefined();
         expect(controller.result).toBeUndefined();
 
@@ -113,7 +125,7 @@ describe("ExtrudeDragHandler", () => {
     test("confirming at zero depth is a no-op", () => {
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         const handler = new ExtrudeDragHandler(doc, controller, dragData());
-        const confirmControl = pub.mock.calls.find((x) => x[0] === "showSelectionControl")?.[1] as any;
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showConfirmControl")?.[1] as any;
 
         confirmControl.success();
         expect(controller.result).toBeUndefined(); // zero depth: confirm does nothing
@@ -128,7 +140,7 @@ describe("ExtrudeDragHandler", () => {
         const data = dragData();
         data.depth = 7;
         const handler = new ExtrudeDragHandler(doc, controller, data);
-        const confirmControl = pub.mock.calls.find((x) => x[0] === "showSelectionControl")?.[1] as any;
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showConfirmControl")?.[1] as any;
 
         confirmControl.success();
         expect(controller.result?.status).toBe("success");
@@ -148,13 +160,13 @@ describe("ExtrudeDragHandler", () => {
     });
 
     test("the arrow base includes the start offset", () => {
-        const { start } = extrudeArrowSegment({
-            anchor: new XYZ({ x: 1, y: 1, z: 0 }),
-            normal: XYZ.unitZ,
-            dist: 5,
-            startOffset: 3,
-        } as any);
+        const data = dragData();
+        data.depth = 5;
+        data.startOffset = 3;
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+        const { start } = (handler as any).arrowSegment();
         expect(start.z).toBeCloseTo(8); // anchor.z(0) + dist(5) + startOffset(3)
+        handler.dispose();
     });
 
     test("a press-release without moving does not commit", () => {
@@ -230,9 +242,9 @@ describe("ExtrudeDragHandler", () => {
         expect(controller.result).toBeUndefined();
         // back to idle: hovering the arrow toggles its highlight again
         handler.pointerMove(view, createPointerEvent({ offsetX: 500, offsetY: 260 }));
-        expect(handler.state.arrowHovered).toBe(false);
+        expect((handler as any).arrowHovered).toBe(false);
         handler.pointerMove(view, createPointerEvent({ offsetX: 401, offsetY: 260 }));
-        expect(handler.state.arrowHovered).toBe(true);
+        expect((handler as any).arrowHovered).toBe(true);
     });
 
     test("clicking another sketch's profile face switches the extrude target", () => {
@@ -392,7 +404,7 @@ describe("ExtrudeDragHandler", () => {
         data.buildPreview = rs.fn((_state: any) => ({ meshes: [fakeMesh()], hide: [target] }));
         const handler = new ExtrudeDragHandler(doc, controller, data);
 
-        handler.setDepth(5);
+        handler.setValue(5);
         expect(setVisible).toHaveBeenCalledWith(target, false);
 
         handler.dispose();
@@ -407,7 +419,7 @@ describe("ExtrudeDragHandler", () => {
         data.buildPreview = rs.fn((_state: any) => ({ meshes: [fakeMesh()], hide: [target] }));
         const handler = new ExtrudeDragHandler(doc, controller, data);
 
-        handler.setDepth(5);
+        handler.setValue(5);
         handler.dispose();
 
         expect(setVisible).toHaveBeenLastCalledWith(target, false);
@@ -420,11 +432,11 @@ describe("ExtrudeDragHandler", () => {
         data.buildPreview = rs.fn((_state: any) => ({ meshes: [fakeMesh()], hide: [target] }));
         const handler = new ExtrudeDragHandler(doc, controller, data);
 
-        handler.setDepth(5);
+        handler.setValue(5);
         expect(setVisible).toHaveBeenCalledWith(target, false);
 
         // Back to zero depth: no preview, so nothing stands in for the body any more.
-        handler.setDepth(0);
+        handler.setValue(0);
         expect(setVisible).toHaveBeenLastCalledWith(target, true);
     });
 
@@ -537,12 +549,12 @@ describe("ExtrudeDragHandler", () => {
         });
 
         handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 280 }));
-        expect(handler.state.arrowHovered).toBe(true);
+        expect((handler as any).arrowHovered).toBe(true);
         // the mock view maps 1 world unit to 1 px, so 80 px needs 80 world units
-        expect(handler.state.arrowLength).toBeCloseTo(80);
+        expect((handler as any).arrowLength).toBeCloseTo(80);
 
         handler.pointerMove(view, createPointerEvent({ offsetX: 500, offsetY: 280 }));
-        expect(handler.state.arrowHovered).toBe(false);
+        expect((handler as any).arrowHovered).toBe(false);
     });
 
     test("camera changes rescale the arrow after zoom", () => {
@@ -563,11 +575,11 @@ describe("ExtrudeDragHandler", () => {
         });
 
         handler.pointerMove(view, createPointerEvent());
-        expect(handler.state.arrowLength).toBeCloseTo(80);
+        expect((handler as any).arrowLength).toBeCloseTo(80);
 
         pxPerUnit = 0.5; // zoomed out: one world unit now covers half a pixel
         cameraChanged!();
-        expect(handler.state.arrowLength).toBeCloseTo(160);
+        expect((handler as any).arrowLength).toBeCloseTo(160);
     });
 
     test("Escape cancels the step", () => {
@@ -581,6 +593,7 @@ describe("ExtrudeDragStep", () => {
     test("returns the dragged point with the final face set", async () => {
         const doc = new TestDocument();
         doc.visual = createMockVisualWithDocument(doc);
+        stubArrowGeometry();
         const sketch = new SketchNode({
             document: doc,
             plane: Plane.XY,
@@ -636,6 +649,7 @@ describe("ExtrudeDragStep", () => {
     test("returns undefined when cancelled", async () => {
         const doc = new TestDocument();
         doc.visual = createMockVisualWithDocument(doc);
+        stubArrowGeometry();
         const sketch = new SketchNode({
             document: doc,
             plane: Plane.XY,
@@ -661,7 +675,6 @@ describe("ExtrudeDragStep", () => {
             normal: XYZ.unitZ,
             anchor: XYZ.zero,
             buildPreview: () => ({ meshes: [] }),
-            meshArrow: () => [fakeMesh()],
         }));
 
         const controller = new AsyncController();

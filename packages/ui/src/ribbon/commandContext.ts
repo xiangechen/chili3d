@@ -83,20 +83,26 @@ export class CommandContext extends HTMLElement implements IDisposable {
         }
     }
 
+    /**
+     * The bare confirm/cancel bar. A step that edits a value by dragging is not a
+     * selection, so the picked-shape count would be a number the user cannot act on —
+     * and it reads as "0 selected" whenever nothing happens to be selected.
+     */
+    private readonly showConfirmControl = (controller: AsyncController) => {
+        this.showControl(controller, false);
+    };
+
     private readonly showSelectionControl = (controller: AsyncController) => {
+        this.showControl(controller, true);
+    };
+
+    private showControl(controller: AsyncController, showCount: boolean) {
         if (this.selectionControlContainer) return;
         if (this.closeIcon) this.closeIcon.style.display = "none";
 
         this.selectionControlContainer = div(
             { className: style.selectionControl },
-            div(
-                { className: style.selectionInfo },
-                this.countDom(),
-                span({
-                    className: style.selectionCountLabel,
-                    textContent: new Localize("prompt.selectedCount"),
-                }),
-            ),
+            ...(showCount ? [this.selectionInfoDom()] : []),
             div(
                 { className: style.selectionButton, onclick: () => controller.success() },
                 svg({ icon: "icon-confirm" }),
@@ -107,7 +113,18 @@ export class CommandContext extends HTMLElement implements IDisposable {
             ),
         );
         this.container.append(this.selectionControlContainer);
-    };
+    }
+
+    private selectionInfoDom() {
+        return div(
+            { className: style.selectionInfo },
+            this.countDom(),
+            span({
+                className: style.selectionCountLabel,
+                textContent: new Localize("prompt.selectedCount"),
+            }),
+        );
+    }
 
     private countDom() {
         const countSpan = span({ className: style.selectionCount, textContent: "0" });
@@ -136,7 +153,12 @@ export class CommandContext extends HTMLElement implements IDisposable {
         this.selectionCountCleanups = [];
     };
 
+    /** The one bar, however it was opened. */
+    private readonly clearConfirmControl = () => this.clearSelectionControl();
+
     connectedCallback(): void {
+        PubSub.default.sub("showConfirmControl", this.showConfirmControl);
+        PubSub.default.sub("clearConfirmControl", this.clearConfirmControl);
         PubSub.default.sub("showSelectionControl", this.showSelectionControl);
         PubSub.default.sub("clearSelectionControl", this.clearSelectionControl);
         if (this.command instanceof Observable) {
@@ -146,6 +168,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     disconnectedCallback(): void {
         this.clearSelectionControl();
+        PubSub.default.remove("showConfirmControl", this.showConfirmControl);
+        PubSub.default.remove("clearConfirmControl", this.clearConfirmControl);
         PubSub.default.remove("showSelectionControl", this.showSelectionControl);
         PubSub.default.remove("clearSelectionControl", this.clearSelectionControl);
         if (this.command instanceof Observable) {

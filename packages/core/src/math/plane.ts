@@ -52,6 +52,12 @@ export class Plane {
         return new Plane({ origin, normal: this.normal, xvec: this.xvec });
     }
 
+    /** A copy of this plane translated along its own normal. Zero is identity. */
+    offsetAlongNormal(distance: number) {
+        if (distance === 0) return this;
+        return this.translateTo(this.origin.add(this.normal.multiply(distance)));
+    }
+
     project(point: XYZ): XYZ {
         const vector = point.sub(this.origin);
         const dot = vector.dot(this.normal);

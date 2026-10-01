@@ -15,6 +15,8 @@ import type { Result } from "./result";
 
 export interface PubSubEventMap {
     activeViewChanged: (view: IView | undefined) => void;
+    /** Hide the standalone confirm bar (see `showConfirmControl`). */
+    clearConfirmControl: () => void;
     clearFloatTip: () => void;
     clearInput: () => void;
     clearSelectionControl: () => void;
@@ -31,6 +33,12 @@ export interface PubSubEventMap {
     nodeDoubleClicked: (node: INode) => void;
     openCommandContext: (command: ICommand) => void;
     parentVisibleChanged: (model: INode) => void;
+    /**
+     * A confirm/cancel bar for a step that is not a selection — a drag that edits a
+     * value, say. `showSelectionControl` carries the picked-shape count, which means
+     * nothing there.
+     */
+    showConfirmControl: (controller: AsyncController) => void;
     showDialog: (title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) => void;
     showFloatPanel: (options: FloatPanelOptions) => void;
     showFloatTip: (dom: HTMLElement | { level: MessageType; msg: string }) => void;

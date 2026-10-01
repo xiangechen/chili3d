@@ -11,16 +11,22 @@ import {
     type IEdge,
     type IFace,
     type INode,
+    type IStep,
+    LENGTH_UNITS,
+    MultistepCommand,
+    type ParameterValue,
     type Plane,
     PubSub,
+    property,
     ShapeTypes,
+    type SnapResult,
     Transaction,
 } from "@chili3d/core";
 import { reportSilentIdLoss } from "../../features/idDiagnostics";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import { SketchEditor } from "../editor/sketchEditor";
 import { captureExternalRef } from "../externalRef";
-import { captureFaceRef, type PlaneFaceRef, sketchPlaneOfFace } from "../planeRef";
+import { captureFaceRef, type DatumPlaneName, type PlaneFaceRef, sketchPlaneOfFace } from "../planeRef";
 import {
     type ExternalRefData,
     emptySketchData,
@@ -29,11 +35,18 @@ import {
 } from "../sketchModel";
 import { SketchNode } from "../sketchNode";
 import { PlanePickHandler, type PlanePickResult } from "./planePickHandler";
+import {
+    type OffsetDragData,
+    type SketchPlaneOffsetHandler,
+    SketchPlaneOffsetStep,
+} from "./sketchPlaneOffsetStep";
 
 interface PickedPlane {
     plane: Plane;
     /** Set when the plane comes from a solid's face, so the sketch follows that face. */
     planeRef?: PlaneFaceRef;
+    /** Set when the plane is one of the three global datums, so its offset stays editable. */
+    datumPlane?: DatumPlaneName;
     /** Boundary edges of the picked face, captured as reference-role external refs. */
     externalRefs?: ExternalRefData[];
     /** Timeline anchor of the picked body (its feature count now), for session rollback. */
@@ -103,7 +116,7 @@ export function captureBoundaryExternalRefs(
 
 function resolvePlane(document: IDocument, result: PlanePickResult | undefined): PickedPlane | undefined {
     if (result === undefined) return undefined;
-    if (result.kind === "datum") return { plane: result.plane };
+    if (result.kind === "datum") return { plane: result.plane, datumPlane: result.name };
 
     const face = result.data.shape.transformedMul(result.data.transform) as IFace;
     const plane = sketchPlaneOfFace(face);
@@ -177,27 +190,105 @@ function sketchDataFromPick(picked: PickedPlane): SketchData | undefined {
     };
 }
 
-@command({ key: "sketch.create", icon: "icon-sketchNew" })
-export class CreateSketch extends CancelableCommand {
-    async executeAsync(): Promise<void> {
-        SketchEditor.exit();
+/**
+ * Wraps the plane picker as a step. The pick is what the offset step then measures
+ * from, so the command keeps it rather than the step carrying it forward.
+ */
+class PickSketchPlaneStep implements IStep {
+    constructor(private readonly onPicked: (picked: PickedPlane) => void) {}
 
-        const document = this.application.activeView?.document;
-        if (document === undefined) {
+    async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const picked = await pickPlane(document, controller);
+        if (picked === undefined) return undefined;
+        this.onPicked(picked);
+        return { view: document.application.activeView!, shapes: [], type: "input", plane: picked.plane };
+    }
+}
+
+@command({ key: "sketch.create", icon: "icon-sketchNew" })
+export class CreateSketch extends MultistepCommand {
+    private _picked: PickedPlane | undefined;
+    private _offsetHandler: SketchPlaneOffsetHandler | undefined;
+    private _syncingFromOffset = false;
+
+    @property("option.command.planeOffset", { unit: LENGTH_UNITS })
+    get planeOffset(): ParameterValue {
+        return this.getPrivateValue("planeOffset", 0);
+    }
+    set planeOffset(value: ParameterValue) {
+        this.setProperty("planeOffset", value);
+        // Without a live drag there is nothing to preview, and nothing to resolve against.
+        if (this._syncingFromOffset || this._offsetHandler === undefined) return;
+        const resolved = this.resolveLength(value);
+        if (resolved !== undefined) this._offsetHandler.setValue(resolved);
+    }
+
+    /** A length field's numeric value, or undefined when its expression does not resolve. */
+    private resolveLength(value: ParameterValue): number | undefined {
+        const resolved = this.resolveParameter(value, LENGTH_UNITS);
+        return resolved.isOk ? resolved.value : undefined;
+    }
+
+    /** The drag's own preview geometry: an unresolvable expression previews as zero. */
+    private get offsetValue(): number {
+        return this.resolveLength(this.planeOffset) ?? 0;
+    }
+
+    protected override async canExcute(): Promise<boolean> {
+        // Closing any live session up front: the new sketch takes the view.
+        SketchEditor.exit();
+        if (this.application.activeView?.document === undefined) {
             PubSub.default.pub("displayError", "No active view");
+            return false;
+        }
+        return true;
+    }
+
+    protected override getSteps(): IStep[] {
+        return [
+            new PickSketchPlaneStep((picked) => (this._picked = picked)),
+            new SketchPlaneOffsetStep("prompt.dragToOffset", this.getOffsetData),
+        ];
+    }
+
+    private readonly getOffsetData = (): OffsetDragData => {
+        const picked = this._picked;
+        if (picked === undefined) throw new Error("the plane pick must run before the offset step");
+        return {
+            basePlane: picked.plane,
+            offset: this.offsetValue,
+            onReady: (handler: SketchPlaneOffsetHandler) => {
+                this._offsetHandler = handler;
+            },
+            onDone: () => {
+                this._offsetHandler = undefined;
+            },
+            onOffset: (offset: number) => {
+                this._syncingFromOffset = true;
+                this.planeOffset = offset;
+                this._syncingFromOffset = false;
+            },
+        };
+    };
+
+    protected override executeMainTask(): void {
+        const picked = this._picked;
+        if (picked === undefined) return;
+        const resolved = this.resolveParameter(this.planeOffset, LENGTH_UNITS);
+        if (!resolved.isOk) {
+            PubSub.default.pub("showToast", "error.default:{0}", resolved.error);
             return;
         }
-        this.controller = new AsyncController();
-        const picked = await pickPlane(document, this.controller);
-        if (picked === undefined) return;
         const node = new SketchNode({
-            document,
-            plane: picked.plane,
+            document: this.document,
+            plane: picked.plane.offsetAlongNormal(resolved.value),
             planeRef: picked.planeRef,
+            datumPlane: picked.datumPlane,
+            planeOffset: resolved.value,
             data: sketchDataFromPick(picked),
         });
-        Transaction.execute(document, "create sketch", () => {
-            document.modelManager.addNode(node);
+        Transaction.execute(this.document, "create sketch", () => {
+            this.document.modelManager.addNode(node);
         });
         SketchEditor.enter(node);
     }

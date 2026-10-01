@@ -436,6 +436,8 @@ describe("CommandContext", () => {
 
             const control = ctx.querySelector(".cc-selection-control");
             expect(control).not.toBeNull();
+            // the picked-shape count belongs to this bar
+            expect(ctx.querySelector(".cc-selection-info")).not.toBeNull();
             // close icon hidden while selection control is shown
             const closeIcon = mustQuery(ctx, ".cc-cancel");
             expect(closeIcon.style.display).toBe("none");
@@ -464,6 +466,27 @@ describe("CommandContext", () => {
             expect(controller.cancel).toHaveBeenCalledTimes(1);
 
             PubSub.default.pub("clearSelectionControl");
+        });
+
+        test("the confirm bar drops the count a drag has no use for", () => {
+            const command = new CancelableTestCommand();
+            const ctx = track(new CommandContext(command));
+            document.body.appendChild(ctx);
+
+            const controller = { success: rs.fn(() => {}), cancel: rs.fn(() => {}) };
+            PubSub.default.pub("showConfirmControl", controller as unknown as AsyncController);
+
+            const control = ctx.querySelector(".cc-selection-control");
+            expect(control).not.toBeNull();
+            expect(ctx.querySelector(".cc-selection-info")).toBeNull();
+
+            const buttons = control!.querySelectorAll(".cc-selection-button");
+            expect(buttons.length).toBe(2);
+            (buttons[0] as unknown as { _onclick: () => void })._onclick();
+            expect(controller.success).toHaveBeenCalledTimes(1);
+
+            PubSub.default.pub("clearConfirmControl");
+            expect(ctx.querySelector(".cc-selection-control")).toBeNull();
         });
     });
 

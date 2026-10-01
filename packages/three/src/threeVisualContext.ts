@@ -386,6 +386,21 @@ export class ThreeVisualContext implements IVisualContext {
         });
     }
 
+    setMeshOpacity(id: number, opacity: number): void {
+        const group = this.tempShapes.getObjectById(id) as Group;
+        if (!group) return;
+
+        group.children.forEach((mesh: any) => {
+            const material = mesh.material as MeshLambertMaterial;
+            const transparent = opacity < 1;
+            // three.js keys the compiled program on `transparent`, so crossing that
+            // boundary needs a rebuild; a plain opacity change does not.
+            if (material.transparent !== transparent) material.needsUpdate = true;
+            material.transparent = transparent;
+            material.opacity = opacity;
+        });
+    }
+
     displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], meshOption?: MeshOption): number {
         const geometry = ThreeGeometryFactory.createFaceBufferGeometry(data);
         const material = ThreeGeometryFactory.createMeshMaterial(meshOption);

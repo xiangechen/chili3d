@@ -34,6 +34,22 @@ export interface PlaneFaceRef {
 }
 
 /**
+ * Name of a global datum plane. Unlike a face ref there is nothing to rebuild-match —
+ * the three datum planes never move — so the name alone re-derives the base plane and
+ * the sketch's offset then composes on top of it, same as it does for a face.
+ */
+export type DatumPlaneName = "XY" | "YZ" | "ZX";
+
+export const DATUM_PLANE_NAMES: readonly DatumPlaneName[] = ["XY", "YZ", "ZX"];
+
+/** The base plane a datum name stands for — the sketch planes, not the display quads. */
+export function datumPlaneOf(name: DatumPlaneName): Plane {
+    if (name === "XY") return Plane.XY;
+    if (name === "YZ") return Plane.YZ;
+    return Plane.ZX;
+}
+
+/**
  * Outward-facing plane of a planar face, origin at the face's (0, 0) parameter
  * point. The face is expected to be transformed into world coordinates already.
  */

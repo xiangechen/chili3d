@@ -3,11 +3,9 @@
 
 import {
     type AsyncController,
-    type FaceMeshData,
     type IDocument,
     type IFace,
     type IView,
-    MeshGroup,
     Plane,
     type Ray,
     ShapeSelectionHandler,
@@ -16,9 +14,25 @@ import {
     VisualStates,
     XYZ,
 } from "@chili3d/core";
+import { DATUM_PLANE_NAMES, type DatumPlaneName, datumPlaneOf } from "../planeRef";
+import {
+    DATUM_COLORS,
+    DATUM_GAP,
+    DATUM_HIGHLIGHT_COLORS,
+    DATUM_HOVER_OPACITY,
+    DATUM_OPACITY,
+    DATUM_SIZE,
+    datumQuad,
+} from "./planePreview";
 
-/** Sketch planes returned on a datum pick, oriented Z-up (see `sketchPlaneOfFace`). */
-const DATUM_PLANES = [Plane.XY, Plane.YZ, Plane.ZX];
+/**
+ * Sketch planes returned on a datum pick, oriented Z-up (see `sketchPlaneOfFace`).
+ * Index-parallel with DATUM_DISPLAY_PLANES: one quad is shown per entry.
+ */
+const DATUM_PLANES: ReadonlyArray<{ name: DatumPlaneName; plane: Plane }> = DATUM_PLANE_NAMES.map((name) => ({
+    name,
+    plane: datumPlaneOf(name),
+}));
 
 /**
  * Display frames for the datum quads: each quad stays in the positive quadrant so the
@@ -30,29 +44,10 @@ const DATUM_DISPLAY_PLANES = [
     Plane.YZ,
     new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ }),
 ];
-const DATUM_SIZE = 150;
-const DATUM_GAP = 50;
-const DATUM_COLOR = 0x707070;
-const DATUM_HIGHLIGHT_COLOR = 0x4a9eff;
 
-export type PlanePickResult = { kind: "face"; data: VisualShapeData } | { kind: "datum"; plane: Plane };
-
-/** Double-sided translucent quad in the plane's positive quadrant, with a gap from the axes. */
-function datumQuad(plane: Plane): FaceMeshData {
-    const { origin, xvec, yvec, normal } = plane;
-    const corner = (u: number, v: number) => origin.add(xvec.multiply(u)).add(yvec.multiply(v));
-    const [min, max] = [DATUM_GAP, DATUM_GAP + DATUM_SIZE];
-    const corners = [corner(min, min), corner(max, min), corner(max, max), corner(min, max)];
-    return {
-        position: new Float32Array(corners.flatMap((c) => [c.x, c.y, c.z])),
-        index: new Uint32Array([0, 1, 2, 0, 2, 3, 2, 1, 0, 3, 2, 0]),
-        normal: new Float32Array(corners.flatMap(() => [normal.x, normal.y, normal.z])),
-        uv: new Float32Array(8),
-        range: [],
-        groups: [new MeshGroup({ start: 0, count: 12, materialIndex: 0 })],
-        color: DATUM_COLOR,
-    };
-}
+export type PlanePickResult =
+    | { kind: "face"; data: VisualShapeData }
+    | { kind: "datum"; plane: Plane; name: DatumPlaneName };
 
 /**
  * Picks the sketch base plane directly in the viewport: a planar face of a
@@ -71,16 +66,28 @@ export class PlanePickHandler extends ShapeSelectionHandler {
         });
         this.highlightState = VisualStates.faceHighlight;
         const context = document.visual.context;
-        for (const plane of DATUM_DISPLAY_PLANES) {
-            this._datumMeshIds.push(context.displayMesh([datumQuad(plane)], { meshOpacity: 0.25 }));
-        }
+        DATUM_DISPLAY_PLANES.forEach((plane, i) => {
+            // On top: the quads are the only way to reach a datum plane, so a body in
+            // front of one must not put it out of reach. Picking follows the drawing
+            // (see `setHighlight`), so what is shown is also what is hit.
+            const id = context.displayMesh([datumQuad(plane)], {
+                meshOpacity: DATUM_OPACITY,
+                onTop: true,
+            });
+            context.setMeshColor(id, DATUM_COLORS[DATUM_PLANES[i].name]);
+            this._datumMeshIds.push(id);
+        });
     }
 
     protected override setHighlight(view: IView, event: PointerEvent): void {
-        super.setHighlight(view, event);
-        const hovered = this._highlights?.length
-            ? -1
-            : this.detectDatum(view.rayAt(event.offsetX, event.offsetY));
+        const hovered = this.detectDatum(view.rayAt(event.offsetX, event.offsetY));
+        if (hovered >= 0) {
+            // Drawing and picking stay in step: a quad under the pointer wins over the
+            // face behind it, so the face highlight has to come down.
+            this.cleanHighlights();
+        } else {
+            super.setHighlight(view, event);
+        }
         this.setHoveredDatum(view, hovered);
     }
 
@@ -103,20 +110,28 @@ export class PlanePickHandler extends ShapeSelectionHandler {
         if (index === this._hoveredDatum) return;
         this._hoveredDatum = index;
         const context = this.document.visual.context;
+        // Two cues at once: the quad comes up to solid and brightens. The opacity is
+        // what carries the change — at 0.25 the hue alone barely moves the pixel.
         this._datumMeshIds.forEach((id, i) => {
-            context.setMeshColor(id, i === index ? DATUM_HIGHLIGHT_COLOR : DATUM_COLOR);
+            const hovered = i === index;
+            const name = DATUM_PLANES[i].name;
+            context.setMeshColor(id, (hovered ? DATUM_HIGHLIGHT_COLORS : DATUM_COLORS)[name]);
+            context.setMeshOpacity(id, hovered ? DATUM_HOVER_OPACITY : DATUM_OPACITY);
         });
         view.update();
     }
 
     protected override select(_view: IView, _event: PointerEvent): number {
+        // A hovered datum wins: the quads draw on top, so the pointer over one is
+        // aiming at it, not at the face the ray would otherwise hit first.
+        if (this._hoveredDatum >= 0) {
+            const datum = DATUM_PLANES[this._hoveredDatum];
+            this.result = { kind: "datum", plane: datum.plane, name: datum.name };
+            return 1;
+        }
         const face = this._highlights?.[0];
         if (face !== undefined) {
             this.result = { kind: "face", data: face };
-            return 1;
-        }
-        if (this._hoveredDatum >= 0) {
-            this.result = { kind: "datum", plane: DATUM_PLANES[this._hoveredDatum] };
             return 1;
         }
         return 0;

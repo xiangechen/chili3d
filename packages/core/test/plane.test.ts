@@ -140,4 +140,30 @@ describe("Plane", () => {
         expect(proj.y).toBeCloseTo(0);
         expect(proj.z).toBeCloseTo(25);
     });
+
+    describe("offsetAlongNormal", () => {
+        test("moves the origin along the normal and keeps the frame", () => {
+            const plane = Plane.XY.offsetAlongNormal(25);
+            expect(plane.origin.z).toBeCloseTo(25);
+            expect(plane.origin.x).toBeCloseTo(0);
+            expect(plane.origin.y).toBeCloseTo(0);
+            expect(plane.normal.isEqualTo(Plane.XY.normal)).toBe(true);
+            expect(plane.xvec.isEqualTo(Plane.XY.xvec)).toBe(true);
+            expect(plane.yvec.isEqualTo(Plane.XY.yvec)).toBe(true);
+        });
+
+        test("offsets against the normal for a negative distance", () => {
+            // ZX's normal is +Y, so a negative offset moves along −Y
+            const plane = Plane.ZX.offsetAlongNormal(-30);
+            expect(plane.origin.y).toBeCloseTo(-30);
+        });
+
+        test("a zero offset is the same plane, not a copy", () => {
+            expect(Plane.XY.offsetAlongNormal(0)).toBe(Plane.XY);
+        });
+
+        test("returns a new plane for a non-zero offset", () => {
+            expect(Plane.XY.offsetAlongNormal(5)).not.toBe(Plane.XY);
+        });
+    });
 });

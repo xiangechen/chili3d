@@ -186,11 +186,12 @@ describe("SketchNode plane follow", () => {
         };
     }
 
-    function sketchOn(doc: TestDocument, sourceId: string, z: number): SketchNode {
+    function sketchOn(doc: TestDocument, sourceId: string, z: number, planeOffset = 0): SketchNode {
         const sketch = new SketchNode({
             document: doc,
-            plane: Plane.XY.translateTo(new XYZ({ x: 0, y: 0, z })),
+            plane: Plane.XY.translateTo(new XYZ({ x: 0, y: 0, z })).offsetAlongNormal(planeOffset),
             planeRef: { nodeId: sourceId, normal: { x: 0, y: 0, z: 1 }, offset: z },
+            planeOffset,
         });
         doc.modelManager.addNode(sketch);
         // Lazy first generation installs the watch.
@@ -381,6 +382,79 @@ describe("SketchNode plane follow", () => {
 
                 body.shape = Result.ok(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 9 }), XYZ.unitZ)));
                 expect(sketch.plane.origin.z).toBe(9);
+            } finally {
+                restore();
+            }
+        });
+    });
+
+    describe("plane offset", () => {
+        test("the offset rides along when the referenced face moves", () => {
+            const restore = mockCombine();
+            try {
+                const { doc, source } = setup(
+                    solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)),
+                );
+                const sketch = sketchOn(doc, source.id, 5, 4);
+
+                source.shape = Result.ok(solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 10 }), XYZ.unitZ)));
+
+                // the base face moved to z=10; the sketch stays 4 above it
+                expect(sketch.plane.origin.z).toBe(14);
+            } finally {
+                restore();
+            }
+        });
+
+        test("editing the offset re-derives the plane from the face", () => {
+            const restore = mockCombine();
+            try {
+                const { doc, source } = setup(
+                    solidWith(planarFace(new XYZ({ x: 0, y: 0, z: 5 }), XYZ.unitZ)),
+                );
+                const sketch = sketchOn(doc, source.id, 5, 4);
+
+                sketch.planeOffset = -2;
+
+                expect(sketch.plane.origin.z).toBe(3);
+            } finally {
+                restore();
+            }
+        });
+
+        test("a datum-based sketch re-derives from the datum plane", () => {
+            const restore = mockCombine();
+            try {
+                const doc = new TestDocument({ application: createMockApplication() });
+                const sketch = new SketchNode({
+                    document: doc,
+                    plane: Plane.XY.offsetAlongNormal(12),
+                    datumPlane: "XY",
+                    planeOffset: 12,
+                });
+                doc.modelManager.addNode(sketch);
+                expect(sketch.plane.origin.z).toBe(12);
+
+                sketch.planeOffset = 20;
+
+                expect(sketch.plane.origin.z).toBe(20);
+                expect(sketch.plane.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+            } finally {
+                restore();
+            }
+        });
+
+        test("a sketch with no recorded base plane keeps the plane it was saved with", () => {
+            const restore = mockCombine();
+            try {
+                const doc = new TestDocument({ application: createMockApplication() });
+                // A document saved before base planes were recorded: a plane but no source.
+                const sketch = new SketchNode({ document: doc, plane: Plane.XY.offsetAlongNormal(7) });
+                doc.modelManager.addNode(sketch);
+
+                sketch.planeOffset = 3;
+
+                expect(sketch.plane.origin.z).toBe(7);
             } finally {
                 restore();
             }

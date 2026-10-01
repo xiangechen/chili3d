@@ -13,21 +13,36 @@ import {
     XYZ,
 } from "@chili3d/core";
 import {
+    createHandlerMockView,
     createMockApplication,
     createMockView,
     createMockVisualWithDocument,
+    setupShapeFactoryMock,
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { PlanePickHandler } from "../../src/sketch/commands/planePickHandler";
 import { CreateSketch, EnterSketch } from "../../src/sketch/commands/sketchCommands";
+import { SketchPlaneOffsetHandler } from "../../src/sketch/commands/sketchPlaneOffsetStep";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { sketchPlaneOfFace } from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
 function faceWithNormal(point: XYZ, normal: XYZ): IFace {
     return { normal: () => [point, normal] } as unknown as IFace;
+}
+
+/**
+ * The offset step meshes its arrow through the shape factory, which only the wasm
+ * package installs; a shape that reports a mesh and disposes is all it needs.
+ */
+function stubArrowGeometry() {
+    const shape = () => {
+        const value = { mesh: { faces: { position: new Float32Array(), range: [] } }, dispose: () => {} };
+        return { isOk: true, value };
+    };
+    setupShapeFactoryMock({ cylinder: shape, cone: shape });
 }
 
 describe("sketchPlaneOfFace", () => {
@@ -122,7 +137,7 @@ describe("PlanePickHandler", () => {
 
         click(handler, view);
 
-        expect(handler.result).toEqual({ kind: "datum", plane: Plane.XY });
+        expect(handler.result).toEqual({ kind: "datum", plane: Plane.XY, name: "XY" });
         expect(isCompleted()).toBe(true);
     });
 
@@ -137,7 +152,7 @@ describe("PlanePickHandler", () => {
 
         click(handler, view);
 
-        expect(handler.result).toEqual({ kind: "datum", plane: Plane.ZX });
+        expect(handler.result).toEqual({ kind: "datum", plane: Plane.ZX, name: "ZX" });
         expect(isCompleted()).toBe(true);
     });
 
@@ -164,15 +179,31 @@ describe("PlanePickHandler", () => {
         expect(isCompleted()).toBe(false);
     });
 
-    test("a detected planar face takes precedence over a hovered datum quad", () => {
-        const face = { shapeType: ShapeTypes.face, dispose: rs.fn() } as unknown as IFace;
-        const data: VisualShapeData = {
-            shape: face,
+    /** A planar face the ray would hit first, i.e. one sitting in front of the quads. */
+    function faceBehindQuads(): VisualShapeData {
+        return {
+            shape: { shapeType: ShapeTypes.face, dispose: rs.fn() } as unknown as IFace,
             owner: {} as any,
             transform: Matrix4.identity(),
             indexes: [0],
         };
-        const { handler, view, isCompleted } = setup(hitXY, () => [data]);
+    }
+
+    test("a hovered datum quad wins over the planar face behind it", () => {
+        // the quads draw on top, so the pointer over one is aiming at it
+        const { handler, view, isCompleted } = setup(hitXY, () => [faceBehindQuads()]);
+
+        click(handler, view);
+
+        expect(handler.result).toEqual({ kind: "datum", plane: Plane.XY, name: "XY" });
+        expect(isCompleted()).toBe(true);
+    });
+
+    test("a planar face is still picked when the pointer is off the quads", () => {
+        const data = faceBehindQuads();
+        const missDatum = () =>
+            new Ray({ point: new XYZ({ x: 5, y: 5, z: 10 }), direction: new XYZ({ x: 0, y: 0, z: -1 }) });
+        const { handler, view, isCompleted } = setup(missDatum, () => [data]);
 
         click(handler, view);
 
@@ -275,13 +306,10 @@ describe("CreateSketch", () => {
             transform: Matrix4.identity(),
             indexes: [0],
         };
-        const pickAsync = rs.fn(async (handler: PlanePickHandler) => {
-            handler.result = { kind: "face", data };
-        });
         const document = new TestDocument({
             application: app,
             selection: { clearSelection } as any,
-            picker: { pickAsync } as any,
+            picker: { pickAsync: undefined } as any,
         });
         let body!: ParametricBodyNode;
         document.visual = createMockVisualWithDocument(document, {
@@ -299,7 +327,25 @@ describe("CreateSketch", () => {
             // a sketch created on it must anchor there, not at the full feature count
             Object.defineProperty(body, "rollbackIndex", { value: rollbackIndex });
         }
-        (app as any).activeView = { document };
+        // The offset step drives the live view (camera tracking, arrow sizing), so the
+        // active view has to be a real IView mock rather than a bare document holder.
+        const view = createHandlerMockView({ document });
+        (app as any).activeView = view;
+        stubArrowGeometry();
+        // Two picks in sequence: the plane, then the offset step's own drag session. The
+        // offset confirms with no drag at all, so the view it commits against has to be
+        // supplied the way a real pointer release would.
+        document.picker = {
+            pickAsync: rs.fn(async (handler: unknown, _prompt: unknown, controller: AsyncController) => {
+                if (handler instanceof PlanePickHandler) {
+                    handler.result = { kind: "face", data };
+                } else {
+                    expect(handler).toBeInstanceOf(SketchPlaneOffsetHandler);
+                    (handler as SketchPlaneOffsetHandler).commitView = view;
+                }
+                controller.success();
+            }),
+        } as any;
         const enter = rs.spyOn(SketchEditor, "enter").mockImplementation(() => ({}) as any);
         return { app, body, enter };
     }

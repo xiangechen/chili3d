@@ -1,0 +1,264 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
+import { AsyncController, type IView, Plane, PubSub, Ray, XYZ } from "@chili3d/core";
+import {
+    createHandlerMockView,
+    createMockVisualWithDocument,
+    createPointerEvent,
+    setupShapeFactoryMock,
+    TestDocument,
+} from "@chili3d/core/test-utils";
+import { rs } from "@rstest/core";
+import {
+    type OffsetDragData,
+    SketchPlaneOffsetHandler,
+    SketchPlaneOffsetStep,
+} from "../../src/sketch/commands/sketchPlaneOffsetStep";
+
+/**
+ * The arrow is meshed through `arrowMeshes`, which runs on the shape factory — absent
+ * outside the wasm package. A shape that reports a mesh and disposes is all it needs.
+ */
+function stubArrowGeometry() {
+    const shape = () => {
+        const value = { mesh: { faces: { position: new Float32Array(), range: [] } }, dispose: () => {} };
+        return { isOk: true, value };
+    };
+    setupShapeFactoryMock({ cylinder: shape, cone: shape });
+}
+
+describe("SketchPlaneOffsetHandler", () => {
+    let doc: TestDocument;
+    let controller: AsyncController;
+
+    beforeEach(() => {
+        doc = new TestDocument();
+        doc.visual = createMockVisualWithDocument(doc);
+        controller = new AsyncController();
+        stubArrowGeometry();
+    });
+
+    afterEach(() => {
+        controller.dispose();
+    });
+
+    function offsetData(basePlane = Plane.XY, offset = 0): OffsetDragData {
+        return { basePlane, offset };
+    }
+
+    /** Enter/Space confirms, so the handler calls preventDefault on the way through. */
+    function enterKey(): KeyboardEvent {
+        return {
+            key: "Enter",
+            preventDefault: () => {},
+            stopImmediatePropagation: () => {},
+        } as unknown as KeyboardEvent;
+    }
+
+    /** The ray through screen x projects to z = mx − 113 on the Z axis. */
+    function dragView(): IView {
+        return createHandlerMockView({
+            document: doc,
+            rayAt: (mx: number) =>
+                new Ray({ point: new XYZ({ x: 0, y: 0, z: mx - 113 }), direction: XYZ.unitX }),
+        });
+    }
+
+    test("starts at the offset the command handed in", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData(Plane.XY, 7));
+
+        expect(handler.offset).toBe(7);
+        expect(handler.plane.origin.z).toBe(7);
+        handler.dispose();
+    });
+
+    test("the arrow base sits on the offset plane", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData(Plane.XY, 5));
+
+        const { start } = (handler as any).arrowSegment();
+
+        expect(start.z).toBeCloseTo(5);
+        handler.dispose();
+    });
+
+    test("a negative offset puts the plane below the base and flips the arrow", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData(Plane.XY, -6));
+
+        const { start, end } = (handler as any).arrowSegment();
+
+        expect(handler.plane.origin.z).toBe(-6);
+        expect(start.z).toBeCloseTo(-6);
+        expect(end.z).toBeLessThan(start.z); // pointing along −Z, back toward the base
+        handler.dispose();
+    });
+
+    test("dragging the arrow sets a signed offset and reports it", () => {
+        const onOffset = rs.fn((_offset: number) => {});
+        const handler = new SketchPlaneOffsetHandler(doc, controller, { ...offsetData(), onOffset });
+        const view = dragView();
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 100, offsetY: 200 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 113, offsetY: 200 })); // grabs at z = 0
+        handler.pointerMove(view, createPointerEvent({ offsetX: 123, offsetY: 200 }));
+
+        expect(handler.offset).toBeCloseTo(10);
+        expect(onOffset).toHaveBeenCalledWith(10);
+        expect(handler.plane.origin.z).toBeCloseTo(10);
+        handler.dispose();
+    });
+
+    test("dragging below the base plane gives a negative offset", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData());
+        const view = dragView();
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 113, offsetY: 200 }));
+        // The move that crosses the drag threshold grabs the axis at z = 7.
+        handler.pointerMove(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 110, offsetY: 200 })); // z = −3
+
+        expect(handler.offset).toBeCloseTo(-10);
+        handler.dispose();
+    });
+
+    test("typing a number enters that exact offset", () => {
+        const onOffset = rs.fn((_offset: number) => {});
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const handler = new SketchPlaneOffsetHandler(doc, controller, { ...offsetData(), onOffset });
+        let showInput: ((text: string) => unknown) | undefined;
+        pub.mockImplementation((event: string, ...args: any[]) => {
+            if (event === "showInput") showInput = args[1] as (text: string) => unknown;
+        });
+
+        handler.keyDown(dragView(), { key: "4" } as KeyboardEvent);
+        const result = showInput!("42");
+
+        expect(onOffset).toHaveBeenCalledWith(42);
+        expect(handler.offset).toBe(42);
+        expect((result as any).isOk).toBe(true);
+        pub.mockRestore();
+        handler.dispose();
+    });
+
+    test("a non-numeric entry is rejected and leaves the offset alone", () => {
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData(Plane.XY, 3));
+        let showInput: ((text: string) => unknown) | undefined;
+        pub.mockImplementation((event: string, ...args: any[]) => {
+            if (event === "showInput") showInput = args[1] as (text: string) => unknown;
+        });
+
+        handler.keyDown(dragView(), { key: "5" } as KeyboardEvent);
+        const result = showInput!("abc");
+
+        expect((result as any).isOk).toBe(false);
+        expect(handler.offset).toBe(3);
+        pub.mockRestore();
+        handler.dispose();
+    });
+
+    test("zero offset confirms without any drag", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData());
+        const view = dragView();
+        // Enter has no pointer event to take a view from, so the handler falls back to
+        // the active view — the view the user would be clicking in.
+        (doc.application as any).activeView = view;
+
+        handler.keyDown(view, enterKey());
+
+        expect(controller.result?.status).toBe("success");
+        expect(handler.commitView).toBe(view);
+        handler.dispose();
+    });
+
+    test("the command can push a new offset into the live drag", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData());
+
+        handler.setValue(15);
+
+        expect(handler.offset).toBe(15);
+        expect(handler.plane.origin.z).toBe(15);
+        handler.dispose();
+    });
+
+    test("Escape cancels", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData());
+
+        handler.keyDown(dragView(), { key: "Escape" } as KeyboardEvent);
+
+        expect(controller.result?.status).toBe("cancel");
+        handler.dispose();
+    });
+
+    test("teardown drops every mesh it drew and clears the controls", () => {
+        const context = doc.visual.context;
+        const displayMesh = rs.spyOn(context, "displayMesh");
+        const removeMesh = rs.spyOn(context, "removeMesh");
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const handler = new SketchPlaneOffsetHandler(doc, controller, offsetData());
+
+        const drawn = displayMesh.mock.calls.length;
+        expect(drawn).toBeGreaterThan(0);
+
+        handler.dispose();
+
+        expect(removeMesh.mock.calls.length).toBe(drawn);
+        expect(pub).toHaveBeenCalledWith("clearConfirmControl");
+        pub.mockRestore();
+    });
+});
+
+describe("SketchPlaneOffsetStep", () => {
+    test("returns the offset plane once the drag is confirmed", async () => {
+        const doc = new TestDocument();
+        doc.visual = createMockVisualWithDocument(doc);
+        stubArrowGeometry();
+        const controller = new AsyncController();
+        let captured: SketchPlaneOffsetHandler | undefined;
+        doc.picker = {
+            pickAsync: rs.fn(
+                async (handler: SketchPlaneOffsetHandler, _prompt: unknown, c: AsyncController) => {
+                    captured = handler;
+                    return new Promise<void>((resolve) => c.onCompleted(() => resolve()));
+                },
+            ),
+        } as any;
+
+        const step = new SketchPlaneOffsetStep("prompt.dragToOffset", () => ({
+            basePlane: Plane.XY,
+            offset: 8,
+        }));
+        const promise = step.execute(doc, controller);
+        const view = createHandlerMockView({ document: doc });
+        captured!.commitView = view;
+        controller.success();
+
+        const result = await promise;
+
+        expect(result?.view).toBe(view);
+        expect(result?.plane?.origin.z).toBe(8);
+        expect(controller.result?.status).toBe("success");
+    });
+
+    test("returns undefined when the drag is cancelled", async () => {
+        const doc = new TestDocument();
+        doc.visual = createMockVisualWithDocument(doc);
+        stubArrowGeometry();
+        const controller = new AsyncController();
+        let captured: SketchPlaneOffsetHandler | undefined;
+        doc.picker = {
+            pickAsync: rs.fn(
+                async (handler: SketchPlaneOffsetHandler, _prompt: unknown, c: AsyncController) => {
+                    captured = handler;
+                    return new Promise<void>((resolve) => c.onCancelled(() => resolve()));
+                },
+            ),
+        } as any;
+
+        const step = new SketchPlaneOffsetStep("prompt.dragToOffset", () => ({ basePlane: Plane.XY }));
+        const promise = step.execute(doc, controller);
+        captured!.keyDown(createHandlerMockView({ document: doc }), { key: "Escape" } as KeyboardEvent);
+
+        expect(await promise).toBeUndefined();
+    });
+});

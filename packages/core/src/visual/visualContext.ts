@@ -31,6 +31,7 @@ export interface IVisualContext extends IDisposable {
     visuals(): IVisualObject[];
     displayMesh(datas: ShapeMeshData[], meshOption?: MeshOption): number;
     setMeshColor(id: number, color: number): void;
+    setMeshOpacity(id: number, opacity: number): void;
     removeMesh(id: number): void;
     displayInstancedMesh(data: MeshLike, matrixs: Matrix4[], meshOption?: MeshOption): number;
     displayLineSegments(data: EdgeMeshData): number;

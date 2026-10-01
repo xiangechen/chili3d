@@ -137,6 +137,7 @@ export function createMockVisualContext(
         visuals: () => [],
         displayMesh: () => 0,
         setMeshColor: () => {},
+        setMeshOpacity: () => {},
         removeMesh: () => {},
         displayInstancedMesh: () => 0,
         displayLineSegments: () => 0,
