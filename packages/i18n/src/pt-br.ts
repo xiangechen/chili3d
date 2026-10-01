@@ -135,6 +135,7 @@ export default {
         "command.sketch.line": "Linha",
         "command.sketch.projectEdges": "Projetar Arestas",
         "command.sketch.rectangle": "Retângulo",
+        "command.sketch.toggleConstruction": "Alternar Construção",
         "command.sketch.toggleExternal": "Alternar Função Externa",
         "dialog.title.enterValue": "Insira o valor",
         "prompt.pickDimensionPosition": "escolha a posição da dimensão, ESC para cancelar",
@@ -143,6 +144,8 @@ export default {
         "prompt.pickTextPosition": "escolha a posição do texto, ESC para cancelar",
         "prompt.pickExternalRef":
             "escolha uma referência externa (roxa) para alternar sua função, ESC para concluir",
+        "prompt.pickConstructionEntity":
+            "escolha a geometria do esboço para alternar seu estado de construção, ESC para concluir",
         "prompt.pickSketchEntity": "escolha uma entidade do esboço, ESC para cancelar",
         "prompt.pickSketchPoint": "escolha um ponto do esboço, ESC para cancelar",
         "ribbon.group.constraint": "Restrição",
@@ -211,6 +214,7 @@ export default {
         "common.xDir": "Direção X",
         "helix.pitch": "Passo",
         "option.command.pitch": "Passo",
+        "option.command.construction": "Construção",
         "option.command.externalRole": "Função",
         "option.command.externalRole.profile": "Perfil",
         "option.command.externalRole.reference": "Referência",

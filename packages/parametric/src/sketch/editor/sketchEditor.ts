@@ -533,6 +533,16 @@ export class SketchEditor implements IDisposable {
         return true;
     }
 
+    /** Ids of the session-selected sketch entities (empty when nothing is selected). */
+    selectedEntityIds(): number[] {
+        return this.eventHandler.selectedEntityIds();
+    }
+
+    /** Drops the session entity selection, e.g. after a command consumed it. */
+    clearEntitySelection(): void {
+        this.eventHandler.clearEntitySelection();
+    }
+
     // ------------------------------------------------------------------ Solving, commit and deletion
 
     solve(fine: boolean): SolveOutcome {

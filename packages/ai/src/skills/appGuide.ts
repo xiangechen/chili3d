@@ -117,6 +117,7 @@ The workflow to teach:
 6. The status bar reports under-constrained, fully-constrained or conflicting.
 7. {sketch.exit} leaves the session. {sketch.enter} re-opens a sketch, and double-clicking a sketch node in the tree or viewport does the same.
 - External edges: {sketch.projectEdges} brings coplanar edges of the solid into the sketch; each one is either a Reference (construction-only, dashed) or a Profile (it takes part in the profile). {sketch.toggleExternal} switches a picked reference between the two roles, and a reference whose source disappears is drawn red.
+- Construction geometry: the draw commands carry a "Construction" checkbox — geometry drawn with it ticked is reference-only (dashed, usable in constraints and snaps, excluded from profiles). {sketch.toggleConstruction} flips the selected entities between the two states, or picks them in a loop when nothing is selected.
 - Escape peels off one layer at a time (label placement, then pick, then constraint, then entity, then the session); Delete removes the hovered or selected constraint or entity.`,
 
     `## Parametric features

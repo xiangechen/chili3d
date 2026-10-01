@@ -56,7 +56,12 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             },
             {
                 groupName: "ribbon.group.other",
-                items: ["sketch.constraints", "sketch.projectEdges", "sketch.toggleExternal"],
+                items: [
+                    "sketch.constraints",
+                    "sketch.projectEdges",
+                    "sketch.toggleExternal",
+                    "sketch.toggleConstruction",
+                ],
             },
         ],
     },

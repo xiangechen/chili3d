@@ -37,6 +37,9 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
 
         const solver = this.editor.solver;
         const [top, right, bottom, left] = addRectangle(solver, [u1, v1], [u2, v2]);
+        if (this.construction) {
+            for (const id of [top, right, bottom, left]) solver.setConstruction(id, true);
+        }
         // Snap the two picked corners onto the origin/points/lines/axes; the shape's
         // own four edges are excluded so the corners never snap onto each other.
         applyPointAutoConstraints(

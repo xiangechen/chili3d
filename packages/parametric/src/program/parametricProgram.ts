@@ -66,7 +66,12 @@ export interface SketchOp {
     name?: string;
     /** A datum plane, or a planar face of an existing node. Defaults to XY. */
     plane?: "XY" | "YZ" | "ZX" | { nodeId: string; faceIndex: number };
-    entities: { type: SketchEntityType; params: number[] }[];
+    entities: {
+        type: SketchEntityType;
+        params: number[];
+        /** Construction geometry: a constraint reference only — excluded from profiles and features. */
+        construction?: boolean;
+    }[];
     constraints?: {
         kind: string;
         refs: { entity: number; point: number }[];
@@ -342,6 +347,8 @@ function buildSketchData(document: IDocument, op: SketchOp, plane: Plane): Sketc
         id: index + 1,
         type: entity.type,
         params: entity.params,
+        // emitted only when set, so a plain sketch keeps its minimal serialized form
+        ...(entity.construction === true ? { construction: true } : {}),
     }));
     const data: SketchData = {
         entities,

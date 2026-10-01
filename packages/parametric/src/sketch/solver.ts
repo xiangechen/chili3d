@@ -142,6 +142,13 @@ export class SketchSolver implements ExternalEntityHost {
      * param-edited: the datum (origin, X/Y axes) and every seeded external entity.
      */
     private readonly fixedEntities = new Set<number>();
+    /**
+     * Real entities flagged as construction geometry (SketchEntityData.construction).
+     * The solver treats them like any other entity — the flag only travels through
+     * `entities()`/`loadData` so `toData` round-trips it and the node/profile layer
+     * can exclude them from shape building.
+     */
+    private readonly constructionEntities = new Set<number>();
     /** The pinned external entities and the refs they came from — see `externalEntities.ts`. */
     private readonly external = new ExternalEntityRegistry(this);
     private draggedParamIds: number[] = [];
@@ -305,12 +312,24 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityTypes.delete(id);
         this.entityParams.delete(id);
         this.entityCache.delete(id);
+        this.constructionEntities.delete(id);
         return removedConstraints;
     }
 
     /** Whether the entity is fixed (datum or external): targetable, but never movable/deletable/editable. */
     isFixed(entityId: number): boolean {
         return this.fixedEntities.has(entityId);
+    }
+
+    /** Whether the entity is construction geometry: a constraint/snap target that never builds profiles. */
+    isConstruction(entityId: number): boolean {
+        return this.constructionEntities.has(entityId);
+    }
+
+    /** Flags a real entity as construction geometry (or back to profile geometry). */
+    setConstruction(entityId: number, construction: boolean): void {
+        if (construction) this.constructionEntities.add(entityId);
+        else this.constructionEntities.delete(entityId);
     }
 
     /** Removes every constraint referencing the entity; returns removed constraint ids. */
@@ -583,6 +602,9 @@ export class SketchSolver implements ExternalEntityHost {
                 id,
                 type: this.entityTypes.get(id)!,
                 params: [...params],
+                // emitted only when set — a sketch without construction geometry
+                // must round-trip byte-identical (no phantom history entry)
+                ...(this.constructionEntities.has(id) ? { construction: true } : {}),
             }));
     }
 
@@ -775,6 +797,7 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityCache.clear();
         this.constraints.clear();
         this.fixedEntities.clear();
+        this.constructionEntities.clear();
         this.external.clear();
         this.entityIdSeq = 1;
         this.draggedParamIds = [];
@@ -1323,6 +1346,7 @@ export class SketchSolver implements ExternalEntityHost {
         }
         for (const entity of data.entities) {
             this.registerEntity(entity.type, this.addEntityParams(entity.type, entity.params), entity.id);
+            if (entity.construction === true) this.constructionEntities.add(entity.id);
         }
         for (const constraint of data.constraints) {
             this.addConstraintWithId(constraint.id, constraint);

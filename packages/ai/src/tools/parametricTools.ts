@@ -40,12 +40,17 @@ const OPS_SCHEMA = {
         entities: {
             type: "array",
             description:
-                "Sketch geometry in sketch (u, v) coordinates: line params [x1,y1,x2,y2]; circle params [cx,cy,r]; arc params [cx,cy,sx,sy,ex,ey] (center, start, end; counter-clockwise). A closed profile needs its points in perimeter order, first point repeated as the last.",
+                "Sketch geometry in sketch (u, v) coordinates: line params [x1,y1,x2,y2]; circle params [cx,cy,r]; arc params [cx,cy,sx,sy,ex,ey] (center, start, end; counter-clockwise). A closed profile needs its points in perimeter order, first point repeated as the last. Set construction: true on reference geometry (e.g. a symmetry or revolve axis) — it stays usable in constraints but is excluded from profiles and features.",
             items: {
                 type: "object",
                 properties: {
                     type: { type: "string", enum: ["line", "circle", "arc"] },
                     params: { type: "array", items: { type: "number" } },
+                    construction: {
+                        type: "boolean",
+                        description:
+                            "Construction geometry: a constraint reference only — excluded from profiles and features",
+                    },
                 },
                 required: ["type", "params"],
             },

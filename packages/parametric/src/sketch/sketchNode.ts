@@ -28,6 +28,7 @@ import { type PlaneFaceRef, resolveFacePlane } from "./planeRef";
 import {
     arcAngles,
     type ExternalRefData,
+    profileEntities,
     profileExternalRefs,
     rawArcSweep,
     SKETCH_EDGE_LINE_WIDTH,
@@ -225,10 +226,12 @@ export class SketchNode extends ParameterShapeNode {
         return shapeFactory.combine(edges.value);
     }
 
-    /** The sketch's own entity edges, followed by the profile-role external refs. */
+    /** The sketch's own non-construction entity edges, followed by the profile-role external refs. */
     private buildEdges(data: SketchData): Result<IEdge[]> {
         const edges: IEdge[] = [];
-        for (const entity of data.entities) {
+        // Construction entities are solver-only reference geometry — they never
+        // enter the shape, exactly like reference-role external refs below.
+        for (const entity of profileEntities(data)) {
             const edge = this.entityEdge(entity);
             if (!edge.isOk) return Result.err(edge.error);
             edges.push(edge.value);

@@ -49,6 +49,8 @@ const DATUM_Y_AXIS_COLOR = 0x55aa55;
 const EXTERNAL_REF_COLOR = 0x9b59b6;
 /** External references whose source edge no longer resolves. */
 const EXTERNAL_DANGLING_COLOR = 0xdd4444;
+/** Construction entities (reference geometry of the sketch itself): a muted steel blue. */
+const CONSTRUCTION_COLOR = 0x6c8ebf;
 /** Live-snap target accent — distinct from the green hover/selection and blue dimensions. */
 const SNAP_HIGHLIGHT_COLOR = 0xff9800;
 /** Entity point markers (endpoints, centers) — a neutral grey against either theme's background. */
@@ -72,6 +74,7 @@ export class SketchEventHandler implements IEventHandler {
     private constraintMeshId?: number;
     private datumDisplayId?: number;
     private externalDisplayId?: number;
+    private constructionDisplayId?: number;
     private pointDisplayId?: number;
     private snapTargetMeshId?: number;
     private snapHintItem?: IDisposable;
@@ -82,6 +85,7 @@ export class SketchEventHandler implements IEventHandler {
     constructor(private readonly editor: SketchEditor) {
         this.showDatum();
         this.showExternalRefs();
+        this.showConstructionEntities();
         this.showEntityPoints();
     }
 
@@ -144,20 +148,41 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     /**
-     * Re-renders the session's geometry overlays — the external references and the
-     * entity point markers — after the geometry behind them was added, removed,
-     * moved or re-resolved.
+     * Session-persistent display of the construction entities: dashed steel blue.
+     * They are excluded from the node's shape (they never build profiles), so
+     * without this overlay they would be invisible while editing — the same
+     * treatment reference-role external refs get above.
+     */
+    private showConstructionEntities(): void {
+        const view = this.editor.document.application.activeView;
+        if (view === undefined) return;
+        const meshes: ShapeMeshData[] = [];
+        // the solver carries the live flags — node.data lags behind until the next commit
+        for (const entity of this.editor.solver.entities()) {
+            if (!this.editor.solver.isConstruction(entity.id)) continue;
+            meshes.push(sketchEntityMesh(this.editor, entity, CONSTRUCTION_COLOR, "dash"));
+        }
+        if (meshes.length === 0) return;
+        this.constructionDisplayId = view.document.visual.context.displayMesh(meshes, { onTop: true });
+    }
+
+    /**
+     * Re-renders the session's geometry overlays — the external references, the
+     * construction entities and the entity point markers — after the geometry
+     * behind them was added, removed, moved or re-resolved.
      */
     refreshGeometryOverlays(): void {
         const view = this.editor.document.application.activeView;
         if (view !== undefined) {
-            for (const id of [this.externalDisplayId, this.pointDisplayId]) {
+            for (const id of [this.externalDisplayId, this.constructionDisplayId, this.pointDisplayId]) {
                 if (id !== undefined) view.document.visual.context.removeMesh(id);
             }
         }
         this.externalDisplayId = undefined;
+        this.constructionDisplayId = undefined;
         this.pointDisplayId = undefined;
         this.showExternalRefs();
+        this.showConstructionEntities();
         this.showEntityPoints();
         view?.update();
     }
@@ -179,6 +204,13 @@ export class SketchEventHandler implements IEventHandler {
         if (this.pointDisplayId !== undefined) {
             view.document.visual.context.removeMesh(this.pointDisplayId);
             this.pointDisplayId = undefined;
+        }
+    }
+
+    private clearConstructionEntities(view: IView): void {
+        if (this.constructionDisplayId !== undefined) {
+            view.document.visual.context.removeMesh(this.constructionDisplayId);
+            this.constructionDisplayId = undefined;
         }
     }
 
@@ -357,9 +389,10 @@ export class SketchEventHandler implements IEventHandler {
     private beginPointDrag(view: IView, ref: SketchPointRef): void {
         this.draggingRef = ref;
         this.clearHover(view);
-        // the drag preview carries the markers while dragging; the persistent ones
-        // would otherwise sit at the pre-drag positions
+        // the drag preview carries the markers and the construction entities while
+        // dragging; the persistent overlays would otherwise sit at pre-drag positions
         this.clearEntityPoints(view);
+        this.clearConstructionEntities(view);
         const group = this.editor.solver.coincidentGroup(ref);
         this.editor.solver.beginDrag(group);
         // keep the dragged entities' constraint symbols visible during the drag
@@ -521,6 +554,7 @@ export class SketchEventHandler implements IEventHandler {
                 view.document.visual.context.removeMesh(this.externalDisplayId);
                 this.externalDisplayId = undefined;
             }
+            this.clearConstructionEntities(view);
             this.clearEntityPoints(view);
         }
         this.selectedEntities.clear();
@@ -615,6 +649,16 @@ export class SketchEventHandler implements IEventHandler {
         const hovered = this.hoveredEntityId();
         if (hovered !== undefined) ids.add(hovered);
         this.editor.annotations.setHighlightedEntities(ids);
+    }
+
+    /** Ids of the currently selected entities (empty when nothing is selected). */
+    selectedEntityIds(): number[] {
+        return [...this.selectedEntities];
+    }
+
+    /** Clears the entity selection and its highlight — a command consumed the selection. */
+    clearEntitySelection(): void {
+        this.clearSelection(this.editor.view);
     }
 
     private updateSelectionHighlight(view: IView): void {
