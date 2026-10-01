@@ -145,6 +145,13 @@ export interface IShapeFactory {
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
     revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;
     /**
+     * Tracked sweep: ONE profile per call along the whole spine (the TS side loops the
+     * profiles and combines — same geometry as the multi-profile `sweep`). The history
+     * input is that single profile face; the end-cap face indexes (the sweep's
+     * LastShape) travel through `capFaces`, empty for a closed path.
+     */
+    sweepTracked?(profile: IShape, path: IWire, isRoundCorner: boolean): Result<TrackedShape>;
+    /**
      * Tracked loft: the history input enumerates the sections' edges in section order
      * (section 0's edges first), faces of the input are always empty (loft inputs are
      * wires/vertices), and a solid loft's start AND end cap face indexes travel through

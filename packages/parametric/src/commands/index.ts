@@ -7,4 +7,5 @@ import "./extrudeCommand";
 import "./loftCommand";
 import "./reselectCommand";
 import "./revolveCommand";
+import "./sweepCommand";
 import "./variableCommand";

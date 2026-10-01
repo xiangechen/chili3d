@@ -29,6 +29,7 @@ import {
 import { isBodyTrackingNode } from "../features/bodyTracking";
 import { captureEdgeRef } from "../features/edgeRef";
 import type { LoftFeatureData, LoftSectionData } from "../features/feature";
+import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { validateLoftSections } from "../features/loft";
 import { captureProfileRef } from "../features/profileRef";
 import { captureVertexRef } from "../features/vertexRef";
@@ -186,6 +187,9 @@ export class LoftFeatureCommand extends CancelableCommand {
         const face = this.worldFace(data);
         const tracked = isBodyTrackingNode(node) ? node : undefined;
         const faceId = tracked?.faceIdAt(data.indexes[0]);
+        if (faceId === undefined && tracked !== undefined) {
+            reportSilentIdLoss(tracked, "face", "a loft section face has no tracked id");
+        }
         const splitPiece = node instanceof ParametricBodyNode ? node.faceIdIsShared(faceId) : undefined;
         return Result.ok({
             section: {

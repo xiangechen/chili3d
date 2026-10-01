@@ -44,7 +44,8 @@ export type FeatureData =
     | FilletFeatureData
     | ChamferFeatureData
     | BooleanFeatureData
-    | LoftFeatureData;
+    | LoftFeatureData
+    | SweepFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -151,6 +152,41 @@ export interface LoftFeatureData extends FeatureBase {
     readonly isRuled: boolean;
     /** Smoothness of the transitions between sections; ignored when `isRuled`. */
     readonly continuity: Continuity;
+}
+
+export interface SweepFeatureData extends FeatureBase {
+    readonly type: "sweep";
+    /** Sketch whose profiles are swept; undefined when `source` faces are used instead. */
+    readonly sketchId?: string;
+    /**
+     * Planar faces of an existing body to sweep along the path (the press-pull
+     * `source` contract — see `ExtrudeFeatureData`), as profile fingerprints
+     * captured in world coordinates (`profileRef.ts`). When `nodeId` is the host
+     * body itself, the faces are re-matched on the feature's input shape.
+     */
+    readonly source?: { readonly nodeId: string; readonly profiles: ProfileRef[] };
+    /**
+     * Fingerprints of the sketch profiles to sweep (`profileRef.ts`); undefined or
+     * empty sweeps every closed profile of the sketch.
+     */
+    readonly profiles?: ProfileRef[];
+    /**
+     * The sweep path: edge fingerprints (`edgeRef.ts`) in the source node's LOCAL space,
+     * re-matched against that node's current shape on every rebuild — editing the path
+     * edges moves the sweep. The edges must connect into a single wire.
+     */
+    readonly path: { readonly nodeId: string; readonly edges: EdgeRef[] };
+    /**
+     * Transition mode at path corners (kernel `BRepBuilderAPI_RoundCorner` when true,
+     * `RightCorner` otherwise).
+     */
+    readonly isRoundCorner?: boolean;
+    /**
+     * How the swept shape combines with the preceding feature's shape on the host body —
+     * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone
+     * geometry; set when the sweep command appends the feature to a target body.
+     */
+    readonly operation?: BooleanOperation;
 }
 
 /**

@@ -744,32 +744,68 @@ public:
         return ShapeResult { cylinder.Solid(), true, "" };
     }
 
-    static ShapeResult sweep(const ShapeArray& sections, const TopoDS_Wire& path, bool isFrenet, bool isForceC1)
+    // Shared build of `sweep`/`sweepTracked`: mode setup, profiles added, Build, then
+    // MakeSolid — except when the sweep already produced a solid, where MakeSolid
+    // throws. A FACE profile is swept as its outer wire: sweeping the face itself
+    // raises inside MakePipeShell (and an OCCT raise aborts the whole module with
+    // exceptions disabled). Returns an error message, empty on success.
+    static std::string buildPipe(BRepOffsetAPI_MakePipeShell& pipe, const std::vector<TopoDS_Shape>& profiles,
+        bool isFrenet, bool isForceC1)
     {
-        BRepOffsetAPI_MakePipeShell pipe(path);
         if (isFrenet) {
             pipe.SetMode(isFrenet);
         }
-
         if (isForceC1) {
             pipe.SetTransitionMode(BRepBuilderAPI_RoundCorner);
             pipe.SetForceApproxC1(isForceC1);
         } else {
             pipe.SetTransitionMode(BRepBuilderAPI_RightCorner);
         }
-
-        std::vector<TopoDS_Shape> shapesVec = vecFromJSArray<TopoDS_Shape>(sections);
-        for (const auto& shape : shapesVec) {
-            pipe.Add(shape);
+        for (const auto& profile : profiles) {
+            if (profile.ShapeType() == TopAbs_FACE) {
+                pipe.Add(BRepTools::OuterWire(TopoDS::Face(profile)));
+            } else {
+                pipe.Add(profile);
+            }
         }
-
         pipe.Build();
-        pipe.MakeSolid();
-
         if (!pipe.IsDone()) {
-            return ShapeResult { TopoDS_Shape(), false, "Failed to sweep profile" };
+            return "Failed to sweep profile";
+        }
+        if (pipe.Shape().ShapeType() != TopAbs_SOLID) {
+            pipe.MakeSolid();
+            if (!pipe.IsDone()) {
+                return "Failed to sweep profile";
+            }
+        }
+        return "";
+    }
+
+    static ShapeResult sweep(const ShapeArray& sections, const TopoDS_Wire& path, bool isFrenet, bool isForceC1)
+    {
+        BRepOffsetAPI_MakePipeShell pipe(path);
+        std::string error = buildPipe(pipe, vecFromJSArray<TopoDS_Shape>(sections), isFrenet, isForceC1);
+        if (!error.empty()) {
+            return ShapeResult { TopoDS_Shape(), false, error };
         }
         return ShapeResult { pipe.Shape(), true, "" };
+    }
+
+    // Single-profile tracked sweep: the TS side sweeps each profile separately (same
+    // geometry as the multi-profile call — every profile travels the whole spine) so
+    // the history input is one face and `capFaces` names only its own end cap.
+    static TrackedShapeResult sweepTracked(const TopoDS_Shape& profile, const TopoDS_Wire& path, bool isFrenet,
+        bool isForceC1)
+    {
+        BRepOffsetAPI_MakePipeShell pipe(path);
+        std::string error = buildPipe(pipe, { profile }, isFrenet, isForceC1);
+        if (!error.empty()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, error, {}, {} };
+        }
+        TrackedShapeResult result { pipe.Shape(), true, "", faceHistory(pipe, profile, pipe.Shape()),
+            edgeHistory(pipe, profile, pipe.Shape()), faceFromEdgeHistory(pipe, profile, pipe.Shape()) };
+        result.capFaces = sweepCapFaces(pipe, pipe.Shape());
+        return result;
     }
 
     static ShapeResult revolve(const TopoDS_Shape& profile, const Ax1& axis, double rad)
@@ -1962,6 +1998,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("cylinder", &ShapeFactory::cylinder)
         .class_function("pyramid", &ShapeFactory::pyramid)
         .class_function("sweep", &ShapeFactory::sweep)
+        .class_function("sweepTracked", &ShapeFactory::sweepTracked)
         .class_function("revolve", &ShapeFactory::revolve)
         .class_function("prism", &ShapeFactory::prism)
         .class_function("pushPull", &ShapeFactory::pushPull)

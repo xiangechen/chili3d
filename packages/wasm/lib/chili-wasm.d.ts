@@ -658,6 +658,7 @@ interface EmbindModule {
     curveProjection(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: gp_Dir): ShapeResult;
     filletEdge2d(_0: TopoDS_Edge, _1: TopoDS_Edge, _2: number): ShapesResult;
     chamferEdge2d(_0: TopoDS_Edge, _1: TopoDS_Edge, _2: number): ShapesResult;
+    sweepTracked(_0: TopoDS_Shape, _1: TopoDS_Wire, _2: boolean, _3: boolean): TrackedShapeResult;
     fillet2d(_0: TopoDS_Face, _1: TopoDS_Edge, _2: TopoDS_Edge, _3: number): ShapeResult;
     chamfer2d(_0: TopoDS_Face, _1: TopoDS_Edge, _2: TopoDS_Edge, _3: number): ShapeResult;
     polygon(_0: Array<Vector3>): ShapeResult;

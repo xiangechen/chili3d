@@ -45,7 +45,8 @@ import { boundaryId, derivedId, writeUncontestedIds } from "./trackedId";
  *
  * The `<seed>` above is a sketch profile's. A press-pull sweeps a BODY face, which has no entity
  * attribution, so its seeds are that face's own tracked ids, CONJOINED with the sweep's identity
- * and a marker of its own:
+ * and a marker of its own (`push` for a press-pull, `sweep` for a path sweep of a body
+ * face — see `sweep.ts`):
  *
  * | shape                       | id                                              | where |
  * | --------------------------- | ----------------------------------------------- | ----- |

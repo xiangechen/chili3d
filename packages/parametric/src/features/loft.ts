@@ -365,7 +365,7 @@ function wireEdgeSeeds(
  * vertex sections in their node's space, so they first take the node's own
  * transform. Identity transforms reuse the shape; copies are pushed to `owned`.
  */
-function mapToHost(
+export function mapToHost(
     shape: IShape,
     node: ShapeNode | undefined,
     context: FeatureContext,

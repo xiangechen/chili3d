@@ -1,29 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    type IDocument,
-    type IShape,
-    LENGTH_UNITS,
-    Result,
-    resolveUnitSpec,
-    ShapeTypes,
-    type TrackedShape,
-    type XYZ,
-} from "@chili3d/core";
+import { type IDocument, type IShape, LENGTH_UNITS, Result, resolveUnitSpec, type XYZ } from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
-import { type TrackedMethod, trackedBoolean } from "./boolean";
+import { trackedBoolean } from "./boolean";
 import {
-    type CompletedTrackedHistory,
     completeTrackedHistory,
     type ExtrudeFeatureData,
     type FeatureContext,
     type FeatureHandler,
     registerFeature,
     type ShapeTracking,
-    trackedAncestors,
 } from "./feature";
-import { bornEdgeIdMap, mapOperationIds } from "./operationIds";
+import { applyTrackedOperation, trackOperation } from "./operation";
 import { extrudeFromSourceFaces } from "./pressPull";
 import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { captureProfileRef } from "./profileRef";
@@ -328,62 +317,6 @@ function extrudeOperationTracked(
         // The prism is an intermediate input — the kernel reads it eagerly.
         tool.value.shape.dispose();
     }
-}
-
-/** Combines the swept prism with the chain input and records the resulting id map. */
-function applyTrackedOperation(
-    input: IShape,
-    tracking: ShapeTracking,
-    tracked: TrackedMethod,
-    tool: { shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] },
-): Result<IShape> {
-    const result = tracked([input], [tool.shape]);
-    if (!result.isOk) return Result.err(result.error);
-
-    const completed = completeTrackedHistory([input, tool.shape], result.value);
-    trackOperation(input, tracking, tool, completed, result.value);
-    return Result.ok(result.value.shape);
-}
-
-/** Fills the tracking outputs from the operation's boolean history (see `mapOperationIds`). */
-function trackOperation(
-    input: IShape,
-    tracking: ShapeTracking,
-    tool: { faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] },
-    completed: CompletedTrackedHistory,
-    result: TrackedShape,
-): void {
-    const shape = result.shape;
-    // Both mappers consume the merge channel, so this is one of the few places that pays for
-    // verifying it (see `trackedAncestors`).
-    const ancestors = trackedAncestors(completed, result);
-    tracking.outputFaceIds = mapOperationIds(
-        input,
-        tracking.inputFaceIds,
-        tool.faceIds,
-        completed.faceMap,
-        ShapeTypes.face,
-        ancestors.faceAncestors,
-    );
-    // The curves a join/cut carves derive from nothing in either operand — they are the
-    // boundary between two faces that DO have ids, exactly as a boolean's carved curves are
-    // (see `bornEdgeIdMap`).
-    const bornEdges = bornEdgeIdMap(
-        shape,
-        completed.outputEdges,
-        completed.outputFaces,
-        tracking.outputFaceIds,
-        (index) => completed.edgeMap[index] < 0,
-    );
-    tracking.outputEdgeIds = mapOperationIds(
-        input,
-        tracking.inputEdgeIds,
-        tool.edgeIds,
-        completed.edgeMap,
-        ShapeTypes.edge,
-        ancestors.edgeAncestors,
-        (index) => bornEdges.get(index),
-    );
 }
 
 registerFeature("extrude", extrudeHandler);

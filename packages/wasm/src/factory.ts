@@ -652,6 +652,13 @@ export class ShapeFactory implements IShapeFactory {
             "Sweep Error",
         );
     }
+    sweepTracked(profile: IShape, path: IWire, isRound: boolean): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.sweepTracked,
+            [ensureOccShape(profile)[0], ensureOccShape(path)[0], true, isRound],
+            "Sweep Error",
+        );
+    }
     revolve(profile: IShape, axis: Line, angle: number): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.revolve,

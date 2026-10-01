@@ -14,25 +14,27 @@ import {
     Matrix4,
     PubSub,
     Result,
+    type ShapeNode,
     type ShapeType,
     ShapeTypes,
     type VisualShapeData,
     VisualStates,
 } from "@chili3d/core";
-import type { IBodyTrackingNode } from "../features/bodyTracking";
-import { matchEdgeIndexes } from "../features/edgeMatcher";
+import { type IBodyTrackingNode, isBodyTrackingNode } from "../features/bodyTracking";
+import { matchEdgeIndexes, matchEdgesAnchored } from "../features/edgeMatcher";
 import { captureEdgeRef, type EdgeRef } from "../features/edgeRef";
 import {
     type ChamferFeatureData,
-    type ExtrudeFeatureData,
     evaluateFeature,
     type FeatureData,
     type FilletFeatureData,
+    type SweepFeatureData,
 } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, profileEntitiesOf, sketchProfiles } from "../features/profileBuilder";
 import { matchProfileIndexes } from "../features/profileMatcher";
 import { captureProfileRef, type ProfileRef } from "../features/profileRef";
+import { idIsShared } from "../features/trackedId";
 import type { SketchNode } from "../sketch/sketchNode";
 
 /**
@@ -306,20 +308,26 @@ export class EdgeReselectSession {
 }
 
 /**
- * Re-picks the profiles of an extrude feature and returns the replacement refs, or
- * undefined when the user cancels. An empty confirmation means "extrude every profile",
- * which the caller stores as no `profiles` at all.
+ * Re-picks the profiles of an extrude or sweep feature and returns the replacement
+ * refs, or undefined when the user cancels. An empty confirmation means "use every
+ * profile", which the caller stores as no `profiles` at all.
  *
  * No rollback is needed here — unlike edge features, the picked faces live on the
  * sketch, whose shape does not depend on this feature. Every selection change rebuilds
  * the body with the currently selected faces (history disabled), so the result previews
  * live; the original list is restored in `finally`.
  */
+/**
+ * The profile-carrying slice of an extrude or sweep feature — what a profile re-pick
+ * identifies (`id`) and reads/previews (`profiles`).
+ */
+type ProfilePickFeature = { readonly id: string; readonly profiles?: ProfileRef[] };
+
 export class ProfileReselectSession {
     constructor(private readonly host: ReselectHost) {}
 
     async pick(
-        feature: ExtrudeFeatureData,
+        feature: ProfilePickFeature,
         sketch: SketchNode,
         controller: AsyncController,
     ): Promise<ProfileRef[] | undefined> {
@@ -348,7 +356,7 @@ export class ProfileReselectSession {
      * profiles. An empty selection previews the whole sketch, matching what an empty
      * confirmation commits.
      */
-    private preview(feature: ExtrudeFeatureData, sketch: SketchNode, selected: VisualShapeData[]): void {
+    private preview(feature: ProfilePickFeature, sketch: SketchNode, selected: VisualShapeData[]): void {
         const faces = selected.filter((x) => x.owner.node === sketch);
         const profiles =
             faces.length > 0 ? faces.map((x) => captureProfileRef(x.shape as unknown as IFace)) : undefined;
@@ -359,7 +367,7 @@ export class ProfileReselectSession {
     }
 
     /** Selects the profiles the feature currently references so the pick starts from them. */
-    private preselect(feature: ExtrudeFeatureData, sketch: SketchNode): void {
+    private preselect(feature: ProfilePickFeature, sketch: SketchNode): void {
         if (feature.profiles === undefined || feature.profiles.length === 0) return;
         const profiles = sketchProfiles(sketch);
         if (!profiles.isOk) return;
@@ -384,6 +392,99 @@ export class ProfileReselectSession {
         }));
         this.host.document.selection.setSelectedShapes(picked, VisualStates.faceSelected, false);
     }
+}
+
+/**
+ * Re-picks the path edges of a sweep feature and returns the replacement refs, or
+ * undefined when the user cancels or picks nothing (a sweep cannot have an empty path,
+ * so an empty confirmation cancels with a toast).
+ *
+ * No rollback, same reason as the profile session: the picked edges live on the path
+ * NODE, whose shape does not depend on this feature. Every selection change rebuilds
+ * the body with the currently selected edges as the path, so the result previews live;
+ * the original feature list is restored in `teardown`.
+ */
+export class PathReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        feature: SweepFeatureData,
+        pathNode: ShapeNode,
+        controller: AsyncController,
+    ): Promise<EdgeRef[] | undefined> {
+        const original = this.host.features;
+        return runReselectSession(this.host, controller, {
+            prompt: "prompt.select.path",
+            shapeType: ShapeTypes.edge,
+            targetNode: pathNode,
+            emptyIsCancel: true,
+            onEmptyPick: () => PubSub.default.pub("showToast", "toast.select.noSelected"),
+            preview: (selected) => this.preview(feature, pathNode, selected),
+            // Ahead of the preview subscription: preselecting here must not fire a
+            // preview of the path it just selected.
+            setup: () => {
+                this.host.document.visual.update();
+                this.preselect(feature, pathNode);
+            },
+            capture: (picked) => picked.map((x) => this.captureRef(pathNode, x)),
+            teardown: () => this.host.setFeaturesEmitShapeChanged(original),
+        });
+    }
+
+    /** The ref of one picked path edge, carrying the path node's tracked id when it has one. */
+    private captureRef(pathNode: ShapeNode, picked: VisualShapeData): EdgeRef {
+        const edge = picked.shape as unknown as IEdge;
+        if (!isBodyTrackingNode(pathNode)) return captureEdgeRef(edge);
+        const edgeId = pathNode.edgeIdAt(picked.indexes[0]);
+        return captureEdgeRef(edge, edgeId, idIsShared(allEdgeIds(pathNode), edgeId));
+    }
+
+    /**
+     * Live preview while re-picking: rebuilds with the selected edges as the feature's
+     * path. An empty selection is no path at all — the last valid preview stays until
+     * the teardown restores the original.
+     */
+    private preview(feature: SweepFeatureData, pathNode: ShapeNode, selected: VisualShapeData[]): void {
+        const edges = selected
+            .filter((x) => x.owner.node === pathNode && x.shape.shapeType === ShapeTypes.edge)
+            .map((x) => this.captureRef(pathNode, x));
+        if (edges.length === 0) return;
+        this.host.setFeaturesEmitShapeChanged(
+            this.host.features.map((x) =>
+                x.id === feature.id && x.type === "sweep" ? { ...x, path: { ...x.path, edges } } : x,
+            ),
+        );
+        this.host.document.visual.update();
+    }
+
+    /** Selects the edges the feature's path currently references so the pick starts from them. */
+    private preselect(feature: SweepFeatureData, pathNode: ShapeNode): void {
+        if (!pathNode.shape.isOk) return;
+        const shape = pathNode.shape.value;
+        // A failed match is a common reason to re-pick; then there is nothing to preselect.
+        const matched = matchEdgesAnchored(shape, feature.path.edges, allEdgeIds(pathNode));
+        if (!matched.isOk) return;
+        // Mesh ranges enumerate edges in the same order as findSubShapes (both use
+        // TopExp::MapShapes), so a matched position indexes into the ranges directly.
+        const ranges = shape.mesh.edges?.range;
+        if (ranges === undefined) return;
+        const owner = this.host.document.visual.context.getVisual(pathNode) as INodeVisual | undefined;
+        if (owner === undefined) return;
+        const picked: VisualShapeData[] = matched.value.indexes.map((index) => ({
+            owner,
+            shape: ranges[index].shape,
+            transform: owner.worldTransform(),
+            indexes: [index],
+        }));
+        this.host.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
+    }
+}
+
+/** The path node's per-edge tracked ids (findSubShapes order); empty when it does not track. */
+function allEdgeIds(pathNode: ShapeNode): (string | undefined)[] {
+    if (!isBodyTrackingNode(pathNode) || !pathNode.shape.isOk) return [];
+    const edges = pathNode.shape.value.findSubShapes(ShapeTypes.edge);
+    return edges.map((_, index) => pathNode.edgeIdAt(index));
 }
 
 /**

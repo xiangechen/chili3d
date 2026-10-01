@@ -25,7 +25,7 @@ import {
     Transaction,
 } from "@chili3d/core";
 import { ReselectFeatureCommand } from "./commands/reselectCommand";
-import { EdgeReselectSession, ProfileReselectSession } from "./commands/reselectSession";
+import { EdgeReselectSession, PathReselectSession, ProfileReselectSession } from "./commands/reselectSession";
 import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
 import {
     BodyTimeline,
@@ -40,7 +40,7 @@ import {
 } from "./features/bodyTracking";
 import type { EdgeRef } from "./features/edgeRef";
 import { findSketch } from "./features/extrude";
-import type { BooleanFeatureData, ExtrudeFeatureData } from "./features/feature";
+import type { BooleanFeatureData, ExtrudeFeatureData, SweepFeatureData } from "./features/feature";
 import type { ProfileRef } from "./features/profileRef";
 import { syncNodeWatches } from "./nodeWatch";
 import { danglingProfileRefs, SketchNode } from "./sketch/sketchNode";
@@ -377,11 +377,11 @@ export class ParametricBodyNode
 
     /**
      * Re-picks the shapes a feature references and replaces its stored refs — edges of
-     * a fillet/chamfer, profiles of an extrude. The pick runs as a
-     * `ReselectFeatureCommand` registered as the application's executing command, so
-     * starting any other command mid-pick cancels this session through the command
-     * service's normal lifecycle — its cleanup (restoring the rollback preview and
-     * re-enabling the history) always completes before the new command runs.
+     * a fillet/chamfer, profiles of an extrude, profiles and path of a sweep. The pick
+     * runs as a `ReselectFeatureCommand` registered as the application's executing
+     * command, so starting any other command mid-pick cancels this session through the
+     * command service's normal lifecycle — its cleanup (restoring the rollback preview
+     * and re-enabling the history) always completes before the new command runs.
      */
     async reselectShapes(featureId: string): Promise<void> {
         await ReselectFeatureCommand.start(this, featureId);
@@ -400,6 +400,7 @@ export class ParametricBodyNode
         const featureIndex = this.features.findIndex((x) => x.id === featureId);
         const feature = this.features[featureIndex];
         if (feature?.type === "extrude") return this.reselectProfiles(feature, controller);
+        if (feature?.type === "sweep") return this.reselectSweepRefs(feature, controller);
         if (feature?.type !== "fillet" && feature?.type !== "chamfer") return;
 
         const edges = await new EdgeReselectSession(this).pick(feature, featureIndex, controller);
@@ -431,6 +432,51 @@ export class ParametricBodyNode
                 x.id === feature.id ? { ...x, profiles: profiles.length > 0 ? profiles : undefined } : x,
             );
             this.setFeaturesEmitShapeChanged(features);
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a sweep feature's references: the sketch profiles first, then the path
+     * edges on the path node — two sequential picks in one command. Cancelling either
+     * discards BOTH (each session's teardown has already restored its own preview), so
+     * the feature never keeps a half-updated pair. A missing sketch or path node skips
+     * just that pick; the confirmed parts transact as one undo step. Body-face sweeps
+     * (`source`) re-match by fingerprint, so only sketch profiles can be re-picked
+     * (the extrude re-pick's contract).
+     */
+    private async reselectSweepRefs(feature: SweepFeatureData, controller: AsyncController): Promise<void> {
+        const sketch =
+            feature.sketchId === undefined ? undefined : findSketch(this.document, feature.sketchId);
+        const pathNode = this.document.modelManager.findNode((n) => n.id === feature.path.nodeId);
+
+        let profiles: ProfileRef[] | undefined;
+        if (sketch !== undefined) {
+            const picked = await new ProfileReselectSession(this).pick(feature, sketch, controller);
+            if (picked === undefined) return;
+            profiles = picked;
+        }
+        let edges: EdgeRef[] | undefined;
+        if (pathNode instanceof ShapeNode) {
+            const picked = await new PathReselectSession(this).pick(feature, pathNode, controller);
+            if (picked === undefined) return;
+            edges = picked;
+        }
+        if (profiles === undefined && edges === undefined) return;
+
+        Transaction.execute(this.document, "reselect sweep references", () => {
+            const features = this.features.map((x) => {
+                if (x.id !== feature.id || x.type !== "sweep") return x;
+                return {
+                    ...x,
+                    ...(profiles === undefined
+                        ? {}
+                        : { profiles: profiles.length > 0 ? profiles : undefined }),
+                    ...(edges === undefined ? {} : { path: { ...x.path, edges } }),
+                };
+            });
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
             this.document.visual.update();
         });
     }

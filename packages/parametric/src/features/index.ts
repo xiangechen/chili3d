@@ -21,6 +21,7 @@ export * from "./profileSeeds";
 export * from "./refGeometry";
 export * from "./revolve";
 export * from "./sourceFaceMatcher";
+export * from "./sweep";
 export * from "./sweepGeometry";
 export * from "./trackedId";
 export * from "./vertexRef";
