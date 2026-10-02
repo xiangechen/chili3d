@@ -98,7 +98,7 @@ function mockShapeFactory() {
                     isEqual: () => false,
                     dispose: () => {},
                     findSubShapes: () => [],
-                    // The join/cut target probe reads this (see `findIntersectingBody`).
+                    // The join/cut target probe reads this (see `findIntersectingBodies`).
                     boundingBox: () => BoundingBox.zero,
                 }),
             booleanFuse: (_a: any[], _b: any[], _simplify: boolean) => Result.ok(solid()),

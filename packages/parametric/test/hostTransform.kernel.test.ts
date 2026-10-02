@@ -4,9 +4,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BoundingBox, type IFace, Matrix4, Plane, ShapeTypes, XYZ } from "@chili3d/core";
+import { BoundingBox, type IEdge, type IFace, Matrix4, Plane, ShapeTypes, XYZ } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
+import { captureEdgeRef, type EdgeRef } from "../src/features/edgeRef";
 import { allProfiles, sketchProfiles } from "../src/features/profileBuilder";
 import { captureProfileRef } from "../src/features/profileRef";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
@@ -85,6 +86,24 @@ function box(doc: TestDocument): ParametricBodyNode {
 
 function worldBox(body: ParametricBodyNode): BoundingBox {
     return BoundingBox.transformed(body.shape.unchecked()!.boundingBox(), body.worldTransform());
+}
+
+/** The path edge ref, captured off the node's own (local) shape, exactly as the command does. */
+function edgeRefAt(
+    node: ParametricBodyNode,
+    a: [number, number, number],
+    b: [number, number, number],
+): EdgeRef {
+    const edges = node.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const near = (p: XYZ, q: [number, number, number]) =>
+        Math.hypot(p.x - q[0], p.y - q[1], p.z - q[2]) < 1e-6;
+    const index = edges.findIndex((edge) => {
+        const ends = [edge.startPoint(), edge.endPoint()];
+        return ends.some((p) => near(p, a)) && ends.some((p) => near(p, b));
+    });
+    expect(index).toBeGreaterThanOrEqual(0);
+    const edgeId = node.edgeIdAt(index);
+    return captureEdgeRef(edges[index], edgeId, node.edgeIdIsShared(edgeId));
 }
 
 const errors = (body: ParametricBodyNode) => body.featureItems().map((x) => x.error);
@@ -200,5 +219,62 @@ describe("a feature joining into a transformed body (real kernel)", () => {
         expect(result.min.x).toBeCloseTo(80, 1);
         expect(result.max.x).toBeCloseTo(120, 1);
         expect(result.max.z).toBeCloseTo(60, 1);
+    });
+
+    test("a sweep join is placed where its profile is, not where the host's local space is", () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        doc.visual = createMockVisualWithDocument(doc) as any;
+        const body = box(doc);
+        body.transform = Matrix4.fromTranslation(100, 0, 0);
+
+        // The spine: a second box in the same place, its top edge running along +X at
+        // world y=15, z=40 — across the moved box's top face (world x ∈ [80,120], z=40).
+        const spineSketch = new SketchNode({
+            document: doc,
+            id: "sk2",
+            plane: Plane.XY,
+            data: square(30),
+        });
+        doc.modelManager.addNode(spineSketch);
+        const spine = new ParametricBodyNode({
+            document: doc,
+            id: "b2",
+            features: [{ id: "e2", type: "extrude", sketchId: spineSketch.id, depth: 40 }],
+        });
+        doc.modelManager.addNode(spine);
+        spine.transform = Matrix4.fromTranslation(100, 0, 0);
+        expect(spine.shape.isOk).toBe(true);
+
+        // A 20×20 section at the spine's start (world 85,15,40), normal along it.
+        const profile = new SketchNode({
+            document: doc,
+            id: "sk3",
+            plane: new Plane({
+                origin: new XYZ({ x: 85, y: 15, z: 40 }),
+                normal: XYZ.unitX,
+                xvec: XYZ.unitY,
+            }),
+            data: square(20),
+        });
+        doc.modelManager.addNode(profile);
+
+        body.setFeaturesEmitShapeChanged([
+            ...body.features,
+            {
+                id: "s1",
+                type: "sweep",
+                sketchId: profile.id,
+                operation: "fuse",
+                path: { nodeId: spine.id, edges: [edgeRefAt(spine, [-15, 15, 40], [15, 15, 40])] },
+            },
+        ]);
+
+        expect(errors(body)).toEqual([undefined, undefined]);
+        // The swept prism rides the box's top face: it stays inside the box's world span in
+        // x, and lifts the box by the section's own half-height above z=40.
+        const result = worldBox(body);
+        expect(result.min.x).toBeCloseTo(80, 1);
+        expect(result.max.x).toBeCloseTo(120, 1);
+        expect(result.max.z).toBeCloseTo(50, 1);
     });
 });

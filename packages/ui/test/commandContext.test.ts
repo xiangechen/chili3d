@@ -1,16 +1,23 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { AsyncController, I18nKeys, Locale, ParameterValue } from "@chili3d/core";
 import {
+    type AsyncController,
+    AUTO_TARGETS,
     Combobox,
     CommandStore,
     I18n,
+    type I18nKeys,
+    type ITargetProvider,
     LENGTH_UNITS,
+    type Locale,
     Observable,
+    type ParameterValue,
     PropertyUtils,
     PubSub,
     property,
+    type TargetCandidate,
+    type TargetSelection,
 } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
 import { afterEach, beforeEach, describe, expect, rs, test } from "@rstest/core";
@@ -40,12 +47,14 @@ import "./_helpers/mockElement";
 
 import { CommandContext } from "../src/ribbon/commandContext";
 import { mustQuery } from "./_helpers/domHelpers";
+import type { MockTargetList } from "./_helpers/elementMocks";
 
 const CMD_KEY = "test.context.command";
 const CANCEL_CMD_KEY = "test.context.cancelable";
 const MATERIAL_CMD_KEY = "test.context.material";
 const LENGTH_CMD_KEY = "test.context.length";
 const FONT_CMD_KEY = "test.context.font";
+const TARGETS_CMD_KEY = "test.context.targets";
 
 class TestCommand extends Observable {
     async execute() {}
@@ -166,6 +175,39 @@ function findInput(ctx: CommandContext, type: string): HTMLInputElement {
     return mustQuery(ctx, `input[type='${type}']`);
 }
 
+/** A command that offers the bodies a boolean can combine with, as the real ones do. */
+class TargetsCommand extends Observable implements ITargetProvider {
+    async execute() {}
+
+    @property("option.command.targets" as I18nKeys, { type: "targets" })
+    get targets(): TargetSelection {
+        return this.getPrivateValue("targets", AUTO_TARGETS);
+    }
+    set targets(value: TargetSelection) {
+        this.setProperty("targets", value);
+    }
+
+    targetCandidates(): readonly TargetCandidate[] {
+        return [
+            { id: "b1", label: "Body 1" },
+            { id: "b2", label: "Body 2" },
+        ];
+    }
+
+    setTargets(selection: TargetSelection): void {
+        this.targets = selection;
+    }
+
+    /** A second option, to show the control hears about its own property and no other. */
+    @property("test.flag" as I18nKeys)
+    get flag() {
+        return this.getPrivateValue("flag", false);
+    }
+    set flag(value: boolean) {
+        this.setProperty("flag", value);
+    }
+}
+
 describe("CommandContext", () => {
     let contexts: CommandContext[];
 
@@ -176,6 +218,7 @@ describe("CommandContext", () => {
         CommandStore.registerCommand(MaterialCommand, { key: MATERIAL_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(FontCommand, { key: FONT_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(LengthCommand, { key: LENGTH_CMD_KEY, icon: "icon-ctx" });
+        CommandStore.registerCommand(TargetsCommand, { key: TARGETS_CMD_KEY, icon: "icon-ctx" });
         // I18n.isI18nKey (used by the combobox editor) reads the zh-CN translation table
         I18n.addLanguage({ display: "zh", language: "zh-CN", translation: {} as Locale["translation"] });
     });
@@ -190,6 +233,7 @@ describe("CommandContext", () => {
         CommandStore.unregisterCommand(MATERIAL_CMD_KEY);
         CommandStore.unregisterCommand(FONT_CMD_KEY);
         CommandStore.unregisterCommand(LENGTH_CMD_KEY);
+        CommandStore.unregisterCommand(TARGETS_CMD_KEY);
         I18n.removeLanguage("zh-CN");
     });
 
@@ -487,6 +531,69 @@ describe("CommandContext", () => {
 
             PubSub.default.pub("clearConfirmControl");
             expect(ctx.querySelector(".cc-selection-control")).toBeNull();
+        });
+    });
+
+    describe("target list", () => {
+        // The rendering itself is the control's own business (see the element package); what
+        // this panel owes it is the source it reads and writes through.
+        function control(ctx: CommandContext, command: TargetsCommand) {
+            document.body.appendChild(ctx);
+            const list = mustQuery(ctx, "chili-mock-target-list") as unknown as MockTargetList;
+            return {
+                list,
+                candidates: list.source.candidates(),
+                selected: () => list.source.selected() as TargetSelection,
+                select: (value: TargetSelection) => list.source.setSelection(value),
+                subscribe: (handler: () => void) => list.source.subscribe(handler),
+                command,
+            };
+        }
+
+        test("hands the control the command's bodies and its current selection", () => {
+            const command = new TargetsCommand();
+            const ctx = track(new CommandContext(command));
+            const { candidates, selected, list } = control(ctx, command);
+
+            expect(list.header).toBe("option.command.targets");
+            expect(candidates.map((x) => x.id)).toEqual(["b1", "b2"]);
+            expect(selected()).toBe(AUTO_TARGETS);
+        });
+
+        test("writes what the control selects back to the command", () => {
+            const command = new TargetsCommand();
+            const ctx = track(new CommandContext(command));
+            const { select } = control(ctx, command);
+
+            select({ auto: false, ids: ["b2"] });
+
+            expect(command.targets).toEqual({ auto: false, ids: ["b2"] });
+        });
+
+        test("tells the control when the command's own detection moved the set", () => {
+            const command = new TargetsCommand();
+            const ctx = track(new CommandContext(command));
+            const { subscribe } = control(ctx, command);
+            const redrawn = rs.fn();
+            subscribe(redrawn);
+
+            // The detection fills the set after the picks, long after this panel was built:
+            // nothing rebuilds the panel, so the control has to hear about it.
+            command.targets = { auto: false, ids: ["b1"] };
+
+            expect(redrawn).toHaveBeenCalledTimes(1);
+        });
+
+        test("listens only to its own property", () => {
+            const command = new TargetsCommand();
+            const ctx = track(new CommandContext(command));
+            const { subscribe } = control(ctx, command);
+            const redrawn = rs.fn();
+            subscribe(redrawn);
+
+            command.flag = !command.flag;
+
+            expect(redrawn).not.toHaveBeenCalled();
         });
     });
 

@@ -3,6 +3,7 @@
 
 import {
     type AsyncController,
+    AUTO_TARGETS,
     BoundingBox,
     Combobox,
     command,
@@ -26,6 +27,8 @@ import {
     ShapeTypes,
     ShapeTypeUtils,
     type SnapResult,
+    type TargetCandidate,
+    type TargetSelection,
     Transaction,
     type VisualShapeData,
     type XYZ,
@@ -37,6 +40,15 @@ import { captureProfileRef } from "../features/profileRef";
 import { fuseProfiles } from "../features/sweepGeometry";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
+import { buildTargetPreview, worldShape } from "./booleanPreview";
+import {
+    candidateBodies,
+    commitBooleanTargets,
+    resolveTargetBodies,
+    standaloneBody,
+    syncAutoTargets,
+    targetCandidate,
+} from "./booleanTargets";
 import {
     type ExtrudeDragHandler,
     type ExtrudeDragState,
@@ -45,7 +57,6 @@ import {
     planeOfPickedFace,
     SELECTED_PROFILE_STATE,
 } from "./extrudeDragStep";
-import { findIntersectingBody } from "./intersectingBody";
 import { prioritizeSketchFaces } from "./profileFaceSort";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
@@ -198,7 +209,76 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     }
     set operation(value: I18nKeys) {
         this.setProperty("operation", value);
+        this.showTargets = value !== OPERATION_NEW;
         this._dragHandler?.refresh();
+    }
+
+    /**
+     * Which bodies the join/cut/intersect combines with. The set is the command's, and the
+     * detection fills it while it is still on auto — see `applyAutoTargets`.
+     */
+    @property("option.command.targets", {
+        type: "targets",
+        dependencies: [{ property: "showTargets", value: true }],
+    })
+    get targets(): TargetSelection {
+        return this.getPrivateValue("targets", AUTO_TARGETS);
+    }
+    set targets(value: TargetSelection) {
+        this.setProperty("targets", value);
+    }
+
+    /** The list only means something once an operation gives the feature a body to combine with. */
+    get showTargets(): boolean {
+        return this.getPrivateValue("showTargets", this.operation !== OPERATION_NEW);
+    }
+    set showTargets(value: boolean) {
+        this.setProperty("showTargets", value);
+    }
+
+    targetCandidates(): readonly TargetCandidate[] {
+        return candidateBodies(this.document).map(targetCandidate);
+    }
+
+    setTargets(selection: TargetSelection): void {
+        this.targets = selection;
+        this._dragHandler?.refresh();
+    }
+
+    /**
+     * The detection's write path. It goes around the setter because the write is a
+     * consequence of the preview it happens inside, not a request for another one — but the
+     * property event still goes out, and that is what redraws the checkbox list.
+     */
+    private applyAutoTargets(selection: TargetSelection): void {
+        const previous = this.targets;
+        this.setPrivateValue("targets", selection);
+        this.emitPropertyChanged("targets", previous);
+    }
+
+    /** The bodies this run combines with, refreshing the auto set from the tool's box first. */
+    private resolveTargets(box: BoundingBox | undefined): ParametricBodyNode[] {
+        if (box !== undefined) {
+            syncAutoTargets(this.document, box, this.targets, (next) => this.applyAutoTargets(next));
+        }
+        return resolveTargetBodies(this.document, box, this.targets);
+    }
+
+    private commitToTargets(
+        feature: ExtrudeFeatureData,
+        operation: BooleanOperation,
+        box: BoundingBox | undefined,
+    ): void {
+        commitBooleanTargets(this.document, feature, operation, this.resolveTargets(box));
+    }
+
+    protected override beforeExecute(): void {
+        super.beforeExecute();
+        // The panel is up by now (the base publishes it) and its list is subscribed, so this
+        // both starts the run on auto-detection and repaints the boxes. The option cache keys
+        // on the property name alone, so a set left over from an earlier run must not decide
+        // this one.
+        this.targets = AUTO_TARGETS;
     }
 
     @property("option.command.symmetric")
@@ -319,51 +399,36 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             const offsetOf = this.offsetVectorOf(state.node, state.normal);
             const merged = ExtrudeFeatureCommand.buildPrisms(faces, vecsOf, offsetOf);
             if (!merged.isOk) throw merged.error;
-            const preview = this.applyOperationPreview(merged.value);
-            const { faces: faceMesh, edges } = preview.shape.mesh;
-            preview.shape.dispose();
-            if (faceMesh === undefined) throw new Error("Failed to mesh the extrude preview");
-            return {
-                meshes: edges === undefined ? [faceMesh] : [faceMesh, edges],
-                hide: preview.target === undefined ? undefined : [preview.target],
-            };
+            return this.previewOperation(merged.value);
         } finally {
             owned.forEach((x) => x.dispose());
         }
     };
 
     /**
-     * Applies the operation's boolean to the preview prism: join/cut/intersect against
-     * the intersecting target body, which the result stands in for — the same `target`
-     * the commit appends the feature to, so the preview and the committed body agree on
-     * what is being modified. "new", or no intersecting target, keeps the prism. The
-     * returned shape is owned by the caller.
+     * The prism on its own, or — when an operation is set and bodies are in the way — what
+     * that operation makes of each of them, standing in for the bodies it rewrites. The
+     * targets are the ones the commit appends the feature to, so the preview and the
+     * committed bodies agree on what is being modified.
      */
-    private applyOperationPreview(prism: IShape): { shape: IShape; target?: ParametricBodyNode } {
+    private previewOperation(prism: IShape): ExtrudePreview {
         const operation = EXTRUDE_OPERATIONS[this.operation];
-        if (operation === undefined) return { shape: prism };
-        const target = findIntersectingBody(this.document, prism.boundingBox());
-        if (target === undefined) return { shape: prism };
-        const result = this.booleanPreview(operation, target, prism);
-        if (!result.isOk) return { shape: prism };
+        if (operation === undefined) return ExtrudeFeatureCommand.prismPreview(prism);
+
+        const targets = this.resolveTargets(prism.boundingBox());
+        if (targets.length === 0) return ExtrudeFeatureCommand.prismPreview(prism);
+
+        const preview = buildTargetPreview(operation, prism, targets);
         prism.dispose();
-        return { shape: result.value, target };
+        return { meshes: preview.meshes, hide: preview.hidden };
     }
 
-    /** The boolean of the preview prism against the target body's current shape. */
-    private booleanPreview(
-        operation: BooleanOperation,
-        target: ParametricBodyNode,
-        prism: IShape,
-    ): Result<IShape> {
-        switch (operation) {
-            case "cut":
-                return shapeFactory.booleanCut([target.shape.value], [prism]);
-            case "common":
-                return shapeFactory.booleanCommon([target.shape.value], [prism]);
-            default:
-                return shapeFactory.booleanFuse([target.shape.value], [prism], true);
-        }
+    /** The prism's own mesh — what the drag shows when there is no boolean to show. */
+    private static prismPreview(prism: IShape): ExtrudePreview {
+        const { faces, edges } = prism.mesh;
+        prism.dispose();
+        if (faces === undefined) throw new Error("Failed to mesh the extrude preview");
+        return { meshes: edges === undefined ? [faces] : [faces, edges] };
     }
 
     /** Faces to preview: the picked faces in world coordinates, or the whole sketch's outer profiles. */
@@ -396,16 +461,9 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
             : (face) => face.normal(0, 0)[1].multiply(this.startOffsetValue);
     }
 
-    /**
-     * The picked face in world coordinates; identity transforms reuse the raw shape,
-     * transformed copies are pushed to `owned` for the caller to dispose.
-     */
+    /** A picked face in world coordinates (see the shared `worldShape`). */
     private static worldFace(data: VisualShapeData, owned: IFace[]): IFace {
-        const face = data.shape as unknown as IFace;
-        if (data.transform.equals(Matrix4.identity())) return face;
-        const world = face.transformedMul(data.transform) as IFace;
-        owned.push(world);
-        return world;
+        return worldShape(data.shape as unknown as IFace, data.transform, owned);
     }
 
     /**
@@ -523,9 +581,9 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
     }
 
     /**
-     * Join/cut/intersect: the feature is appended to the auto-detected intersecting
-     * body and combines with its shape (Fusion-style); without an intersection (or for
-     * "new") the extrude becomes a standalone body.
+     * Join/cut/intersect: the feature is appended to every body the scope names and combines
+     * with each one's shape (Fusion-style); without a body to combine with (or for "new")
+     * the extrude becomes a standalone body.
      */
     private commitFeature(
         node: SketchNode | ParametricBodyNode,
@@ -535,28 +593,23 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         worldFaces: IFace[],
     ): void {
         const operation = EXTRUDE_OPERATIONS[this.operation];
-        const target =
-            operation === undefined ? undefined : this.findTargetBody(node, depth, normal, worldFaces);
-        if (operation !== undefined && target !== undefined) {
-            target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
-        } else {
-            this.document.modelManager.addNode(
-                new ParametricBodyNode({ document: this.document, features: [feature] }),
-            );
+        if (operation === undefined) {
+            standaloneBody(this.document, feature);
+            return;
         }
+        this.commitToTargets(feature, operation, this.toolBox(node, depth, normal, worldFaces));
     }
 
     /**
-     * The join/cut/intersect target: the prism is built first to give the shared
-     * detection its box (see `findIntersectingBody`). Undefined when the prism cannot
-     * be built at all, which leaves the feature standalone.
+     * The prism's box, built only to be measured: the detection needs the tool's bounds, and
+     * a tool that cannot be built at all leaves the feature standing on its own.
      */
-    private findTargetBody(
+    private toolBox(
         node: SketchNode | ParametricBodyNode,
         depth: number,
         normal: XYZ,
         worldFaces: IFace[],
-    ): ParametricBodyNode | undefined {
+    ): BoundingBox | undefined {
         let faces = worldFaces;
         if (node instanceof SketchNode && faces.length === 0) {
             const profiles = sketchProfiles(node);
@@ -570,7 +623,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         );
         if (!built.isOk) return undefined;
         try {
-            return findIntersectingBody(this.document, built.value.boundingBox());
+            return built.value.boundingBox();
         } finally {
             built.value.dispose();
         }

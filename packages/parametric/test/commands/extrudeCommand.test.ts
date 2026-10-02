@@ -3,13 +3,16 @@
 
 import {
     AsyncController,
+    AUTO_TARGETS,
     BoundingBox,
+    type IShape,
     type IStep,
     Matrix4,
     Plane,
     Result,
     type ShapeType,
     ShapeTypes,
+    type TargetSelection,
     VisualStates,
     XYZ,
 } from "@chili3d/core";
@@ -463,6 +466,73 @@ describe("ExtrudeFeatureCommand consumption", () => {
         }
     });
 
+    test("a join previews a moved target where the body is, not at its own origin", () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const movedBox = () => new BoundingBox({ x: 100, y: 0, z: 0 }, { x: 102, y: 2, z: 2 });
+        // The prism sits where the moved body is, so the auto-detection pairs the two.
+        const prism = { dispose: rs.fn(), boundingBox: movedBox };
+        const booleanResult = { dispose: rs.fn(), mesh: { faces: faceMesh, edges: undefined } };
+        const fuseFn = rs.fn((_targets: IShape[], _tools: IShape[]) => Result.ok(booleanResult));
+        const restoreFactory = mockShapeFactory({
+            prism: rs.fn(() => Result.ok(prism)),
+            booleanFuse: fuseFn,
+        });
+        try {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            const target = new ParametricBodyNode({ document: doc, features: [] });
+            const local = {
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 2, y: 2, z: 2 }),
+                dispose: rs.fn(),
+            };
+            const world = {
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                boundingBox: movedBox,
+                dispose: rs.fn(),
+            };
+            (local as any).transformedMul = rs.fn(() => world);
+            (target as any)._shape = Result.ok(local);
+            target.transform = Matrix4.fromTranslation(100, 0, 0);
+            doc.modelManager.addNode(target);
+
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.operation = "option.command.operation.join";
+            const state = {
+                dist: 5,
+                normal: XYZ.unitZ,
+                faces: [{ shape: { shapeType: ShapeTypes.face }, transform: Matrix4.identity() }],
+                node: new SketchNode({
+                    document: doc,
+                    plane: Plane.XY,
+                    data: { entities: [], constraints: [] },
+                }),
+            };
+
+            (cmd as any).buildPreview(state);
+
+            // The prism is world-space (see `previewFaces`), so the body it is booleaned
+            // against has to be moved out there too — the commit runs the same boolean in
+            // the body's own space instead, and a rigid transform commutes with it.
+            expect((local as any).transformedMul).toHaveBeenCalledWith(target.transform);
+            expect(fuseFn.mock.calls[0][0]).toEqual([world]);
+            // The moved copy is the preview's, freed once the kernel has read it.
+            expect(world.dispose).toHaveBeenCalled();
+        } finally {
+            restoreFactory();
+        }
+    });
+
     /**
      * Sketch/prism/boolean mocks where every prism carries a bounding box from
      * `boxAt(callIndex)`, so intersection auto-detection can be steered per call.
@@ -594,6 +664,77 @@ describe("ExtrudeFeatureCommand consumption", () => {
             doc.history.undo();
             expect(target.features.length).toBe(1);
             expect(sketch.visible).toBe(true);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    /** A second body sitting exactly where the first one does, so a tool meets both. */
+    function secondTarget(doc: TestDocument, box: BoundingBox) {
+        const body = new ParametricBodyNode({ document: doc, features: [] });
+        (body as any)._shape = Result.ok({
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            dispose: () => {},
+            findSubShapes: () => [],
+            boundingBox: () => box,
+        });
+        doc.modelManager.addNode(body);
+        return body;
+    }
+
+    test("every run starts on auto-detection, whatever the last one left behind", () => {
+        const near = new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 2, y: 2, z: 2 });
+        const { restoreFactory, cmd } = joinScenario(() => near);
+        try {
+            cmd.targets = { auto: false, ids: ["stale"] };
+            const seen: TargetSelection[] = [];
+            cmd.onPropertyChanged((property) => {
+                if (property === "targets") seen.push(cmd.targets);
+            });
+
+            (cmd as any).beforeExecute();
+
+            // The option cache is keyed on the property name alone and all four boolean
+            // commands share it, so a set left over from an earlier run must not decide this
+            // one. The write goes out as a change, which is what repaints the panel's list.
+            expect(cmd.targets).toEqual(AUTO_TARGETS);
+            expect(seen).toEqual([AUTO_TARGETS]);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("join appends the feature to every body the tool meets", () => {
+        const near = new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 2, y: 2, z: 2 });
+        const { restoreFactory, doc, target, cmd } = joinScenario(() => near);
+        const second = secondTarget(doc, near);
+        try {
+            (cmd as any).executeMainTask();
+
+            // Both bodies were in the way, so both get the feature and both combine with it.
+            expect(target.features).toHaveLength(2);
+            expect(second.features).toHaveLength(1);
+            expect(second.features[0]).toMatchObject({ type: "extrude", operation: "fuse" });
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a chosen target replaces what the detection would have picked", () => {
+        const near = new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 2, y: 2, z: 2 });
+        const far = new BoundingBox({ x: 50, y: 0, z: 0 }, { x: 52, y: 2, z: 2 });
+        const { restoreFactory, doc, target, cmd } = joinScenario(() => near);
+        // Out of the tool's way — only the user naming it can bring it in.
+        const named = secondTarget(doc, far);
+        cmd.targets = { auto: false, ids: [named.id] };
+        try {
+            (cmd as any).executeMainTask();
+
+            expect(named.features).toHaveLength(1);
+            expect(named.features[0]).toMatchObject({ operation: "fuse" });
+            // The detecting body is left alone: the choice is the user's.
+            expect(target.features).toHaveLength(1);
         } finally {
             restoreFactory();
         }

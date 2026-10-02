@@ -257,16 +257,23 @@ describe("property", () => {
 
                 @property("material.display" as I18nKeys, { type: "materialId" as const })
                 materialProperty!: string;
+
+                @property("targets.display" as I18nKeys, { type: "targets" as const })
+                targetsProperty!: unknown;
             }
 
             const properties = PropertyUtils.getOwnProperties(TestClass.prototype);
-            expect(properties).toHaveLength(2);
+            expect(properties).toHaveLength(3);
 
             const colorProp = properties.find((p) => p.name === "colorProperty");
             const materialProp = properties.find((p) => p.name === "materialProperty");
+            const targetsProp = properties.find((p) => p.name === "targetsProperty");
 
             expect(colorProp?.type).toBe("color");
             expect(materialProp?.type).toBe("materialId");
+            // The checkbox list of bodies a boolean combines with; an object-valued option
+            // is only renderable when its type names a control.
+            expect(targetsProp?.type).toBe("targets");
         });
     });
 

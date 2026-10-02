@@ -163,14 +163,25 @@ function resolveSweepProfiles(
     if (context.tracking !== undefined && feature.profiles !== undefined && feature.profiles.length > 0) {
         context.tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
     }
-    return Result.ok(profiles.value.map((profile) => sketchSweepProfile(sketch, profile)));
+    return Result.ok(profiles.value.map((profile) => sketchSweepProfile(sketch, profile, context, owned)));
 }
 
-/** A sketch profile, named by its sketch-entity seed (see `profileSeeds.ts`). */
-function sketchSweepProfile(sketch: SketchNode, profile: ResolvedProfile): SweepProfile {
+/**
+ * A sketch profile, named by its sketch-entity seed (see `profileSeeds.ts`). The face is
+ * mapped into the host's space like the path wire and the `source` faces are — the sketch's
+ * own coordinates are world coordinates, and the chain input the sweep combines with lives
+ * in the host's. The seeds keep reading the SKETCH's face: the entity ids are attributes of
+ * it, and the mapped face is a copy that carries none.
+ */
+function sketchSweepProfile(
+    sketch: SketchNode,
+    profile: ResolvedProfile,
+    context: FeatureContext,
+    owned: IShape[],
+): SweepProfile {
     const faceSeed = `sketch:${sketch.id}:${profile.seed}`;
     return {
-        face: profile.face,
+        face: mapToHost(profile.face, sketch, context, owned) as IFace,
         faceSeed,
         edgeSeeds: (edges) => profileEdgeSeeds(profile.face, faceSeed, edges),
         capSeed: `${faceSeed}:cap`,

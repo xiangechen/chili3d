@@ -388,6 +388,8 @@ export default {
         "option.command.repeat": "重复",
         "option.command.startOffset": "起始偏移",
         "option.command.symmetric": "对称",
+        "option.command.targets": "目标实体",
+        "option.command.targets.empty": "没有可组合的实体",
         "option.command.thickness": "厚度",
         "option.command.totalLength": "总长",
         "option.text.placement": "放置方式",

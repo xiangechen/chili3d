@@ -8,3 +8,4 @@ export * from "./commandStore";
 export * from "./decorator";
 export * from "./multistepCommand";
 export * from "./shortcutProfiles";
+export * from "./targets";

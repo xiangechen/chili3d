@@ -393,6 +393,8 @@ export default {
         "option.command.repeat": "Repeat",
         "option.command.startOffset": "Start Offset",
         "option.command.symmetric": "Symmetric",
+        "option.command.targets": "Target bodies",
+        "option.command.targets.empty": "No body to combine with",
         "option.command.thickness": "Thickness",
         "option.command.totalLength": "Total Length",
         "option.text.placement": "Place by",

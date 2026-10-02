@@ -4,12 +4,14 @@
 import {
     type AsyncController,
     BoundingBox,
+    type INode,
     type IShape,
     type IVisual,
     Matrix4,
     Plane,
     PubSub,
     Result,
+    type ShapeMeshData,
     type ShapeType,
     ShapeTypes,
     type VisualShapeData,
@@ -37,6 +39,9 @@ const SQUARE: SketchData = {
 
 /** The box both the section body and the preview loft report, so the join target probe hits. */
 const BODY_BOX = new BoundingBox(XYZ.zero, new XYZ({ x: 10, y: 10, z: 20 }));
+
+/** Distinct from the preview loft's mesh, so a test can tell which shape reached the viewport. */
+const BOOLEAN_PREVIEW_COLOR = 1;
 
 /** A pinched profile section reference, for the `section.profile` assertions. */
 type ProfileSection = { kind: string; nodeId: string; profile: ProfileRef };
@@ -85,7 +90,7 @@ function faceShape(origin: XYZ): FaceStub {
         isEqual: () => false,
     };
     let disposed = false;
-    return {
+    const face: FaceStub = {
         shapeType: ShapeTypes.face,
         get disposed() {
             return disposed;
@@ -94,13 +99,16 @@ function faceShape(origin: XYZ): FaceStub {
         normal: () => [origin, XYZ.unitZ],
         boundingBox: () => new BoundingBox(origin, origin.add(new XYZ({ x: 10, y: 10, z: 0 }))),
         area: () => 100,
-        isEqual: () => false,
+        // One stub is one face, so two picks of the same face report stubs of the same
+        // identity — what the kernel's `IsEqual` answers for the same sub-shape.
+        isEqual: (other: unknown) => other === face,
         dispose: () => {
             disposed = true;
         },
         // The world copy a moved body's pick produces — the command fingerprints this one.
         transformedMul: (matrix: Matrix4) => faceShape(origin.add(matrix.translationPart())),
     };
+    return face;
 }
 
 function facePick(
@@ -126,8 +134,16 @@ function mockShapeFactory() {
     const loft = rs.fn((_sections: any[], _isSolid: boolean, _isRuled: boolean, _continuity: string) =>
         Result.ok(preview),
     );
+    // The operation preview booleans the loft against every target, so the mock needs the
+    // three booleans — the result carries its own mesh, distinct from the loft's.
+    const boolean = () => Result.ok({ ...preview, mesh: { faces: { color: BOOLEAN_PREVIEW_COLOR } } });
     Object.defineProperty(globalThis, "shapeFactory", {
-        value: { loft },
+        value: {
+            loft,
+            booleanFuse: rs.fn(boolean),
+            booleanCut: rs.fn(boolean),
+            booleanCommon: rs.fn(boolean),
+        },
         writable: true,
         configurable: true,
     });
@@ -151,7 +167,7 @@ function trackFaces(body: ParametricBodyNode, faceIds: (string | undefined)[]) {
         isEqual: () => false,
         dispose: () => {},
         findSubShapes: () => [],
-        // The join/cut target probe reads this (see `findIntersectingBody`).
+        // The join/cut target probe reads this (see `findIntersectingBodies`).
         boundingBox: () => BODY_BOX,
     };
     (body as any)._shape = Result.ok(shape);
@@ -229,6 +245,33 @@ describe("LoftFeatureCommand section pick", () => {
             // A click accepts a section, so the pick finishes on click and would show no
             // bar at all — the command asks for one to carry the "done" action.
             expect(options.showConfirmControl).toBe(true);
+        } finally {
+            restore();
+        }
+    });
+});
+
+describe("LoftFeatureCommand duplicate sections", () => {
+    test("picking a section already in the list adds nothing", async () => {
+        const { restore, app, doc, source, cmd, committedFeature } = scenario();
+        const bottom = faceShape(XYZ.zero);
+        const top = faceShape(new XYZ({ x: 0, y: 0, z: 20 }));
+        doc.picker = {
+            pickShape: scriptedPicker([
+                facePick(source, bottom, 0),
+                facePick(source, top, 1),
+                // The same bottom face again: the preview loft has run in between, so what
+                // the command holds for it is no longer what this pick reports.
+                facePick(source, bottom, 0),
+            ]),
+        } as any;
+        try {
+            await cmd.execute(app);
+
+            const feature = committedFeature();
+            expect(feature.sections).toHaveLength(2);
+            expect(profileOf(feature.sections[0]).id).toBe("f:bottom");
+            expect(profileOf(feature.sections[1]).id).toBe("f:top");
         } finally {
             restore();
         }
@@ -519,6 +562,39 @@ describe("LoftFeatureCommand operation", () => {
         try {
             await cmd.execute(app);
             expect(source.features[0]).toMatchObject({ operation: "cut" });
+        } finally {
+            restore();
+        }
+    });
+
+    test("an operation previews the boolean against the body in the way", async () => {
+        const { restore, app, doc, source, cmd } = scenario();
+        const displayMesh = rs.fn((_meshes: ShapeMeshData[]) => 7);
+        const setVisible = rs.fn((_node: INode, _visible: boolean) => {});
+        doc.visual.context.displayMesh = displayMesh;
+        doc.visual.context.setVisible = setVisible;
+        doc.picker = {
+            pickShape: scriptedPicker([
+                () => {
+                    cmd.isSolid = true;
+                    cmd.operation = "option.command.operation.join";
+                },
+                facePick(source, faceShape(XYZ.zero), 0),
+                facePick(source, faceShape(new XYZ({ x: 0, y: 0, z: 20 })), 1),
+            ]),
+        } as any;
+        try {
+            await cmd.execute(app);
+
+            // What reached the viewport includes the boolean's output, not just the bare
+            // loft: the mock gives the two different meshes.
+            const shown = displayMesh.mock.calls.at(-1)![0];
+            expect(shown.some((mesh) => mesh.color === BOOLEAN_PREVIEW_COLOR)).toBe(true);
+            // The body the preview rewrote is put away while it shows, and given back when
+            // the command ends. (The commit hides the consumed sketches through the same
+            // call, hence the filter.)
+            const targetCalls = setVisible.mock.calls.filter((call) => call[0] === source);
+            expect(targetCalls.map((call) => call[1])).toEqual([false, true]);
         } finally {
             restore();
         }

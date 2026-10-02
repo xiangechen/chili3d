@@ -1,0 +1,40 @@
+.summary {
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+/* The panel is one row high and clips its contents, so the list opens in the body instead. */
+.popup {
+    position: fixed;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    max-height: 14em;
+    overflow-y: auto;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background-color: var(--panel-background-color, #ffffff);
+    box-shadow: 0 4px 12px var(--foreground-muted-color, rgba(0, 0, 0, 0.25));
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+
+    input {
+        width: 1.1em;
+        height: 1.1em;
+    }
+
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+.empty {
+    opacity: 0.6;
+}

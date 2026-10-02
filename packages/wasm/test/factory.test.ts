@@ -1250,6 +1250,21 @@ describe("ShapeFactory — loft with edge sections", () => {
         const result = factory.loft([edge, wire], true, false, "c0");
         expect(result.isOk).toBe(true);
     });
+
+    // The sections array is the caller's own state: the loft command keeps its section list
+    // across picks and matches fresh picks against it, so a wire the factory wrapped an edge
+    // in must not end up in it.
+    test("should leave the caller's section array as it was", () => {
+        const edge = factory.circle(XYZ.unitZ, XYZ.zero, 5).value;
+        const c2 = factory.circle(XYZ.unitZ, new XYZ({ x: 0, y: 0, z: 20 }), 8).value;
+        const sections = [edge, factory.wire([c2]).value];
+
+        expect(factory.loft(sections, true, false, "c0").isOk).toBe(true);
+        expect(sections[0]).toBe(edge);
+
+        expect(factory.loftTracked(sections, true, false, "c0").isOk).toBe(true);
+        expect(sections[0]).toBe(edge);
+    });
 });
 
 // ============================================================================

@@ -154,9 +154,35 @@ class MockExpander extends HTMLElement {
     }
 }
 
+/**
+ * Records what the command panel hands the target list, so a test can check the wiring
+ * without the real control — that one is a plain custom element over core types and has its
+ * own home (`packages/element/test/targetList.test.ts`); faking it here would only test the
+ * fake.
+ */
+export interface MockTargetListSource {
+    candidates(): readonly { id: string; label: string }[];
+    selected(): unknown;
+    setSelection(value: unknown): void;
+    subscribe(handler: () => void): () => void;
+}
+
+export class MockTargetList extends HTMLElement {
+    constructor(
+        readonly header: string,
+        readonly source: MockTargetListSource,
+    ) {
+        super();
+    }
+}
+
 // happy-dom rejects `new` on unregistered HTMLElement subclasses ("Illegal constructor").
 if (typeof customElements !== "undefined" && !customElements.get("chili-mock-expander")) {
     customElements.define("chili-mock-expander", MockExpander);
+}
+
+if (typeof customElements !== "undefined" && !customElements.get("chili-mock-target-list")) {
+    customElements.define("chili-mock-target-list", MockTargetList);
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: test mock for collection factory
@@ -208,6 +234,7 @@ export function createElementMocks(options: ElementMockOptions = {}) {
         setSVGIcon: setSVGIconMock,
         collection: createCollection,
         Expander: MockExpander,
+        TargetList: MockTargetList,
         NumberConverter: MockConverter,
         StringConverter: MockConverter,
         XYConverter: MockConverter,

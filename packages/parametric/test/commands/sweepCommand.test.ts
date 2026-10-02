@@ -4,9 +4,12 @@
 import {
     AsyncController,
     BoundingBox,
+    type I18nKeys,
+    type INode,
     Matrix4,
     Plane,
     Result,
+    type ShapeMeshData,
     type ShapeType,
     ShapeTypes,
     XYZ,
@@ -29,8 +32,33 @@ const square: SketchData = {
     constraints: [],
 };
 
+/** The preview meshes the mock hands out, so a test can tell which shape reached the viewport. */
+const TOOL_PREVIEW_COLOR = 0;
+const BOOLEAN_PREVIEW_COLOR = 1;
+
 function mockShapeFactory() {
     const previous = Object.getOwnPropertyDescriptor(globalThis, "shapeFactory");
+    // The profile faces `sketchProfiles` builds — kept, so a test can pin how often the
+    // command asks for them and whether it frees them.
+    const profileFaces: { disposed: boolean; dispose: () => void }[] = [];
+    const face = rs.fn((wires: any[]) => {
+        const built = {
+            shapeType: ShapeTypes.face,
+            matrix: Matrix4.identity(),
+            boundingBox: () => new BoundingBox({ x: 5, y: 0, z: 0 }, { x: 15, y: 10, z: 0 }),
+            area: () => 0,
+            isEqual: () => false,
+            disposed: false,
+            dispose: () => {
+                built.disposed = true;
+            },
+            outerWire: () => wires[0],
+            findSubShapes: (type: ShapeType) =>
+                type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+        };
+        profileFaces.push(built);
+        return Result.ok(built);
+    });
     Object.defineProperty(globalThis, "shapeFactory", {
         value: {
             line: (start: XYZ, end: XYZ) =>
@@ -74,18 +102,7 @@ function mockShapeFactory() {
                     dispose: () => {},
                     findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
                 }),
-            face: (wires: any[]) =>
-                Result.ok({
-                    shapeType: ShapeTypes.face,
-                    matrix: Matrix4.identity(),
-                    boundingBox: () => new BoundingBox({ x: 5, y: 0, z: 0 }, { x: 15, y: 10, z: 0 }),
-                    area: () => 0,
-                    isEqual: () => false,
-                    dispose: () => {},
-                    outerWire: () => wires[0],
-                    findSubShapes: (type: ShapeType) =>
-                        type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
-                }),
+            face,
             sweep: () =>
                 Result.ok({
                     shapeType: ShapeTypes.solid,
@@ -93,17 +110,32 @@ function mockShapeFactory() {
                     dispose: () => {},
                     findSubShapes: () => [],
                     boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 15, y: 10, z: 10 }),
+                    // A solid's own faces — what the preview displays (see `displayVisual`).
+                    mesh: { faces: { color: TOOL_PREVIEW_COLOR } },
+                }),
+            booleanFuse: () =>
+                Result.ok({
+                    shapeType: ShapeTypes.solid,
+                    isEqual: () => false,
+                    dispose: () => {},
+                    findSubShapes: () => [],
+                    boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 15, y: 10, z: 10 }),
+                    mesh: { faces: { color: BOOLEAN_PREVIEW_COLOR } },
                 }),
         },
         writable: true,
         configurable: true,
     });
-    return () => {
-        if (previous) {
-            Object.defineProperty(globalThis, "shapeFactory", previous);
-        } else {
-            delete (globalThis as any).shapeFactory;
-        }
+    return {
+        face,
+        profileFaces,
+        restore: () => {
+            if (previous) {
+                Object.defineProperty(globalThis, "shapeFactory", previous);
+            } else {
+                delete (globalThis as any).shapeFactory;
+            }
+        },
     };
 }
 
@@ -206,12 +238,16 @@ describe("SweepFeatureCommand path step", () => {
         return steps[1];
     }
 
-    test("the path step picks edges with the profile selection cleared", () => {
+    // One edge per click is what leaves room to sweep and show the tool between picks; a
+    // multi pick resolves once, at the end. With no picked-count to report, the bar's
+    // confirm is the only way to end the list.
+    test("the path step picks one edge per click, ended from the viewport bar", () => {
         const step = pathStep() as any;
         expect(step.snapeType).toBe(ShapeTypes.edge);
         expect(step.prompt).toBe("prompt.select.path");
         expect(step.options.keepSelection).toBe(false);
-        expect(step.options.multiple).toBe(true);
+        expect(step.options.multiple).toBe(false);
+        expect(step.options.showConfirmControl).toBe(true);
     });
 
     test("the path step accepts edges of any node, not just the sketch", () => {
@@ -223,7 +259,7 @@ describe("SweepFeatureCommand path step", () => {
 
 describe("SweepFeatureCommand execution", () => {
     function scenario(withProfileFace = true) {
-        const restoreFactory = mockShapeFactory();
+        const { restore: restoreFactory, face, profileFaces } = mockShapeFactory();
         const app = createMockApplication();
         const doc = new TestDocument({ application: app });
         (app as any).activeView = { document: doc };
@@ -248,8 +284,26 @@ describe("SweepFeatureCommand execution", () => {
             },
             { shapes: pathEdges, nodes: [pathNode], type: "shape" },
         ];
-        return { restoreFactory, doc, sketch, pathNode, cmd };
+        return { restoreFactory, doc, sketch, pathNode, cmd, face, profileFaces };
     }
+
+    // The preview asks for the tool again after every path pick, and `sketchProfiles` makes
+    // fresh faces on each call — the whole sketch's profiles are the run's, built once.
+    test("builds the whole sketch's profiles once and frees them with the run", () => {
+        const { restoreFactory, cmd, face, profileFaces } = scenario(false);
+        try {
+            expect((cmd as any).buildToolShape().isOk).toBe(true);
+            expect((cmd as any).buildToolShape().isOk).toBe(true);
+
+            expect(face).toHaveBeenCalledTimes(1);
+            expect(profileFaces[0].disposed).toBe(false);
+
+            (cmd as any).afterExecute();
+            expect(profileFaces[0].disposed).toBe(true);
+        } finally {
+            restoreFactory();
+        }
+    });
 
     test("commits a body whose feature fingerprints the profiles and the path edges", () => {
         const { restoreFactory, doc, sketch, pathNode, cmd } = scenario();
@@ -401,6 +455,156 @@ describe("SweepFeatureCommand execution", () => {
             // Neither the source body nor the swept body is hidden — only sketches are.
             expect(source.visible).toBe(true);
             expect(sketch.visible).toBe(true);
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("SweepFeatureCommand path pick loop", () => {
+    /**
+     * Drives the whole command the way the viewport does: one profile pick, then one path
+     * edge per call, and finally the bar's confirm (an empty pick that reports success) or
+     * its cancel. The options are set on the first call — `beforeExecute` restores the LAST
+     * command's values from the static cache, so setting them up front is overwritten.
+     */
+    function scenario(
+        edgeCount: number,
+        end: "confirm" | "cancel" = "confirm",
+        operation: I18nKeys = "option.command.operation.new",
+        withProfileFace = true,
+    ) {
+        const { restore: restoreFactory, face } = mockShapeFactory();
+        const app = createMockApplication();
+        const doc = new TestDocument({ application: app });
+        (app as any).activeView = { document: doc };
+        doc.selection = {
+            getSelectedShapes: () => [],
+            getSelectedNodes: () => [],
+            clearSelection: () => {},
+        } as any;
+
+        const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: square });
+        doc.modelManager.addNode(sketch);
+        // The path edges come from another node — the path is not restricted to the sketch.
+        const pathNode = new SketchNode({ document: doc, plane: Plane.XY, data: square });
+        doc.modelManager.addNode(pathNode);
+        const edges = Array.from({ length: edgeCount }, (_, i) =>
+            pathEdgeData(
+                pathNode,
+                new XYZ({ x: i * 10, y: 0, z: 0 }),
+                new XYZ({ x: (i + 1) * 10, y: 0, z: 0 }),
+            ),
+        );
+
+        // The preview is the command's own mesh on the viewport's display list.
+        const displayMesh = rs.fn((_meshes: ShapeMeshData[]) => 7);
+        const removeMesh = rs.fn(() => {});
+        const setVisible = rs.fn((_node: INode, _visible: boolean) => {});
+        doc.visual.context.displayMesh = displayMesh;
+        doc.visual.context.removeMesh = removeMesh;
+        doc.visual.context.setVisible = setVisible;
+
+        const cmd = new SweepFeatureCommand();
+        let next = 0;
+        doc.picker = {
+            pickShape: rs.fn((prompt: string, controller: AsyncController) => {
+                if (prompt !== "prompt.select.path") {
+                    cmd.operation = operation;
+                    return Promise.resolve(withProfileFace ? [profileFaceData(sketch)] : []);
+                }
+                const edge = edges[next++];
+                if (edge !== undefined) return Promise.resolve([edge]);
+                if (end === "confirm") controller.success();
+                else controller.cancel();
+                return Promise.resolve([]);
+            }),
+        } as any;
+
+        const committed = () =>
+            doc.modelManager.findNode((node) => node instanceof ParametricBodyNode) as
+                | ParametricBodyNode
+                | undefined;
+        return { restoreFactory, app, doc, cmd, displayMesh, removeMesh, setVisible, face, committed };
+    }
+
+    test("re-sweeps the preview on every path pick, not once at the end", async () => {
+        const { restoreFactory, app, cmd, displayMesh, removeMesh, committed } = scenario(2);
+        try {
+            await cmd.execute(app);
+
+            // One preview per picked edge — the second pick cannot have been the first to
+            // build the tool, since the mock sweep result is only ever displayed.
+            expect(displayMesh).toHaveBeenCalledTimes(2);
+            const feature = committed()!.features[0] as SweepFeatureData;
+            expect(feature.path.edges.length).toBe(2);
+            // The preview is the command's and goes away with it.
+            expect(removeMesh).toHaveBeenCalledTimes(2);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a cancelled path pick takes the preview down and commits nothing", async () => {
+        const { restoreFactory, app, cmd, displayMesh, removeMesh, committed } = scenario(1, "cancel");
+        try {
+            await cmd.execute(app);
+
+            expect(displayMesh).toHaveBeenCalledTimes(1);
+            expect(removeMesh).toHaveBeenCalledTimes(1);
+            expect(committed()).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("confirming with no path edge commits nothing and shows no preview", async () => {
+        const { restoreFactory, app, cmd, displayMesh, removeMesh, committed } = scenario(0);
+        try {
+            await cmd.execute(app);
+
+            expect(displayMesh).not.toHaveBeenCalled();
+            expect(removeMesh).not.toHaveBeenCalled();
+            expect(committed()).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("an operation previews the boolean result and stands in for the target body", async () => {
+        const { restoreFactory, app, doc, cmd, displayMesh, setVisible, committed } = scenario(
+            1,
+            "confirm",
+            "option.command.operation.join",
+        );
+        // A body in the swept tool's way — the box the mock sweep reports.
+        const target = new ParametricBodyNode({ document: doc, features: [] });
+        doc.modelManager.addNode(target);
+        try {
+            await cmd.execute(app);
+
+            // What reached the viewport is the boolean's output, not the bare tool: the mock
+            // gives the two different meshes.
+            expect(displayMesh.mock.calls.at(-1)![0][0].color).toBe(BOOLEAN_PREVIEW_COLOR);
+            // The body it stands in for is put away while it shows, and given back when the
+            // command ends rather than left invisible. (The commit hides the consumed sketch
+            // through the same call, hence the filter.)
+            const targetCalls = setVisible.mock.calls.filter((call) => call[0] === target);
+            expect(targetCalls.map((call) => call[1])).toEqual([false, true]);
+            // The commit lands on the same body the preview stood in for.
+            expect(committed()).toBe(target);
+            expect(target.features[0]).toMatchObject({ type: "sweep", operation: "fuse" });
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("no operation previews the swept tool itself", async () => {
+        const { restoreFactory, app, displayMesh, cmd } = scenario(1);
+        try {
+            await cmd.execute(app);
+
+            expect(displayMesh.mock.calls.at(-1)![0][0].color).toBe(TOOL_PREVIEW_COLOR);
         } finally {
             restoreFactory();
         }

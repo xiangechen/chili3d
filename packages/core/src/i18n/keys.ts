@@ -380,6 +380,8 @@ export const I18N_KEYS = [
     "option.command.repeat",
     "option.command.startOffset",
     "option.command.symmetric",
+    "option.command.targets",
+    "option.command.targets.empty",
     "option.command.thickness",
     "option.command.totalLength",
     "option.rect.centerRect",

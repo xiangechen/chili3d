@@ -15,6 +15,8 @@ import {
     type IDisposable,
     type IDocument,
     isCancelableCommand,
+    isPropertyChanged,
+    isTargetProvider,
     Localize,
     Observable,
     PathBinding,
@@ -38,6 +40,7 @@ import {
     select,
     span,
     svg,
+    TargetList,
     UrlStringConverter,
 } from "@chili3d/element";
 import style from "./commandContext.module.css";
@@ -247,6 +250,8 @@ export class CommandContext extends HTMLElement implements IDisposable {
             return this.materialEditor(g, noType);
         } else if (g.type === "font") {
             return this.fontEditor(g, noType);
+        } else if (g.type === "targets") {
+            return this.newTargets(g, command, noType);
         } else if (g.combobox) {
             return this.newCombobox(g, g.combobox);
         }
@@ -267,6 +272,33 @@ export class CommandContext extends HTMLElement implements IDisposable {
             default:
                 throw new Error("暂不支持的类型");
         }
+    }
+
+    /**
+     * The bodies a join/cut/intersect feature combines with. Unlike every other control here,
+     * this one is not a snapshot: the command fills the set from its own detection once the
+     * picks have given it a tool to measure, which is after this panel was built. So the
+     * control subscribes to the command's own property and redraws itself — the alternative
+     * (rebuilding the whole context) would throw away the live picking with it.
+     */
+    private newTargets(g: Property, command: ICommand, noType: any) {
+        if (!isTargetProvider(command)) {
+            throw new Error("A targets property needs a command that provides its targets");
+        }
+
+        return new TargetList(g.display, {
+            candidates: () => command.targetCandidates(),
+            selected: () => noType[g.name],
+            setSelection: (value) => command.setTargets(value),
+            subscribe: (handler) => {
+                if (!isPropertyChanged(command)) return () => {};
+                const onChanged = (property: string | number | symbol) => {
+                    if (property === g.name) handler();
+                };
+                command.onPropertyChanged(onChanged);
+                return () => command.removePropertyChanged(onChanged);
+            },
+        });
     }
 
     private newCombobox(g: Property, combobox: Combobox<any>) {

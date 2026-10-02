@@ -7,4 +7,5 @@ export * from "./elements";
 export * from "./expander";
 export * from "./htmlProps";
 export * from "./radioGroup";
+export * from "./targetList";
 export * from "./utils";

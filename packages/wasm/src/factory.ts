@@ -195,6 +195,39 @@ function seamError(shape: IShape, edges: readonly number[], operation: string): 
     return undefined;
 }
 
+/**
+ * The loft sections as the kernel takes them: a bare edge is wrapped in its own wire. The
+ * wrappers are handed back alongside the sections instead of being written into the caller's
+ * array — that array is the caller's own state (the loft command keeps its section list and
+ * compares fresh picks against it — see `isDuplicate`), and the wrappers are this call's to
+ * free once the kernel has read them.
+ */
+function wireUpSections(
+    factory: ShapeFactory,
+    sections: readonly (IVertex | IEdge | IWire)[],
+): Result<{ shapes: (IVertex | IEdge | IWire)[]; owned: IWire[] }> {
+    const owned: IWire[] = [];
+    const shapes: (IVertex | IEdge | IWire)[] = [];
+    for (const section of sections) {
+        if (section.shapeType !== ShapeTypes.edge) {
+            shapes.push(section);
+            continue;
+        }
+        const wire = factory.wire([section as IEdge]);
+        if (wire.isOk) {
+            owned.push(wire.value);
+            shapes.push(wire.value);
+            continue;
+        }
+        // The wrappers made so far are already this call's to free, error or not.
+        for (const wrapped of owned) {
+            wrapped.dispose();
+        }
+        return Result.err(wire.error);
+    }
+    return Result.ok({ shapes, owned });
+}
+
 export class ShapeFactory implements IShapeFactory {
     readonly kernelName = "opencascade";
 
@@ -796,17 +829,19 @@ export class ShapeFactory implements IShapeFactory {
         isRuled: boolean,
         continuity: Continuity,
     ): Result<IShape> {
-        for (let i = 0; i < sections.length; i++) {
-            const section = sections[i];
-            if (section.shapeType === ShapeTypes.edge) {
-                sections[i] = this.wire([section as IEdge]).value;
+        const wired = wireUpSections(this, sections);
+        if (!wired.isOk) return Result.err(wired.error);
+        try {
+            return convertShapeResult(
+                wasm.ShapeFactory.loft,
+                [ensureOccShape(wired.value.shapes), isSolid, isRuled, convertFromContinuity(continuity)],
+                "Loft Error",
+            );
+        } finally {
+            for (const wire of wired.value.owned) {
+                wire.dispose();
             }
         }
-        return convertShapeResult(
-            wasm.ShapeFactory.loft,
-            [ensureOccShape(sections), isSolid, isRuled, convertFromContinuity(continuity)],
-            "Loft Error",
-        );
     }
     loftTracked(
         sections: (IVertex | IEdge | IWire)[],
@@ -814,17 +849,19 @@ export class ShapeFactory implements IShapeFactory {
         isRuled: boolean,
         continuity: Continuity,
     ): Result<TrackedShape> {
-        for (let i = 0; i < sections.length; i++) {
-            const section = sections[i];
-            if (section.shapeType === ShapeTypes.edge) {
-                sections[i] = this.wire([section as IEdge]).value;
+        const wired = wireUpSections(this, sections);
+        if (!wired.isOk) return Result.err(wired.error);
+        try {
+            return convertTrackedShapeResult(
+                wasm.ShapeFactory.loftTracked,
+                [ensureOccShape(wired.value.shapes), isSolid, isRuled, convertFromContinuity(continuity)],
+                "Loft Error",
+            );
+        } finally {
+            for (const wire of wired.value.owned) {
+                wire.dispose();
             }
         }
-        return convertTrackedShapeResult(
-            wasm.ShapeFactory.loftTracked,
-            [ensureOccShape(sections), isSolid, isRuled, convertFromContinuity(continuity)],
-            "Loft Error",
-        );
     }
     curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape> {
         return convertShapeResult(

@@ -3,6 +3,7 @@
 
 import {
     ANGLE_UNITS,
+    AUTO_TARGETS,
     BoundingBox,
     Combobox,
     CurveUtils,
@@ -23,6 +24,8 @@ import {
     SelectShapeStep,
     ShapeNode,
     ShapeTypes,
+    type TargetCandidate,
+    type TargetSelection,
     Transaction,
     VisualStates,
 } from "@chili3d/core";
@@ -30,10 +33,17 @@ import { captureEdgeRef } from "../features/edgeRef";
 import type { BooleanOperation, RevolveFeatureData } from "../features/feature";
 import { sketchProfiles } from "../features/profileBuilder";
 import { captureProfileRef } from "../features/profileRef";
-import { ParametricBodyNode } from "../parametricBodyNode";
+import type { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
+import {
+    candidateBodies,
+    commitBooleanTargets,
+    resolveTargetBodies,
+    standaloneBody,
+    syncAutoTargets,
+    targetCandidate,
+} from "./booleanTargets";
 import { SelectSketchProfilesStep } from "./extrudeCommand";
-import { findIntersectingBody } from "./intersectingBody";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -55,6 +65,59 @@ const REVOLVE_OPERATIONS: Record<string, BooleanOperation> = {
  */
 @command({ key: "feature.revolve", icon: "icon-revolve" })
 export class RevolveFeatureCommand extends MultistepCommand {
+    /**
+     * Which bodies the join/cut/intersect combines with. The set is the command's; this
+     * command has no live preview, so the auto-detection only fills it at commit — a user who
+     * wants to narrow it checks the bodies they mean while the picking is still open, and
+     * that choice (being explicit) then stands.
+     */
+    @property("option.command.targets", {
+        type: "targets",
+        dependencies: [{ property: "showTargets", value: true }],
+    })
+    get targets(): TargetSelection {
+        return this.getPrivateValue("targets", AUTO_TARGETS);
+    }
+    set targets(value: TargetSelection) {
+        this.setProperty("targets", value);
+    }
+
+    /** The list only means something once an operation gives the feature a body to combine with. */
+    get showTargets(): boolean {
+        return this.getPrivateValue("showTargets", this.operation !== OPERATION_NEW);
+    }
+    set showTargets(value: boolean) {
+        this.setProperty("showTargets", value);
+    }
+
+    targetCandidates(): readonly TargetCandidate[] {
+        return candidateBodies(this.document).map(targetCandidate);
+    }
+
+    setTargets(selection: TargetSelection): void {
+        this.targets = selection;
+    }
+
+    /**
+     * The detection's write path. It goes around the setter so a write the detection makes is
+     * not read back as a request for another preview; the property event still goes out, and
+     * that is what redraws the checkbox list.
+     */
+    private applyAutoTargets(selection: TargetSelection): void {
+        const previous = this.targets;
+        this.setPrivateValue("targets", selection);
+        this.emitPropertyChanged("targets", previous);
+    }
+
+    protected override beforeExecute(): void {
+        super.beforeExecute();
+        // The panel is up by now (the base publishes it) and its list is subscribed, so this
+        // both starts the run on auto-detection and repaints the boxes. The option cache keys
+        // on the property name alone, so a set left over from an earlier run must not decide
+        // this one.
+        this.targets = AUTO_TARGETS;
+    }
+
     @property("option.command.operation", {
         combobox: Combobox.from([
             OPERATION_NEW,
@@ -68,6 +131,7 @@ export class RevolveFeatureCommand extends MultistepCommand {
     }
     set operation(value: I18nKeys) {
         this.setProperty("operation", value);
+        this.showTargets = value !== OPERATION_NEW;
     }
 
     @property("common.angle", { unit: ANGLE_UNITS })
@@ -108,15 +172,10 @@ export class RevolveFeatureCommand extends MultistepCommand {
         const sketch = this.sketch;
         const feature = this.buildFeature();
         const operation = REVOLVE_OPERATIONS[this.operation];
-        const target = operation === undefined ? undefined : this.findTargetBody();
+        const targets = operation === undefined ? [] : this.resolveTargets(this.toolBox());
         Transaction.execute(this.document, "excute feature.revolve", () => {
-            if (operation !== undefined && target !== undefined) {
-                target.setFeaturesEmitShapeChanged([...target.features, { ...feature, operation }]);
-            } else {
-                this.document.modelManager.addNode(
-                    new ParametricBodyNode({ document: this.document, features: [feature] }),
-                );
-            }
+            if (operation === undefined) standaloneBody(this.document, feature);
+            else commitBooleanTargets(this.document, feature, operation, targets);
             // The sketch is consumed by the feature; hide it. Same transaction, so
             // undo restores the visibility together with the body.
             sketch.visible = false;
@@ -124,14 +183,12 @@ export class RevolveFeatureCommand extends MultistepCommand {
         });
     }
 
-    /**
-     * The join/cut/intersect target: the revolved tool's box is measured first to give the
-     * shared detection its bounds (see `findIntersectingBody`). Undefined when the tool
-     * cannot be built at all, which leaves the feature standalone.
-     */
-    private findTargetBody(): ParametricBodyNode | undefined {
-        const box = this.toolBox();
-        return box === undefined ? undefined : findIntersectingBody(this.document, box);
+    /** The bodies this run combines with, refreshing the auto set from the tool's box first. */
+    private resolveTargets(box: BoundingBox | undefined): ParametricBodyNode[] {
+        if (box !== undefined) {
+            syncAutoTargets(this.document, box, this.targets, (next) => this.applyAutoTargets(next));
+        }
+        return resolveTargetBodies(this.document, box, this.targets);
     }
 
     /**
