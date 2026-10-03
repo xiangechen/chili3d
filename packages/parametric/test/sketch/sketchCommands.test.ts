@@ -7,6 +7,7 @@ import {
     type IView,
     Matrix4,
     Plane,
+    PropertyUtils,
     Ray,
     ShapeTypes,
     type VisualShapeData,
@@ -301,7 +302,7 @@ describe("CreateSketch", () => {
     function setup(
         rollbackIndex: number | undefined,
         picked?: PlanePickResult,
-        options?: { dragOffset?: boolean; planeOffset?: number },
+        options?: { dragOffset?: boolean; planeOffset?: number; holdOffsetPick?: boolean },
     ) {
         const app = createMockApplication();
         const clearSelection = rs.fn();
@@ -354,6 +355,10 @@ describe("CreateSketch", () => {
         // session. The offset confirms with no drag at all, so the view it commits against
         // has to be supplied the way a real pointer release would.
         let offsetHandler: SketchPlaneOffsetHandler | undefined;
+        let signalSessionOpen: () => void = () => {};
+        const sessionOpen = new Promise<void>((resolve) => {
+            signalSessionOpen = resolve;
+        });
         const pickAsync = rs.fn(async (handler: unknown, _prompt: unknown, controller: AsyncController) => {
             if (handler instanceof PlanePickHandler) {
                 handler.result = picked ?? facePick;
@@ -367,13 +372,21 @@ describe("CreateSketch", () => {
                 expect(handler).toBeInstanceOf(SketchPlaneOffsetHandler);
                 offsetHandler = handler as SketchPlaneOffsetHandler;
                 offsetHandler.commitView = view;
+                if (options?.holdOffsetPick) {
+                    // A real picker holds its promise until the controller completes, so the
+                    // session stays up here too: only the command can end it, which is what
+                    // that test is about.
+                    signalSessionOpen();
+                    await new Promise<void>((resolve) => controller.onCompleted(() => resolve()));
+                    return;
+                }
             }
             controller.success();
         });
         document.picker = { pickAsync } as any;
         const enter = rs.spyOn(SketchEditor, "enter").mockImplementation(() => ({}) as any);
         command = new CreateSketch();
-        return { app, body, enter, pickAsync, offsetHandler: () => offsetHandler, command };
+        return { app, body, enter, pickAsync, sessionOpen, offsetHandler: () => offsetHandler, command };
     }
 
     test.each([
@@ -430,16 +443,74 @@ describe("CreateSketch", () => {
     test("the panel's offset lands the sketch without a drag", async () => {
         // The offset is written where the panel writes it — during the pick. A run restores
         // the option cache on the way in, so a value set before `execute` is overwritten.
+        const { app, enter, offsetHandler, command } = setup(undefined, undefined, {
+            dragOffset: true,
+            planeOffset: 5,
+        });
+        try {
+            await command.execute(app);
+
+            const node = enter.mock.calls[0][0] as SketchNode;
+            expect(offsetHandler()).toBeInstanceOf(SketchPlaneOffsetHandler);
+            expect(node.planeOffset).toBe(5);
+            expect(node.plane.origin.z).toBe(5);
+        } finally {
+            enter.mockRestore();
+        }
+    });
+
+    test("an offset is not applied while the option leaves it unspecified", async () => {
+        // The row is hidden then, so a value in it is a leftover the user cannot see or
+        // clear: the sketch has to land on the plane they picked, not on that number.
         const { app, enter, offsetHandler, command } = setup(undefined, undefined, { planeOffset: 5 });
         try {
             await command.execute(app);
 
             expect(offsetHandler()).toBeUndefined();
             const node = enter.mock.calls[0][0] as SketchNode;
-            expect(node.planeOffset).toBe(5);
-            expect(node.plane.origin.z).toBe(5);
+            expect(node.planeOffset).toBe(0);
+            expect(node.plane.origin.z).toBe(0);
         } finally {
             enter.mockRestore();
         }
+    });
+
+    test("unticking the option with the drag still up settles the sketch where it was picked", async () => {
+        // Nothing else ends the session here: the pick mock holds it open the way the real
+        // picker does, so the untick has to be what settles it — at zero, on the picked plane.
+        const { app, enter, command, sessionOpen } = setup(undefined, undefined, {
+            dragOffset: true,
+            planeOffset: 5,
+            holdOffsetPick: true,
+        });
+        try {
+            const running = command.execute(app);
+            await sessionOpen;
+            expect(command.planeOffset).toBe(5);
+
+            command.specifyPlaneOffset = false;
+            await running;
+
+            // the handle is off the live value before the session closes, not just ignored after
+            expect(command.planeOffset).toBe(0);
+            const node = enter.mock.calls[0][0] as SketchNode;
+            expect(node.planeOffset).toBe(0);
+            expect(node.plane.origin.z).toBe(0);
+        } finally {
+            enter.mockRestore();
+        }
+    });
+
+    test("the offset row hides itself while no offset is specified", () => {
+        const command = new CreateSketch();
+        const declared = PropertyUtils.getProperties(command).find((x) => x.name === "planeOffset");
+        expect(declared?.dependencies).toEqual([{ property: "specifyPlaneOffset", value: true }]);
+
+        // The panel re-evaluates a dependent row on a change to the property the dependency
+        // NAMES, so that property has to be one that emits one.
+        const seen: unknown[] = [];
+        command.onPropertyChanged((property: string) => seen.push(property));
+        command.specifyPlaneOffset = true;
+        expect(seen).toContain("specifyPlaneOffset");
     });
 });

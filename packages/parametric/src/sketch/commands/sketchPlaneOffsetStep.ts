@@ -140,6 +140,18 @@ export class SketchPlaneOffsetHandler extends AxisDragHandler {
         return (this.data.quadPlane ?? this.data.basePlane).offsetAlongNormal(this._offset);
     }
 
+    /**
+     * Settles the drag at zero and confirms it. The command calls this when the offset stops
+     * being specified while the session is up: the session exists to place an offset, and
+     * there is none to place any more — leaving the handle live would be one driving a value
+     * the run no longer has. Ending at zero is what the step's own short-circuit does for a
+     * run that never wanted a drag (see `shouldDrag`).
+     */
+    settle(): void {
+        this.setValue(0);
+        this.confirm();
+    }
+
     // ------------------------------------------------------------------ AxisDragHandler hooks
 
     protected override axis(): { origin: XYZ; normal: XYZ } {

@@ -18,6 +18,7 @@ import {
     type Plane,
     PubSub,
     property,
+    Result,
     ShapeTypes,
     type SnapResult,
     Transaction,
@@ -223,7 +224,36 @@ export class CreateSketch extends MultistepCommand {
     private _offsetHandler: SketchPlaneOffsetHandler | undefined;
     private _syncingFromOffset = false;
 
-    @property("option.command.planeOffset", { unit: LENGTH_UNITS })
+    /**
+     * Whether an offset is specified at all. Off by default: a sketch almost always sits on
+     * the plane it was picked on, so making every one of them confirm an offset is a step
+     * that decides nothing. Off is also what keeps the offset at zero — nothing moves the
+     * plane (see `appliedOffset`) — and hides its row, so an unspecified offset has nothing
+     * to show and nothing to edit. Ticking it while the plane pick is still up takes effect
+     * on that same run.
+     */
+    @property("option.command.specifyPlaneOffset")
+    get specifyPlaneOffset(): boolean {
+        return this.getPrivateValue("specifyPlaneOffset", false);
+    }
+    set specifyPlaneOffset(value: boolean) {
+        if (!this.setProperty("specifyPlaneOffset", value)) return;
+        // Unticking with the drag already up ends it there, on the picked plane: the option
+        // decides whether placing the offset is part of the run, and it just left. Ticking it
+        // mid-pick needs nothing here — the step reads the answer when it starts.
+        if (!value) this._offsetHandler?.settle();
+    }
+
+    /**
+     * How far along its normal the sketch plane sits off the picked plane. Only read while
+     * `specifyPlaneOffset` is on — the row is hidden otherwise, which is what the dependency
+     * below says. The value is kept across a toggle, so un-ticking and re-ticking a run gives
+     * the same placement back.
+     */
+    @property("option.command.planeOffset", {
+        unit: LENGTH_UNITS,
+        dependencies: [{ property: "specifyPlaneOffset", value: true }],
+    })
     get planeOffset(): ParameterValue {
         return this.getPrivateValue("planeOffset", 0);
     }
@@ -236,18 +266,15 @@ export class CreateSketch extends MultistepCommand {
     }
 
     /**
-     * Whether the offset is positioned by dragging. Off by default: a sketch almost always
-     * sits on the plane it was picked on, so making every one of them confirm an offset is
-     * a step that decides nothing. The value is available either way — `planeOffset` is
-     * what both paths read — this only says whether a drag session opens to place it by
-     * hand. Ticking it while the plane pick is still up takes effect on that same run.
+     * The offset the plane is actually moved by. Nothing is specified means nothing is
+     * applied: the answer is constantly zero whatever the hidden field holds, so the sketch
+     * lands on the plane the user picked. Zeroing here rather than at the field also keeps a
+     * stale expression that no longer resolves from stranding the run on a row the panel is
+     * not showing.
      */
-    @property("option.command.specifyPlaneOffset")
-    get specifyPlaneOffset(): boolean {
-        return this.getPrivateValue("specifyPlaneOffset", false);
-    }
-    set specifyPlaneOffset(value: boolean) {
-        this.setProperty("specifyPlaneOffset", value);
+    private appliedOffset(): Result<number> {
+        if (!this.specifyPlaneOffset) return Result.ok(0);
+        return this.resolveParameter(this.planeOffset, LENGTH_UNITS);
     }
 
     /** A length field's numeric value, or undefined when its expression does not resolve. */
@@ -256,9 +283,10 @@ export class CreateSketch extends MultistepCommand {
         return resolved.isOk ? resolved.value : undefined;
     }
 
-    /** The drag's own preview geometry: an unresolvable expression previews as zero. */
+    /** The drag's own preview geometry, and what the step reads when no drag opens. */
     private get offsetValue(): number {
-        return this.resolveLength(this.planeOffset) ?? 0;
+        const applied = this.appliedOffset();
+        return applied.isOk ? applied.value : 0;
     }
 
     protected override async canExcute(): Promise<boolean> {
@@ -297,6 +325,7 @@ export class CreateSketch extends MultistepCommand {
             // it; a face is the geometry the user actually pointed at, so the preview closes
             // around the click and the handle lands under the cursor.
             pickPoint: picked.pickPoint,
+            // Where the sketch lands with no drag at all — zero while the offset is unspecified.
             offset: this.offsetValue,
             onReady: (handler: SketchPlaneOffsetHandler) => {
                 this._offsetHandler = handler;
@@ -315,7 +344,7 @@ export class CreateSketch extends MultistepCommand {
     protected override executeMainTask(): void {
         const picked = this._picked;
         if (picked === undefined) return;
-        const resolved = this.resolveParameter(this.planeOffset, LENGTH_UNITS);
+        const resolved = this.appliedOffset();
         if (!resolved.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", resolved.error);
             return;
