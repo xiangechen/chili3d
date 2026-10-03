@@ -18,6 +18,7 @@ import {
 } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import { SelectThickenFacesStep, ThickenFeatureCommand } from "../../src/commands/thickenCommand";
 import type { ThickenFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
@@ -112,9 +113,11 @@ describe("ThickenFeatureCommand face step", () => {
 
         // Seeded, THEN picked: the open pick is what keeps the command (and its live preview)
         // alive long enough to set the thickness.
+        // The picked faces read as translucent with their boundary outlined — the state the
+        // extrude uses, so a preview drawn over the body stays visible through them.
         expect((doc.selection.setSelectedShapes as any).mock.calls[0]).toEqual([
             [mine],
-            VisualStates.faceSelected,
+            SELECTED_FACE_STATE,
             false,
         ]);
         expect(pickShape).toHaveBeenCalledTimes(1);
@@ -147,7 +150,7 @@ describe("ThickenFeatureCommand face step", () => {
         const seeded = (doc.selection.setSelectedShapes as any).mock.calls[0][0];
         expect(seeded.length).toBe(3);
         expect(seeded.every((x: any) => x.owner.node === surface)).toBe(true);
-        expect((doc.selection.setSelectedShapes as any).mock.calls[0][1]).toBe(VisualStates.faceSelected);
+        expect((doc.selection.setSelectedShapes as any).mock.calls[0][1]).toBe(SELECTED_FACE_STATE);
     });
 
     test("a selected solid body is not expanded — its faces must be picked one by one", async () => {

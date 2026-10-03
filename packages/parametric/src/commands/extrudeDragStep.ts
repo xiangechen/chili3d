@@ -16,7 +16,6 @@ import {
     type SnapResult,
     type VisualShapeData,
     VisualStates,
-    VisualStateUtils,
     XYZ,
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
@@ -25,16 +24,7 @@ import { SketchNode } from "../sketch/sketchNode";
 import { ARROW_LENGTH } from "./arrowHandle";
 import { AxisDragHandler, type DragPreview } from "./axisDragHandler";
 import { prioritizeSketchFaces } from "./profileFaceSort";
-
-/**
- * State of a profile face picked for the extrude: the translucent fill a selection
- * usually gets, plus its boundary outlined, so the profile that will be swept reads
- * apart from the faces that are merely hovered.
- */
-export const SELECTED_PROFILE_STATE = VisualStateUtils.addState(
-    VisualStates.faceTransparent,
-    VisualStates.edgeSelected,
-);
+import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 /**
  * Mutable state of a drag session. The handler updates it when the user drags the
@@ -296,7 +286,7 @@ export class ExtrudeDragHandler extends AxisDragHandler {
         // Refresh the arrow before syncing the selection: a throwing selection
         // subscriber must not leave the arrow at the stale position.
         this.refreshTempShapes(view);
-        this.document.selection.setSelectedShapes(this.state.faces, SELECTED_PROFILE_STATE, false);
+        this.document.selection.setSelectedShapes(this.state.faces, SELECTED_FACE_STATE, false);
         view.document.visual.update();
     }
 

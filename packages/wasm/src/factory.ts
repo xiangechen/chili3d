@@ -832,6 +832,27 @@ export class ShapeFactory implements IShapeFactory {
             "MakeThickSolidByJoin Error",
         );
     }
+    makeThickSolidByJoinTracked(
+        shape: IShape,
+        closingFaces: IShape[],
+        thickness: number,
+        joinType: JoinType,
+        mode: OffsetMode = "skin",
+        intersection: boolean = false,
+    ): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.makeThickSolidByJoinTracked,
+            [
+                ensureOccShape(shape)[0],
+                ensureOccShape(closingFaces),
+                thickness,
+                getJoinType(joinType),
+                getOffsetMode(mode),
+                intersection,
+            ],
+            "MakeThickSolidByJoinTracked Error",
+        );
+    }
     loft(
         sections: (IVertex | IEdge | IWire)[],
         isSolid: boolean,

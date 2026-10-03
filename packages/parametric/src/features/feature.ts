@@ -9,6 +9,7 @@ import {
     type IEdge,
     type IFace,
     type IShape,
+    type JoinType,
     type Matrix4,
     type ParameterValue,
     primaryAncestors,
@@ -46,7 +47,8 @@ export type FeatureData =
     | BooleanFeatureData
     | LoftFeatureData
     | SweepFeatureData
-    | ThickenFeatureData;
+    | ThickenFeatureData
+    | ShellFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -239,6 +241,39 @@ export interface ThickenFeatureData extends FeatureBase {
      * so a source with no enclosed space carrying one fails to build rather than ignoring it.
      */
     readonly operation?: BooleanOperation;
+}
+
+/**
+ * Shell (Onshape's Shell): hollow the body's chain input to a wall thickness, leaving the picked
+ * faces open.
+ *
+ * Unlike a thicken — which offsets faces it names from anywhere — a shell consumes the shape the
+ * chain has built so far, so its faces are named by the press-pull `source` contract's fingerprint
+ * type (`ProfileRef`) but resolved against `context.input` itself, and are re-matched there on
+ * every rebuild. It is the edge features' sibling in that sense: a fillet names edges of the same
+ * `context.input`, a shell names faces of it.
+ */
+export interface ShellFeatureData extends FeatureBase {
+    readonly type: "shell";
+    /**
+     * Faces of the body's chain input to leave open, as face fingerprints in that input's LOCAL
+     * space. The faces are real sub-shapes of the input, so no frame mapping is involved — and
+     * must not be: the kernel matches them by identity.
+     */
+    readonly faces: ProfileRef[];
+    /** Wall thickness, measured from the input's surface. */
+    readonly thickness: ParameterValue;
+    /**
+     * Hollow outward instead of inward — the wall is added outside the input's boundary rather
+     * than carved out of it (Onshape's negative thickness, Fusion's outside direction).
+     */
+    readonly outward?: boolean;
+    /**
+     * How the inner corners are built: rounded (`arc`, the default — each side is trimmed away
+     * from the corner and its end sections stay arcs) or sharp (`intersection`). A styling choice
+     * only: it never changes which sub-shapes exist, and the shell's ids do not depend on it.
+     */
+    readonly joinType?: JoinType;
 }
 
 /**

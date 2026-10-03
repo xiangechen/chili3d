@@ -55,9 +55,9 @@ import {
     ExtrudeDragStep,
     type ExtrudePreview,
     planeOfPickedFace,
-    SELECTED_PROFILE_STATE,
 } from "./extrudeDragStep";
 import { prioritizeSketchFaces } from "./profileFaceSort";
+import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -141,7 +141,7 @@ export class SelectSketchProfilesStep implements IStep {
         controller.success();
         // Show the profiles as selected, exactly as if the user had picked them.
         if (faces.length > 0) {
-            document.selection.setSelectedShapes(faces, SELECTED_PROFILE_STATE, false);
+            document.selection.setSelectedShapes(faces, SELECTED_FACE_STATE, false);
         }
         return { view, shapes: faces, nodes: [selectedSketch], type: "shape" };
     }
@@ -157,7 +157,7 @@ export class SelectSketchProfilesStep implements IStep {
             shapeFilter: { allow: (shape) => (shape as IFace).surface().isPlanar() },
             multi: false,
             nodeFilter: { allow: this.allowNode },
-            selectedState: SELECTED_PROFILE_STATE,
+            selectedState: SELECTED_FACE_STATE,
             sortDetected: prioritizeSketchFaces,
         });
         if (shapes.length === 0) return undefined;

@@ -2,9 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    type AsyncController,
     AUTO_TARGETS,
-    BoundingBox,
+    type BoundingBox,
     Combobox,
     command,
     type IDocument,
@@ -23,7 +22,6 @@ import {
     type ShapeMeshData,
     ShapeTypes,
     ShapeTypeUtils,
-    type SnapResult,
     type TargetCandidate,
     type TargetSelection,
     Transaction,
@@ -45,66 +43,25 @@ import {
     targetCandidate,
 } from "./booleanTargets";
 import { FORM_FEATURE_OPERATIONS } from "./extrudeCommand";
+import { SelectBodyFacesStep } from "./selectBodyFacesStep";
 
 const OPERATION_NEW = "option.command.operation.new";
 
 /**
- * Picks the faces to thicken, as ONE step that stays open until the user confirms:
- *
- * 1. faces are already selected → they seed the pick;
- * 2. a SURFACE body (a parametric body whose shape is not a solid — a loft with `isSolid` off,
- *    say) is selected → its whole face set seeds the pick, as if every face had been picked;
- * 3. the user then picks, adds to and removes from that set; the filter only allows parametric
- *    bodies.
- *
- * Seeding rather than returning outright is what makes the preview possible: the command's
- * parameters (which side the material goes, how thick, what it combines with) are worth deciding
- * on, and the pick is what keeps the command open long enough to decide them. `onReady` fires
- * once the seeded set is in place, so the preview is up before the first click.
+ * Picks the faces to thicken. A SURFACE body (a parametric body whose shape is not a solid — a
+ * loft with `isSolid` off, say) that is selected seeds the pick with its whole face set, as if
+ * every face had been picked; everything else is the shared body-face step's behavior.
  *
  * A solid body is deliberately NOT expandable to "all its faces": thickening a closed solid's
  * whole boundary is a shell, not a thicken, and quietly reading the pick that way would give the
  * user a different feature than the one they asked for.
  */
-export class SelectThickenFacesStep implements IStep {
-    constructor(private readonly onReady: () => void = () => {}) {}
-
-    async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const view = document.application.activeView!;
-        const seeded = [...this.preselectedFaces(document), ...this.surfaceFaces(document)];
-        document.selection.setSelectedShapes(seeded, VisualStates.faceSelected, false);
-        this.onReady();
-
-        const shapes = await document.picker.pickShape("prompt.select.faces", controller, {
-            shapeType: ShapeTypes.face,
-            multi: true,
-            nodeFilter: { allow: (node: INode) => node instanceof ParametricBodyNode },
-            selectedState: VisualStates.faceSelected,
-        });
-        if (shapes.length === 0) return undefined;
-        return this.oneBody(view, shapes);
-    }
-
-    /** The selected faces of a parametric body, as they stand when the command starts. */
-    private preselectedFaces(document: IDocument): VisualShapeData[] {
-        return document.selection
-            .getSelectedShapes()
-            .filter(
-                (x) =>
-                    x.owner.node instanceof ParametricBodyNode &&
-                    ShapeTypeUtils.contains(ShapeTypes.face, x.shape.shapeType),
-            );
-    }
-
-    /**
-     * The faces of a selected SURFACE body — empty unless one is selected. A body showing a solid
-     * is skipped: see the class doc for why it is not expandable.
-     */
-    private surfaceFaces(document: IDocument): VisualShapeData[] {
+export class SelectThickenFacesStep extends SelectBodyFacesStep {
+    protected override seedFaces(document: IDocument): VisualShapeData[] {
         const surface = document.selection
             .getSelectedNodes()
             .find((x): x is ParametricBodyNode => this.isSurface(x));
-        return surface === undefined ? [] : SelectThickenFacesStep.facesOf(document, surface);
+        return surface === undefined ? [] : SelectBodyFacesStep.facesOf(document, surface);
     }
 
     /** True for a body showing a surface rather than a solid — what a whole-body pick may expand. */
@@ -114,41 +71,6 @@ export class SelectThickenFacesStep implements IStep {
             node.shape.isOk &&
             !ShapeTypeUtils.hasSolid(node.shape.value.shapeType)
         );
-    }
-
-    /** The picked faces of the FIRST body among them — a feature's source is one body. */
-    private oneBody(view: SnapResult["view"], shapes: VisualShapeData[]): SnapResult {
-        const node = shapes[0].owner.node;
-        return {
-            view,
-            shapes: shapes.filter((x) => x.owner.node === node),
-            nodes: [node],
-            type: "shape",
-        };
-    }
-
-    /**
-     * Every face of `body`, synthesized from its mesh ranges exactly as a viewport pick reports
-     * them — the same trick `SelectSketchProfilesStep.sketchProfileFaces` uses.
-     */
-    private static facesOf(document: IDocument, body: ParametricBodyNode): VisualShapeData[] {
-        const owner = document.visual.context.getVisual(body) as INodeVisual | undefined;
-        const ranges = body.mesh.faces?.range ?? [];
-        if (owner === undefined) return [];
-        const nodeTransform = owner.worldTransform();
-        const faces: VisualShapeData[] = [];
-        for (const [index, range] of ranges.entries()) {
-            if (range.shape.shapeType !== ShapeTypes.face) continue;
-            faces.push({
-                shape: range.shape,
-                owner,
-                transform:
-                    range.transform === undefined ? nodeTransform : nodeTransform.multiply(range.transform),
-                point: BoundingBox.center(range.shape.boundingBox()),
-                indexes: [index],
-            });
-        }
-        return faces;
     }
 }
 

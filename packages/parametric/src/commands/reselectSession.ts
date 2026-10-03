@@ -34,6 +34,7 @@ import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, profileEntitiesOf, sketchProfiles } from "../features/profileBuilder";
 import { matchProfileIndexes } from "../features/profileMatcher";
 import { captureProfileRef, type ProfileRef } from "../features/profileRef";
+import { matchSourceFaceIndexes } from "../features/sourceFaceMatcher";
 import { idIsShared } from "../features/trackedId";
 import type { SketchNode } from "../sketch/sketchNode";
 
@@ -60,6 +61,7 @@ export interface ReselectHost extends INode, IBodyTrackingNode {
     setFeaturesEmitShapeChanged(features: FeatureData[]): void;
     setRollbackIndex(index: number | undefined): boolean;
     edgeIdIsShared(id: string | undefined): boolean;
+    faceIdIsShared(id: string | undefined): boolean;
 }
 
 /**
@@ -304,6 +306,188 @@ export class EdgeReselectSession {
             indexes: [index],
         }));
         this.host.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
+    }
+}
+
+/**
+ * What a face re-pick needs to know about the feature it is re-picking: where its refs live, and
+ * how a replacement set is written back into a copy of it (for the live preview). The session
+ * itself stays free of feature shapes — a shell keeps its faces in `faces`, a thicken and a
+ * press-pull in `source.profiles`, and only the caller has to know which.
+ */
+export interface FacePickTarget {
+    /** The refs the feature currently carries, for the preselect. */
+    readonly refs: readonly ProfileRef[];
+    /** The same feature with `refs` replaced. */
+    withRefs(feature: FeatureData, refs: ProfileRef[]): FeatureData;
+    /**
+     * Whether the capture stores the face's outward normal. True for a planar-only source (a
+     * press-pull), false where a curved face is legitimate (a thicken, a shell) — the gate would
+     * reject a legitimate re-match of one.
+     */
+    readonly captureNormal: boolean;
+}
+
+/**
+ * Re-picks the FACES a feature names on the body's own chain input — a shell's openings, a
+ * thicken's source faces, a press-pull's extrude-from faces — and returns the replacement refs,
+ * or undefined when the user cancels or picks nothing.
+ *
+ * Built like `EdgeReselectSession`, not like the profile one, because the refs point at the
+ * feature's INPUT: the faces a shell opened do not exist in the final shape (a press-pull's
+ * source face may be interior to the fused solid), so the body is rolled back to just before the
+ * feature for the whole pick, and the capture runs while that cache is still current.
+ */
+export class FaceReselectSession {
+    /** Temporary mesh of the live rebuild preview, shown over the rolled-back shape. */
+    private _preview: number | undefined;
+
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        featureIndex: number,
+        target: FacePickTarget,
+        controller: AsyncController,
+    ): Promise<ProfileRef[] | undefined> {
+        const original = this.host.features;
+        let active = true;
+        const preview = debounce((selected: VisualShapeData[]) => {
+            if (active) this.previewSelection(original, featureIndex, target, selected);
+        }, 20);
+        const owner = this.host.document.visual.context.getVisual(this.host);
+        const shape = this.host.shape;
+        const shapeType = shape.isOk ? shape.value.shapeType : undefined;
+
+        return runReselectSession(this.host, controller, {
+            prompt: "prompt.select.faces",
+            shapeType: ShapeTypes.face,
+            targetNode: this.host,
+            // Nothing picked is nothing to re-pick.
+            emptyIsCancel: true,
+            onEmptyPick: () => PubSub.default.pub("showToast", "toast.select.noSelected"),
+            preview,
+            setup: () => {
+                // Deliberately ignores the boolean, as the edge session does: a failed rollback
+                // replay keeps the full chain displayed, so the pick proceeds against it.
+                this.host.setRollbackIndex(featureIndex);
+                if (owner !== undefined && shapeType !== undefined) {
+                    this.host.document.visual.highlighter.addState(
+                        owner,
+                        VisualStates.faceTransparent,
+                        shapeType,
+                    );
+                }
+            },
+            preselect: () => this.preselect(target),
+            // Captured while the rolled-back cache still describes the shape the user picked from:
+            // after the teardown, the face order belongs to the finished shape instead.
+            capture: (picked) => picked.map((x) => this.captureRef(x, target.captureNormal)),
+            teardown: () => {
+                active = false;
+                this.clearPreview();
+                if (owner !== undefined && shapeType !== undefined) {
+                    this.host.document.visual.highlighter.removeState(
+                        owner,
+                        VisualStates.faceTransparent,
+                        shapeType,
+                    );
+                }
+                this.host.setRollbackIndex(undefined);
+            },
+        });
+    }
+
+    /** The ref of one picked face, warning when its tracked id went missing. */
+    private captureRef(picked: VisualShapeData, captureNormal: boolean): ProfileRef {
+        const faceId = this.host.faceIdAt(picked.indexes[0]);
+        if (faceId === undefined) {
+            reportSilentIdLoss(this.host, "face", "a re-picked face has no tracked id");
+        }
+        return captureProfileRef(
+            picked.shape as unknown as IFace,
+            faceId,
+            this.host.faceIdIsShared(faceId),
+            captureNormal,
+        );
+    }
+
+    private clearPreview(): void {
+        if (this._preview === undefined) return;
+        this.host.document.visual.context.removeMesh(this._preview);
+        this._preview = undefined;
+    }
+
+    /** Live preview while re-picking, the same way the edge session does it. */
+    private previewSelection(
+        original: FeatureData[],
+        featureIndex: number,
+        target: FacePickTarget,
+        selected: VisualShapeData[],
+    ): void {
+        this.clearPreview();
+        const refs = this.selectedFaceRefs(selected, target.captureNormal);
+        if (refs.length > 0) {
+            const preview = original.map((x, i) => (i === featureIndex ? target.withRefs(x, refs) : x));
+            const shape = evaluateChainSnapshot(this.host, preview);
+            if (shape.isOk) this._preview = this.displayPreviewMesh(shape.value);
+        }
+        this.host.document.visual.update();
+    }
+
+    /** The refs of the selected shapes that are this host's faces. */
+    private selectedFaceRefs(selected: VisualShapeData[], captureNormal: boolean): ProfileRef[] {
+        // Upcast for the identity test: `owner.node` is a `VisualNode`, the host a narrower
+        // interface — both are `INode`, which is what identity means here.
+        return selected
+            .filter((x) => (x.owner.node as INode) === this.host && x.shape.shapeType === ShapeTypes.face)
+            .map((x) => this.captureRef(x, captureNormal));
+    }
+
+    /**
+     * Displays `shape` as a temporary mesh and returns its id, or undefined when it carries no
+     * mesh data. The temp mesh renders in world space; the chain evaluates locally.
+     */
+    private displayPreviewMesh(shape: IShape): number | undefined {
+        let previewShape = shape;
+        const transform = this.host.worldTransform();
+        if (!transform.equals(Matrix4.identity())) {
+            previewShape = shape.transformedMul(transform);
+        }
+        try {
+            const { faces, edges } = previewShape.mesh;
+            const datas = [faces, edges].filter((x) => x !== undefined);
+            return datas.length > 0 ? this.host.document.visual.context.displayMesh(datas) : undefined;
+        } finally {
+            previewShape.dispose();
+            if (previewShape !== shape) shape.dispose();
+        }
+    }
+
+    /** Selects the faces the feature currently references so the pick starts from them. */
+    private preselect(target: FacePickTarget): void {
+        const shape = this.host.shape;
+        if (!shape.isOk) return;
+        const faces = shape.value.findSubShapes(ShapeTypes.face) as IFace[];
+        const matched = matchSourceFaceIndexes(
+            faces,
+            faces.map((_, index) => this.host.faceIdAt(index)),
+            [...target.refs],
+        );
+        // A failed match is a common reason to re-pick; then there is nothing to preselect.
+        if (!matched.isOk) return;
+        // Mesh ranges enumerate faces in the same order as findSubShapes (both use
+        // TopExp::MapShapes), so a matched position indexes into the ranges directly.
+        const ranges = shape.value.mesh.faces?.range;
+        if (ranges === undefined) return;
+        const owner = this.host.document.visual.context.getVisual(this.host) as INodeVisual | undefined;
+        if (owner === undefined) return;
+        const picked: VisualShapeData[] = matched.value.indexes.map((index) => ({
+            owner,
+            shape: ranges[index].shape,
+            transform: owner.worldTransform(),
+            indexes: [index],
+        }));
+        this.host.document.selection.setSelectedShapes(picked, VisualStates.faceSelected, false);
     }
 }
 

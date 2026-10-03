@@ -187,6 +187,7 @@ export default {
         "command.feature.loft": "Loft",
         "command.feature.sweep": "Varredura",
         "command.feature.thicken": "Espessar",
+        "command.feature.shell": "Casca",
         "feature.loft.section": "Seção",
         "feature.sweep.path": "Caminho",
         "command.feature.fillet": "Arredondamento",

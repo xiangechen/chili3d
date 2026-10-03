@@ -247,8 +247,21 @@ static std::vector<int> faceFromEdgeHistory(BRepBuilderAPI_MakeShape& algo, cons
 // a box top thickened by -2 gives in0->[0,2] — the kept top at z=30 and its copy at z=28 —
 // and the same for every input EDGE, in0->[0,7]). The copy is told apart by subtracting the
 // identity hit, which is the only member of that list that IS the input.
+//
+// `removed` (optional) is the input sub-shapes that do NOT survive in `output` — a shell's
+// closing faces, which the join deletes. A REMOVED face has no parallel copy, so the
+// identity hit that would have filtered its report is gone too, and the RIM the offset
+// raises around the opening comes back as if it were the copy (measured: a 40x40x20 box with
+// the top open and thickness -2 gives out5<-in5, where out5 is the 40^2-36^2 border band).
+// Skipping it here is what keeps the channel's contract — "the parallel copy" — true; only
+// the kernel knows which faces were the closing set, so a caller-side filter would leave
+// every future reader of this map to rediscover the lie. Nothing is lost by skipping: these
+// pairs are a subset of `shapeHistory`'s, because both walks read the same Modified/
+// Generated lists and this one only ever subtracts from them (the identity skip below), so
+// the rim is still claimed from the derivation channel.
 static std::vector<int> offsetHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
-    const TopoDS_Shape& output, TopAbs_ShapeEnum type)
+    const TopoDS_Shape& output, TopAbs_ShapeEnum type,
+    const NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>* removed = nullptr)
 {
     NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> inMap;
     NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outMap;
@@ -257,6 +270,9 @@ static std::vector<int> offsetHistory(BRepBuilderAPI_MakeShape& algo, const Topo
     std::vector<int> map(outMap.Extent(), -1);
     for (int i = 1; i <= inMap.Extent(); i++) {
         const TopoDS_Shape& inShape = inMap.FindKey(i);
+        if (removed != nullptr && removed->Contains(inShape)) {
+            continue;
+        }
         auto mark = [&](const NCollection_List<TopoDS_Shape>& derived) {
             for (const TopoDS_Shape& shape : derived) {
                 if (shape.IsSame(inShape)) {
@@ -1346,6 +1362,32 @@ public:
         return ShapeResult { makeThickSolid.Shape(), true, "" };
     }
 
+    static TrackedShapeResult makeThickSolidByJoinTracked(const TopoDS_Shape& shape,
+        const ShapeArray& shapes,
+        double thickness,
+        const GeomAbs_JoinType& joinType,
+        const BRepOffset_Mode& mode,
+        bool intersection)
+    {
+        auto shapesList = shapeArrayToListOfShape(shapes);
+
+        BRepOffsetAPI_MakeThickSolid makeThickSolid;
+        makeThickSolid.MakeThickSolidByJoin(shape, shapesList, thickness, 1e-6, mode, intersection, false, joinType);
+        if (!makeThickSolid.IsDone()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Failed to create thick solid", {}, {} };
+        }
+        const TopoDS_Shape result = makeThickSolid.Shape();
+        // The closing faces are the removed set of the FACE offset channel only. The EDGE
+        // channel needs no skip: a closing face's boundary edges also bound kept faces, so
+        // they survive as themselves and the identity subtraction handles them (measured:
+        // five box/cylinder cases, no spurious edge entry).
+        const auto openFaces = shapeArrayToMapOfShape(shapes);
+        return TrackedShapeResult { result, true, "", faceHistory(makeThickSolid, shape, result),
+            edgeHistory(makeThickSolid, shape, result), faceFromEdgeHistory(makeThickSolid, shape, result),
+            {}, offsetHistory(makeThickSolid, shape, result, TopAbs_FACE, &openFaces),
+            offsetHistory(makeThickSolid, shape, result, TopAbs_EDGE) };
+    }
+
     // Removes every edge of `shape` that is not in `keepShapes` through the given
     // ReShape. Returns true if at least one edge was removed.
     static bool removeNonKeptEdges(
@@ -2113,6 +2155,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
         .class_function("makeThickSolidBySimpleTracked", &ShapeFactory::makeThickSolidBySimpleTracked)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
+        .class_function("makeThickSolidByJoinTracked", &ShapeFactory::makeThickSolidByJoinTracked)
         .class_function("simplifyShape", &ShapeFactory::simplifyShape)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)
         .class_function("booleanCut", &ShapeFactory::booleanCut)

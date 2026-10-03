@@ -25,7 +25,13 @@ import {
     Transaction,
 } from "@chili3d/core";
 import { ReselectFeatureCommand } from "./commands/reselectCommand";
-import { EdgeReselectSession, PathReselectSession, ProfileReselectSession } from "./commands/reselectSession";
+import {
+    EdgeReselectSession,
+    type FacePickTarget,
+    FaceReselectSession,
+    PathReselectSession,
+    ProfileReselectSession,
+} from "./commands/reselectSession";
 import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
 import {
     BodyTimeline,
@@ -399,15 +405,74 @@ export class ParametricBodyNode
     async reselectSession(featureId: string, controller: AsyncController): Promise<void> {
         const featureIndex = this.features.findIndex((x) => x.id === featureId);
         const feature = this.features[featureIndex];
-        if (feature?.type === "extrude") return this.reselectProfiles(feature, controller);
-        if (feature?.type === "sweep") return this.reselectSweepRefs(feature, controller);
-        if (feature?.type !== "fillet" && feature?.type !== "chamfer") return;
+        if (feature === undefined) return;
+        // An extrude is either sketch-sourced or face-sourced, never both, so the sketch path is
+        // only for the former — the latter has faces to re-pick, which is what `facePickTarget`
+        // offers below (it was a dead action before, since `reselectProfiles` needs a sketchId).
+        // A sweep keeps its own path: it has a spine to re-pick as well as faces.
+        if (feature.type === "extrude" && feature.source === undefined) {
+            return this.reselectProfiles(feature, controller);
+        }
+        if (feature.type === "sweep") return this.reselectSweepRefs(feature, controller);
+        const faceTarget = this.facePickTarget(feature);
+        if (faceTarget !== undefined) {
+            return this.reselectFaces(feature.id, featureIndex, faceTarget, controller);
+        }
+        if (feature.type !== "fillet" && feature.type !== "chamfer") return;
 
         const edges = await new EdgeReselectSession(this).pick(feature, featureIndex, controller);
         if (edges === undefined) return;
 
         Transaction.execute(this.document, "reselect edges", () => {
             const features = this.features.map((x) => (x.id === featureId ? { ...x, edges } : x));
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Where a feature keeps the faces it names on this body's own chain input — undefined for a
+     * feature whose refs are edges, sketch profiles or another node's faces. The re-pick session
+     * needs both the current refs and a way to write replacements back (it rebuilds the chain with
+     * them as a live preview), and only the feature's own shape knows where they go.
+     */
+    private facePickTarget(feature: FeatureData): FacePickTarget | undefined {
+        if (feature.type === "shell") {
+            return {
+                refs: feature.faces,
+                withRefs: (f, refs) => (f.type === "shell" ? { ...f, faces: refs } : f),
+                captureNormal: false,
+            };
+        }
+        const source = "source" in feature ? feature.source : undefined;
+        // Only the host's OWN faces: another node's faces are matched in that node's frame, which
+        // this session (built on `context.input`) does not speak.
+        if (source === undefined || source.nodeId !== this.id) return undefined;
+        return {
+            refs: source.profiles,
+            withRefs: (f, refs) =>
+                "source" in f && f.source !== undefined
+                    ? { ...f, source: { ...f.source, profiles: refs } }
+                    : f,
+            // A press-pull takes planar faces only, so its pick keeps the outward normal as a
+            // match gate; a thicken and a shell accept curved ones and must not.
+            captureNormal: feature.type === "extrude",
+        };
+    }
+
+    /** Re-picks the faces of `target` and stores them, one undo step. */
+    private async reselectFaces(
+        featureId: string,
+        featureIndex: number,
+        target: FacePickTarget,
+        controller: AsyncController,
+    ): Promise<void> {
+        const faces = await new FaceReselectSession(this).pick(featureIndex, target, controller);
+        if (faces === undefined) return;
+
+        Transaction.execute(this.document, "reselect faces", () => {
+            const features = this.features.map((x) => (x.id === featureId ? target.withRefs(x, faces) : x));
             this.setFeaturesEmitShapeChanged(features);
             this.document.selection.clearSelection();
             this.document.visual.update();

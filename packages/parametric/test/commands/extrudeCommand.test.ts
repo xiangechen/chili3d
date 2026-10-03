@@ -19,7 +19,7 @@ import {
 import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ExtrudeFeatureCommand } from "../../src/commands/extrudeCommand";
-import { SELECTED_PROFILE_STATE } from "../../src/commands/extrudeDragStep";
+import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import type { ExtrudeFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import type { SketchData } from "../../src/sketch/sketchModel";
@@ -210,7 +210,7 @@ describe("ExtrudeFeatureCommand profile step", () => {
             expect(face.point).toEqual(new XYZ({ x: 0.5, y: 0.5, z: 0 }));
             expect(setSelectedShapes).toHaveBeenCalledTimes(1);
             expect(setSelectedShapes.mock.calls[0][0]).toEqual(result!.shapes);
-            expect(setSelectedShapes.mock.calls[0][1]).toBe(SELECTED_PROFILE_STATE);
+            expect(setSelectedShapes.mock.calls[0][1]).toBe(SELECTED_FACE_STATE);
         } finally {
             restoreFactory();
         }

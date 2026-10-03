@@ -30,8 +30,8 @@ import {
     type ExtrudeDragData,
     ExtrudeDragHandler,
     ExtrudeDragStep,
-    SELECTED_PROFILE_STATE,
 } from "../../src/commands/extrudeDragStep";
+import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
@@ -263,7 +263,7 @@ describe("ExtrudeDragHandler", () => {
         expect(handler.state.normal.isEqualTo(XYZ.unitX)).toBe(true);
         expect(handler.state.anchor.isEqualTo(new XYZ({ x: 0, y: 2, z: 2 }))).toBe(true);
         expect(handler.state.dist).toBe(0);
-        expect(setSelectedShapes).toHaveBeenCalledWith([face], SELECTED_PROFILE_STATE, false);
+        expect(setSelectedShapes).toHaveBeenCalledWith([face], SELECTED_FACE_STATE, false);
     });
 
     test("clicking a planar face of a parametric body switches the extrude target", () => {
@@ -297,7 +297,7 @@ describe("ExtrudeDragHandler", () => {
         expect(handler.state.normal.isEqualTo(XYZ.unitY)).toBe(true);
         expect(handler.state.origin.isEqualTo(new XYZ({ x: 0, y: 5, z: 0 }))).toBe(true);
         expect(handler.state.anchor.isEqualTo(new XYZ({ x: 1, y: 5, z: 2 }))).toBe(true);
-        expect(setSelectedShapes).toHaveBeenCalledWith([face], SELECTED_PROFILE_STATE, false);
+        expect(setSelectedShapes).toHaveBeenCalledWith([face], SELECTED_FACE_STATE, false);
     });
 
     test("clicking a non-planar face of a parametric body does nothing", () => {

@@ -157,6 +157,15 @@ export interface IShapeFactory {
         mode?: OffsetMode,
         intersection?: boolean,
     ): Result<IShape>;
+    /** Tracked shell: `makeThickSolidByJoin` with kernel history, for stable sub-shape ids. */
+    makeThickSolidByJoinTracked?(
+        shape: IShape,
+        openFaces: IShape[],
+        thickness: number,
+        joinType: JoinType,
+        mode?: OffsetMode,
+        intersection?: boolean,
+    ): Result<TrackedShape>;
     fillet(shape: IShape, edges: number[], radius: number): Result<IShape>;
     chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;

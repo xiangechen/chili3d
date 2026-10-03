@@ -20,6 +20,8 @@ export * from "./profileRef";
 export * from "./profileSeeds";
 export * from "./refGeometry";
 export * from "./revolve";
+export * from "./shell";
+export * from "./shellTracked";
 export * from "./sourceFaceMatcher";
 export * from "./sweep";
 export * from "./sweepGeometry";

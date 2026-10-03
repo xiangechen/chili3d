@@ -29,10 +29,7 @@ import { type ThickenIds, type ThickenInput, thickenInputsOf, thickenTracked } f
 const thickenHandler: FeatureHandler<ThickenFeatureData> = {
     display: "command.feature.thicken",
     icon: "icon-thickSolid",
-    // Deliberately NOT `reselectable`: the panel's Reselect action routes through
-    // `ParametricBodyNode.reselectSession`, which has no face picker for a body source — the
-    // flag would put a dead action on the row. Re-picking means deleting and re-adding the
-    // feature until that session exists.
+    reselectable: true,
 
     nodeIds: (feature) => [feature.source.nodeId],
 
