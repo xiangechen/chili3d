@@ -99,7 +99,10 @@ export interface IEdge extends IShape {
     continuity(face1: IFace, face2: IFace): Continuity;
 }
 
-export type JoinType = "arc" | "tangent" | "intersection";
+/** The values `JoinType` may hold, as the runtime list a caller validates against (cf. `Continuities`). */
+export const JoinTypes = ["arc", "tangent", "intersection"] as const;
+
+export type JoinType = (typeof JoinTypes)[number];
 
 export type OffsetMode = "skin" | "pipe" | "rectoVerso";
 

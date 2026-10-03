@@ -27,6 +27,7 @@ import {
 import { ReselectFeatureCommand } from "./commands/reselectCommand";
 import {
     EdgeReselectSession,
+    type FaceCaptureNode,
     type FacePickTarget,
     FaceReselectSession,
     PathReselectSession,
@@ -432,23 +433,38 @@ export class ParametricBodyNode
     }
 
     /**
-     * Where a feature keeps the faces it names on this body's own chain input — undefined for a
-     * feature whose refs are edges, sketch profiles or another node's faces. The re-pick session
-     * needs both the current refs and a way to write replacements back (it rebuilds the chain with
-     * them as a live preview), and only the feature's own shape knows where they go.
+     * Where a feature keeps the faces it names, and the frame those refs live in — undefined for a
+     * feature whose refs are edges or sketch profiles. The re-pick session needs both the current
+     * refs and a way to write replacements back (it rebuilds the chain with them as a live
+     * preview), and only the feature's own shape knows where they go.
      */
     private facePickTarget(feature: FeatureData): FacePickTarget | undefined {
+        // Own-chain faces: a shell's openings, a draft's faces. Both name sub-shapes of the shape
+        // the chain has built, so they are matched against `context.input` in its own frame.
         if (feature.type === "shell") {
             return {
                 refs: feature.faces,
                 withRefs: (f, refs) => (f.type === "shell" ? { ...f, faces: refs } : f),
                 captureNormal: false,
+                refFrame: "local",
             };
         }
+        if (feature.type === "draft") {
+            return {
+                refs: feature.faces,
+                withRefs: (f, refs) => (f.type === "draft" ? { ...f, faces: refs } : f),
+                captureNormal: false,
+                refFrame: "local",
+            };
+        }
+
         const source = "source" in feature ? feature.source : undefined;
-        // Only the host's OWN faces: another node's faces are matched in that node's frame, which
-        // this session (built on `context.input`) does not speak.
-        if (source === undefined || source.nodeId !== this.id) return undefined;
+        if (source === undefined) return undefined;
+        // A `source` names faces of an existing body, which is the host's own only when the
+        // feature was joined back onto the body it was built from — a standalone thicken and one
+        // joined elsewhere both name a DIFFERENT node, and the pick has to run on that one.
+        const captureNode = source.nodeId === this.id ? this : this.sourceFaceNode(source.nodeId);
+        if (captureNode === undefined) return undefined;
         return {
             refs: source.profiles,
             withRefs: (f, refs) =>
@@ -458,7 +474,23 @@ export class ParametricBodyNode
             // A press-pull takes planar faces only, so its pick keeps the outward normal as a
             // match gate; a thicken and a shell accept curved ones and must not.
             captureNormal: feature.type === "extrude",
+            // A `source` ref is a world-space fingerprint — `resolveSourceFaces` matches it
+            // against the source node's world geometry. Captured node-local, it would still
+            // re-match while its tracked id survives (the id hit ignores geometry, and the match
+            // re-anchors the ref) — and fail permanently the moment the id is gone.
+            refFrame: "world",
+            captureNode,
         };
+    }
+
+    /**
+     * The body a `source` id names, when it can carry tracked face ids — undefined when it is
+     * gone. A `source` may also name a plain shape node (an imported body is not parametric);
+     * that one keeps the no-op it has today, having no ids to re-pick against.
+     */
+    private sourceFaceNode(nodeId: string): FaceCaptureNode | undefined {
+        const node = this.document.modelManager.findNode((x) => x.id === nodeId);
+        return node instanceof ParametricBodyNode ? node : undefined;
     }
 
     /** Re-picks the faces of `target` and stores them, one undo step. */

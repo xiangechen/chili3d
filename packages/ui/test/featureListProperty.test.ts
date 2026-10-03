@@ -177,6 +177,77 @@ describe("FeatureListProperty", () => {
         expect(visualUpdated).toBe(true);
     });
 
+    const joinTypeParameter = (value: string): FeatureItem["parameters"][number] => ({
+        key: "joinType",
+        display: "option.command.joinType",
+        value,
+        choices: [
+            { value: "arc", display: "option.command.joinType.arc" },
+            { value: "tangent", display: "option.command.joinType.tangent" },
+            { value: "intersection", display: "option.command.joinType.intersection" },
+        ],
+    });
+
+    test("renders a dropdown for a parameter with choices, and no text box", () => {
+        const doc = createMockDocument();
+        const node = featureNode([joinTypeParameter("arc")]);
+        const prop = new FeatureListProperty(doc, node);
+        expandFirstRow(prop);
+
+        const options = Array.from(mustQuery<HTMLSelectElement>(prop, "select").querySelectorAll("option"));
+        expect(options).toHaveLength(3);
+        // Every other parameter is a text box; a choice must not be one, or the value is typable.
+        expect(prop.querySelector("input.ip-box")).toBeNull();
+        // Happy-DOM scrambles `option.selected` once the options are appended, so the raw flag
+        // the row passed in is what to read.
+        expect(options.map((x) => (x as unknown as { _selected: boolean })._selected)).toEqual([
+            true,
+            false,
+            false,
+        ]);
+    });
+
+    test("a chosen option applies the handler's value, not the DOM string", () => {
+        const doc = createMockDocument();
+        let visualUpdated = false;
+        doc.visual.update = () => {
+            visualUpdated = true;
+        };
+        const node = featureNode([joinTypeParameter("arc")]);
+        const prop = new FeatureListProperty(doc, node);
+        expandFirstRow(prop);
+
+        const select = mustQuery<HTMLSelectElement>(prop, "select");
+        select.value = "2";
+        (select as unknown as { _onchange: (e: { target: HTMLSelectElement }) => void })._onchange({
+            target: select,
+        });
+
+        // The third choice's value — the row maps the option back through `choices` rather than
+        // trusting the element's string.
+        expect(node.setFeatureParameter).toHaveBeenCalledWith("b1", "joinType", "intersection");
+        expect(visualUpdated).toBe(true);
+    });
+
+    test("a choice with no label of its own shows its value", () => {
+        const doc = createMockDocument();
+        const node = featureNode([
+            {
+                key: "continuity",
+                display: "option.command.continuity",
+                value: "g1",
+                choices: [{ value: "c0" }, { value: "g1" }],
+            },
+        ]);
+        const prop = new FeatureListProperty(doc, node);
+        expandFirstRow(prop);
+
+        // A token that reads the same in every language is its own label, uppercased.
+        const options = Array.from(mustQuery<HTMLSelectElement>(prop, "select").querySelectorAll("option"));
+        expect(options.map((x) => x.textContent)).toEqual(["C0", "G1"]);
+        expect((options[1] as unknown as { _selected: boolean })._selected).toBe(true);
+    });
+
     test("shows the custom name instead of the localized display when renamed", () => {
         const doc = createMockDocument();
         const node = featureNode([], { name: "My fillet" });

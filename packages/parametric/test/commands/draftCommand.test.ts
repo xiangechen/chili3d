@@ -355,7 +355,8 @@ describe("DraftDragHandler", () => {
         const body = trackedBody(doc, ["f0", "f1"]);
         const onAngle = rs.fn();
         const started = options.faces ?? [faceData(body, 0, leanFace())];
-        doc.selection.setSelectedShapes(started as any, VisualStates.faceSelected, false);
+        // Deliberately NOT seeded here: the handler seeds the selection itself, which is what
+        // lets the pre-command pick survive (`SelectNeutralPlaneStep` clears it first).
 
         const drag = new DraftDragHandler(doc, new AsyncController(), {
             neutral: Plane.XY,
@@ -412,6 +413,16 @@ describe("DraftDragHandler", () => {
         expect((drag as any).canConfirm()).toBe(false);
         // And a drag is inert rather than projecting onto an axis that does not exist.
         expect((drag as any).projectValue(view, event(0, 0))).toBe(0);
+        drag.dispose();
+    });
+
+    test("the faces it opens with are put into the selection, so the first click toggles them", () => {
+        // `syncFaces` re-reads the picked set from the selection, so a seed that only lived in
+        // the handler's state would be dropped by the very first click.
+        const { drag, doc } = scenario();
+
+        expect(doc.selection.getSelectedShapes()).toHaveLength(1);
+        expect((drag as any).state.faces).toHaveLength(1);
         drag.dispose();
     });
 
@@ -518,6 +529,60 @@ describe("DraftDragStep", () => {
 
         expect(snapped!.shapes).toEqual([face]);
         expect(snapped!.nodes).toEqual([body]);
+    });
+});
+
+describe("DraftFeatureCommand seed faces", () => {
+    /**
+     * A command started with one face already selected. The snapshot is taken by `getSteps`,
+     * which `MultistepCommand.executeSteps` calls before any step runs — the last moment at
+     * which the pre-command selection is still readable.
+     */
+    function scenario() {
+        const app = createMockApplication();
+        const doc = new TestDocument({ application: app });
+        (app as any).activeView = createHandlerMockView({ document: doc });
+        doc.visual = createMockVisualWithDocument(doc);
+        doc.selection = mockSelection();
+        const body = trackedBody(doc);
+        doc.selection.setSelectedShapes([faceData(body, 0)], VisualStates.faceSelected, false);
+
+        const cmd = new DraftFeatureCommand() as any;
+        cmd._application = app;
+        cmd.neutral = { ref: { kind: "datum", name: "XY" }, plane: Plane.XY };
+        return { doc, body, cmd };
+    }
+
+    test("the faces picked before the command started are what the drag opens with", () => {
+        const { doc, cmd } = scenario();
+
+        cmd.getSteps();
+        // What `SelectNeutralPlaneStep` does, on entry and again on exit — the seed has to have
+        // been taken before this, or the drag starts with nothing.
+        doc.selection.clearSelection();
+
+        expect(cmd.dragData().faces).toHaveLength(1);
+    });
+
+    test("the snapshot is not re-taken, so a restart does not come back empty", () => {
+        const { doc, cmd } = scenario();
+
+        cmd.getSteps();
+        doc.selection.clearSelection();
+        // A restart re-enters `getSteps` with the selection already gone; a second snapshot
+        // would silently be an empty one.
+        cmd.getSteps();
+
+        expect(cmd.dragData().faces).toHaveLength(1);
+    });
+
+    test("a command started with nothing selected seeds nothing", () => {
+        const { doc, cmd } = scenario();
+        doc.selection.clearSelection();
+
+        cmd.getSteps();
+
+        expect(cmd.dragData().faces).toHaveLength(0);
     });
 });
 
@@ -657,11 +722,18 @@ describe("DraftFeatureCommand commit", () => {
     test("the neutral plane is picked first, then one step does the faces and the angle", () => {
         // The plane decides whether a face can be tapered at all, and it is what the handle is
         // measured against — so it has to come first for the handle to be up while picking.
-        const steps = (new DraftFeatureCommand() as any).getSteps() as unknown[];
+        // Built through the shared scenario because `getSteps` snapshots the selection, which
+        // needs a document.
+        const { restoreFactory, cmd } = scenario();
+        try {
+            const steps = cmd.getSteps() as unknown[];
 
-        expect(steps).toHaveLength(2);
-        expect(steps[0]).toBeInstanceOf(SelectNeutralPlaneStep);
-        expect(steps[1]).toBeInstanceOf(DraftDragStep);
+            expect(steps).toHaveLength(2);
+            expect(steps[0]).toBeInstanceOf(SelectNeutralPlaneStep);
+            expect(steps[1]).toBeInstanceOf(DraftDragStep);
+        } finally {
+            restoreFactory();
+        }
     });
 
     test("the preview is the same kernel call the feature will make", () => {

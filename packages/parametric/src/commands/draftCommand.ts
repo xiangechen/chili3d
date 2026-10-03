@@ -153,7 +153,15 @@ export class DraftFeatureCommand extends MultistepCommand {
         return value !== undefined && value !== 0 ? value : undefined;
     }
 
+    /** The faces the command was started on — see `getSteps` for where it is taken. */
+    private _seedFaces: VisualShapeData[] | undefined;
+
     protected override getSteps(): IStep[] {
+        // `MultistepCommand.executeSteps` calls this before any step runs, and step 1 clears the
+        // selection both on entry and on exit — so this is the last moment at which a pick made
+        // before the command started can still be read. Taken once (`??=`): a restart re-enters
+        // here with the selection already cleared, where a second snapshot would come back empty.
+        this._seedFaces ??= this.selectedBodyFaces();
         return [
             new SelectNeutralPlaneStep((picked) => {
                 this.neutral = picked;
@@ -163,15 +171,16 @@ export class DraftFeatureCommand extends MultistepCommand {
     }
 
     /**
-     * What the drag step opens with. The faces come from the current selection, so a pick made
-     * before the command starts is kept — the drag owns the set from there (see `DraftDragStep`).
+     * What the drag step opens with: the faces snapshotted in `getSteps`, which the drag then
+     * owns (see `DraftDragStep`). Not the live selection — the neutral-plane step has cleared
+     * that by now.
      */
     private readonly dragData = (): DraftDragData | undefined => {
         const neutral = this.neutral;
         if (neutral === undefined) return undefined;
         return {
             neutral: neutral.plane,
-            faces: this.selectedBodyFaces(),
+            faces: [...(this._seedFaces ?? [])],
             angle: this.resolvedAngle ?? 0,
             buildPreview: this.buildPreview,
             onAngle: (angle: number) => {

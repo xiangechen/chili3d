@@ -29,6 +29,24 @@ export interface FeatureParameter {
         readonly key: string;
         readonly value: number | string | boolean;
     }[];
+    /**
+     * Present when the parameter holds one of a fixed set — the row then renders a dropdown
+     * instead of a text box, so the value cannot be typed wrong. An enum kept as a bare string
+     * would otherwise be free text, and the panel has no way to reject a token the rebuild will
+     * refuse (see `shell`'s join type and `loft`'s continuity).
+     */
+    readonly choices?: readonly FeatureParameterChoice[];
+}
+
+/** One entry of a `choices` parameter's dropdown: the value stored on the feature, and its label. */
+export interface FeatureParameterChoice {
+    readonly value: number | string | boolean;
+    /**
+     * The row's label. Absent means the value is its own label, shown uppercased — for a token
+     * that reads the same in every language (`g1` as `G1`), where a translation would be an
+     * invented wording rather than a translation.
+     */
+    readonly display?: I18nKeys;
 }
 
 /**

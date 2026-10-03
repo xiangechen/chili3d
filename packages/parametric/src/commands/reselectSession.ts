@@ -310,6 +310,28 @@ export class EdgeReselectSession {
 }
 
 /**
+ * The body a face re-pick runs on and captures against: the host itself when the refs point at
+ * its own chain input (a shell's openings, a draft's faces), and the `source` node when the
+ * feature names faces of another body (a thicken's, a face-sourced press-pull's).
+ *
+ * Deliberately narrower than `ReselectHost`: the rollback and the feature-list write go to the
+ * host for BOTH cases, so those must not be reachable from here.
+ */
+export interface FaceCaptureNode extends INode, IBodyTrackingNode {
+    readonly document: IDocument;
+    readonly shape: Result<IShape>;
+    faceIdIsShared(id: string | undefined): boolean;
+}
+
+/**
+ * The frame a feature's stored `ProfileRef`s are written and matched in: the body's own, or
+ * world coordinates. A `source` ref (a thicken's, a face-sourced press-pull's) is matched against
+ * the source node's WORLD geometry — see `resolveSourceFaces` — while a shell's and a draft's are
+ * matched against `context.input` itself, so the two families need opposite handling at capture.
+ */
+export type RefFrame = "local" | "world";
+
+/**
  * What a face re-pick needs to know about the feature it is re-picking: where its refs live, and
  * how a replacement set is written back into a copy of it (for the live preview). The session
  * itself stays free of feature shapes — a shell keeps its faces in `faces`, a thicken and a
@@ -326,6 +348,10 @@ export interface FacePickTarget {
      * reject a legitimate re-match of one.
      */
     readonly captureNormal: boolean;
+    /** Which frame `refs` live in — see `RefFrame`. */
+    readonly refFrame: RefFrame;
+    /** The body to pick on; defaults to the session's host. */
+    readonly captureNode?: FaceCaptureNode;
 }
 
 /**
@@ -349,19 +375,23 @@ export class FaceReselectSession {
         target: FacePickTarget,
         controller: AsyncController,
     ): Promise<ProfileRef[] | undefined> {
+        // Where the pick runs and the refs are captured, as against where the feature lives: a
+        // `source` feature's faces sit on ANOTHER body, and only that body's ids and frame can
+        // name them (see `FaceCaptureNode`). The rollback and the re-selection stay on the host.
+        const capture = target.captureNode ?? this.host;
         const original = this.host.features;
         let active = true;
         const preview = debounce((selected: VisualShapeData[]) => {
-            if (active) this.previewSelection(original, featureIndex, target, selected);
+            if (active) this.previewSelection(original, featureIndex, target, capture, selected);
         }, 20);
-        const owner = this.host.document.visual.context.getVisual(this.host);
-        const shape = this.host.shape;
+        const owner = this.host.document.visual.context.getVisual(capture);
+        const shape = capture.shape;
         const shapeType = shape.isOk ? shape.value.shapeType : undefined;
 
         return runReselectSession(this.host, controller, {
             prompt: "prompt.select.faces",
             shapeType: ShapeTypes.face,
-            targetNode: this.host,
+            targetNode: capture,
             // Nothing picked is nothing to re-pick.
             emptyIsCancel: true,
             onEmptyPick: () => PubSub.default.pub("showToast", "toast.select.noSelected"),
@@ -378,10 +408,10 @@ export class FaceReselectSession {
                     );
                 }
             },
-            preselect: () => this.preselect(target),
+            preselect: () => this.preselect(target, capture),
             // Captured while the rolled-back cache still describes the shape the user picked from:
             // after the teardown, the face order belongs to the finished shape instead.
-            capture: (picked) => picked.map((x) => this.captureRef(x, target.captureNormal)),
+            capture: (picked) => picked.map((x) => this.captureRef(x, target, capture)),
             teardown: () => {
                 active = false;
                 this.clearPreview();
@@ -398,17 +428,27 @@ export class FaceReselectSession {
     }
 
     /** The ref of one picked face, warning when its tracked id went missing. */
-    private captureRef(picked: VisualShapeData, captureNormal: boolean): ProfileRef {
-        const faceId = this.host.faceIdAt(picked.indexes[0]);
+    private captureRef(
+        picked: VisualShapeData,
+        target: FacePickTarget,
+        capture: FaceCaptureNode,
+    ): ProfileRef {
+        const faceId = capture.faceIdAt(picked.indexes[0]);
         if (faceId === undefined) {
-            reportSilentIdLoss(this.host, "face", "a re-picked face has no tracked id");
+            reportSilentIdLoss(capture, "face", "a re-picked face has no tracked id");
         }
-        return captureProfileRef(
-            picked.shape as unknown as IFace,
-            faceId,
-            this.host.faceIdIsShared(faceId),
-            captureNormal,
-        );
+        const shared = capture.faceIdIsShared(faceId);
+        // A pick reports the face in its owner's own frame plus the transform that carries it to
+        // world, and which of the two the ref wants is the feature's own contract — see `RefFrame`.
+        if (target.refFrame === "local") {
+            return captureProfileRef(picked.shape as unknown as IFace, faceId, shared, target.captureNormal);
+        }
+        const world = picked.shape.transformedMul(picked.transform) as IFace;
+        try {
+            return captureProfileRef(world, faceId, shared, target.captureNormal);
+        } finally {
+            world.dispose();
+        }
     }
 
     private clearPreview(): void {
@@ -422,10 +462,11 @@ export class FaceReselectSession {
         original: FeatureData[],
         featureIndex: number,
         target: FacePickTarget,
+        capture: FaceCaptureNode,
         selected: VisualShapeData[],
     ): void {
         this.clearPreview();
-        const refs = this.selectedFaceRefs(selected, target.captureNormal);
+        const refs = this.selectedFaceRefs(selected, target, capture);
         if (refs.length > 0) {
             const preview = original.map((x, i) => (i === featureIndex ? target.withRefs(x, refs) : x));
             const shape = evaluateChainSnapshot(this.host, preview);
@@ -434,13 +475,17 @@ export class FaceReselectSession {
         this.host.document.visual.update();
     }
 
-    /** The refs of the selected shapes that are this host's faces. */
-    private selectedFaceRefs(selected: VisualShapeData[], captureNormal: boolean): ProfileRef[] {
-        // Upcast for the identity test: `owner.node` is a `VisualNode`, the host a narrower
-        // interface — both are `INode`, which is what identity means here.
+    /** The refs of the selected shapes that are the capture body's faces. */
+    private selectedFaceRefs(
+        selected: VisualShapeData[],
+        target: FacePickTarget,
+        capture: FaceCaptureNode,
+    ): ProfileRef[] {
+        // Upcast for the identity test: `owner.node` is a `VisualNode`, the capture body a
+        // narrower interface — both are `INode`, which is what identity means here.
         return selected
-            .filter((x) => (x.owner.node as INode) === this.host && x.shape.shapeType === ShapeTypes.face)
-            .map((x) => this.captureRef(x, captureNormal));
+            .filter((x) => (x.owner.node as INode) === capture && x.shape.shapeType === ShapeTypes.face)
+            .map((x) => this.captureRef(x, target, capture));
     }
 
     /**
@@ -464,30 +509,56 @@ export class FaceReselectSession {
     }
 
     /** Selects the faces the feature currently references so the pick starts from them. */
-    private preselect(target: FacePickTarget): void {
-        const shape = this.host.shape;
+    private preselect(target: FacePickTarget, capture: FaceCaptureNode): void {
+        const shape = capture.shape;
         if (!shape.isOk) return;
-        const faces = shape.value.findSubShapes(ShapeTypes.face) as IFace[];
-        const matched = matchSourceFaceIndexes(
-            faces,
-            faces.map((_, index) => this.host.faceIdAt(index)),
-            [...target.refs],
-        );
-        // A failed match is a common reason to re-pick; then there is nothing to preselect.
-        if (!matched.isOk) return;
-        // Mesh ranges enumerate faces in the same order as findSubShapes (both use
-        // TopExp::MapShapes), so a matched position indexes into the ranges directly.
-        const ranges = shape.value.mesh.faces?.range;
-        if (ranges === undefined) return;
-        const owner = this.host.document.visual.context.getVisual(this.host) as INodeVisual | undefined;
+        const owner = this.host.document.visual.context.getVisual(capture) as INodeVisual | undefined;
         if (owner === undefined) return;
-        const picked: VisualShapeData[] = matched.value.indexes.map((index) => ({
-            owner,
-            shape: ranges[index].shape,
-            transform: owner.worldTransform(),
-            indexes: [index],
-        }));
-        this.host.document.selection.setSelectedShapes(picked, VisualStates.faceSelected, false);
+        const faces = shape.value.findSubShapes(ShapeTypes.face) as IFace[];
+        const owned: IFace[] = [];
+        try {
+            // The refs are matched in the frame they were stored in: a `source` ref is a world
+            // fingerprint, so the candidate faces have to be carried there first — the same thing
+            // `resolveSourceFaces` does on the evaluate side.
+            const matched = matchSourceFaceIndexes(
+                this.refFrameFaces(faces, target, owner, owned),
+                faces.map((_, index) => capture.faceIdAt(index)),
+                [...target.refs],
+            );
+            // A failed match is a common reason to re-pick; then there is nothing to preselect.
+            if (!matched.isOk) return;
+            // Mesh ranges enumerate faces in the same order as findSubShapes (both use
+            // TopExp::MapShapes), so a matched position indexes into the ranges directly — and the
+            // selection wants the LOCAL shape with its transform, whatever frame the match used.
+            const ranges = shape.value.mesh.faces?.range;
+            if (ranges === undefined) return;
+            const picked: VisualShapeData[] = matched.value.indexes.map((index) => ({
+                owner,
+                shape: ranges[index].shape,
+                transform: owner.worldTransform(),
+                indexes: [index],
+            }));
+            this.host.document.selection.setSelectedShapes(picked, VisualStates.faceSelected, false);
+        } finally {
+            owned.forEach((x) => {
+                x.dispose();
+            });
+        }
+    }
+
+    /** `faces` in the frame `target`'s refs are stored in; anything allocated lands in `owned`. */
+    private refFrameFaces(
+        faces: IFace[],
+        target: FacePickTarget,
+        owner: INodeVisual,
+        owned: IFace[],
+    ): IFace[] {
+        if (target.refFrame === "local") return faces;
+        const transform = owner.worldTransform();
+        if (transform.equals(Matrix4.identity())) return faces;
+        const world = faces.map((face) => face.transformedMul(transform) as IFace);
+        owned.push(...world);
+        return world;
     }
 }
 

@@ -5,6 +5,7 @@ import {
     Binding,
     type FeatureItem,
     type FeatureParameter,
+    type FeatureParameterChoice,
     type FeatureReference,
     I18n,
     type I18nKeys,
@@ -16,7 +17,7 @@ import {
     Transaction,
     type UnitSpec,
 } from "@chili3d/core";
-import { div, input, span, svg } from "@chili3d/element";
+import { div, input, option, select, span, svg } from "@chili3d/element";
 import { showDialog } from "../dialog";
 import commonStyle from "./common.module.css";
 import style from "./featureListProperty.module.css";
@@ -182,15 +183,51 @@ export class FeatureListProperty extends HTMLElement {
         return div(
             { className: style.param },
             span({ className: commonStyle.propertyName, textContent: new Localize(param.display) }),
-            typeof param.value === "boolean"
-                ? input({
-                      type: "checkbox",
-                      checked: param.value,
-                      onclick: (e) =>
-                          this.applyChecked(item, param.key, (e.target as HTMLInputElement).checked),
-                  })
-                : this.textParamInput(item, param.key, param.value, param.unit),
+            param.choices !== undefined && param.choices.length > 0
+                ? this.choiceSelect(item, param)
+                : typeof param.value === "boolean"
+                  ? input({
+                        type: "checkbox",
+                        checked: param.value,
+                        onclick: (e) =>
+                            this.applyChecked(item, param.key, (e.target as HTMLInputElement).checked),
+                    })
+                  : this.textParamInput(item, param.key, param.value, param.unit),
         );
+    }
+
+    /**
+     * The row of a parameter that holds one of a fixed set (see `FeatureParameter.choices`): a
+     * dropdown, so the value cannot be typed into something the rebuild will refuse. The option
+     * values are the indexes into `choices`, which keeps the stored value whatever type the
+     * handler declared rather than round-tripping it through the DOM's string.
+     */
+    private choiceSelect(item: FeatureItem, param: FeatureParameter) {
+        const choices = param.choices ?? [];
+        return select(
+            {
+                className: inputStyle.box,
+                onchange: (e) => {
+                    const index = Number((e.target as HTMLSelectElement).value);
+                    const chosen = Number.isInteger(index) ? choices[index] : undefined;
+                    if (chosen !== undefined) this.applyChoice(item, param.key, chosen.value);
+                },
+            },
+            ...choices.map((choice, index) =>
+                option({
+                    value: String(index),
+                    selected: choice.value === param.value,
+                    textContent: this.choiceLabel(choice),
+                }),
+            ),
+        );
+    }
+
+    /** A choice's label: its translation, or the value itself uppercased when it carries none. */
+    private choiceLabel(choice: FeatureParameterChoice): string | Localize {
+        return choice.display === undefined
+            ? String(choice.value).toUpperCase()
+            : new Localize(choice.display);
     }
 
     private textParamInput(item: FeatureItem, key: string, value: number | string, unit?: UnitSpec) {
@@ -394,6 +431,14 @@ export class FeatureListProperty extends HTMLElement {
     private applyChecked(item: FeatureItem, key: string, checked: boolean) {
         Transaction.execute(this.document, "edit feature", () => {
             this.node.setFeatureParameter(item.id, key, checked);
+            this.document.visual.update();
+        });
+    }
+
+    /** A dropdown choice — the same commit as `applyChecked`, with the value the handler declared. */
+    private applyChoice(item: FeatureItem, key: string, value: number | string | boolean) {
+        Transaction.execute(this.document, "edit feature", () => {
+            this.node.setFeatureParameter(item.id, key, value);
             this.document.visual.update();
         });
     }

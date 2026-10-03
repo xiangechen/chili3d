@@ -108,7 +108,16 @@ const loftHandler: FeatureHandler<LoftFeatureData> = {
     parameters: (feature) => [
         { key: "isSolid", display: "option.command.isSolid", value: feature.isSolid },
         { key: "isRuled", display: "option.command.isRuled", value: feature.isRuled },
-        { key: "continuity", display: "option.command.continuity", value: feature.continuity },
+        // A dropdown, like the shell's join type — and for the same reason: the token is refused
+        // by `evaluate` when it is unknown, so the panel must not let one be typed.
+        // No `display`: the set is the CAD notation itself (C0/G1/G2…), which reads the same in
+        // every language, so the row shows the value rather than inventing a translation for it.
+        {
+            key: "continuity",
+            display: "option.command.continuity",
+            value: feature.continuity,
+            choices: Continuities.map((continuity) => ({ value: continuity })),
+        },
     ],
 
     setParameter: (feature, key, value) => {

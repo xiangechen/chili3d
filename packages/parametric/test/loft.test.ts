@@ -412,7 +412,22 @@ describe("loft feature", () => {
             expect(featureHandler("loft")!.parameters!(feature)).toEqual([
                 { key: "isSolid", display: "option.command.isSolid", value: true },
                 { key: "isRuled", display: "option.command.isRuled", value: false },
-                { key: "continuity", display: "option.command.continuity", value: "c2" },
+                {
+                    key: "continuity",
+                    display: "option.command.continuity",
+                    value: "c2",
+                    // The row is a dropdown, so it has to carry every continuity the kernel
+                    // accepts — one left out would be unreachable from the panel.
+                    choices: [
+                        { value: "c0" },
+                        { value: "g1" },
+                        { value: "c1" },
+                        { value: "g2" },
+                        { value: "c2" },
+                        { value: "c3" },
+                        { value: "cn" },
+                    ],
+                },
             ]);
         });
     });

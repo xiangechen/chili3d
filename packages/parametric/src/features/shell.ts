@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IFace, type IShape, LENGTH_UNITS, Result, resolveUnitSpec, ShapeTypes } from "@chili3d/core";
+import {
+    type IFace,
+    type IShape,
+    JoinTypes,
+    LENGTH_UNITS,
+    Result,
+    resolveUnitSpec,
+    ShapeTypes,
+} from "@chili3d/core";
 import { type FeatureContext, type FeatureHandler, registerFeature, type ShellFeatureData } from "./feature";
 import { captureProfileRef } from "./profileRef";
 import { shellTracked } from "./shellTracked";
@@ -34,7 +42,20 @@ const shellHandler: FeatureHandler<ShellFeatureData> = {
             unit: LENGTH_UNITS,
         },
         { key: "outward", display: "option.command.outward", value: feature.outward ?? false },
-        { key: "joinType", display: "option.command.joinType", value: feature.joinType ?? "arc" },
+        // A dropdown, not a text box: the value goes straight to `getJoinType`, which throws on
+        // anything it does not know — an unknown token typed by hand would take the whole
+        // rebuild down with it. The two the Shell command offers, and no more: the field's type
+        // also admits `tangent`, which the guard below accepts (so a file carrying one still
+        // builds), but offering it here would put a value on the row that nothing else produces.
+        {
+            key: "joinType",
+            display: "option.command.joinType",
+            value: feature.joinType ?? "arc",
+            choices: JoinTypes.filter((x) => x !== "tangent").map((joinType) => ({
+                value: joinType,
+                display: `option.command.joinType.${joinType}`,
+            })),
+        },
     ],
 
     setParameter: (feature, key, value) =>
@@ -46,6 +67,14 @@ const shellHandler: FeatureHandler<ShellFeatureData> = {
         resolvedProfiles === undefined ? feature : { ...feature, faces: resolvedProfiles },
 
     evaluate(feature, context): Result<IShape> {
+        // The dropdown keeps the panel from writing a bad token; this keeps a project file that
+        // was hand-edited (or written before the dropdown existed) from reaching the kernel
+        // helper, whose unknown-value path throws — and a throw here escapes `evaluateFeature`
+        // and aborts the whole chain. Same guard `loft.ts` puts on its continuity, and it comes
+        // first for the same reason: the feature's own values are checked before the context's.
+        if (feature.joinType !== undefined && !JoinTypes.includes(feature.joinType)) {
+            return Result.err(`Invalid join type: ${feature.joinType}`);
+        }
         const input = context.input;
         if (input === undefined) return Result.err("Shell requires a preceding feature");
         const thickness = resolveUnitSpec(feature.thickness, context.scope, LENGTH_UNITS);

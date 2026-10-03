@@ -169,6 +169,13 @@ export class DraftDragHandler extends AxisDragHandler {
             faces: [...data.faces],
             angle: data.angle,
         };
+        // The seed has to land in the selection, not just in the state: `syncFaces` re-reads the
+        // picked set from the selection on every click, so a set that only lived here would be
+        // dropped by the first one. Seeding also makes that first click toggle the faces it
+        // lands on, rather than replacing the whole set as a click on "another" body would.
+        if (data.faces.length > 0) {
+            document.selection.setSelectedShapes(data.faces, SELECTED_FACE_STATE, false);
+        }
         this.refreshLean();
         this.start();
     }
