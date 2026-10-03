@@ -129,7 +129,9 @@ export type RibbonProfileExtra = RibbonTabProfile & { before?: RibbonTabKeys };
 
 /**
  * Ribbon contributions of the parametric module, applied by `AppBuilder.useParametric`.
- * Feature commands join the parametric tab next to the sketch group.
+ * Feature commands join the parametric tab next to the sketch group, split the way Fusion splits
+ * its panels: what BUILDS geometry out of a profile, then what REWRITES geometry that is already
+ * there.
  */
 export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
     {
@@ -137,17 +139,18 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
         before: "ribbon.tab.manager",
         groups: [
             {
-                groupName: "ribbon.group.feature",
+                groupName: "ribbon.group.create",
                 items: [
                     "feature.extrude",
                     "feature.revolve",
                     "feature.loft",
                     "feature.sweep",
-                    "feature.fillet",
-                    "feature.chamfer",
-                    "feature.shell",
                     "feature.thicken",
                 ],
+            },
+            {
+                groupName: "ribbon.group.modify",
+                items: ["feature.fillet", "feature.chamfer", "feature.draft", "feature.shell"],
             },
             {
                 groupName: "ribbon.group.boolean",

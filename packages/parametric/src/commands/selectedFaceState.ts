@@ -9,8 +9,10 @@ import { VisualStates, VisualStateUtils } from "@chili3d/core";
  * the ones that are merely hovered.
  *
  * Shared by every command whose pick is "some faces of this body": the extrude that sweeps them,
- * the thicken that stands material on them, the shell that opens them. They all draw a preview
- * over the body's own faces, which a normal opaque selection would hide.
+ * the thicken that stands material on them, the shell that opens them, and the draft that tapers
+ * them. They all draw a preview over the body's own faces, which a normal opaque selection would
+ * hide. The draft reaches it through `DraftDragHandler` rather than a picker step — the only one
+ * of them whose faces are picked inside the same gesture that edits the value.
  */
 export const SELECTED_FACE_STATE = VisualStateUtils.addState(
     VisualStates.faceTransparent,

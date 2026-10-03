@@ -31,6 +31,7 @@
 #include <BRepFilletAPI_MakeFillet.hxx>
 #include <BRepGProp.hxx>
 #include <BRepLib.hxx>
+#include <BRepOffsetAPI_DraftAngle.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
 #include <BRepOffsetAPI_MakePipeShell.hxx>
 #include <BRepOffsetAPI_MakeThickSolid.hxx>
@@ -1388,6 +1389,101 @@ public:
             offsetHistory(makeThickSolid, shape, result, TopAbs_EDGE) };
     }
 
+    // The neutral plane a draft rotates about, from the JS-side plane carrier. Deliberately
+    // NOT `Pln::toPln`: that builds a gp_Ax3, which raises when the x direction is not
+    // orthogonal to the normal — and a draft reads only the plane's POSITION and NORMAL,
+    // never its frame. The host's transform may carry a non-uniform scale, which the
+    // caller's world-to-local mapping of the plane can turn non-orthogonal.
+    static gp_Pln toNeutralPlane(const Pln& plane)
+    {
+        return gp_Pln(Vector3::toPnt(plane.location), Vector3::toDir(plane.direction));
+    }
+
+    // Adds every face of `facesVec` to `draft` and builds it. False (with `error` set) when
+    // anything would make the algorithm raise — which under -sDISABLE_EXCEPTION_CATCHING=1
+    // aborts the whole module, so both guards are load-bearing:
+    //
+    // - A face that is not a sub-shape of `shape` is rejected up front: the algorithm never
+    //   checks membership, and the edge-to-face index it walks (`Draft_Modification::Add`)
+    //   raises Standard_NoSuchObject on a foreign face's edges.
+    // - A failed `Add` returns BEFORE `Build()`: `Perform()`, which Build calls with no
+    //   try/catch, raises Standard_ConstructionError while a face is problematic. `AddDone()`
+    //   is what reports that state (its implementation is ProblematicShape().IsNull(), NOT
+    //   IsDone() — see BRepOffsetAPI_DraftAngle.cxx).
+    //
+    // A face is problematic when its surface is not planar, cylindrical or conical: OCCT
+    // computes the tapered surface EAGERLY (the Flag of Add defaults to true) and reports
+    // failure instead of silently skipping the face, which is the behaviour a feature wants.
+    static bool buildDraft(BRepOffsetAPI_DraftAngle& draft, const TopoDS_Shape& shape,
+        const std::vector<TopoDS_Face>& facesVec, const gp_Dir& direction, double angle,
+        const gp_Pln& neutralPlane, std::string& error)
+    {
+        if (facesVec.empty()) {
+            error = "No faces to draft";
+            return false;
+        }
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> shapeFaces;
+        TopExp::MapShapes(shape, TopAbs_FACE, shapeFaces);
+        for (const TopoDS_Face& face : facesVec) {
+            if (shapeFaces.FindIndex(face) <= 0) {
+                error = "Face does not belong to the shape";
+                return false;
+            }
+        }
+        for (const TopoDS_Face& face : facesVec) {
+            draft.Add(face, direction, angle, neutralPlane);
+            if (!draft.AddDone()) {
+                error = "Only planar, cylindrical and conical faces can be drafted";
+                return false;
+            }
+        }
+        draft.Build();
+        if (!draft.IsDone()) {
+            error = "Failed to draft";
+            return false;
+        }
+        return true;
+    }
+
+    // Draft: taper each of `faces` about its intersection line with `neutralPlane`, rotating
+    // it by `angle` (radians). `direction` is the pull direction — the side of the plane a
+    // POSITIVE angle removes material from (OCCT's convention), so the UI's "opposite
+    // direction" reaches the kernel by flipping it. `faces` must be sub-shapes of `shape`
+    // (same TShape), which the caller resolves off the shape it holds.
+    static ShapeResult draft(const TopoDS_Shape& shape, const ShapeArray& faces,
+        const Vector3& direction, double angle, const Pln& neutralPlane)
+    {
+        std::string error;
+        BRepOffsetAPI_DraftAngle draft(shape);
+        bool done = buildDraft(draft, shape, vecFromJSArray<TopoDS_Face>(faces), Vector3::toDir(direction),
+            angle, toNeutralPlane(neutralPlane), error);
+        if (!done) {
+            return ShapeResult { TopoDS_Shape(), false, error };
+        }
+        return ShapeResult { draft.Shape(), true, "" };
+    }
+
+    static TrackedShapeResult draftTracked(const TopoDS_Shape& shape, const ShapeArray& faces,
+        const Vector3& direction, double angle, const Pln& neutralPlane)
+    {
+        std::string error;
+        BRepOffsetAPI_DraftAngle draft(shape);
+        bool done = buildDraft(draft, shape, vecFromJSArray<TopoDS_Face>(faces), Vector3::toDir(direction),
+            angle, toNeutralPlane(neutralPlane), error);
+        if (!done) {
+            return TrackedShapeResult { TopoDS_Shape(), false, error, {}, {} };
+        }
+        const TopoDS_Shape result = draft.Shape();
+        // `faceFromEdgeHistory` and both offset channels stay empty, and that is correct
+        // rather than an omission: `BRepOffsetAPI_DraftAngle::Generated` only answers for
+        // FACES (an edge generates nothing), and a draft has no parallel-copy channel the
+        // way a thicken does. A face the draft simply TILTS still reports here — through
+        // Generated, which `mapInputShape` reads beside Modified — so it keeps the id of
+        // the face it was.
+        return TrackedShapeResult { result, true, "", faceHistory(draft, shape, result),
+            edgeHistory(draft, shape, result), {}, {}, {}, {} };
+    }
+
     // Removes every edge of `shape` that is not in `keepShapes` through the given
     // ReShape. Returns true if at least one edge was removed.
     static bool removeNonKeptEdges(
@@ -2156,6 +2252,8 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("makeThickSolidBySimpleTracked", &ShapeFactory::makeThickSolidBySimpleTracked)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
         .class_function("makeThickSolidByJoinTracked", &ShapeFactory::makeThickSolidByJoinTracked)
+        .class_function("draft", &ShapeFactory::draft)
+        .class_function("draftTracked", &ShapeFactory::draftTracked)
         .class_function("simplifyShape", &ShapeFactory::simplifyShape)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)
         .class_function("booleanCut", &ShapeFactory::booleanCut)

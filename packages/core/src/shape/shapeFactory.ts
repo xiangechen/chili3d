@@ -168,6 +168,30 @@ export interface IShapeFactory {
     ): Result<TrackedShape>;
     fillet(shape: IShape, edges: number[], radius: number): Result<IShape>;
     chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
+    /**
+     * Draft: taper each of `faces` about its intersection line with `neutralPlane`, rotating it
+     * by `angle` (in degrees, converted at this boundary — as `revolve` does). `pullDirection` is
+     * the side of the plane a POSITIVE angle removes material from, so the UI's opposite-direction
+     * option flips it rather than negating the angle. Only planar, cylindrical and conical faces
+     * can be drafted; anything else fails rather than being silently skipped. `faces` must be
+     * sub-shapes of `shape` (same TShape) — the kernel matches them by identity, and its edge
+     * index would miss a transformed copy.
+     */
+    draft(
+        shape: IShape,
+        faces: IFace[],
+        pullDirection: XYZLike,
+        angle: number,
+        neutralPlane: Plane,
+    ): Result<IShape>;
+    /** Tracked draft: `draft` with kernel history, for stable sub-shape ids. */
+    draftTracked?(
+        shape: IShape,
+        faces: IFace[],
+        pullDirection: XYZLike,
+        angle: number,
+        neutralPlane: Plane,
+    ): Result<TrackedShape>;
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
     revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;
     /**

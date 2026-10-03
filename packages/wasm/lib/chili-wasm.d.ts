@@ -712,6 +712,8 @@ interface EmbindModule {
     pyramid(_0: Pln, _1: number, _2: number, _3: number): ShapeResult;
     rect(_0: Pln, _1: number, _2: number): ShapeResult;
     facesFromEdges(_0: Array<TopoDS_Edge>, _1: Pln): RegionsResult;
+    draft(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: Vector3, _3: number, _4: Pln): ShapeResult;
+    draftTracked(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: Vector3, _3: number, _4: Pln): TrackedShapeResult;
   };
   Curve: {
     curveLength(_0: Geom_Curve | null): number;

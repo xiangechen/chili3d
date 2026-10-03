@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import "./booleanCommand";
+import "./draftCommand";
 import "./edgeCornerCommand";
 import "./extrudeCommand";
 import "./loftCommand";

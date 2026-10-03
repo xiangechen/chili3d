@@ -853,6 +853,67 @@ export class ShapeFactory implements IShapeFactory {
             "MakeThickSolidByJoinTracked Error",
         );
     }
+    draft(
+        shape: IShape,
+        faces: IFace[],
+        pullDirection: XYZLike,
+        angle: number,
+        neutralPlane: Plane,
+    ): Result<IShape> {
+        if (faces.length === 0) {
+            return Result.err("The faces are empty.");
+        }
+        if (pullDirection.x === 0 && pullDirection.y === 0 && pullDirection.z === 0) {
+            // `gp_Dir` raises on a null vector, and a raise aborts the whole module.
+            return Result.err("The pull direction is zero.");
+        }
+        return convertShapeResult(
+            wasm.ShapeFactory.draft,
+            [
+                ensureOccShape(shape)[0],
+                ensureOccShape(faces),
+                pullDirection,
+                MathUtils.degToRad(angle),
+                {
+                    location: neutralPlane.origin,
+                    direction: neutralPlane.normal,
+                    xDirection: neutralPlane.xvec,
+                },
+            ],
+            "Draft Error",
+        );
+    }
+
+    draftTracked(
+        shape: IShape,
+        faces: IFace[],
+        pullDirection: XYZLike,
+        angle: number,
+        neutralPlane: Plane,
+    ): Result<TrackedShape> {
+        if (faces.length === 0) {
+            return Result.err("The faces are empty.");
+        }
+        if (pullDirection.x === 0 && pullDirection.y === 0 && pullDirection.z === 0) {
+            return Result.err("The pull direction is zero.");
+        }
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.draftTracked,
+            [
+                ensureOccShape(shape)[0],
+                ensureOccShape(faces),
+                pullDirection,
+                MathUtils.degToRad(angle),
+                {
+                    location: neutralPlane.origin,
+                    direction: neutralPlane.normal,
+                    xDirection: neutralPlane.xvec,
+                },
+            ],
+            "Draft Error",
+        );
+    }
+
     loft(
         sections: (IVertex | IEdge | IWire)[],
         isSolid: boolean,

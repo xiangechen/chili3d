@@ -333,6 +333,17 @@ export const shapeCapabilities: ShapeCapability[] = [
         ],
     },
     {
+        method: "draft",
+        returnKind: "shape",
+        params: [
+            { name: "shape", kind: "ref" },
+            { name: "faces", kind: "refArray" },
+            { name: "pullDirection", kind: "xyz" },
+            { name: "angle", kind: "number" },
+            { name: "neutralPlane", kind: "plane" },
+        ],
+    },
+    {
         method: "fillet2d",
         returnKind: "face",
         params: [
@@ -1963,6 +1974,7 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   makeThickSolidByJoin(shape: ref, openFaces: refArray, thickness: number, joinType: arc|tangent|intersection, mode: skin|pipe|rectoVerso?, intersection: boolean?) -> shape
   fillet(shape: ref, edges: numberArray, radius: number) -> shape
   chamfer(shape: ref, edges: numberArray, distance: number) -> shape
+  draft(shape: ref, faces: refArray, pullDirection: xyz, angle: number, neutralPlane: plane) -> shape
   fillet2d(face: ref, edge1: ref, edge2: ref, radius: number) -> face
   chamfer2d(face: ref, edge1: ref, edge2: ref, distance: number) -> face
   loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: c0|g1|c1|g2|c2|c3|cn) -> shape

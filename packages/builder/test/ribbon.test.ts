@@ -148,9 +148,33 @@ describe("ParametricRibbonProfiles", () => {
         const tab = ParametricRibbonProfiles.find((t) => t.tabName === "ribbon.tab.parametric");
         expect(tab).toBeDefined();
         expect(tab!.before).toBe("ribbon.tab.manager");
-        const featureGroup = tab!.groups.find((g) => g.groupName === "ribbon.group.feature");
-        expect(featureGroup).toBeDefined();
-        expect(flattenItems(featureGroup!.items)).toContain("feature.extrude");
+        const createGroup = tab!.groups.find((g) => g.groupName === "ribbon.group.create");
+        expect(createGroup).toBeDefined();
+        expect(flattenItems(createGroup!.items)).toContain("feature.extrude");
+    });
+
+    test("should split building a shape from modifying one into two groups", () => {
+        // What builds geometry out of a profile, then what rewrites geometry already there — the
+        // split every other CAD tool's toolbar makes, and the reason a draft (which rewrites the
+        // body it is applied to) does not sit next to an extrude.
+        const tab = ParametricRibbonProfiles.find((t) => t.tabName === "ribbon.tab.parametric");
+        const itemsOf = (groupName: string) =>
+            flattenItems(tab!.groups.find((g) => g.groupName === groupName)!.items);
+
+        // Thicken sits with the builders, not the modifiers — Fusion's CREATE panel holds it too.
+        expect(itemsOf("ribbon.group.create")).toEqual([
+            "feature.extrude",
+            "feature.revolve",
+            "feature.loft",
+            "feature.sweep",
+            "feature.thicken",
+        ]);
+        expect(itemsOf("ribbon.group.modify")).toEqual([
+            "feature.fillet",
+            "feature.chamfer",
+            "feature.draft",
+            "feature.shell",
+        ]);
     });
 
     test("should merge into the sketch module's parametric tab without duplicating it", () => {
@@ -169,10 +193,11 @@ describe("ParametricRibbonProfiles", () => {
             "feature.revolve",
             "feature.loft",
             "feature.sweep",
+            "feature.thicken",
             "feature.fillet",
             "feature.chamfer",
+            "feature.draft",
             "feature.shell",
-            "feature.thicken",
             "feature.fuse",
             "feature.cut",
             "feature.common",

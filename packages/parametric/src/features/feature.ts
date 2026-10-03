@@ -19,6 +19,7 @@ import {
     type TrackedShape,
     type XYZLike,
 } from "@chili3d/core";
+import type { DatumPlaneName, PlaneFaceRef } from "../sketch/planeRef";
 import type { EdgeRef } from "./edgeRef";
 import {
     completeEdgeHistory,
@@ -48,7 +49,8 @@ export type FeatureData =
     | LoftFeatureData
     | SweepFeatureData
     | ThickenFeatureData
-    | ShellFeatureData;
+    | ShellFeatureData
+    | DraftFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -274,6 +276,52 @@ export interface ShellFeatureData extends FeatureBase {
      * only: it never changes which sub-shapes exist, and the shell's ids do not depend on it.
      */
     readonly joinType?: JoinType;
+}
+
+/**
+ * The plane a draft rotates its faces about: one of the three global datums, or a planar face
+ * of a node. Deliberately the SKETCH's plane reference (`PlaneFaceRef`, `planeRef.ts`) rather
+ * than a re-invention — it is what the viewport plane picker produces, and it already carries
+ * both the tracked `faceId` (precise re-match) and the `normal`+`offset` fingerprint
+ * (geometric fallback) that a rebuild needs.
+ *
+ * The name and nothing else is stored for a datum: the three never move, so there is nothing to
+ * re-match. A face ref is captured in WORLD coordinates (as a sketch's is) and mapped into the
+ * host's own frame when the feature evaluates.
+ */
+export type NeutralPlaneRef =
+    | { readonly kind: "face"; readonly ref: PlaneFaceRef }
+    | { readonly kind: "datum"; readonly name: DatumPlaneName };
+
+/**
+ * Draft (Onshape's / Fusion's Draft): taper the named faces about their intersection with a
+ * neutral plane, so a part can leave its mould.
+ *
+ * The faces are named and resolved exactly as a shell's are — `ProfileRef` fingerprints matched
+ * against `context.input` itself, never through a world-space transform, because the kernel
+ * matches them by identity and a transformed copy is a new TShape. The neutral plane is the one
+ * thing resolved the other way round: it names geometry that may live on another node (or
+ * nothing at all, for a datum), so it is captured and re-matched in world coordinates and then
+ * mapped into the host's frame.
+ */
+export interface DraftFeatureData extends FeatureBase {
+    readonly type: "draft";
+    /** Faces of the body's chain input to taper, as face fingerprints in that input's LOCAL space. */
+    readonly faces: ProfileRef[];
+    /** The plane the tapers rotate about. */
+    readonly neutralPlane: NeutralPlaneRef;
+    /**
+     * Taper angle in degrees (Onshape's and Fusion's unit). A negative angle keeps OCCT's
+     * meaning — material added on the pull direction's side rather than removed — so it is not
+     * clamped.
+     */
+    readonly angle: ParameterValue;
+    /**
+     * Flip the pull direction, which defaults to the neutral plane's normal (Fusion's Flip Pull
+     * Direction / Onshape's angle-direction toggle). Which side material is taken from is the
+     * only thing that changes: the taper's magnitude is the same either way.
+     */
+    readonly reverse?: boolean;
 }
 
 /**

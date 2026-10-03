@@ -139,8 +139,8 @@ export function resolveFacePlane(
     return plane;
 }
 
-type IdLookup = ((id: string) => number | undefined) | undefined;
-type IdMultiLookup = ((id: string) => number[]) | undefined;
+export type IdLookup = ((id: string) => number | undefined) | undefined;
+export type IdMultiLookup = ((id: string) => number[]) | undefined;
 
 interface PlaneSource extends ShapeSource {
     indexById: IdLookup;
@@ -187,7 +187,18 @@ function planeFaceSource(
     };
 }
 
-function matchFace(
+/**
+ * The face of `faces` a stored ref names, or undefined — the whole matching rule `resolveFacePlane`
+ * is built on, exported because it is the half a caller with its OWN face set needs: the draft
+ * feature reads the chain input rather than a node's final shape (see `resolveNeutralPlane` in
+ * `features/draft.ts`), and must not be routed through the node lookup `resolveFacePlane` does.
+ *
+ * `faces` are in the frame they live in and `transform` takes them to world, which is the frame
+ * the ref's fingerprint was captured in. `indexById`/`indexesOfId` are the tracked-id lookups for
+ * that same face set (undefined when the source carries no tracking) — without them the ref falls
+ * back to its geometric fingerprint alone.
+ */
+export function matchFace(
     faces: IFace[],
     transform: Matrix4,
     ref: PlaneFaceRef,
