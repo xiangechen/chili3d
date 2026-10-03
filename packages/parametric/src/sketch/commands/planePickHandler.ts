@@ -6,15 +6,21 @@ import {
     type IDocument,
     type IFace,
     type IView,
-    Plane,
+    type Plane,
     type Ray,
     ShapeSelectionHandler,
     ShapeTypes,
     type VisualShapeData,
     VisualStates,
-    XYZ,
+    type XYZ,
 } from "@chili3d/core";
-import { DATUM_PLANE_NAMES, type DatumPlaneName, datumPlaneOf } from "../planeRef";
+import {
+    DATUM_PLANE_NAMES,
+    type DatumPlaneName,
+    datumDisplayPlane,
+    datumPlaneOf,
+    planeOfFace,
+} from "../planeRef";
 import {
     DATUM_COLORS,
     DATUM_GAP,
@@ -34,20 +40,31 @@ const DATUM_PLANES: ReadonlyArray<{ name: DatumPlaneName; plane: Plane }> = DATU
     plane: datumPlaneOf(name),
 }));
 
-/**
- * Display frames for the datum quads: each quad stays in the positive quadrant so the
- * three pick quads stay symmetric around the origin. This is decoupled from the sketch
- * plane orientation — `Plane.ZX` is Z-up (xvec = −X) but its quad still shows in +X+Z.
- */
-const DATUM_DISPLAY_PLANES = [
-    Plane.XY,
-    Plane.YZ,
-    new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ }),
-];
+/** Display frames for the datum quads, in name order — see `datumDisplayPlane`. */
+const DATUM_DISPLAY_PLANES = DATUM_PLANE_NAMES.map(datumDisplayPlane);
 
 export type PlanePickResult =
-    | { kind: "face"; data: VisualShapeData }
+    /**
+     * `point` is where the pointer met the face's plane — the point the user clicked,
+     * which the offset preview centres on.
+     */
+    | { kind: "face"; data: VisualShapeData; point: XYZ }
+    /** A datum quad is a stand-in, not geometry: there is no clicked point to carry. */
     | { kind: "datum"; plane: Plane; name: DatumPlaneName };
+
+/**
+ * Where the ray meets the picked face's plane. A planar face lies in that plane, so this
+ * is the point the pointer was over. Undefined only for a ray parallel to the plane — a
+ * grazing hit, since this picker is single-mode and so never sweeps a rect.
+ */
+function facePlanePoint(data: VisualShapeData, view: IView, event: PointerEvent): XYZ | undefined {
+    const world = data.shape.transformedMul(data.transform) as IFace;
+    try {
+        return planeOfFace(world).intersectRay(view.rayAt(event.offsetX, event.offsetY));
+    } finally {
+        world.dispose();
+    }
+}
 
 /**
  * Picks the sketch base plane directly in the viewport: a planar face of a
@@ -121,7 +138,7 @@ export class PlanePickHandler extends ShapeSelectionHandler {
         view.update();
     }
 
-    protected override select(_view: IView, _event: PointerEvent): number {
+    protected override select(view: IView, event: PointerEvent): number {
         // A hovered datum wins: the quads draw on top, so the pointer over one is
         // aiming at it, not at the face the ray would otherwise hit first.
         if (this._hoveredDatum >= 0) {
@@ -130,11 +147,10 @@ export class PlanePickHandler extends ShapeSelectionHandler {
             return 1;
         }
         const face = this._highlights?.[0];
-        if (face !== undefined) {
-            this.result = { kind: "face", data: face };
-            return 1;
-        }
-        return 0;
+        const point = face === undefined ? undefined : facePlanePoint(face, view, event);
+        if (face === undefined || point === undefined) return 0;
+        this.result = { kind: "face", data: face, point };
+        return 1;
     }
 
     protected override highlightNext(_view: IView): void {

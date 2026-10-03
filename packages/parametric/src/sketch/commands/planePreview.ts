@@ -45,16 +45,26 @@ export const DATUM_HIGHLIGHT_COLORS: Record<DatumPlaneName, number> = {
 
 /**
  * Double-sided translucent quad in the plane's positive quadrant, with a gap from
- * the axes. Shared by the datum picker and the plane-offset preview so both draw
- * the same shape — the preview then reads as the picked plane moving, not as a
- * different object appearing. `size` is the side length; pass `DATUM_PREVIEW_SIZE`
- * for the preview.
+ * the axes. Shared by the datum picker and the offset preview that follows a datum
+ * pick, so both draw the same shape — the preview then reads as the picked plane
+ * moving, not as a different object appearing. `size` is the side length; pass
+ * `DATUM_PREVIEW_SIZE` for the preview.
  */
 export function datumQuad(plane: Plane, size: number = DATUM_SIZE): FaceMeshData {
-    const { origin, xvec, yvec, normal } = plane;
-    const corner = (u: number, v: number) => origin.add(xvec.multiply(u)).add(yvec.multiply(v));
-    const [min, max] = [DATUM_GAP, DATUM_GAP + size];
-    const corners = [corner(min, min), corner(max, min), corner(max, max), corner(min, max)];
+    return datumQuadAt(plane, datumQuadCenter(plane, size), size);
+}
+
+/**
+ * The same quad centred on a given point instead of at the quadrant placement
+ * `datumQuad` gives it. The preview of a face pick uses this: that quad is not
+ * standing in for one the user clicked, so it can close around the picked point —
+ * and with it the drag arrow, which is what the user then has to reach.
+ */
+export function datumQuadAt(plane: Plane, center: XYZ, size: number = DATUM_SIZE): FaceMeshData {
+    const { xvec, yvec, normal } = plane;
+    const half = size / 2;
+    const corner = (u: number, v: number) => center.add(xvec.multiply(u)).add(yvec.multiply(v));
+    const corners = [corner(-half, -half), corner(half, -half), corner(half, half), corner(-half, half)];
     return {
         position: new Float32Array(corners.flatMap((c) => [c.x, c.y, c.z])),
         index: new Uint32Array([0, 1, 2, 0, 2, 3, 2, 1, 0, 3, 2, 0]),

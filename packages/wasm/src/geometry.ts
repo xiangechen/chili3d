@@ -4,6 +4,7 @@
 import type { GeometryType, IGeometry, Matrix4 } from "@chili3d/core";
 import type { Geom_Geometry, Handle_Geom_Geometry } from "../lib/chili-wasm";
 import { convertFromMatrix } from "./helper";
+import { own, release } from "./ownedHandles";
 
 export abstract class OccGeometry implements IGeometry {
     private readonly _geometryType: GeometryType;
@@ -15,6 +16,7 @@ export abstract class OccGeometry implements IGeometry {
 
     constructor(readonly geometry: Geom_Geometry) {
         this._handleGeometry = new wasm.Handle_Geom_Geometry(geometry);
+        own(this, this._handleGeometry);
         this._geometryType = this.getGeometryType(geometry);
     }
 
@@ -39,7 +41,7 @@ export abstract class OccGeometry implements IGeometry {
     };
 
     protected disposeInternal() {
-        this._handleGeometry.delete();
+        release(this._handleGeometry).delete();
     }
 
     transform(value: Matrix4) {

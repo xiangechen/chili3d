@@ -22,7 +22,7 @@ import {
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
-import { PlanePickHandler } from "../../src/sketch/commands/planePickHandler";
+import { PlanePickHandler, type PlanePickResult } from "../../src/sketch/commands/planePickHandler";
 import { CreateSketch, EnterSketch } from "../../src/sketch/commands/sketchCommands";
 import { SketchPlaneOffsetHandler } from "../../src/sketch/commands/sketchPlaneOffsetStep";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
@@ -181,8 +181,18 @@ describe("PlanePickHandler", () => {
 
     /** A planar face the ray would hit first, i.e. one sitting in front of the quads. */
     function faceBehindQuads(): VisualShapeData {
+        // the Z = 0 plane: both test rays below run down −Z onto it
+        const world = {
+            shapeType: ShapeTypes.face,
+            normal: () => [XYZ.zero, XYZ.unitZ],
+            dispose: rs.fn(),
+        } as unknown as IFace;
         return {
-            shape: { shapeType: ShapeTypes.face, dispose: rs.fn() } as unknown as IFace,
+            shape: {
+                shapeType: ShapeTypes.face,
+                transformedMul: () => world,
+                dispose: rs.fn(),
+            } as unknown as IFace,
             owner: {} as any,
             transform: Matrix4.identity(),
             indexes: [0],
@@ -207,7 +217,8 @@ describe("PlanePickHandler", () => {
 
         click(handler, view);
 
-        expect(handler.result).toEqual({ kind: "face", data });
+        // the face pick carries where the pointer met the face: the preview centres on it
+        expect(handler.result).toEqual({ kind: "face", data, point: new XYZ({ x: 5, y: 5, z: 0 }) });
         expect(isCompleted()).toBe(true);
     });
 
@@ -287,7 +298,7 @@ describe("EnterSketch", () => {
 });
 
 describe("CreateSketch", () => {
-    function setup(rollbackIndex: number | undefined) {
+    function setup(rollbackIndex: number | undefined, picked?: PlanePickResult) {
         const app = createMockApplication();
         const clearSelection = rs.fn();
         // a planar world face with no boundary edges: the pick resolves a plane and
@@ -306,6 +317,8 @@ describe("CreateSketch", () => {
             transform: Matrix4.identity(),
             indexes: [0],
         };
+        // only the offset preview reads the click point; these tests confirm straight away
+        const facePick: PlanePickResult = { kind: "face", data, point: XYZ.zero };
         const document = new TestDocument({
             application: app,
             selection: { clearSelection } as any,
@@ -335,19 +348,21 @@ describe("CreateSketch", () => {
         // Two picks in sequence: the plane, then the offset step's own drag session. The
         // offset confirms with no drag at all, so the view it commits against has to be
         // supplied the way a real pointer release would.
+        let offsetHandler: SketchPlaneOffsetHandler | undefined;
         document.picker = {
             pickAsync: rs.fn(async (handler: unknown, _prompt: unknown, controller: AsyncController) => {
                 if (handler instanceof PlanePickHandler) {
-                    handler.result = { kind: "face", data };
+                    handler.result = picked ?? facePick;
                 } else {
                     expect(handler).toBeInstanceOf(SketchPlaneOffsetHandler);
-                    (handler as SketchPlaneOffsetHandler).commitView = view;
+                    offsetHandler = handler as SketchPlaneOffsetHandler;
+                    offsetHandler.commitView = view;
                 }
                 controller.success();
             }),
         } as any;
         const enter = rs.spyOn(SketchEditor, "enter").mockImplementation(() => ({}) as any);
-        return { app, body, enter };
+        return { app, body, enter, offsetHandler: () => offsetHandler };
     }
 
     test.each([
@@ -362,6 +377,26 @@ describe("CreateSketch", () => {
             const node = enter.mock.calls[0][0] as SketchNode;
             expect(body.features.length).toBe(2);
             expect(node.data.refPositions).toEqual({ [body.id]: expected });
+        } finally {
+            enter.mockRestore();
+        }
+    });
+
+    test("a datum pick carries the frame its quad was drawn in to the offset preview", async () => {
+        const { app, enter, offsetHandler } = setup(undefined, {
+            kind: "datum",
+            plane: Plane.ZX,
+            name: "ZX",
+        });
+        try {
+            await new CreateSketch().execute(app);
+
+            // the preview stands where the picker showed the quad (+X+Z), while the sketch
+            // itself still draws in the datum's own Z-up frame (−X)
+            const quad = (offsetHandler() as any).buildPreview().meshes[0];
+            expect(quad.position[0]).toBeGreaterThan(0);
+            const node = enter.mock.calls[0][0] as SketchNode;
+            expect(node.plane.xvec).toEqual(Plane.ZX.xvec);
         } finally {
             enter.mockRestore();
         }

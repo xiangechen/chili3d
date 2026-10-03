@@ -84,7 +84,8 @@ function setup() {
     const plane = sketchPlaneOfFace(floor!);
     const capturedRefs = captureBoundaryExternalRefs(
         body,
-        { kind: "face", data: { shape: floor!, transform: Matrix4.identity() } as any },
+        // the pick's point only feeds the offset preview, which this test never runs
+        { kind: "face", data: { shape: floor!, transform: Matrix4.identity() } as any, point: XYZ.zero },
         plane,
     );
     expect(capturedRefs).toBeDefined();

@@ -50,6 +50,25 @@ export function datumPlaneOf(name: DatumPlaneName): Plane {
 }
 
 /**
+ * The frame a datum's quad is drawn in: each quad stays in the positive quadrant so the three
+ * stay symmetric around the origin. Decoupled from the sketch plane's own orientation — the
+ * sketch planes are Z-up, so `Plane.ZX` has xvec = −X, but its quad still shows in +X+Z.
+ *
+ * Everything that draws a datum quad uses this frame — the picker, and the offset preview that
+ * follows a datum pick: the preview is meant to read as the quad the user just clicked moving,
+ * which it only does while both draw in one frame.
+ */
+const DATUM_DISPLAY_PLANES: Record<DatumPlaneName, Plane> = {
+    XY: Plane.XY,
+    YZ: Plane.YZ,
+    ZX: new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ }),
+};
+
+export function datumDisplayPlane(name: DatumPlaneName): Plane {
+    return DATUM_DISPLAY_PLANES[name];
+}
+
+/**
  * Outward-facing plane of a planar face, origin at the face's (0, 0) parameter
  * point. The face is expected to be transformed into world coordinates already.
  */

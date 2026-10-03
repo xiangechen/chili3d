@@ -10,11 +10,13 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { DATUM_PREVIEW_SIZE, datumQuad, datumQuadAt } from "../../src/sketch/commands/planePreview";
 import {
     type OffsetDragData,
     SketchPlaneOffsetHandler,
     SketchPlaneOffsetStep,
 } from "../../src/sketch/commands/sketchPlaneOffsetStep";
+import { datumDisplayPlane, datumPlaneOf } from "../../src/sketch/planeRef";
 
 /**
  * The arrow is meshed through `arrowMeshes`, which runs on the shape factory — absent
@@ -91,6 +93,76 @@ describe("SketchPlaneOffsetHandler", () => {
         expect(start.z).toBeCloseTo(-6);
         expect(end.z).toBeLessThan(start.z); // pointing along −Z, back toward the base
         handler.dispose();
+    });
+
+    /** The quad the handler previews, as it builds it. */
+    function previewQuad(data: OffsetDragData): Float32Array {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, data);
+        const quad = (handler as any).buildPreview().meshes[0];
+        handler.dispose();
+        return quad.position;
+    }
+
+    test("a face pick previews the quad on the plane's own frame", () => {
+        const position = previewQuad({ basePlane: Plane.YZ, offset: 3 });
+
+        const onPlane = datumQuad(Plane.YZ.offsetAlongNormal(3), DATUM_PREVIEW_SIZE);
+        expect(Array.from(position)).toEqual(Array.from(onPlane.position));
+    });
+
+    test("a datum pick previews the quad in the frame the picker drew it in", () => {
+        // The sketch planes are Z-up, so ZX's own frame puts the quad at −X; the picker draws
+        // that datum in +X+Z, and the preview has to carry on from there (see `datumDisplayPlane`).
+        const position = previewQuad({
+            basePlane: datumPlaneOf("ZX"),
+            quadPlane: datumDisplayPlane("ZX"),
+        });
+
+        const asPicked = datumQuad(datumDisplayPlane("ZX"), DATUM_PREVIEW_SIZE);
+        expect(Array.from(position)).toEqual(Array.from(asPicked.position));
+        expect(position[0]).toBeGreaterThan(0); // +X, where the picker showed it
+    });
+
+    /** The arrow's world segment, as the handler computes it. */
+    function arrowOf(handler: SketchPlaneOffsetHandler): { start: XYZ; end: XYZ } {
+        return (handler as any).arrowSegment();
+    }
+
+    test("a face pick centres the quad and the arrow on the point that was clicked", () => {
+        const pickPoint = new XYZ({ x: 30, y: -40, z: 0 });
+        const data: OffsetDragData = { basePlane: Plane.XY, pickPoint, offset: 5 };
+        const handler = new SketchPlaneOffsetHandler(doc, controller, data);
+
+        const { start } = arrowOf(handler);
+        handler.dispose();
+
+        // the handle lands under the pointer that picked the face, lifted by the offset
+        expect(start.isEqualTo(new XYZ({ x: 30, y: -40, z: 5 }))).toBe(true);
+        const centred = datumQuadAt(
+            Plane.XY.offsetAlongNormal(5),
+            new XYZ({ x: 30, y: -40, z: 5 }),
+            DATUM_PREVIEW_SIZE,
+        );
+        expect(Array.from(previewQuad(data))).toEqual(Array.from(centred.position));
+    });
+
+    test("the picked point only moves along the normal as the offset changes", () => {
+        const handler = new SketchPlaneOffsetHandler(doc, controller, {
+            basePlane: Plane.XY,
+            pickPoint: new XYZ({ x: 30, y: -40, z: 0 }),
+            offset: 5,
+        });
+        const quad = () => (handler as any).buildPreview().meshes[0].position as Float32Array;
+        const at5 = Array.from(quad());
+
+        handler.setValue(-2);
+        const atMinus2 = Array.from(quad());
+        handler.dispose();
+
+        // Plane.XY's frame is the world's, so the x/y components are the in-plane ones: the
+        // handle keeps the user's own point there and slides only along the normal.
+        expect(atMinus2.filter((_, i) => i % 3 !== 2)).toEqual(at5.filter((_, i) => i % 3 !== 2));
+        expect(at5[2] - atMinus2[2]).toBeCloseTo(7);
     });
 
     test("dragging the arrow sets a signed offset and reports it", () => {

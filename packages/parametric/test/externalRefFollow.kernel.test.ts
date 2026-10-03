@@ -743,7 +743,8 @@ test("boundary refs of a boolean-born face carry tracked ids through a groove ed
     const plane = sketchPlaneOfFace(floor!);
     const refs = captureBoundaryExternalRefs(
         body,
-        { kind: "face", data: { shape: floor!, transform: Matrix4.identity() } as any },
+        // the pick's point only feeds the offset preview, which this test never runs
+        { kind: "face", data: { shape: floor!, transform: Matrix4.identity() } as any, point: XYZ.zero },
         plane,
     );
     expect(refs).toHaveLength(4);

@@ -21,12 +21,19 @@ import {
     ShapeTypes,
     type SnapResult,
     Transaction,
+    type XYZ,
 } from "@chili3d/core";
 import { reportSilentIdLoss } from "../../features/idDiagnostics";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import { SketchEditor } from "../editor/sketchEditor";
 import { captureExternalRef } from "../externalRef";
-import { captureFaceRef, type DatumPlaneName, type PlaneFaceRef, sketchPlaneOfFace } from "../planeRef";
+import {
+    captureFaceRef,
+    type DatumPlaneName,
+    datumDisplayPlane,
+    type PlaneFaceRef,
+    sketchPlaneOfFace,
+} from "../planeRef";
 import {
     type ExternalRefData,
     emptySketchData,
@@ -47,6 +54,11 @@ interface PickedPlane {
     planeRef?: PlaneFaceRef;
     /** Set when the plane is one of the three global datums, so its offset stays editable. */
     datumPlane?: DatumPlaneName;
+    /**
+     * Where the face was clicked, on the base plane. Only the offset preview reads it:
+     * it centres the quad — and so the drag arrow — on the point the user was aiming at.
+     */
+    pickPoint?: XYZ;
     /** Boundary edges of the picked face, captured as reference-role external refs. */
     externalRefs?: ExternalRefData[];
     /** Timeline anchor of the picked body (its feature count now), for session rollback. */
@@ -123,7 +135,7 @@ function resolvePlane(document: IDocument, result: PlanePickResult | undefined):
     const owner = document.visual.context.getNode(result.data.owner);
     const picked = owner === undefined ? undefined : capturePlaneOwner(owner, result, face, plane);
     face.dispose();
-    return { plane, ...picked };
+    return { plane, pickPoint: result.point, ...picked };
 }
 
 /** The plane ref, boundary refs and timeline anchor captured for a face picked on `owner`. */
@@ -256,6 +268,14 @@ export class CreateSketch extends MultistepCommand {
         if (picked === undefined) throw new Error("the plane pick must run before the offset step");
         return {
             basePlane: picked.plane,
+            // A datum's quad shows in its display frame, and the preview has to carry on from
+            // there — see `datumDisplayPlane`. A face pick has no such frame: the face's own
+            // plane is the one the user saw.
+            quadPlane: picked.datumPlane === undefined ? undefined : datumDisplayPlane(picked.datumPlane),
+            // A datum's quad is a stand-in drawn at a fixed place, so the preview is centred on
+            // it; a face is the geometry the user actually pointed at, so the preview closes
+            // around the click and the handle lands under the cursor.
+            pickPoint: picked.pickPoint,
             offset: this.offsetValue,
             onReady: (handler: SketchPlaneOffsetHandler) => {
                 this._offsetHandler = handler;

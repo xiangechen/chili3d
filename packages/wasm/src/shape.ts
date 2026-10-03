@@ -73,6 +73,7 @@ import {
     toPnt,
     toXYZ,
 } from "./helper";
+import { own, release } from "./ownedHandles";
 import { OccSurface } from "./surface";
 
 export interface OccShapeOptions {
@@ -145,9 +146,13 @@ export class OccShape implements IShape {
         });
     }
 
+    /** Whether `_shape` is this wrapper's to delete — false for a borrowed handle (see `own`). */
+    private readonly _ownsShape: boolean;
+
     constructor(options: OccShapeOptions) {
         this.id = options.id ?? Id.generate();
         this._shape = options.shape;
+        this._ownsShape = own(this, options.shape);
         this.shapeType = getShapeType(options.shape);
     }
 
@@ -391,8 +396,12 @@ export class OccShape implements IShape {
     };
 
     protected disposeInternal(): void {
-        this._shape.nullify();
-        this._shape.delete();
+        const shape = this._shape;
+        if (this._ownsShape) {
+            release(shape);
+            shape.nullify();
+            shape.delete();
+        }
         this._shape = null as any;
 
         if (this._mesh && isDisposable(this._mesh)) {
