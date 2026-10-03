@@ -120,6 +120,33 @@ describe("FeatureListProperty", () => {
         expect(prop.querySelector("input.ip-box")).toBeNull();
     });
 
+    test("hides a parameter whose `visibleWhen` does not hold, and shows it when it does", () => {
+        const doc = createMockDocument();
+        const render = (midplane: boolean) => {
+            const node = featureNode([
+                { key: "midplane", display: "option.command.symmetric", value: midplane },
+                {
+                    key: "thickness2",
+                    display: "option.command.thickness2",
+                    value: 3,
+                    visibleWhen: [{ key: "midplane", value: false }],
+                },
+            ]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+            return prop;
+        };
+
+        // Midplane on: the second thickness answers to nothing, so its row is gone — and the
+        // one left is the toggle itself, not the number field it displaced.
+        const withMidplane = render(true);
+        expect(withMidplane.querySelectorAll(".fl-param")).toHaveLength(1);
+        expect(mustQuery<HTMLInputElement>(withMidplane, "input[type='checkbox']").checked).toBe(true);
+        expect(withMidplane.querySelector("input.ip-box")).toBeNull();
+
+        expect(render(false).querySelectorAll(".fl-param")).toHaveLength(2);
+    });
+
     test("renders a text input for numeric parameters", () => {
         const doc = createMockDocument();
         const node = featureNode([{ key: "length", display: "common.name", value: 12.34567 }]);

@@ -8,4 +8,5 @@ import "./loftCommand";
 import "./reselectCommand";
 import "./revolveCommand";
 import "./sweepCommand";
+import "./thickenCommand";
 import "./variableCommand";

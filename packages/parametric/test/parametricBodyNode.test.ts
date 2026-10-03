@@ -4,6 +4,7 @@
 import {
     type AsyncController,
     BoundingBox,
+    type FeatureParameter,
     type I18nKeys,
     type INode,
     isCancelableCommand,
@@ -395,6 +396,27 @@ describe("ParametricBodyNode", () => {
             { key: "startOffset", display: "option.command.startOffset", value: 0, unit: LENGTH_UNITS },
             { key: "symmetric", display: "option.command.symmetric", value: false },
         ]);
+    });
+
+    test("a thicken's second thickness is a row only off the midplane", () => {
+        const body = bodyWith([
+            {
+                id: "t1",
+                type: "thicken",
+                source: { nodeId: "missing", profiles: [] },
+                thickness: 4,
+                midplane: true,
+            },
+        ]);
+
+        const rows: readonly FeatureParameter[] = body.featureItems()[0].parameters;
+
+        expect(rows.map((x) => x.key)).toEqual(["thickness", "midplane", "reverse", "thickness2"]);
+        expect(rows.find((x) => x.key === "thickness2")?.visibleWhen).toEqual([
+            { key: "midplane", value: false },
+        ]);
+        // The value is still carried while it is hidden — the row is what goes, not the number.
+        expect(rows.find((x) => x.key === "thickness2")?.value).toBe(0);
     });
 
     test("Serializer round-trips the feature list", () => {

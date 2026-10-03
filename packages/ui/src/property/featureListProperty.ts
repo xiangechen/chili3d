@@ -27,6 +27,19 @@ interface DropTarget {
     readonly before: boolean;
 }
 
+/**
+ * False for a parameter the feature's current values say is not in play — see
+ * `FeatureParameter.visibleWhen`. The controlling entries are looked up in the SAME item's
+ * parameters, so a condition naming a key the feature no longer declares hides the row rather
+ * than showing a parameter that answers to nothing.
+ */
+function isParameterVisible(item: FeatureItem, param: FeatureParameter): boolean {
+    return (param.visibleWhen ?? []).every(
+        (condition) =>
+            item.parameters.find((candidate) => candidate.key === condition.key)?.value === condition.value,
+    );
+}
+
 /** The i18n label of a unit the panel can name; undefined for derived ones (area, ...). */
 function unitSpecLabelKey(unit: UnitSpec | undefined): I18nKeys | undefined {
     if (unit === undefined) return undefined;
@@ -141,7 +154,9 @@ export class FeatureListProperty extends HTMLElement {
             { className: style.body },
             ...(message === undefined ? [] : [message]),
             ...(item.references ?? []).map((ref) => this.referenceRow(item, ref)),
-            ...item.parameters.map((param) => this.parameterRow(item, param)),
+            ...item.parameters
+                .filter((param) => isParameterVisible(item, param))
+                .map((param) => this.parameterRow(item, param)),
         );
     }
 

@@ -61,8 +61,11 @@ import { prioritizeSketchFaces } from "./profileFaceSort";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
-/** Maps the command's operation dropdown values to boolean operations; new has none. */
-const EXTRUDE_OPERATIONS: Record<string, BooleanOperation> = {
+/**
+ * Maps a form feature command's operation dropdown values to boolean operations; "New Body" has
+ * none. Shared by every command whose feature carries an `operation` (extrude, thicken).
+ */
+export const FORM_FEATURE_OPERATIONS: Record<string, BooleanOperation> = {
     "option.command.operation.join": "fuse",
     "option.command.operation.cut": "cut",
     "option.command.operation.intersect": "common",
@@ -412,7 +415,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
      * committed bodies agree on what is being modified.
      */
     private previewOperation(prism: IShape): ExtrudePreview {
-        const operation = EXTRUDE_OPERATIONS[this.operation];
+        const operation = FORM_FEATURE_OPERATIONS[this.operation];
         if (operation === undefined) return ExtrudeFeatureCommand.prismPreview(prism);
 
         const targets = this.resolveTargets(prism.boundingBox());
@@ -592,7 +595,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand {
         normal: XYZ,
         worldFaces: IFace[],
     ): void {
-        const operation = EXTRUDE_OPERATIONS[this.operation];
+        const operation = FORM_FEATURE_OPERATIONS[this.operation];
         if (operation === undefined) {
             standaloneBody(this.document, feature);
             return;

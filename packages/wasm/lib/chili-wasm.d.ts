@@ -64,6 +64,8 @@ export interface TrackedShapeResult extends ClassHandle {
   faceAncestors: IntVector;
   edgeAncestors: IntVector;
   capFaces: IntVector;
+  offsetFaceMap: IntVector;
+  offsetEdgeMap: IntVector;
 }
 
 export interface ShapeFactory extends ClassHandle {
@@ -652,6 +654,7 @@ interface EmbindModule {
   TrackedShapeResult: {};
   ShapeFactory: {
     makeThickSolidBySimple(_0: TopoDS_Shape, _1: number): ShapeResult;
+    makeThickSolidBySimpleTracked(_0: TopoDS_Shape, _1: number): TrackedShapeResult;
     fixShape(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixSmallFace(_0: TopoDS_Shape, _1: number): ShapeResult;
     fixSolid(_0: TopoDS_Shape, _1: number): ShapeResult;

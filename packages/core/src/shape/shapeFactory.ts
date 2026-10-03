@@ -56,6 +56,18 @@ export interface TrackedShape {
      * channel can name a cap.
      */
     capFaces?: number[];
+    /**
+     * Output face index (findSubShapes order) -> input face index of the PARALLEL COPY a
+     * thicken offsets that face into (its "offset surface"), -1 = not an offset image.
+     * A separate channel on purpose: the derivation pairs report the input face as its own
+     * descendant AND report the copy off it, so a caller reading only the pairs would stamp
+     * one id on two distinct faces (a box top thickened by -2 yields the kept top, 4 rim
+     * bands, and a copy 2mm below, the copy derived from the same input face). Only the
+     * kernel can tell the copy from the kept face.
+     */
+    offsetFaceMap?: number[];
+    /** The edge counterpart of `offsetFaceMap`. */
+    offsetEdgeMap?: number[];
 }
 
 /**
@@ -132,6 +144,11 @@ export interface IShapeFactory {
     sewing(shapes: IShape[]): Result<IShape>;
     combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
+    /**
+     * Tracked thicken: `makeThickSolidBySimple` with kernel history, so the bodies a
+     * thicken feature appends keep stable sub-shape ids (see the parametric module).
+     */
+    makeThickSolidBySimpleTracked?(shape: IShape, thickness: number): Result<TrackedShape>;
     makeThickSolidByJoin(
         shape: IShape,
         openFaces: IShape[],

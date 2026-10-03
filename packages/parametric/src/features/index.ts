@@ -23,5 +23,7 @@ export * from "./revolve";
 export * from "./sourceFaceMatcher";
 export * from "./sweep";
 export * from "./sweepGeometry";
+export * from "./thicken";
+export * from "./thickenTracked";
 export * from "./trackedId";
 export * from "./vertexRef";

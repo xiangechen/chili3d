@@ -16,6 +16,19 @@ export interface FeatureParameter {
     readonly value: number | string | boolean;
     /** The unit the slot expects — the panel hints it, the rebuild enforces it. */
     readonly unit?: UnitSpec;
+    /**
+     * The parameters this one is only meaningful beside, as `key`s of the SAME feature: the row
+     * is hidden unless every named parameter currently holds the listed value. A thicken's
+     * second thickness beside its midplane toggle, say — the value stays on the feature (the
+     * handler still returns it, and it survives as the user typed it), only its row goes.
+     *
+     * Hidden is not removed: `FeatureItem.parameters` still carries the entry, so the panel's
+     * lookups by key keep working and nothing has to re-derive the list.
+     */
+    readonly visibleWhen?: readonly {
+        readonly key: string;
+        readonly value: number | string | boolean;
+    }[];
 }
 
 /**

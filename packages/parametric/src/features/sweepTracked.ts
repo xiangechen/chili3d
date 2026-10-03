@@ -201,8 +201,8 @@ export function sweepFacesTracked(
     // sweeps raise a side face from that edge. Naming both after it would hand one id to two
     // faces — measured: they end up 25mm apart in the fused result, where `idsOverlap` reads them
     // as one sub-shape — so a name more than one prism claims is dropped (`uncontested`).
-    const prismFaceIds = uncontestedPerPrism(sweptFaceIds);
-    const prismEdgeIds = uncontestedPerPrism(sweptEdgeIds);
+    const prismFaceIds = uncontestedPerShape(sweptFaceIds);
+    const prismEdgeIds = uncontestedPerShape(sweptEdgeIds);
     const fused = fuseSweptPrisms(shapes, prismFaceIds, prismEdgeIds);
     if (fused !== undefined) return fused;
     const combined = combineShapes(shapes);
@@ -211,20 +211,24 @@ export function sweepFacesTracked(
 }
 
 /**
- * Each prism's ids with every one that ANOTHER prism of the same sweep also claims dropped.
+ * Each shape's ids with every one that ANOTHER shape of the same build also claims dropped.
  *
- * A prism's own repeats are not a conflict: two pieces of one split sub-shape legitimately carry
+ * A shape's own repeats are not a conflict: two pieces of one split sub-shape legitimately carry
  * one name, and the matcher reads them as what they are — pieces of one sub-shape. Only a name a
- * DIFFERENT prism claims means two distinct sub-shapes of the fused result, so only that is
+ * DIFFERENT shape claims means two distinct sub-shapes of the fused result, so only that is
  * dropped — compared component-wise (`idsOverlap`), the way the matcher compares: `A|B` from one
- * prism and `A` from another are still one sub-shape to it.
+ * shape and `A` from another are still one sub-shape to it.
+ *
+ * Shared by the sweeps (one entry per swept prism, hence the ids not colliding across a
+ * symmetric sweep's two halves) and by `thickenTracked.ts` (one entry per thickened
+ * component/direction, the same problem).
  */
-function uncontestedPerPrism(idsPerPrism: (string | undefined)[][]): (string | undefined)[][] {
-    const namesPerPrism = idsPerPrism.map((ids) => ids.filter((id): id is string => id !== undefined));
-    return idsPerPrism.map((ids, prism) =>
+export function uncontestedPerShape(idsPerShape: (string | undefined)[][]): (string | undefined)[][] {
+    const namesPerShape = idsPerShape.map((ids) => ids.filter((id): id is string => id !== undefined));
+    return idsPerShape.map((ids, shape) =>
         ids.map((id) =>
             id === undefined ||
-            namesPerPrism.some((names, other) => other !== prism && names.some((n) => idsOverlap(id, n)))
+            namesPerShape.some((names, other) => other !== shape && names.some((n) => idsOverlap(id, n)))
                 ? undefined
                 : id,
         ),

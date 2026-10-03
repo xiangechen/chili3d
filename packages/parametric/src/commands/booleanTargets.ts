@@ -14,20 +14,22 @@ import type {
     LoftFeatureData,
     RevolveFeatureData,
     SweepFeatureData,
+    ThickenFeatureData,
 } from "../features/feature";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { findIntersectingBodies } from "./intersectingBody";
 
 /**
- * A feature a boolean scope applies to: the four form features, each carrying an
- * `operation`. The other feature kinds (fillet, chamfer, boolean) have no body to combine
- * with, so a scope is never asked for them.
+ * A feature a boolean scope applies to: the form features, each carrying an `operation`. The
+ * other feature kinds (fillet, chamfer, boolean) have no body to combine with, so a scope is
+ * never asked for them.
  */
 export type BooleanScopedFeature =
     | ExtrudeFeatureData
     | RevolveFeatureData
     | LoftFeatureData
-    | SweepFeatureData;
+    | SweepFeatureData
+    | ThickenFeatureData;
 
 /** Every body the feature could combine with, in tree order — what the panel lists. */
 export function candidateBodies(document: IDocument): ParametricBodyNode[] {

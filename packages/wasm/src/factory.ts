@@ -133,6 +133,8 @@ function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
             faceAncestors: toIntArray(result.faceAncestors),
             edgeAncestors: toIntArray(result.edgeAncestors),
             capFaces: toIntArray(result.capFaces),
+            offsetFaceMap: toIntArray(result.offsetFaceMap),
+            offsetEdgeMap: toIntArray(result.offsetEdgeMap),
         });
     }
 
@@ -800,6 +802,13 @@ export class ShapeFactory implements IShapeFactory {
             wasm.ShapeFactory.makeThickSolidBySimple,
             [ensureOccShape(shape)[0], thickness],
             "MakeThickSolidBySimple Error",
+        );
+    }
+    makeThickSolidBySimpleTracked(shape: IShape, thickness: number): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.makeThickSolidBySimpleTracked,
+            [ensureOccShape(shape)[0], thickness],
+            "MakeThickSolidBySimpleTracked Error",
         );
     }
     makeThickSolidByJoin(

@@ -171,6 +171,7 @@ describe("ParametricRibbonProfiles", () => {
             "feature.sweep",
             "feature.fillet",
             "feature.chamfer",
+            "feature.thicken",
             "feature.fuse",
             "feature.cut",
             "feature.common",

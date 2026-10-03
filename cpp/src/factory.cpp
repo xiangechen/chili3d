@@ -141,6 +141,17 @@ struct TrackedShapeResult {
     // end has no cap): loft inputs are wires/vertices, so no derivation channel can
     // name a cap, and the two ends never coincide.
     std::vector<int> capFaces = {};
+    // Output sub-shape index -> input sub-shape index of the PARALLEL COPY a thicken
+    // offsets it into (its "offset surface" / the rim it carries at that distance),
+    // -1 = not an offset image. A separate channel on purpose: the derivation pair
+    // set reports the input face as its own descendant AND the parallel copy off it,
+    // so a caller reading only the pairs would stamp one id on two distinct faces
+    // (measured: a box top thickened by -2 yields 6 faces — the kept top, 4 rim
+    // bands, and the copy at z = 28 — with the copy reported from the same input
+    // face). The offset image has to be told apart from the kept one, and only the
+    // kernel can do that.
+    std::vector<int> offsetFaceMap = {};
+    std::vector<int> offsetEdgeMap = {};
 };
 
 // Appends every output sub-shape identical to or derived (Modified/Generated — guarded,
@@ -221,6 +232,48 @@ static std::vector<int> faceFromEdgeHistory(BRepBuilderAPI_MakeShape& algo, cons
                     map[outIndex - 1] = i - 1;
                 }
             }
+        } catch (const Standard_Failure&) {
+        }
+    }
+    return map;
+}
+
+// The output sub-shape a thicken OFFSETS each input sub-shape into — its parallel copy at
+// the thickness distance, -1 where the input has no copy.
+//
+// Deliberately NOT the derivation channel (see `TrackedShapeResult::offsetFaceMap`): a
+// thicken reports EVERY input face as derived from itself AND reports the parallel copy off
+// it, so `shapeHistory` folds the kept wall and the copy into one ancestor list (measured:
+// a box top thickened by -2 gives in0->[0,2] — the kept top at z=30 and its copy at z=28 —
+// and the same for every input EDGE, in0->[0,7]). The copy is told apart by subtracting the
+// identity hit, which is the only member of that list that IS the input.
+static std::vector<int> offsetHistory(BRepBuilderAPI_MakeShape& algo, const TopoDS_Shape& input,
+    const TopoDS_Shape& output, TopAbs_ShapeEnum type)
+{
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> inMap;
+    NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> outMap;
+    TopExp::MapShapes(input, type, inMap);
+    TopExp::MapShapes(output, type, outMap);
+    std::vector<int> map(outMap.Extent(), -1);
+    for (int i = 1; i <= inMap.Extent(); i++) {
+        const TopoDS_Shape& inShape = inMap.FindKey(i);
+        auto mark = [&](const NCollection_List<TopoDS_Shape>& derived) {
+            for (const TopoDS_Shape& shape : derived) {
+                if (shape.IsSame(inShape)) {
+                    continue;
+                }
+                int outIndex = outMap.FindIndex(shape);
+                if (outIndex > 0 && map[outIndex - 1] < 0) {
+                    map[outIndex - 1] = i - 1;
+                }
+            }
+        };
+        try {
+            mark(algo.Modified(inShape));
+        } catch (const Standard_Failure&) {
+        }
+        try {
+            mark(algo.Generated(inShape));
         } catch (const Standard_Failure&) {
         }
     }
@@ -1227,6 +1280,31 @@ public:
         return ShapeResult { makeSolid.Solid(), true, "" };
     }
 
+    // A thicken's result is INSIDE-OUT whenever the offset runs along the input face's own
+    // normal: measured on a box, thickening the top by -2 gives volume +400 while the
+    // bottom's +2 gives -400, and a cylinder side gives -691 at +1 but +565 at -1. The
+    // materials render DoubleSide, so it does not show on screen — but Measure prints the
+    // volume straight to the user (`commands/measure/select.ts`), and an export writes the
+    // triangles winding inward.
+    //
+    // Reversing the solid's own orientation flag fixes the sign without rebuilding a single
+    // TShape, so `IsSame` and every index map taken from the same result stay valid.
+    static TopoDS_Shape orientedOutward(const TopoDS_Shape& shape)
+    {
+        TopExp_Explorer solidExplorer(shape, TopAbs_SOLID);
+        if (!solidExplorer.More()) {
+            return shape;
+        }
+        GProp_GProps props;
+        BRepGProp::VolumeProperties(shape, props);
+        if (props.Mass() >= 0) {
+            return shape;
+        }
+        TopoDS_Shape reversed = shape;
+        reversed.Reverse();
+        return reversed;
+    }
+
     static ShapeResult makeThickSolidBySimple(const TopoDS_Shape& shape, double thickness)
     {
         BRepOffsetAPI_MakeThickSolid makeThickSolid;
@@ -1234,7 +1312,21 @@ public:
         if (!makeThickSolid.IsDone()) {
             return ShapeResult { TopoDS_Shape(), false, "Failed to create thick solid" };
         }
-        return ShapeResult { makeThickSolid.Shape(), true, "" };
+        return ShapeResult { orientedOutward(makeThickSolid.Shape()), true, "" };
+    }
+
+    static TrackedShapeResult makeThickSolidBySimpleTracked(const TopoDS_Shape& shape, double thickness)
+    {
+        BRepOffsetAPI_MakeThickSolid makeThickSolid;
+        makeThickSolid.MakeThickSolidBySimple(shape, thickness);
+        if (!makeThickSolid.IsDone()) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Failed to create thick solid", {}, {} };
+        }
+        const TopoDS_Shape result = orientedOutward(makeThickSolid.Shape());
+        return TrackedShapeResult { result, true, "", faceHistory(makeThickSolid, shape, result),
+            edgeHistory(makeThickSolid, shape, result), faceFromEdgeHistory(makeThickSolid, shape, result),
+            {}, offsetHistory(makeThickSolid, shape, result, TopAbs_FACE),
+            offsetHistory(makeThickSolid, shape, result, TopAbs_EDGE) };
     }
 
     static ShapeResult makeThickSolidByJoin(const TopoDS_Shape& shape,
@@ -1987,7 +2079,9 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .property("faceEdgeMap", &TrackedShapeResult::faceEdgeMap)
         .property("faceAncestors", &TrackedShapeResult::faceAncestors)
         .property("edgeAncestors", &TrackedShapeResult::edgeAncestors)
-        .property("capFaces", &TrackedShapeResult::capFaces);
+        .property("capFaces", &TrackedShapeResult::capFaces)
+        .property("offsetFaceMap", &TrackedShapeResult::offsetFaceMap)
+        .property("offsetEdgeMap", &TrackedShapeResult::offsetEdgeMap);
 
     class_<ShapeFactory>("ShapeFactory")
         .class_function("box", &ShapeFactory::box)
@@ -2017,6 +2111,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("shell", &ShapeFactory::shell)
         .class_function("solid", &ShapeFactory::solid)
         .class_function("makeThickSolidBySimple", &ShapeFactory::makeThickSolidBySimple)
+        .class_function("makeThickSolidBySimpleTracked", &ShapeFactory::makeThickSolidBySimpleTracked)
         .class_function("makeThickSolidByJoin", &ShapeFactory::makeThickSolidByJoin)
         .class_function("simplifyShape", &ShapeFactory::simplifyShape)
         .class_function("booleanCommon", &ShapeFactory::booleanCommon)

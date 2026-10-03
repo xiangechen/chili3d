@@ -186,6 +186,7 @@ export default {
         "command.feature.revolve": "Revolve",
         "command.feature.loft": "Loft",
         "command.feature.sweep": "Varredura",
+        "command.feature.thicken": "Espessar",
         "feature.loft.section": "Seção",
         "feature.sweep.path": "Caminho",
         "command.feature.fillet": "Arredondamento",

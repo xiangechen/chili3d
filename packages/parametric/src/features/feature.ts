@@ -45,7 +45,8 @@ export type FeatureData =
     | ChamferFeatureData
     | BooleanFeatureData
     | LoftFeatureData
-    | SweepFeatureData;
+    | SweepFeatureData
+    | ThickenFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -200,6 +201,42 @@ export interface SweepFeatureData extends FeatureBase {
      * How the swept shape combines with the preceding feature's shape on the host body —
      * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone
      * geometry; set when the sweep command appends the feature to a target body.
+     */
+    readonly operation?: BooleanOperation;
+}
+
+/**
+ * Thicken (Onshape's Thicken): offset a face — or a connected set of them, or a shell body's
+ * whole surface — by a thickness into a solid.
+ *
+ * The faces are named by the press-pull `source` contract in `ExtrudeFeatureData`, and are
+ * re-matched against the source body's rebuilt geometry the same way; a thicken is that feature's
+ * sibling in everything but the kernel call it ends in (a sweep there, an offset here).
+ */
+export interface ThickenFeatureData extends FeatureBase {
+    readonly type: "thicken";
+    /** Faces of an existing body (or the host body itself) to thicken, as face fingerprints. */
+    readonly source: { readonly nodeId: string; readonly profiles: ProfileRef[] };
+    /** How far the solid reaches from the face on its own normal side. */
+    readonly thickness: ParameterValue;
+    /**
+     * How far it reaches on the OPPOSITE side as well (Onshape's second thickness direction).
+     * Absent means the solid stands on one side of the face only.
+     */
+    readonly thickness2?: ParameterValue;
+    /**
+     * Whether the thickness straddles the face — `thickness` becomes the TOTAL width, half of it
+     * on each side (Onshape's Midplane). `thickness2` is ignored when set.
+     */
+    readonly midplane?: boolean;
+    /** Flips which side `thickness` reaches to (Onshape's Opposite Direction). */
+    readonly reverse?: boolean;
+    /**
+     * How the thickened solid combines with the preceding feature's shape on the host body —
+     * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone geometry.
+     * A face is what a thicken is built from, so the solid it makes need not touch the body: a
+     * `cut` takes it out of the input wherever it passes. A shell has no volume to combine with,
+     * so a source with no enclosed space carrying one fails to build rather than ignoring it.
      */
     readonly operation?: BooleanOperation;
 }
