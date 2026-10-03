@@ -5,7 +5,12 @@ import { type IEdge, type IFace, type IShape, Matrix4, Result, ShapeTypes, type 
 import { completeTrackedHistory, trackedAncestors, trackedFaceIds, trackedIds } from "./feature";
 import { mergedEdgeAncestors, unionAncestors } from "./historyCompletion";
 import { mapFusedIds } from "./operationIds";
-import { profileEdgeEntityIds, registerProfileEdgeEntities } from "./profileEntities";
+import {
+    profileEdgeEntityIds,
+    profileEdgeSeedSuffixes,
+    registerProfileEdgeEntities,
+    registerProfileEdgeSuffixes,
+} from "./profileEntities";
 import { attributeSweepEdges, faceCornerSeeds, profileEdgeSeeds, seedTopFace } from "./profileSeeds";
 import { anyPairTouches, combineShapes, translateFace } from "./sweepGeometry";
 import { boundaryId, derivedId, idsOverlap } from "./trackedId";
@@ -287,6 +292,8 @@ function translateProfileFace(face: IFace, offsetVec: XYZ, owned: IFace[]): IFac
     if (translated !== face) {
         const entities = profileEdgeEntityIds(face);
         if (entities !== undefined) registerProfileEdgeEntities(translated, entities);
+        const suffixes = profileEdgeSeedSuffixes(face);
+        if (suffixes !== undefined) registerProfileEdgeSuffixes(translated, suffixes);
     }
     return translated;
 }

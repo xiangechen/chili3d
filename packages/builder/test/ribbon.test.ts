@@ -167,6 +167,7 @@ describe("ParametricRibbonProfiles", () => {
             "feature.revolve",
             "feature.loft",
             "feature.sweep",
+            "feature.rib",
             "feature.thicken",
         ]);
         expect(itemsOf("ribbon.group.modify")).toEqual([
@@ -193,6 +194,7 @@ describe("ParametricRibbonProfiles", () => {
             "feature.revolve",
             "feature.loft",
             "feature.sweep",
+            "feature.rib",
             "feature.thicken",
             "feature.fillet",
             "feature.chamfer",

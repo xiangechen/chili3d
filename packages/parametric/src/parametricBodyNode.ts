@@ -32,6 +32,7 @@ import {
     FaceReselectSession,
     PathReselectSession,
     ProfileReselectSession,
+    RibChainReselectSession,
 } from "./commands/reselectSession";
 import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
 import {
@@ -47,7 +48,12 @@ import {
 } from "./features/bodyTracking";
 import type { EdgeRef } from "./features/edgeRef";
 import { findSketch } from "./features/extrude";
-import type { BooleanFeatureData, ExtrudeFeatureData, SweepFeatureData } from "./features/feature";
+import type {
+    BooleanFeatureData,
+    ExtrudeFeatureData,
+    RibFeatureData,
+    SweepFeatureData,
+} from "./features/feature";
 import type { ProfileRef } from "./features/profileRef";
 import { syncNodeWatches } from "./nodeWatch";
 import { danglingProfileRefs, SketchNode } from "./sketch/sketchNode";
@@ -415,6 +421,9 @@ export class ParametricBodyNode
             return this.reselectProfiles(feature, controller);
         }
         if (feature.type === "sweep") return this.reselectSweepRefs(feature, controller);
+        // A rib keeps its chain the way the sweep keeps its path: a run of sketch edges named by
+        // entity, which an edit to the sketch can leave dangling.
+        if (feature.type === "rib") return this.reselectRibChain(feature, controller);
         const faceTarget = this.facePickTarget(feature);
         if (faceTarget !== undefined) {
             return this.reselectFaces(feature.id, featureIndex, faceTarget, controller);
@@ -572,6 +581,28 @@ export class ParametricBodyNode
                     ...(edges === undefined ? {} : { path: { ...x.path, edges } }),
                 };
             });
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a rib's chain — the open sketch edges the fin stands on. The chain is named by the
+     * sketch's own entity ids rather than by geometry, so a re-pick is a re-selection of edges in
+     * that one sketch; an empty confirmation cancels with a toast (a rib with no chain is not a
+     * rib). No rollback: the sketch's shape does not depend on this feature.
+     */
+    private async reselectRibChain(feature: RibFeatureData, controller: AsyncController): Promise<void> {
+        const sketch = findSketch(this.document, feature.sketchId);
+        if (sketch === undefined) return;
+        const entityIds = await new RibChainReselectSession(this).pick(feature, sketch, controller);
+        if (entityIds === undefined) return;
+
+        Transaction.execute(this.document, "reselect rib chain", () => {
+            const features = this.features.map((x) =>
+                x.id === feature.id && x.type === "rib" ? { ...x, entityIds } : x,
+            );
             this.setFeaturesEmitShapeChanged(features);
             this.document.selection.clearSelection();
             this.document.visual.update();

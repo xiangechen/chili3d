@@ -266,3 +266,27 @@ export function registerProfileEdgeEntities(face: IFace, entities: (number | und
 export function profileEdgeEntityIds(face: IFace): (number | undefined)[] | undefined {
     return profileEdgeEntities.get(face);
 }
+
+/**
+ * Profile faces → the seed SUFFIX each boundary edge carries, for a profile that is not a sketch
+ * region at all and so has no entity id to key by.
+ *
+ * A rib's band is the case: one chain entity offsets into TWO band edges, one per side, so
+ * keying both by that entity would hand two sub-shapes the same seed — and the ids they mint
+ * collide, which `uncontested` settles by dropping BOTH (measured: the rib's two top edges came
+ * back unnamed, along with everything else derived from them). A suffix can say which side an
+ * edge is, which an entity id cannot.
+ *
+ * Preferred over `profileEdgeEntities` when both are registered (`profileEdgeSeeds`).
+ */
+const edgeSeedSuffixes = new WeakMap<IFace, (string | undefined)[]>();
+
+/** Records the per-edge seed suffixes of a profile face (see `edgeSeedSuffixes`). */
+export function registerProfileEdgeSuffixes(face: IFace, suffixes: (string | undefined)[]): void {
+    edgeSeedSuffixes.set(face, suffixes);
+}
+
+/** The per-edge seed suffixes registered for `face`, if any. */
+export function profileEdgeSeedSuffixes(face: IFace): (string | undefined)[] | undefined {
+    return edgeSeedSuffixes.get(face);
+}

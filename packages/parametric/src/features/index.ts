@@ -22,6 +22,7 @@ export * from "./profileRef";
 export * from "./profileSeeds";
 export * from "./refGeometry";
 export * from "./revolve";
+export * from "./rib";
 export * from "./shell";
 export * from "./shellTracked";
 export * from "./sourceFaceMatcher";

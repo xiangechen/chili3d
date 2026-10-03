@@ -28,6 +28,7 @@ import {
     evaluateFeature,
     type FeatureData,
     type FilletFeatureData,
+    type RibFeatureData,
     type SweepFeatureData,
 } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
@@ -36,6 +37,7 @@ import { matchProfileIndexes } from "../features/profileMatcher";
 import { captureProfileRef, type ProfileRef } from "../features/profileRef";
 import { matchSourceFaceIndexes } from "../features/sourceFaceMatcher";
 import { idIsShared } from "../features/trackedId";
+import { shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
 
 /**
@@ -731,6 +733,88 @@ export class PathReselectSession {
             transform: owner.worldTransform(),
             indexes: [index],
         }));
+        this.host.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
+    }
+}
+
+/**
+ * Re-picks the chain edges of a rib and returns the replacement entity ids, or undefined when the
+ * user cancels or picks nothing (a rib cannot have an empty chain, so an empty confirmation
+ * cancels with a toast).
+ *
+ * No rollback, same reason as the path session: the picked edges live on the rib's SKETCH, whose
+ * shape does not depend on this feature. The chain is named by the sketch's own entity ids, so
+ * what is captured is the entity behind each picked edge — never the curve it currently happens
+ * to be drawn as (see `ribChain.ts`).
+ */
+export class RibChainReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        feature: RibFeatureData,
+        sketch: SketchNode,
+        controller: AsyncController,
+    ): Promise<number[] | undefined> {
+        const original = this.host.features;
+        return runReselectSession(this.host, controller, {
+            prompt: "prompt.select.ribChain",
+            shapeType: ShapeTypes.edge,
+            targetNode: sketch,
+            emptyIsCancel: true,
+            onEmptyPick: () => PubSub.default.pub("showToast", "toast.select.noSelected"),
+            preview: (selected) => this.preview(feature, sketch, selected),
+            // Ahead of the preview subscription: preselecting here must not fire a preview of the
+            // chain it just selected.
+            setup: () => {
+                this.host.document.visual.update();
+                this.preselect(feature, sketch);
+            },
+            capture: (picked) => this.entityIds(sketch, picked),
+            teardown: () => this.host.setFeaturesEmitShapeChanged(original),
+        });
+    }
+
+    /** The sketch entity ids behind the picked edges — the only identity a rib's chain stores. */
+    private entityIds(sketch: SketchNode, picked: readonly VisualShapeData[]): number[] {
+        const ids = shapeEntityIds(sketch.data);
+        return picked
+            .filter((x) => x.owner.node === sketch && x.shape.shapeType === ShapeTypes.edge)
+            .map((x) => ids[x.indexes[0]])
+            .filter((id): id is number => id !== undefined);
+    }
+
+    /**
+     * Live preview while re-picking: rebuilds with the selected entities as the chain. An empty
+     * selection is no chain at all — the last valid preview stays until the teardown restores the
+     * original.
+     */
+    private preview(feature: RibFeatureData, sketch: SketchNode, selected: VisualShapeData[]): void {
+        const entityIds = this.entityIds(sketch, selected);
+        if (entityIds.length === 0) return;
+        this.host.setFeaturesEmitShapeChanged(
+            this.host.features.map((x) =>
+                x.id === feature.id && x.type === "rib" ? { ...x, entityIds } : x,
+            ),
+        );
+        this.host.document.visual.update();
+    }
+
+    /** Selects the edges the feature's chain currently names so the pick starts from them. */
+    private preselect(feature: RibFeatureData, sketch: SketchNode): void {
+        const wanted = new Set(feature.entityIds);
+        // Mesh ranges enumerate edges in the same order as findSubShapes (both use
+        // TopExp::MapShapes), which is the order `shapeEntityIds` runs parallel to.
+        const ranges = sketch.mesh.edges?.range;
+        if (ranges === undefined) return;
+        const owner = this.host.document.visual.context.getVisual(sketch) as INodeVisual | undefined;
+        if (owner === undefined) return;
+        const picked: VisualShapeData[] = [];
+        for (const [index, id] of shapeEntityIds(sketch.data).entries()) {
+            if (!wanted.has(id) || index >= ranges.length) continue;
+            const shape = ranges[index].shape;
+            picked.push({ owner, shape, transform: owner.worldTransform(), indexes: [index] });
+        }
+        if (picked.length === 0) return;
         this.host.document.selection.setSelectedShapes(picked, VisualStates.edgeSelected, false);
     }
 }

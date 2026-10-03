@@ -2,7 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IEdge, type IFace, type Matrix4, ShapeTypes, type XYZLike } from "@chili3d/core";
-import { edgeLiesOnImage, profileEdgeEntityIds, profileEntityIds } from "./profileEntities";
+import {
+    edgeLiesOnImage,
+    profileEdgeEntityIds,
+    profileEdgeSeedSuffixes,
+    profileEntityIds,
+} from "./profileEntities";
 import { captureRegionFingerprint } from "./profileRef";
 import { distance, MATCH_TOLERANCE, plainVec } from "./refGeometry";
 import { boundaryId, derivedId, writeUncontestedIds } from "./trackedId";
@@ -128,6 +133,14 @@ export function profileEdgeSeeds(
     baseSeed: string,
     edges: readonly IEdge[],
 ): (string | undefined)[] {
+    // A profile with its own suffixes wins: it is a shape no sketch entity describes, and its
+    // suffixes already say what an entity id cannot (see `profileEdgeSeedSuffixes`).
+    const suffixes = profileEdgeSeedSuffixes(face);
+    if (suffixes !== undefined) {
+        return edges.map((_, index) =>
+            suffixes[index] === undefined ? undefined : `${baseSeed}:${suffixes[index]}`,
+        );
+    }
     const entities = profileEdgeEntityIds(face);
     return edges.map((_, index) => {
         const entity = entities?.[index];
@@ -158,6 +171,16 @@ export interface ProfileCorner {
  *   face's seed — the returned points are in the face's own coordinate system.
  */
 export function profileCornerSeeds(face: IFace, baseSeed: string): ProfileCorner[] {
+    // The suffix channel labels the same way, off the suffixes: the pair of edges meeting at a
+    // corner IS the corner's identity either way, so only the label's source changes.
+    const suffixes = profileEdgeSeedSuffixes(face);
+    if (suffixes !== undefined) {
+        return cornerSeeds(
+            face,
+            (index) => suffixes[index],
+            (labels) => (labels.size < 2 ? undefined : `${baseSeed}:v${[...labels].sort().join(".")}`),
+        );
+    }
     const entities = profileEdgeEntityIds(face);
     return cornerSeeds(
         face,

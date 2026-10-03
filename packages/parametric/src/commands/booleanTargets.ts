@@ -13,6 +13,7 @@ import type {
     ExtrudeFeatureData,
     LoftFeatureData,
     RevolveFeatureData,
+    RibFeatureData,
     SweepFeatureData,
     ThickenFeatureData,
 } from "../features/feature";
@@ -29,7 +30,8 @@ export type BooleanScopedFeature =
     | RevolveFeatureData
     | LoftFeatureData
     | SweepFeatureData
-    | ThickenFeatureData;
+    | ThickenFeatureData
+    | RibFeatureData;
 
 /** Every body the feature could combine with, in tree order — what the panel lists. */
 export function candidateBodies(document: IDocument): ParametricBodyNode[] {

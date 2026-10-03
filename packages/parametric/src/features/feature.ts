@@ -50,7 +50,8 @@ export type FeatureData =
     | SweepFeatureData
     | ThickenFeatureData
     | ShellFeatureData
-    | DraftFeatureData;
+    | DraftFeatureData
+    | RibFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -322,6 +323,53 @@ export interface DraftFeatureData extends FeatureBase {
      * only thing that changes: the taper's magnitude is the same either way.
      */
     readonly reverse?: boolean;
+}
+
+/**
+ * Rib (SolidWorks' and Onshape's): a thin fin standing on an OPEN sketch polyline, filling the
+ * corner that polyline is drawn across. The material grows IN the sketch plane, from the chain out
+ * until it lands on the body; the thickness stands it OFF the plane.
+ *
+ * The chain is the one reference in this module that names OPEN geometry. `ProfileRef` cannot
+ * express it — every profile the sketch layer hands out is a closed region, and an open entity
+ * group is dropped outright (`profileBuilder.ts` skips a wire that does not close) — so the
+ * chain reuses the sweep path's contract instead: an edge run re-matched against its source
+ * node on every rebuild. Unlike a sweep path, the chain lives in a sketch and therefore in
+ * world coordinates, and the entity ids carry its identity (`SketchData`'s own ids, never
+ * reused — see `shapeEntityIds`).
+ */
+export interface RibFeatureData extends FeatureBase {
+    readonly type: "rib";
+    /** The sketch whose open entities form the chain. */
+    readonly sketchId: string;
+    /**
+     * The chain as the sketch's own entity ids (`shapeEntityIds`), in any order — the kernel
+     * chains them. Editing an entity's endpoints moves the rib, which is the whole point of
+     * naming the entity rather than the curve it happened to be drawn as.
+     *
+     * There is NO geometric fallback beside these, unlike a `ProfileRef`'s fingerprints: the
+     * ids are allocated monotonically by the sketch and never reused, so a miss means the
+     * entity was deleted. Re-matching *some other* curve by fingerprint would then silently
+     * build a rib the user never drew — the feature fails instead.
+     */
+    readonly entityIds: number[];
+    /**
+     * How thin the fin is, measured along the sketch plane's NORMAL — the rib's thin axis, not
+     * its in-plane width (that comes from what the corner the chain is drawn across measures).
+     */
+    readonly thickness: ParameterValue;
+    /**
+     * Onshape's "Extend profiles to part": push each free end of the chain out along its own
+     * tangent until it meets the body, so a centerline drawn short of the walls still spans
+     * them. Re-derived every rebuild (nothing about the stubs is stored), and a no-op on an end
+     * that already reaches — it meets the wall at parameter zero.
+     */
+    readonly extend?: boolean;
+    /**
+     * How the rib combines with the preceding feature's shape on the host body. A rib is a
+     * stiffener, so the command always sets one — "fuse" unless the user asked otherwise.
+     */
+    readonly operation?: BooleanOperation;
 }
 
 /**
