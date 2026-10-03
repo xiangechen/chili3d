@@ -54,16 +54,43 @@ export interface OffsetDragData {
  * the command persists — the quad only shows where that offset lands.
  *
  * Unlike the extrude's drag, a zero offset is a perfectly good result, so confirm is
- * always allowed and the step commits without any drag at all.
+ * always allowed and the step commits without any drag at all. And because a sketch
+ * usually sits on the plane it was picked on, the drag is optional outright: see
+ * `shouldDrag`.
  */
 export class SketchPlaneOffsetStep implements IStep {
     constructor(
         readonly tip: I18nKeys,
         private readonly handleStepData: () => OffsetDragData,
+        /**
+         * Whether this run wants the drag. When it does not, the step settles the offset
+         * the panel already carries and never opens a pick session — picking the plane
+         * was the whole command. Asked at execute time rather than at construction: the
+         * option is on the same panel the plane pick runs under, so it can be ticked
+         * while that pick is still up.
+         */
+        private readonly shouldDrag: () => boolean = () => true,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const data = this.handleStepData();
+        if (!this.shouldDrag()) {
+            // Confirming without a session is what makes the step settled to the command
+            // (same short-circuit as GetOrSelectShapeStep). The plane is the one that
+            // would have been dragged to, at whatever the panel holds.
+            const view = document.application.activeView;
+            if (view === undefined) return undefined;
+            controller.success();
+            const plane = data.basePlane.offsetAlongNormal(data.offset ?? 0);
+            return {
+                view,
+                point: plane.origin,
+                shapes: [],
+                type: "input",
+                plane,
+            };
+        }
+
         const handler = new SketchPlaneOffsetHandler(document, controller, data);
         try {
             await document.picker.pickAsync(handler, this.tip, controller, "none", "draw");

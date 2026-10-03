@@ -298,7 +298,11 @@ describe("EnterSketch", () => {
 });
 
 describe("CreateSketch", () => {
-    function setup(rollbackIndex: number | undefined, picked?: PlanePickResult) {
+    function setup(
+        rollbackIndex: number | undefined,
+        picked?: PlanePickResult,
+        options?: { dragOffset?: boolean; planeOffset?: number },
+    ) {
         const app = createMockApplication();
         const clearSelection = rs.fn();
         // a planar world face with no boundary edges: the pick resolves a plane and
@@ -345,33 +349,40 @@ describe("CreateSketch", () => {
         const view = createHandlerMockView({ document });
         (app as any).activeView = view;
         stubArrowGeometry();
-        // Two picks in sequence: the plane, then the offset step's own drag session. The
-        // offset confirms with no drag at all, so the view it commits against has to be
-        // supplied the way a real pointer release would.
+        let command!: CreateSketch;
+        // The plane pick, and — only when the run asks for one — the offset step's drag
+        // session. The offset confirms with no drag at all, so the view it commits against
+        // has to be supplied the way a real pointer release would.
         let offsetHandler: SketchPlaneOffsetHandler | undefined;
-        document.picker = {
-            pickAsync: rs.fn(async (handler: unknown, _prompt: unknown, controller: AsyncController) => {
-                if (handler instanceof PlanePickHandler) {
-                    handler.result = picked ?? facePick;
-                } else {
-                    expect(handler).toBeInstanceOf(SketchPlaneOffsetHandler);
-                    offsetHandler = handler as SketchPlaneOffsetHandler;
-                    offsetHandler.commitView = view;
-                }
-                controller.success();
-            }),
-        } as any;
+        const pickAsync = rs.fn(async (handler: unknown, _prompt: unknown, controller: AsyncController) => {
+            if (handler instanceof PlanePickHandler) {
+                handler.result = picked ?? facePick;
+                // The options are written here, where the panel writes them — during the
+                // pick. A run restores the option cache on the way in, so anything set
+                // before `execute` comes back as the previous run's value. Stating both
+                // outright is also what keeps one test's ticks out of the next.
+                command.specifyPlaneOffset = options?.dragOffset ?? false;
+                command.planeOffset = options?.planeOffset ?? 0;
+            } else {
+                expect(handler).toBeInstanceOf(SketchPlaneOffsetHandler);
+                offsetHandler = handler as SketchPlaneOffsetHandler;
+                offsetHandler.commitView = view;
+            }
+            controller.success();
+        });
+        document.picker = { pickAsync } as any;
         const enter = rs.spyOn(SketchEditor, "enter").mockImplementation(() => ({}) as any);
-        return { app, body, enter, offsetHandler: () => offsetHandler };
+        command = new CreateSketch();
+        return { app, body, enter, pickAsync, offsetHandler: () => offsetHandler, command };
     }
 
     test.each([
         { name: "the live rollback position on a rollback preview", rollbackIndex: 1, expected: 1 },
         { name: "the full feature count outside a rollback preview", rollbackIndex: undefined, expected: 2 },
     ])("a face pick anchors refPositions to $name", async ({ rollbackIndex, expected }) => {
-        const { app, body, enter } = setup(rollbackIndex);
+        const { app, body, enter, command } = setup(rollbackIndex);
         try {
-            await new CreateSketch().execute(app);
+            await command.execute(app);
 
             expect(enter).toHaveBeenCalledTimes(1);
             const node = enter.mock.calls[0][0] as SketchNode;
@@ -383,13 +394,13 @@ describe("CreateSketch", () => {
     });
 
     test("a datum pick carries the frame its quad was drawn in to the offset preview", async () => {
-        const { app, enter, offsetHandler } = setup(undefined, {
-            kind: "datum",
-            plane: Plane.ZX,
-            name: "ZX",
-        });
+        const { app, enter, offsetHandler, command } = setup(
+            undefined,
+            { kind: "datum", plane: Plane.ZX, name: "ZX" },
+            { dragOffset: true },
+        );
         try {
-            await new CreateSketch().execute(app);
+            await command.execute(app);
 
             // the preview stands where the picker showed the quad (+X+Z), while the sketch
             // itself still draws in the datum's own Z-up frame (−X)
@@ -397,6 +408,36 @@ describe("CreateSketch", () => {
             expect(quad.position[0]).toBeGreaterThan(0);
             const node = enter.mock.calls[0][0] as SketchNode;
             expect(node.plane.xvec).toEqual(Plane.ZX.xvec);
+        } finally {
+            enter.mockRestore();
+        }
+    });
+
+    test("a run without the drag creates the sketch in one pick, at no offset", async () => {
+        const { app, enter, pickAsync, offsetHandler, command } = setup(undefined);
+        try {
+            await command.execute(app);
+
+            expect(pickAsync).toHaveBeenCalledTimes(1);
+            expect(offsetHandler()).toBeUndefined();
+            expect(enter).toHaveBeenCalledTimes(1);
+            expect((enter.mock.calls[0][0] as SketchNode).planeOffset).toBe(0);
+        } finally {
+            enter.mockRestore();
+        }
+    });
+
+    test("the panel's offset lands the sketch without a drag", async () => {
+        // The offset is written where the panel writes it — during the pick. A run restores
+        // the option cache on the way in, so a value set before `execute` is overwritten.
+        const { app, enter, offsetHandler, command } = setup(undefined, undefined, { planeOffset: 5 });
+        try {
+            await command.execute(app);
+
+            expect(offsetHandler()).toBeUndefined();
+            const node = enter.mock.calls[0][0] as SketchNode;
+            expect(node.planeOffset).toBe(5);
+            expect(node.plane.origin.z).toBe(5);
         } finally {
             enter.mockRestore();
         }

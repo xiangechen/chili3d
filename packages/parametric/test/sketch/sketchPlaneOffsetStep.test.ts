@@ -312,6 +312,28 @@ describe("SketchPlaneOffsetStep", () => {
         expect(controller.result?.status).toBe("success");
     });
 
+    test("settles the panel's offset without a pick session when the drag is not wanted", async () => {
+        const doc = new TestDocument();
+        doc.visual = createMockVisualWithDocument(doc);
+        const controller = new AsyncController();
+        const pickAsync = rs.fn();
+        doc.picker = { pickAsync } as any;
+        const view = createHandlerMockView({ document: doc });
+        (doc.application as any).activeView = view;
+
+        const step = new SketchPlaneOffsetStep(
+            "prompt.dragToOffset",
+            () => ({ basePlane: Plane.XY, offset: 5 }),
+            () => false,
+        );
+        const result = await step.execute(doc, controller);
+
+        expect(pickAsync).not.toHaveBeenCalled();
+        expect(controller.result?.status).toBe("success");
+        expect(result?.view).toBe(view);
+        expect(result?.plane?.origin.z).toBe(5);
+    });
+
     test("returns undefined when the drag is cancelled", async () => {
         const doc = new TestDocument();
         doc.visual = createMockVisualWithDocument(doc);

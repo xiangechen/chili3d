@@ -375,6 +375,7 @@ export default {
         "option.command.modifyBoundary": "同时修改边界",
         "option.command.normalOffset": "法向间距",
         "option.command.planeOffset": "平面偏移",
+        "option.command.specifyPlaneOffset": "指定平面偏移",
         "option.command.offsetMode": "偏移模式",
         "option.command.offsetMode.pipe": "管道",
         "option.command.offsetMode.rectoVerso": "正反面",

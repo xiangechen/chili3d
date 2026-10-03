@@ -380,6 +380,7 @@ export default {
         "option.command.modifyBoundary": "Modify boundary",
         "option.command.normalOffset": "Normal Offset",
         "option.command.planeOffset": "Plane Offset",
+        "option.command.specifyPlaneOffset": "Specify Plane Offset",
         "option.command.offsetMode": "Offset Mode",
         "option.command.offsetMode.pipe": "Pipe",
         "option.command.offsetMode.rectoVerso": "Recto Verso",

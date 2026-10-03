@@ -235,6 +235,21 @@ export class CreateSketch extends MultistepCommand {
         if (resolved !== undefined) this._offsetHandler.setValue(resolved);
     }
 
+    /**
+     * Whether the offset is positioned by dragging. Off by default: a sketch almost always
+     * sits on the plane it was picked on, so making every one of them confirm an offset is
+     * a step that decides nothing. The value is available either way — `planeOffset` is
+     * what both paths read — this only says whether a drag session opens to place it by
+     * hand. Ticking it while the plane pick is still up takes effect on that same run.
+     */
+    @property("option.command.specifyPlaneOffset")
+    get specifyPlaneOffset(): boolean {
+        return this.getPrivateValue("specifyPlaneOffset", false);
+    }
+    set specifyPlaneOffset(value: boolean) {
+        this.setProperty("specifyPlaneOffset", value);
+    }
+
     /** A length field's numeric value, or undefined when its expression does not resolve. */
     private resolveLength(value: ParameterValue): number | undefined {
         const resolved = this.resolveParameter(value, LENGTH_UNITS);
@@ -259,7 +274,13 @@ export class CreateSketch extends MultistepCommand {
     protected override getSteps(): IStep[] {
         return [
             new PickSketchPlaneStep((picked) => (this._picked = picked)),
-            new SketchPlaneOffsetStep("prompt.dragToOffset", this.getOffsetData),
+            // Always present, but it only opens a drag when the option asks for one — the
+            // answer is read as the step runs, so the box can be ticked during the pick.
+            new SketchPlaneOffsetStep(
+                "prompt.dragToOffset",
+                this.getOffsetData,
+                () => this.specifyPlaneOffset,
+            ),
         ];
     }
 

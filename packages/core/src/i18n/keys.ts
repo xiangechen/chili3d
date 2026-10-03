@@ -369,6 +369,7 @@ export const I18N_KEYS = [
     "option.command.pitch",
     "option.command.normalOffset",
     "option.command.planeOffset",
+    "option.command.specifyPlaneOffset",
     "option.command.offsetMode",
     "option.command.offsetMode.pipe",
     "option.command.offsetMode.rectoVerso",
