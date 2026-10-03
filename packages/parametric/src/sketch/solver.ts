@@ -556,7 +556,11 @@ export class SketchSolver implements ExternalEntityHost {
         const report = this.system.diagnose();
         const byGarlicId = this.recordsByGarlicId();
         return {
-            dofs: this.system.dofs(),
+            // the report's own DOF, not `system.dofs()`: that one reads a rank cached
+            // per topology, which lags one real iteration through a singular
+            // configuration — the panel would then contradict the redundancy list it
+            // is showing beside it (see `SketchEditor.publishSolveStatus`)
+            dofs: report.dofs,
             conflicting: this.groupSketchIds(report.conflictGroups, byGarlicId, (g) => [
                 g.constraint,
                 ...g.counterparts,

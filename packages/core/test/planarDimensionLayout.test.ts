@@ -173,7 +173,7 @@ describe("distanceDimension", () => {
 });
 
 describe("radiusDimension", () => {
-    test("leader from center through the rim with outward arrow", () => {
+    test("leader from center through the rim, arrow pointing back at the center", () => {
         // 30 is past the rim (5) and the 20px margin at 0.5 (10): the pick stands
         const geometry = radiusDimension([0, 0], 5, [30, 0], PX_SIZE);
         const [x1, y1, x2, y2] = geometry.segments[0];
@@ -183,12 +183,13 @@ describe("radiusDimension", () => {
         expect(geometry.textPosition).toEqual([30, raise(PX_SIZE)]);
         expect(geometry.textDirection).toEqual([1, 0]);
 
-        // solid arrowhead: tip on the circumference, base corners trailing back toward the center
+        // solid arrowhead: tip on the circumference, base corners trailing out along
+        // the leader — so the head points back at the center it measures from
         expect(geometry.segments.length).toBe(1);
         const [tip, corner1, corner2] = geometry.triangles;
         expect(Math.hypot(tip[0], tip[1])).toBeCloseTo(5, 9);
-        expect(corner1[0]).toBeLessThan(tip[0]);
-        expect(corner2[0]).toBeLessThan(tip[0]);
+        expect(corner1[0]).toBeGreaterThan(tip[0]);
+        expect(corner2[0]).toBeGreaterThan(tip[0]);
         // the corners fan out across the leader: one above, one below
         const cornerYs = [corner1[1], corner2[1]].sort((a, b) => a - b);
         expect(cornerYs[0]).toBeLessThan(0);

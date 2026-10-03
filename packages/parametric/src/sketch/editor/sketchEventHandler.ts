@@ -11,6 +11,8 @@ import {
     Precision,
     type ShapeMeshData,
     VisualConfig,
+    XY,
+    XYZ,
 } from "@chili3d/core";
 import {
     applyDragAutoConstraints,
@@ -55,6 +57,18 @@ const CONSTRUCTION_COLOR = 0x6c8ebf;
 const SNAP_HIGHLIGHT_COLOR = 0xff9800;
 /** Entity point markers (endpoints, centers) — a neutral grey against either theme's background. */
 const ENTITY_POINT_COLOR = 0x8c9aa8;
+/** Rubber-band box outline — matches the selection highlight its release produces. */
+const BOX_SELECT_COLOR = VisualConfig.selectedEdgeColor;
+/** A drag shorter than this in both axes reads as a click, not a box. */
+const BOX_MIN_PX = 4;
+
+/** Screen-space rectangle, normalized so min ≤ max on both axes. */
+interface ScreenRect {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+}
 
 /**
  * Viewport event handler active while a sketch is being edited:
@@ -79,6 +93,11 @@ export class SketchEventHandler implements IEventHandler {
     private snapTargetMeshId?: number;
     private snapHintItem?: IDisposable;
     private controller?: AsyncController;
+    /** Screen point a rubber-band box was started from, while one is being dragged. */
+    private boxStart?: { x: number; y: number };
+    /** Whether the box adds to the selection (shift) instead of replacing it. */
+    private boxAdditive = false;
+    private boxMeshId?: number;
 
     // ------------------------------------------------------------------ Session setup and the datum / external display
 
@@ -334,6 +353,10 @@ export class SketchEventHandler implements IEventHandler {
             }
             return;
         }
+        if (this.boxStart !== undefined) {
+            this.updateBox(view, this.boxStart, event);
+            return;
+        }
         const preview = this.editor.activePick?.preview;
         if (preview !== undefined) {
             preview(this.pointerToUV(view, event));
@@ -352,6 +375,16 @@ export class SketchEventHandler implements IEventHandler {
         if (this.consumePickClick(view, event)) return;
         if (event.button !== 0) return;
 
+        // a multi-entity pick that missed every entity falls through to here: the
+        // rubber-band box started below is how the user answers it with a set
+        if (this.editor.activePick?.kind === "entities") {
+            this.editor.annotations.clearConstraintSelection();
+            this.clearSelection(view);
+            this.boxAdditive = false;
+            this.boxStart = { x: event.offsetX, y: event.offsetY };
+            return;
+        }
+
         const ref = this.hitTestPoint(view, event);
         // the datum origin and external references are pickable for constraints but never draggable
         if (ref !== undefined && !isDatumEntityId(ref.entityId) && !isExternalEntityId(ref.entityId)) {
@@ -359,7 +392,7 @@ export class SketchEventHandler implements IEventHandler {
             return;
         }
 
-        this.selectEntityAtPointer(view, event);
+        this.selectEntityAtPointer(view, event, ref);
     }
 
     /** Hands the click to an active pick; returns whether the pick consumed it. */
@@ -374,16 +407,25 @@ export class SketchEventHandler implements IEventHandler {
         return true;
     }
 
-    /** No point hit: left-click selects the entity under the cursor. */
-    private selectEntityAtPointer(view: IView, event: PointerEvent): void {
+    /**
+     * An entity under the cursor is selected on the spot; genuinely empty space drops
+     * both selections and starts a rubber-band box instead, which resolves on
+     * pointer-up — so a press and release in place still reads as a plain click.
+     * `pointRef` is the point that was hit, if any: a mark that is deliberately not
+     * draggable (the datum, an external reference) is not empty space and not a
+     * rubber-band handle either, so pressing one only drops the selections.
+     */
+    private selectEntityAtPointer(view: IView, event: PointerEvent, pointRef?: SketchPointRef): void {
         const entityId = this.hitTestEntity(view, event);
-        if (entityId === undefined) {
-            // blank click drops both the constraint-badge and entity selections
-            this.editor.annotations.clearConstraintSelection();
-            this.clearSelection(view);
+        if (entityId !== undefined) {
+            this.selectEntity(view, entityId, event.shiftKey);
             return;
         }
-        this.selectEntity(view, entityId, event.shiftKey);
+        this.editor.annotations.clearConstraintSelection();
+        if (!event.shiftKey) this.clearSelection(view);
+        if (pointRef !== undefined) return;
+        this.boxStart = { x: event.offsetX, y: event.offsetY };
+        this.boxAdditive = event.shiftKey;
     }
 
     private beginPointDrag(view: IView, ref: SketchPointRef): void {
@@ -413,7 +455,12 @@ export class SketchEventHandler implements IEventHandler {
         this.updateSelectionHighlight(view);
     }
 
-    pointerUp(view: IView, _event: PointerEvent): void {
+    pointerUp(view: IView, event: PointerEvent): void {
+        const boxStart = this.boxStart;
+        if (boxStart !== undefined) {
+            this.finishBox(view, boxStart, event);
+            return;
+        }
         if (this.draggingRef === undefined) return;
         const ref = this.draggingRef;
         this.draggingRef = undefined;
@@ -443,7 +490,9 @@ export class SketchEventHandler implements IEventHandler {
 
     /** Escape peels off one layer at a time: label placement, pick, constraint selection, entity selection, session. */
     private handleEscape(view: IView): void {
-        if (this.editor.annotations.isLabelDragging) {
+        if (this.boxStart !== undefined) {
+            this.cancelBox(view);
+        } else if (this.editor.annotations.isLabelDragging) {
             this.editor.annotations.cancelLabelDrag();
         } else if (this.editor.isPicking) {
             this.editor.cancelPick();
@@ -544,6 +593,7 @@ export class SketchEventHandler implements IEventHandler {
         if (!view.isClosed) {
             this.clearHover(view);
             this.clearDragPreview(view);
+            this.clearBox(view);
             this.clearSelectionHighlight(view);
             this.clearConstraintHighlight(view);
             if (this.datumDisplayId !== undefined) {
@@ -604,7 +654,8 @@ export class SketchEventHandler implements IEventHandler {
             }
         }
 
-        if (pick === undefined || pick.kind === "entity") {
+        // a multi-entity pick highlights what it wants picked just like a single one
+        if (pick === undefined || pick.kind === "entity" || pick.kind === "entities") {
             const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
             if (entityId !== undefined && isDatumEntityId(entityId)) {
                 return {
@@ -682,6 +733,104 @@ export class SketchEventHandler implements IEventHandler {
         this.clearSelectionHighlight(view);
         this.syncAnnotationHighlights();
         view.update();
+    }
+
+    // ------------------------------------------------------------------ Rubber-band box selection
+
+    /** Redraws the rubber-band outline for the drag in progress. */
+    private updateBox(view: IView, start: { x: number; y: number }, event: PointerEvent): void {
+        const rect = screenRect(start, { x: event.offsetX, y: event.offsetY });
+        this.clearBox(view);
+        const meshes = this.boxOutline(view, rect);
+        if (meshes.length > 0) {
+            this.boxMeshId = view.document.visual.context.displayMesh(meshes, { onTop: true });
+        }
+        view.update();
+    }
+
+    /** Ends the drag: a real box selects, a press and release in place does nothing more. */
+    private finishBox(view: IView, start: { x: number; y: number }, event: PointerEvent): void {
+        const rect = screenRect(start, { x: event.offsetX, y: event.offsetY });
+        const additive = this.boxAdditive;
+        this.cancelBox(view);
+        if (rect.maxX - rect.minX < BOX_MIN_PX && rect.maxY - rect.minY < BOX_MIN_PX) return;
+        this.selectEntitiesInRect(view, rect, additive);
+        this.answerEntityPick();
+    }
+
+    /** A box that lands while a multi-entity pick is pending answers it with what it caught. */
+    private answerEntityPick(): void {
+        if (this.editor.activePick?.kind !== "entities") return;
+        this.editor.resolvePick([...this.selectedEntities]);
+    }
+
+    private cancelBox(view: IView): void {
+        this.boxStart = undefined;
+        this.boxAdditive = false;
+        // the outline is dropped between two frames; the release and escape paths that
+        // end a box often touch nothing else, so without this the last painted frame
+        // keeps the dashed quad until something else asks for a repaint
+        if (this.boxMeshId !== undefined) view.update();
+        this.clearBox(view);
+    }
+
+    private clearBox(view: IView): void {
+        if (this.boxMeshId === undefined) return;
+        view.document.visual.context.removeMesh(this.boxMeshId);
+        this.boxMeshId = undefined;
+    }
+
+    /**
+     * The outline, drawn on the sketch plane through the rays of the rectangle's four
+     * screen corners. The camera is locked orthographic onto that plane for the session
+     * (`lockCameraOntoPlane`), so the quad lands on the screen rectangle; if the user
+     * orbits away it shows the plane's own quad while the hit test stays in screen
+     * space — deliberate, since the plane can turn edge-on to a screen rectangle.
+     */
+    private boxOutline(view: IView, rect: ScreenRect): ShapeMeshData[] {
+        const plane = this.editor.node.plane;
+        const corners: [number, number][] = [
+            [rect.minX, rect.minY],
+            [rect.maxX, rect.minY],
+            [rect.maxX, rect.maxY],
+            [rect.minX, rect.maxY],
+        ];
+        const world: XYZ[] = [];
+        for (const [x, y] of corners) {
+            const point = plane.intersectRay(view.rayAt(x, y));
+            if (point === undefined) return [];
+            world.push(point);
+        }
+        return world.map((point, i) =>
+            MeshDataUtils.createEdgeMesh(point, world[(i + 1) % world.length], BOX_SELECT_COLOR, "dash"),
+        );
+    }
+
+    /**
+     * Selects every entity the rectangle crosses. Crossing rather than containment:
+     * a box drawn around a sketch usually has the geometry running through it, and a
+     * corner to round is exactly where two lines meet at the box's edge.
+     */
+    private selectEntitiesInRect(view: IView, rect: ScreenRect, additive: boolean): void {
+        if (!additive) this.selectedEntities.clear();
+        for (const entity of this.boxCandidates()) {
+            if (entityCrossesRect(view, sketchEntityMesh(this.editor, entity), rect)) {
+                this.selectedEntities.add(entity.id);
+            }
+        }
+        this.updateSelectionHighlight(view);
+    }
+
+    /**
+     * What a box may catch: every constraint target, narrowed to the type an active
+     * pick asked for — a pick for lines must not hand back the arcs that happen to
+     * fall inside the same rectangle.
+     */
+    private boxCandidates(): SketchEntityData[] {
+        const filter = this.editor.activePick?.entityType;
+        const types: readonly SketchEntityType[] | undefined =
+            filter === undefined ? undefined : typeof filter === "string" ? [filter] : filter;
+        return this.pickableEntities().filter((entity) => types === undefined || types.includes(entity.type));
     }
 
     private clearSelectionHighlight(view: IView): void {
@@ -904,4 +1053,54 @@ function pointToSegmentDistance(
             ? 0
             : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSquared));
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+/** Normalizes two screen points into a rectangle with min ≤ max on both axes. */
+function screenRect(a: { x: number; y: number }, b: { x: number; y: number }): ScreenRect {
+    return {
+        minX: Math.min(a.x, b.x),
+        minY: Math.min(a.y, b.y),
+        maxX: Math.max(a.x, b.x),
+        maxY: Math.max(a.y, b.y),
+    };
+}
+
+/** Whether any segment of an entity's mesh crosses the screen rectangle. */
+function entityCrossesRect(view: IView, mesh: EdgeMeshData, rect: ScreenRect): boolean {
+    const { position } = mesh;
+    const screen: XY[] = [];
+    for (let i = 0; i + 2 < position.length; i += 3) {
+        screen.push(view.worldToScreen(new XYZ({ x: position[i], y: position[i + 1], z: position[i + 2] })));
+    }
+    // the mesh holds consecutive segment pairs: (p0,p1), (p2,p3), …
+    for (let i = 0; i + 1 < screen.length; i += 2) {
+        if (segmentCrossesRect(screen[i], screen[i + 1], rect)) return true;
+    }
+    return false;
+}
+
+function pointInRect(point: XY, rect: ScreenRect): boolean {
+    return point.x >= rect.minX && point.x <= rect.maxX && point.y >= rect.minY && point.y <= rect.maxY;
+}
+
+/** Containment of either end, or a crossing of any of the rectangle's four sides. */
+function segmentCrossesRect(a: XY, b: XY, rect: ScreenRect): boolean {
+    if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
+    const corners = [
+        new XY(rect.minX, rect.minY),
+        new XY(rect.maxX, rect.minY),
+        new XY(rect.maxX, rect.maxY),
+        new XY(rect.minX, rect.maxY),
+    ];
+    return corners.some((corner, i) => segmentsIntersect(a, b, corner, corners[(i + 1) % 4]));
+}
+
+/** Orientation test for two closed segments. */
+function segmentsIntersect(a: XY, b: XY, c: XY, d: XY): boolean {
+    const cross = (o: XY, p: XY, q: XY) => (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
+    const ab1 = cross(c, d, a);
+    const ab2 = cross(c, d, b);
+    const cd1 = cross(a, b, c);
+    const cd2 = cross(a, b, d);
+    return ((ab1 > 0 && ab2 < 0) || (ab1 < 0 && ab2 > 0)) && ((cd1 > 0 && cd2 < 0) || (cd1 < 0 && cd2 > 0));
 }

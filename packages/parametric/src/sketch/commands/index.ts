@@ -5,6 +5,7 @@ import "./sketchArc";
 import "./sketchCircle";
 import "./sketchCommands";
 import "./sketchConstraints";
+import "./sketchCornerCommands";
 import "./sketchDimensions";
 import "./sketchLine";
 import "./sketchProjectEdges";

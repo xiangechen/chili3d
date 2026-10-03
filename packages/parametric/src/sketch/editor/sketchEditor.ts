@@ -64,7 +64,7 @@ import { SketchEventHandler } from "./sketchEventHandler";
  * `sketchAnnotations.ts` (constraint badges and dimension graphics).
  */
 
-export type SketchPickKind = "point" | "entity" | "position";
+export type SketchPickKind = "point" | "entity" | "entities" | "position";
 
 /** Entity type filter for picks: a single type or a set of acceptable types. */
 export type SketchEntityTypeFilter = SketchEntityType | readonly SketchEntityType[];
@@ -496,6 +496,29 @@ export class SketchEditor implements IDisposable {
         return this.startPick("position", prompt, undefined, undefined, preview, controller);
     }
 
+    /**
+     * A pick that may answer with several entities: a click still answers with the one
+     * under the cursor, while a rubber-band drag answers with everything it crosses —
+     * so a command that wants a set can be driven either way.
+     */
+    pickEntities(
+        prompt: I18nKeys,
+        type?: SketchEntityTypeFilter,
+        options?: { datum?: boolean },
+        controller?: AsyncController,
+    ): Promise<number[] | undefined> {
+        return this.startPick("entities", prompt, type, options?.datum, undefined, controller);
+    }
+
+    /** Answers the pending pick from outside the pointer path — a box drag that resolved it. */
+    resolvePick(value: unknown): void {
+        const request = this.pickRequest;
+        if (request === undefined) return;
+        this.pickRequest = undefined;
+        this.annotations.suppressConstraintSymbols = false;
+        request.resolve(value);
+    }
+
     cancelPick(): void {
         const request = this.pickRequest;
         this.pickRequest = undefined;
@@ -506,13 +529,27 @@ export class SketchEditor implements IDisposable {
 
     /**
      * Called by the SketchEventHandler on pointerDown. Returns true when a pick
-     * request consumed the event (picking suppresses dragging).
+     * request consumed the event (picking suppresses dragging). A multi-entity pick
+     * that lands on empty space is the one exception: it answers with the box the
+     * handler is about to drag, so the press falls through to that.
      */
     handlePickPointerDown(view: IView, event: PointerEvent): boolean {
         const request = this.pickRequest;
         if (request === undefined) return false;
         if (event.button === 2) {
             this.cancelPick();
+            return true;
+        }
+
+        if (request.kind === "entities") {
+            const entity = this.eventHandler.hitTestEntity(
+                view,
+                event,
+                request.entityType,
+                request.datum ?? false,
+            );
+            if (entity === undefined) return false;
+            this.resolvePick([entity]);
             return true;
         }
 
@@ -525,11 +562,7 @@ export class SketchEditor implements IDisposable {
             value = this.eventHandler.pointerToUV(view, event);
         }
 
-        if (value !== undefined) {
-            this.pickRequest = undefined;
-            this.annotations.suppressConstraintSymbols = false;
-            request.resolve(value);
-        }
+        if (value !== undefined) this.resolvePick(value);
         return true;
     }
 
@@ -824,14 +857,23 @@ export class SketchEditor implements IDisposable {
         });
     }
 
+    /**
+     * The DOF shown is the diagnostics' own (`SketchDiagnostics.dofs`), not the solve
+     * outcome's: garlic's `System::dofs()` reads a cached rank that deliberately lags
+     * one real iteration through a singular configuration — a filleted corner, whose
+     * tangency Jacobian is singular at the exactly-solved point, came back as 9 where
+     * the sketch really has 6. The diagnose report is computed fresh at the current
+     * point, so it agrees with the redundancy list right beside it.
+     */
     private publishSolveStatus(): void {
         const outcome = this.lastOutcome;
+        const dofs = this.sketchDiagnostics.dofs;
         if (outcome.result === "Conflicting") {
             PubSub.default.pub("statusBarTip", "sketch.conflicting");
-        } else if (outcome.dofs === 0) {
+        } else if (dofs === 0) {
             PubSub.default.pub("statusBarTip", "sketch.fullyConstrained");
         } else {
-            PubSub.default.pub("statusBarTip", "sketch.dofs{0}", outcome.dofs);
+            PubSub.default.pub("statusBarTip", "sketch.dofs{0}", dofs);
         }
     }
 

@@ -255,7 +255,9 @@ export function distanceDimension(
 }
 
 /**
- * Radius dimension: leader from the center through the circumference, arrow outward.
+ * Radius dimension: leader from the center through the circumference out to the label,
+ * with the arrowhead sitting on the rim and pointing back at the center — the leader
+ * says what is measured, the arrow says where from.
  * `labelOffset` is the picked label relative to the center — its direction is the
  * leader's, its length the label's distance. A label within
  * `DIMENSION_RADIAL_LABEL_MARGIN_PX` of the rim is pushed out past it, so the text never
@@ -276,7 +278,9 @@ export function radiusDimension(
 
     return {
         segments: [[center[0], center[1], label[0], label[1]]],
-        triangles: arrowhead(rim, dir, size.scale),
+        // `-dir`: the base sits out along the leader, leaving the apex on the rim
+        // turned back toward the center
+        triangles: arrowhead(rim, [-dir[0], -dir[1]], size.scale),
         // the label stands off the leader's side, half a text height up
         textPosition: textAnchor(label, [-dir[1], dir[0]], size),
         textDirection: dir,

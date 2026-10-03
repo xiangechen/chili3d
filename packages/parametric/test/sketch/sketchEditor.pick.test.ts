@@ -210,6 +210,33 @@ describe("SketchEditor picking", () => {
         }
     });
 
+    // A multi-entity pick (the sketch fillet/chamfer asking for edges) highlights its
+    // targets exactly like a single-entity one; it briefly highlighted nothing at all,
+    // so the two commands gave no hover feedback while they were waiting for a pick.
+    test("highlights the hovered line while a multi-entity pick is active", async () => {
+        const { doc, view, restoreFactory } = setup();
+        const displayMesh = rs.fn(() => 1);
+        (doc.visual.context as any).displayMesh = displayMesh;
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            displayMesh.mockClear();
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solve(true);
+
+            const promise = editor.pickEntities("prompt.pickSketchEntity", "line");
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            // mock view: screen (405, 300) -> uv (5, 0), on the line
+            handler.pointerMove(view, pointerEvent(405, 300));
+            expect(displayMesh).toHaveBeenCalledTimes(1);
+
+            editor.cancelPick();
+            await expect(promise).resolves.toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
     test("clicking a hovered entity clears the hover highlight", async () => {
         const { doc, view, restoreFactory } = setup();
         const displayMesh = rs.fn(() => 1);

@@ -31,7 +31,16 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             },
             {
                 groupName: "ribbon.group.draw",
-                items: ["sketch.line", "sketch.circle", "sketch.arc", "sketch.rectangle"],
+                items: [
+                    "sketch.line",
+                    "sketch.circle",
+                    "sketch.arc",
+                    "sketch.rectangle",
+                    {
+                        type: "split",
+                        items: ["sketch.fillet", "sketch.chamfer"],
+                    },
+                ],
             },
             {
                 groupName: "ribbon.group.constraint",
@@ -48,10 +57,12 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                 items: [
                     "dimension.distance",
                     "dimension.radius",
-                    "dimension.pointLineDistance",
                     "dimension.angle",
-                    "dimension.horizontalDistance",
-                    "dimension.verticalDistance",
+                    [
+                        "dimension.pointLineDistance",
+                        "dimension.horizontalDistance",
+                        "dimension.verticalDistance",
+                    ],
                 ],
             },
             {

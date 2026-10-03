@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./autoConstraints";
+export * from "./cornerOps";
 export * from "./editor/sketchEditor";
 export * from "./externalRef";
 export * from "./garlic";

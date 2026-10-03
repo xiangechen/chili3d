@@ -147,12 +147,13 @@ describe("radialDimensionLayout", () => {
         expect([s[0], s[1], s[2]]).toEqual([0, 0, 0]);
         expect(s[3]).toBeCloseTo(labelDistance);
         expect(s[4]).toBeCloseTo(0);
-        // solid arrowhead: tip on the rim pointing outward, base corners behind it
+        // solid arrowhead: tip on the rim, base corners out along the leader — the
+        // head points back at the center it measures from
         const t = layout.triangles;
         expect(t).toHaveLength(9);
         expect([t[0], t[1], t[2]]).toEqual([10, 0, 0]);
-        expect(t[3]).toBeLessThan(10);
-        expect(t[6]).toBeLessThan(10);
+        expect(t[3]).toBeGreaterThan(10);
+        expect(t[6]).toBeGreaterThan(10);
 
         expect(layout.textPosition.x).toBeCloseTo(labelDistance);
         expect(layout.textPosition.y).toBeCloseTo(0.6);
