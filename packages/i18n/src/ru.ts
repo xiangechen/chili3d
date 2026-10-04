@@ -172,6 +172,7 @@ export default {
         "command.sketch.fillet": "Скругление",
         "command.sketch.line": "Линия",
         "command.sketch.mirror": "Зеркало",
+        "command.sketch.offset": "Смещение",
         "command.sketch.polygon": "Многоугольник",
         "command.sketch.projectEdges": "Проецировать кромки",
         "command.sketch.rectangle": "Прямоугольник",
@@ -347,6 +348,8 @@ export default {
         "prompt.pickLeaderPoint": "выберите точку, на которую указывает выноска, ESC для отмены",
         "prompt.pickMirrorAxis": "выберите линию отражения, ESC для отмены",
         "prompt.pickMirrorSources": "выберите сущности для отражения, ESC для завершения",
+        "prompt.pickOffsetEntities":
+            "выберите сущности для смещения (щелчком или рамкой), перетащите стрелку, чтобы задать расстояние",
         "prompt.pickTextPosition": "выберите положение текста, ESC для отмены",
         "prompt.pickTrimEntity": "выберите удаляемый участок, ESC для отмены",
         "prompt.pickExternalRef":
@@ -428,6 +431,10 @@ export default {
         "sketch.issue.redundant": "Избыточное",
         "sketch.mirrorSkippedSelfMirror{0}":
             "При отражении пропущено сущностей, уже симметричных относительно линии: {0}",
+        "sketch.offsetBranched{0}":
+            "Выбранные рёбра сходятся в {0} углах, которые нельзя соединить — они смещаются по отдельности",
+        "sketch.offsetDistance": "Расстояние",
+        "sketch.offsetNoJoin{0}": "{0} углов не удалось соединить: смещённые кривые остаются врозь",
         "sketch.noConstraints": "Нет ограничений",
         "sketch.noProjectableEdges": "Нет компланарных кромок для проекции",
         "sketch.redundant": "Избыточные ограничения",

@@ -10,6 +10,7 @@ import {
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
+    sameEntityGeometry,
 } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 import { centerRef, lineRefs } from "./solverEntities";
@@ -147,32 +148,6 @@ function planMirror(entity: SketchEntityData, axis: MirrorAxis): MirrorPlan {
     };
 }
 
-/**
- * Whether two param layouts of the same type describe the same geometry.
- *
- * The line is the awkward one: its params are not ordered, so a bisected line comes back
- * from a reflection with its endpoints swapped and reads as a different line until they
- * are compared as a pair. An arc's are ordered — the sweep is directed — so they must
- * match in place; a circle's radius counts as much as its center.
- */
-function sameGeometry(
-    type: SketchEntityType,
-    first: readonly number[],
-    second: readonly number[],
-    tolerance: number,
-): boolean {
-    const near = (a: number, b: number) => Math.abs(a - b) <= tolerance;
-    const nearPoint = (p: readonly number[], q: readonly number[]) => near(p[0], q[0]) && near(p[1], q[1]);
-    if (type === "line") {
-        return (
-            (nearPoint(first, second) && nearPoint(first.slice(2), second.slice(2))) ||
-            (nearPoint(first, second.slice(2)) && nearPoint(first.slice(2), second))
-        );
-    }
-    if (type === "circle") return nearPoint(first, second) && near(first[2], second[2]);
-    return first.every((value, index) => near(value, second[index]));
-}
-
 /** A source entity eligible to be mirrored: real geometry of a kind the solver can reflect. */
 function isMirrorable(entity: SketchEntityData | undefined): entity is SketchEntityData {
     return entity !== undefined && ["line", "circle", "arc"].includes(entity.type);
@@ -193,7 +168,7 @@ const DUPLICATE_TOLERANCE = Precision.Distance;
 
 /**
  * The sources worth mirroring, and the ones left out because a copy of them is already
- * in the sketch — either the source is its own mirror (see `sameGeometry`) or the
+ * in the sketch — either the source is its own mirror (see `sameEntityGeometry`) or the
  * selection contains the reflection of it, which is what a shape that is itself
  * symmetric about the axis looks like. The caller reports those so a skipped pick never
  * looks like a silent failure.
@@ -231,9 +206,9 @@ function planSources(
         // the axis goes too — its copy would lie on top of it all the same. Duplicating
         // *other* geometry is judged by coincidence instead: a copy that lands near
         // another edge is still an edge the user asked for.
-        const ontoItself = sameGeometry(entity.type, entity.params, plan.params, tolerance);
+        const ontoItself = sameEntityGeometry(entity.type, entity.params, plan.type, plan.params, tolerance);
         const ontoOthers = present.some((other) =>
-            sameGeometry(other.type, other.params, plan.params, DUPLICATE_TOLERANCE),
+            sameEntityGeometry(other.type, other.params, plan.type, plan.params, DUPLICATE_TOLERANCE),
         );
         if (ontoItself || ontoOthers) {
             skippedSelfMirror.push(id);
@@ -248,7 +223,7 @@ function planSources(
 /**
  * Mirrors `sourceIds` across `axisId`, adding the copies and the constraints that tie
  * them to their sources. `tolerance` is in sketch units and decides what counts as
- * already symmetric about the axis (see `sameGeometry`); the caller passes its
+ * already symmetric about the axis (see `sameEntityGeometry`); the caller passes its
  * screen tolerance, floored, as the corner commands do.
  *
  * The caller solves and commits: this op solves once itself, only so a copy the solver
@@ -302,7 +277,7 @@ function addCopy(solver: SketchSolver, entity: SketchEntityData, plan: MirrorPla
             : plan.type === "circle"
               ? solver.addCircle(x1, y1, x2)
               : solver.addArc(x1, y1, x2, y2, x3, y3);
-    if (entity.construction === true) solver.setConstruction(copyId, true);
+    if (solver.isConstruction(entity.id)) solver.setConstruction(copyId, true);
     return copyId;
 }
 
@@ -414,6 +389,6 @@ export function mirrorPreview(
         id: entity.id,
         type: plan.type,
         params: plan.params,
-        ...(entity.construction === true ? { construction: true } : {}),
+        ...(solver.isConstruction(entity.id) ? { construction: true } : {}),
     }));
 }

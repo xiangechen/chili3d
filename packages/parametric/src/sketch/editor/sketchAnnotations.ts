@@ -308,6 +308,11 @@ export class SketchAnnotationManager implements IDisposable {
     private readonly selectedConstraints = new Set<number>();
     private rebuilding = false;
     private suppressSymbols = false;
+    /**
+     * Whether the constraint symbols let pointer events through (see
+     * `inertConstraintSymbols`). Unlike `suppressSymbols` the badges stay drawn.
+     */
+    private symbolsInert = false;
     private dimensionPreview?: DimensionPreview;
     /** The labels collected during a refresh, drawn as mesh glyphs into the face channel. */
     private texts: DimensionText[] = [];
@@ -906,6 +911,29 @@ export class SketchAnnotationManager implements IDisposable {
         this.disposeItems();
     }
 
+    /** Whether the constraint symbols are currently hidden (see the setter). */
+    get suppressConstraintSymbols(): boolean {
+        return this.suppressSymbols;
+    }
+
+    /** Whether the constraint symbols currently let pointer events through. */
+    get inertConstraintSymbols(): boolean {
+        return this.symbolsInert;
+    }
+
+    /**
+     * Draws the constraint symbol badges as usual but stops them taking pointer events.
+     * They are DOM overlays, so one lying over a *mesh* handle inside the sketch — the
+     * offset's arrow — would swallow the press that grabs it, or the click that settles
+     * its value, while the handle itself is invisible to the browser. Datum dimensions are
+     * not affected: those are meant to be dragged.
+     */
+    set inertConstraintSymbols(value: boolean) {
+        if (this.disposed || value === this.symbolsInert) return;
+        this.symbolsInert = value;
+        this.refresh();
+    }
+
     /**
      * Hides the constraint symbol badges (H / V / ◇) while a pick is active —
      * they pop up next to the hovered geometry and occlude the very point or
@@ -1155,7 +1183,7 @@ export class SketchAnnotationManager implements IDisposable {
                 // only keeps the hover/drag/double-click interaction alive
                 className: ghost ? `${style.badge} ${style.ghost}` : style.badge,
                 onCreated: (element) => {
-                    this.registerBadgeElement(element, id);
+                    this.registerBadgeElement(element, id, !draggable);
                     renderBadgeFace(element, label, icon);
                     if (draggable) {
                         element.classList.add(style.draggable);
@@ -1208,6 +1236,7 @@ export class SketchAnnotationManager implements IDisposable {
                 interactive: true,
                 className: `${style.badge} ${style.stack}`,
                 onCreated: (element) => {
+                    this.registerBadgeElement(element, memberIds[0], !members.some((m) => m.draggable));
                     this.applyStackClasses(element, memberIds, key);
                     // a stack near the right edge would have its row clipped by the
                     // CSS2D container's overflow:hidden, so that one opens leftwards
@@ -1244,7 +1273,7 @@ export class SketchAnnotationManager implements IDisposable {
             const element = document.createElement("div");
             element.className = `${style.badge} ${style.stackMember}`;
             renderBadgeFace(element, member.label, member.icon);
-            this.registerBadgeElement(element, id);
+            this.registerBadgeElement(element, id, !member.draggable);
             element.addEventListener("mouseenter", () => {
                 this.hoveredConstraint = id;
                 this.onHighlightEntities(member.entityIds);
@@ -1261,10 +1290,11 @@ export class SketchAnnotationManager implements IDisposable {
     }
 
     /** Registers a badge under its constraint and applies the look its state calls for. */
-    private registerBadgeElement(element: HTMLElement, id: number): void {
+    private registerBadgeElement(element: HTMLElement, id: number, symbol: boolean): void {
         const list = this.badgeElements.get(id) ?? [];
         list.push(element);
         this.badgeElements.set(id, list);
+        element.classList.toggle(style.inert, symbol && this.symbolsInert);
         element.classList.toggle(style.selected, this.selectedConstraints.has(id));
         // a conflicting constraint reads solid red — for a ghost datum the badge
         // stays invisible (`.ghost.conflicting`) and the red mesh is the signal

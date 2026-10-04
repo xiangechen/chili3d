@@ -103,6 +103,61 @@ describe("SketchAnnotations visibility", () => {
         }
     });
 
+    test("an inert constraint badge is drawn as usual, minus the pointer events", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            // this harness needs the elements, not just the texts
+            const created: { text: string; element: HTMLElement }[] = [];
+            (view as any).htmlText = (text: string, _position: unknown, options: any) => {
+                const element = document.createElement("div");
+                // the real helper puts the requested classes on before handing it over
+                if (options?.className !== undefined) element.className = options.className;
+                created.push({ text, element });
+                options?.onCreated?.(element);
+                return { dispose: () => {} };
+            };
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const circle = editor.solver.addCircle(20, 0, 5);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Horizontal,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                ],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: circle, pointIndex: 0 }],
+                datum: 5,
+            });
+            editor.solve(true);
+            (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
+
+            const before = created.find((entry) => entry.text === "H");
+            if (before === undefined) throw new Error("the H badge was not created");
+            expect(before.element.classList.contains(style.inert)).toBe(false);
+
+            const countBeforeFlip = created.length;
+            editor.annotations.inertConstraintSymbols = true;
+
+            // only what the flip drew: the badges from before are gone
+            const rebuilt = created.slice(countBeforeFlip);
+            const symbols = rebuilt.filter((entry) => entry.text === "H");
+            const dimensions = rebuilt.filter((entry) => entry.text !== "H");
+            expect(symbols.length).toBeGreaterThan(0);
+            expect(dimensions.length).toBeGreaterThan(0);
+            // the symbol is drawn exactly as before, only transparent to the pointer
+            expect(symbols.every((entry) => entry.element.classList.contains(style.inert))).toBe(true);
+            // a datum dimension is draggable, so it keeps its events
+            expect(dimensions.some((entry) => entry.element.classList.contains(style.inert))).toBe(false);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
     test("constraint badges disappear when the highlight moves away", () => {
         const { doc, view, htmlTexts, badgeDisposes, restoreFactory } = setup();
         try {

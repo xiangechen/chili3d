@@ -606,6 +606,10 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     dispose(): void {
+        // inert from here on: the viewport decides what to dispatch by `isEnabled`, and a
+        // picker session that hands this handler back after the session ended would
+        // otherwise leave every pointer event arriving at a disposed sketch
+        this.isEnabled = false;
         const view = this.editor.view;
         this.clearSnapFeedback();
         if (!view.isClosed) {

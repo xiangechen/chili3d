@@ -233,6 +233,7 @@ export default {
         "command.sketch.fillet": "Fillet",
         "command.sketch.line": "Line",
         "command.sketch.mirror": "Mirror",
+        "command.sketch.offset": "Offset",
         "command.sketch.polygon": "Polygon",
         "command.sketch.projectEdges": "Project Edges",
         "command.sketch.rectangle": "Rectangle",
@@ -450,6 +451,8 @@ export default {
         "prompt.pickLeaderPoint": "Pick the point the leader points to, ESC key to cancel",
         "prompt.pickMirrorAxis": "Pick the line to mirror across, ESC key to cancel",
         "prompt.pickMirrorSources": "Pick the entities to mirror, ESC key to finish",
+        "prompt.pickOffsetEntities":
+            "Pick the entities to offset (click or box them), drag the arrow to set the distance",
         "prompt.pickNextPoint": "pick next point, ESC key to cancel",
         "prompt.pickNextPointOrFinish": "pick the next point, ESC or Enter to finish the chain",
         "prompt.pickPoint": "Pick point, ESC key to cancel",
@@ -535,6 +538,10 @@ export default {
         "sketch.issue.redundant": "Redundant",
         "sketch.mirrorSkippedSelfMirror{0}":
             "The mirror skipped {0} entities already symmetric about the line",
+        "sketch.offsetBranched{0}":
+            "The picked edges meet at {0} corners that cannot be joined — they offset on their own",
+        "sketch.offsetDistance": "Distance",
+        "sketch.offsetNoJoin{0}": "{0} corners could not be joined: their offset curves stay apart",
         "sketch.noConstraints": "No constraints",
         "sketch.noProjectableEdges": "No coplanar edges could be projected",
         "sketch.redundant": "Redundant constraints",

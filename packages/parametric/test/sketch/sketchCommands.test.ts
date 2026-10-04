@@ -501,6 +501,28 @@ describe("CreateSketch", () => {
         }
     });
 
+    test("keeps an expression typed into the offset row, not the number it resolves to", async () => {
+        const { app, enter, command, sessionOpen } = setup(undefined, undefined, {
+            dragOffset: true,
+            holdOffsetPick: true,
+        });
+        try {
+            const running = command.execute(app);
+            await sessionOpen;
+
+            command.planeOffset = "2*3";
+
+            // the drag echoes the resolved number back; it must not land on the row
+            expect(command.planeOffset).toBe("2*3");
+
+            // settle the held pick so the run finishes
+            command.specifyPlaneOffset = false;
+            await running;
+        } finally {
+            enter.mockRestore();
+        }
+    });
+
     test("the offset row hides itself while no offset is specified", () => {
         const command = new CreateSketch();
         const declared = PropertyUtils.getProperties(command).find((x) => x.name === "planeOffset");

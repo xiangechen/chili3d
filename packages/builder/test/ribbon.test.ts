@@ -138,6 +138,7 @@ describe("SketchRibbonProfiles", () => {
         expect(allItems).toContain("sketch.exit");
         expect(allItems).toContain("sketch.line");
         expect(allItems).toContain("sketch.mirror");
+        expect(allItems).toContain("sketch.offset");
         expect(allItems).toContain("sketch.polygon");
         expect(allItems).toContain("constraint.coincident");
         expect(allItems).toContain("dimension.distance");

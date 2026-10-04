@@ -9,6 +9,7 @@ import "./sketchCornerCommands";
 import "./sketchDimensions";
 import "./sketchLine";
 import "./sketchMirror";
+import "./sketchOffset";
 import "./sketchPolygon";
 import "./sketchProjectEdges";
 import "./sketchRectangle";

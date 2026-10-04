@@ -110,6 +110,43 @@ describe("mirrorEntities", () => {
         }
     });
 
+    test("keeps a construction source's copy construction", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const source = solver.addLine(1, 2, 4, 3);
+            solver.setConstruction(source, true);
+
+            const result = mirrorEntities(solver, [source], DATUM_AXIS, 1e-6);
+
+            expect(result.isOk).toBe(true);
+            const [copy] = result.isOk ? result.value.createdEntityIds : [];
+            // the flag lives on the solver, not on the data `planSources` reads
+            expect(solver.isConstruction(copy)).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("does not read a line as the geometry of an arc it only touches", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            // a real line for the axis, so it sits in the sketch the way a picked edge
+            // would; the arc's copy reflects its centre onto the axis's far end and its
+            // end onto the axis's near one — a line-shaped read of the arc's own params
+            const axis = solver.addLine(5, 0, 6, 0);
+            const source = solver.addArc(6, 0, 6, 1, 5, 0);
+
+            const result = mirrorEntities(solver, [source], axis, 1e-6);
+
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) return;
+            expect(result.value.skippedSelfMirror).toEqual([]);
+            expect(result.value.createdEntityIds).toHaveLength(1);
+        } finally {
+            solver.dispose();
+        }
+    });
+
     test("mirrors a closed rectangle into a second closed loop", () => {
         const solver = new SketchSolver(Plane.XY);
         try {
@@ -340,6 +377,21 @@ describe("mirrorPreview", () => {
             nearPoint(preview[0].params.slice(2), [4, -3]);
             // a preview changes nothing
             expect(solver.toData().entities).toHaveLength(2);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("previews a construction source's copy as construction", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const source = solver.addLine(1, 2, 4, 3);
+            solver.setConstruction(source, true);
+
+            const preview = mirrorPreview(solver, [source], DATUM_AXIS, 1e-6);
+
+            expect(preview).toHaveLength(1);
+            expect(preview[0].construction).toBe(true);
         } finally {
             solver.dispose();
         }

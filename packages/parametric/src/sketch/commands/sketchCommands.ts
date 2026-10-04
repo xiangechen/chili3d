@@ -222,7 +222,13 @@ class PickSketchPlaneStep implements IStep {
 export class CreateSketch extends MultistepCommand {
     private _picked: PickedPlane | undefined;
     private _offsetHandler: SketchPlaneOffsetHandler | undefined;
+    /** Set while the drag hands up a value, so the setter does not push it back. */
     private _syncingFromOffset = false;
+    /**
+     * Set while the setter drives the drag, so the echo it returns — the number the typed
+     * value resolved to — does not land back on the property and replace it.
+     */
+    private _pushingToOffset = false;
 
     /**
      * Whether an offset is specified at all. Off by default: a sketch almost always sits on
@@ -262,7 +268,12 @@ export class CreateSketch extends MultistepCommand {
         // Without a live drag there is nothing to preview, and nothing to resolve against.
         if (this._syncingFromOffset || this._offsetHandler === undefined) return;
         const resolved = this.resolveLength(value);
-        if (resolved !== undefined) this._offsetHandler.setValue(resolved);
+        if (resolved === undefined) return;
+        // the drag echoes the number straight back through `onOffset`; swallowed there,
+        // so an expression typed above survives instead of becoming its value
+        this._pushingToOffset = true;
+        this._offsetHandler.setValue(resolved);
+        this._pushingToOffset = false;
     }
 
     /**
@@ -334,6 +345,7 @@ export class CreateSketch extends MultistepCommand {
                 this._offsetHandler = undefined;
             },
             onOffset: (offset: number) => {
+                if (this._pushingToOffset) return;
                 this._syncingFromOffset = true;
                 this.planeOffset = offset;
                 this._syncingFromOffset = false;

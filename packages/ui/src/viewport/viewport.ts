@@ -300,10 +300,38 @@ export class Viewport extends HTMLElement {
     private addEventListenerHandler(type: keyof HTMLElementEventMap, handler: (e: any) => any) {
         const listener = (e: any) => {
             e.preventDefault();
+            this.pinPointerOffset(e);
             handler(e);
         };
         this.addEventListener(type, listener);
         this._eventCaches.push([type, listener]);
+    }
+
+    /**
+     * Moves a pointer event's `offsetX/offsetY` onto the viewport's own frame.
+     *
+     * `offsetX/offsetY` are measured from the *target* element, and a target is not always
+     * the canvas: a sketch constraint badge is a DOM overlay inside the viewport and takes
+     * pointer events, so over one the offsets come back relative to the badge. Everything
+     * the viewport dispatches to — the sketch's own handler, the drag handles — feeds them
+     * to `view.rayAt`, which wants viewport coordinates; from a badge the ray would leave
+     * from the wrong place, which is how a handle stops being grabbable and a drag jumps
+     * mid-gesture. Correcting by the target's own position keeps every other frame intact,
+     * including the overlays' own listeners, which are on their own elements and on the
+     * window rather than here.
+     */
+    private pinPointerOffset(event: MouseEvent): void {
+        const target = event.target as HTMLElement | null;
+        if (target === null || target === this) return;
+        const targetRect = target.getBoundingClientRect?.();
+        if (targetRect === undefined) return;
+        const rect = this.getBoundingClientRect();
+        // the offset is measured from the padding edge, so the borders come off with it
+        const dx = targetRect.left + (target.clientLeft ?? 0) - (rect.left + (this.clientLeft ?? 0));
+        const dy = targetRect.top + (target.clientTop ?? 0) - (rect.top + (this.clientTop ?? 0));
+        if (dx === 0 && dy === 0) return;
+        Object.defineProperty(event, "offsetX", { value: event.offsetX + dx, configurable: true });
+        Object.defineProperty(event, "offsetY", { value: event.offsetY + dy, configurable: true });
     }
 
     private removeEvents() {

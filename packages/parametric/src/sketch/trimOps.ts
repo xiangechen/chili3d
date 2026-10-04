@@ -480,7 +480,7 @@ const SLIDE_SAFE_REFS: ReadonlyMap<ConstraintKind, ReadonlySet<number>> = new Ma
     [ConstraintKind.Symmetric, new Set([2, 3])],
     [ConstraintKind.TangentLineCircle, new Set([0, 1])],
     [ConstraintKind.TangentLineArc, new Set([0, 1, 3])],
-    [ConstraintKind.TangentCircleArc, new Set([3])],
+    [ConstraintKind.TangentCircleArc, new Set([2])],
     [ConstraintKind.TangentArcArc, new Set([1, 3])],
     [ConstraintKind.EqualArcRadius, new Set([1, 3])],
     [ConstraintKind.PointOnArc, new Set([2])],

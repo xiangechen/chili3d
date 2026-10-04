@@ -332,6 +332,34 @@ describe("trimEntity constraints", () => {
         }
     });
 
+    test("keeps a circle tangency when the arc's start is the end that slides", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            // the arc is externally tangent to the circle at (-5, 0) — its own start
+            const circle = solver.addCircle(-10, 0, 5);
+            const arc = solver.addArc(0, 0, -5, 0, 0, -5);
+            const tangent = solver.addConstraint({
+                kind: ConstraintKind.TangentCircleArc,
+                refs: [ref(circle, 0), ref(arc, 0), ref(arc, 1)],
+            });
+            // crosses the arc at (-3, -4), past a click at 210° and before the arc's start
+            solver.addLine(-3, -10, -3, 10);
+            const click: [number, number] = [
+                5 * Math.cos((210 * Math.PI) / 180),
+                5 * Math.sin((210 * Math.PI) / 180),
+            ];
+
+            const outcome = trim(solver, arc, click);
+
+            // the start slid along the arc's own circle, so the radius the tangency reads
+            // is unchanged and the constraint still holds
+            expect(outcome.removedConstraints).toEqual([]);
+            expect(solver.toData().constraints.some((c) => c.id === tangent)).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
     test("trims through a sketch that was already conflicting", () => {
         const { solver, horizontal } = crossSolver();
         try {

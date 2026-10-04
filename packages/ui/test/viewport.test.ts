@@ -113,3 +113,72 @@ describe("Viewport double-click", () => {
         expect(pubSubRecorder.pubs).toEqual([]);
     });
 });
+
+describe("Viewport pointer offsets", () => {
+    let viewport: Viewport | undefined;
+
+    afterEach(() => {
+        viewport?.remove();
+        viewport = undefined;
+        pubSubRecorder.reset();
+    });
+
+    test("pins the offset onto the viewport when an overlay is the pointer's target", () => {
+        const { doc, view } = createMockView([], undefined);
+        const handler = {
+            isEnabled: true,
+            pointerDown: rs.fn(),
+            pointerMove: rs.fn(),
+            pointerUp: rs.fn(),
+            keyDown: rs.fn(),
+            dispose: () => {},
+        };
+        (doc.visual as any).eventHandler = handler;
+        (doc.visual as any).viewHandler = { isEnabled: false, dispose: () => {} };
+        viewport = new Viewport(view as unknown as IView, false);
+        document.body.appendChild(viewport);
+
+        // a sketch constraint badge: a DOM overlay inside the viewport that takes pointer
+        // events, so the offsets the browser reports are measured from *it*
+        const badge = document.createElement("span");
+        viewport.appendChild(badge);
+        viewport.getBoundingClientRect = () => ({ left: 0, top: 0 }) as DOMRect;
+        badge.getBoundingClientRect = () => ({ left: 30, top: 40 }) as DOMRect;
+
+        const event = new MouseEvent("pointerdown", { bubbles: true });
+        Object.defineProperties(event, { offsetX: { value: 5 }, offsetY: { value: 6 } });
+        badge.dispatchEvent(event);
+
+        // 5,6 from the badge is 35,46 in the viewport — what every handler downstream
+        // (the sketch's, the drag handles) feeds to `view.rayAt`
+        expect(handler.pointerDown).toHaveBeenCalledWith(
+            view,
+            expect.objectContaining({ offsetX: 35, offsetY: 46 }),
+        );
+    });
+
+    test("leaves the offset alone when the pointer is over the viewport itself", () => {
+        const { doc, view } = createMockView([], undefined);
+        const handler = {
+            isEnabled: true,
+            pointerDown: rs.fn(),
+            pointerMove: rs.fn(),
+            pointerUp: rs.fn(),
+            keyDown: rs.fn(),
+            dispose: () => {},
+        };
+        (doc.visual as any).eventHandler = handler;
+        (doc.visual as any).viewHandler = { isEnabled: false, dispose: () => {} };
+        viewport = new Viewport(view as unknown as IView, false);
+        document.body.appendChild(viewport);
+
+        const event = new MouseEvent("pointerdown", { bubbles: true });
+        Object.defineProperties(event, { offsetX: { value: 5 }, offsetY: { value: 6 } });
+        viewport.dispatchEvent(event);
+
+        expect(handler.pointerDown).toHaveBeenCalledWith(
+            view,
+            expect.objectContaining({ offsetX: 5, offsetY: 6 }),
+        );
+    });
+});

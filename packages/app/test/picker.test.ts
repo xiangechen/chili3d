@@ -125,6 +125,21 @@ describe("Picker", () => {
             expect(document.visual.eventHandler).toBe(oldEventHandler);
         });
 
+        test("should leave a handler that was installed while the session was open", async () => {
+            const controller = new AsyncController();
+            const handler = createMockHandler();
+            const replacement = createMockHandler();
+
+            const promise = picker.pickAsync(handler, "common.ok" as I18nKeys, controller, "none");
+            // Something else takes the viewport over mid-pick — a sketch session tearing
+            // down under a nested drag does exactly this. Its handler is the live one.
+            document.visual.eventHandler = replacement;
+            controller.success();
+            await promise;
+
+            expect(document.visual.eventHandler).toBe(replacement);
+        });
+
         test("should publish viewCursor event", async () => {
             const controller = new AsyncController();
             const handler = createMockHandler();

@@ -89,7 +89,14 @@ export class Picker implements IPicker {
         } finally {
             if (control !== "none") PubSub.default.pub("clearSelectionControl");
             PubSub.default.pub("clearStatusBarTip");
-            this.document.visual.eventHandler = oldHandler;
+            // Only take back the handler this session installed. Something else may have
+            // put its own in place while the session was open — a sketch session tearing
+            // down under a nested drag restores the handler from *before* the sketch, and
+            // writing `oldHandler` back over that would install a disposed handler the
+            // viewport would keep dispatching into.
+            if (this.document.visual.eventHandler === handler) {
+                this.document.visual.eventHandler = oldHandler;
+            }
             PubSub.default.pub("viewCursor", "default");
         }
     }

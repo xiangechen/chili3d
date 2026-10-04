@@ -22,6 +22,15 @@
     --badge-selected: #1f9e2c;
 }
 
+/*
+ * Drawn as always, but transparent to the pointer: a handle inside the sketch is a mesh,
+ * so a badge lying over one would take the press meant for it (see
+ * `inertConstraintSymbols`). Set while a handle is being aimed at or dragged.
+ */
+.badge.inert {
+    pointer-events: none;
+}
+
 .badge:hover {
     background-color: color-mix(in srgb, var(--badge-accent) 16%, var(--panel-background-color));
     border-color: var(--badge-accent);

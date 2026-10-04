@@ -135,6 +135,7 @@ export default {
         "command.sketch.fillet": "Arredondamento",
         "command.sketch.line": "Linha",
         "command.sketch.mirror": "Espelhar",
+        "command.sketch.offset": "Deslocar",
         "command.sketch.polygon": "Polígono",
         "command.sketch.projectEdges": "Projetar Arestas",
         "command.sketch.rectangle": "Retângulo",
@@ -147,6 +148,8 @@ export default {
         "prompt.pickLeaderPoint": "escolha o ponto para onde a linha aponta, ESC para cancelar",
         "prompt.pickMirrorAxis": "escolha a linha de espelhamento, ESC para cancelar",
         "prompt.pickMirrorSources": "escolha as entidades a espelhar, ESC para terminar",
+        "prompt.pickOffsetEntities":
+            "escolha as entidades a deslocar (clique ou caixa) e arraste a seta para definir a distância",
         "prompt.pickTextPosition": "escolha a posição do texto, ESC para cancelar",
         "prompt.pickTrimEntity": "escolha o trecho a aparar, ESC para cancelar",
         "prompt.pickExternalRef":
@@ -175,6 +178,10 @@ export default {
         "sketch.issue.redundant": "Redundante",
         "sketch.mirrorSkippedSelfMirror{0}":
             "O espelhamento ignorou {0} entidades já simétricas em relação à linha",
+        "sketch.offsetBranched{0}":
+            "As arestas escolhidas se encontram em {0} cantos que não podem ser unidos — elas são deslocadas individualmente",
+        "sketch.offsetDistance": "Distância",
+        "sketch.offsetNoJoin{0}": "{0} cantos não puderam ser unidos: as curvas deslocadas ficam separadas",
         "sketch.noConstraints": "Sem restrições",
         "sketch.noProjectableEdges": "Nenhuma aresta coplanar pôde ser projetada",
         "sketch.redundant": "Restrições redundantes",

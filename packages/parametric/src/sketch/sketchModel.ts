@@ -394,6 +394,41 @@ export function entityRadius(entity: SketchEntityData): number {
     throw new Error(`Entity ${entity.id} has no radius`);
 }
 
+/**
+ * Whether two param layouts of the same type describe the same geometry.
+ *
+ * The line is the awkward one: its params are not ordered, so a line reflected or
+ * offset into the opposite direction comes back with its endpoints swapped and reads
+ * as a different line until they are compared as a pair. An arc's are ordered — the
+ * sweep is directed — so they must match in place; a circle's radius counts as much
+ * as its center.
+ *
+ * The mirror uses it to leave out a copy that is already in the sketch, and the
+ * offset to refuse one that would land on existing geometry: an overlapping pair
+ * pushes profile building onto the kernel path (`needsKernelSplit`).
+ */
+export function sameEntityGeometry(
+    type: SketchEntityType,
+    first: readonly number[],
+    otherType: SketchEntityType,
+    second: readonly number[],
+    tolerance: number,
+): boolean {
+    // Different kinds lay their params out differently: a line's four slots read against an
+    // arc's six happen to line up wherever the numbers agree, matching shapes that are not.
+    if (type !== otherType) return false;
+    const near = (a: number, b: number) => Math.abs(a - b) <= tolerance;
+    const nearPoint = (p: readonly number[], q: readonly number[]) => near(p[0], q[0]) && near(p[1], q[1]);
+    if (type === "line") {
+        return (
+            (nearPoint(first, second) && nearPoint(first.slice(2), second.slice(2))) ||
+            (nearPoint(first, second.slice(2)) && nearPoint(first.slice(2), second))
+        );
+    }
+    if (type === "circle") return nearPoint(first, second) && near(first[2], second[2]);
+    return first.every((value, index) => near(value, second[index]));
+}
+
 /** Sketch (u, v) → world: origin + xvec * u + yvec * v. */
 export function toWorld(plane: Plane, u: number, v: number): XYZ {
     return plane.origin.add(plane.xvec.multiply(u)).add(plane.yvec.multiply(v));
