@@ -133,7 +133,8 @@ export class SketchConstraintsPanel {
     private refreshList(): void {
         this.rows.clear();
         this.listSection.replaceChildren();
-        const constraints = this.editor.solver.toData().constraints.filter((c) => !isStructuralConstraint(c));
+        const solver = this.editor.solver;
+        const constraints = solver.toData().constraints.filter((c) => !isStructuralConstraint(c));
         this.refreshHeader(constraints.length);
         if (constraints.length === 0) {
             const empty = document.createElement("div");

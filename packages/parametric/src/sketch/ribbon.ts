@@ -36,6 +36,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                     "sketch.circle",
                     "sketch.arc",
                     "sketch.rectangle",
+                    "sketch.polygon",
                     {
                         type: "split",
                         items: ["sketch.fillet", "sketch.chamfer"],

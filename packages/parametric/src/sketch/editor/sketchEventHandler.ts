@@ -170,7 +170,9 @@ export class SketchEventHandler implements IEventHandler {
      * Session-persistent display of the construction entities: dashed steel blue.
      * They are excluded from the node's shape (they never build profiles), so
      * without this overlay they would be invisible while editing — the same
-     * treatment reference-role external refs get above.
+     * treatment reference-role external refs get above. Every construction entity is
+     * drawn, a command's own carrier circles included, so the user can pick and
+     * delete them.
      */
     private showConstructionEntities(): void {
         const view = this.editor.document.application.activeView;

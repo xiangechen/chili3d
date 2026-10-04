@@ -13,6 +13,7 @@ import {
 import { applyPointAutoConstraints } from "../autoConstraints";
 import { ConstraintKind, toUV, toWorld } from "../sketchModel";
 import type { SketchSolver } from "../solver";
+import { joinLoop } from "../solverEntities";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
 import { SketchPointStep } from "./sketchPointStep";
 
@@ -112,19 +113,4 @@ function addRectangle(
         });
     }
     return [top, right, bottom, left];
-}
-
-/** Coincides each entity's end point with the start point of the next, closing the loop. */
-function joinLoop(solver: SketchSolver, entities: number[]): void {
-    for (let i = 0; i < entities.length; i++) {
-        const from = entities[i];
-        const to = entities[(i + 1) % entities.length];
-        solver.addConstraint({
-            kind: ConstraintKind.P2PCoincident,
-            refs: [
-                { entityId: from, pointIndex: 1 },
-                { entityId: to, pointIndex: 0 },
-            ],
-        });
-    }
 }

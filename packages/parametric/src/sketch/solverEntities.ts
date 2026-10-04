@@ -15,7 +15,8 @@ import type { SketchSolver } from "./solver";
  * Every entity a constraint or snap can target: the real sketch entities plus
  * the seeded external references. Externals are pinned (never draggable or
  * deletable), so a constraint snapped onto one is always satisfiable from the
- * sketch side.
+ * sketch side. Construction geometry is included — it is drawn, so it is a
+ * legitimate pick and constraint target like any other entity.
  */
 export function constraintTargetEntities(solver: SketchSolver): SketchEntityData[] {
     return [...solver.entities(), ...solver.externalEntitiesData()];
@@ -75,6 +76,23 @@ export function centerRef(entityId: number): SketchPointRef {
 /** Point ref of an arc's start (pointIndex 1), the point that fixes its radius. */
 export function arcStartRef(entityId: number): SketchPointRef {
     return { entityId, pointIndex: 1 };
+}
+
+/**
+ * Coincides each entity's end point with the start point of the next, closing the
+ * chain into a loop. The callers are the commands that lay a shape's edges out one
+ * after another — the rectangle's four sides, the regular polygon's N.
+ */
+export function joinLoop(solver: SketchSolver, entities: readonly number[]): void {
+    for (let i = 0; i < entities.length; i++) {
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: entities[i], pointIndex: 1 },
+                { entityId: entities[(i + 1) % entities.length], pointIndex: 0 },
+            ],
+        });
+    }
 }
 
 /** Keyed by the sorted type pair (`[type1, type2].sort().join("+")`). */
