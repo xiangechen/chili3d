@@ -126,3 +126,99 @@
     cursor: default;
     opacity: 0.7;
 }
+
+/*
+ * Constraints that share an anchor draw on top of each other, so they fold into one chip
+ * that opens into a row on hover — FreeCAD, Fusion and Creo all stack rather than offset
+ * them, because offsetting cannot keep every constraint reachable once their count grows.
+ *
+ * The chip carries `position` and `transform` from the CSS2D renderer (which re-sets the
+ * transform every frame), so it is already the containing block for `.stackMembers` and
+ * needs no positioning of its own. Note that the renderer also rewrites `zIndex` per frame:
+ * a `z-index` set here would be overwritten, so the row stays in the chip's own stacking
+ * context and relies on the members sharing its camera distance.
+ */
+.stack {
+    font-variant-numeric: tabular-nums;
+}
+
+.stackCount {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 6px;
+    color: #fff;
+    background-color: var(--badge-accent);
+    /* the chip underneath takes the pointer, not this corner mark */
+    pointer-events: none;
+}
+
+/* the corner mark follows the chip's own tone, in the same order the badge body resolves
+   them: an issue color outranks the selection green */
+.stack.selected .stackCount {
+    color: #1f1f1f;
+    background-color: var(--badge-selected);
+}
+
+.stack.conflicting .stackCount {
+    color: var(--error-color);
+    background-color: #fff;
+}
+
+.stack.redundant .stackCount {
+    color: var(--warning-color);
+    background-color: #1f1f1f;
+}
+
+/* the row only ever lays out while the chip is open, so it has no resting position of its own */
+.stackMembers {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: none;
+    gap: 2px;
+}
+
+/*
+ * Opening the chip stands it down so the row can lay every member out from the same spot:
+ * the first member takes the place the face and the count were holding, which is what keeps
+ * that first badge from showing twice.
+ *
+ * The chip's pill goes transparent rather than `visibility:hidden` — a hidden chip would
+ * stop taking pointer events and collapse itself the moment the cursor left the row. And
+ * the box it keeps is unchanged, so opening shifts nothing. `badge.stack.expanded` carries
+ * that third class on purpose: it has to outrank the tone and selection `:hover` rules.
+ */
+.badge.stack.expanded {
+    color: transparent;
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+/* only the chip's own face: the members' icons hang off `.stackMembers`, not off the chip */
+.stack.expanded > svg,
+.stack.expanded .stackCount {
+    visibility: hidden;
+}
+
+.stack.expanded .stackMembers {
+    display: flex;
+    /* the chip's own spot, not beside it */
+    left: 0;
+}
+
+/* same spot, mirrored: `left` has to be released or the row would stretch between the two */
+.stack.flip.expanded .stackMembers {
+    left: auto;
+    right: 0;
+}
+
+/* a member sits inside the chip, so it takes the compact padding, not the badge's own */
+.stackMember {
+    padding: 1px 4px;
+}

@@ -102,6 +102,37 @@ interface DimensionText {
     readonly tone?: DimensionTone;
 }
 
+/**
+ * One badge resolved to its anchor, collected before any DOM is built. Two constraints on
+ * the same geometry resolve to the same `(u, v)` — the whole point of collecting first is
+ * that the overlap can then be resolved (see `clusterBadges`).
+ */
+interface BadgePlacement {
+    readonly constraint: SketchConstraintData;
+    readonly refs: readonly SketchPointRef[];
+    readonly u: number;
+    readonly v: number;
+    readonly entityIds: number[];
+    /** Datum labels carry a position the user chose — never folded into a stack. */
+    readonly draggable: boolean;
+    /** A datum's text draws as mesh glyphs; its badge stays invisible (see `.ghost`). */
+    readonly ghost: boolean;
+    /** Fallback text when the constraint command has no icon (unit tests, odd icon kinds). */
+    readonly label: string;
+    readonly icon?: string;
+}
+
+/**
+ * A set of badges close enough to overlap, plus the key that names it. The key is the
+ * cluster's index within one refresh, NOT its leader's constraint id: a multi-entity
+ * constraint badges every entity it names, so one constraint can lead several clusters
+ * — and those clusters are unrelated stacks.
+ */
+interface BadgeCluster {
+    readonly key: number;
+    readonly members: readonly BadgePlacement[];
+}
+
 /** How a flagged constraint's annotation reads: red for conflicting, amber for redundant. */
 type DimensionTone = "conflict" | "redundant";
 
@@ -109,6 +140,18 @@ type DimensionTone = "conflict" | "redundant";
 const BADGE_OFFSET_PX = 18;
 /** How close the cursor must stay to a visible badge for the entity hover to survive. */
 const BADGE_REACH_PX = 30;
+/**
+ * Screen distance within which two symbol badges fold into one stack. Must stay under
+ * 50: a multi-entity constraint that badges two entities 50 world units apart (two
+ * parallel lines, at 1 world unit per pixel) has to keep two separate badges.
+ */
+const BADGE_STACK_DISTANCE_PX = 28;
+/**
+ * Rough screen width of one expanded member, for judging whether a stack's row will fit
+ * before its right edge. Only ever used as a fail-safe: over-estimating opens a stack
+ * leftwards a little early, which is cosmetic.
+ */
+const STACK_MEMBER_WIDTH_PX = 26;
 /** Pointer travel (screen px) before a badge press becomes a label drag. */
 const LABEL_DRAG_THRESHOLD_PX = 4;
 /**
@@ -207,6 +250,13 @@ export type DimensionPreview =
  *   one badge per referenced entity, so each stays next to — and reachable from — its own
  *   geometry however far apart the entities are. The event handler keeps the entity hover alive
  *   while the cursor crosses the gap to a badge (`isNearVisibleBadge`).
+ * - **Stacking.** Badges that land on the same point — Horizontal and Vertical on one line,
+ *   or any two constraints on one entity — would otherwise draw exactly on top of each other.
+ *   They fold into one chip carrying a count instead, which opens into a row of the real
+ *   badges on hover (see `placeBadges`). Badges far enough apart to overlap on screen fold
+ *   too, so a multi-entity constraint on two entities that nearly touch shows one chip rather
+ *   than two badges over each other. Datum dimensions never fold: their position is the one
+ *   the user placed.
  * - **Interaction.** Datum text draws as mesh glyphs (parallel to the dimension line, like the
  *   3D annotations); the badge stays behind it as an invisible layer keeping hover highlight,
  *   label dragging and double-click editing alive. Hovering a badge highlights its referenced
@@ -226,6 +276,25 @@ export class SketchAnnotationManager implements IDisposable {
     private items: IDisposable[] = [];
     private badgeElements = new Map<number, HTMLElement[]>();
     private badgeAnchors: { u: number; v: number; entityIds: number[] }[] = [];
+    /** Resolved during a refresh, placed once the whole set is known (`placeBadges`). */
+    private pendingBadges: BadgePlacement[] = [];
+    /** The stack chip elements of the last refresh, for the selection/expansion look. */
+    private stackChips: { element: HTMLElement; key: number; memberIds: number[] }[] = [];
+    /**
+     * Constraint id → the stacks its badges landed on. A set, not one: a multi-entity
+     * constraint badges every entity it names, so its placements can end up in several
+     * stacks at once.
+     */
+    private stacksByConstraint = new Map<number, Set<number>>();
+    /** Stack keys whose members are forced visible — see `isConstraintVisible`. */
+    private forcedStackKeys = new Set<number>();
+    /**
+     * Key of the stack whose chip the cursor is on. Survives a refresh on purpose: the
+     * rebuild has to find it and re-open the same chip. That works because a highlight —
+     * the only thing a live hover triggers — never changes which badges exist or their
+     * order, so cluster keys keep naming the same stacks.
+     */
+    private hoveredStackKey?: number;
     private meshId?: number;
     private disposed = false;
     private highlightedEntities = new Set<number>();
@@ -399,6 +468,8 @@ export class SketchAnnotationManager implements IDisposable {
         this.texts = [];
         this.addConstraintGraphics(px, graphics);
         this.addPreviewGraphics(px, graphics.normal);
+        // the badges only learn they overlap once every candidate anchor is resolved
+        this.placeBadges(px);
 
         const corners: Record<DimensionTone | "normal", DimensionGeometry["triangles"]> = {
             normal: [...graphics.normal.triangles],
@@ -433,10 +504,10 @@ export class SketchAnnotationManager implements IDisposable {
             switch (constraint.kind) {
                 case ConstraintKind.Horizontal:
                 case ConstraintKind.Vertical:
-                    this.addAxisBadge(constraint, px);
+                    this.queueAxisBadge(constraint, px);
                     break;
                 case ConstraintKind.P2PCoincident:
-                    this.addCoincidentBadge(constraint, px, coincidentGroups);
+                    this.queueCoincidentBadge(constraint, px, coincidentGroups);
                     break;
                 case ConstraintKind.P2PDistance:
                 case ConstraintKind.Radius:
@@ -447,20 +518,25 @@ export class SketchAnnotationManager implements IDisposable {
                     this.addDatumDimension(constraint, px, graphics[this.toneOf(constraint.id) ?? "normal"]);
                     break;
                 default:
-                    this.addSymbolBadge(constraint, px);
+                    this.queueSymbolBadge(constraint, px);
                     break;
             }
         }
     }
 
-    private addAxisBadge(constraint: SketchConstraintData, px: number): void {
-        if (!this.isConstraintVisible(constraint)) return;
+    /**
+     * Axis badge anchor: offset along the segment normal so the badge does not cover the
+     * line. Horizontal and Vertical pass the same pair of points, so the two land on the
+     * identical anchor — `placeBadges` is what keeps them from drawing on top of each other.
+     */
+    private queueAxisBadge(constraint: SketchConstraintData, px: number): void {
+        if (this.suppressSymbols) return;
+        const symbol = badgeSymbol(constraint.kind);
+        if (symbol === undefined) return;
         const p1 = this.solver.pointOf(constraint.refs[0]);
         const p2 = this.solver.pointOf(constraint.refs[1]);
-        // offset along the segment normal so the badge does not cover the line
         const [u, v] = offsetFromSegment(p1, p2, BADGE_OFFSET_PX * px);
-        const symbol = badgeSymbol(constraint.kind);
-        this.addBadge(symbol?.label ?? "", u, v, constraint, constraint.refs, false, symbol?.icon);
+        this.queueBadge(symbol.label, u, v, constraint, constraint.refs, false, symbol.icon);
     }
 
     /**
@@ -469,18 +545,18 @@ export class SketchAnnotationManager implements IDisposable {
      * its own geometry so it stays visible-reachable no matter how far apart the
      * constrained entities are.
      */
-    private addSymbolBadge(constraint: SketchConstraintData, px: number): void {
+    private queueSymbolBadge(constraint: SketchConstraintData, px: number): void {
+        if (this.suppressSymbols) return;
         const symbol = badgeSymbol(constraint.kind);
         if (symbol === undefined) return;
         if (isStructuralConstraint(constraint)) return;
-        if (!this.isConstraintVisible(constraint)) return;
         const anchors = this.symbolAnchors(constraint, px).filter(
             // drop duplicates (e.g. a symmetric constraint on the same point twice)
             (anchor, i, all) =>
                 all.findIndex((b) => Math.hypot(anchor[0] - b[0], anchor[1] - b[1]) < 1e-9) === i,
         );
         for (const [u, v] of anchors) {
-            this.addBadge(symbol.label, u, v, constraint, constraint.refs, false, symbol.icon);
+            this.queueBadge(symbol.label, u, v, constraint, constraint.refs, false, symbol.icon);
         }
     }
 
@@ -573,17 +649,26 @@ export class SketchAnnotationManager implements IDisposable {
         return [u / refs.length, v / refs.length];
     }
 
-    private addCoincidentBadge(constraint: SketchConstraintData, px: number, shownGroups: Set<string>): void {
+    /**
+     * One badge per coincident *group* of points, not per constraint: several coincident
+     * constraints on the same point describe the same thing. The group key is consumed even
+     * when the badge ends up hidden, so a later constraint of the same group cannot claim it.
+     */
+    private queueCoincidentBadge(
+        constraint: SketchConstraintData,
+        px: number,
+        shownGroups: Set<string>,
+    ): void {
+        if (this.suppressSymbols) return;
         const group = this.solver.coincidentGroup(constraint.refs[0]);
         const key = group.map(pointRefKey).sort().join("|");
         if (shownGroups.has(key)) return;
         shownGroups.add(key);
-        if (!this.isConstraintVisible(constraint, group)) return;
         const [u, v] = this.solver.pointOf(group[0]);
         // diagonal offset so the badge does not cover the shared point
         const off = BADGE_OFFSET_PX * px * Math.SQRT1_2;
         const symbol = badgeSymbol(ConstraintKind.P2PCoincident);
-        this.addBadge(symbol?.label ?? "", u + off, v + off, constraint, group, false, symbol?.icon);
+        this.queueBadge(symbol?.label ?? "", u + off, v + off, constraint, group, false, symbol?.icon);
     }
 
     private addDatumDimension(
@@ -607,7 +692,16 @@ export class SketchAnnotationManager implements IDisposable {
                 tone: this.toneOf(constraint.id),
             });
         }
-        this.addBadge(text, ...geometry.textPosition, constraint, constraint.refs, true, undefined, !broken);
+        // datum dimensions stay visible regardless: no visibility gate, and never stacked
+        this.queueBadge(
+            text,
+            ...geometry.textPosition,
+            constraint,
+            constraint.refs,
+            true,
+            undefined,
+            !broken,
+        );
     }
 
     private dimensionGeometry(constraint: SketchConstraintData, px: number): DimensionGeometry | undefined {
@@ -937,8 +1031,13 @@ export class SketchAnnotationManager implements IDisposable {
         }
     }
 
-    private addBadge(
-        text: string,
+    /**
+     * Records a resolved badge instead of building it. Whether two badges collide is only
+     * knowable once every candidate anchor is resolved, so the whole set is collected first
+     * and `placeBadges` resolves the overlap in one pass.
+     */
+    private queueBadge(
+        label: string,
         u: number,
         v: number,
         constraint: SketchConstraintData,
@@ -947,40 +1046,117 @@ export class SketchAnnotationManager implements IDisposable {
         icon?: string,
         ghost = false,
     ): void {
+        this.pendingBadges.push({
+            constraint,
+            refs,
+            u,
+            v,
+            entityIds: [...new Set(refs.map((r) => r.entityId))],
+            draggable,
+            ghost,
+            label,
+            icon,
+        });
+    }
+
+    // ------------------------------------------------------------------ Badge placement
+
+    /**
+     * Turns the collected placements into DOM.
+     *
+     * Stackable badges are clustered first — every constraint whose anchor the badge sits on
+     * resolves to the same point, so without this they draw on top of each other. A cluster of
+     * two or more constraints becomes one chip that opens into a row on hover; a lone badge
+     * takes the original path untouched, which is what keeps a single constraint's badge
+     * exactly where it has always been. A constraint counts once however many of its own
+     * badges landed in the cluster (`distinctConstraints`).
+     *
+     * Datum dimensions never cluster: their position is the one the user placed.
+     *
+     * Clustering sees every candidate anchor, including the ones whose constraint is not
+     * visible yet. That is what keeps a chip's identity stable — it cannot depend on which
+     * of its members happens to be visible at the moment. Measuring the hidden ones costs
+     * a little, and sketches are small.
+     */
+    private placeBadges(px: number): void {
+        const groups = clusterBadges(this.pendingBadges, BADGE_STACK_DISTANCE_PX * px);
+        const clusterOf = new Map<BadgePlacement, BadgeCluster>();
+        this.stacksByConstraint.clear();
+        for (const [key, members] of groups.entries()) {
+            // one object per group: `emitted` below identifies a cluster by it
+            const cluster: BadgeCluster = { key, members };
+            for (const placement of members) {
+                clusterOf.set(placement, cluster);
+                const stacks = this.stacksByConstraint.get(placement.constraint.id) ?? new Set<number>();
+                stacks.add(key);
+                this.stacksByConstraint.set(placement.constraint.id, stacks);
+            }
+        }
+        this.forcedStackKeys = this.stacksForcedOpen();
+        const emitted = new Set<BadgeCluster>();
+        for (const placement of this.pendingBadges) {
+            const cluster = clusterOf.get(placement);
+            if (cluster === undefined) {
+                // a datum dimension: never stacked, and shown regardless of any highlight
+                this.createBadge(placement);
+                continue;
+            }
+            if (emitted.has(cluster)) continue;
+            emitted.add(cluster);
+            // a constraint that badged two entities close enough to overlap is still one
+            // constraint, so the cluster holds it once
+            const members = distinctConstraints(cluster.members).filter(
+                (member) =>
+                    this.forcedStackKeys.has(cluster.key) ||
+                    this.isConstraintVisible(member.constraint, member.refs),
+            );
+            if (members.length >= 2) {
+                this.createStackBadge(members, cluster.key);
+            } else if (members.length === 1) {
+                this.createBadge(members[0]);
+            }
+        }
+    }
+
+    /**
+     * Stack keys whose members must stay up regardless of entity highlight: the chip the
+     * cursor is on, and every one holding a badge of the panel-hovered constraint. Keeping
+     * the group whole is load bearing — hovering a badge clears the entity hover and rebuilds
+     * the badges out from under the cursor (`highlightConstraintEntities` →
+     * `setHighlightedEntities` → `refresh`), so without this the stack would collapse the
+     * instant the cursor reached it, leaving just the one member that is hovered.
+     *
+     * A member hover needs no entry of its own: the cursor can only be on a member while the
+     * chip around it is open, and that already carries the cursor.
+     */
+    private stacksForcedOpen(): Set<number> {
+        const keys = new Set<number>();
+        if (this.hoveredStackKey !== undefined) keys.add(this.hoveredStackKey);
+        if (this.panelHoveredConstraint !== undefined) {
+            // every stack this constraint badges, not just one: the row the pointer is on
+            // must open whichever chip holds its badge
+            for (const stack of this.stacksByConstraint.get(this.panelHoveredConstraint) ?? []) {
+                keys.add(stack);
+            }
+        }
+        return keys;
+    }
+
+    /** A lone badge — the original one, unchanged. */
+    private createBadge(placement: BadgePlacement): void {
+        const { constraint, u, v, entityIds, draggable, ghost, label, icon } = placement;
         const id = constraint.id;
-        const entityIds = [...new Set(refs.map((r) => r.entityId))];
         this.badgeAnchors.push({ u, v, entityIds });
         this.items.push(
-            this.view.htmlText(text, toWorld(this.solver.plane, u, v), {
+            this.view.htmlText(label, toWorld(this.solver.plane, u, v), {
                 hideDelete: true,
                 interactive: true,
                 // a ghost is invisible: the mesh glyphs carry the text, the badge
                 // only keeps the hover/drag/double-click interaction alive
                 className: ghost ? `${style.badge} ${style.ghost}` : style.badge,
                 onCreated: (element) => {
-                    const list = this.badgeElements.get(id) ?? [];
-                    list.push(element);
-                    this.badgeElements.set(id, list);
-                    element.classList.toggle(style.selected, this.selectedConstraints.has(id));
-                    // a conflicting constraint reads solid red — for a ghost datum the badge
-                    // stays invisible (`.ghost.conflicting`) and the red mesh is the signal
-                    element.classList.toggle(style.conflicting, this.conflictingConstraints.has(id));
-                    // redundant reads amber on the same terms
-                    element.classList.toggle(style.redundant, this.redundantConstraints.has(id));
-                    // panel-row hover puts the badge in its hover look (the pointer is on the list)
-                    element.classList.toggle(style.hovered, this.panelHoveredConstraint === id);
-                    // A datum whose expression stopped resolving keeps its last geometry
-                    // (`SketchSolver.datumOf`) — this badge is the only place that says so,
-                    // so it carries the reason as its tooltip and reads as broken.
-                    const datumError = this.solver.datumErrors.get(id);
-                    if (datumError !== undefined) {
-                        element.classList.add(style.error);
-                        element.title = datumError;
-                    }
-                    if (icon !== undefined) {
-                        element.classList.add(style.symbol);
-                        element.replaceChildren(badgeIcon(icon));
-                    }
+                    this.registerBadgeElement(element, id);
+                    renderBadgeFace(element, label, icon);
                     if (draggable) {
                         element.classList.add(style.draggable);
                         element.addEventListener("pointerdown", (e) => this.beginLabelDrag(id, e));
@@ -1013,6 +1189,181 @@ export class SketchAnnotationManager implements IDisposable {
                       },
             }),
         );
+    }
+
+    /**
+     * The chip of a stack: one badge standing in for all of them, opening into a row of the
+     * real ones on hover. It anchors at the leader's position — that much of the original
+     * placement stays put, so the badge still sits next to the geometry it belongs to.
+     */
+    private createStackBadge(members: readonly BadgePlacement[], key: number): void {
+        const leader = members[0];
+        const memberIds = members.map((member) => member.constraint.id);
+        const entityIds = [...new Set(members.flatMap((member) => member.entityIds))];
+        const { u, v } = leader;
+        this.badgeAnchors.push({ u, v, entityIds });
+        this.items.push(
+            this.view.htmlText(leader.label, toWorld(this.solver.plane, u, v), {
+                hideDelete: true,
+                interactive: true,
+                className: `${style.badge} ${style.stack}`,
+                onCreated: (element) => {
+                    this.applyStackClasses(element, memberIds, key);
+                    // a stack near the right edge would have its row clipped by the
+                    // CSS2D container's overflow:hidden, so that one opens leftwards
+                    if (this.stackOpensLeft(u, v, members.length)) element.classList.add(style.flip);
+                    renderBadgeFace(element, leader.label, leader.icon);
+                    element.append(
+                        createStackCount(members.length),
+                        this.createStackMembers(element, members),
+                    );
+                    this.stackChips.push({ element, key, memberIds });
+                },
+                onMouseEnter: () => this.enterStack(key, entityIds),
+                onMouseLeave: () => this.leaveStack(key, memberIds),
+                // the chip stands for the whole group, so a click selects all of it —
+                // picking out one of them is what the opened row is for
+                onClick: (event) => {
+                    event.stopPropagation();
+                    this.toggleStackSelection(memberIds, event.shiftKey);
+                },
+            }),
+        );
+    }
+
+    /**
+     * The badges inside a chip. They are plain elements, not labels of their own: nesting
+     * them under the chip is what keeps the hover alive while the cursor moves between them
+     * (mouseleave does not fire while the pointer stays inside the chip's subtree).
+     */
+    private createStackMembers(chip: HTMLElement, members: readonly BadgePlacement[]): HTMLElement {
+        const row = document.createElement("div");
+        row.className = style.stackMembers;
+        for (const member of members) {
+            const id = member.constraint.id;
+            const element = document.createElement("div");
+            element.className = `${style.badge} ${style.stackMember}`;
+            renderBadgeFace(element, member.label, member.icon);
+            this.registerBadgeElement(element, id);
+            element.addEventListener("mouseenter", () => {
+                this.hoveredConstraint = id;
+                this.onHighlightEntities(member.entityIds);
+            });
+            element.addEventListener("mouseleave", (event) => this.leaveStackMember(chip, id, event));
+            element.addEventListener("click", (event) => {
+                // the chip's own click selects the whole group; a member click is not that
+                event.stopPropagation();
+                this.toggleSelection(id, event.shiftKey);
+            });
+            row.append(element);
+        }
+        return row;
+    }
+
+    /** Registers a badge under its constraint and applies the look its state calls for. */
+    private registerBadgeElement(element: HTMLElement, id: number): void {
+        const list = this.badgeElements.get(id) ?? [];
+        list.push(element);
+        this.badgeElements.set(id, list);
+        element.classList.toggle(style.selected, this.selectedConstraints.has(id));
+        // a conflicting constraint reads solid red — for a ghost datum the badge
+        // stays invisible (`.ghost.conflicting`) and the red mesh is the signal
+        element.classList.toggle(style.conflicting, this.conflictingConstraints.has(id));
+        // redundant reads amber on the same terms
+        element.classList.toggle(style.redundant, this.redundantConstraints.has(id));
+        // panel-row hover puts the badge in its hover look (the pointer is on the list)
+        element.classList.toggle(style.hovered, this.panelHoveredConstraint === id);
+        // A datum whose expression stopped resolving keeps its last geometry
+        // (`SketchSolver.datumOf`) — this badge is the only place that says so,
+        // so it carries the reason as its tooltip and reads as broken.
+        const datumError = this.solver.datumErrors.get(id);
+        if (datumError !== undefined) {
+            element.classList.add(style.error);
+            element.title = datumError;
+        }
+    }
+
+    /** The chip's own look: a stack reads as flagged/selected when any member does. */
+    private applyStackClasses(element: HTMLElement, memberIds: readonly number[], key: number): void {
+        element.classList.toggle(
+            style.conflicting,
+            memberIds.some((id) => this.conflictingConstraints.has(id)),
+        );
+        element.classList.toggle(
+            style.redundant,
+            memberIds.some((id) => this.redundantConstraints.has(id)),
+        );
+        element.classList.toggle(
+            style.selected,
+            memberIds.some((id) => this.selectedConstraints.has(id)),
+        );
+        // being forced open is the same thing as being open: the cursor is on the chip, or
+        // the panel row of a constraint inside it is
+        element.classList.toggle(style.expanded, this.forcedStackKeys.has(key));
+    }
+
+    private enterStack(key: number, entityIds: number[]): void {
+        // idempotent: the rebuild that this triggers can put a fresh chip under a
+        // stationary cursor, and re-highlighting would redraw the mesh for nothing
+        if (this.hoveredStackKey === key) return;
+        this.hoveredStackKey = key;
+        this.setStackExpanded(key, true);
+        this.onHighlightEntities(entityIds);
+    }
+
+    private leaveStack(key: number, memberIds: readonly number[]): void {
+        if (this.rebuilding || this.hoveredStackKey !== key) return;
+        this.hoveredStackKey = undefined;
+        // a member hovered on the way out would otherwise stay hovered for good
+        if (this.hoveredConstraint !== undefined && memberIds.includes(this.hoveredConstraint)) {
+            this.hoveredConstraint = undefined;
+        }
+        this.setStackExpanded(key, false);
+        this.onHighlightEntities([]);
+    }
+
+    /**
+     * A member's leave only tears the hover down if the cursor actually left the chip:
+     * moving back onto the chip leaves the member (the chip is its ancestor, not its
+     * descendant) while the pointer is still well inside the stack.
+     */
+    private leaveStackMember(chip: HTMLElement, id: number, event: MouseEvent): void {
+        if (this.rebuilding || this.hoveredConstraint !== id) return;
+        const next = event.relatedTarget;
+        if (next instanceof Node && chip.contains(next)) return;
+        this.hoveredConstraint = undefined;
+        this.onHighlightEntities([]);
+    }
+
+    /**
+     * Opening and closing toggle the class directly rather than relying on a refresh: the
+     * rebuild only happens when the entity highlight actually changes, and a chip the
+     * cursor merely reached must open either way.
+     */
+    private setStackExpanded(key: number, expanded: boolean): void {
+        for (const chip of this.stackChips) {
+            if (chip.key === key) chip.element.classList.toggle(style.expanded, expanded);
+        }
+    }
+
+    /** A chip click selects the whole group; clicking a fully selected one clears it. */
+    private toggleStackSelection(memberIds: readonly number[], additive: boolean): void {
+        if (additive) {
+            for (const id of memberIds) this.selectedConstraints.add(id);
+        } else if (memberIds.every((id) => this.selectedConstraints.has(id))) {
+            for (const id of memberIds) this.selectedConstraints.delete(id);
+        } else {
+            this.selectedConstraints.clear();
+            for (const id of memberIds) this.selectedConstraints.add(id);
+        }
+        this.applySelectionClasses();
+        this.onSelectionChanged?.(this.selectedConstraintIds);
+    }
+
+    /** True when a stack's row would run off the right edge, where the renderer clips it. */
+    private stackOpensLeft(u: number, v: number, memberCount: number): boolean {
+        const screen = this.view.worldToScreen(toWorld(this.solver.plane, u, v));
+        return screen.x + memberCount * STACK_MEMBER_WIDTH_PX > this.view.width;
     }
 
     // ------------------------------------------------------------------ Badge hit-testing and label dragging
@@ -1188,6 +1539,13 @@ export class SketchAnnotationManager implements IDisposable {
                 element.classList.toggle(style.selected, this.selectedConstraints.has(id));
             }
         }
+        // a chip reads as selected when any of the constraints it stands for is
+        for (const chip of this.stackChips) {
+            chip.element.classList.toggle(
+                style.selected,
+                chip.memberIds.some((id) => this.selectedConstraints.has(id)),
+            );
+        }
     }
 
     private disposeItems(): void {
@@ -1197,6 +1555,11 @@ export class SketchAnnotationManager implements IDisposable {
         this.items = [];
         this.badgeElements.clear();
         this.badgeAnchors = [];
+        this.pendingBadges = [];
+        this.stackChips = [];
+        this.stacksByConstraint.clear();
+        // `hoveredStackKey` deliberately survives: the refresh that these disposals are
+        // part of has to find it and re-open the same chip once the badges are back
         if (this.meshId !== undefined) {
             this.view.document.visual.context.removeMesh(this.meshId);
             this.meshId = undefined;
@@ -1217,12 +1580,71 @@ export function badgeIcon(name: string): SVGSVGElement {
 
 /** Applies the constraint icon of `symbol` to a badge element, falling back to its label. */
 export function applyConstraintIcon(element: HTMLElement, symbol: BadgeSymbol): void {
-    if (symbol.icon !== undefined) {
-        element.classList.add(style.symbol);
-        element.replaceChildren(badgeIcon(symbol.icon));
-    } else {
-        element.textContent = symbol.label;
+    renderBadgeFace(element, symbol.label, symbol.icon);
+}
+
+/**
+ * Draws a badge's face: the constraint's command icon when it has one, its label otherwise.
+ * Shared by the lone badge, the chip and the chip's members, so the three cannot drift apart.
+ */
+function renderBadgeFace(element: HTMLElement, label: string, icon?: string): void {
+    if (icon === undefined) {
+        element.textContent = label;
+        return;
     }
+    element.classList.add(style.symbol);
+    element.replaceChildren(badgeIcon(icon));
+}
+
+/** The "how many badges stand behind this" corner mark of a chip. */
+function createStackCount(count: number): HTMLElement {
+    const badge = document.createElement("span");
+    badge.className = style.stackCount;
+    badge.textContent = String(count);
+    return badge;
+}
+
+/**
+ * Groups the badges that would otherwise draw on top of each other, by leader: the first
+ * placement of a group fixes its anchor, and a later one joins only when it lands within
+ * `mergeDistance` of that anchor. Measuring against the leader rather than the previous
+ * member is what stops a chain (A near B near C) from walking the stack away from where its
+ * first badge belongs.
+ *
+ * Datum dimensions are left out — their position is the one the user placed.
+ */
+export function clusterBadges<T extends { u: number; v: number; draggable: boolean }>(
+    placements: readonly T[],
+    mergeDistance: number,
+): T[][] {
+    const groups: T[][] = [];
+    for (const placement of placements) {
+        if (placement.draggable) continue;
+        const group = groups.find(
+            (candidate) =>
+                Math.hypot(candidate[0].u - placement.u, candidate[0].v - placement.v) <= mergeDistance,
+        );
+        if (group === undefined) {
+            groups.push([placement]);
+        } else {
+            group.push(placement);
+        }
+    }
+    return groups;
+}
+
+/**
+ * One badge per constraint, keeping the first. A constraint that badges several entities
+ * puts a placement on each of them, and two of those can land inside the merge distance of
+ * `clusterBadges` — the constraint is still one member of the stack, not two.
+ */
+function distinctConstraints(placements: readonly BadgePlacement[]): BadgePlacement[] {
+    const seen = new Set<number>();
+    return placements.filter((placement) => {
+        if (seen.has(placement.constraint.id)) return false;
+        seen.add(placement.constraint.id);
+        return true;
+    });
 }
 
 /** Diagonal offset from a point so the badge does not cover it. */

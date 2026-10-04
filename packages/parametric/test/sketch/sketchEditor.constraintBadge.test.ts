@@ -48,6 +48,16 @@ function setup() {
             document.body.appendChild(element);
             const badge: MockBadge = { text, position, options, element, disposed: false };
             badges.push(badge);
+            // wire the same listeners threeView.htmlText does, so a test can drive a badge
+            // with real events instead of reaching into the options object it was given
+            if (options?.interactive) {
+                element.addEventListener("pointerdown", (e) => e.stopPropagation());
+                element.addEventListener("pointerup", (e) => e.stopPropagation());
+                if (options.onClick) element.addEventListener("click", options.onClick);
+                if (options.onDoubleClick) element.addEventListener("dblclick", options.onDoubleClick);
+                if (options.onMouseEnter) element.addEventListener("mouseenter", options.onMouseEnter);
+                if (options.onMouseLeave) element.addEventListener("mouseleave", options.onMouseLeave);
+            }
             options?.onCreated?.(element);
             return {
                 dispose: rs.fn(() => {
@@ -116,6 +126,27 @@ function lastBadge(badges: MockBadge[], text: string): MockBadge {
     const badge = badges.findLast((b) => b.text === text);
     expect(badge).toBeDefined();
     return badge as MockBadge;
+}
+
+/** The live stack chip whose face carries `text`. */
+function liveChip(badges: MockBadge[], text: string): MockBadge {
+    const chip = badges.findLast(
+        (b) => b.text === text && !b.disposed && b.element.classList.contains(annotationsStyle.stack),
+    );
+    expect(chip).toBeDefined();
+    return chip as MockBadge;
+}
+
+/** The member badges inside a chip — plain elements, not CSS2D labels of their own. */
+function stackMembers(chip: MockBadge): HTMLElement[] {
+    return [...chip.element.querySelectorAll<HTMLElement>(`.${annotationsStyle.stackMember}`)];
+}
+
+/** The member of a chip whose face reads `label` (constraint commands are unregistered here). */
+function memberFaced(chip: MockBadge, label: string): HTMLElement {
+    const member = stackMembers(chip).find((element) => element.textContent === label);
+    expect(member).toBeDefined();
+    return member as HTMLElement;
 }
 
 describe("SketchEditor constraint badge interaction", () => {
@@ -830,13 +861,16 @@ describe("SketchEditor conflicting constraint display", () => {
                 true,
             );
 
-            // highlighting the entity shows the horizontal too — still not red
+            // Highlighting the entity brings the horizontal up too. It anchors on the very
+            // same point as the vertical, so the two fold into one chip: the chip reads red
+            // for the vertical it stands for, while the horizontal's own member stays normal.
             const handler = doc.visual.eventHandler as SketchEventHandler;
             handler.pointerDown(view, pointerEvent(450, 300));
             handler.pointerUp(view, pointerEvent(450, 300));
-            expect(liveBadge(badges, "H").element.classList.contains(annotationsStyle.conflicting)).toBe(
-                false,
-            );
+            const chip = liveChip(badges, "H");
+            expect(chip.element.classList.contains(annotationsStyle.conflicting)).toBe(true);
+            expect(memberFaced(chip, "H").classList.contains(annotationsStyle.conflicting)).toBe(false);
+            expect(memberFaced(chip, "V").classList.contains(annotationsStyle.conflicting)).toBe(true);
 
             // both dimensions are conflicting, so no normal-blue annotation mesh remains
             const colors = lastAnnotationColors(displayed);
@@ -875,10 +909,14 @@ describe("SketchEditor conflicting constraint display", () => {
             expect(editor.diagnostics.conflicting).toEqual([]);
             expect(editor.diagnostics.redundant).toEqual([originalH, redundantH, originalD, redundantD]);
 
-            // both horizontals of the pair show an amber badge without any hover
-            const hBadges = ctx.badges.filter((b) => b.text === "H" && !b.disposed);
-            expect(hBadges.length).toBe(2);
-            expect(hBadges.every((b) => b.element.classList.contains(annotationsStyle.redundant))).toBe(true);
+            // both horizontals of the pair anchor on the same point, so without any hover
+            // they fold into one chip — which reads amber for the pair it stands for
+            const hChip = liveChip(ctx.badges, "H");
+            expect(ctx.badges.filter((b) => b.text === "H" && !b.disposed).length).toBe(1);
+            expect(hChip.element.classList.contains(annotationsStyle.redundant)).toBe(true);
+            const count = hChip.element.querySelector(`.${annotationsStyle.stackCount}`);
+            expect(count).not.toBeNull();
+            expect(count!.textContent).toBe("2");
 
             // both datum badges of the pair read amber too
             const datumBadges = ctx.badges.filter((b) => b.text === "100.00" && !b.disposed);
@@ -892,6 +930,14 @@ describe("SketchEditor conflicting constraint display", () => {
             expect(colors).toContain(REDUNDANT_COLOR);
             expect(colors).not.toContain(DIMENSION_COLOR);
             expect(colors).not.toContain(CONFLICT_COLOR);
+
+            // opening the chip shows the pair it stood for, each member amber on its own
+            hChip.options.onMouseEnter();
+            const opened = liveChip(ctx.badges, "H");
+            expect(opened.element.classList.contains(annotationsStyle.expanded)).toBe(true);
+            const members = stackMembers(opened);
+            expect(members.length).toBe(2);
+            expect(members.every((m) => m.classList.contains(annotationsStyle.redundant))).toBe(true);
             editor.exit();
         } finally {
             ctx.restoreFactory();
@@ -911,32 +957,299 @@ describe("SketchEditor conflicting constraint display", () => {
                 [ids.verticalId, ids.distanceId].sort((a, b) => a - b),
             );
             expect(badges.findLast((b) => b.text === "50.00" && !b.disposed)).toBeUndefined();
-            expect(liveBadge(badges, "V").element.classList.contains(annotationsStyle.conflicting)).toBe(
-                true,
-            );
+            // the horizontal and the vertical share one chip now: the vertical's conflict
+            // shows on the chip, while the horizontal inside it stays normal
+            const chip = liveChip(badges, "H");
+            expect(memberFaced(chip, "V").classList.contains(annotationsStyle.conflicting)).toBe(true);
             expect(liveBadge(badges, "100.00").element.classList.contains(annotationsStyle.conflicting)).toBe(
                 true,
             );
-            expect(liveBadge(badges, "H").element.classList.contains(annotationsStyle.conflicting)).toBe(
-                false,
-            );
+            expect(chip.element.classList.contains(annotationsStyle.conflicting)).toBe(true);
+            expect(memberFaced(chip, "H").classList.contains(annotationsStyle.conflicting)).toBe(false);
             // the surviving dimension is still conflicting, so its mesh stays red
             const stillRed = lastAnnotationColors(displayed);
             expect(stillRed).toContain(CONFLICT_COLOR);
             expect(stillRed).not.toContain(DIMENSION_COLOR);
 
-            // deleting the vertical clears the last conflict: everything draws normal again
+            // deleting the vertical clears the last conflict, and leaves the horizontal
+            // alone on its anchor — so it goes back to a plain badge, drawn normal again
             editor.deleteConstraints([ids.verticalId]);
             expect(editor.diagnostics.conflicting).toEqual([]);
-            expect(liveBadge(badges, "H").element.classList.contains(annotationsStyle.conflicting)).toBe(
-                false,
-            );
+            const loneH = liveBadge(badges, "H");
+            expect(loneH.element.classList.contains(annotationsStyle.stack)).toBe(false);
+            expect(loneH.element.classList.contains(annotationsStyle.conflicting)).toBe(false);
             expect(liveBadge(badges, "100.00").element.classList.contains(annotationsStyle.conflicting)).toBe(
                 false,
             );
             const colors = lastAnnotationColors(displayed);
             expect(colors).toContain(DIMENSION_COLOR);
             expect(colors).not.toContain(CONFLICT_COLOR);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("constraint badge stacks", () => {
+    /**
+     * A line whose Horizontal constraint shares its anchor with the Parallel constraint's
+     * badge for that line — the two resolve to the very same point. The parallel's other
+     * entity sits far enough away that its own badge stays a badge of its own.
+     */
+    function setupStackedLine(originX = 0) {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        editor.solver.addLine(originX, 0, originX + 100, 0);
+        editor.solver.addLine(originX, 100, originX + 100, 100);
+        const horizontalId = editor.solver.addConstraint({
+            kind: ConstraintKind.Horizontal,
+            refs: [
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+            ],
+        });
+        const parallelId = editor.solver.addConstraint({
+            kind: ConstraintKind.Parallel,
+            refs: [
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+                { entityId: 2, pointIndex: 0 },
+                { entityId: 2, pointIndex: 1 },
+            ],
+        });
+        editor.solve(true);
+        const handler = ctx.doc.visual.eventHandler as SketchEventHandler;
+        // hover line 1 rather than selecting it: a hover is what the chip's own enter
+        // clears, so this is the path where the badges get rebuilt under the cursor
+        // (the mock view maps world x to screen x + 400, so the line's middle is at +50)
+        handler.pointerMove(ctx.view, pointerEvent(originX + 450, 300));
+        return { ...ctx, editor, handler, horizontalId, parallelId };
+    }
+
+    /**
+     * One parallel constraint whose two badges land within the stack distance of each other
+     * — a single constraint that would fold into a chip of its own two faces.
+     */
+    function setupSelfOverlappingParallel() {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        editor.solver.addLine(0, 0, 100, 0);
+        editor.solver.addLine(0, 20, 100, 20);
+        editor.solver.addConstraint({
+            kind: ConstraintKind.Parallel,
+            refs: [
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+                { entityId: 2, pointIndex: 0 },
+                { entityId: 2, pointIndex: 1 },
+            ],
+        });
+        editor.solve(true);
+        const handler = ctx.doc.visual.eventHandler as SketchEventHandler;
+        handler.pointerMove(ctx.view, pointerEvent(450, 300));
+        return { ...ctx, editor, handler };
+    }
+
+    /**
+     * Two stacks that share a leader: the parallel is added first, so its two badges lead
+     * one stack each. Nothing else ties the two stacks together.
+     */
+    function setupTwoStacksSharingALeader() {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        editor.solver.addLine(0, 0, 100, 0);
+        editor.solver.addLine(0, 60, 100, 60);
+        const lineRefs = (entityId: number) => [
+            { entityId, pointIndex: 0 },
+            { entityId, pointIndex: 1 },
+        ];
+        const parallelId = editor.solver.addConstraint({
+            kind: ConstraintKind.Parallel,
+            refs: [...lineRefs(1), ...lineRefs(2)],
+        });
+        const horizontalIds = [
+            editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs: lineRefs(1) }),
+            editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs: lineRefs(2) }),
+        ];
+        editor.solve(true);
+        const handler = ctx.doc.visual.eventHandler as SketchEventHandler;
+        // hover line 1: enough to raise the near stack, whose own enter then highlights both
+        handler.pointerMove(ctx.view, pointerEvent(450, 300));
+        return { ...ctx, editor, handler, parallelId, horizontalIds };
+    }
+
+    test("constraints sharing an anchor fold into one chip instead of drawing over each other", () => {
+        const { badges, editor, restoreFactory } = setupStackedLine();
+        try {
+            const chip = liveChip(badges, "H");
+            expect(chip.element.classList.contains(annotationsStyle.expanded)).toBe(false);
+            // it sits well inside the viewport, so it opens to the right
+            expect(chip.element.classList.contains(annotationsStyle.flip)).toBe(false);
+
+            const count = chip.element.querySelector(`.${annotationsStyle.stackCount}`);
+            expect(count).not.toBeNull();
+            expect(count!.textContent).toBe("2");
+
+            // the members are DOM children of the chip, not labels placed on their own
+            const members = stackMembers(chip);
+            expect(members.length).toBe(2);
+            expect(members.some((member) => member.textContent === "H")).toBe(true);
+            expect(members.some((member) => member.textContent === "∥")).toBe(true);
+            // so the parallel keeps exactly one label of its own, the far one on line 2
+            expect(badges.filter((b) => b.text === "∥" && !b.disposed).length).toBe(1);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a lone constraint still draws a plain badge, with no chip and no count", () => {
+        const { badges, editor, restoreFactory } = setupHorizontalLine();
+        try {
+            const badge = lastBadge(badges, "H");
+            expect(badge.element.classList.contains(annotationsStyle.stack)).toBe(false);
+            expect(badge.element.querySelector(`.${annotationsStyle.stackCount}`)).toBeNull();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("opening a chip survives the rebuild its own hover triggers", () => {
+        const { badges, editor, restoreFactory } = setupStackedLine();
+        try {
+            const chip = liveChip(badges, "H");
+            chip.element.dispatchEvent(new MouseEvent("mouseenter"));
+
+            // the entity hover was the only thing keeping these badges up, and entering the
+            // chip clears it — so the assertion below is on a chip that had to be rebuilt
+            const opened = liveChip(badges, "H");
+            expect(opened.element).not.toBe(chip.element);
+            expect(opened.element.classList.contains(annotationsStyle.expanded)).toBe(true);
+            expect(stackMembers(opened).length).toBe(2);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("leaving the chip closes it again", () => {
+        const { badges, editor, restoreFactory } = setupStackedLine();
+        try {
+            liveChip(badges, "H").element.dispatchEvent(new MouseEvent("mouseenter"));
+            const opened = liveChip(badges, "H");
+            expect(opened.element.classList.contains(annotationsStyle.expanded)).toBe(true);
+
+            opened.element.dispatchEvent(new MouseEvent("mouseleave"));
+            const closed = liveChip(badges, "H");
+            expect(closed.element.classList.contains(annotationsStyle.expanded)).toBe(false);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("clicking a member selects that one constraint, not the whole chip", () => {
+        const { badges, editor, restoreFactory, parallelId } = setupStackedLine();
+        try {
+            const chip = liveChip(badges, "H");
+            memberFaced(chip, "∥").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+            // the chip's own click selects every member, so a member click that reached it
+            // would select the horizontal too
+            expect(editor.annotations.selectedConstraintIds).toEqual([parallelId]);
+            expect(chip.element.classList.contains(annotationsStyle.selected)).toBe(true);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("moving from a member back onto the chip keeps the constraint highlighted", () => {
+        const { badges, editor, restoreFactory, parallelId } = setupStackedLine();
+        try {
+            liveChip(badges, "H").element.dispatchEvent(new MouseEvent("mouseenter"));
+            const chip = liveChip(badges, "H");
+            const member = memberFaced(chip, "∥");
+
+            member.dispatchEvent(new MouseEvent("mouseenter"));
+            expect(editor.annotations.hoveredConstraintId).toBe(parallelId);
+
+            // back onto the chip: the pointer left the member but never left the stack
+            member.dispatchEvent(new MouseEvent("mouseleave", { relatedTarget: chip.element }));
+            expect(editor.annotations.hoveredConstraintId).toBe(parallelId);
+
+            // and leaving the stack itself does let the hover go
+            chip.element.dispatchEvent(new MouseEvent("mouseleave"));
+            expect(editor.annotations.hoveredConstraintId).toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a chip that would run off the right edge opens leftwards instead", () => {
+        // the mock view is 800 wide and puts world x on screen x + 400, so a line out at
+        // 700..800 anchors its badges past the right edge
+        const { badges, editor, restoreFactory } = setupStackedLine(700);
+        try {
+            const chip = liveChip(badges, "H");
+            expect(chip.element.classList.contains(annotationsStyle.flip)).toBe(true);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("hovering the panel row of a folded constraint opens its chip", () => {
+        const { badges, editor, restoreFactory, parallelId } = setupStackedLine();
+        try {
+            editor.highlightConstraint(parallelId);
+            const chip = liveChip(badges, "H");
+            expect(chip.element.classList.contains(annotationsStyle.expanded)).toBe(true);
+            // the row the pointer is on reads as hovered, so it can be told from its sibling
+            expect(memberFaced(chip, "∥").classList.contains(annotationsStyle.hovered)).toBe(true);
+            expect(memberFaced(chip, "H").classList.contains(annotationsStyle.hovered)).toBe(false);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a constraint that badges two nearby entities is one member, not two", () => {
+        const { badges, editor, restoreFactory } = setupSelfOverlappingParallel();
+        try {
+            // both of its badges are up, so the cluster is real — it just holds one constraint
+            const parallel = badges.filter((b) => b.text === "∥" && !b.disposed);
+            expect(parallel.length).toBe(1);
+            expect(parallel[0].element.classList.contains(annotationsStyle.stack)).toBe(false);
+            expect(parallel[0].element.querySelector(`.${annotationsStyle.stackCount}`)).toBeNull();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("hovering a stack does not raise another that the same constraint leads", () => {
+        const { badges, editor, restoreFactory } = setupTwoStacksSharingALeader();
+        try {
+            const chip = liveChip(badges, "∥");
+            const { y } = chip.position;
+            chip.element.dispatchEvent(new MouseEvent("mouseenter"));
+
+            // entering the chip cleared the entity hover, so the far stack — same rows, and
+            // led by the very same constraint — has nothing left to show. It must not be
+            // dragged up by the key of the chip the cursor is on.
+            const chips = badges.filter(
+                (b) => !b.disposed && b.element.classList.contains(annotationsStyle.stack),
+            );
+            expect(chips.length).toBe(1);
+            expect(chips[0].position.y).toBe(y);
+            expect(chips[0].element.classList.contains(annotationsStyle.expanded)).toBe(true);
             editor.exit();
         } finally {
             restoreFactory();

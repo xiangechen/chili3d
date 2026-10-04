@@ -19,7 +19,7 @@ import { rs } from "@rstest/core";
 // side effect: registers the constraint commands so their decorator icons resolve
 import "../../src/sketch/commands/sketchConstraints";
 import { SKETCH_TEXT_HEIGHT_PX } from "../../src/sketch/editor/dimensionLayout";
-import { SketchAnnotationManager } from "../../src/sketch/editor/sketchAnnotations";
+import { clusterBadges, SketchAnnotationManager } from "../../src/sketch/editor/sketchAnnotations";
 import style from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
@@ -485,5 +485,37 @@ describe("SketchAnnotationManager arc badge anchors", () => {
         } finally {
             restoreFactory();
         }
+    });
+});
+
+describe("clusterBadges", () => {
+    const at = (u: number, v: number) => ({ u, v, draggable: false });
+
+    test("folds the placements sharing an anchor into one group", () => {
+        const groups = clusterBadges([at(0, 0), at(0, 0), at(0, 0)], 28);
+        expect(groups.length).toBe(1);
+        expect(groups[0].length).toBe(3);
+    });
+
+    test("keeps placements further apart than the merge distance in their own groups", () => {
+        const groups = clusterBadges([at(0, 0), at(40, 0)], 28);
+        expect(groups.length).toBe(2);
+        expect(groups.every((group) => group.length === 1)).toBe(true);
+    });
+
+    test("measures against each group's first placement, not the previous one", () => {
+        // 24 is inside the distance of 0, so it joins; 46 is inside the distance of 24 but
+        // far outside the group's anchor at 0, so it starts a group of its own — a chain
+        // must not drag the stack away from where its first badge belongs
+        const groups = clusterBadges([at(0, 0), at(24, 0), at(46, 0)], 28);
+        expect(groups.length).toBe(2);
+        expect(groups[0].length).toBe(2);
+        expect(groups[1][0].u).toBe(46);
+    });
+
+    test("leaves a datum out — its position is the one the user placed", () => {
+        const groups = clusterBadges([{ u: 0, v: 0, draggable: true }, at(0, 0)], 28);
+        expect(groups.length).toBe(1);
+        expect(groups[0].length).toBe(1);
     });
 });
