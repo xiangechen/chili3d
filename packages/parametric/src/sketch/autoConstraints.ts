@@ -261,8 +261,9 @@ export function applyDragAutoConstraints(
 /**
  * Applies automatic incidence constraints to freshly created points that belong to
  * a shape built from several entities at once (the rectangle's two diagonal
- * corners). `excludeEntityIds` lists the shape's own entities so its corners never
- * snap onto each other's edges. Returns the added constraints. Call `solve` afterwards.
+ * corners, the polygon's centre and first vertex). `excludeEntityIds` lists the
+ * shape's own entities so its corners never snap onto each other's edges. Returns
+ * the added constraints. Call `solve` afterwards.
  */
 export function applyPointAutoConstraints(
     solver: SketchSolver,
@@ -279,6 +280,11 @@ export function applyPointAutoConstraints(
         if (snap.kind === "point" && solver.hasConstraint(ConstraintKind.P2PCoincident, [ref, snap.point])) {
             continue;
         }
+        // The shape is rigid, so landing one of its points where another of them sits
+        // folds it onto itself. `excludeEntityIds` cannot catch every such target: the
+        // datum origin is not an entity, and it lies exactly under a polygon drawn at
+        // the origin — the very placement that pass exists to pin down.
+        if (collapsesOntoShapePoint(solver, refs, ref, snap.position)) continue;
 
         const constraint = snapConstraint(ref, snap);
         solver.setPointPosition(ref, snap.position[0], snap.position[1]);
@@ -683,6 +689,27 @@ function collapsesOntoSibling(
 ): boolean {
     for (const other of refs) {
         if (other.pointIndex === ref.pointIndex) continue;
+        const [ou, ov] = solver.pointOf(other);
+        if (Math.hypot(target[0] - ou, target[1] - ov) < Precision.Distance) return true;
+    }
+    return false;
+}
+
+/**
+ * Whether `target` is where another point of the shape being placed already is. The
+ * multi-entity twin of `collapsesOntoSibling`: a shape's points belong to different
+ * entities, so they are matched by ref rather than by index. Positions are read live,
+ * so a point snapped into place earlier in the same pass counts.
+ */
+function collapsesOntoShapePoint(
+    solver: SketchSolver,
+    refs: readonly SketchPointRef[],
+    ref: SketchPointRef,
+    target: [number, number],
+): boolean {
+    const key = pointRefKey(ref);
+    for (const other of refs) {
+        if (pointRefKey(other) === key) continue;
         const [ou, ov] = solver.pointOf(other);
         if (Math.hypot(target[0] - ou, target[1] - ov) < Precision.Distance) return true;
     }

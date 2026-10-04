@@ -227,6 +227,14 @@ export class SketchPolygonCommand extends SketchMultistepCommand {
         // apothem sits within snap distance of its own circumradius — any hexagon under a
         // few millimetres on screen — would be handed a tangent constraint between the
         // carrier circle and one of the edges it exists to hold.
+        //
+        // Every entity the polygon just made is excluded, the carrier included: it is the
+        // one the two snapped points are defined against. A vertex under snap distance of
+        // the circumradius sits that close to the carrier's centre, and snapping it there
+        // both moved the vertex onto the centre and had `subsumedIncidence` delete the
+        // PointOnCircle holding the vertex out — collapsing the polygon into a fan. The
+        // centre snapping onto its own circle would collapse it just as well, by pinning
+        // the radius to zero.
         const options = { pointTolerance: this.editor.screenTolerance() };
         const snapped = [centerRef(circleId)];
         // inscribed: the pick IS the first vertex. Circumscribed's pick is an edge
@@ -235,7 +243,7 @@ export class SketchPolygonCommand extends SketchMultistepCommand {
         applyPointAutoConstraints(
             solver,
             snapped,
-            [...lineIds, ...(incircleId ? [incircleId] : [])],
+            [...lineIds, ...(incircleId ? [incircleId] : []), circleId],
             options,
         );
 

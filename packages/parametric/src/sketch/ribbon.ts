@@ -39,7 +39,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                     "sketch.polygon",
                     {
                         type: "split",
-                        items: ["sketch.fillet", "sketch.chamfer"],
+                        items: ["sketch.fillet", "sketch.chamfer", "sketch.trim"],
                     },
                 ],
             },

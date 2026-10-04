@@ -64,10 +64,20 @@ import { SketchEventHandler } from "./sketchEventHandler";
  * `sketchAnnotations.ts` (constraint badges and dimension graphics).
  */
 
-export type SketchPickKind = "point" | "entity" | "entities" | "position";
+export type SketchPickKind = "point" | "entity" | "entities" | "entityAt" | "position";
 
 /** Entity type filter for picks: a single type or a set of acceptable types. */
 export type SketchEntityTypeFilter = SketchEntityType | readonly SketchEntityType[];
+
+/**
+ * An entity pick that also answers with where it was clicked, in sketch (u, v). The
+ * trim needs both: the entity says what is being cut, the position says which piece
+ * of it the cursor was on.
+ */
+export interface SketchEntityPick {
+    entityId: number;
+    uv: [number, number];
+}
 
 /** Live-preview callback fed with the pointer uv on each move; undefined when off-plane. */
 export type SketchPickPreview = (uv: [number, number] | undefined) => void;
@@ -510,6 +520,16 @@ export class SketchEditor implements IDisposable {
         return this.startPick("entities", prompt, type, options?.datum, undefined, controller);
     }
 
+    /** A single entity pick that also answers with the click's position on the plane. */
+    pickEntityAt(
+        prompt: I18nKeys,
+        type?: SketchEntityTypeFilter,
+        options?: { datum?: boolean },
+        controller?: AsyncController,
+    ): Promise<SketchEntityPick | undefined> {
+        return this.startPick("entityAt", prompt, type, options?.datum, undefined, controller);
+    }
+
     /** Answers the pending pick from outside the pointer path — a box drag that resolved it. */
     resolvePick(value: unknown): void {
         const request = this.pickRequest;
@@ -550,6 +570,18 @@ export class SketchEditor implements IDisposable {
             );
             if (entity === undefined) return false;
             this.resolvePick([entity]);
+            return true;
+        }
+
+        if (request.kind === "entityAt") {
+            const entityId = this.eventHandler.hitTestEntity(
+                view,
+                event,
+                request.entityType,
+                request.datum ?? false,
+            );
+            const uv = this.eventHandler.pointerToUV(view, event);
+            if (entityId !== undefined && uv !== undefined) this.resolvePick({ entityId, uv });
             return true;
         }
 
@@ -611,6 +643,19 @@ export class SketchEditor implements IDisposable {
         this.annotations.deselectConstraints(ids);
         this.solve(true);
         this.commit();
+    }
+
+    /**
+     * Drops the session state of constraints an op removed behind the editor's back —
+     * the trim's casualties. The anchors matter: constraint ids are re-allocated
+     * (max + 1), so a stale anchor would be inherited by whichever constraint takes
+     * the id next and drag its label to the wrong place. The caller commits.
+     */
+    forgetConstraints(constraintIds: Iterable<number>): void {
+        const ids = [...constraintIds];
+        if (ids.length === 0) return;
+        for (const id of ids) this.dimensionAnchors.delete(id);
+        this.annotations.deselectConstraints(ids);
     }
 
     /**

@@ -176,6 +176,7 @@ export default {
         "command.sketch.rectangle": "Прямоугольник",
         "command.sketch.toggleConstruction": "Переключить построение",
         "command.sketch.toggleExternal": "Переключить роль ссылки",
+        "command.sketch.trim": "Обрезать",
         "command.special.last": "__Last_COMMAND__",
         "command.test.performance": "Тест производительности",
         "command.wechat.group": "Wechat",
@@ -344,6 +345,7 @@ export default {
         "prompt.pickDimensionPosition": "выберите позицию размера, ESC для отмены",
         "prompt.pickLeaderPoint": "выберите точку, на которую указывает выноска, ESC для отмены",
         "prompt.pickTextPosition": "выберите положение текста, ESC для отмены",
+        "prompt.pickTrimEntity": "выберите удаляемый участок, ESC для отмены",
         "prompt.pickExternalRef":
             "выберите внешнюю ссылку (фиолетовую) для переключения роли, ESC для завершения",
         "prompt.pickFistPoint": "выберите точку начала, ESC для отмены",
@@ -425,6 +427,7 @@ export default {
         "sketch.noProjectableEdges": "Нет компланарных кромок для проекции",
         "sketch.redundant": "Избыточные ограничения",
         "sketch.rollbackFailed": "Некоторые тела не удалось откатить к позиции эскиза",
+        "sketch.trimRemovedConstraints{0}": "При обрезке удалено ограничений: {0}",
         "option.command.externalRole": "Роль",
         "option.command.externalRole.profile": "Профиль",
         "option.command.externalRole.reference": "Ссылочная",

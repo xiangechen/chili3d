@@ -19,6 +19,7 @@ import {
     type ExternalRefData,
     isDatumEntityId,
     isExternalEntityId,
+    isStructuralConstraint,
     nextSketchId,
     pointRefKey,
     resolveDatumSource,
@@ -285,6 +286,89 @@ export class SketchSolver implements ExternalEntityHost {
             this.system.remove_param(datumParamId);
         }
         this.constraints.delete(id);
+    }
+
+    /**
+     * Re-creates a constraint under its existing id, with the refs/kind/datum given.
+     * Keeping the id is the point: constraint ids key the persisted dimension
+     * anchors (`SketchData.anchors`), so an op that rewrites a constraint's refs —
+     * the trim op, moving a point's constraints onto the half that kept the point —
+     * must not leave the anchor behind as an orphan. A constraint whose datum is an
+     * expression comes back verbatim: `persistedDatums` returns it as written.
+     * Returns false for a stale id (the constraint is gone).
+     */
+    replaceConstraint(id: number, constraint: Omit<SketchConstraintData, "id">): boolean {
+        if (!this.constraints.has(id)) return false;
+        this.removeConstraint(id);
+        this.addConstraintWithId(id, constraint);
+        return true;
+    }
+
+    /**
+     * Changes a real entity's type in place, keeping its id. The trim op needs this
+     * for a circle that loses a piece and becomes an arc: the params have a different
+     * layout, so the garlic entity cannot survive the swap, but the ID must — entity
+     * ids are the primary key of `ProfileRef` region identity, and "a freed id is
+     * never reused" (`entityIdSeq`) exists so a stale fingerprint can never match an
+     * unrelated entity. A retype is the one case where an id outlives its params, and
+     * it is the same logical entity on both sides, so that invariant is not at risk.
+     *
+     * The constraints cannot survive either — garlic param ids are not stable across
+     * the swap — so each one is handed to `transform`, which returns the constraint to
+     * re-create under the SAME id (again: the id keys the datum anchor) or undefined
+     * to drop it. Structural constraints (an arc's PointOnArc) are not user geometry;
+     * they are rebuilt from the new type instead. Returns the ids of the constraints
+     * that could not be re-created.
+     */
+    retypeEntity(
+        id: number,
+        type: SketchEntityType,
+        values: number[],
+        transform: (constraint: SketchConstraintData) => Omit<SketchConstraintData, "id"> | undefined,
+    ): Result<number[]> {
+        if (isDatumEntityId(id) || isExternalEntityId(id)) {
+            return Result.err("The datum and external references cannot change type");
+        }
+        if (this.entityTypes.get(id) === undefined) {
+            return Result.err(`Unknown sketch entity: ${id}`);
+        }
+        const captured = this.constraintsData().filter((c) => c.refs.some((r) => r.entityId === id));
+        const construction = this.constructionEntities.has(id);
+        this.removeEntity(id);
+        // the private path, not `seedEntity`: same registration, without claiming an
+        // id from the allocator (this id already exists, it is only changing shape)
+        this.registerEntity(type, this.addEntityParams(type, values), id);
+        if (construction) this.constructionEntities.add(id);
+
+        const dropped: number[] = [];
+        for (const constraint of captured) {
+            if (isStructuralConstraint(constraint)) continue;
+            const next = transform(constraint);
+            if (next === undefined) {
+                dropped.push(constraint.id);
+                continue;
+            }
+            // A kind the new type cannot express (an EqualRadius over an arc, whose
+            // radiusParamId throws) is a drop, not a failure of the whole retype.
+            try {
+                this.addConstraintWithId(constraint.id, next);
+            } catch {
+                dropped.push(constraint.id);
+            }
+        }
+        // after the captured constraints are back in the map, so `nextSketchId`
+        // cannot hand this one the id of a constraint being re-created
+        if (type === "arc") {
+            this.addConstraint({
+                kind: ConstraintKind.PointOnArc,
+                refs: [
+                    { entityId: id, pointIndex: 2 },
+                    { entityId: id, pointIndex: 0 },
+                    { entityId: id, pointIndex: 1 },
+                ],
+            });
+        }
+        return Result.ok(dropped);
     }
 
     /** Removes the entity and every constraint referencing it; returns removed constraint ids. */

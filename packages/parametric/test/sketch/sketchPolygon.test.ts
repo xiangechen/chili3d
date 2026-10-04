@@ -15,6 +15,7 @@ import {
     ConstraintKind,
     isStructuralConstraint,
     profileEntities,
+    SKETCH_ORIGIN_ID,
     type SketchPointRef,
 } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
@@ -398,6 +399,44 @@ describe("SketchPolygonCommand", () => {
         expect(editor.solver.isConstruction(circleIdOf(editor.solver))).toBe(true);
         expect(lines.every((line) => editor.solver.isConstruction(line.id))).toBe(true);
         editor.solver.dispose();
+    });
+
+    test("a polygon smaller than the snap tolerance keeps its vertices on the carrier", () => {
+        const editor = fakeEditor();
+        // a snap tolerance wider than the whole circumradius: every vertex is well inside
+        // snapping distance of its own carrier's centre, and the centre of the circle it
+        // is defined against
+        editor.screenTolerance = () => 5;
+        const command = new SketchPolygonCommand();
+        command.sides = SIDES;
+        runCommand(command, editor, [CENTER, [1, 0]]);
+
+        const { solver } = editor;
+        const lineIds = solver
+            .entities()
+            .filter((entity) => entity.type === "line")
+            .map((e) => e.id);
+        const circleId = circleIdOf(solver);
+        expect(lineIds).toHaveLength(SIDES);
+        // every vertex still sits one circumradius out from the centre, where the carrier
+        // put it — none of them folded onto the centre
+        const center = solver.pointOf({ entityId: circleId, pointIndex: 0 });
+        expectAllEqual(
+            lineIds.map((id) => distance(center, solver.pointOf({ entityId: id, pointIndex: 0 }))),
+        );
+        // and the snap the pass exists for still lands: the centre is drawn on the datum
+        // origin, so it keeps that coincidence — the guard is not a blanket refusal
+        expect(
+            solver
+                .toData()
+                .constraints.filter(
+                    (c) =>
+                        c.kind === ConstraintKind.P2PCoincident &&
+                        c.refs.some((r) => r.entityId === circleId) &&
+                        c.refs.some((r) => r.entityId === SKETCH_ORIGIN_ID),
+                ),
+        ).toHaveLength(1);
+        solver.dispose();
     });
 
     test("refuses a polygon whose circumradius is degenerate", () => {

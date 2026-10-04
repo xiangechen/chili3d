@@ -153,6 +153,26 @@ describe("SketchEditor picking", () => {
         }
     });
 
+    test("pickEntityAt resolves with the entity and the clicked position", async () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solve(true);
+
+            const promise = editor.pickEntityAt("prompt.pickTrimEntity", "line");
+            // mock view: screen (407, 300) -> ray hits plane at uv (7, 0), on the line
+            (doc.visual.eventHandler as SketchEventHandler).pointerDown(view, pointerEvent(407, 300));
+
+            await expect(promise).resolves.toEqual({ entityId: 1, uv: [7, 0] });
+            expect(editor.isPicking).toBe(false);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
     test("right-click cancels an active pick", async () => {
         const { doc, view, restoreFactory } = setup();
         try {

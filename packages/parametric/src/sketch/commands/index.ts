@@ -12,3 +12,4 @@ import "./sketchPolygon";
 import "./sketchProjectEdges";
 import "./sketchRectangle";
 import "./sketchToggleConstruction";
+import "./sketchTrim";

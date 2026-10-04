@@ -39,6 +39,7 @@ import {
     viewPixelSize,
 } from "../sketchModel";
 import { constraintTargetEntities } from "../solverEntities";
+import { type TrimPiece, trimPreview } from "../trimOps";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
 import style from "./sketchAnnotations.module.css";
 import type { SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
@@ -59,6 +60,13 @@ const SNAP_HIGHLIGHT_COLOR = 0xff9800;
 const ENTITY_POINT_COLOR = 0x8c9aa8;
 /** Rubber-band box outline — matches the selection highlight its release produces. */
 const BOX_SELECT_COLOR = VisualConfig.selectedEdgeColor;
+/**
+ * The piece a trim would remove, in the tone the editor already flags a broken
+ * constraint with: "this is about to go" reads like "this is wrong". Heavier than the
+ * entity it is cut out of, so it reads as an overlay rather than as hover feedback.
+ */
+const TRIM_PREVIEW_COLOR = 0xff6b6b;
+const TRIM_PREVIEW_LINE_WIDTH = 3;
 /** A drag shorter than this in both axes reads as a click, not a box. */
 const BOX_MIN_PX = 4;
 
@@ -656,7 +664,23 @@ export class SketchEventHandler implements IEventHandler {
             }
         }
 
-        // a multi-entity pick highlights what it wants picked just like a single one
+        // The entity-and-position pick is the trim's: what it wants is not the entity
+        // but the piece of it the click would take away, so the hole is drawn instead
+        // of the whole curve. Nothing at all is drawn where the trim would refuse —
+        // on a crossing, or on a piece too short to be one — which is how the refusal
+        // reads before the click rather than after it.
+        if (pick?.kind === "entityAt") {
+            const entityId = this.hitTestEntity(view, event, pick.entityType, pick.datum ?? false);
+            const uv = entityId === undefined ? undefined : this.pointerToUV(view, event);
+            if (entityId === undefined || uv === undefined) return {};
+            const piece = trimPreview(this.editor.solver, entityId, uv, this.editor.screenTolerance());
+            return piece === undefined
+                ? {}
+                : { key: trimPieceKey(entityId, piece), mesh: trimPieceMesh(this.editor, piece) };
+        }
+
+        // a multi-entity pick and a single-entity one highlight what they want picked
+        // just like a plain hover does
         if (pick === undefined || pick.kind === "entity" || pick.kind === "entities") {
             const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
             if (entityId !== undefined && isDatumEntityId(entityId)) {
@@ -953,6 +977,43 @@ function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
         }
     }
     return meshes;
+}
+
+/**
+ * The mesh of the piece a trim would remove — the trim pick's hover cue, drawn in the
+ * piece's place rather than the whole curve's. `arcSegmentMesh` samples it at the
+ * editor's usual density, so a long piece stays smooth and a short one is not
+ * over-tessellated.
+ */
+function trimPieceMesh(editor: SketchEditor, piece: TrimPiece): EdgeMeshData {
+    const plane = editor.node.plane;
+    const mesh =
+        piece.kind === "line"
+            ? MeshDataUtils.createEdgeMesh(
+                  toWorld(plane, piece.point1[0], piece.point1[1]),
+                  toWorld(plane, piece.point2[0], piece.point2[1]),
+                  TRIM_PREVIEW_COLOR,
+                  "solid",
+              )
+            : arcSegmentMesh(
+                  editor,
+                  piece.center[0],
+                  piece.center[1],
+                  piece.radius,
+                  piece.startAngle,
+                  piece.startAngle + piece.sweep,
+                  TRIM_PREVIEW_COLOR,
+              );
+    mesh.lineWidth = TRIM_PREVIEW_LINE_WIDTH;
+    return mesh;
+}
+
+/** Hover identity of a previewed piece: moving within one must not re-display the mesh. */
+function trimPieceKey(entityId: number, piece: TrimPiece): string {
+    const round = (value: number) => Math.round(value * 1e6) / 1e6;
+    return piece.kind === "line"
+        ? `trim:${entityId}:${piece.point1.map(round)}:${piece.point2.map(round)}`
+        : `trim:${entityId}:${round(piece.startAngle)}:${round(piece.sweep)}`;
 }
 
 export function sketchEntityMesh(
