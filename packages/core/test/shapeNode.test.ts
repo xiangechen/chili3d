@@ -5,6 +5,16 @@ import { type IShape, type IShapeMeshData, Matrix4, Result } from "../src";
 import * as ShapeNodeClasses from "../src/model/shapeNode";
 import { MockShape, TestDocument } from "../test-utils";
 
+/** A MockShape that records its own release — the wasm handle behind it is invisible to the GC. */
+function trackedShape() {
+    return new (class extends MockShape {
+        disposed = false;
+        override dispose(): void {
+            this.disposed = true;
+        }
+    })();
+}
+
 describe("shapeNode", () => {
     let doc: TestDocument;
     let mockShape: MockShape;
@@ -97,12 +107,14 @@ describe("shapeNode", () => {
         });
 
         describe("disposeInternal", () => {
-            test("should dispose shape and set to null", () => {
-                (node as any).setShape(Result.ok(mockShape));
+            test("should release the shape and mark the node released", () => {
+                const shape = trackedShape();
+                (node as any).setShape(Result.ok(shape));
 
                 (node as any).disposeInternal();
 
-                expect((node as any)._shape).toBeNull();
+                expect(shape.disposed).toBe(true);
+                expect(node.shape).toBeNull();
             });
         });
     });
@@ -231,6 +243,49 @@ describe("shapeNode", () => {
             expect(() => {
                 (node as any).setPropertyEmitShapeChanged("testProp", "newValue");
             }).not.toThrow();
+        });
+
+        test("should not regenerate the shape once disposed", () => {
+            let calls = 0;
+            const CountingNode = class extends ShapeNodeClasses.ParameterShapeNode {
+                protected generateShape(): Result<IShape> {
+                    calls++;
+                    return Result.ok(new MockShape());
+                }
+
+                display(): any {
+                    return "test.parameterShape";
+                }
+            };
+            const counting = new CountingNode({ document: doc });
+            expect(counting.shape.isOk).toBe(true);
+            expect(calls).toBe(1);
+
+            counting.dispose();
+
+            // The read still goes through the lazy getter; it must report the released
+            // state rather than generate a shape the disposed node can never release.
+            expect(counting.shape).toBeNull();
+            expect(calls).toBe(1);
+        });
+
+        // The document disposes the model first and the history second, and a history
+        // record reads its object's property to tell which of its two shapes it owns.
+        test("should survive a document teardown that disposes the node before the history", () => {
+            const node = new TestParameterShapeNode({ document: doc });
+            doc.modelManager.addNode(node);
+            const stale = trackedShape();
+            const live = trackedShape();
+            (node as any).setShape(Result.ok(stale));
+            (node as any).setShape(Result.ok(live));
+            expect(doc.history.undoCount()).toBeGreaterThan(0);
+
+            node.dispose();
+            expect(live.disposed).toBe(true);
+
+            doc.history.dispose();
+
+            expect(stale.disposed).toBe(true);
         });
 
         test("should name the node after its display name and the next free index", () => {

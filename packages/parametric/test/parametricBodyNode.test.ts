@@ -334,6 +334,17 @@ describe("ParametricBodyNode", () => {
         expect(mocks.prism).toHaveBeenCalledTimes(1);
     });
 
+    test("a failed body is not re-evaluated once disposed", () => {
+        // A failed evaluation is re-tried on read when the watch set may have grown —
+        // and after dispose that retry would resolve against a document already gone.
+        const body = bodyWith([extrudeFeature("missing-sketch")]);
+        expect(body.shape.isOk).toBe(false);
+
+        body.dispose();
+
+        expect(body.shape).toBeNull();
+    });
+
     test("setFeatureParameter updates the depth and rebuilds", () => {
         const body = bodyWith([extrudeFeature(sketch.id)]);
         expect(body.shape.isOk).toBe(true);

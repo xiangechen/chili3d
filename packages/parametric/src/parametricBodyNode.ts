@@ -640,7 +640,7 @@ export class ParametricBodyNode
         // this node as its source) gets the previous result as-is: recomputing here
         // would re-enter generateShape.
         if (this._evaluating) return this._shape;
-        if (!this._shape.isOk && (!this._evaluated || this.hasNewReferences())) {
+        if (!this._isDisposed && !this._shape.isOk && (!this._evaluated || this.hasNewReferences())) {
             this._shape = this.generateShape();
         }
         return this._shape;

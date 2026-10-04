@@ -187,7 +187,7 @@ export interface ParameterShapeNodeOptions {
 
 export abstract class ParameterShapeNode extends ShapeNode {
     override get shape(): Result<IShape> {
-        if (!this._shape.isOk) {
+        if (!this._isDisposed && !this._shape.isOk) {
             this._shape = this.generateShape();
         }
         return this._shape;
