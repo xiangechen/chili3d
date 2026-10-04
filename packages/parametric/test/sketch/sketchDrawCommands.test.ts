@@ -1,7 +1,15 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Plane, PubSub, XYZ } from "@chili3d/core";
+import {
+    type AsyncController,
+    type IDocument,
+    type IView,
+    Plane,
+    PubSub,
+    type SnapResult,
+    XYZ,
+} from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { SketchArcCommand } from "../../src/sketch/commands/sketchArc";
 import { SketchCircleCommand } from "../../src/sketch/commands/sketchCircle";
@@ -232,5 +240,166 @@ describe("SketchRectangleCommand", () => {
             pub.mockRestore();
             editor.solver.dispose();
         }
+    });
+});
+
+/**
+ * A step that hands out its picks in order; an exhausted queue reads as a cancelled
+ * pick. `before` runs ahead of the nth pick, for a pick that follows something the
+ * test has to do to the solver in between.
+ */
+function queuedStep(picks: (XYZ | undefined)[], before?: (pick: number) => void) {
+    let call = 0;
+    return {
+        execute: rs.fn(
+            async (_document: IDocument, _controller: AsyncController): Promise<SnapResult | undefined> => {
+                before?.(call++);
+                const point = picks.shift();
+                return point === undefined
+                    ? undefined
+                    : { view: {} as IView, type: "input", point, shapes: [] };
+            },
+        ),
+    };
+}
+
+type QueuedStep = ReturnType<typeof queuedStep>;
+
+/**
+ * Runs the chain loop with stubbed steps — the real ones pick through the document's
+ * picker, so the picks a test cares about are handed out directly instead.
+ */
+async function runChain(
+    command: SketchLineCommand,
+    editor: FakeEditor,
+    startStep: QueuedStep,
+    nextStep: QueuedStep,
+): Promise<void> {
+    const getActive = rs.spyOn(SketchEditor, "getActive").mockReturnValue(editor as any);
+    try {
+        (command as any)._application = { activeView: { document: {} } };
+        (command as any).getSteps = () => [startStep, nextStep];
+        await (command as any).executeAsync();
+    } finally {
+        getActive.mockRestore();
+    }
+}
+
+const uv = (x: number, y: number) => new XYZ({ x, y, z: 0 });
+
+describe("SketchLineCommand chain", () => {
+    test("every pick after the first commits the segment from the point before it", async () => {
+        const editor = fakeEditor();
+        await runChain(
+            new SketchLineCommand(),
+            editor,
+            queuedStep([uv(0, 0)]),
+            queuedStep([uv(10, 0), uv(10, 5), undefined]),
+        );
+
+        expect(editor.solver.entities()).toEqual([
+            { id: 1, type: "line", params: [0, 0, 10, 0] },
+            { id: 2, type: "line", params: [10, 0, 10, 5] },
+        ]);
+        expect(editor.commit).toHaveBeenCalledTimes(2);
+        editor.solver.dispose();
+    });
+
+    test("a finished chain leaves the tool armed for the next one", async () => {
+        const editor = fakeEditor();
+        await runChain(
+            new SketchLineCommand(),
+            editor,
+            queuedStep([uv(0, 0), uv(5, 5)]),
+            queuedStep([uv(10, 0), undefined, uv(20, 20), undefined]),
+        );
+
+        expect(editor.solver.entities()).toEqual([
+            { id: 1, type: "line", params: [0, 0, 10, 0] },
+            { id: 2, type: "line", params: [5, 5, 20, 20] },
+        ]);
+        editor.solver.dispose();
+    });
+
+    test("a cancelled start pick exits without picking a next point", async () => {
+        const editor = fakeEditor();
+        const nextStep = queuedStep([uv(1, 1)]);
+        await runChain(new SketchLineCommand(), editor, queuedStep([undefined]), nextStep);
+
+        expect(nextStep.execute).not.toHaveBeenCalled();
+        expect(editor.commit).not.toHaveBeenCalled();
+        editor.solver.dispose();
+    });
+
+    test("the command's cancel ends the tool instead of re-arming it", async () => {
+        const editor = fakeEditor();
+        const command = new SketchLineCommand();
+        // what CancelableCommand.cancel() (the panel's ✗) sets before cancelling the pick
+        (command as any)._isCanceled = true;
+        const startStep = queuedStep([uv(0, 0)]);
+        await runChain(command, editor, startStep, queuedStep([uv(10, 0), undefined]));
+
+        expect(startStep.execute).toHaveBeenCalledTimes(1);
+        expect(editor.commit).toHaveBeenCalledTimes(1);
+        editor.solver.dispose();
+    });
+
+    test("a pick on the chain's start adds the closing segment and ends the chain", async () => {
+        const editor = fakeEditor();
+        editor.screenTolerance = () => 0.5;
+        await runChain(
+            new SketchLineCommand(),
+            editor,
+            queuedStep([uv(3, 2)]),
+            queuedStep([uv(10, 2), uv(10, 10), uv(3, 2)]),
+        );
+
+        expect(editor.solver.entities()).toEqual([
+            { id: 1, type: "line", params: [3, 2, 10, 2] },
+            { id: 2, type: "line", params: [10, 2, 10, 10] },
+            { id: 3, type: "line", params: [10, 10, 3, 2] },
+        ]);
+        expect(editor.solver.toData().constraints).toContainEqual({
+            id: expect.any(Number),
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: 3, pointIndex: 1 },
+                { entityId: 1, pointIndex: 0 },
+            ],
+        });
+        editor.solver.dispose();
+    });
+
+    test("a one-segment chain ends on the start pick without repeating its segment", async () => {
+        const editor = fakeEditor();
+        const startStep = queuedStep([uv(3, 2)]);
+        const nextStep = queuedStep([uv(10, 2), uv(3, 2), uv(10, 20)]);
+        await runChain(new SketchLineCommand(), editor, startStep, nextStep);
+
+        // the third pick is never taken: the chain ended on the start pick, not after
+        // adding a second segment from it
+        expect(editor.solver.entities()).toEqual([{ id: 1, type: "line", params: [3, 2, 10, 2] }]);
+        expect(nextStep.execute).toHaveBeenCalledTimes(2);
+        expect(startStep.execute).toHaveBeenCalledTimes(2);
+        editor.solver.dispose();
+    });
+
+    test("the start is matched where it is now, not where it was picked", async () => {
+        const editor = fakeEditor();
+        // the pick before the closing one stands in for the solve that moved the
+        // chain's start from (3, 2) to (4, 2) after the first segment committed
+        const nextStep = queuedStep([uv(10, 2), uv(10, 10), uv(4, 2), uv(30, 30)], (pick) => {
+            if (pick === 2) editor.solver.setPointPosition({ entityId: 1, pointIndex: 0 }, 4, 2);
+        });
+        await runChain(new SketchLineCommand(), editor, queuedStep([uv(3, 2)]), nextStep);
+
+        // closing on the moved start leaves the (30, 30) pick unclaimed; missing it
+        // would carry the chain on and draw a fourth segment through that pick
+        expect(editor.solver.entities()).toEqual([
+            { id: 1, type: "line", params: [4, 2, 10, 2] },
+            { id: 2, type: "line", params: [10, 2, 10, 10] },
+            { id: 3, type: "line", params: [10, 10, 4, 2] },
+        ]);
+        editor.solver.dispose();
     });
 });

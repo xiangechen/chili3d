@@ -435,6 +435,7 @@ export default {
         "prompt.pickFistPoint": "请选择第一个点, 按 ESC 键取消",
         "prompt.pickLeaderPoint": "请选择引线指向的点, 按 ESC 键取消",
         "prompt.pickNextPoint": "请选择下一个点， 按 ESC 键取消",
+        "prompt.pickNextPointOrFinish": "请选择下一个点，按 ESC 或 Enter 结束当前链",
         "prompt.pickPoint": "选择点，ESC键取消",
         "prompt.pickRadius": "请选择半径，按 ESC 键取消",
         "prompt.pickSketchEntity": "请选择草图实体，按 ESC 键取消",

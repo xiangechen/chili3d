@@ -426,6 +426,7 @@ export const I18N_KEYS = [
     "prompt.pickFistPoint",
     "prompt.pickLeaderPoint",
     "prompt.pickNextPoint",
+    "prompt.pickNextPointOrFinish",
     "prompt.pickPoint",
     "prompt.pickRadius",
     "prompt.pickSketchEntity",

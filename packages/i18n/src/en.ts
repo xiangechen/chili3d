@@ -442,6 +442,7 @@ export default {
         "prompt.pickFistPoint": "Pick first point, ESC key to cancel",
         "prompt.pickLeaderPoint": "Pick the point the leader points to, ESC key to cancel",
         "prompt.pickNextPoint": "pick next point, ESC key to cancel",
+        "prompt.pickNextPointOrFinish": "pick the next point, ESC or Enter to finish the chain",
         "prompt.pickPoint": "Pick point, ESC key to cancel",
         "prompt.pickRadius": "input radius, ESC key to cancel",
         "prompt.pickSketchEntity": "pick a sketch entity, ESC key to cancel",
