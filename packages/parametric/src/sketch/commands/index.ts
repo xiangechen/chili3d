@@ -8,6 +8,7 @@ import "./sketchConstraints";
 import "./sketchCornerCommands";
 import "./sketchDimensions";
 import "./sketchLine";
+import "./sketchMirror";
 import "./sketchPolygon";
 import "./sketchProjectEdges";
 import "./sketchRectangle";

@@ -67,6 +67,14 @@ const BOX_SELECT_COLOR = VisualConfig.selectedEdgeColor;
  */
 const TRIM_PREVIEW_COLOR = 0xff6b6b;
 const TRIM_PREVIEW_LINE_WIDTH = 3;
+/**
+ * Where a picked line would leave a mirrored copy — the trim's own tone, for the same
+ * reason: the copy is not on the sketch yet, so the preview is the only thing telling
+ * the user where it lands. Dashed, so a copy landing on top of real geometry still
+ * reads as a proposal rather than as geometry already there.
+ */
+const MIRROR_PREVIEW_COLOR = 0xff6b6b;
+const MIRROR_PREVIEW_LINE_WIDTH = 3;
 /** A drag shorter than this in both axes reads as a click, not a box. */
 const BOX_MIN_PX = 4;
 
@@ -632,21 +640,25 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     private updateHover(view: IView, event: PointerEvent): void {
-        const { key, mesh } = this.computeHoverTarget(view, event);
+        const { key, mesh, meshes } = this.computeHoverTarget(view, event);
 
         if (key === this.hoverKey) return;
         if (key === undefined && this.hoverKey !== undefined && this.isCrossingToBadge(view, event)) {
             return;
         }
         this.clearHover(view);
-        if (mesh !== undefined) {
-            this.hoverMeshId = view.document.visual.context.displayMesh([mesh], { onTop: true });
+        const shown = meshes ?? (mesh === undefined ? undefined : [mesh]);
+        if (shown !== undefined && shown.length > 0) {
+            this.hoverMeshId = view.document.visual.context.displayMesh(shown, { onTop: true });
             this.hoverKey = key;
         }
         this.syncAnnotationHighlights();
     }
 
-    private computeHoverTarget(view: IView, event: PointerEvent): { key?: string; mesh?: ShapeMeshData } {
+    private computeHoverTarget(
+        view: IView,
+        event: PointerEvent,
+    ): { key?: string; mesh?: ShapeMeshData; meshes?: ShapeMeshData[] } {
         const pick = this.editor.activePick;
 
         if (pick === undefined || pick.kind === "point") {
@@ -683,18 +695,48 @@ export class SketchEventHandler implements IEventHandler {
         // just like a plain hover does
         if (pick === undefined || pick.kind === "entity" || pick.kind === "entities") {
             const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
-            if (entityId !== undefined && isDatumEntityId(entityId)) {
+            if (entityId === undefined) return {};
+
+            // A pick that previews what it would leave (the mirror) draws its proposal
+            // beside the plain hover highlight — the line under the cursor stays lit. The
+            // preview only ever adds: a pick previews nothing until it has something to
+            // preview (the mirror's line is picked before any source is chosen), and that
+            // must still read as an ordinary hover rather than as no feedback at all.
+            const preview = pick?.previewEntity?.(entityId);
+            if (preview !== undefined && preview.length > 0) {
+                return {
+                    // `mirror:` rather than `entity:`: updateHover skips a key it already
+                    // shows, and entering the pick from a plain hover over the same line
+                    // would otherwise keep the old highlight and never draw the proposal
+                    key: `mirror:${entityId}`,
+                    meshes: [
+                        ...this.hoverHighlightMeshes(entityId),
+                        ...preview.map((copy) => mirrorPreviewMesh(this.editor, copy)),
+                    ],
+                };
+            }
+
+            if (isDatumEntityId(entityId)) {
                 return {
                     key: `entity:${entityId}`,
                     mesh: this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor),
                 };
             }
-            const entity = entityId === undefined ? undefined : this.editor.solver.entity(entityId);
+            const entity = this.editor.solver.entity(entityId);
             if (entity !== undefined) {
                 return { key: `entity:${entityId}`, mesh: sketchEntityMesh(this.editor, entity) };
             }
         }
         return {};
+    }
+
+    /** The highlight a preview stands in front of: the hovered line, datum axes included. */
+    private hoverHighlightMeshes(entityId: number): ShapeMeshData[] {
+        if (isDatumEntityId(entityId)) {
+            return [this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor)];
+        }
+        const entity = this.editor.solver.entity(entityId);
+        return entity === undefined ? [] : [sketchEntityMesh(this.editor, entity)];
     }
 
     /** Full-length dashed axis line used for datum hover/constraint highlight. */
@@ -1005,6 +1047,13 @@ function trimPieceMesh(editor: SketchEditor, piece: TrimPiece): EdgeMeshData {
                   TRIM_PREVIEW_COLOR,
               );
     mesh.lineWidth = TRIM_PREVIEW_LINE_WIDTH;
+    return mesh;
+}
+
+/** One mirrored copy as the mirror pick previews it — the entity's own mesh, dashed. */
+function mirrorPreviewMesh(editor: SketchEditor, copy: SketchEntityData): EdgeMeshData {
+    const mesh = sketchEntityMesh(editor, copy, MIRROR_PREVIEW_COLOR, "dash");
+    mesh.lineWidth = MIRROR_PREVIEW_LINE_WIDTH;
     return mesh;
 }
 

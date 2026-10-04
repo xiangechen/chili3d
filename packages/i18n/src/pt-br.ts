@@ -134,6 +134,7 @@ export default {
         "command.sketch.exit": "Sair",
         "command.sketch.fillet": "Arredondamento",
         "command.sketch.line": "Linha",
+        "command.sketch.mirror": "Espelhar",
         "command.sketch.polygon": "Polígono",
         "command.sketch.projectEdges": "Projetar Arestas",
         "command.sketch.rectangle": "Retângulo",
@@ -144,6 +145,8 @@ export default {
         "prompt.pickDimensionPosition": "escolha a posição da dimensão, ESC para cancelar",
         "prompt.pickFistPoint": "escolha o primeiro ponto, ESC para cancelar",
         "prompt.pickLeaderPoint": "escolha o ponto para onde a linha aponta, ESC para cancelar",
+        "prompt.pickMirrorAxis": "escolha a linha de espelhamento, ESC para cancelar",
+        "prompt.pickMirrorSources": "escolha as entidades a espelhar, ESC para terminar",
         "prompt.pickTextPosition": "escolha a posição do texto, ESC para cancelar",
         "prompt.pickTrimEntity": "escolha o trecho a aparar, ESC para cancelar",
         "prompt.pickExternalRef":
@@ -170,6 +173,8 @@ export default {
         "sketch.fullyConstrained": "Totalmente restrito",
         "sketch.issue.conflicting": "Conflito",
         "sketch.issue.redundant": "Redundante",
+        "sketch.mirrorSkippedSelfMirror{0}":
+            "O espelhamento ignorou {0} entidades já simétricas em relação à linha",
         "sketch.noConstraints": "Sem restrições",
         "sketch.noProjectableEdges": "Nenhuma aresta coplanar pôde ser projetada",
         "sketch.redundant": "Restrições redundantes",

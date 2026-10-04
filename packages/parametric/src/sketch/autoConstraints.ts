@@ -48,6 +48,51 @@ export interface AutoConstraintOptions {
 }
 
 /**
+ * Every point key `ref`'s own mirror already speaks for: the points it is mirrored with,
+ * the axis they are mirrored about, and whatever that mirror's coincidences join to them —
+ * walked outwards until no symmetry or coincidence of the mirror reaches further. A
+ * symmetry names both sides, so one hop from `ref` covers the source as well as the copy,
+ * and the walk re-enters only through the mirror's own ties.
+ *
+ * A drag of `ref` must not infer onto any of them. Those relations are the mirror's own,
+ * and restating one is exactly how a coincidence folds two symmetric rows into a
+ * duplicate: garlic removes a coincidence by substituting its two parameters for one, so
+ * tying a pair the symmetry already answers for makes their rows identical.
+ *
+ * Walking the relations, rather than collecting every symmetry that shares an axis, is
+ * what keeps a second mirror about the same line out: it holds no tie this walk reaches,
+ * so its points stay ordinary targets. Geometry outside the mirror is left alone for the
+ * same reason — dragging mirrored geometry onto something unrelated is still a real
+ * inference, and only a mirror's own targets are shut.
+ */
+export function mirrorPeers(solver: SketchSolver, ref: SketchPointRef): Set<string> {
+    const symmetries = solver.toData().constraints.filter((c) => c.kind === ConstraintKind.Symmetric);
+    const peers = new Set<string>();
+    const work: SketchPointRef[] = [ref, ...solver.coincidentGroup(ref)];
+    for (let point = work.pop(); point !== undefined; point = work.pop()) {
+        const key = pointRefKey(point);
+        if (peers.has(key)) continue;
+        peers.add(key);
+        for (const symmetry of symmetries) {
+            const [first, second, ...axis] = symmetry.refs;
+            if (pointRefKey(first) !== key && pointRefKey(second) !== key) continue;
+            // the axis is a target but no stepping stone: every mirror about that line
+            // names it, so walking through it would gather them all back into one
+            for (const axisRef of axis) peers.add(pointRefKey(axisRef));
+            work.push(first, second);
+        }
+        // a mirror ties whole entities, not single points, so one point of a copy puts its
+        // siblings in reach — the corner a mirror wrote no symmetry of its own for, and
+        // the line/arc/circle the snap would otherwise land on
+        work.push(...ownPointRefs(solver, point));
+        // a shared corner is one point on the constraint graph but several refs, and a
+        // snap can land on any of them
+        work.push(...solver.coincidentGroup(point));
+    }
+    return peers;
+}
+
+/**
  * Point refs of an entity that participate in snapping: every point it exposes —
  * line endpoints, circle center, arc center/start/end. The centers snap like any
  * other point, so a circle drawn onto a center is concentric by constraint.
@@ -274,7 +319,17 @@ export function applyPointAutoConstraints(
     const excluded = new Set(excludeEntityIds);
     const added: Omit<SketchConstraintData, "id">[] = [];
     for (const ref of refs) {
-        const snap = findPointSnap(solver, ref, solver.pointOf(ref), excluded, options);
+        // Targets the point's own mirror already answers for are off limits: restating
+        // one of those relations is what makes the rows the symmetry wrote collapse into
+        // each other, which the solver then reports as a redundant constraint.
+        const snap = findPointSnap(
+            solver,
+            ref,
+            solver.pointOf(ref),
+            excluded,
+            options,
+            mirrorPeers(solver, ref),
+        );
         if (snap === undefined) continue;
         // a point already coincident with the datum origin is re-snapped harmlessly
         if (snap.kind === "point" && solver.hasConstraint(ConstraintKind.P2PCoincident, [ref, snap.point])) {
@@ -327,14 +382,18 @@ function subsumedIncidence(
     return undefined;
 }
 
-/** Nearest snap for a dragged point (its own entity excluded), or undefined. */
+/**
+ * Nearest snap for a dragged point (its own entity excluded), or undefined. The mirror's
+ * own targets are off limits here exactly as they are at the settle: the preview must not
+ * promise a snap the released pointer would then refuse.
+ */
 function findDragSnap(
     solver: SketchSolver,
     ref: SketchPointRef,
     probe: [number, number],
     options: AutoConstraintOptions,
 ): DragSnap | undefined {
-    return findPointSnap(solver, ref, probe, new Set([ref.entityId]), options);
+    return findPointSnap(solver, ref, probe, new Set([ref.entityId]), options, mirrorPeers(solver, ref));
 }
 
 /**
@@ -349,12 +408,21 @@ function findPointSnap(
     probe: [number, number],
     excludeEntityIds: ReadonlySet<number> | undefined,
     options: AutoConstraintOptions,
+    offLimits: ReadonlySet<string> = NO_TARGETS,
 ): DragSnap | undefined {
     // one enumeration per probe (per pointer event during a drag): the helpers
     // below only read the table, and positions are read live via solver.pointOf
     const entities = constraintTargetEntities(solver);
     if (options.pointTolerance > 0) {
-        const snap = nearestPointSnap(solver, entities, ref, probe, excludeEntityIds, options.pointTolerance);
+        const snap = nearestPointSnap(
+            solver,
+            entities,
+            ref,
+            probe,
+            excludeEntityIds,
+            options.pointTolerance,
+            offLimits,
+        );
         if (snap !== undefined) {
             // fusing the point onto a spot a sibling point of its own entity sits
             // on — directly or through a coincident link — would collapse the
@@ -367,7 +435,7 @@ function findPointSnap(
     const curveTolerance = options.lineTolerance ?? options.pointTolerance;
     if (curveTolerance <= 0 || hasIncidence(solver, ref)) return undefined;
     const excluded = curveSnapExclusions(solver, ref, excludeEntityIds);
-    const line = nearestLineOrAxisSnap(solver, entities, excluded, probe, curveTolerance);
+    const line = nearestLineOrAxisSnap(solver, entities, excluded, probe, curveTolerance, offLimits);
     if (line !== undefined) return { kind: "line", lineRefs: line.lineRefs, position: line.position };
     return nearestCurveSnap(entities, excluded, probe, curveTolerance);
 }
@@ -569,9 +637,11 @@ function nearestPointSnap(
     target: [number, number],
     excludeEntityIds: ReadonlySet<number> | undefined,
     tolerance: number,
+    offLimits: ReadonlySet<string> = NO_TARGETS,
 ): SnapCandidate | undefined {
     const excluded = new Set(solver.coincidentGroup(ref).map(pointRefKey));
     excluded.add(pointRefKey(ref));
+    for (const key of offLimits) excluded.add(key);
 
     const candidates: SnapCandidate[] = [];
     for (const entity of entities) {
@@ -599,9 +669,10 @@ function nearestLineOrAxisSnap(
     excludeEntityIds: ReadonlySet<number> | undefined,
     probe: [number, number],
     tolerance: number,
+    offLimits: ReadonlySet<string> = NO_TARGETS,
 ): LineSnap | undefined {
-    const line = nearestLineSnap(solver, entities, excludeEntityIds, probe, tolerance);
-    const axis = nearestAxisSnap(probe, tolerance);
+    const line = nearestLineSnap(solver, entities, excludeEntityIds, probe, tolerance, offLimits);
+    const axis = nearestAxisSnap(probe, tolerance, offLimits);
     if (axis === undefined) return line;
     if (line === undefined) return axis;
     return line.distance <= axis.distance ? line : axis;
@@ -614,6 +685,7 @@ function nearestLineSnap(
     excludeEntityIds: ReadonlySet<number> | undefined,
     [u, v]: [number, number],
     tolerance: number,
+    offLimits: ReadonlySet<string> = NO_TARGETS,
 ): LineSnap | undefined {
     let nearest: LineSnap | undefined;
     for (const entity of entities) {
@@ -622,6 +694,7 @@ function nearestLineSnap(
             { entityId: entity.id, pointIndex: 0 },
             { entityId: entity.id, pointIndex: 1 },
         ];
+        if (isOffLimits(lineRefs, offLimits)) continue;
         const [x1, y1] = solver.pointOf(lineRefs[0]);
         const [x2, y2] = solver.pointOf(lineRefs[1]);
         const dx = x2 - x1;
@@ -638,22 +711,36 @@ function nearestLineSnap(
     return nearest;
 }
 
+/** Targets no snap may take: what the default arguments of the snap helpers mean. */
+const NO_TARGETS: ReadonlySet<string> = new Set();
+
+/**
+ * Whether every ref of a snap target is one the drag must keep off (see `mirrorPeers`).
+ * All of them, not any: a line with one end inside the mirror is still a line the user
+ * aimed at from outside it.
+ */
+function isOffLimits(refs: readonly SketchPointRef[], offLimits: ReadonlySet<string>): boolean {
+    return refs.length > 0 && refs.every((ref) => offLimits.has(pointRefKey(ref)));
+}
+
 /** Closest datum axis within `tolerance` (the axes are infinite lines), or undefined. */
-function nearestAxisSnap([u, v]: [number, number], tolerance: number): LineSnap | undefined {
+function nearestAxisSnap(
+    [u, v]: [number, number],
+    tolerance: number,
+    offLimits: ReadonlySet<string>,
+): LineSnap | undefined {
     let nearest: LineSnap | undefined;
-    if (Math.abs(v) < tolerance) {
-        nearest = {
-            lineRefs: axisLineRefs(SKETCH_X_AXIS_ID),
-            position: [u, 0],
-            distance: Math.abs(v),
-        };
+    const xAxis = axisLineRefs(SKETCH_X_AXIS_ID);
+    if (Math.abs(v) < tolerance && !isOffLimits(xAxis, offLimits)) {
+        nearest = { lineRefs: xAxis, position: [u, 0], distance: Math.abs(v) };
     }
-    if (Math.abs(u) < tolerance && (nearest === undefined || Math.abs(u) < nearest.distance)) {
-        nearest = {
-            lineRefs: axisLineRefs(SKETCH_Y_AXIS_ID),
-            position: [0, v],
-            distance: Math.abs(u),
-        };
+    const yAxis = axisLineRefs(SKETCH_Y_AXIS_ID);
+    if (
+        Math.abs(u) < tolerance &&
+        !isOffLimits(yAxis, offLimits) &&
+        (nearest === undefined || Math.abs(u) < nearest.distance)
+    ) {
+        nearest = { lineRefs: yAxis, position: [0, v], distance: Math.abs(u) };
     }
     return nearest;
 }

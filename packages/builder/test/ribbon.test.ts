@@ -137,6 +137,7 @@ describe("SketchRibbonProfiles", () => {
         const allItems = flattenItems(sketchTab!.groups.flatMap((g) => g.items));
         expect(allItems).toContain("sketch.exit");
         expect(allItems).toContain("sketch.line");
+        expect(allItems).toContain("sketch.mirror");
         expect(allItems).toContain("sketch.polygon");
         expect(allItems).toContain("constraint.coincident");
         expect(allItems).toContain("dimension.distance");

@@ -171,6 +171,7 @@ export default {
         "command.sketch.exit": "Выйти из эскиза",
         "command.sketch.fillet": "Скругление",
         "command.sketch.line": "Линия",
+        "command.sketch.mirror": "Зеркало",
         "command.sketch.polygon": "Многоугольник",
         "command.sketch.projectEdges": "Проецировать кромки",
         "command.sketch.rectangle": "Прямоугольник",
@@ -344,6 +345,8 @@ export default {
             "выберите геометрию эскиза для переключения построения, ESC для завершения",
         "prompt.pickDimensionPosition": "выберите позицию размера, ESC для отмены",
         "prompt.pickLeaderPoint": "выберите точку, на которую указывает выноска, ESC для отмены",
+        "prompt.pickMirrorAxis": "выберите линию отражения, ESC для отмены",
+        "prompt.pickMirrorSources": "выберите сущности для отражения, ESC для завершения",
         "prompt.pickTextPosition": "выберите положение текста, ESC для отмены",
         "prompt.pickTrimEntity": "выберите удаляемый участок, ESC для отмены",
         "prompt.pickExternalRef":
@@ -423,6 +426,8 @@ export default {
         "sketch.fullyConstrained": "Полностью ограничен",
         "sketch.issue.conflicting": "Конфликт",
         "sketch.issue.redundant": "Избыточное",
+        "sketch.mirrorSkippedSelfMirror{0}":
+            "При отражении пропущено сущностей, уже симметричных относительно линии: {0}",
         "sketch.noConstraints": "Нет ограничений",
         "sketch.noProjectableEdges": "Нет компланарных кромок для проекции",
         "sketch.redundant": "Избыточные ограничения",

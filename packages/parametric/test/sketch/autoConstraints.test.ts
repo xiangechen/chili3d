@@ -9,6 +9,7 @@ import {
     dragSnapPosition,
     snapPosition,
 } from "../../src/sketch/autoConstraints";
+import { mirrorEntities } from "../../src/sketch/mirrorOps";
 import {
     axisLineRefs,
     ConstraintKind,
@@ -1526,5 +1527,159 @@ describe("applyPointAutoConstraints", () => {
 
         expect(added).toEqual([]);
         solver.dispose();
+    });
+});
+
+describe("mirror-aware drag inference", () => {
+    /** Two 100-unit lines meeting at `corner`, mirrored about the X axis with the corner joined. */
+    function mirroredPair(corner: [number, number]) {
+        const solver = new SketchSolver(Plane.XY);
+        const first = solver.addLine(corner[0] - 80, corner[1] + 60, corner[0], corner[1]);
+        const second = solver.addLine(corner[0], corner[1], corner[0] + 70, corner[1] + 90);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: first, pointIndex: 1 },
+                { entityId: second, pointIndex: 0 },
+            ],
+        });
+        const mirrored = mirrorEntities(solver, [first, second], SKETCH_X_AXIS_ID, 1e-6);
+        const copies = mirrored.isOk ? mirrored.value.createdEntityIds : [];
+        solver.solve(true);
+        return { solver, first, second, copies };
+    }
+
+    test("a drag of a mirrored point infers nothing onto the mirror it came from", () => {
+        // The corner sits ON the axis, so the copy's corner lands exactly on the source's
+        // and the axis runs through both: every target within reach belongs to that mirror.
+        // Inferring one of those relations is what folds the two corner symmetries into a
+        // single redundant row.
+        const { solver, copies } = mirroredPair([120, 0]);
+        try {
+            const dragged = { entityId: copies[0], pointIndex: 1 };
+            solver.setPointPosition(dragged, ...solver.pointOf(dragged));
+            solver.solve(true);
+
+            const added = applyDragAutoConstraints(solver, dragged, { pointTolerance: 3, lineTolerance: 3 });
+            solver.solve(true);
+
+            expect(added).toEqual([]);
+            const diagnostics = solver.diagnose();
+            expect(diagnostics.redundant).toEqual([]);
+            expect(diagnostics.conflicting).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("…but a target outside that mirror is still inferred", () => {
+        const { solver, copies } = mirroredPair([120, 0]);
+        try {
+            // a line added after the mirror, its end exactly under the copy's corner: it
+            // answers to nothing, so the drag onto it is a real inference and must survive
+            const other = solver.addLine(120, 0, 260, 40);
+            solver.solve(true);
+
+            const added = applyDragAutoConstraints(
+                solver,
+                { entityId: copies[0], pointIndex: 1 },
+                {
+                    pointTolerance: 3,
+                    lineTolerance: 3,
+                },
+            );
+
+            expect(
+                added.some(
+                    (c) =>
+                        c.kind === ConstraintKind.P2PCoincident &&
+                        c.refs.some((r) => r.entityId === other && r.pointIndex === 0),
+                ),
+            ).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a drag of an ordinary point still infers", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            solver.addLine(0, 0, 100, 0);
+            solver.addLine(100.4, 0.2, 200, 0);
+            solver.solve(true);
+
+            const added = applyDragAutoConstraints(
+                solver,
+                { entityId: 2, pointIndex: 0 },
+                {
+                    pointTolerance: 3,
+                    lineTolerance: 3,
+                },
+            );
+
+            expect(added.some((c) => c.kind === ConstraintKind.P2PCoincident)).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("the live drag preview keeps off the mirror, as the settle does", () => {
+        const { solver, copies } = mirroredPair([120, 0]);
+        try {
+            const dragged = { entityId: copies[0], pointIndex: 1 };
+            const [u, v] = solver.pointOf(dragged);
+            const probe: [number, number] = [u + 1, v + 1];
+
+            // inside the reach of the mirror's own corners and axis. The settle refuses
+            // those (the test above), so the preview must not snap onto them either.
+            const preview = dragSnapPosition(solver, dragged, probe, { pointTolerance: 3, lineTolerance: 3 });
+            expect(preview.snap).toBeUndefined();
+            expect(preview.position).toEqual(probe);
+
+            // …while a target outside the mirror still snaps, in the preview and at the end
+            solver.addLine(120, 0, 260, 40);
+            solver.solve(true);
+            const outside = dragSnapPosition(solver, dragged, [u + 0.5, v + 0.5], {
+                pointTolerance: 3,
+                lineTolerance: 3,
+            });
+            expect(outside.snap?.kind).toBe("point");
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a second mirror about the same axis is not shut", () => {
+        // Two lines mirrored about the X axis by separate operations. Their copies answer
+        // to different symmetries, so joining the copies is not a restatement of either —
+        // only the axis they share is, and sharing an axis is not what makes a mirror.
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            solver.addLine(0, 40, 80, 40);
+            solver.addLine(0, 80, 80, 80);
+            const firstMirror = mirrorEntities(solver, [1], SKETCH_X_AXIS_ID, 1e-6);
+            const secondMirror = mirrorEntities(solver, [2], SKETCH_X_AXIS_ID, 1e-6);
+            const first = firstMirror.isOk ? firstMirror.value.createdEntityIds[0] : -1;
+            const second = secondMirror.isOk ? secondMirror.value.createdEntityIds[0] : -1;
+            solver.solve(true);
+
+            // the drag has already moved the point and nothing has solved since, which is
+            // where the pointer flow settles the snap
+            const dragged = { entityId: first, pointIndex: 0 };
+            solver.setPointPosition(dragged, 0.5, -80.2);
+            const added = applyDragAutoConstraints(solver, dragged, { pointTolerance: 3, lineTolerance: 3 });
+            solver.solve(true);
+
+            expect(added).toEqual([
+                {
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [dragged, { entityId: second, pointIndex: 0 }],
+                },
+            ]);
+            expect(solver.diagnose().redundant).toEqual([]);
+            expect(solver.pointOf(dragged)).toEqual(solver.pointOf({ entityId: second, pointIndex: 0 }));
+        } finally {
+            solver.dispose();
+        }
     });
 });

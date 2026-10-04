@@ -24,6 +24,7 @@ import {
     datumUnitSpec,
     isExternalEntityId,
     type SketchData,
+    type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
     viewPixelSize,
@@ -82,12 +83,21 @@ export interface SketchEntityPick {
 /** Live-preview callback fed with the pointer uv on each move; undefined when off-plane. */
 export type SketchPickPreview = (uv: [number, number] | undefined) => void;
 
+/**
+ * Live preview for an entity pick: handed the entity under the cursor (undefined when
+ * the pointer is off every one), and answering with the geometry the pick would leave
+ * there — the mirror's copies, say. The event handler meshes them; a pick that wants no
+ * preview leaves it undefined.
+ */
+export type SketchEntityPreview = (entityId: number | undefined) => SketchEntityData[] | undefined;
+
 interface PickRequest {
     kind: SketchPickKind;
     entityType?: SketchEntityTypeFilter;
     /** Entity picks only: also allow picking the datum X/Y axes. */
     datum?: boolean;
     preview?: SketchPickPreview;
+    previewEntity?: SketchEntityPreview;
     resolve: (value: any) => void;
 }
 
@@ -476,6 +486,7 @@ export class SketchEditor implements IDisposable {
               entityType?: SketchEntityTypeFilter;
               datum?: boolean;
               preview?: SketchPickPreview;
+              previewEntity?: SketchEntityPreview;
           }
         | undefined {
         return this.pickRequest;
@@ -492,10 +503,18 @@ export class SketchEditor implements IDisposable {
     pickEntity(
         prompt: I18nKeys,
         type?: SketchEntityTypeFilter,
-        options?: { datum?: boolean },
+        options?: { datum?: boolean; previewEntity?: SketchEntityPreview },
         controller?: AsyncController,
     ): Promise<number | undefined> {
-        return this.startPick("entity", prompt, type, options?.datum, undefined, controller);
+        return this.startPick(
+            "entity",
+            prompt,
+            type,
+            options?.datum,
+            undefined,
+            controller,
+            options?.previewEntity,
+        );
     }
 
     pickPosition(
@@ -514,10 +533,18 @@ export class SketchEditor implements IDisposable {
     pickEntities(
         prompt: I18nKeys,
         type?: SketchEntityTypeFilter,
-        options?: { datum?: boolean },
+        options?: { datum?: boolean; previewEntity?: SketchEntityPreview },
         controller?: AsyncController,
     ): Promise<number[] | undefined> {
-        return this.startPick("entities", prompt, type, options?.datum, undefined, controller);
+        return this.startPick(
+            "entities",
+            prompt,
+            type,
+            options?.datum,
+            undefined,
+            controller,
+            options?.previewEntity,
+        );
     }
 
     /** A single entity pick that also answers with the click's position on the plane. */
@@ -892,11 +919,12 @@ export class SketchEditor implements IDisposable {
         datum?: boolean,
         preview?: SketchPickPreview,
         controller?: AsyncController,
+        previewEntity?: SketchEntityPreview,
     ): Promise<T> {
         this.cancelPick();
         PubSub.default.pub("statusBarTip", prompt);
         return new Promise<T>((resolve) => {
-            this.pickRequest = { kind, entityType, datum, preview, resolve };
+            this.pickRequest = { kind, entityType, datum, preview, previewEntity, resolve };
             this.eventHandler.setController(this.view, controller);
             this.annotations.suppressConstraintSymbols = true;
         });
