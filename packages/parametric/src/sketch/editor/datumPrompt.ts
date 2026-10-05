@@ -33,6 +33,10 @@ export function parseDatumInput(text: string): ParameterValue {
  * Shows the datum input in a modal dialog. A valid confirm runs `apply`, then `onApplied`.
  * Invalid input keeps the dialog open with an error message; cancelling runs `onCancel` and
  * changes nothing.
+ *
+ * The returned promise settles once the dialog is gone, either way. A tool that places one
+ * dimension after another has to wait for that: the dialog is modal, so a next pick
+ * requested while it is open would never reach the viewport.
  */
 export function promptDatum(
     initial: ParameterValue,
@@ -44,7 +48,9 @@ export function promptDatum(
         /** Resolves an input to its display value — supplied by the editor, error text included. */
         resolve?: (input: ParameterValue) => Result<number>;
     },
-): void {
+): Promise<void> {
+    const { closed, settle } = closeLatch();
+
     const textbox = document.createElement("input");
     textbox.value = typeof initial === "number" ? initial.toFixed(2) : initial;
     textbox.autofocus = true;
@@ -64,13 +70,21 @@ export function promptDatum(
                 }
                 apply(parsed.value);
                 onApplied();
+                settle();
                 return true;
             },
             onclick: () => {},
         },
-        { content: "common.cancel", onclick: () => onCancel?.() },
+        {
+            content: "common.cancel",
+            onclick: () => {
+                onCancel?.();
+                settle();
+            },
+        },
     ]);
     setTimeout(() => textbox.select());
+    return closed;
 }
 
 /**
@@ -107,7 +121,9 @@ export function promptDatumPair(
         positiveOnly?: boolean;
         resolve?: (input: ParameterValue) => Result<number>;
     },
-): void {
+): Promise<void> {
+    const { closed, settle } = closeLatch();
+
     const { inputX, inputY, error, content } = createDatumPairInputs(initial);
     PubSub.default.pub("showDialog", "dialog.title.enterValue", content, [
         {
@@ -125,13 +141,28 @@ export function promptDatumPair(
                 }
                 apply(x.value, y.value);
                 onApplied();
+                settle();
                 return true;
             },
             onclick: () => {},
         },
-        { content: "common.cancel", onclick: () => {} },
+        { content: "common.cancel", onclick: () => settle() },
     ]);
     setTimeout(() => inputX.select());
+    return closed;
+}
+
+/**
+ * A latch the caller can await: it settles exactly once, whichever button closed the
+ * dialog. Both prompts hand it to their confirm and cancel paths, so the promise they
+ * return is resolved from the one place that knows the dialog is gone.
+ */
+function closeLatch(): { closed: Promise<void>; settle: () => void } {
+    let settle: () => void = () => {};
+    const closed = new Promise<void>((resolve) => {
+        settle = resolve;
+    });
+    return { closed, settle };
 }
 
 function invalidNumber(): string {

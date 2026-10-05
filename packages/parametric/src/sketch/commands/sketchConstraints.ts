@@ -29,10 +29,25 @@ export abstract class SketchConstraintCommand extends CancelableCommand {
     }
 
     protected abstract executeWithEditor(editor: SketchEditor): Promise<void>;
+
+    /**
+     * Moves onto a fresh controller for the next step. Every pick needs one of its own: a
+     * pick is left riding whichever controller started it, so a step reusing the previous
+     * one leaves `cancel()` reaching only that earlier step — and only while it is still
+     * unresolved.
+     *
+     * Answers with the controller for steps that need it in hand; the rest read back
+     * `this.controller`, which this sets.
+     */
+    protected beginStep(): AsyncController {
+        const controller = new AsyncController();
+        this.controller = controller;
+        return controller;
+    }
 }
 
 /** Same-kind constraint with the same ref set already exists — adding it would be redundant. */
-function hasDuplicate(solver: SketchSolver, kind: ConstraintKind, refs: SketchPointRef[]): boolean {
+export function hasDuplicate(solver: SketchSolver, kind: ConstraintKind, refs: SketchPointRef[]): boolean {
     const key = refs.map(pointRefKey).sort().join("|");
     return solver
         .toData()
@@ -58,10 +73,10 @@ function addAndCommit(
 @command({ key: "constraint.coincident", icon: "icon-cCoincident" })
 export class CoincidentConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined) return;
         editor.solver.addConstraint({ kind: ConstraintKind.P2PCoincident, refs: [p1, p2] });
@@ -74,7 +89,7 @@ abstract class LineConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.Horizontal | ConstraintKind.Vertical;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
         if (lineId === undefined || !allowsConstraintOnEntity(this.kind, lineId)) return;
         editor.solver.addConstraint({
@@ -103,7 +118,7 @@ abstract class TwoLineConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.Parallel | ConstraintKind.Perpendicular;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const l1 = await editor.pickEntity(
             "prompt.pickSketchEntity",
             "line",
@@ -111,7 +126,7 @@ abstract class TwoLineConstraintCommand extends SketchConstraintCommand {
             this.controller,
         );
         if (l1 === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const l2 = await editor.pickEntity(
             "prompt.pickSketchEntity",
             "line",
@@ -137,10 +152,10 @@ abstract class TwoPointConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.HorizontalAlign | ConstraintKind.VerticalAlign;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined || !allowsConstraintOnEntity(this.kind, p1.entityId)) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined || !allowsConstraintOnEntity(this.kind, p2.entityId)) return;
         addAndCommit(editor, this.kind, [p1, p2]);
@@ -161,10 +176,10 @@ export class VerticalAlignConstraintCommand extends TwoPointConstraintCommand {
 @command({ key: "constraint.equal", icon: "icon-cEqual" })
 export class EqualConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const e1 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e1 === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const e2 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e2 === undefined) return;
         if (e1 === e2) {
@@ -197,10 +212,10 @@ export class EqualConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.tangent", icon: "icon-cTangent" })
 export class TangentConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const e1 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e1 === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const e2 = await editor.pickEntity("prompt.pickSketchEntity", undefined, undefined, this.controller);
         if (e2 === undefined) return;
         if (e1 === e2) {
@@ -222,10 +237,10 @@ export class TangentConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.pointOn", icon: "icon-cPointOn" })
 export class PointOnConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const entityId = await editor.pickEntity(
             "prompt.pickSketchEntity",
             undefined,
@@ -247,10 +262,10 @@ export class PointOnConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.midpoint", icon: "icon-cMid" })
 export class MidpointConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
         if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.Midpoint, lineId)) return;
         addAndCommit(editor, ConstraintKind.Midpoint, [p, ...lineRefs(lineId)]);
@@ -261,13 +276,13 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.symmetric", icon: "icon-cSymmetric" })
 export class SymmetricConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const lineId = await editor.pickEntity(
             "prompt.pickSketchEntity",
             "line",
@@ -283,7 +298,7 @@ export class SymmetricConstraintCommand extends SketchConstraintCommand {
 @command({ key: "constraint.fix", icon: "icon-cFix" })
 export class FixConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.Fix, p.entityId)) return;
         addAndCommit(editor, ConstraintKind.Fix, [p], { datums: [...editor.solver.pointOf(p)] });

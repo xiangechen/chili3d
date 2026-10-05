@@ -1,7 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, command, type ParameterValue } from "@chili3d/core";
+import { AsyncController, command, type ParameterValue, PubSub } from "@chili3d/core";
+import { type DimensionElement, inferDimension } from "../dimensionInference";
 import {
     angleVertex,
     type DimensionAnchor,
@@ -15,7 +16,7 @@ import {
     toStorageDatum,
 } from "../editor/dimensionLayout";
 import type { DimensionPreview } from "../editor/sketchAnnotations";
-import type { SketchEditor } from "../editor/sketchEditor";
+import type { SketchEditor, SketchElementPick } from "../editor/sketchEditor";
 import {
     ConstraintKind,
     datumUnitSpec,
@@ -25,19 +26,165 @@ import {
     type SketchPointRef,
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
-import { allowsConstraintOnEntity } from "../solverEntities";
-import { SketchConstraintCommand } from "./sketchConstraints";
+import { allowsConstraintOnEntity, normalizeLineRefs } from "../solverEntities";
+import { hasDuplicate, SketchConstraintCommand } from "./sketchConstraints";
+
+/** The longest selection the inference table ever reads — two elements, whatever they are. */
+const MAX_ELEMENTS = 2;
+
+/**
+ * Onshape's Dimension: one tool that reads what you picked instead of being told what to
+ * measure. A line is its length, a circle its diameter, two lines an angle, two points
+ * whichever distance the label is dragged into (see `inferDimension` for the whole table).
+ *
+ * A click does two jobs, and which one it does is decided by what it hit — on an element
+ * it adds to the selection, on empty space it places what the selection has earned. That
+ * is the only arrangement in which "one line is a length" and "two lines are an angle"
+ * coexist: a line alone is already a complete dimension, so no rule based on the selection
+ * growing could tell "place now" from "I am picking a second line". Hitting nothing is how
+ * the user says the second thing.
+ *
+ * The tool stays up after placing, so a second dimension is the next click rather than a
+ * second command — the same shape as `sketch.trim`.
+ */
+@command({ key: "dimension", icon: "icon-dimension" })
+export class DimensionCommand extends SketchConstraintCommand {
+    private elements: DimensionElement[] = [];
+
+    protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        this.elements = [];
+        this.seedFromSelection(editor);
+        while (true) {
+            const { pick, cancelled } = await this.askOnce(editor);
+
+            if (pick === undefined) {
+                // A cancelled command must fall out of the loop: `cancel()` spins until it does.
+                if (cancelled) return;
+                // Escape in hand throws away the picks; Escape empty-handed ends the tool.
+                if (this.elements.length === 0) return;
+                this.elements = [];
+                continue;
+            }
+
+            if (pick.hit.kind === "position") {
+                // empty space with nothing picked yet is not a placement, just a stray click
+                if (this.elements.length === 0) continue;
+                await this.place(editor, pick.uv);
+                this.elements = [];
+                continue;
+            }
+            this.accumulate(pick.hit);
+        }
+    }
+
+    /**
+     * Runs one pick and clears its live preview. The controller's status is what tells a
+     * cancelled *command* apart from Escape, which cancels the pick alone — and it has to be
+     * read before the controller is disposed.
+     */
+    private async askOnce(
+        editor: SketchEditor,
+    ): Promise<{ pick: SketchElementPick | undefined; cancelled: boolean }> {
+        const controller = new AsyncController();
+        this.controller = controller;
+        const pick = await editor.pickElement(
+            "prompt.pickDimension",
+            { datum: true, preview: (uv) => this.showPreview(editor, uv) },
+            controller,
+        );
+        editor.annotations.setDimensionPreview(undefined);
+        const cancelled = controller.result?.status === "cancel";
+        controller.dispose();
+        return { pick, cancelled };
+    }
+
+    /**
+     * Entities selected before the command ran are the same statement as clicking them, so
+     * they seed the selection and the user only has to place. Only entities can arrive this
+     * way — a sketch's selection holds no points — so a circle-to-circle distance works
+     * from a preselection and a point-to-point one does not.
+     *
+     * A selection the tool has no reading for is handed back untouched, and said so: the
+     * command cannot use it, and clearing it would spend the user's work on nothing.
+     */
+    private seedFromSelection(editor: SketchEditor): void {
+        const ids = editor.selectedEntityIds();
+        if (ids.length === 0) return;
+        if (ids.length > MAX_ELEMENTS) {
+            PubSub.default.pub("statusBarTip", "sketch.dimensionSelectionTooMany");
+            return;
+        }
+
+        const elements: DimensionElement[] = ids.map((entityId) => ({ kind: "entity", entityId }));
+        if (inferDimension(elements, editor.solver) === undefined) {
+            PubSub.default.pub("statusBarTip", "sketch.dimensionSelectionUnsupported");
+            return;
+        }
+        // The tool can use it, so it takes it: leaving these highlighted would read as a
+        // second, separate selection once the picks start.
+        editor.clearEntitySelection();
+        this.elements = elements;
+    }
+
+    /** Adds one element unless it is already in hand or the selection is as long as it gets. */
+    private accumulate(element: DimensionElement): void {
+        if (this.elements.length >= MAX_ELEMENTS) return;
+        if (this.elements.some((held) => sameElement(held, element))) return;
+        this.elements = [...this.elements, element];
+    }
+
+    /**
+     * The dimension the picks currently mean, previewed at the cursor. Shown from the very
+     * first pick, so a line reads as a length before the user commits to anything — and
+     * once there are two points, the reading changes as the cursor is dragged around them.
+     */
+    private showPreview(editor: SketchEditor, uv: [number, number] | undefined): void {
+        if (uv === undefined) {
+            editor.annotations.setDimensionPreview(undefined);
+            return;
+        }
+        const plan = inferDimension(this.elements, editor.solver);
+        editor.annotations.setDimensionPreview(plan?.preview(uv));
+    }
+
+    private async place(editor: SketchEditor, label: [number, number]): Promise<void> {
+        const resolved = inferDimension(this.elements, editor.solver)?.resolve(label);
+        if (resolved === undefined) return;
+        const { constraint } = resolved;
+        // A dimension is not an associative constraint, so an entity projected from another
+        // node cannot take one — `allowsConstraintOnEntity` says so through the status bar.
+        if (!constraint.refs.every((ref) => allowsConstraintOnEntity(constraint.kind, ref.entityId))) {
+            return;
+        }
+        // Measuring the same thing twice adds nothing but a redundancy for garlic to report.
+        if (hasDuplicate(editor.solver, constraint.kind, constraint.refs)) {
+            PubSub.default.pub("statusBarTip", "sketch.constraintExists");
+            return;
+        }
+        await commitDimension(editor, constraint, resolved.anchor, resolved.initial, {
+            positiveOnly: resolved.positiveOnly,
+        });
+    }
+}
+
+/** Whether two picks name the same thing — the same point, or the same entity. */
+function sameElement(held: DimensionElement, next: DimensionElement): boolean {
+    if (held.kind === "entity" || next.kind === "entity") {
+        return held.kind === "entity" && next.kind === "entity" && held.entityId === next.entityId;
+    }
+    return pointRefKey(held.ref) === pointRefKey(next.ref);
+}
 
 @command({ key: "dimension.distance", icon: "icon-dDimension" })
 export class DistanceDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined || !allowsConstraintOnEntity(ConstraintKind.P2PDistance, p1.entityId)) return;
 
         // rubber-band line from the first point to the cursor while picking the second
         const uv1 = editor.solver.pointOf(p1);
-        this.controller = new AsyncController();
+        this.beginStep();
         const p2 = await pickWithPreview(editor, () =>
             editor.pickPoint(
                 "prompt.pickSketchPoint",
@@ -51,8 +198,7 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
         if (p2 === undefined || !allowsConstraintOnEntity(ConstraintKind.P2PDistance, p2.entityId)) return;
 
         const uv2 = editor.solver.pointOf(p2);
-        this.controller = new AsyncController();
-        const position = await pickDimensionPosition(editor, this.controller, (uv) =>
+        const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
             uv === undefined ? undefined : { kind: "distance", p1: uv1, p2: uv2, position: uv },
         );
         if (position === undefined) return;
@@ -74,7 +220,7 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
 @command({ key: "dimension.radius", icon: "icon-dRadius" })
 export class RadiusDimensionCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const entityId = await editor.pickEntity(
             "prompt.pickSketchEntity",
             ["circle", "arc"],
@@ -86,8 +232,7 @@ export class RadiusDimensionCommand extends SketchConstraintCommand {
         const entity = editor.solver.entity(entityId)!;
         const center: [number, number] = [entity.params[0], entity.params[1]];
         const radius = entityRadius(entity);
-        this.controller = new AsyncController();
-        const position = await pickDimensionPosition(editor, this.controller, (uv) =>
+        const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
             uv === undefined ? undefined : { kind: "radius", center, radius, position: uv },
         );
         if (position === undefined) return;
@@ -107,7 +252,7 @@ export class RadiusDimensionCommand extends SketchConstraintCommand {
 }
 
 /** Runs a pick with a live dimension preview, always clearing the preview afterwards. */
-async function pickWithPreview<T>(
+export async function pickWithPreview<T>(
     editor: SketchEditor,
     pick: () => Promise<T | undefined>,
 ): Promise<T | undefined> {
@@ -123,7 +268,7 @@ async function pickWithPreview<T>(
  * takes the command's slot so `cancel()` aborts exactly this pick, and the preview is
  * cleared once it ends — the placement step the distance-dimension commands share.
  */
-async function pickDimensionPosition(
+export async function pickDimensionPosition(
     editor: SketchEditor,
     controller: AsyncController,
     preview: (uv: [number, number] | undefined) => DimensionPreview | undefined,
@@ -141,20 +286,27 @@ async function pickDimensionPosition(
  * Creates the constraint right away so the dimension stays visible while the
  * input is open, but commits only on confirm — creation + datum land in a
  * single undo step; cancelling rolls the constraint back from the solver.
+ *
+ * Resolves once the input dialog is gone. A tool that places dimensions one after
+ * another awaits it: the dialog is modal, so asking for the next pick while it is still
+ * open would leave that pick waiting behind a dialog the viewport cannot reach through.
+ *
+ * What was typed is stored as typed: `setDatumSource` is the whole conversion, because
+ * the constraint carries the reading it is written in (`SketchConstraintData.display`).
  */
-function commitDimension(
+export function commitDimension(
     editor: SketchEditor,
     constraint: Omit<SketchConstraintData, "id">,
     anchor: DimensionAnchor,
     initial: ParameterValue,
-    options?: { apply?: (id: number, value: ParameterValue) => void; positiveOnly?: boolean },
-): void {
+    options?: { positiveOnly?: boolean },
+): Promise<void> {
     const id = editor.solver.addConstraint(constraint);
     editor.dimensionAnchors.set(id, anchor);
     editor.solve(true);
-    editor.promptDatum(
+    return editor.promptDatum(
         initial,
-        (value) => (options?.apply ?? ((cid, v) => editor.solver.setDatumSource(cid, v)))(id, value),
+        (value) => editor.solver.setDatumSource(id, value),
         datumUnitSpec(constraint.kind),
         () => {
             editor.solver.removeConstraint(id);
@@ -165,43 +317,19 @@ function commitDimension(
     );
 }
 
-function currentDistance(solver: SketchSolver, p1: SketchPointRef, p2: SketchPointRef): number {
+export function currentDistance(solver: SketchSolver, p1: SketchPointRef, p2: SketchPointRef): number {
     const [x1, y1] = solver.pointOf(p1);
     const [x2, y2] = solver.pointOf(p2);
     return Math.hypot(x2 - x1, y2 - y1);
 }
 
-/**
- * Endpoints shared with neighbours through coincident constraints make the
- * picked refs point at different entities for what is one line. Rewrite such
- * refs to that line's own endpoints so the dimension — and its hover
- * highlight — belongs to the line the user sees.
- */
-function normalizeLineRefs(
-    solver: SketchSolver,
-    p1: SketchPointRef,
-    p2: SketchPointRef,
-): [SketchPointRef, SketchPointRef] {
-    if (p1.entityId === p2.entityId) return [p1, p2];
-    const coincident = (a: SketchPointRef, b: SketchPointRef) =>
-        solver.coincidentGroup(a).some((r) => pointRefKey(r) === pointRefKey(b));
-    for (const entity of solver.entities()) {
-        if (entity.type !== "line") continue;
-        const start: SketchPointRef = { entityId: entity.id, pointIndex: 0 };
-        const end: SketchPointRef = { entityId: entity.id, pointIndex: 1 };
-        if (coincident(start, p1) && coincident(end, p2)) return [start, end];
-        if (coincident(start, p2) && coincident(end, p1)) return [end, start];
-    }
-    return [p1, p2];
-}
-
 @command({ key: "dimension.pointLineDistance", icon: "icon-cPointLineDistance" })
 export class PointLineDistanceCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.P2LDistance, p.entityId)) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const lineId = await editor.pickEntity(
             "prompt.pickSketchEntity",
             "line",
@@ -215,8 +343,7 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
         const uvP = editor.solver.pointOf(p);
         const uv1 = editor.solver.pointOf(l1);
         const uv2 = editor.solver.pointOf(l2);
-        this.controller = new AsyncController();
-        const position = await pickDimensionPosition(editor, this.controller, (uv) =>
+        const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
             uv === undefined ? undefined : { kind: "pointLine", p: uvP, l1: uv1, l2: uv2, position: uv },
         );
         if (position === undefined) return;
@@ -254,11 +381,7 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
             { entityId: l2Id, pointIndex: 1 },
         ];
         const [a1, a2, b1, b2] = refs.map((r) => editor.solver.pointOf(r));
-        // A fresh controller, like every other placement step: without one the pick is left
-        // riding the previous step's controller, and `cancel()` only reaches it while that
-        // one happens to still be unresolved.
-        this.controller = new AsyncController();
-        const position = await pickDimensionPosition(editor, this.controller, (uv) =>
+        const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
             uv === undefined ? undefined : { kind: "angle", a1, a2, b1, b2, position: uv },
         );
         if (position === undefined) return;
@@ -278,7 +401,7 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
 
     /** One line of the angle; `datum: true` also lets the X/Y axes serve as a reference. */
     private async pickLine(editor: SketchEditor): Promise<number | undefined> {
-        this.controller = new AsyncController();
+        this.beginStep();
         const id = await editor.pickEntity(
             "prompt.pickSketchEntity",
             "line",
@@ -297,7 +420,7 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
  * records which side of the first line the second sits on, so a later magnitude edit
  * keeps the angle in place instead of flipping the line across its reference.
  */
-function measureAngle(
+export function measureAngle(
     solver: SketchSolver,
     refs: readonly SketchPointRef[],
     label: [number, number],
@@ -319,18 +442,17 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         const kind = this.axis === "h" ? ConstraintKind.HorizontalDistance : ConstraintKind.VerticalDistance;
-        this.controller = new AsyncController();
+        this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p1 === undefined || !allowsConstraintOnEntity(kind, p1.entityId)) return;
-        this.controller = new AsyncController();
+        this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p2 === undefined || !allowsConstraintOnEntity(kind, p2.entityId)) return;
 
         const uv1 = editor.solver.pointOf(p1);
         const uv2 = editor.solver.pointOf(p2);
         const axis = this.axis;
-        this.controller = new AsyncController();
-        const position = await pickDimensionPosition(editor, this.controller, (uv) =>
+        const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
             uv === undefined ? undefined : { kind: "axisDistance", p1: uv1, p2: uv2, axis, position: uv },
         );
         if (position === undefined) return;

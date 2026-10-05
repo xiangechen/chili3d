@@ -42,7 +42,7 @@ import { constraintTargetEntities } from "../solverEntities";
 import { type TrimPiece, trimPreview } from "../trimOps";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
 import style from "./sketchAnnotations.module.css";
-import type { SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
+import type { SketchActivePick, SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
 
 const PICK_TOLERANCE_PX = 8;
 const CIRCLE_SEGMENTS = 64;
@@ -77,6 +77,16 @@ const MIRROR_PREVIEW_COLOR = 0xff6b6b;
 const MIRROR_PREVIEW_LINE_WIDTH = 3;
 /** A drag shorter than this in both axes reads as a click, not a box. */
 const BOX_MIN_PX = 4;
+
+/**
+ * What hover should light up: the shape(s) to draw, and the key that says they are already
+ * up (an unchanged key skips the redraw, so two different targets must never share one).
+ */
+interface HoverTarget {
+    key?: string;
+    mesh?: ShapeMeshData;
+    meshes?: ShapeMeshData[];
+}
 
 /** Screen-space rectangle, normalized so min ≤ max on both axes. */
 interface ScreenRect {
@@ -659,79 +669,113 @@ export class SketchEventHandler implements IEventHandler {
         this.syncAnnotationHighlights();
     }
 
-    private computeHoverTarget(
-        view: IView,
-        event: PointerEvent,
-    ): { key?: string; mesh?: ShapeMeshData; meshes?: ShapeMeshData[] } {
+    private computeHoverTarget(view: IView, event: PointerEvent): HoverTarget {
         const pick = this.editor.activePick;
 
-        if (pick === undefined || pick.kind === "point") {
-            const ref = this.hitTestPoint(view, event);
-            if (ref !== undefined) {
-                const [u, v] = this.editor.solver.pointOf(ref);
-                return {
-                    key: `point:${ref.entityId}:${ref.pointIndex}`,
-                    mesh: MeshDataUtils.createVertexMesh(
-                        toWorld(this.editor.node.plane, u, v),
-                        VisualConfig.editVertexSize,
-                        VisualConfig.editVertexColor,
-                    ),
-                };
-            }
+        // an element pick wants a point here if there is one, and an entity otherwise — that
+        // is the very precedence it resolves clicks with, so hover shows it the same way
+        if (pick === undefined || pick.kind === "point" || pick.kind === "element") {
+            const point = this.pointHoverTarget(view, event);
+            if (point !== undefined) return point;
         }
 
-        // The entity-and-position pick is the trim's: what it wants is not the entity
-        // but the piece of it the click would take away, so the hole is drawn instead
-        // of the whole curve. Nothing at all is drawn where the trim would refuse —
-        // on a crossing, or on a piece too short to be one — which is how the refusal
-        // reads before the click rather than after it.
-        if (pick?.kind === "entityAt") {
-            const entityId = this.hitTestEntity(view, event, pick.entityType, pick.datum ?? false);
-            const uv = entityId === undefined ? undefined : this.pointerToUV(view, event);
-            if (entityId === undefined || uv === undefined) return {};
-            const piece = trimPreview(this.editor.solver, entityId, uv, this.editor.screenTolerance());
-            return piece === undefined
-                ? {}
-                : { key: trimPieceKey(entityId, piece), mesh: trimPieceMesh(this.editor, piece) };
-        }
+        if (pick?.kind === "entityAt") return this.trimHoverTarget(view, event, pick);
 
         // a multi-entity pick and a single-entity one highlight what they want picked
-        // just like a plain hover does
-        if (pick === undefined || pick.kind === "entity" || pick.kind === "entities") {
-            const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
-            if (entityId === undefined) return {};
-
-            // A pick that previews what it would leave (the mirror) draws its proposal
-            // beside the plain hover highlight — the line under the cursor stays lit. The
-            // preview only ever adds: a pick previews nothing until it has something to
-            // preview (the mirror's line is picked before any source is chosen), and that
-            // must still read as an ordinary hover rather than as no feedback at all.
-            const preview = pick?.previewEntity?.(entityId);
-            if (preview !== undefined && preview.length > 0) {
-                return {
-                    // `mirror:` rather than `entity:`: updateHover skips a key it already
-                    // shows, and entering the pick from a plain hover over the same line
-                    // would otherwise keep the old highlight and never draw the proposal
-                    key: `mirror:${entityId}`,
-                    meshes: [
-                        ...this.hoverHighlightMeshes(entityId),
-                        ...preview.map((copy) => mirrorPreviewMesh(this.editor, copy)),
-                    ],
-                };
-            }
-
-            if (isDatumEntityId(entityId)) {
-                return {
-                    key: `entity:${entityId}`,
-                    mesh: this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor),
-                };
-            }
-            const entity = this.editor.solver.entity(entityId);
-            if (entity !== undefined) {
-                return { key: `entity:${entityId}`, mesh: sketchEntityMesh(this.editor, entity) };
-            }
+        // just like a plain hover does — and an element pick highlights the entity only
+        // when no point was in reach, which the point branch above already settled
+        if (
+            pick === undefined ||
+            pick.kind === "entity" ||
+            pick.kind === "entities" ||
+            pick.kind === "element"
+        ) {
+            return this.entityHoverTarget(view, event, pick);
         }
         return {};
+    }
+
+    /** The point under the cursor, if one is in reach — a vertex is what every pick hits first. */
+    private pointHoverTarget(view: IView, event: PointerEvent): HoverTarget | undefined {
+        const ref = this.hitTestPoint(view, event);
+        if (ref === undefined) return undefined;
+        const [u, v] = this.editor.solver.pointOf(ref);
+        return {
+            key: `point:${ref.entityId}:${ref.pointIndex}`,
+            mesh: MeshDataUtils.createVertexMesh(
+                toWorld(this.editor.node.plane, u, v),
+                VisualConfig.editVertexSize,
+                VisualConfig.editVertexColor,
+            ),
+        };
+    }
+
+    /**
+     * The entity under the cursor, highlighted the way a plain hover would. A pick that
+     * previews what it would leave draws that proposal instead — see `entityPreviewTarget`.
+     */
+    private entityHoverTarget(
+        view: IView,
+        event: PointerEvent,
+        pick: SketchActivePick | undefined,
+    ): HoverTarget {
+        const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
+        if (entityId === undefined) return {};
+
+        const preview = this.entityPreviewTarget(entityId, pick);
+        if (preview !== undefined) return preview;
+
+        if (isDatumEntityId(entityId)) {
+            return {
+                key: `entity:${entityId}`,
+                mesh: this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor),
+            };
+        }
+        const entity = this.editor.solver.entity(entityId);
+        return entity === undefined
+            ? {}
+            : { key: `entity:${entityId}`, mesh: sketchEntityMesh(this.editor, entity) };
+    }
+
+    /**
+     * A pick that previews what it would leave (the mirror) draws its proposal beside the
+     * plain hover highlight — the line under the cursor stays lit. The preview only ever
+     * adds: a pick previews nothing until it has something to preview (the mirror's line is
+     * picked before any source is chosen), and that must still read as an ordinary hover
+     * rather than as no feedback at all. Undefined when there is nothing to propose.
+     */
+    private entityPreviewTarget(
+        entityId: number,
+        pick: SketchActivePick | undefined,
+    ): HoverTarget | undefined {
+        const preview = pick?.previewEntity?.(entityId);
+        if (preview === undefined || preview.length === 0) return undefined;
+        return {
+            // `mirror:` rather than `entity:`: updateHover skips a key it already shows,
+            // and entering the pick from a plain hover over the same line would otherwise
+            // keep the old highlight and never draw the proposal
+            key: `mirror:${entityId}`,
+            meshes: [
+                ...this.hoverHighlightMeshes(entityId),
+                ...preview.map((copy) => mirrorPreviewMesh(this.editor, copy)),
+            ],
+        };
+    }
+
+    /**
+     * The entity-and-position pick is the trim's: what it wants is not the entity but the
+     * piece of it the click would take away, so the hole is drawn instead of the whole
+     * curve. Nothing at all is drawn where the trim would refuse — on a crossing, or on a
+     * piece too short to be one — which is how the refusal reads before the click rather
+     * than after it.
+     */
+    private trimHoverTarget(view: IView, event: PointerEvent, pick: SketchActivePick): HoverTarget {
+        const entityId = this.hitTestEntity(view, event, pick.entityType, pick.datum ?? false);
+        const uv = entityId === undefined ? undefined : this.pointerToUV(view, event);
+        if (entityId === undefined || uv === undefined) return {};
+        const piece = trimPreview(this.editor.solver, entityId, uv, this.editor.screenTolerance());
+        if (piece === undefined) return {};
+        return { key: trimPieceKey(entityId, piece), mesh: trimPieceMesh(this.editor, piece) };
     }
 
     /** The highlight a preview stands in front of: the hovered line, datum axes included. */

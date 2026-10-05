@@ -71,6 +71,13 @@ export interface SketchConstraintData {
     datum?: ParameterValue;
     /** Datum values for multi-datum kinds (Fix = [x, y]); mutually exclusive with `datum`. */
     datums?: ParameterValue[];
+    /**
+     * How a radius datum reads: `radius` (absent) or `diameter`. Rides on the constraint
+     * rather than on the label anchor because the *solver* is what has to apply the
+     * conversion — garlic has no diameter constraint, so the reading is twice the datum
+     * it drives, and only this record knows which reading the user wrote.
+     */
+    display?: RadiusDisplay;
 }
 
 /**
@@ -97,22 +104,34 @@ export function datumUnitSpec(kind: ConstraintKind): UnitSpec {
  * Datum value shown in the UI: angles store the signed sweep (the sign picks the
  * side of the first line) and display its magnitude in degrees, point-line
  * distances flip sign (UI: positive = left of the line direction; garlic stores
- * the negated signed distance), everything else as stored.
+ * the negated signed distance), and a diameter reads as twice the radius garlic
+ * holds — everything else as stored.
  */
-export function toDisplayDatum(kind: ConstraintKind, value: number): number {
+export function toDisplayDatum(
+    kind: ConstraintKind,
+    value: number,
+    display: RadiusDisplay = "radius",
+): number {
     if (kind === ConstraintKind.Angle) return (Math.abs(value) * 180) / Math.PI;
     if (kind === ConstraintKind.P2LDistance) return -value;
+    if (kind === ConstraintKind.Radius && display === "diameter") return value * 2;
     return value;
 }
 
 /**
  * Datum value for the solver: inverse of `toDisplayDatum`. For angles this yields
  * the magnitude in radians — the solver re-attaches the side sign before solving
- * (`SketchSolver.syncAngleDatumSide`).
+ * (`SketchSolver.syncAngleDatumSide`) — and for a diameter half the reading, since
+ * the constraint underneath is the radius.
  */
-export function toStorageDatum(kind: ConstraintKind, value: number): number {
+export function toStorageDatum(
+    kind: ConstraintKind,
+    value: number,
+    display: RadiusDisplay = "radius",
+): number {
     if (kind === ConstraintKind.Angle) return (value * Math.PI) / 180;
     if (kind === ConstraintKind.P2LDistance) return -value;
+    if (kind === ConstraintKind.Radius && display === "diameter") return value / 2;
     return value;
 }
 
@@ -121,36 +140,58 @@ export function toStorageDatum(kind: ConstraintKind, value: number): number {
  * an expression is kept verbatim — it is written in display units, and converting it
  * before it resolves would mean re-parsing the conversion on every rebuild.
  */
-export function toDatumSource(kind: ConstraintKind, input: ParameterValue): ParameterValue {
-    return typeof input === "number" ? toStorageDatum(kind, input) : input;
+export function toDatumSource(
+    kind: ConstraintKind,
+    input: ParameterValue,
+    display: RadiusDisplay = "radius",
+): ParameterValue {
+    return typeof input === "number" ? toStorageDatum(kind, input, display) : input;
 }
 
 /**
  * A stored datum as the number the solver takes: a literal is already in storage
  * units, an expression resolves against `scope` (in display units, checked against
- * the kind's unit) and is converted afterwards.
+ * the kind's unit) and is converted afterwards. The conversion is the same one the
+ * literal path takes, so an expression and a literal of the same reading agree.
  */
 export function resolveDatumSource(
     kind: ConstraintKind,
     source: ParameterValue,
     scope: Scope,
+    display: RadiusDisplay = "radius",
 ): Result<number> {
     if (typeof source === "number") return Result.ok(source);
     const resolved = resolveUnitSpec(source, scope, datumUnitSpec(kind));
     if (!resolved.isOk) return Result.err(resolved.error);
-    return Result.ok(toStorageDatum(kind, resolved.value));
+    return Result.ok(toStorageDatum(kind, resolved.value, display));
 }
 
 // The label frame is the planar layout's own input, so it lives beside that layout in
 // core; re-exported here because the anchors below are part of the persisted SketchData.
 export type { DimensionLabel };
 
-/** Where the label of a datum constraint is anchored, relative to its references. */
+/**
+ * How a radius reads: as the radius itself, or as the diameter (Ø) over the same datum.
+ * The solver has no diameter constraint — a diameter is a *reading* of a radius, so the
+ * stored datum stays r and only what the user sees and types is doubled.
+ */
+export type RadiusDisplay = "radius" | "diameter";
+
+/**
+ * Label vector from the circle center (Radius) or the angle vertex (Angle). Where the
+ * label sits is all the anchor holds: how the datum *reads* is the constraint's own
+ * (`SketchConstraintData.display`), so dragging the label cannot turn a Ø back into an R.
+ */
 export type DimensionAnchor =
     /** A label in the measured line's frame — the linear distance kinds. */
     | ({ readonly kind: "offset" } & DimensionLabel)
-    /** Label vector from the circle center (Radius) or the angle vertex (Angle). */
     | { readonly kind: "vector"; readonly dx: number; readonly dy: number };
+
+/** The reading a radius constraint asks for; anything but an explicit `diameter` is a radius. */
+export function radiusDisplayOf(constraint: SketchConstraintData | undefined): RadiusDisplay {
+    if (constraint?.kind !== ConstraintKind.Radius) return "radius";
+    return constraint.display ?? "radius";
+}
 
 /** Datum label anchor bound to a constraint id (ids are stable across sessions). */
 export interface SketchDimensionAnchor {

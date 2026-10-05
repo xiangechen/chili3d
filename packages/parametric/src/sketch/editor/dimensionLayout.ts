@@ -21,6 +21,7 @@ export {
     type DimensionGraphics,
     type DimensionLabel,
     type DimensionSize,
+    diameterDimension,
     distanceDimension,
     labelOnAxis,
     labelOnSegment,
@@ -37,8 +38,8 @@ export {
     segmentOffset,
     signedSweep,
 } from "@chili3d/core";
-export type { DimensionAnchor } from "../sketchModel";
-export { toDisplayDatum, toStorageDatum } from "../sketchModel";
+export type { DimensionAnchor, RadiusDisplay } from "../sketchModel";
+export { radiusDisplayOf, toDisplayDatum, toStorageDatum } from "../sketchModel";
 
 import {
     type DimensionMeasurement,
@@ -46,7 +47,7 @@ import {
     formatMeasurement,
     type ParameterValue,
 } from "@chili3d/core";
-import { ConstraintKind, toDisplayDatum } from "../sketchModel";
+import { ConstraintKind, type RadiusDisplay, toDisplayDatum } from "../sketchModel";
 
 /**
  * Sketch dimension text height in screen pixels — a step up from the 12px of the
@@ -61,11 +62,14 @@ export function sketchDimensionSize(px: number): DimensionSize {
     return { scale: px, textHeight: SKETCH_TEXT_HEIGHT_PX * px };
 }
 
-/** How a constraint kind reads: a radius dimension is a radius, an angle one an angle. */
-function measurementOf(kind: ConstraintKind): DimensionMeasurement {
+/**
+ * How a constraint kind reads: a radius dimension is a radius — or a diameter, when the
+ * constraint says so — and an angle one an angle.
+ */
+export function measurementOf(kind: ConstraintKind, display: RadiusDisplay = "radius"): DimensionMeasurement {
     switch (kind) {
         case ConstraintKind.Radius:
-            return "radius";
+            return display === "diameter" ? "diameter" : "radius";
         case ConstraintKind.Angle:
             return "angle";
         default:
@@ -75,10 +79,17 @@ function measurementOf(kind: ConstraintKind): DimensionMeasurement {
 
 /**
  * The text a sketch dimension shows for a stored datum: an expression reads as written —
- * that name IS the user's intent — while a literal reads as its display value, with the
- * digits and the affixes every dimension reads with (`R`, `°`; see `dimensionText` in core).
+ * that name IS the user's intent, and it is written in the same reading the dimension
+ * reads in — while a literal reads as its display value, with the digits and the affixes
+ * every dimension reads with (`R`, `Ø`, `°`; see `dimensionText` in core). A diameter is
+ * the one kind whose *value* differs from its datum as well as its affix: the constraint
+ * underneath is a radius, so the reading is twice it (`toDisplayDatum`).
  */
-export function formatDatum(kind: ConstraintKind, value: ParameterValue): string {
+export function formatDatum(
+    kind: ConstraintKind,
+    value: ParameterValue,
+    display: RadiusDisplay = "radius",
+): string {
     if (typeof value === "string") return value;
-    return formatMeasurement(measurementOf(kind), toDisplayDatum(kind, value));
+    return formatMeasurement(measurementOf(kind, display), toDisplayDatum(kind, value, display));
 }

@@ -174,6 +174,48 @@ describe("SketchEditor constraint diagnostics", () => {
         }
     });
 
+    test("a radius read as a diameter is named and valued as one in the list", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const asDiameter = editor.solver.addCircle(0, 0, 30);
+            const readAsDiameter = editor.solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: asDiameter, pointIndex: 0 }],
+                datum: 30,
+                display: "diameter",
+            });
+            editor.dimensionAnchors.set(readAsDiameter, { kind: "vector", dx: 40, dy: 0 });
+            const asRadius = editor.solver.addCircle(200, 0, 20);
+            const readAsRadius = editor.solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [{ entityId: asRadius, pointIndex: 0 }],
+                datum: 20,
+            });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            const rowOf = (id: number) =>
+                [...content.querySelectorAll(`.${style.row}`)].find((r) =>
+                    r.textContent?.includes(`#${id} `),
+                );
+
+            // the row reads what the canvas reads, so double-clicking it edits the same number
+            // the badge shows — the two constraints underneath are the same kind
+            expect(rowOf(readAsDiameter)?.querySelector(`.${style.name}`)?.textContent).toBe(
+                `#${readAsDiameter} ${I18n.translate("dimension.diameter")}`,
+            );
+            expect(rowOf(readAsDiameter)?.querySelector(`.${style.value}`)?.textContent).toBe("Ø60.00");
+            expect(rowOf(readAsRadius)?.querySelector(`.${style.name}`)?.textContent).toBe(
+                `#${readAsRadius} ${I18n.translate("command.dimension.radius")}`,
+            );
+            expect(rowOf(readAsRadius)?.querySelector(`.${style.value}`)?.textContent).toBe("R20.00");
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
     test("a row click selects the constraint like a badge click", () => {
         const ctx = setup();
         try {

@@ -288,6 +288,46 @@ export function radiusDimension(
 }
 
 /**
+ * Diameter dimension: the same leader direction as `radiusDimension`, but drawn across
+ * the circle rather than out from its center. Both arrowheads sit on the rim — one on
+ * each side of the center — and point outward, so what is measured is the full width and
+ * not the distance to the center.
+ *
+ * One segment runs from the far rim, through the center, out past the near rim and on to
+ * the label: `radiusDimension`'s leader, continued through to the other side. The label
+ * always stands clear of the rim (`DIMENSION_RADIAL_LABEL_MARGIN_PX`), so the leader is
+ * never a separate piece that might come loose from the line it belongs to.
+ *
+ * The value this measures is twice a `Radius` constraint's datum: the sketch has no
+ * diameter constraint of its own, so a diameter is a reading of a radius, not a
+ * different measurement.
+ */
+export function diameterDimension(
+    center: Point2,
+    radius: number,
+    labelOffset: Point2,
+    size: DimensionSize,
+): DimensionGeometry {
+    const [dx, dy] = labelOffset;
+    const length = Math.hypot(dx, dy);
+    const dir: Point2 = length < 1e-9 ? [Math.SQRT1_2, Math.SQRT1_2] : [dx / length, dy / length];
+    const labelDistance = Math.max(length, radius + DIMENSION_RADIAL_LABEL_MARGIN_PX * size.scale);
+    const label: Point2 = [center[0] + dir[0] * labelDistance, center[1] + dir[1] * labelDistance];
+    const near: Point2 = [center[0] - dir[0] * radius, center[1] - dir[1] * radius];
+    const far: Point2 = [center[0] + dir[0] * radius, center[1] + dir[1] * radius];
+
+    return {
+        segments: [[near[0], near[1], label[0], label[1]]],
+        // both apexes on the rim, both pointing outward: each base sits one arrow length
+        // in toward the center, which is `-outward` for the near side and `outward` for
+        // the far one (arrowhead lays its base along `-outward` from the tip)
+        triangles: [...arrowhead(near, [-dir[0], -dir[1]], size.scale), ...arrowhead(far, dir, size.scale)],
+        textPosition: textAnchor(label, [-dir[1], dir[0]], size),
+        textDirection: dir,
+    };
+}
+
+/**
  * A solid triangle: `tip` on the measured geometry, the base corners one arrow
  * length back along `outward` — the silhouette of the drafting open arrowhead,
  * filled, fanning into the left normal of `outward`.

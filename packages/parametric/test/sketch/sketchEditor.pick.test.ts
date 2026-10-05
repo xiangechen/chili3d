@@ -418,3 +418,93 @@ describe("arc entity hit testing", () => {
         }
     });
 });
+
+// The element pick answers with whatever the click landed on, and with the click's own
+// position when it landed on nothing. That "nothing" is a real answer: it is how a tool
+// that keeps selecting until you click away from the geometry is told to stop.
+describe("SketchEditor element picking", () => {
+    function setupLine() {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        // 100 long, so the middle sits 50 screen px clear of either endpoint's 8px reach
+        editor.solver.addLine(0, 0, 100, 0);
+        editor.solve(true);
+        return { ...ctx, node, editor, handler: ctx.doc.visual.eventHandler as SketchEventHandler };
+    }
+
+    test("a click near an endpoint answers with that point, not the line under it", async () => {
+        const { editor, view, handler, restoreFactory } = setupLine();
+        try {
+            const promise = editor.pickElement("prompt.pickDimension");
+            handler.pointerDown(view, pointerEvent(402, 298));
+
+            await expect(promise).resolves.toEqual({
+                hit: { kind: "point", ref: { entityId: 1, pointIndex: 0 } },
+                uv: [2, 2],
+            });
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a click along the line, clear of its ends, answers with the entity", async () => {
+        const { editor, view, handler, restoreFactory } = setupLine();
+        try {
+            const promise = editor.pickElement("prompt.pickDimension");
+            handler.pointerDown(view, pointerEvent(450, 300));
+
+            await expect(promise).resolves.toEqual({
+                hit: { kind: "entity", entityId: 1 },
+                uv: [50, 0],
+            });
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a click on empty space answers with its position", async () => {
+        const { editor, view, handler, restoreFactory } = setupLine();
+        try {
+            const promise = editor.pickElement("prompt.pickDimension");
+            handler.pointerDown(view, pointerEvent(450, 350));
+
+            await expect(promise).resolves.toEqual({ hit: { kind: "position" }, uv: [50, -50] });
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a missing click is swallowed, so it cannot start a rubber band instead", async () => {
+        const { editor, view, handler, restoreFactory } = setupLine();
+        try {
+            const promise = editor.pickElement("prompt.pickDimension");
+            handler.pointerDown(view, pointerEvent(450, 250));
+            await expect(promise).resolves.toMatchObject({ hit: { kind: "position" } });
+
+            // a box dragged from that press would have crossed the line and selected it
+            handler.pointerUp(view, pointerEvent(450, 350));
+            expect(editor.selectedEntityIds()).toEqual([]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a cancelled command abandons the pick without answering", async () => {
+        const { editor, view, handler, restoreFactory } = setupLine();
+        try {
+            const promise = editor.pickElement("prompt.pickDimension");
+            handler.keyDown(view, { key: "Escape" } as KeyboardEvent);
+
+            await expect(promise).resolves.toBeUndefined();
+            expect(editor.isPicking).toBe(false);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});

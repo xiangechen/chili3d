@@ -6,6 +6,7 @@ import {
     angleVertex,
     axisDistanceDimension,
     type DimensionSize,
+    diameterDimension,
     distanceDimension,
     labelOnAxis,
     labelOnSegment,
@@ -206,6 +207,50 @@ describe("radiusDimension", () => {
         const geometry = radiusDimension([4, 3], 5, [30, 0], PX_SIZE);
         expect(geometry.textPosition).toEqual([34, 3 + raise(PX_SIZE)]);
         expect(geometry.segments[0].slice(0, 2)).toEqual([4, 3]);
+    });
+});
+
+describe("diameterDimension", () => {
+    test("dimension line across the circle, an arrowhead on each rim pointing out", () => {
+        // 30 is past the rim (5) and the 20px margin at 0.5 (10), so a leader reaches it
+        const geometry = diameterDimension([0, 0], 5, [30, 0], PX_SIZE);
+
+        // one line from the far rim, through the center, out past the near rim to the label
+        expect(geometry.segments).toEqual([[-5, 0, 30, 0]]);
+        expect(geometry.textPosition).toEqual([30, raise(PX_SIZE)]);
+        expect(geometry.textDirection).toEqual([1, 0]);
+
+        // two solid heads, both with their tips on the rim and their bases turned inward —
+        // so each points out of the circle, which is what reads as a diameter and not a radius
+        expect(geometry.triangles.length).toBe(6);
+        const [nearTip, nearCorner1, nearCorner2, farTip, farCorner1, farCorner2] = geometry.triangles;
+        expect(nearTip).toEqual([-5, 0]);
+        expect(farTip).toEqual([5, 0]);
+        expect(nearCorner1[0]).toBeGreaterThan(nearTip[0]);
+        expect(nearCorner2[0]).toBeGreaterThan(nearTip[0]);
+        expect(farCorner1[0]).toBeLessThan(farTip[0]);
+        expect(farCorner2[0]).toBeLessThan(farTip[0]);
+        // each pair fans out across the line: one corner above it, one below
+        for (const [up, down] of [
+            [nearCorner1[1], nearCorner2[1]],
+            [farCorner1[1], farCorner2[1]],
+        ]) {
+            expect(Math.min(up, down)).toBeLessThan(0);
+            expect(Math.max(up, down)).toBeGreaterThan(0);
+        }
+    });
+
+    test("pushes a label inside the rim margin out past the rim", () => {
+        // radius 10 + margin 10 at 0.5: a pick at 1 lands at 20, clear of the circle
+        const geometry = diameterDimension([0, 0], 10, [1, 0], PX_SIZE);
+        expect(geometry.segments).toEqual([[-10, 0, 20, 0]]);
+        expect(geometry.textPosition).toEqual([20, raise(PX_SIZE)]);
+    });
+
+    test("follows the circle center", () => {
+        const geometry = diameterDimension([4, 3], 5, [30, 0], PX_SIZE);
+        expect(geometry.textPosition).toEqual([34, 3 + raise(PX_SIZE)]);
+        expect(geometry.segments[0]).toEqual([-1, 3, 34, 3]);
     });
 });
 

@@ -602,6 +602,10 @@ const DIRECTION_KINDS: ReadonlySet<ConstraintKind> = new Set([
  * point is untouched, since the centre is the one point the retype preserves.
  * `undefined` is a relation the arc cannot carry: an equal radius against another
  * circle has no arc form, so the trim drops it rather than failing.
+ *
+ * A radius reading (Ø or R) is carried as the user wrote it: the retype moves the
+ * geometry, and an annotation is not geometry. An arc dimensioned from scratch reads R
+ * (`buildRadiusReading`), but a dimension already placed keeps the reading it was given.
  */
 function circleToArcConstraint(
     solver: SketchSolver,
@@ -613,6 +617,7 @@ function circleToArcConstraint(
         refs: constraint.refs,
         ...(constraint.datum === undefined ? {} : { datum: constraint.datum }),
         ...(constraint.datums === undefined ? {} : { datums: constraint.datums }),
+        ...(constraint.display === undefined ? {} : { display: constraint.display }),
     };
     switch (constraint.kind) {
         // rebuilt by the solver itself, as a point distance over centre and start

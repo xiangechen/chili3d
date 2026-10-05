@@ -36,6 +36,7 @@ import {
     type DimensionGeometry,
     type DimensionGraphics,
     type DimensionSize,
+    diameterDimension,
     distanceDimension,
     formatDatum,
     labelOnAxis,
@@ -46,6 +47,7 @@ import {
     pointLineSignedDistance,
     pushDimensionGeometry,
     radiusDimension,
+    radiusDisplayOf,
     SKETCH_TEXT_HEIGHT_PX,
     signedSweep,
     sketchDimensionSize,
@@ -205,6 +207,13 @@ export type DimensionPreview =
       }
     | {
           readonly kind: "radius";
+          readonly center: [number, number];
+          readonly radius: number;
+          readonly position: [number, number];
+      }
+    /** A full circle read as a diameter: same datum as a radius, drawn across and read Ø. */
+    | {
+          readonly kind: "diameter";
           readonly center: [number, number];
           readonly radius: number;
           readonly position: [number, number];
@@ -485,17 +494,31 @@ export class SketchAnnotationManager implements IDisposable {
             this.pushTextTriangles(corners[text.tone ?? "normal"], text, px);
         }
 
+        this.displayGraphics(graphics, corners);
+        this.view.update();
+    }
+
+    /**
+     * Uploads what the refresh collected: one edge mesh and one face mesh per tone that has
+     * any, in that tone's colour. Nothing is sent when every bucket is empty, so a sketch
+     * with no dimensions repaints without touching the display.
+     */
+    private displayGraphics(
+        graphics: Record<DimensionTone | "normal", DimensionGraphics>,
+        corners: Record<DimensionTone | "normal", DimensionGeometry["triangles"]>,
+    ): void {
         const meshes: ShapeMeshData[] = [];
         for (const tone of ["normal", "conflict", "redundant"] as const) {
             if (graphics[tone].segments.length > 0) {
                 meshes.push(this.toEdgeMesh(graphics[tone].segments, TONE_COLORS[tone]));
             }
-            if (corners[tone].length > 0) meshes.push(this.toFaceMesh(corners[tone], TONE_COLORS[tone]));
+            if (corners[tone].length > 0) {
+                meshes.push(this.toFaceMesh(corners[tone], TONE_COLORS[tone]));
+            }
         }
         if (meshes.length > 0) {
             this.meshId = this.view.document.visual.context.displayMesh(meshes, { onTop: true });
         }
-        this.view.update();
     }
 
     // ------------------------------------------------------------------ Constraint badges and dimension geometry
@@ -685,7 +708,7 @@ export class SketchAnnotationManager implements IDisposable {
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
         // An expression reads as written — that is the whole point of naming it.
-        const text = formatDatum(constraint.kind, constraint.datum ?? 0);
+        const text = formatDatum(constraint.kind, constraint.datum ?? 0, radiusDisplayOf(constraint));
         // A broken expression keeps a visible badge — it is the only place that says so.
         const broken = this.solver.datumErrors.has(constraint.id);
         if (!broken) {
@@ -783,6 +806,10 @@ export class SketchAnnotationManager implements IDisposable {
             this.previewRadius(preview, px, graphics);
             return;
         }
+        if (preview.kind === "diameter") {
+            this.previewDiameter(preview, px, graphics);
+            return;
+        }
         if (preview.kind === "pointLine") {
             this.previewPointLine(preview, px, graphics);
             return;
@@ -821,6 +848,22 @@ export class SketchAnnotationManager implements IDisposable {
         );
         pushDimensionGeometry(graphics, geometry);
         this.pushPreviewText(`R${preview.radius.toFixed(2)}`, geometry);
+    }
+
+    private previewDiameter(
+        preview: Extract<DimensionPreview, { kind: "diameter" }>,
+        px: number,
+        graphics: DimensionGraphics,
+    ): void {
+        const [cx, cy] = preview.center;
+        const geometry = diameterDimension(
+            preview.center,
+            preview.radius,
+            [preview.position[0] - cx, preview.position[1] - cy],
+            sketchDimensionSize(px),
+        );
+        pushDimensionGeometry(graphics, geometry);
+        this.pushPreviewText(`Ø${(preview.radius * 2).toFixed(2)}`, geometry);
     }
 
     private previewPointLine(
@@ -979,7 +1022,10 @@ export class SketchAnnotationManager implements IDisposable {
         const radius = entityRadius(entity);
         const anchor = this.anchors.get(constraint.id);
         const [dx, dy] = anchor?.kind === "vector" ? [anchor.dx, anchor.dy] : [radius, radius];
-        return radiusDimension(center, radius, [dx, dy], size);
+        // a diameter is a radius that reads across the circle — same datum, other furniture
+        return radiusDisplayOf(constraint) === "diameter"
+            ? diameterDimension(center, radius, [dx, dy], size)
+            : radiusDimension(center, radius, [dx, dy], size);
     }
 
     /** World units per screen pixel at the view center (falls back to 1). */
@@ -1106,12 +1152,16 @@ export class SketchAnnotationManager implements IDisposable {
      * of its members happens to be visible at the moment. Measuring the hidden ones costs
      * a little, and sketches are small.
      */
-    private placeBadges(px: number): void {
-        const groups = clusterBadges(this.pendingBadges, BADGE_STACK_DISTANCE_PX * px);
+    /**
+     * Indexes the clusters `clusterBadges` just found: which group each placement landed in,
+     * and which groups each constraint appears in — the second is what a hovered constraint
+     * reads to know which stacks to open. One cluster object per group, because `placeBadges`
+     * tells them apart by identity.
+     */
+    private indexClusters(groups: BadgePlacement[][]): Map<BadgePlacement, BadgeCluster> {
         const clusterOf = new Map<BadgePlacement, BadgeCluster>();
         this.stacksByConstraint.clear();
         for (const [key, members] of groups.entries()) {
-            // one object per group: `emitted` below identifies a cluster by it
             const cluster: BadgeCluster = { key, members };
             for (const placement of members) {
                 clusterOf.set(placement, cluster);
@@ -1120,6 +1170,12 @@ export class SketchAnnotationManager implements IDisposable {
                 this.stacksByConstraint.set(placement.constraint.id, stacks);
             }
         }
+        return clusterOf;
+    }
+
+    private placeBadges(px: number): void {
+        const groups = clusterBadges(this.pendingBadges, BADGE_STACK_DISTANCE_PX * px);
+        const clusterOf = this.indexClusters(groups);
         this.forcedStackKeys = this.stacksForcedOpen();
         const emitted = new Set<BadgeCluster>();
         for (const placement of this.pendingBadges) {

@@ -2,8 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import { I18n, type I18nKeys } from "@chili3d/core";
-import { ConstraintKind, isStructuralConstraint, type SketchConstraintData } from "../sketchModel";
-import { formatDatum } from "./dimensionLayout";
+import {
+    ConstraintKind,
+    isStructuralConstraint,
+    type RadiusDisplay,
+    type SketchConstraintData,
+} from "../sketchModel";
+import { formatDatum, radiusDisplayOf } from "./dimensionLayout";
 import { applyConstraintIcon, badgeIcon, badgeSymbol } from "./sketchAnnotations";
 import style from "./sketchConstraintsPanel.module.css";
 import type { SketchEditor } from "./sketchEditor";
@@ -40,11 +45,24 @@ const CONSTRAINT_LABELS: Record<ConstraintKind, I18nKeys> = {
     [ConstraintKind.TangentCircleArc]: "command.constraint.tangent",
 };
 
-function datumText(constraint: SketchConstraintData): string | undefined {
+/**
+ * The name a row carries. A radius the sheet reads as a diameter is named for the
+ * reading, not for the constraint underneath it — the row would otherwise say "Radius"
+ * beside a `Ø` value, and open a dialog in diameter units when double-clicked.
+ */
+function constraintLabel(constraint: SketchConstraintData, display: RadiusDisplay): I18nKeys {
+    if (constraint.kind === ConstraintKind.Radius && display === "diameter") return "dimension.diameter";
+    return CONSTRAINT_LABELS[constraint.kind];
+}
+
+/** The value a row carries, in the same reading its badge on the canvas uses. */
+function datumText(constraint: SketchConstraintData, display: RadiusDisplay): string | undefined {
     if (constraint.datums !== undefined) {
-        return constraint.datums.map((datum) => formatDatum(constraint.kind, datum)).join(", ");
+        return constraint.datums.map((datum) => formatDatum(constraint.kind, datum, display)).join(", ");
     }
-    if (constraint.datum !== undefined) return formatDatum(constraint.kind, constraint.datum);
+    if (constraint.datum !== undefined) {
+        return formatDatum(constraint.kind, constraint.datum, display);
+    }
     return undefined;
 }
 
@@ -185,7 +203,8 @@ export class SketchConstraintsPanel {
         }
         this.addIssueChip(row, constraint.id);
 
-        const datum = datumText(constraint);
+        const display = this.readingOf(constraint);
+        const datum = datumText(constraint, display);
         if (datum !== undefined) {
             const value = document.createElement("span");
             value.className = style.value;
@@ -214,8 +233,14 @@ export class SketchConstraintsPanel {
     private buildName(constraint: SketchConstraintData): HTMLElement {
         const name = document.createElement("span");
         name.className = style.name;
-        name.textContent = `#${constraint.id} ${I18n.translate(CONSTRAINT_LABELS[constraint.kind])}`;
+        const label = constraintLabel(constraint, this.readingOf(constraint));
+        name.textContent = `#${constraint.id} ${I18n.translate(label)}`;
         return name;
+    }
+
+    /** How this constraint reads on the canvas — the constraint itself is where that is kept. */
+    private readingOf(constraint: SketchConstraintData): RadiusDisplay {
+        return radiusDisplayOf(constraint);
     }
 
     private buildDeleteButton(constraintId: number): HTMLElement {

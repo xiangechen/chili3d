@@ -22,6 +22,7 @@ import {
     isStructuralConstraint,
     nextSketchId,
     pointRefKey,
+    type RadiusDisplay,
     resolveDatumSource,
     SKETCH_ORIGIN_ID,
     SKETCH_X_AXIS_ID,
@@ -114,6 +115,8 @@ interface ConstraintRecord {
      * over it would replace the user's expression with its current value.
      */
     datumSources?: ParameterValue[];
+    /** The reading a radius datum is written in — `diameter` halves what resolves. */
+    display?: RadiusDisplay;
 }
 
 /**
@@ -208,7 +211,7 @@ export class SketchSolver implements ExternalEntityHost {
             const paramIds = record.datumParamIds;
             if (sources === undefined || paramIds === undefined) continue;
             for (let index = 0; index < sources.length; index++) {
-                const resolved = resolveDatumSource(record.kind, sources[index], scope);
+                const resolved = resolveDatumSource(record.kind, sources[index], scope, record.display);
                 if (!resolved.isOk) {
                     this._datumErrors.set(record.id, resolved.error);
                     continue;
@@ -234,8 +237,8 @@ export class SketchSolver implements ExternalEntityHost {
         if (record === undefined || paramId === undefined) {
             return Result.err(`Constraint ${constraintId} has no datum ${index}`);
         }
-        const source = toDatumSource(record.kind, input);
-        const resolved = resolveDatumSource(record.kind, source, this._scope);
+        const source = toDatumSource(record.kind, input, record.display);
+        const resolved = resolveDatumSource(record.kind, source, this._scope, record.display);
         if (!resolved.isOk) return Result.err(resolved.error);
         if (record.datumSources === undefined) record.datumSources = [];
         record.datumSources[index] = source;
@@ -850,6 +853,8 @@ export class SketchSolver implements ExternalEntityHost {
                     data.datums = sources;
                 }
             }
+            // the reading is what the datum above means, so it travels with it
+            if (record.display !== undefined) data.display = record.display;
             return data;
         });
     }
@@ -1081,6 +1086,7 @@ export class SketchSolver implements ExternalEntityHost {
             garlicId,
             datumParamIds,
             datumSources,
+            display: constraint.display,
         });
     }
 
@@ -1243,7 +1249,9 @@ export class SketchSolver implements ExternalEntityHost {
         constraint: Omit<SketchConstraintData, "id">,
         fallback: () => number,
     ): ConstraintParams {
-        return this.withDatums(params, [this.datumOf(id, constraint.kind, constraint.datum, fallback)]);
+        return this.withDatums(params, [
+            this.datumOf(id, constraint.kind, constraint.datum, fallback, constraint.display),
+        ]);
     }
 
     /** The garlic params of each ref, concatenated in ref order. */
@@ -1273,12 +1281,13 @@ export class SketchSolver implements ExternalEntityHost {
         kind: ConstraintKind,
         source: ParameterValue | undefined,
         fallback: () => number,
+        display?: RadiusDisplay,
     ): DatumValue {
         if (source === undefined) {
             const value = fallback();
             return { source: value, value };
         }
-        const resolved = resolveDatumSource(kind, source, this._scope);
+        const resolved = resolveDatumSource(kind, source, this._scope, display);
         if (resolved.isOk) return { source, value: resolved.value };
         this._datumErrors.set(id, resolved.error);
         return { source, value: fallback() };

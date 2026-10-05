@@ -23,6 +23,7 @@ import {
     ConstraintKind,
     datumUnitSpec,
     isExternalEntityId,
+    radiusDisplayOf,
     type SketchData,
     type SketchEntityData,
     type SketchEntityType,
@@ -33,7 +34,7 @@ import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
 import { type SketchDiagnostics, SketchSolver, type SolveOutcome } from "../solver";
 import * as datumPrompt from "./datumPrompt";
-import { type DimensionAnchor, toDisplayDatum, toStorageDatum } from "./dimensionLayout";
+import { type DimensionAnchor, toDisplayDatum } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
 import { SketchConstraintsPanel } from "./sketchConstraintsPanel";
 import { SketchEventHandler } from "./sketchEventHandler";
@@ -65,10 +66,24 @@ import { SketchEventHandler } from "./sketchEventHandler";
  * `sketchAnnotations.ts` (constraint badges and dimension graphics).
  */
 
-export type SketchPickKind = "point" | "entity" | "entities" | "entityAt" | "position";
+export type SketchPickKind = "point" | "entity" | "entities" | "entityAt" | "position" | "element";
 
 /** Entity type filter for picks: a single type or a set of acceptable types. */
 export type SketchEntityTypeFilter = SketchEntityType | readonly SketchEntityType[];
+
+/**
+ * What an element pick answered with: the element under the cursor — a point if one is
+ * within reach, otherwise the entity — or nothing at all, which is how "place it here" is
+ * said. The uv rides along either way: a placement needs it, and so does inferring which
+ * of the two-point readings the user is after.
+ */
+export interface SketchElementPick {
+    readonly hit:
+        | { readonly kind: "point"; readonly ref: SketchPointRef }
+        | { readonly kind: "entity"; readonly entityId: number }
+        | { readonly kind: "position" };
+    readonly uv: [number, number];
+}
 
 /**
  * An entity pick that also answers with where it was clicked, in sketch (u, v). The
@@ -91,13 +106,21 @@ export type SketchPickPreview = (uv: [number, number] | undefined) => void;
  */
 export type SketchEntityPreview = (entityId: number | undefined) => SketchEntityData[] | undefined;
 
-interface PickRequest {
+/**
+ * What a pending pick is asking for. It travels outward as `activePick`, because the
+ * event handler shapes its hover feedback from it — which entity types are acceptable,
+ * whether the datum axes count, and what the pick would leave behind.
+ */
+export interface SketchActivePick {
     kind: SketchPickKind;
     entityType?: SketchEntityTypeFilter;
     /** Entity picks only: also allow picking the datum X/Y axes. */
     datum?: boolean;
     preview?: SketchPickPreview;
     previewEntity?: SketchEntityPreview;
+}
+
+interface PickRequest extends SketchActivePick {
     resolve: (value: any) => void;
 }
 
@@ -480,15 +503,7 @@ export class SketchEditor implements IDisposable {
     }
 
     /** The pending pick request, used by the event handler for hover feedback. */
-    get activePick():
-        | {
-              kind: SketchPickKind;
-              entityType?: SketchEntityTypeFilter;
-              datum?: boolean;
-              preview?: SketchPickPreview;
-              previewEntity?: SketchEntityPreview;
-          }
-        | undefined {
+    get activePick(): SketchActivePick | undefined {
         return this.pickRequest;
     }
 
@@ -557,6 +572,27 @@ export class SketchEditor implements IDisposable {
         return this.startPick("entityAt", prompt, type, options?.datum, undefined, controller);
     }
 
+    /**
+     * A pick that answers with whatever the click landed on — and with the click's own
+     * position when it landed on nothing. That "nothing" is a real answer, not a miss: it
+     * is how a tool that keeps selecting until you click away from the geometry is told to
+     * stop and place what it has.
+     */
+    pickElement(
+        prompt: I18nKeys,
+        options?: { datum?: boolean; entityType?: SketchEntityTypeFilter; preview?: SketchPickPreview },
+        controller?: AsyncController,
+    ): Promise<SketchElementPick | undefined> {
+        return this.startPick(
+            "element",
+            prompt,
+            options?.entityType,
+            options?.datum,
+            options?.preview,
+            controller,
+        );
+    }
+
     /** Answers the pending pick from outside the pointer path — a box drag that resolved it. */
     resolvePick(value: unknown): void {
         const request = this.pickRequest;
@@ -600,6 +636,13 @@ export class SketchEditor implements IDisposable {
             return true;
         }
 
+        // An element pick always consumes the press: falling through to the handler on a miss
+        // would start a point drag or a rubber band, and the miss IS this pick's answer.
+        if (request.kind === "element") {
+            this.resolveElementPick(view, event, request);
+            return true;
+        }
+
         if (request.kind === "entityAt") {
             const entityId = this.eventHandler.hitTestEntity(
                 view,
@@ -623,6 +666,35 @@ export class SketchEditor implements IDisposable {
 
         if (value !== undefined) this.resolvePick(value);
         return true;
+    }
+
+    /**
+     * Answers an element pick with whatever the click landed on, and with the click's own
+     * position when it landed on nothing. Points come first, exactly as hover orders them:
+     * a click within reach of an endpoint means that endpoint, not the line through it.
+     */
+    private resolveElementPick(view: IView, event: PointerEvent, request: PickRequest): void {
+        const uv = this.eventHandler.pointerToUV(view, event);
+        if (uv === undefined) {
+            this.cancelPick();
+            return;
+        }
+        const ref = this.eventHandler.hitTestPoint(view, event);
+        if (ref !== undefined) {
+            this.resolvePick({ hit: { kind: "point", ref }, uv });
+            return;
+        }
+        const entityId = this.eventHandler.hitTestEntity(
+            view,
+            event,
+            request.entityType,
+            request.datum ?? false,
+        );
+        this.resolvePick(
+            entityId === undefined
+                ? { hit: { kind: "position" }, uv }
+                : { hit: { kind: "entity", entityId }, uv },
+        );
     }
 
     /** Ids of the session-selected sketch entities (empty when nothing is selected). */
@@ -758,8 +830,8 @@ export class SketchEditor implements IDisposable {
         unit: UnitSpec,
         onCancel?: () => void,
         options?: { positiveOnly?: boolean },
-    ): void {
-        datumPrompt.promptDatum(initial, apply, () => this.applyDatum(), onCancel, {
+    ): Promise<void> {
+        return datumPrompt.promptDatum(initial, apply, () => this.applyDatum(), onCancel, {
             ...options,
             resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
         });
@@ -770,8 +842,8 @@ export class SketchEditor implements IDisposable {
         initial: [ParameterValue, ParameterValue],
         apply: (x: ParameterValue, y: ParameterValue) => void,
         unit: UnitSpec,
-    ): void {
-        datumPrompt.promptDatumPair(initial, apply, () => this.applyDatum(), {
+    ): Promise<void> {
+        return datumPrompt.promptDatumPair(initial, apply, () => this.applyDatum(), {
             positiveOnly: false,
             resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
         });
@@ -805,10 +877,13 @@ export class SketchEditor implements IDisposable {
             constraint.kind === ConstraintKind.P2LDistance ||
             constraint.kind === ConstraintKind.HorizontalDistance ||
             constraint.kind === ConstraintKind.VerticalDistance;
-        // An expression reopens as written; a literal as its display value (the dialog's units).
+        // The dialog runs in the units the user reads — a diameter is the 2r the constraint
+        // halves on its way to the solver — and a value typed back is handed over as typed,
+        // because that same conversion is the solver's (`toDatumSource`).
+        const display = radiusDisplayOf(constraint);
         const initial =
             typeof constraint.datum === "number"
-                ? toDisplayDatum(constraint.kind, constraint.datum)
+                ? toDisplayDatum(constraint.kind, constraint.datum, display)
                 : constraint.datum;
         this.promptDatum(
             initial,

@@ -332,6 +332,29 @@ describe("trimEntity constraints", () => {
         }
     });
 
+    test("a radius reading the user chose survives a circle becoming an arc", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const circle = solver.addCircle(100, 0, 10);
+            const dimension = solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [ref(circle, 0)],
+                datum: 10,
+                display: "diameter",
+            });
+            solver.addLine(85, 0, 115, 0);
+
+            trim(solver, circle, [100, 10]);
+            expect(entityOf(solver, circle).type).toBe("arc");
+            // the retype moves the geometry; the Ø the user asked for is not geometry
+            const carried = solver.toData().constraints.find((c) => c.id === dimension);
+            expect(carried?.datum).toBeCloseTo(10);
+            expect(carried?.display).toBe("diameter");
+        } finally {
+            solver.dispose();
+        }
+    });
+
     test("keeps a circle tangency when the arc's start is the end that slides", () => {
         const solver = new SketchSolver(Plane.XY);
         try {

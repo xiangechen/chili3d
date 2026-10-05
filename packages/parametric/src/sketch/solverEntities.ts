@@ -5,6 +5,7 @@ import { PubSub } from "@chili3d/core";
 import {
     ConstraintKind,
     isExternalEntityId,
+    pointRefKey,
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
@@ -76,6 +77,30 @@ export function centerRef(entityId: number): SketchPointRef {
 /** Point ref of an arc's start (pointIndex 1), the point that fixes its radius. */
 export function arcStartRef(entityId: number): SketchPointRef {
     return { entityId, pointIndex: 1 };
+}
+
+/**
+ * The two point refs a distance between them should be stored as. Endpoints shared with
+ * neighbours through coincident constraints make the picked refs point at different
+ * entities for what is one line; rewriting them to that line's own endpoints is what makes
+ * the dimension — and its hover highlight — belong to the line the user sees.
+ */
+export function normalizeLineRefs(
+    solver: SketchSolver,
+    p1: SketchPointRef,
+    p2: SketchPointRef,
+): [SketchPointRef, SketchPointRef] {
+    if (p1.entityId === p2.entityId) return [p1, p2];
+    const coincident = (a: SketchPointRef, b: SketchPointRef) =>
+        solver.coincidentGroup(a).some((r) => pointRefKey(r) === pointRefKey(b));
+    for (const entity of solver.entities()) {
+        if (entity.type !== "line") continue;
+        const start: SketchPointRef = { entityId: entity.id, pointIndex: 0 };
+        const end: SketchPointRef = { entityId: entity.id, pointIndex: 1 };
+        if (coincident(start, p1) && coincident(end, p2)) return [start, end];
+        if (coincident(start, p2) && coincident(end, p1)) return [end, start];
+    }
+    return [p1, p2];
 }
 
 /**

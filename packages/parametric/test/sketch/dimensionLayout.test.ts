@@ -20,6 +20,22 @@ describe("toDisplayDatum / toStorageDatum", () => {
         ).toBe(7);
     });
 
+    test("a diameter reads as twice the radius it is stored as, and stores as half", () => {
+        // garlic has no diameter constraint: the datum is the radius, the reading is Ø
+        expect(toDisplayDatum(ConstraintKind.Radius, 30, "diameter")).toBe(60);
+        expect(toStorageDatum(ConstraintKind.Radius, 60, "diameter")).toBe(30);
+        // ...and a radius is the radius, both ways
+        expect(toDisplayDatum(ConstraintKind.Radius, 30, "radius")).toBe(30);
+        expect(toStorageDatum(ConstraintKind.Radius, 60, "radius")).toBe(60);
+    });
+
+    test("the diameter reading does not leak into other kinds", () => {
+        const display = "diameter" as const;
+        expect(toDisplayDatum(ConstraintKind.P2PDistance, 12.5, display)).toBe(12.5);
+        expect(toStorageDatum(ConstraintKind.P2PDistance, 12.5, display)).toBe(12.5);
+        expect(toStorageDatum(ConstraintKind.Angle, 180, display)).toBeCloseTo(Math.PI, 9);
+    });
+
     test("other kinds pass values through unchanged", () => {
         expect(toDisplayDatum(ConstraintKind.P2PDistance, 12.5)).toBe(12.5);
         expect(toStorageDatum(ConstraintKind.P2PDistance, 12.5)).toBe(12.5);
@@ -52,5 +68,17 @@ describe("formatDatum", () => {
     test("an expression reads as written — that name is the user's intent", () => {
         expect(formatDatum(ConstraintKind.P2PDistance, "width*2")).toBe("width*2");
         expect(formatDatum(ConstraintKind.Angle, "45")).toBe("45");
+    });
+
+    test("a diameter reads with the Ø over twice the stored radius", () => {
+        expect(formatDatum(ConstraintKind.Radius, 30, "diameter")).toBe("Ø60.00");
+        expect(formatDatum(ConstraintKind.Radius, 30)).toBe("R30.00");
+    });
+
+    test("a diameter expression reads as written, not as the radius it stores", () => {
+        // the source is written in the reading's units, so `w` is the Ø the user typed;
+        // wrapping it in the halving on the way in would show `(w) / 2` here
+        expect(formatDatum(ConstraintKind.Radius, "w", "diameter")).toBe("w");
+        expect(formatDatum(ConstraintKind.Radius, "w / 2", "radius")).toBe("w / 2");
     });
 });
