@@ -1,7 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { formatDatum, toDisplayDatum, toStorageDatum } from "../../src/sketch/editor/dimensionLayout";
+import {
+    datumReading,
+    formatDatum,
+    toDisplayDatum,
+    toStorageDatum,
+} from "../../src/sketch/editor/dimensionLayout";
 import { ConstraintKind } from "../../src/sketch/sketchModel";
 
 describe("toDisplayDatum / toStorageDatum", () => {
@@ -80,5 +85,23 @@ describe("formatDatum", () => {
         // wrapping it in the halving on the way in would show `(w) / 2` here
         expect(formatDatum(ConstraintKind.Radius, "w", "diameter")).toBe("w");
         expect(formatDatum(ConstraintKind.Radius, "w / 2", "radius")).toBe("w / 2");
+    });
+});
+
+describe("datumReading", () => {
+    test("a literal reads in the units the dialog takes, and back through storage", () => {
+        // the angle is stored in radians and typed in degrees, and the round trip is exact
+        expect(datumReading(ConstraintKind.Angle, Math.PI / 6)).toBeCloseTo(30, 9);
+        // a diameter is stored as the radius it is and read as the Ø it says
+        expect(datumReading(ConstraintKind.Radius, 30, "diameter")).toBe(60);
+        expect(datumReading(ConstraintKind.Radius, 30)).toBe(30);
+        // a signed kind keeps its sign — that is what the sign is for
+        expect(datumReading(ConstraintKind.P2LDistance, -30)).toBe(30);
+        expect(datumReading(ConstraintKind.HorizontalDistance, -80)).toBe(-80);
+    });
+
+    test("an expression comes back as written — reopening one must not rewrite it", () => {
+        expect(datumReading(ConstraintKind.Radius, "w", "diameter")).toBe("w");
+        expect(datumReading(ConstraintKind.P2PDistance, "width * 2")).toBe("width * 2");
     });
 });

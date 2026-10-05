@@ -72,6 +72,7 @@ export default {
         "command.constraint.pointOn": "Точка на объекте",
         "command.constraint.symmetric": "Симметрия",
         "command.constraint.tangent": "Касательная",
+        "command.constraint.toggleDriven": "Задающий / Измерительный",
         "command.constraint.vertical": "Вертикально",
         "command.constraint.verticalAlign": "Выровнять по вертикали",
         "command.annotate.dimension": "Размер",
@@ -301,6 +302,7 @@ export default {
         "model.visible": "Видимость",
         "option.command.circularPattern": "Шаблон по кругу",
         "option.command.construction": "Построение",
+        "option.command.driven": "Измерительный",
         "option.command.continuity": "Продолжительность",
         "option.command.insertPoint": "Точка вставки",
         "option.command.isConnected": "Соединение",
@@ -430,6 +432,11 @@ export default {
         "sketch.dimensionSelectionUnsupported": "Между этими объектами нет размера",
         "sketch.constraints": "Ограничения",
         "sketch.dofs{0}": "Степеней свободы: {0}",
+        "sketch.driven": "Измерительный размер измеряет геометрию, не ограничивая её",
+        "sketch.drivenNotEditable":
+            "Измерительный размер доступен только для чтения — переключите его обратно в задающий, чтобы изменить",
+        "sketch.drivenSelectDimension":
+            "Выберите размер, чтобы переключить его между задающим и измерительным",
         "sketch.externalRefAssociativeOnly": "Внешние ссылки допускают только ассоциативные ограничения",
         "sketch.externalRefTypeChanged": "Тип внешней ссылки изменился — связанные ограничения удалены",
         "sketch.fullyConstrained": "Полностью ограничен",

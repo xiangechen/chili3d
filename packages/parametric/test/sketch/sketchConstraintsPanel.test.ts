@@ -216,6 +216,51 @@ describe("SketchEditor constraint diagnostics", () => {
         }
     });
 
+    test("a driven dimension reads parenthesised and grey, and offers no edit", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(0, 0, 100, 0);
+            const dimension = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: lineRefs(line),
+                datum: 100,
+            });
+            editor.solve(true);
+            editor.setConstraintsDriven([dimension], true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            const row = [...content.querySelectorAll<HTMLElement>(`.${style.row}`)].find((r) =>
+                r.textContent?.includes(`#${dimension} `),
+            );
+            expect(row).toBeDefined();
+
+            // the same parentheses the canvas badge carries, from the same formatter
+            expect(row?.querySelector(`.${style.value}`)?.textContent).toBe("(100.00)");
+            expect(row?.classList.contains(style.driven)).toBe(true);
+            // a reference is not a fault, so it takes no issue tint and no issue chip
+            expect(row?.classList.contains(style.conflicting)).toBe(false);
+            expect(row?.classList.contains(style.redundant)).toBe(false);
+            expect(row?.title).toBe(I18n.translate("sketch.driven"));
+
+            // double-clicking the row asks to edit it, and gets the reason instead of a
+            // dialog: the value belongs to the geometry, so there is nothing to type into
+            const tips: string[] = [];
+            const onTip = (key: string) => tips.push(key);
+            PubSub.default.sub("statusBarTip", onTip);
+            try {
+                row?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+                expect(tips).toEqual(["sketch.drivenNotEditable"]);
+            } finally {
+                PubSub.default.remove("statusBarTip", onTip);
+            }
+            expect(content.querySelector("input")).toBeNull();
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
     test("a row click selects the constraint like a badge click", () => {
         const ctx = setup();
         try {

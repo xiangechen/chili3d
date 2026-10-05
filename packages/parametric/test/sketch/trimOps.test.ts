@@ -355,6 +355,33 @@ describe("trimEntity constraints", () => {
         }
     });
 
+    test("a driven radius dimension stays a reference through a circle becoming an arc", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const circle = solver.addCircle(100, 0, 10);
+            const reference = solver.addConstraint({
+                kind: ConstraintKind.Radius,
+                refs: [ref(circle, 0)],
+                datum: 10,
+                driven: true,
+            });
+            solver.addLine(85, 0, 115, 0);
+            solver.solve(true);
+            const free = solver.dofs();
+
+            trim(solver, circle, [100, 10]);
+
+            expect(entityOf(solver, circle).type).toBe("arc");
+            // the retype must not turn a measurement into a lock: the arc keeps the
+            // reference, and the sketch keeps the degree of freedom it had
+            expect(solver.toData().constraints.find((c) => c.id === reference)?.driven).toBe(true);
+            solver.solve(true);
+            expect(solver.dofs()).toBe(free);
+        } finally {
+            solver.dispose();
+        }
+    });
+
     test("keeps a circle tangency when the arc's start is the end that slides", () => {
         const solver = new SketchSolver(Plane.XY);
         try {

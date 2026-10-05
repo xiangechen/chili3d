@@ -606,6 +606,8 @@ const DIRECTION_KINDS: ReadonlySet<ConstraintKind> = new Set([
  * A radius reading (Ø or R) is carried as the user wrote it: the retype moves the
  * geometry, and an annotation is not geometry. An arc dimensioned from scratch reads R
  * (`buildRadiusReading`), but a dimension already placed keeps the reading it was given.
+ * A driven dimension is carried for the same reason — it is a measurement the user asked
+ * for, and dropping the flag here would quietly turn it into one that holds the arc.
  */
 function circleToArcConstraint(
     solver: SketchSolver,
@@ -618,6 +620,7 @@ function circleToArcConstraint(
         ...(constraint.datum === undefined ? {} : { datum: constraint.datum }),
         ...(constraint.datums === undefined ? {} : { datums: constraint.datums }),
         ...(constraint.display === undefined ? {} : { display: constraint.display }),
+        ...(constraint.driven === true ? { driven: true } : {}),
     };
     switch (constraint.kind) {
         // rebuilt by the solver itself, as a point distance over centre and start

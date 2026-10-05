@@ -11,6 +11,7 @@ import {
     type IDisposable,
     type IView,
     type ShapeMeshData,
+    VisualConfig,
 } from "@chili3d/core";
 import {
     arcAngles,
@@ -39,6 +40,7 @@ import {
     diameterDimension,
     distanceDimension,
     formatDatum,
+    formatDrivenDatum,
     labelOnAxis,
     labelOnSegment,
     measuresSupplement,
@@ -135,8 +137,17 @@ interface BadgeCluster {
     readonly members: readonly BadgePlacement[];
 }
 
-/** How a flagged constraint's annotation reads: red for conflicting, amber for redundant. */
-type DimensionTone = "conflict" | "redundant";
+/**
+ * How a dimension reads beyond the plain blue: red for conflicting, amber for redundant,
+ * green for selected, yellow-green for hovered, grey for a driven (reference) one.
+ *
+ * All five are drawn by the *mesh* — the extension lines, the arrows and the value's
+ * glyphs together — because that is the whole of what a dimension looks like: its badge is
+ * an invisible layer kept only so the label can be hovered, clicked and dragged. The two
+ * faults also take the solid badge, which is the one state a symbol badge can carry and a
+ * datum badge cannot.
+ */
+type DimensionTone = "conflict" | "redundant" | "selected" | "hovered" | "driven";
 
 /** Badge center offset from its geometry, in screen pixels. */
 const BADGE_OFFSET_PX = 18;
@@ -174,11 +185,31 @@ const CONFLICT_COLOR = 0xff6b6b;
  */
 const REDUNDANT_COLOR = 0xffd93d;
 
+/**
+ * Grey for a driven dimension — matches the dark-theme `--foreground-muted-color`
+ * (#808080), the badge driven style uses the CSS variable itself. A reference reads as
+ * the quietest thing on the sketch, which is what Onshape's light grey does too.
+ */
+const DRIVEN_COLOR = 0x808080;
+
+/**
+ * Green for a selected dimension, and yellow-green for a hovered one — `VisualConfig` is
+ * where the 3D highlight lives, and it already draws that distinction: its hover *face* is
+ * the yellower green while selection is the pure one. A dimension's mesh is mostly edges,
+ * and the 3D convention gives edges one green for both, so the faces' pair is what tells
+ * the two apart here.
+ */
+const SELECTED_COLOR = VisualConfig.selectedEdgeColor;
+const HOVERED_COLOR = VisualConfig.highlightFaceColor;
+
 /** Mesh colors per tone, normal dimensions included. */
 const TONE_COLORS: Record<DimensionTone | "normal", number> = {
     normal: DIMENSION_COLOR,
     conflict: CONFLICT_COLOR,
     redundant: REDUNDANT_COLOR,
+    selected: SELECTED_COLOR,
+    hovered: HOVERED_COLOR,
+    driven: DRIVEN_COLOR,
 };
 
 /**
@@ -269,21 +300,23 @@ export type DimensionPreview =
  * - **Interaction.** Datum text draws as mesh glyphs (parallel to the dimension line, like the
  *   3D annotations); the badge stays behind it as an invisible layer keeping hover highlight,
  *   label dragging and double-click editing alive. Hovering a badge highlights its referenced
- *   entities; clicking a symbol badge selects it; selected constraints can be deleted;
- *   double-clicking a datum badge re-opens its value input.
+ *   entities; clicking any badge selects it; selected constraints can be deleted, or turned
+ *   into references by the toolbar; double-clicking a datum badge re-opens its value input.
  * - **Flagged constraints.** Constraints the solver flags read in the issue color —
  *   conflicting red, redundant amber. A symbol badge goes solid (white-on-color), a
  *   datum dimension redraws its whole graphics (extension lines, arrows, text) in the
  *   tone color — its invisible badge keeps the regular look so only the mesh carries
  *   the signal.
- * - **Dragging a datum badge.** Either press-drag-release, or click to pick the label up (it
- *   then follows the cursor) and click again — on the canvas or on the label itself — to drop
- *   it. Escape cancels and restores the previous anchor. The new anchor is committed (undoable)
- *   on drop.
+ * - **Dragging a datum badge.** Press-drag-release moves the label; a press released without
+ *   travel is a click, and a click selects the dimension instead (so one gesture can be both,
+ *   told apart by whether the pointer moved). Escape during a drag restores the anchor it
+ *   started from. The new anchor is committed (undoable) on release.
  */
 export class SketchAnnotationManager implements IDisposable {
     private items: IDisposable[] = [];
     private badgeElements = new Map<number, HTMLElement[]>();
+    /** The badges on the canvas right now — what `isLiveBadge` answers from. */
+    private readonly liveBadges = new Set<HTMLElement>();
     private badgeAnchors: { u: number; v: number; entityIds: number[] }[] = [];
     /** Resolved during a refresh, placed once the whole set is known (`placeBadges`). */
     private pendingBadges: BadgePlacement[] = [];
@@ -315,7 +348,6 @@ export class SketchAnnotationManager implements IDisposable {
     /** Constraint whose panel row is hovered — its badge takes the hover look. */
     private panelHoveredConstraint?: number;
     private readonly selectedConstraints = new Set<number>();
-    private rebuilding = false;
     private suppressSymbols = false;
     /**
      * Whether the constraint symbols let pointer events through (see
@@ -326,17 +358,15 @@ export class SketchAnnotationManager implements IDisposable {
     /** The labels collected during a refresh, drawn as mesh glyphs into the face channel. */
     private texts: DimensionText[] = [];
     /**
-     * Active datum label drag. `held` tracks the mouse button: a press-drag
-     * commits on release; a click without movement releases the button with
-     * `held = false`, leaving the label following the cursor until the next
-     * click drops it. `original` restores the anchor on cancel.
+     * Active datum label drag. `moved` is the threshold that tells a drag from a click:
+     * a release that never travelled is a selection, not a move. `original` restores the
+     * anchor on cancel.
      */
     private labelDrag?: {
         readonly id: number;
         readonly startX: number;
         readonly startY: number;
         readonly original?: DimensionAnchor;
-        held: boolean;
         moved: boolean;
     };
     private dragCleanup?: () => void;
@@ -367,18 +397,25 @@ export class SketchAnnotationManager implements IDisposable {
         }
     }
 
-    /** True while a datum label is being dragged or follows the cursor for placement. */
+    /** True while a datum label is actually being dragged — a click does not count. */
     get isLabelDragging(): boolean {
-        return this.labelDrag !== undefined && (this.labelDrag.moved || !this.labelDrag.held);
-    }
-
-    /** Constraint id whose label is being dragged/placed, if any. */
-    get draggingLabelId(): number | undefined {
-        return this.labelDrag?.id;
+        return this.labelDrag?.moved === true;
     }
 
     get hoveredConstraintId(): number | undefined {
         return this.hoveredConstraint;
+    }
+
+    /**
+     * Hovering a constraint is a *tone* now (`toneOf` draws the dimension's whole mesh in
+     * it), so it has to repaint like one — the same reason the constraint list's hover
+     * goes through `highlightConstraint`, which is this plus a refresh. Nothing else
+     * repaints on a badge hover: the entity highlight it also raises is a different mesh.
+     */
+    hoverConstraint(id?: number): void {
+        if (this.hoveredConstraint === id) return;
+        this.hoveredConstraint = id;
+        this.refresh();
     }
 
     get selectedConstraintIds(): number[] {
@@ -395,10 +432,24 @@ export class SketchAnnotationManager implements IDisposable {
         this.redundantConstraints = new Set(ids);
     }
 
-    /** The tone a flagged constraint's annotation draws in, undefined for the normal blue. */
-    private toneOf(id: number): DimensionTone | undefined {
-        if (this.conflictingConstraints.has(id)) return "conflict";
-        if (this.redundantConstraints.has(id)) return "redundant";
+    /**
+     * The tone a constraint's annotation draws in, undefined for the normal blue. The two
+     * solver flags come first: a driven dimension cannot conflict — garlic solves around it
+     * rather than with it — but a fault is the louder thing to report if it ever did.
+     */
+    private toneOf(constraint: SketchConstraintData): DimensionTone | undefined {
+        // loudest first: a fault is not to be missed, a selection has to stay readable
+        // while the cursor moves over something else, and driven is the quietest of all
+        // — the parentheses already say it in the text.
+        if (this.conflictingConstraints.has(constraint.id)) return "conflict";
+        if (this.redundantConstraints.has(constraint.id)) return "redundant";
+        if (this.selectedConstraints.has(constraint.id)) return "selected";
+        // either hover counts, the badge's and the constraint list's, exactly as they do
+        // for a symbol badge's visibility (`isConstraintVisible`)
+        if (this.hoveredConstraint === constraint.id || this.panelHoveredConstraint === constraint.id) {
+            return "hovered";
+        }
+        if (constraint.driven === true) return "driven";
         return undefined;
     }
 
@@ -429,7 +480,7 @@ export class SketchAnnotationManager implements IDisposable {
     clearConstraintSelection(): void {
         if (this.selectedConstraints.size === 0) return;
         this.selectedConstraints.clear();
-        this.applySelectionClasses();
+        this.repaintSelection();
         this.onSelectionChanged?.([]);
     }
 
@@ -437,7 +488,7 @@ export class SketchAnnotationManager implements IDisposable {
     selectConstraints(ids: Iterable<number>): void {
         this.selectedConstraints.clear();
         for (const id of ids) this.selectedConstraints.add(id);
-        this.applySelectionClasses();
+        this.repaintSelection();
         this.onSelectionChanged?.(this.selectedConstraintIds);
     }
 
@@ -452,7 +503,7 @@ export class SketchAnnotationManager implements IDisposable {
                 this.dragCleanup?.();
             }
             if (this.hoveredConstraint === id) {
-                this.hoveredConstraint = undefined;
+                this.hoverConstraint(undefined);
                 hoverCleared = true;
             }
             changed = this.selectedConstraints.delete(id) || changed;
@@ -460,24 +511,23 @@ export class SketchAnnotationManager implements IDisposable {
         // a deleted hovered badge leaves its entity highlight behind otherwise
         if (hoverCleared) this.onHighlightEntities([]);
         if (changed) {
-            this.applySelectionClasses();
+            this.repaintSelection();
             this.onSelectionChanged?.(this.selectedConstraintIds);
         }
     }
 
     refresh(): void {
         if (this.disposed) return;
-        // DOM removal fires mouseleave on a hovered badge; suppress it so the
-        // badge does not vanish under a stationary cursor mid-rebuild
-        this.rebuilding = true;
         this.disposeItems();
-        this.rebuilding = false;
         const px = this.pixelSize();
         // flagged datum dimensions route to their tone's bucket and draw in its color
         const graphics: Record<DimensionTone | "normal", DimensionGraphics> = {
             normal: { segments: [], triangles: [] },
             conflict: { segments: [], triangles: [] },
             redundant: { segments: [], triangles: [] },
+            selected: { segments: [], triangles: [] },
+            hovered: { segments: [], triangles: [] },
+            driven: { segments: [], triangles: [] },
         };
         this.texts = [];
         this.addConstraintGraphics(px, graphics);
@@ -489,6 +539,9 @@ export class SketchAnnotationManager implements IDisposable {
             normal: [...graphics.normal.triangles],
             conflict: [...graphics.conflict.triangles],
             redundant: [...graphics.redundant.triangles],
+            selected: [...graphics.selected.triangles],
+            hovered: [...graphics.hovered.triangles],
+            driven: [...graphics.driven.triangles],
         };
         for (const text of this.texts) {
             this.pushTextTriangles(corners[text.tone ?? "normal"], text, px);
@@ -508,7 +561,7 @@ export class SketchAnnotationManager implements IDisposable {
         corners: Record<DimensionTone | "normal", DimensionGeometry["triangles"]>,
     ): void {
         const meshes: ShapeMeshData[] = [];
-        for (const tone of ["normal", "conflict", "redundant"] as const) {
+        for (const tone of ["normal", "conflict", "redundant", "selected", "hovered", "driven"] as const) {
             if (graphics[tone].segments.length > 0) {
                 meshes.push(this.toEdgeMesh(graphics[tone].segments, TONE_COLORS[tone]));
             }
@@ -543,7 +596,7 @@ export class SketchAnnotationManager implements IDisposable {
                 case ConstraintKind.Angle:
                 case ConstraintKind.HorizontalDistance:
                 case ConstraintKind.VerticalDistance:
-                    this.addDatumDimension(constraint, px, graphics[this.toneOf(constraint.id) ?? "normal"]);
+                    this.addDatumDimension(constraint, px, graphics[this.toneOf(constraint) ?? "normal"]);
                     break;
                 default:
                     this.queueSymbolBadge(constraint, px);
@@ -707,8 +760,11 @@ export class SketchAnnotationManager implements IDisposable {
         const geometry = this.dimensionGeometry(constraint, px);
         if (geometry === undefined) return;
         pushDimensionGeometry(graphics, geometry);
-        // An expression reads as written — that is the whole point of naming it.
-        const text = formatDatum(constraint.kind, constraint.datum ?? 0, radiusDisplayOf(constraint));
+        // An expression reads as written — that is the whole point of naming it — and a
+        // driven dimension reads in the parentheses that say the value is not the user's.
+        // Its datum is the measurement garlic wrote back, so the number is the geometry's.
+        const format = constraint.driven === true ? formatDrivenDatum : formatDatum;
+        const text = format(constraint.kind, constraint.datum ?? 0, radiusDisplayOf(constraint));
         // A broken expression keeps a visible badge — it is the only place that says so.
         const broken = this.solver.datumErrors.has(constraint.id);
         if (!broken) {
@@ -717,7 +773,7 @@ export class SketchAnnotationManager implements IDisposable {
                 u: geometry.textPosition[0],
                 v: geometry.textPosition[1],
                 direction: geometry.textDirection,
-                tone: this.toneOf(constraint.id),
+                tone: this.toneOf(constraint),
             });
         }
         // datum dimensions stay visible regardless: no visibility gate, and never stacked
@@ -995,6 +1051,65 @@ export class SketchAnnotationManager implements IDisposable {
         this.refresh();
     }
 
+    /**
+     * Whether a boundary event came from a badge this session still has on the canvas.
+     *
+     * A refresh disposes every badge and builds a new set, and the browser answers that by
+     * firing the boundary events for the elements it took away — a `mouseleave` on the
+     * badge that was under the cursor. Those arrive *after* the rebuild has finished, so
+     * no flag set around the disposal can catch them; this asks instead whether the
+     * element that fired is one the registry still holds, which has no such timing to get
+     * wrong. A stale badge is never in it, whenever the event turns up.
+     */
+    private isLiveBadge(target: EventTarget | null): boolean {
+        return target instanceof HTMLElement && this.liveBadges.has(target);
+    }
+
+    /**
+     * Which datum dimension's drawn graphics pass within `tolerance` of a point in the
+     * sketch plane, if any. The dimension line, its extension lines and its arrows are
+     * one object with the value — the value is only the part of it that happens to have
+     * a badge to take the pointer — so aiming at the furniture means the dimension.
+     *
+     * The value's own glyphs are left to the badge, which already covers them and reads
+     * the pointer far better than a proximity test can.
+     */
+    constraintAt(uv: [number, number], tolerance: number): number | undefined {
+        if (this.disposed) return undefined;
+        const px = this.pixelSize();
+        for (const constraint of this.solver.toData().constraints) {
+            const geometry = this.dimensionGeometry(constraint, px);
+            if (geometry === undefined) continue;
+            if (geometry.segments.some((segment) => distanceToSegment(uv, segment) <= tolerance)) {
+                return constraint.id;
+            }
+        }
+        return undefined;
+    }
+
+    /**
+     * The pointer's hover, when it is over the drawn graphics of a dimension: they raise
+     * the same state and the same entity highlight the label raises, because they are the
+     * same dimension. Answers whether it took the hover — the caller leaves its own
+     * entity hover alone when it did, the two being the same highlight anyway.
+     */
+    hoverDimensionAt(uv: [number, number], tolerance: number): boolean {
+        const id = this.constraintAt(uv, tolerance);
+        if (id === undefined) {
+            // the entity highlight a dimension raises is its own mesh and outlives the
+            // tone, so it is dropped here rather than left for the entity hover to clear
+            if (this.hoveredConstraint !== undefined) this.onHighlightEntities([]);
+            this.hoverConstraint(undefined);
+            return false;
+        }
+        if (this.hoveredConstraint !== id) {
+            this.hoverConstraint(id);
+            const constraint = this.solver.toData().constraints.find((c) => c.id === id);
+            this.onHighlightEntities(constraint?.refs.map((ref) => ref.entityId) ?? []);
+        }
+        return true;
+    }
+
     private isConstraintVisible(
         constraint: SketchConstraintData,
         refs: readonly SketchPointRef[] = constraint.refs,
@@ -1239,7 +1354,7 @@ export class SketchAnnotationManager implements IDisposable {
                 // only keeps the hover/drag/double-click interaction alive
                 className: ghost ? `${style.badge} ${style.ghost}` : style.badge,
                 onCreated: (element) => {
-                    this.registerBadgeElement(element, id, !draggable);
+                    this.registerBadgeElement(element, constraint, !draggable);
                     renderBadgeFace(element, label, icon);
                     if (draggable) {
                         element.classList.add(style.draggable);
@@ -1247,12 +1362,14 @@ export class SketchAnnotationManager implements IDisposable {
                     }
                 },
                 onMouseEnter: () => {
-                    this.hoveredConstraint = id;
+                    this.hoverConstraint(id);
                     this.onHighlightEntities(entityIds);
                 },
-                onMouseLeave: () => {
-                    if (this.rebuilding || this.hoveredConstraint !== id) return;
-                    this.hoveredConstraint = undefined;
+                onMouseLeave: (event: MouseEvent) => {
+                    // the badge that went away is not the pointer going anywhere
+                    if (!this.isLiveBadge(event.currentTarget)) return;
+                    if (this.hoveredConstraint !== id) return;
+                    this.hoverConstraint(undefined);
                     this.onHighlightEntities([]);
                 },
                 // datum badges (dimensions) can be edited; symbol badges cannot
@@ -1263,13 +1380,15 @@ export class SketchAnnotationManager implements IDisposable {
                               event.stopPropagation();
                               this.onEditDatum(id);
                           },
-                // a click on a draggable datum badge picks its label up for
-                // placement instead of toggling the constraint selection
+                // A symbol badge selects on click. A datum badge does too, but not
+                // here: its click has to be told apart from a drag first, so the
+                // selection is made when the pointer comes up without travelling
+                // (`releaseLabelDrag`). This only stops the click reaching the viewport.
                 onClick: draggable
-                    ? undefined
+                    ? (event) => event.stopPropagation()
                     : (event) => {
                           event.stopPropagation();
-                          this.toggleSelection(id, event.shiftKey);
+                          this.toggleConstraint(id, event.shiftKey);
                       },
             }),
         );
@@ -1292,7 +1411,7 @@ export class SketchAnnotationManager implements IDisposable {
                 interactive: true,
                 className: `${style.badge} ${style.stack}`,
                 onCreated: (element) => {
-                    this.registerBadgeElement(element, memberIds[0], !members.some((m) => m.draggable));
+                    this.registerBadgeElement(element, leader.constraint, !members.some((m) => m.draggable));
                     this.applyStackClasses(element, memberIds, key);
                     // a stack near the right edge would have its row clipped by the
                     // CSS2D container's overflow:hidden, so that one opens leftwards
@@ -1305,7 +1424,7 @@ export class SketchAnnotationManager implements IDisposable {
                     this.stackChips.push({ element, key, memberIds });
                 },
                 onMouseEnter: () => this.enterStack(key, entityIds),
-                onMouseLeave: () => this.leaveStack(key, memberIds),
+                onMouseLeave: (event: MouseEvent) => this.leaveStack(key, memberIds, event),
                 // the chip stands for the whole group, so a click selects all of it —
                 // picking out one of them is what the opened row is for
                 onClick: (event) => {
@@ -1329,16 +1448,16 @@ export class SketchAnnotationManager implements IDisposable {
             const element = document.createElement("div");
             element.className = `${style.badge} ${style.stackMember}`;
             renderBadgeFace(element, member.label, member.icon);
-            this.registerBadgeElement(element, id, !member.draggable);
+            this.registerBadgeElement(element, member.constraint, !member.draggable);
             element.addEventListener("mouseenter", () => {
-                this.hoveredConstraint = id;
+                this.hoverConstraint(id);
                 this.onHighlightEntities(member.entityIds);
             });
             element.addEventListener("mouseleave", (event) => this.leaveStackMember(chip, id, event));
             element.addEventListener("click", (event) => {
                 // the chip's own click selects the whole group; a member click is not that
                 event.stopPropagation();
-                this.toggleSelection(id, event.shiftKey);
+                this.toggleConstraint(id, event.shiftKey);
             });
             row.append(element);
         }
@@ -1346,10 +1465,16 @@ export class SketchAnnotationManager implements IDisposable {
     }
 
     /** Registers a badge under its constraint and applies the look its state calls for. */
-    private registerBadgeElement(element: HTMLElement, id: number, symbol: boolean): void {
+    private registerBadgeElement(
+        element: HTMLElement,
+        constraint: SketchConstraintData,
+        symbol: boolean,
+    ): void {
+        const id = constraint.id;
         const list = this.badgeElements.get(id) ?? [];
         list.push(element);
         this.badgeElements.set(id, list);
+        this.liveBadges.add(element);
         element.classList.toggle(style.inert, symbol && this.symbolsInert);
         element.classList.toggle(style.selected, this.selectedConstraints.has(id));
         // a conflicting constraint reads solid red — for a ghost datum the badge
@@ -1357,6 +1482,9 @@ export class SketchAnnotationManager implements IDisposable {
         element.classList.toggle(style.conflicting, this.conflictingConstraints.has(id));
         // redundant reads amber on the same terms
         element.classList.toggle(style.redundant, this.redundantConstraints.has(id));
+        // a driven dimension is not flagged, it is grey — and it is the one state that
+        // reaches a ghost badge, so the class list has to carry it too
+        element.classList.toggle(style.driven, constraint.driven === true);
         // panel-row hover puts the badge in its hover look (the pointer is on the list)
         element.classList.toggle(style.hovered, this.panelHoveredConstraint === id);
         // A datum whose expression stopped resolving keeps its last geometry
@@ -1397,12 +1525,12 @@ export class SketchAnnotationManager implements IDisposable {
         this.onHighlightEntities(entityIds);
     }
 
-    private leaveStack(key: number, memberIds: readonly number[]): void {
-        if (this.rebuilding || this.hoveredStackKey !== key) return;
+    private leaveStack(key: number, memberIds: readonly number[], event: MouseEvent): void {
+        if (!this.isLiveBadge(event.currentTarget) || this.hoveredStackKey !== key) return;
         this.hoveredStackKey = undefined;
         // a member hovered on the way out would otherwise stay hovered for good
         if (this.hoveredConstraint !== undefined && memberIds.includes(this.hoveredConstraint)) {
-            this.hoveredConstraint = undefined;
+            this.hoverConstraint(undefined);
         }
         this.setStackExpanded(key, false);
         this.onHighlightEntities([]);
@@ -1414,10 +1542,10 @@ export class SketchAnnotationManager implements IDisposable {
      * descendant) while the pointer is still well inside the stack.
      */
     private leaveStackMember(chip: HTMLElement, id: number, event: MouseEvent): void {
-        if (this.rebuilding || this.hoveredConstraint !== id) return;
+        if (!this.isLiveBadge(event.currentTarget) || this.hoveredConstraint !== id) return;
         const next = event.relatedTarget;
         if (next instanceof Node && chip.contains(next)) return;
-        this.hoveredConstraint = undefined;
+        this.hoverConstraint(undefined);
         this.onHighlightEntities([]);
     }
 
@@ -1442,7 +1570,7 @@ export class SketchAnnotationManager implements IDisposable {
             this.selectedConstraints.clear();
             for (const id of memberIds) this.selectedConstraints.add(id);
         }
-        this.applySelectionClasses();
+        this.repaintSelection();
         this.onSelectionChanged?.(this.selectedConstraintIds);
     }
 
@@ -1472,9 +1600,10 @@ export class SketchAnnotationManager implements IDisposable {
     /**
      * Repositions a datum label by dragging its badge.
      *
-     * - **Both gestures work:** press-drag-release, and click-move-click — a press released
-     *   without travel picks the label up, it then follows the cursor, and the next click
-     *   (anywhere, even on the label itself) drops it.
+     * - **Dragging moves, clicking selects.** A press released without travel is a click,
+     *   and a click on a dimension means the dimension — it selects it, so the toolbar,
+     *   the panel and the keyboard all have something to act on. Only travel moves the
+     *   label, which is why the two can share one gesture.
      * - **The anchor is recomputed** from the pointer on every move. The refresh rebuilds the
      *   badge mid-drag, so the session listens on window rather than on the badge.
      * - **Why the window listeners use the capture phase.** Interactive badges
@@ -1485,28 +1614,38 @@ export class SketchAnnotationManager implements IDisposable {
     private beginLabelDrag(constraintId: number, event: PointerEvent): void {
         if (event.button !== 0 || this.disposed) return;
         event.preventDefault();
-        if (this.labelDrag !== undefined) {
-            // a click while the label follows the cursor drops it in place
-            this.endLabelDrag(true);
-            return;
-        }
         this.labelDrag = {
             id: constraintId,
             startX: event.clientX,
             startY: event.clientY,
             original: this.anchors.get(constraintId),
-            held: true,
             moved: false,
         };
-        const onMove = (e: PointerEvent) => this.moveLabelDrag(e.clientX, e.clientY);
-        const onUp = () => this.releaseLabelDrag();
+        const onMove = (e: PointerEvent) => {
+            // A move that reports no button held means the release happened where this
+            // window could not see it — the label is rebuilt on every move, so the
+            // element the drag began on is long gone and the browser is free to send the
+            // pointerup somewhere we never hear. Without this the drag stays in flight
+            // and the label follows the cursor around for good.
+            if (e.buttons === 0) {
+                this.releaseLabelDrag(e);
+                return;
+            }
+            this.moveLabelDrag(e.clientX, e.clientY);
+        };
+        const onUp = (e: PointerEvent) => this.releaseLabelDrag(e);
+        // `pointercancel` is the browser taking the gesture away — without it a drag
+        // interrupted that way would stay in flight for good
+        const onCancel = () => this.endLabelDrag(false);
         this.dragCleanup = () => {
             window.removeEventListener("pointermove", onMove, true);
             window.removeEventListener("pointerup", onUp, true);
+            window.removeEventListener("pointercancel", onCancel, true);
             this.dragCleanup = undefined;
         };
         window.addEventListener("pointermove", onMove, true);
         window.addEventListener("pointerup", onUp, true);
+        window.addEventListener("pointercancel", onCancel, true);
     }
 
     private moveLabelDrag(clientX: number, clientY: number): void {
@@ -1526,16 +1665,18 @@ export class SketchAnnotationManager implements IDisposable {
         this.refresh();
     }
 
-    private releaseLabelDrag(): void {
+    private releaseLabelDrag(event: PointerEvent): void {
         const drag = this.labelDrag;
-        if (drag === undefined || !drag.held) return;
+        if (drag === undefined) return;
         if (drag.moved) {
-            // press-drag-release commits where the button went up
             this.endLabelDrag(true);
-        } else {
-            // a plain click picks the label up: it follows the cursor until the next click
-            drag.held = false;
+            return;
         }
+        // never travelled: a click, so it selects rather than moves. The label stays
+        // exactly where it was.
+        this.labelDrag = undefined;
+        this.dragCleanup?.();
+        this.toggleConstraint(drag.id, event.shiftKey);
     }
 
     /** Ends the label drag; `commit` keeps the new position, otherwise the anchor is restored. */
@@ -1544,7 +1685,7 @@ export class SketchAnnotationManager implements IDisposable {
         if (drag === undefined) return;
         this.labelDrag = undefined;
         this.dragCleanup?.();
-        // never travelled: a plain click or the first half of a double-click — nothing changed
+        // never travelled: the first half of a double-click, or an Escape — nothing changed
         if (!drag.moved) return;
         if (!commit) {
             if (drag.original === undefined) this.anchors.delete(drag.id);
@@ -1606,7 +1747,7 @@ export class SketchAnnotationManager implements IDisposable {
 
     // ------------------------------------------------------------------ Selection bookkeeping
 
-    private toggleSelection(id: number, additive: boolean): void {
+    toggleConstraint(id: number, additive: boolean): void {
         if (additive) {
             if (!this.selectedConstraints.delete(id)) {
                 this.selectedConstraints.add(id);
@@ -1615,23 +1756,19 @@ export class SketchAnnotationManager implements IDisposable {
             this.selectedConstraints.clear();
             this.selectedConstraints.add(id);
         }
-        this.applySelectionClasses();
+        this.repaintSelection();
         this.onSelectionChanged?.(this.selectedConstraintIds);
     }
 
-    private applySelectionClasses(): void {
-        for (const [id, elements] of this.badgeElements) {
-            for (const element of elements) {
-                element.classList.toggle(style.selected, this.selectedConstraints.has(id));
-            }
-        }
-        // a chip reads as selected when any of the constraints it stands for is
-        for (const chip of this.stackChips) {
-            chip.element.classList.toggle(
-                style.selected,
-                chip.memberIds.some((id) => this.selectedConstraints.has(id)),
-            );
-        }
+    /**
+     * Redraws after the selection changed. A full refresh rather than re-classing the
+     * existing badges, because selection is a *tone*: the dimension's whole mesh — its
+     * extension lines, its arrows, its value's glyphs — is drawn in the selection colour
+     * (`toneOf`), and no amount of DOM work repaints that. The badges are rebuilt with
+     * their own classes along the way (`registerBadgeElement`), so this is the only path.
+     */
+    private repaintSelection(): void {
+        this.refresh();
     }
 
     private disposeItems(): void {
@@ -1640,6 +1777,7 @@ export class SketchAnnotationManager implements IDisposable {
         }
         this.items = [];
         this.badgeElements.clear();
+        this.liveBadges.clear();
         this.badgeAnchors = [];
         this.pendingBadges = [];
         this.stackChips = [];
@@ -1775,4 +1913,14 @@ function offsetFromSegment(a: [number, number], b: [number, number], offset: num
     const length = Math.hypot(dx, dy);
     const [nu, nv] = length < 1e-9 ? [0, 1] : [-dy / length, dx / length];
     return [(a[0] + b[0]) / 2 + nu * offset, (a[1] + b[1]) / 2 + nv * offset];
+}
+
+/** Distance from a point to a segment, both in the sketch plane's uv. */
+function distanceToSegment(uv: [number, number], [x1, y1, x2, y2]: [number, number, number, number]): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared === 0) return Math.hypot(uv[0] - x1, uv[1] - y1);
+    const t = Math.max(0, Math.min(1, ((uv[0] - x1) * dx + (uv[1] - y1) * dy) / lengthSquared));
+    return Math.hypot(uv[0] - (x1 + t * dx), uv[1] - (y1 + t * dy));
 }

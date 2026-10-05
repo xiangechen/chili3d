@@ -117,6 +117,8 @@ interface ConstraintRecord {
     datumSources?: ParameterValue[];
     /** The reading a radius datum is written in — `diameter` halves what resolves. */
     display?: RadiusDisplay;
+    /** A reference dimension: garlic solves around it and writes its datum back. */
+    driven?: boolean;
 }
 
 /**
@@ -201,12 +203,18 @@ export class SketchSolver implements ExternalEntityHost {
      * garlic. Returns whether any value actually moved, so the caller can skip a solve
      * that would find nothing to do. A datum that no longer resolves is reported through
      * `datumErrors` and keeps its previous value — the sketch stays usable.
+     *
+     * A driven dimension is skipped: its datum is garlic's own output, and garlic's datum
+     * contract says a param must not be pushed from JS and written back by a constraint at
+     * once. What is held here would only be the previous measurement, so pushing it would
+     * undo the solve that produced it.
      */
     setScope(scope: Scope): boolean {
         this._scope = scope;
         this._datumErrors.clear();
         let changed = false;
         for (const record of this.constraints.values()) {
+            if (record.driven === true) continue;
             const sources = record.datumSources;
             const paramIds = record.datumParamIds;
             if (sources === undefined || paramIds === undefined) continue;
@@ -230,12 +238,19 @@ export class SketchSolver implements ExternalEntityHost {
      * storage units, an expression is stored verbatim and resolved on the spot. A failed
      * resolve returns the error without touching the datum — the user is editing, so the
      * dialog rejects the input rather than the sketch silently keeping a stale value.
+     *
+     * A driven dimension refuses the write: its datum is garlic's output, and a value
+     * pushed in would be overwritten by the next solve. Editing one means turning it
+     * back into a driving dimension first, which is what the tools offer instead.
      */
     setDatumSource(constraintId: number, input: ParameterValue, index = 0): Result<void> {
         const record = this.constraints.get(constraintId);
         const paramId = record?.datumParamIds?.[index];
         if (record === undefined || paramId === undefined) {
             return Result.err(`Constraint ${constraintId} has no datum ${index}`);
+        }
+        if (record.driven === true) {
+            return Result.err(`Constraint ${constraintId} is driven — it measures, it does not drive`);
         }
         const source = toDatumSource(record.kind, input, record.display);
         const resolved = resolveDatumSource(record.kind, source, this._scope, record.display);
@@ -304,6 +319,30 @@ export class SketchSolver implements ExternalEntityHost {
         if (!this.constraints.has(id)) return false;
         this.removeConstraint(id);
         this.addConstraintWithId(id, constraint);
+        return true;
+    }
+
+    /**
+     * Re-records a constraint as a driven (reference) dimension, or back as a driving one,
+     * keeping its id and its refs. The garlic constraint is rebuilt — `driving` is fixed at
+     * creation — but the sketch id survives, so the datum anchor the id keys stays put.
+     *
+     * Only a dimensional constraint can go either way: garlic refuses `driving = false`
+     * without a datum to write back, and `datumParamIds` is exactly that test. Returns
+     * false when there was nothing to change, which is how a mixed selection settles.
+     */
+    setDriven(id: number, driven: boolean): boolean {
+        const record = this.constraints.get(id);
+        if (record === undefined || record.datumParamIds === undefined) return false;
+        if ((record.driven === true) === driven) return false;
+        const datums = this.persistedDatums(record);
+        this.replaceConstraint(id, {
+            kind: record.kind,
+            refs: record.refs,
+            ...(datums === undefined ? {} : datums.length === 1 ? { datum: datums[0] } : { datums }),
+            ...(record.display === undefined ? {} : { display: record.display }),
+            ...(driven ? { driven: true } : {}),
+        });
         return true;
     }
 
@@ -855,6 +894,7 @@ export class SketchSolver implements ExternalEntityHost {
             }
             // the reading is what the datum above means, so it travels with it
             if (record.display !== undefined) data.display = record.display;
+            if (record.driven !== undefined) data.driven = record.driven;
             return data;
         });
     }
@@ -866,6 +906,11 @@ export class SketchSolver implements ExternalEntityHost {
      * started from). An expression is returned as written: reading garlic back over it
      * would replace the user's expression with whatever it currently evaluates to, once
      * per commit.
+     *
+     * This is also what makes a driven dimension read as the geometry's current value
+     * everywhere: its datum is garlic's output, so the number persisted here — and the
+     * one the badges and the constraint list render — is the measurement, refreshed by
+     * the solve that precedes every refresh.
      */
     private persistedDatums(record: ConstraintRecord): ParameterValue[] | undefined {
         const paramIds = record.datumParamIds;
@@ -1072,11 +1117,14 @@ export class SketchSolver implements ExternalEntityHost {
             constraint,
             id,
         );
+        // `driving` is garlic's own flag: true means the datum is an input, false means it
+        // is the write-back target of a reference dimension. A constraint with no datum
+        // must stay driving — garlic refuses the other way round.
         const garlicId = this.system.add_constraint(
             garlicKind ?? constraint.kind,
             new Uint32Array(params),
             null,
-            true,
+            constraint.driven !== true,
             0,
         );
         this.constraints.set(id, {
@@ -1087,6 +1135,7 @@ export class SketchSolver implements ExternalEntityHost {
             datumParamIds,
             datumSources,
             display: constraint.display,
+            driven: constraint.driven,
         });
     }
 
@@ -1242,15 +1291,21 @@ export class SketchSolver implements ExternalEntityHost {
         );
     }
 
-    /** One datum on top of a constraint's geometric params. */
+    /**
+     * One datum on top of a constraint's geometric params. A driven dimension is seeded
+     * from the geometry rather than from any stored value: its datum is garlic's output,
+     * so whatever was persisted there is last solve's measurement — and the first solve
+     * of a session should read the geometry, not a stale copy of it.
+     */
     private withDatum(
         params: number[],
         id: number,
         constraint: Omit<SketchConstraintData, "id">,
         fallback: () => number,
     ): ConstraintParams {
+        const source = constraint.driven === true ? undefined : constraint.datum;
         return this.withDatums(params, [
-            this.datumOf(id, constraint.kind, constraint.datum, fallback, constraint.display),
+            this.datumOf(id, constraint.kind, source, fallback, constraint.display),
         ]);
     }
 

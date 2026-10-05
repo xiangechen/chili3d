@@ -21,6 +21,7 @@ import {
 import type { ParametricBodyNode } from "../../parametricBodyNode";
 import {
     ConstraintKind,
+    datumIsSigned,
     datumUnitSpec,
     isExternalEntityId,
     radiusDisplayOf,
@@ -34,7 +35,7 @@ import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
 import { type SketchDiagnostics, SketchSolver, type SolveOutcome } from "../solver";
 import * as datumPrompt from "./datumPrompt";
-import { type DimensionAnchor, toDisplayDatum } from "./dimensionLayout";
+import { type DimensionAnchor, datumReading } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
 import { SketchConstraintsPanel } from "./sketchConstraintsPanel";
 import { SketchEventHandler } from "./sketchEventHandler";
@@ -745,6 +746,23 @@ export class SketchEditor implements IDisposable {
     }
 
     /**
+     * Turns dimensions into driven (reference) ones, or back. A driven dimension keeps
+     * its id, its refs and its label where it is — only what it does to the sketch
+     * changes, which is nothing: garlic solves around it and writes the measurement back.
+     * Commits (undoable), and does nothing at all when the selection was already there.
+     */
+    setConstraintsDriven(constraintIds: Iterable<number>, driven: boolean): void {
+        if (this.disposed) return;
+        let changed = false;
+        for (const id of constraintIds) {
+            changed = this.solver.setDriven(id, driven) || changed;
+        }
+        if (!changed) return;
+        this.solve(true);
+        this.commit();
+    }
+
+    /**
      * Drops the session state of constraints an op removed behind the editor's back —
      * the trim's casualties. The anchors matter: constraint ids are re-allocated
      * (max + 1), so a stale anchor would be inherited by whichever constraint takes
@@ -844,7 +862,8 @@ export class SketchEditor implements IDisposable {
         unit: UnitSpec,
     ): Promise<void> {
         return datumPrompt.promptDatumPair(initial, apply, () => this.applyDatum(), {
-            positiveOnly: false,
+            // a pinned point's coordinates are where it is, and where that is may be negative
+            positiveOnly: !datumIsSigned(ConstraintKind.Fix),
             resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
         });
     }
@@ -855,10 +874,19 @@ export class SketchEditor implements IDisposable {
         this.commit();
     }
 
-    /** Re-opens the datum dialog of an existing dimension constraint (double-click edit). */
+    /**
+     * Re-opens the datum dialog of an existing dimension constraint (double-click edit).
+     * A driven dimension has nothing to edit — its value is the geometry's, and the solver
+     * would refuse the write — so it says so and the user turns it back into a driving one
+     * (the toggle command) instead.
+     */
     editDatum(constraintId: number): void {
         const constraint = this.solver.toData().constraints.find((x) => x.id === constraintId);
         if (constraint === undefined) return;
+        if (constraint.driven === true) {
+            PubSub.default.pub("statusBarTip", "sketch.drivenNotEditable");
+            return;
+        }
         const unit = datumUnitSpec(constraint.kind);
         if (constraint.datums !== undefined) {
             this.promptDatumPair(
@@ -872,25 +900,14 @@ export class SketchEditor implements IDisposable {
             return;
         }
         if (constraint.datum === undefined) return;
-        // point-line and horizontal/vertical distances are signed; other datums stay positive
-        const signed =
-            constraint.kind === ConstraintKind.P2LDistance ||
-            constraint.kind === ConstraintKind.HorizontalDistance ||
-            constraint.kind === ConstraintKind.VerticalDistance;
-        // The dialog runs in the units the user reads — a diameter is the 2r the constraint
-        // halves on its way to the solver — and a value typed back is handed over as typed,
-        // because that same conversion is the solver's (`toDatumSource`).
-        const display = radiusDisplayOf(constraint);
-        const initial =
-            typeof constraint.datum === "number"
-                ? toDisplayDatum(constraint.kind, constraint.datum, display)
-                : constraint.datum;
+        // The dialog runs in the units the user reads, and a value typed back is handed
+        // over as typed: `datumReading` and the solver's own conversion are inverses.
         this.promptDatum(
-            initial,
+            datumReading(constraint.kind, constraint.datum, radiusDisplayOf(constraint)),
             (value) => this.solver.setDatumSource(constraintId, value),
             unit,
             undefined,
-            { positiveOnly: !signed },
+            { positiveOnly: !datumIsSigned(constraint.kind) },
         );
     }
 

@@ -78,6 +78,18 @@ export interface SketchConstraintData {
      * it drives, and only this record knows which reading the user wrote.
      */
     display?: RadiusDisplay;
+    /**
+     * A driven (reference) dimension: it measures the geometry and never constrains it,
+     * the way SolidWorks' reference dimensions and FreeCAD's reference constraints do.
+     * garlic has the mode natively — a driven constraint contributes no degree of freedom
+     * and has its datum *written back* after each solve, which is precisely "the geometry
+     * drives the dimension"; `SketchSolver` is what passes the flag through. Absent is
+     * driving, so a reference from before this existed round-trips unchanged.
+     *
+     * Only a dimensional constraint can be driven: garlic refuses `driving = false`
+     * without a datum, and there is nothing for a geometric one to measure.
+     */
+    driven?: boolean;
 }
 
 /**
@@ -98,6 +110,24 @@ export function isStructuralConstraint(constraint: SketchConstraintData): boolea
  */
 export function datumUnitSpec(kind: ConstraintKind): UnitSpec {
     return kind === ConstraintKind.Angle ? ANGLE_UNITS : LENGTH_UNITS;
+}
+
+/**
+ * Whether a datum of `kind` may be negative. A point either side of a line, a point past
+ * another along an axis, a coordinate of a pinned point: each has a sign to give and the
+ * sign is the answer. A length, an angle or a radius is a magnitude and can only be one.
+ * The datum dialogs ask this to
+ * decide whether to refuse a minus sign (`positiveOnly` in `datumPrompt`), so it lives
+ * beside `datumUnitSpec` — the other thing about a kind that the editor and the tools
+ * both have to agree on, rather than each writing the set of kinds out for itself.
+ */
+export function datumIsSigned(kind: ConstraintKind): boolean {
+    return (
+        kind === ConstraintKind.P2LDistance ||
+        kind === ConstraintKind.HorizontalDistance ||
+        kind === ConstraintKind.VerticalDistance ||
+        kind === ConstraintKind.Fix
+    );
 }
 
 /**

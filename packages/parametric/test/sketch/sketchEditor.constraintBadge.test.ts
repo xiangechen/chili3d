@@ -1,7 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type ICameraController, Plane, Result, VisualConfig, XYZ } from "@chili3d/core";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { type ICameraController, Plane, PubSub, Result, VisualConfig, XYZ } from "@chili3d/core";
 import {
     createMockApplication,
     createMockView,
@@ -195,7 +197,10 @@ describe("SketchEditor constraint badge interaction", () => {
             expect(displayed.length).toBe(before + 1);
             expect(displayed[before].colors).toEqual([VisualConfig.highlightEdgeColor]);
 
-            badge.options.onMouseLeave();
+            // Hovering repaints, and repainting rebuilds the badges — so the element the
+            // cursor is on is not the one that was entered. The leave comes from the one
+            // standing now, as the browser's own does.
+            lastBadge(badges, "H").element.dispatchEvent(new MouseEvent("mouseleave"));
             expect(removeMesh).toHaveBeenCalledWith(displayed[before].id);
             editor.exit();
         } finally {
@@ -470,15 +475,43 @@ describe("SketchEditor constraint badge interaction", () => {
     });
 });
 
+/** One length dimension on a line, with nothing else in the sketch. */
+function setupDimension() {
+    const ctx = setup();
+    const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+    const editor = SketchEditor.enter(node);
+    editor.solver.addLine(0, 0, 100, 0);
+    const dimension = editor.solver.addConstraint({
+        kind: ConstraintKind.P2PDistance,
+        refs: [
+            { entityId: 1, pointIndex: 0 },
+            { entityId: 1, pointIndex: 1 },
+        ],
+        datum: 100,
+    });
+    editor.dimensionAnchors.set(dimension, { kind: "offset", offset: 30 });
+    editor.solve(true);
+    return { ...ctx, node, editor, dimension };
+}
+
+// SELECTED_COLOR / HOVERED_COLOR in sketchAnnotations.ts are VisualConfig's
+const SELECTED_COLOR = VisualConfig.selectedEdgeColor;
+const HOVERED_COLOR = VisualConfig.highlightFaceColor;
+
 describe("SketchEditor dimension label dragging", () => {
     // happy-dom rects are zero-origin, so client coordinates map straight to
     // view offsets; the mock view maps offset (x, y) -> uv (x - 400, 300 - y)
+    // `button` is which button changed, `buttons` is the mask still held — a real drag
+    // keeps its button down between the press and the release, and the drag tells the two
+    // apart to notice a release it never saw
     const press = (badge: MockBadge, x: number, y: number) =>
-        badge.element.dispatchEvent(new MouseEvent("pointerdown", { clientX: x, clientY: y, button: 0 }));
+        badge.element.dispatchEvent(
+            new MouseEvent("pointerdown", { clientX: x, clientY: y, button: 0, buttons: 1 }),
+        );
     const move = (x: number, y: number) =>
-        window.dispatchEvent(new MouseEvent("pointermove", { clientX: x, clientY: y }));
+        window.dispatchEvent(new MouseEvent("pointermove", { clientX: x, clientY: y, buttons: 1 }));
     const release = (x: number, y: number) =>
-        window.dispatchEvent(new MouseEvent("pointerup", { clientX: x, clientY: y }));
+        window.dispatchEvent(new MouseEvent("pointerup", { clientX: x, clientY: y, buttons: 0 }));
 
     function setupDistanceDimension() {
         const ctx = setup();
@@ -516,65 +549,191 @@ describe("SketchEditor dimension label dragging", () => {
             expect(node.data.anchors).toEqual([
                 { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
             ]);
+            // moving is not selecting: a gesture that travelled moves the label only
+            expect(editor.annotations.selectedConstraintIds).toEqual([]);
             editor.exit();
         } finally {
             restoreFactory();
         }
     });
 
-    test("clicking a dimension label picks it up, a viewport click drops it at the new position", () => {
-        const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
+    test("clicking a dimension label selects it and leaves it where it is", () => {
+        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
         try {
-            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            expect(editor.annotations.selectedConstraintIds).toEqual([]);
+
             const badge = lastBadge(badges, "100.00");
             press(badge, 450, 250);
             release(450, 250);
-            // picked up: the label now follows the cursor, anchor not yet touched
-            expect(editor.annotations.isLabelDragging).toBe(true);
+
+            // a click means the dimension: it is what the toolbar, the panel and the
+            // keyboard act on — and it did not move, nor commit anything
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(editor.annotations.selectedConstraintIds).toEqual([1]);
             expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 30 });
-
-            // offset (450, 200) -> uv (50, 100): 100 above the segment, halfway along it
-            move(450, 200);
-            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
-
-            handler.pointerDown(view, pointerEvent(450, 200));
-            expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([
-                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
-            ]);
+            expect(node.data.anchors).toBeUndefined();
             editor.exit();
         } finally {
             restoreFactory();
         }
     });
 
-    test("clicking the label itself also drops it", () => {
-        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+    test("hovering the dimension line hovers the dimension", () => {
+        const { view, editor, dimension, restoreFactory } = setupDimension();
         try {
-            press(lastBadge(badges, "100.00"), 450, 250);
-            release(450, 250);
-            move(450, 200);
-            // the refresh rebuilt the badge under the cursor; pressing it drops the label
-            press(lastBadge(badges, "100.00"), 450, 200);
-            expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([
-                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
-            ]);
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            expect(editor.annotations.hoveredConstraintId).toBeUndefined();
+
+            // the dimension line runs at v = 30, thirty units above the geometry it
+            // measures — uv (50, 30) is on it and nowhere near the line itself
+            handler.pointerMove(view, pointerEvent(450, 270));
+            expect(editor.annotations.hoveredConstraintId).toBe(dimension);
+
+            // the geometry keeps its own hover: on the line itself the dimension does
+            // not take it over (their real conflict — an extension line ends on the
+            // geometry, or a leader on a rim — is what "pressing an endpoint drops the
+            // dimension selection" covers, the mock's pick tolerance being zero)
+            handler.pointerMove(view, pointerEvent(450, 300));
+            expect(editor.annotations.hoveredConstraintId).toBeUndefined();
+
+            // and off everything the hover goes
+            handler.pointerMove(view, pointerEvent(450, 100));
+            expect(editor.annotations.hoveredConstraintId).toBeUndefined();
             editor.exit();
         } finally {
             restoreFactory();
         }
     });
 
-    test("Escape cancels the placement and restores the previous anchor", () => {
-        const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
+    test("pressing a dimension's drawn graphics selects it — line or extension line", () => {
+        const { view, badges, editor, dimension, restoreFactory } = setupDimension();
         try {
             const handler = editor.document.visual.eventHandler as SketchEventHandler;
             press(lastBadge(badges, "100.00"), 450, 250);
             release(450, 250);
+            expect(editor.annotations.selectedConstraintIds).toEqual([dimension]);
+
+            // away from it first, so the second press has something to replace
+            handler.pointerDown(view, pointerEvent(700, 100));
+            expect(editor.annotations.selectedConstraintIds).toEqual([]);
+
+            // the dimension line itself, then its extension line, both mean the dimension
+            handler.pointerDown(view, pointerEvent(450, 270));
+            expect(editor.annotations.selectedConstraintIds).toEqual([dimension]);
+            expect(editor.selectedEntityIds()).toEqual([]);
+
+            handler.pointerDown(view, pointerEvent(700, 100));
+            handler.pointerDown(view, pointerEvent(400, 285)); // the extension line at u = 0
+            expect(editor.annotations.selectedConstraintIds).toEqual([dimension]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("pressing the geometry drops the dimension selection", () => {
+        const { view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            expect(editor.annotations.selectedConstraintIds).toEqual([1]);
+
+            // Pressing the line is a press about the line. The dimension is not what was
+            // pressed, so it stops being selected — this used to keep it, because only
+            // the empty-space path cleared it and this one returns early.
+            handler.pointerDown(view, pointerEvent(450, 300));
+            expect(editor.annotations.selectedConstraintIds).toEqual([]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    // Also the precedence between the two targets: the extension line ends exactly on
+    // that endpoint, so both are under the press and the point has to win.
+    test("pressing an endpoint drops the dimension selection too", () => {
+        const { view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            expect(editor.annotations.selectedConstraintIds).toEqual([1]);
+
+            // the same for the endpoint, which starts a point drag instead of a selection
+            handler.pointerDown(view, pointerEvent(400, 300));
+            expect(editor.annotations.selectedConstraintIds).toEqual([]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("shift-clicking a label adds it to the selection", () => {
+        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            // a second dimension, priced differently so its badge can be told apart
+            const line = editor.solver.addLine(0, 200, 100, 200);
+            const second = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                ],
+                datum: 50,
+            });
+            editor.dimensionAnchors.set(second, { kind: "offset", offset: 30 });
+            editor.solve(true);
+
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            const other = lastBadge(badges, "50.00");
+            other.element.dispatchEvent(
+                new MouseEvent("pointerdown", { clientX: 450, clientY: 50, button: 0, shiftKey: true }),
+            );
+            window.dispatchEvent(new MouseEvent("pointerup", { clientX: 450, clientY: 50, shiftKey: true }));
+
+            expect(editor.annotations.selectedConstraintIds.sort((a, b) => a - b)).toEqual([1, second]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a dragged label keeps one colour, however often the drag rebuilds it", () => {
+        const { badges, editor, displayed, restoreFactory } = setupDistanceDimension();
+        try {
+            const badge = lastBadge(badges, "100.00");
+            press(badge, 450, 250);
+            badge.options.onMouseEnter();
+            move(450, 200);
+
+            // Every move rebuilds the badge, and the browser answers a rebuild under the
+            // cursor with a mouseleave for the element it took away — a leave the user
+            // never made. Believing it is what made the colour flicker, and this is that
+            // event: dispatched on the badge the rebuild disposed, not on the live one.
+            badge.element.dispatchEvent(new MouseEvent("mouseleave"));
+            const before = displayed.length;
+            move(450, 150);
+
+            expect(editor.annotations.hoveredConstraintId).toBe(1);
+            const sinceLastMove = displayed.slice(before);
+            expect(sinceLastMove.some((d) => d.colors.includes(HOVERED_COLOR))).toBe(true);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("Escape during a drag restores the anchor it started from", () => {
+        const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            press(lastBadge(badges, "100.00"), 450, 250);
             move(450, 200);
             expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
 
+            // the button is still down: the drag is live, and Escape abandons it
             handler.keyDown(view, new KeyboardEvent("keydown", { key: "Escape" }));
             expect(editor.annotations.isLabelDragging).toBe(false);
             expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 30 });
@@ -586,17 +745,16 @@ describe("SketchEditor dimension label dragging", () => {
         }
     });
 
-    test("Delete while a label follows the cursor deletes the dimension and ends the placement", () => {
+    test("Delete removes the dimension a click selected", () => {
         const { node, view, badges, editor, restoreFactory } = setupDistanceDimension();
         try {
             const handler = editor.document.visual.eventHandler as SketchEventHandler;
             press(lastBadge(badges, "100.00"), 450, 250);
             release(450, 250);
-            expect(editor.annotations.isLabelDragging).toBe(true);
+            expect(editor.annotations.selectedConstraintIds).toEqual([1]);
 
             handler.keyDown(view, new KeyboardEvent("keydown", { key: "Delete" }));
             expect(editor.solver.toData().constraints).toEqual([]);
-            expect(editor.annotations.isLabelDragging).toBe(false);
             // the deletion was committed
             expect(node.data.constraints).toEqual([]);
             editor.exit();
@@ -628,27 +786,48 @@ describe("SketchEditor dimension label dragging", () => {
         }
     });
 
-    test("pick-up released on the badge, then clicking the label again drops it", () => {
-        const { node, badges, editor, restoreFactory } = setupDistanceDimension();
+    test("a release the window never saw does not leave the label following the cursor", () => {
+        const { badges, editor, restoreFactory } = setupDistanceDimension();
         try {
-            const badge = lastBadge(badges, "100.00");
-            badge.element.addEventListener("pointerup", (e) => e.stopPropagation());
-            press(badge, 450, 250);
-            // the swallowed release must still switch to the follow-the-cursor mode
-            badge.element.dispatchEvent(
-                new MouseEvent("pointerup", { clientX: 450, clientY: 250, bubbles: true }),
-            );
+            press(lastBadge(badges, "100.00"), 450, 250);
+            move(450, 200);
+            const dragged = editor.dimensionAnchors.get(1);
             expect(editor.annotations.isLabelDragging).toBe(true);
 
-            move(450, 200);
-            expect(editor.dimensionAnchors.get(1)).toEqual({ kind: "offset", offset: 100, along: 50 });
+            // The pointer comes back over the window with its button already up — the one
+            // report of a release that happened where this window could not hear it. The
+            // drag has to end here, or the label keeps following the cursor for good.
+            window.dispatchEvent(new MouseEvent("pointermove", { clientX: 600, clientY: 100, buttons: 0 }));
 
-            // the refresh rebuilt the badge under the cursor; pressing it drops the label
-            press(lastBadge(badges, "100.00"), 450, 200);
             expect(editor.annotations.isLabelDragging).toBe(false);
-            expect(node.data.anchors).toEqual([
-                { id: 1, anchor: { kind: "offset", offset: 100, along: 50 } },
-            ]);
+            // and it stayed where the drag left it: that last move did not drag it further
+            expect(editor.dimensionAnchors.get(1)).toEqual(dragged);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a drag whose release never arrives does not swallow the next click", () => {
+        const { view, badges, editor, restoreFactory } = setupDistanceDimension();
+        try {
+            const handler = editor.document.visual.eventHandler as SketchEventHandler;
+            press(lastBadge(badges, "100.00"), 450, 250);
+            release(450, 250);
+            expect(editor.annotations.selectedConstraintIds).toEqual([1]);
+
+            // drag it, and never release: the pointer went to another window, which is
+            // the one way the window's own pointerup never arrives
+            press(lastBadge(badges, "100.00"), 450, 250);
+            move(450, 200);
+            expect(editor.annotations.isLabelDragging).toBe(true);
+
+            // The next press on empty space has to do both: end that drag, because
+            // otherwise the viewport stays deaf to hover for good, and clear the
+            // selection, because that is what pressing empty space is for.
+            handler.pointerDown(view, pointerEvent(700, 100));
+            expect(editor.annotations.isLabelDragging).toBe(false);
+            expect(editor.annotations.selectedConstraintIds).toEqual([]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -991,6 +1170,242 @@ describe("SketchEditor conflicting constraint display", () => {
     });
 });
 
+describe("SketchEditor driven dimension display", () => {
+    // DRIVEN_COLOR in sketchAnnotations.ts is module-private, like the tones above
+    const DRIVEN_COLOR = 0x808080;
+    const DIMENSION_COLOR = 0x4a9eff;
+
+    /** A length dimension the user has switched to a reference. */
+    function setupDriven() {
+        const ctx = setup();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        editor.solver.addLine(0, 0, 100, 0);
+        const refs = [
+            { entityId: 1, pointIndex: 0 },
+            { entityId: 1, pointIndex: 1 },
+        ];
+        const dimension = editor.solver.addConstraint({
+            kind: ConstraintKind.P2PDistance,
+            refs,
+            datum: 100,
+        });
+        editor.solve(true);
+        editor.setConstraintsDriven([dimension], true);
+        return { ...ctx, node, editor, dimension, refs };
+    }
+
+    const liveBadge = (badges: MockBadge[], text: string): MockBadge => {
+        const badge = badges.findLast((b) => b.text === text && !b.disposed);
+        expect(badge).toBeDefined();
+        return badge as MockBadge;
+    };
+
+    test("reads in parentheses, grey, and keeps its mesh glyphs on the value", () => {
+        const { badges, displayed, editor, restoreFactory } = setupDriven();
+        try {
+            // the parentheses are the text's own signal — they survive a screenshot and a
+            // colour vision deficiency, which the grey does not
+            const badge = liveBadge(badges, "(100.00)");
+            expect(badge.element.classList.contains(annotationsStyle.driven)).toBe(true);
+            // not a fault: it keeps the regular badge rather than going solid like a conflict
+            expect(badge.element.classList.contains(annotationsStyle.conflicting)).toBe(false);
+            expect(badge.element.classList.contains(annotationsStyle.redundant)).toBe(false);
+
+            // the value is drawn in the driven grey, and nothing is left in the normal blue
+            const entry = displayed.findLast((d) => d.colors.some((c) => c === DRIVEN_COLOR));
+            expect(entry).toBeDefined();
+            expect(entry?.colors).not.toContain(DIMENSION_COLOR);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a driving dimension on the same edges still reads normally", () => {
+        const { badges, editor, restoreFactory } = setupDriven();
+        try {
+            const second = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+                datum: 100,
+            });
+            editor.solve(true);
+            expect(editor.solver.toData().constraints.find((c) => c.id === second)?.driven).toBeUndefined();
+
+            // one badge each, and only the reference is parenthesised
+            expect(liveBadge(badges, "(100.00)").element.classList.contains(annotationsStyle.driven)).toBe(
+                true,
+            );
+            expect(liveBadge(badges, "100.00").element.classList.contains(annotationsStyle.driven)).toBe(
+                false,
+            );
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("editing it is refused, with the reason, and no dialog opens", () => {
+        const { editor, dimension, restoreFactory } = setupDriven();
+        try {
+            const tips: string[] = [];
+            const dialogs: unknown[] = [];
+            const onTip = (key: string) => tips.push(key);
+            const onDialog = () => dialogs.push(undefined);
+            PubSub.default.sub("statusBarTip", onTip);
+            PubSub.default.sub("showDialog", onDialog);
+            try {
+                editor.editDatum(dimension);
+
+                // the value belongs to the geometry: there is nothing here to type into
+                expect(tips).toEqual(["sketch.drivenNotEditable"]);
+                expect(dialogs).toEqual([]);
+            } finally {
+                PubSub.default.remove("statusBarTip", onTip);
+                PubSub.default.remove("showDialog", onDialog);
+            }
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("SketchEditor dimension highlight and selection display", () => {
+    /** The colours of the last annotation mesh drawn. */
+    const lastColors = (displayed: { colors: number[] }[]): number[] => {
+        const entry = displayed.at(-1);
+        expect(entry).toBeDefined();
+        return entry?.colors ?? [];
+    };
+
+    test("the selected dimension draws its whole mesh in the selection green", () => {
+        const { editor, dimension, displayed, restoreFactory } = setupDimension();
+        try {
+            expect(lastColors(displayed)).not.toContain(SELECTED_COLOR);
+
+            editor.annotations.selectConstraints([dimension]);
+            expect(lastColors(displayed)).toContain(SELECTED_COLOR);
+            // the whole mesh, not just a part of it: lines and glyphs travel together
+            expect(lastColors(displayed)).not.toContain(0x4a9eff);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("hovering the label paints it in the hover green", () => {
+        const { badges, editor, displayed, restoreFactory } = setupDimension();
+        try {
+            expect(displayed.some((d) => d.colors.includes(HOVERED_COLOR))).toBe(false);
+
+            const badge = badges.findLast((b) => b.text === "100.00");
+            expect(badge).toBeDefined();
+            badge?.options.onMouseEnter();
+            // the label's own mesh, not the geometry highlight the same hover raises —
+            // that one is drawn in the edge green, and this is the yellower face green
+            expect(displayed.some((d) => d.colors.includes(HOVERED_COLOR))).toBe(true);
+
+            // again: the leave the user makes comes from the badge that is there now
+            badges
+                .filter((b) => b.text === "100.00" && !b.disposed)
+                .at(-1)
+                ?.element.dispatchEvent(new MouseEvent("mouseleave"));
+            expect(editor.annotations.hoveredConstraintId).toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a hovered dimension draws in the hover green", () => {
+        const { editor, dimension, displayed, restoreFactory } = setupDimension();
+        try {
+            // Read through the constraint list's hover, which repaints the annotations and
+            // nothing else. Hovering the *badge* reaches the same `toneOf` branch, but it
+            // also highlights the referenced geometry — in the very same green — so the
+            // label's own mesh is not the last thing drawn and cannot be told apart here.
+            editor.annotations.highlightConstraint(dimension);
+            expect(lastColors(displayed)).toContain(HOVERED_COLOR);
+
+            editor.annotations.highlightConstraint(undefined);
+            expect(lastColors(displayed)).not.toContain(HOVERED_COLOR);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("the loudest state wins: a fault outranks a selection, a selection outranks driven", () => {
+        const { editor, dimension, displayed, restoreFactory } = setupDimension();
+        try {
+            // a second dimension over the same edges restates the first — garlic reports
+            // the pair redundant, and that amber is not to be hidden by a click
+            const second = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: 1, pointIndex: 0 },
+                    { entityId: 1, pointIndex: 1 },
+                ],
+                datum: 100,
+            });
+            editor.solve(true);
+            editor.annotations.selectConstraints([second]);
+            expect(lastColors(displayed)).toContain(0xffd93d);
+
+            // ...while a reference reads as selected while it is, and the parentheses
+            // in its text are what keeps saying it is one
+            editor.annotations.selectConstraints([]);
+            editor.solver.setDriven(dimension, true);
+            editor.solve(true);
+            expect(lastColors(displayed)).toContain(0x808080);
+            editor.annotations.selectConstraints([dimension]);
+            expect(lastColors(displayed)).toContain(SELECTED_COLOR);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a selected datum badge stays invisible, so its value is not drawn twice", () => {
+        // The badge is the label's interaction layer and nothing else — the value on the
+        // canvas is 23px of mesh glyphs. A state that lets the badge paint its own 12px
+        // text over them draws two texts a size apart, so every state has to be
+        // transparent for a ghost. This reads the stylesheet's own cascade: the two are
+        // equally specific, so which one applies is decided by source order alone.
+        const css = readFileSync(
+            path.resolve(process.cwd(), "packages/parametric/src/sketch/editor/sketchAnnotations.module.css"),
+            "utf8",
+        );
+        const sheet = document.createElement("style");
+        sheet.textContent = css;
+        document.head.appendChild(sheet);
+        try {
+            const datum = document.createElement("div");
+            datum.className = "badge ghost selected";
+            document.body.append(datum);
+            const symbol = document.createElement("div");
+            symbol.className = "badge selected";
+            document.body.append(symbol);
+            try {
+                expect(getComputedStyle(datum).color).toBe("transparent");
+                // the same classes on a symbol badge do read as selected — being a ghost
+                // is the whole of the exception
+                expect(getComputedStyle(symbol).color).not.toBe("transparent");
+            } finally {
+                datum.remove();
+                symbol.remove();
+            }
+        } finally {
+            sheet.remove();
+        }
+    });
+});
+
 describe("constraint badge stacks", () => {
     /**
      * A line whose Horizontal constraint shares its anchor with the Parallel constraint's
@@ -1162,7 +1577,9 @@ describe("constraint badge stacks", () => {
             // the chip's own click selects every member, so a member click that reached it
             // would select the horizontal too
             expect(editor.annotations.selectedConstraintIds).toEqual([parallelId]);
-            expect(chip.element.classList.contains(annotationsStyle.selected)).toBe(true);
+            // selecting repaints the mesh, and that rebuilds the badges with it — so the
+            // chip to look at is the one standing now, not the one that was clicked
+            expect(liveChip(badges, "H").element.classList.contains(annotationsStyle.selected)).toBe(true);
             editor.exit();
         } finally {
             restoreFactory();
@@ -1179,12 +1596,18 @@ describe("constraint badge stacks", () => {
             member.dispatchEvent(new MouseEvent("mouseenter"));
             expect(editor.annotations.hoveredConstraintId).toBe(parallelId);
 
-            // back onto the chip: the pointer left the member but never left the stack
-            member.dispatchEvent(new MouseEvent("mouseleave", { relatedTarget: chip.element }));
+            // Hovering repaints, and repainting rebuilds the chip — so the element under
+            // the cursor is a fresh one, and the boundary events come from that. These
+            // are re-queried for the same reason a browser would fire them from the
+            // element that is actually there.
+            const live = liveChip(badges, "H");
+            memberFaced(live, "∥").dispatchEvent(
+                new MouseEvent("mouseleave", { relatedTarget: live.element }),
+            );
             expect(editor.annotations.hoveredConstraintId).toBe(parallelId);
 
             // and leaving the stack itself does let the hover go
-            chip.element.dispatchEvent(new MouseEvent("mouseleave"));
+            liveChip(badges, "H").element.dispatchEvent(new MouseEvent("mouseleave"));
             expect(editor.annotations.hoveredConstraintId).toBeUndefined();
             editor.exit();
         } finally {

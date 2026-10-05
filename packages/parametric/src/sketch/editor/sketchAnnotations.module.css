@@ -61,6 +61,18 @@
     border-color: var(--badge-selected);
 }
 
+/* A selected datum stays invisible too: the green is the mesh's to draw (the dimension
+   redraws its whole graphics in its tone), and a badge here would lay its own 12px
+   monospace text over the 23px glyphs already on the mesh — two texts, a size apart.
+   Specificity ties with `.selected` above and source order settles it, so this has to
+   come after it. */
+.ghost.selected,
+.ghost.selected:hover {
+    color: transparent;
+    background-color: transparent;
+    border-color: transparent;
+}
+
 /* a datum whose expression no longer resolves — it keeps its last geometry, and says why */
 .error,
 .badge.error:hover {
@@ -100,6 +112,27 @@
 /* a redundant datum stays invisible: the amber dimension mesh is its signal */
 .ghost.redundant,
 .ghost.redundant:hover {
+    color: transparent;
+    background-color: transparent;
+    border-color: transparent;
+}
+
+/* a driven (reference) dimension — muted grey, the quietest thing on the sketch, as
+   Onshape greys its reference dimensions. Unlike the two above this is not a fault:
+   it survives hover for the same reason they do, because it is what the dimension is
+   rather than what the pointer is doing */
+.driven,
+.badge.driven:hover,
+.badge.driven.hovered {
+    color: var(--foreground-muted-color);
+    background-color: color-mix(in srgb, var(--foreground-muted-color) 12%, var(--panel-background-color));
+    border-color: var(--foreground-muted-color);
+}
+
+/* a driven datum's value is drawn as grey mesh glyphs, so the badge behind it stays
+   invisible on the ghost terms — the parentheses in the text carry it either way */
+.ghost.driven,
+.ghost.driven:hover {
     color: transparent;
     background-color: transparent;
     border-color: transparent;

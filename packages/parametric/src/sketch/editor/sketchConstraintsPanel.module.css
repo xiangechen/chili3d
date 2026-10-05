@@ -138,6 +138,13 @@
     color: var(--warning-color);
 }
 
+/* a driven (reference) dimension reads muted rather than flagged — no tint, since it is
+   not an issue; the value is already parenthesised, so the colour is the second signal */
+.row.driven .icon,
+.row.driven .value {
+    color: var(--foreground-muted-color);
+}
+
 .icon {
     display: flex;
     align-items: center;

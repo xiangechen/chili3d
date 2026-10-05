@@ -93,3 +93,34 @@ export function formatDatum(
     if (typeof value === "string") return value;
     return formatMeasurement(measurementOf(kind, display), toDisplayDatum(kind, value, display));
 }
+
+/**
+ * A stored datum as the value the dialog that edits it opens on — what the user reads.
+ * An expression comes back as written (it is written in the reading's units, and that name
+ * is the user's intent); a literal is converted out of storage units into them, which is
+ * where the angle's degrees and a diameter's doubling live (`toDisplayDatum`).
+ *
+ * The inverse of `setDatumSource`, which is what the dialog hands back when it closes.
+ */
+export function datumReading(
+    kind: ConstraintKind,
+    value: ParameterValue,
+    display: RadiusDisplay = "radius",
+): ParameterValue {
+    if (typeof value !== "number") return value;
+    return toDisplayDatum(kind, value, display);
+}
+
+/**
+ * The same text for a driven dimension, in the parentheses SolidWorks, Fusion and Onshape
+ * all read a reference value with — so the text alone says the number is the geometry's
+ * rather than the user's, in a screenshot or through a colour vision deficiency, neither
+ * of which the tone colour survives. The tone is still drawn; this is what carries it.
+ */
+export function formatDrivenDatum(
+    kind: ConstraintKind,
+    value: ParameterValue,
+    display: RadiusDisplay = "radius",
+): string {
+    return `(${formatDatum(kind, value, display)})`;
+}

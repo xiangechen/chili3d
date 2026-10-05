@@ -117,6 +117,7 @@ export default {
         "command.constraint.pointOn": "Ponto na Entidade",
         "command.constraint.symmetric": "Simétrico",
         "command.constraint.tangent": "Tangente",
+        "command.constraint.toggleDriven": "Condutora / Conduzida",
         "command.constraint.vertical": "Vertical",
         "command.constraint.verticalAlign": "Alinhar Verticalmente",
         "command.dimension": "Cota",
@@ -174,6 +175,10 @@ export default {
         "sketch.dimensionSelectionUnsupported": "Essas entidades não têm cota entre si",
         "sketch.constraints": "Restrições",
         "sketch.dofs{0}": "Graus de liberdade: {0}",
+        "sketch.driven": "Uma cota conduzida mede a geometria sem restringi-la",
+        "sketch.drivenNotEditable":
+            "Uma cota conduzida é somente leitura — volte-a para condutora para editá-la",
+        "sketch.drivenSelectDimension": "Selecione uma cota para alterná-la entre condutora e conduzida",
         "sketch.externalRefAssociativeOnly": "Referências externas aceitam apenas restrições associativas",
         "sketch.externalRefsLost{0}":
             "{0} referências externas do esboço perderam a origem; os perfis usam a geometria congelada",
@@ -246,6 +251,7 @@ export default {
         "helix.pitch": "Passo",
         "option.command.pitch": "Passo",
         "option.command.construction": "Construção",
+        "option.command.driven": "Conduzida",
         "option.command.externalRole": "Função",
         "option.command.externalRole.profile": "Perfil",
         "option.command.externalRole.reference": "Referência",

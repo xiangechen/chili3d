@@ -69,6 +69,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                         "dimension.horizontalDistance",
                         "dimension.verticalDistance",
                     ],
+                    "constraint.toggleDriven",
                 ],
             },
             {

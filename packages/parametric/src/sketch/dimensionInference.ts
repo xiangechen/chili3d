@@ -17,6 +17,7 @@ import {
 import type { DimensionPreview } from "./editor/sketchAnnotations";
 import {
     ConstraintKind,
+    datumIsSigned,
     entityRadius,
     isDatumEntityId,
     type RadiusDisplay,
@@ -209,7 +210,7 @@ function buildLineLength(solver: SketchSolver, lineId: number): DimensionPlan {
             constraint: { kind: ConstraintKind.P2PDistance, refs: [start, end], datum: length },
             anchor: { kind: "offset", ...labelOnSegment(uvStart, uvEnd, label) },
             initial: length,
-            positiveOnly: true,
+            positiveOnly: !datumIsSigned(ConstraintKind.P2PDistance),
         }),
     };
 }
@@ -240,7 +241,7 @@ function buildRadiusReading(entity: SketchEntityData): DimensionPlan {
             },
             anchor: { kind: "vector", dx: label[0] - uvCenter[0], dy: label[1] - uvCenter[1] },
             initial: display === "diameter" ? radius * 2 : radius,
-            positiveOnly: true,
+            positiveOnly: !datumIsSigned(ConstraintKind.Radius),
         }),
     };
 }
@@ -323,6 +324,9 @@ function resolveTwoPoint(
         },
         anchor: { kind: "offset", ...reading.label },
         initial: reading.datum,
+        // the same rule as everywhere else, read off the geometry instead of the kind:
+        // the label chose which reading this is, and only the aligned one is a magnitude
+        // (`datumIsSigned`)
         positiveOnly: aligned,
     };
 }
@@ -365,7 +369,7 @@ function pointToLinePlan(
                 },
                 anchor: { kind: "offset", ...labelOnSegment(uvPoint, foot, label) },
                 initial: signed,
-                positiveOnly: false,
+                positiveOnly: !datumIsSigned(ConstraintKind.P2LDistance),
             };
         },
     };
@@ -422,7 +426,7 @@ function buildAngle(solver: SketchSolver, firstId: number, secondId: number): Di
                     dy: label[1] - measured.vertex[1],
                 },
                 initial: toDisplayDatum(ConstraintKind.Angle, measured.datum),
-                positiveOnly: true,
+                positiveOnly: !datumIsSigned(ConstraintKind.Angle),
             };
         },
     };
@@ -447,7 +451,7 @@ function buildCenterDistance(first: SketchEntityData, second: SketchEntityData):
             },
             anchor: { kind: "offset", ...labelOnSegment(uvFirst, uvSecond, label) },
             initial: distance,
-            positiveOnly: true,
+            positiveOnly: !datumIsSigned(ConstraintKind.P2PDistance),
         }),
     };
 }

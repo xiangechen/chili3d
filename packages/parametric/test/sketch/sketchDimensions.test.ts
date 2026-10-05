@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CancelableCommand,
     type DialogButton,
     type I18nKeys,
     type ICameraController,
@@ -138,7 +139,62 @@ function cancelDialog(dialog: DialogCapture): void {
 
 // mock view maps screen (x, y) -> world (x - 400, 300 - y, 0) on the XY plane:
 // a line (0,0)-(100,0) spans screen x 400..500 at y 300
+/**
+ * Primes an option the way the command bar does: `beforeExecute` reads the value back from
+ * the static cache, and the cache is shared by every command, so it is put back after.
+ */
+function primeOption(name: string, value: unknown): () => void {
+    const cache: Map<string, unknown> = (
+        CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> }
+    )._propertiesCache;
+    const had = cache.has(name);
+    const previous = cache.get(name);
+    cache.set(name, value);
+    return () => {
+        if (had) cache.set(name, previous);
+        else cache.delete(name);
+    };
+}
+
 describe("dimension commands", () => {
+    test("the driven option turns any of them into a reference, with nothing to confirm", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addCircle(0, 0, 30);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            const free = editor.solver.dofs();
+
+            const unprime = primeOption("driven", true);
+            try {
+                const run = new RadiusDimensionCommand().execute(app);
+                handler.pointerDown(view, pointerEvent(430, 300)); // the rim
+                await tick();
+                handler.pointerDown(view, pointerEvent(500, 250)); // place the label
+                await run;
+
+                // the option is not private to the Dimension tool: every one of these
+                // commands reads it, so a reference is how each of them can read a value
+                const constraints = editor.solver.toData().constraints;
+                expect(constraints.length).toBe(1);
+                expect(constraints[0].kind).toBe(ConstraintKind.Radius);
+                expect(constraints[0].driven).toBe(true);
+                expect(constraints[0].datum).toBeCloseTo(30);
+                expect(editor.solver.dofs()).toBe(free);
+                // nothing was asked: a reference has no value of its own
+                expect(dialog.title).toBeUndefined();
+            } finally {
+                unprime();
+            }
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
     test("distance constraint is created at placement, before the dialog is confirmed", async () => {
         const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
         try {

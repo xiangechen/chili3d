@@ -178,11 +178,13 @@ describe("a diameter dimension", () => {
             expect(badge).toBeDefined();
             // happy-dom rects are zero-origin, so client coordinates map straight to view offsets
             badge?.element.dispatchEvent(
-                new MouseEvent("pointerdown", { clientX: 470, clientY: 300, button: 0 }),
+                new MouseEvent("pointerdown", { clientX: 470, clientY: 300, button: 0, buttons: 1 }),
             );
-            // dropped at uv (100, 100) — the vector is measured from the center at (50, 0)
-            window.dispatchEvent(new MouseEvent("pointermove", { clientX: 500, clientY: 200 }));
-            window.dispatchEvent(new MouseEvent("pointerup", { clientX: 500, clientY: 200 }));
+            // dropped at uv (100, 100) — the vector is measured from the center at (50, 0).
+            // `buttons: 1` is the button still being held: the drag treats a move with
+            // none held as the release it never saw
+            window.dispatchEvent(new MouseEvent("pointermove", { clientX: 500, clientY: 200, buttons: 1 }));
+            window.dispatchEvent(new MouseEvent("pointerup", { clientX: 500, clientY: 200, buttons: 0 }));
 
             // rebuilt from the drop position, and still reading as a diameter — the reading
             // is not the anchor's to lose, so a drag cannot turn a Ø back into an R

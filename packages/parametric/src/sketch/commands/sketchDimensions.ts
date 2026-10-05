@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, command, type ParameterValue, PubSub } from "@chili3d/core";
+import { AsyncController, command, type ParameterValue, PubSub, property } from "@chili3d/core";
 import { type DimensionElement, inferDimension } from "../dimensionInference";
 import {
     angleVertex,
@@ -19,6 +19,7 @@ import type { DimensionPreview } from "../editor/sketchAnnotations";
 import type { SketchEditor, SketchElementPick } from "../editor/sketchEditor";
 import {
     ConstraintKind,
+    datumIsSigned,
     datumUnitSpec,
     entityRadius,
     pointRefKey,
@@ -27,7 +28,7 @@ import {
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import { allowsConstraintOnEntity, normalizeLineRefs } from "../solverEntities";
-import { hasDuplicate, SketchConstraintCommand } from "./sketchConstraints";
+import { SketchConstraintCommand } from "./sketchConstraints";
 
 /** The longest selection the inference table ever reads — two elements, whatever they are. */
 const MAX_ELEMENTS = 2;
@@ -47,8 +48,28 @@ const MAX_ELEMENTS = 2;
  * The tool stays up after placing, so a second dimension is the next click rather than a
  * second command — the same shape as `sketch.trim`.
  */
+/**
+ * A dimension tool's one option: while it is on, the dimensions this tool places measure
+ * the geometry instead of driving it (`SketchConstraintData.driven`) — SolidWorks' "driven
+ * dimension in sketch", the same toggle FreeCAD puts on its creation tools.
+ *
+ * On the command rather than on the editor, because it belongs to the tool that is
+ * running: it is declared the way every other command option is, so the command bar
+ * renders it (`CommandContext` reads a command's `@property` fields) and the value the
+ * user leaves behind is the one the tool starts with next time (`CancelableCommand`).
+ */
+abstract class DrivenDimensionCommand extends SketchConstraintCommand {
+    @property("option.command.driven")
+    get driven(): boolean {
+        return this.getPrivateValue("driven", false);
+    }
+    set driven(value: boolean) {
+        this.setProperty("driven", value);
+    }
+}
+
 @command({ key: "dimension", icon: "icon-dimension" })
-export class DimensionCommand extends SketchConstraintCommand {
+export class DimensionCommand extends DrivenDimensionCommand {
     private elements: DimensionElement[] = [];
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
@@ -156,13 +177,11 @@ export class DimensionCommand extends SketchConstraintCommand {
         if (!constraint.refs.every((ref) => allowsConstraintOnEntity(constraint.kind, ref.entityId))) {
             return;
         }
-        // Measuring the same thing twice adds nothing but a redundancy for garlic to report.
-        if (hasDuplicate(editor.solver, constraint.kind, constraint.refs)) {
-            PubSub.default.pub("statusBarTip", "sketch.constraintExists");
-            return;
-        }
+        // A reading the sketch already holds is not refused here the way a duplicate
+        // *constraint* is: it is placed, and the solve judges it (see `commitDimension`).
         await commitDimension(editor, constraint, resolved.anchor, resolved.initial, {
             positiveOnly: resolved.positiveOnly,
+            driven: this.driven,
         });
     }
 }
@@ -176,7 +195,7 @@ function sameElement(held: DimensionElement, next: DimensionElement): boolean {
 }
 
 @command({ key: "dimension.distance", icon: "icon-dDimension" })
-export class DistanceDimensionCommand extends SketchConstraintCommand {
+export class DistanceDimensionCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
@@ -213,12 +232,13 @@ export class DistanceDimensionCommand extends SketchConstraintCommand {
             },
             { kind: "offset", ...labelOnSegment(uv1, uv2, position) },
             initial,
+            { driven: this.driven },
         );
     }
 }
 
 @command({ key: "dimension.radius", icon: "icon-dRadius" })
-export class RadiusDimensionCommand extends SketchConstraintCommand {
+export class RadiusDimensionCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const entityId = await editor.pickEntity(
@@ -247,6 +267,7 @@ export class RadiusDimensionCommand extends SketchConstraintCommand {
             },
             { kind: "vector", dx: position[0] - center[0], dy: position[1] - center[1] },
             radius,
+            { driven: this.driven },
         );
     }
 }
@@ -293,17 +314,26 @@ export async function pickDimensionPosition(
  *
  * What was typed is stored as typed: `setDatumSource` is the whole conversion, because
  * the constraint carries the reading it is written in (`SketchConstraintData.display`).
+ *
+ * A reference asks for no value at all — the tool's own `driven` option, or the solve
+ * finding the reading redundant — because a reference has none of its own: the solver
+ * measures it, so there is nothing to decide and nothing to type.
  */
-export function commitDimension(
+export async function commitDimension(
     editor: SketchEditor,
     constraint: Omit<SketchConstraintData, "id">,
     anchor: DimensionAnchor,
     initial: ParameterValue,
-    options?: { positiveOnly?: boolean },
+    options?: { positiveOnly?: boolean; driven?: boolean },
 ): Promise<void> {
-    const id = editor.solver.addConstraint(constraint);
+    const placed = options?.driven === true ? { ...constraint, driven: true } : constraint;
+    const id = editor.solver.addConstraint(placed);
     editor.dimensionAnchors.set(id, anchor);
     editor.solve(true);
+    if (placed.driven === true || autoReference(editor, id)) {
+        editor.commit();
+        return;
+    }
     return editor.promptDatum(
         initial,
         (value) => editor.solver.setDatumSource(id, value),
@@ -317,6 +347,27 @@ export function commitDimension(
     );
 }
 
+/**
+ * Turns a just-added dimension into a reference if the solve says the sketch already
+ * holds it, and answers whether it did. Onshape's behaviour, and the whole of what the
+ * over-constraint case needs: a dimension is added as the user asked, and if it turns
+ * out to restate what is there, it measures the value instead of asserting it.
+ *
+ * Only garlic's *redundant* verdict counts, and both of the other candidates are wrong.
+ * *Conflicting* cannot arise for a dimension placed this way — it is added carrying the
+ * geometry's own measurement, so it agrees with the sketch by construction — and a sketch
+ * that was already conflicting must not have its new dimension quietly disarmed by it.
+ * A repeat of kind and refs is not special-cased ahead of the solve either: garlic flags
+ * that as redundant too, so one rule covers the repeat, the implied distance and the
+ * angle the other two already fix.
+ */
+function autoReference(editor: SketchEditor, id: number): boolean {
+    if (!editor.diagnostics.redundant.includes(id)) return false;
+    if (!editor.solver.setDriven(id, true)) return false;
+    editor.solve(true);
+    return true;
+}
+
 export function currentDistance(solver: SketchSolver, p1: SketchPointRef, p2: SketchPointRef): number {
     const [x1, y1] = solver.pointOf(p1);
     const [x2, y2] = solver.pointOf(p2);
@@ -324,7 +375,7 @@ export function currentDistance(solver: SketchSolver, p1: SketchPointRef, p2: Sk
 }
 
 @command({ key: "dimension.pointLineDistance", icon: "icon-cPointLineDistance" })
-export class PointLineDistanceCommand extends SketchConstraintCommand {
+export class PointLineDistanceCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
@@ -361,13 +412,14 @@ export class PointLineDistanceCommand extends SketchConstraintCommand {
             },
             { kind: "offset", ...labelOnSegment(uvP, foot, position) },
             initial,
-            { positiveOnly: false },
+            // a point-line distance is signed: which side of the line is the answer
+            { positiveOnly: !datumIsSigned(ConstraintKind.P2LDistance) },
         );
     }
 }
 
 @command({ key: "dimension.angle", icon: "icon-dAngle" })
-export class AngleDimensionCommand extends SketchConstraintCommand {
+export class AngleDimensionCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         const l1Id = await this.pickLine(editor);
         if (l1Id === undefined) return;
@@ -396,6 +448,7 @@ export class AngleDimensionCommand extends SketchConstraintCommand {
                 dy: position[1] - measured.vertex[1],
             },
             toDisplayDatum(ConstraintKind.Angle, measured.datum),
+            { driven: this.driven },
         );
     }
 
@@ -437,7 +490,7 @@ export function measureAngle(
     };
 }
 
-abstract class AxisDistanceCommand extends SketchConstraintCommand {
+abstract class AxisDistanceCommand extends DrivenDimensionCommand {
     protected abstract readonly axis: "h" | "v";
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
@@ -467,7 +520,8 @@ abstract class AxisDistanceCommand extends SketchConstraintCommand {
             },
             { kind: "offset", ...labelOnAxis(uv1, uv2, axis, position) },
             initial,
-            { positiveOnly: false },
+            // an axis distance is signed: which way along the axis is the answer
+            { positiveOnly: !datumIsSigned(kind), driven: this.driven },
         );
     }
 }

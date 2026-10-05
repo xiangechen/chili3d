@@ -8,7 +8,7 @@ import {
     type RadiusDisplay,
     type SketchConstraintData,
 } from "../sketchModel";
-import { formatDatum, radiusDisplayOf } from "./dimensionLayout";
+import { formatDatum, formatDrivenDatum, radiusDisplayOf } from "./dimensionLayout";
 import { applyConstraintIcon, badgeIcon, badgeSymbol } from "./sketchAnnotations";
 import style from "./sketchConstraintsPanel.module.css";
 import type { SketchEditor } from "./sketchEditor";
@@ -55,13 +55,18 @@ function constraintLabel(constraint: SketchConstraintData, display: RadiusDispla
     return CONSTRAINT_LABELS[constraint.kind];
 }
 
-/** The value a row carries, in the same reading its badge on the canvas uses. */
+/**
+ * The value a row carries, in the same reading its badge on the canvas uses — one
+ * formatter, so the list and the canvas can never disagree about the number or about
+ * the parentheses that mark a driven one.
+ */
 function datumText(constraint: SketchConstraintData, display: RadiusDisplay): string | undefined {
+    const format = constraint.driven === true ? formatDrivenDatum : formatDatum;
     if (constraint.datums !== undefined) {
-        return constraint.datums.map((datum) => formatDatum(constraint.kind, datum, display)).join(", ");
+        return constraint.datums.map((datum) => format(constraint.kind, datum, display)).join(", ");
     }
     if (constraint.datum !== undefined) {
-        return formatDatum(constraint.kind, constraint.datum, display);
+        return format(constraint.kind, constraint.datum, display);
     }
     return undefined;
 }
@@ -203,6 +208,13 @@ export class SketchConstraintsPanel {
         }
         this.addIssueChip(row, constraint.id);
 
+        // a driven row reads grey and says why — after the issue chip, so a flagged row
+        // keeps its fault tooltip and its fault tint
+        if (constraint.driven === true) {
+            row.classList.add(style.driven);
+            if (row.title === "") row.title = I18n.translate("sketch.driven");
+        }
+
         const display = this.readingOf(constraint);
         const datum = datumText(constraint, display);
         if (datum !== undefined) {
@@ -216,6 +228,9 @@ export class SketchConstraintsPanel {
         row.addEventListener("click", (e) => this.selectRow(constraint.id, e.shiftKey));
         row.addEventListener("mouseenter", () => this.editor.highlightConstraint(constraint.id));
         row.addEventListener("mouseleave", () => this.editor.highlightConstraint(undefined));
+        // a driven row routes here too, on purpose: `editDatum` is the one place that
+        // refuses it, and it answers with the reason rather than leaving the
+        // double-click looking broken — the badge behaves the same way
         if (constraint.datum !== undefined || constraint.datums !== undefined) {
             row.addEventListener("dblclick", () => this.editor.editDatum(constraint.id));
         }

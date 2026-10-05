@@ -367,18 +367,7 @@ export class SketchEventHandler implements IEventHandler {
         // them keeps the hover alive instead of clearing it with garbage uv
         if (isBadgeEventTarget(event.target)) return;
         if (this.draggingRef !== undefined) {
-            const uv = this.pointerToUV(view, event);
-            if (uv !== undefined) {
-                const tolerance = this.editor.screenTolerance();
-                const { position, snap } = dragSnapPosition(this.editor.solver, this.draggingRef, uv, {
-                    pointTolerance: tolerance,
-                    lineTolerance: tolerance,
-                });
-                this.editor.solver.dragTo(this.draggingRef, position[0], position[1]);
-                this.updateDragPreview(view);
-                this.showSnapFeedback(view, snap);
-                this.editor.annotations.refresh();
-            }
+            this.dragPointAtPointer(view, event);
             return;
         }
         if (this.boxStart !== undefined) {
@@ -389,16 +378,48 @@ export class SketchEventHandler implements IEventHandler {
         if (preview !== undefined) {
             preview(this.pointerToUV(view, event));
         }
+        this.updatePointerHover(view, event);
+    }
+
+    /** Moves the point being dragged to wherever the pointer now is, with its snapping. */
+    private dragPointAtPointer(view: IView, event: PointerEvent): void {
+        const ref = this.draggingRef;
+        const uv = this.pointerToUV(view, event);
+        if (ref === undefined || uv === undefined) return;
+        const tolerance = this.editor.screenTolerance();
+        const { position, snap } = dragSnapPosition(this.editor.solver, ref, uv, {
+            pointTolerance: tolerance,
+            lineTolerance: tolerance,
+        });
+        this.editor.solver.dragTo(ref, position[0], position[1]);
+        this.updateDragPreview(view);
+        this.showSnapFeedback(view, snap);
+        this.editor.annotations.refresh();
+    }
+
+    /**
+     * The hover for a pointer that is over neither a badge nor a drag in flight. The
+     * geometry has the first claim — an extension line ends on the line it measures, and a
+     * leader on the circle it measures, so a pointer within reach of both has to read as
+     * the geometry. What is left over may be a dimension's own furniture, which is a
+     * target in its own right: the dimension line and its arrows are the dimension as much
+     * as its value is.
+     */
+    private updatePointerHover(view: IView, event: PointerEvent): void {
         this.updateHover(view, event);
+        if (this.hoverKey === undefined) this.hoverDimensionAtPointer(view, event);
+        else this.editor.annotations.hoverConstraint(undefined);
+    }
+
+    /** Hands the pointer's hover to the dimension whose drawn graphics it is over, if any. */
+    private hoverDimensionAtPointer(view: IView, event: PointerEvent): void {
+        const uv = this.pointerToUV(view, event);
+        if (uv !== undefined) this.editor.annotations.hoverDimensionAt(uv, this.editor.screenTolerance());
     }
 
     pointerDown(view: IView, event: PointerEvent): void {
         if (!this.isEnabled) return;
-        // a click while a dimension label follows the cursor drops it here
-        if (this.editor.annotations.isLabelDragging) {
-            this.editor.annotations.endLabelDrag(true);
-            return;
-        }
+        this.endStrayLabelDrag();
         // pick handling first: a right-click must be able to cancel an active pick
         if (this.consumePickClick(view, event)) return;
         if (event.button !== 0) return;
@@ -414,13 +435,68 @@ export class SketchEventHandler implements IEventHandler {
         }
 
         const ref = this.hitTestPoint(view, event);
-        // the datum origin and external references are pickable for constraints but never draggable
-        if (ref !== undefined && !isDatumEntityId(ref.entityId) && !isExternalEntityId(ref.entityId)) {
+        if (this.selectDimensionAtPointer(view, event, ref)) return;
+        // A press on the canvas is about the canvas: whatever it goes on to do — drag a
+        // point, select an entity, start a rubber band — the dimension that was selected
+        // is not what the user just pressed, so it stops being selected here. Every path
+        // below used to have to remember this, and the ones that return early did not: a
+        // press that caught a line or an endpoint left the dimension selected, which read
+        // as "clicking away does not deselect".
+        this.editor.annotations.clearConstraintSelection();
+
+        if (this.isDraggablePoint(ref)) {
             this.beginPointDrag(view, ref);
             return;
         }
-
         this.selectEntityAtPointer(view, event, ref);
+    }
+
+    /**
+     * Ends a label drag whose release never reached this window — it went elsewhere, or
+     * the gesture was interrupted. Left in flight it would keep `isLabelDragging` true for
+     * good, and with it the viewport deaf to hover. The press that ends it goes on to
+     * behave like the press it is, which is the whole point of that click when the user
+     * meant to clear the selection with it.
+     */
+    private endStrayLabelDrag(): void {
+        if (this.editor.annotations.isLabelDragging) this.editor.annotations.endLabelDrag(true);
+    }
+
+    /**
+     * Takes the press for the dimension whose drawn graphics are under the pointer — its
+     * dimension line, its extension lines, its arrows — and answers whether it did. A
+     * point or an entity under the pointer still wins: a leader ends on the geometry it
+     * measures, and pressing there means the geometry, which is how a circle gets picked
+     * by its rim. That is also why it is asked before the selections are dropped below: a
+     * press about dimensions must not first throw away the dimension that was selected.
+     */
+    private selectDimensionAtPointer(view: IView, event: PointerEvent, pointRef?: SketchPointRef): boolean {
+        const dimension = this.dimensionAtPointer(view, event);
+        if (dimension === undefined || this.geometryAtPointer(view, event, pointRef)) return false;
+        this.editor.annotations.toggleConstraint(dimension, event.shiftKey);
+        return true;
+    }
+
+    /** The datum dimension whose drawn graphics are under the pointer, if any. */
+    private dimensionAtPointer(view: IView, event: PointerEvent): number | undefined {
+        const uv = this.pointerToUV(view, event);
+        if (uv === undefined) return undefined;
+        return this.editor.annotations.constraintAt(uv, this.editor.screenTolerance());
+    }
+
+    /** Whether a point or an entity is under the pointer — what a press on geometry means. */
+    private geometryAtPointer(view: IView, event: PointerEvent, pointRef?: SketchPointRef): boolean {
+        if (this.isDraggablePoint(pointRef ?? this.hitTestPoint(view, event))) return true;
+        return this.hitTestEntity(view, event) !== undefined;
+    }
+
+    /**
+     * Whether a hit point is one the user may take hold of: the datum origin and external
+     * references are pickable as constraint targets but never draggable, so a press on one
+     * of them means the geometry behind it rather than the point.
+     */
+    private isDraggablePoint(ref: SketchPointRef | undefined): ref is SketchPointRef {
+        return ref !== undefined && !isDatumEntityId(ref.entityId) && !isExternalEntityId(ref.entityId);
     }
 
     /** Hands the click to an active pick; returns whether the pick consumed it. */
@@ -449,7 +525,6 @@ export class SketchEventHandler implements IEventHandler {
             this.selectEntity(view, entityId, event.shiftKey);
             return;
         }
-        this.editor.annotations.clearConstraintSelection();
         if (!event.shiftKey) this.clearSelection(view);
         if (pointRef !== undefined) return;
         this.boxStart = { x: event.offsetX, y: event.offsetY };
@@ -539,12 +614,6 @@ export class SketchEventHandler implements IEventHandler {
         // leaving the editor drawing into an invisible orphan
         event.stopImmediatePropagation();
         if (this.editor.isPicking || this.draggingRef !== undefined) return;
-        // a label being placed follows the cursor — it is the delete target
-        const draggingLabel = this.editor.annotations.draggingLabelId;
-        if (draggingLabel !== undefined) {
-            this.editor.deleteConstraints([draggingLabel]);
-            return;
-        }
         const hoveredConstraint = this.editor.annotations.hoveredConstraintId;
         if (hoveredConstraint !== undefined) {
             this.editor.deleteConstraints([hoveredConstraint]);

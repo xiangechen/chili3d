@@ -2,12 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    CancelableCommand,
     CommandStore,
     type DialogButton,
     type I18nKeys,
     type ICameraController,
     type IView,
     Plane,
+    PropertyUtils,
     PubSub,
     Result,
     XYZ,
@@ -111,6 +113,25 @@ function cancelDialog(dialog: DialogCapture): void {
     const cancel = (dialog.buttons ?? []).find((b) => b.content === "common.cancel");
     expect(cancel).toBeDefined();
     cancel?.onclick?.();
+}
+
+/**
+ * Primes an option the way the command bar does: `beforeExecute` reads the value back
+ * from the static cache, so one assigned on the instance would be overwritten by whatever
+ * the last run saved. Returns the call that puts the cache back — the cache is shared by
+ * every command, so a test that leaves a value in it changes the next test's run.
+ */
+function primeOption(name: string, value: unknown): () => void {
+    const cache: Map<string, unknown> = (
+        CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> }
+    )._propertiesCache;
+    const had = cache.has(name);
+    const previous = cache.get(name);
+    cache.set(name, value);
+    return () => {
+        if (had) cache.set(name, previous);
+        else cache.delete(name);
+    };
 }
 
 /** Escape, which is how the tool is told to stop — it stays up after every placement. */
@@ -281,18 +302,19 @@ describe("DimensionCommand", () => {
             confirmDialog(dialog, "40");
             await tick();
 
-            // dragged diagonally: the aligned distance, √(100² + 40²)
+            // dragged diagonally: the aligned distance, √(100² + 40²). It is what the
+            // other two already fix, so the solve sends it in as a reference rather than
+            // as a third constraint saying nothing new
             expect(await dimension([90, 60])).toBe(ConstraintKind.P2PDistance);
-            expect(dialogInput(dialog).value).toBe("107.70");
-            cancelDialog(dialog);
-            await tick();
 
-            // the three readings landed on the same pair of points, and the one whose
-            // dialog was cancelled rolled back out — leaving the two that were confirmed
-            expect(editor.solver.toData().constraints.map((c) => c.kind)).toEqual([
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.map((c) => c.kind)).toEqual([
                 ConstraintKind.HorizontalDistance,
                 ConstraintKind.VerticalDistance,
+                ConstraintKind.P2PDistance,
             ]);
+            expect(constraints[2].driven).toBe(true);
+            expect(constraints[2].datum).toBeCloseTo(Math.hypot(100, 40), 1);
             pressEscape(handler, view);
             await run;
             editor.exit();
@@ -475,7 +497,52 @@ describe("DimensionCommand", () => {
         }
     });
 
-    test("a line measured twice is refused rather than duplicated", async () => {
+    test("the tool's own option places a reference instead of a driving dimension", async () => {
+        const { app, doc, view, restore } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            const free = editor.solver.dofs();
+
+            const command = new DimensionCommand();
+            // the command bar renders a boolean `@property` as a checkbox, so declaring
+            // it is the whole of what makes the option appear (`CommandContext`)
+            expect(PropertyUtils.getProperties(command).some((p) => p.name === "driven")).toBe(true);
+
+            const dialogs: string[] = [];
+            const onDialog = (title: string) => dialogs.push(title);
+            PubSub.default.sub("showDialog", onDialog);
+            const unprime = primeOption("driven", true);
+            try {
+                const run = command.execute(app);
+                handler.pointerDown(view, pointerEvent(450, 300));
+                await tick();
+                handler.pointerDown(view, pointerEvent(450, 250));
+                await tick();
+
+                const constraint = editor.solver.toData().constraints[0];
+                expect(constraint.driven).toBe(true);
+                // it measures without holding anything, and nothing is asked: a reference
+                // has no value of its own to type
+                expect(editor.solver.dofs()).toBe(free);
+                expect(dialogs).toEqual([]);
+
+                pressEscape(handler, view);
+                await run;
+            } finally {
+                unprime();
+                PubSub.default.remove("showDialog", onDialog);
+            }
+            editor.exit();
+        } finally {
+            restore();
+        }
+    });
+
+    test("a line measured twice becomes a reference rather than a duplicate", async () => {
         const { app, doc, view, dialog, restore } = setup();
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
@@ -491,17 +558,82 @@ describe("DimensionCommand", () => {
             await tick();
             confirmDialog(dialog, "100");
             await tick();
-            expect(editor.solver.toData().constraints.length).toBe(1);
 
-            // the same line again: the second placement adds nothing
-            handler.pointerDown(view, pointerEvent(450, 300));
-            await tick();
-            handler.pointerDown(view, pointerEvent(450, 250));
-            await tick();
-            expect(editor.solver.toData().constraints.length).toBe(1);
+            expect(editor.solver.toData().constraints[0].driven).toBeUndefined();
+            const free = editor.solver.dofs();
+
+            const dialogs: string[] = [];
+            const onDialog = (title: string) => dialogs.push(title);
+            PubSub.default.sub("showDialog", onDialog);
+            try {
+                // The same line again. The reading is true either way — the sketch
+                // already says it — so it arrives as a reference: no dialog, and the
+                // dimension that does drive keeps its degree of freedom.
+                handler.pointerDown(view, pointerEvent(450, 300));
+                await tick();
+                handler.pointerDown(view, pointerEvent(450, 250));
+                await tick();
+
+                expect(dialogs).toEqual([]);
+                const constraints = editor.solver.toData().constraints;
+                expect(constraints.length).toBe(2);
+                expect(constraints[1].driven).toBe(true);
+                expect(editor.solver.dofs()).toBe(free);
+                // and the sketch is not left carrying a redundancy it did not have before
+                expect(editor.diagnostics.redundant).toEqual([]);
+            } finally {
+                PubSub.default.remove("showDialog", onDialog);
+            }
 
             pressEscape(handler, view);
             await run;
+            editor.exit();
+        } finally {
+            restore();
+        }
+    });
+
+    test("a reading the sketch already implies becomes a reference", async () => {
+        const { app, doc, view, restore } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const line = editor.solver.addLine(0, 0, 100, 0);
+            const refs = [
+                { entityId: line, pointIndex: 0 },
+                { entityId: line, pointIndex: 1 },
+            ];
+            // horizontal, and 100 long: a horizontal *distance* of 100 between the same
+            // two points is a different kind saying exactly what these two already say
+            editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 100 });
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const dialogs: string[] = [];
+            const onDialog = (title: string) => dialogs.push(title);
+            PubSub.default.sub("showDialog", onDialog);
+            try {
+                const run = new DimensionCommand().execute(app);
+                handler.pointerDown(view, pointerEvent(400, 300));
+                await tick();
+                handler.pointerDown(view, pointerEvent(500, 300));
+                await tick();
+                handler.pointerDown(view, pointerEvent(450, 200)); // placed above: Δx
+                await tick();
+
+                const constraints = editor.solver.toData().constraints;
+                expect(constraints.length).toBe(3);
+                expect(constraints[2].kind).toBe(ConstraintKind.HorizontalDistance);
+                expect(constraints[2].driven).toBe(true);
+                expect(dialogs).toEqual([]);
+                expect(editor.diagnostics.redundant).toEqual([]);
+
+                pressEscape(handler, view);
+                await run;
+            } finally {
+                PubSub.default.remove("showDialog", onDialog);
+            }
             editor.exit();
         } finally {
             restore();

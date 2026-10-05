@@ -46,7 +46,13 @@ export abstract class SketchConstraintCommand extends CancelableCommand {
     }
 }
 
-/** Same-kind constraint with the same ref set already exists — adding it would be redundant. */
+/**
+ * Same-kind constraint with the same ref set already exists — adding it would be redundant.
+ *
+ * Only the geometric constraints go through this (`addAndCommit`): a *dimension* is never
+ * refused ahead of the solve, because the solver's own verdict is what decides whether it
+ * drives or becomes a reference (see `commitDimension`).
+ */
 export function hasDuplicate(solver: SketchSolver, kind: ConstraintKind, refs: SketchPointRef[]): boolean {
     const key = refs.map(pointRefKey).sort().join("|");
     return solver
@@ -302,5 +308,37 @@ export class FixConstraintCommand extends SketchConstraintCommand {
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
         if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.Fix, p.entityId)) return;
         addAndCommit(editor, ConstraintKind.Fix, [p], { datums: [...editor.solver.pointOf(p)] });
+    }
+}
+
+/**
+ * FreeCAD's "Toggle driving/reference constraint", on the selected dimensions: they become
+ * reference measurements, or go back to driving the sketch.
+ *
+ * A selection is read as one statement, so a mixed one converges on driven — the dimension
+ * that already measures is not the one at fault. Nothing checks the reverse direction:
+ * turning a reference back on can restate a dimension that already drives that geometry,
+ * and the sketch reports that as a redundancy for the user to resolve, which is the same
+ * answer every other over-constraining edit in the editor gets.
+ */
+@command({ key: "constraint.toggleDriven", icon: "icon-lock" })
+export class ToggleDrivenConstraintCommand extends SketchConstraintCommand {
+    protected async executeWithEditor(editor: SketchEditor): Promise<void> {
+        const selected = new Set(editor.annotations.selectedConstraintIds);
+        const dimensions = editor.solver
+            .toData()
+            .constraints.filter(
+                (c) => selected.has(c.id) && (c.datum !== undefined || c.datums !== undefined),
+            );
+        // a geometric constraint carries no datum, so there is no reading to make a
+        // reference of — garlic refuses the mode without one
+        if (dimensions.length === 0) {
+            PubSub.default.pub("statusBarTip", "sketch.drivenSelectDimension");
+            return;
+        }
+        editor.setConstraintsDriven(
+            dimensions.map((c) => c.id),
+            dimensions.some((c) => c.driven !== true),
+        );
     }
 }

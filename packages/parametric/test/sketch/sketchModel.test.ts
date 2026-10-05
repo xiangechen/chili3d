@@ -3,7 +3,7 @@
 
 import { type IView, Plane, Ray, XYZ } from "@chili3d/core";
 import { createMockView } from "@chili3d/core/test-utils";
-import { viewPixelSize, worldPerPixel } from "../../src/sketch/sketchModel";
+import { ConstraintKind, datumIsSigned, viewPixelSize, worldPerPixel } from "../../src/sketch/sketchModel";
 
 /**
  * An orthographic-style view whose rays are consistent with `direction`: adjacent
@@ -45,5 +45,21 @@ describe("viewPixelSize", () => {
     test("picks any perpendicular when the view runs along the up axis", () => {
         const view = orthoView(XYZ.unitZ, XYZ.unitZ);
         expect(viewPixelSize(view, XYZ.zero)).toBeCloseTo(1);
+    });
+});
+
+describe("datumIsSigned", () => {
+    // The dialogs refuse a minus sign for everything else, so this is the one place that
+    // decides it — the tools used to write the set of kinds out for themselves.
+    test.each([
+        [ConstraintKind.P2LDistance, true],
+        [ConstraintKind.HorizontalDistance, true],
+        [ConstraintKind.VerticalDistance, true],
+        [ConstraintKind.Fix, true],
+        [ConstraintKind.P2PDistance, false],
+        [ConstraintKind.Radius, false],
+        [ConstraintKind.Angle, false],
+    ])("%s is signed: %s", (kind, signed) => {
+        expect(datumIsSigned(kind)).toBe(signed);
     });
 });
