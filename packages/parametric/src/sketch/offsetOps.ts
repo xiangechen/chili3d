@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision, pointLineSignedDistance, Result } from "@chili3d/core";
+import { pointLineReading } from "./editor/dimensionLayout";
 import {
     ConstraintKind,
     entityRadius,
@@ -12,7 +13,6 @@ import {
     type SketchEntityType,
     type SketchPointRef,
     sameEntityGeometry,
-    toStorageDatum,
 } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 import { centerRef, lineRefs } from "./solverEntities";
@@ -713,10 +713,10 @@ function findDuplicate(copies: readonly OffsetCopy[], solver: SketchSolver): str
 }
 
 /**
- * The two endpoints of the source line, ordered so the dimension reads positive: the
- * display convention is "left of the direction the two refs give", and swapping them
- * is free — the line is the same line. Taking the magnitude instead would throw the
- * side away, which is exactly what the datum also encodes.
+ * The two endpoints of the source line, ordered so the point sits to the left of the direction
+ * they give — the sign is a side marker on the datum (`datumSignIsSide`), and fixing which side
+ * it is makes the offset's stored number a function of the geometry alone rather than of the way
+ * the source line happened to be drawn. Swapping the endpoints is free: the line is the same line.
  */
 function distanceRefs(
     solver: SketchSolver,
@@ -830,18 +830,18 @@ function tieLine(
     });
     const point = copyPointRef(copyIds, { copyIndex: tie.copyIndex, pointIndex: 0 });
     const line = distanceRefs(solver, point, tie.source);
-    const signed = pointLineSignedDistance(
+    const { datum, reading } = pointLineReading(
         solver.pointOf(point),
         solver.pointOf(line[0]),
         solver.pointOf(line[1]),
     );
-    if (Math.abs(signed) <= Precision.Distance) {
+    if (reading <= Precision.Distance) {
         return Result.err("The offset distance is too small");
     }
     const constraintId = solver.addConstraint({
         kind: ConstraintKind.P2LDistance,
         refs: [point, line[0], line[1]],
-        datum: toStorageDatum(ConstraintKind.P2LDistance, signed),
+        datum,
     });
     tieFreeEnds(solver, tie, copyId);
     return Result.ok({ constraintId, point, line });

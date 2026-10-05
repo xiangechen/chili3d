@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { FaceMeshData } from "@chili3d/core";
-import { BufferGeometry, Mesh, MeshLambertMaterial, Points, PointsMaterial } from "three";
+import { BufferGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, Points, PointsMaterial } from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -185,6 +185,23 @@ describe("ThreeGeometryFactory", () => {
             const mat = ThreeGeometryFactory.createMeshMaterial();
             expect(mat).toBeInstanceOf(MeshLambertMaterial);
             expect(mat.side).toBe(2); // DoubleSide = 2
+        });
+
+        test("unlit returns a material that shows the colour it is given", () => {
+            const data = {
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+                index: new Uint32Array([0, 1, 2]),
+                normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+                color: 0x4a9eff,
+            };
+            const mat = ThreeGeometryFactory.createMeshMaterial({ unlit: true, onTop: true });
+            expect(mat).toBeInstanceOf(MeshBasicMaterial);
+            expect(mat.side).toBe(2); // DoubleSide = 2
+            // the overlay flags still apply: the colour lands on it, and it stays depth-test free
+            ThreeGeometryFactory.setColor(new BufferGeometry(), data, mat);
+            expect(mat.color.getHex()).toBe(0x4a9eff);
+            expect(mat.depthTest).toBe(false);
+            expect(mat.depthWrite).toBe(false);
         });
     });
 

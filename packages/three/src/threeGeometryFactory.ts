@@ -3,7 +3,6 @@
 
 import type { EdgeMeshData, FaceMeshData, MeshLike, MeshOption, VertexMeshData } from "@chili3d/core";
 import {
-    AlwaysDepth,
     BufferAttribute,
     BufferGeometry,
     DoubleSide,
@@ -11,6 +10,7 @@ import {
     LineBasicMaterial,
     type Material,
     Mesh,
+    MeshBasicMaterial,
     MeshLambertMaterial,
     Points,
     PointsMaterial,
@@ -44,7 +44,7 @@ export class ThreeGeometryFactory {
     }
 
     private static setMaterialParameter(
-        material: MeshLambertMaterial | PointsMaterial | LineMaterial | LineBasicMaterial,
+        material: MeshLambertMaterial | MeshBasicMaterial | PointsMaterial | LineMaterial | LineBasicMaterial,
         meshOption?: MeshOption,
     ) {
         if (material instanceof LineMaterial || material instanceof LineBasicMaterial) {
@@ -93,8 +93,14 @@ export class ThreeGeometryFactory {
         return mesh;
     }
 
+    /**
+     * The face material of a mesh. `unlit` swaps the lit material for one that shows the colour it
+     * was given — see `MeshOption.unlit` for which overlays need that.
+     */
     static createMeshMaterial(meshOption?: MeshOption) {
-        const material = new MeshLambertMaterial({ side: DoubleSide });
+        const material = meshOption?.unlit
+            ? new MeshBasicMaterial({ side: DoubleSide })
+            : new MeshLambertMaterial({ side: DoubleSide });
         ThreeGeometryFactory.setMaterialParameter(material, meshOption);
         return material;
     }
@@ -102,7 +108,7 @@ export class ThreeGeometryFactory {
     static setColor(
         buffer: BufferGeometry,
         data: { color?: number | number[] },
-        material: MeshLambertMaterial | PointsMaterial | LineMaterial | LineBasicMaterial,
+        material: MeshLambertMaterial | MeshBasicMaterial | PointsMaterial | LineMaterial | LineBasicMaterial,
     ) {
         if (typeof data.color === "number") {
             material.color.set(data.color);

@@ -123,6 +123,25 @@ describe("inferDimension", () => {
         expect(resolved?.initial).toBeCloseTo(10, 9);
     });
 
+    test("an axis reading reads the same whichever of the two points was picked first", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const line = solver.addLine(0, 0, ...LOP_END);
+        const label: [number, number] = [5, 40];
+
+        const forwards = resolve(solver, [point(line, 0), point(line, 1)], label);
+        const backwards = resolve(solver, [point(line, 1), point(line, 0)], label);
+
+        // both are the horizontal reading, and the datum differs by exactly its sign: what that
+        // sign says is which point is to the right (garlic's own reading), so it follows the pick
+        // order — and it is never what the user reads (`formatDatum` takes the magnitude)
+        expect(forwards?.constraint.kind).toBe(ConstraintKind.HorizontalDistance);
+        expect(backwards?.constraint.kind).toBe(ConstraintKind.HorizontalDistance);
+        expect(forwards?.constraint.datum).toBeCloseTo(30, 9);
+        expect(backwards?.constraint.datum).toBeCloseTo(-30, 9);
+        expect(forwards?.initial).toBeCloseTo(30, 9);
+        expect(backwards?.initial).toBeCloseTo(30, 9);
+    });
+
     test("the same two points give different dimensions from different labels", () => {
         // the one saving grace of inferring by label: nothing is committed until placement
         const solver = new SketchSolver(Plane.XY);
@@ -146,7 +165,7 @@ describe("inferDimension", () => {
         expect(vertical?.initial).toBeCloseTo(10, 9);
     });
 
-    test("a point and a line read as the perpendicular distance, signed by which side", () => {
+    test("a point and a line read as the perpendicular distance, whichever side the point is on", () => {
         const solver = new SketchSolver(Plane.XY);
         const line = solver.addLine(0, 0, 10, 0);
         const left = solver.addLine(3, 8, 8, 12);
@@ -157,13 +176,13 @@ describe("inferDimension", () => {
         expect(above?.constraint.refs[0]).toEqual({ entityId: left, pointIndex: 0 });
         expect(above?.initial).toBeCloseTo(8, 9);
         expect(above?.positiveOnly).toBe(false);
-        // the display reads positive to the left of the line direction and garlic stores the
-        // negation — both signed, which is what keeps the point on the side it was measured
-        // from rather than mirroring it across the line when the value is edited
+        // garlic's own sign — negative to the left of the line direction — is what the datum
+        // stores, and it is only a side marker: the dimension reads 8 either way, and the sign
+        // is what keeps the point on the side it was measured from when the value is edited
         expect(above?.constraint.datum).toBeCloseTo(-8, 9);
 
         const below = resolve(solver, [point(right, 0), entity(line)], [15, -4]);
-        expect(below?.initial).toBeCloseTo(-8, 9);
+        expect(below?.initial).toBeCloseTo(8, 9);
         expect(below?.constraint.datum).toBeCloseTo(8, 9);
     });
 

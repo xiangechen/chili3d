@@ -67,6 +67,10 @@ export interface SketchConstraintData {
     /**
      * A literal in solver-storage units, or an expression written in display units
      * that resolves against the document's parameters (`resolveDatumSource`).
+     *
+     * A side-carrying distance's sign is a side marker rather than part of the value: the
+     * dimension reads the magnitude, and the solver keeps the sign on the side the geometry is
+     * on (`datumSignIsSide`, `SketchSolver.sideSignedDatum`).
      */
     datum?: ParameterValue;
     /** Datum values for multi-datum kinds (Fix = [x, y]); mutually exclusive with `datum`. */
@@ -113,29 +117,56 @@ export function datumUnitSpec(kind: ConstraintKind): UnitSpec {
 }
 
 /**
- * Whether a datum of `kind` may be negative. A point either side of a line, a point past
- * another along an axis, a coordinate of a pinned point: each has a sign to give and the
- * sign is the answer. A length, an angle or a radius is a magnitude and can only be one.
- * The datum dialogs ask this to
- * decide whether to refuse a minus sign (`positiveOnly` in `datumPrompt`), so it lives
- * beside `datumUnitSpec` — the other thing about a kind that the editor and the tools
- * both have to agree on, rather than each writing the set of kinds out for itself.
+ * The kinds whose datum carries a *side* rather than a value: which side of the line the point
+ * sits on, or which way along the axis the second point is from the first. The dimension reads as
+ * the magnitude either way — Onshape's own rule, drawn in its help page as the label staying
+ * positive while the input box holds the minus, and written down by SolveSpace as "always shown
+ * positive on the sketch; to flip to the other side, enter a negative value".
+ *
+ * The sign is the solver's, not the user's: `SketchSolver` keeps it attached across edits
+ * (`sideSignedDatum`), the way `syncAngleDatumSide` keeps an angle's.
  */
-export function datumIsSigned(kind: ConstraintKind): boolean {
+export function datumSignIsSide(kind: ConstraintKind): boolean {
     return (
         kind === ConstraintKind.P2LDistance ||
         kind === ConstraintKind.HorizontalDistance ||
-        kind === ConstraintKind.VerticalDistance ||
-        kind === ConstraintKind.Fix
+        kind === ConstraintKind.VerticalDistance
     );
 }
 
 /**
+ * Whether the datum dialogs let a minus through. A side-carrying distance takes one as the flip
+ * gesture (`datumSignIsSide`), and a pinned point's coordinates are signed because the sign *is*
+ * the value; nothing else has a sign to give. A length, an angle or a radius is a magnitude and
+ * can only be one. The datum dialogs ask this to decide whether to refuse a minus sign
+ * (`positiveOnly` in `datumPrompt`), so it lives beside `datumUnitSpec` — the other thing about a
+ * kind that the editor and the tools both have to agree on, rather than each writing the set of
+ * kinds out for itself.
+ */
+export function datumIsSigned(kind: ConstraintKind): boolean {
+    return datumSignIsSide(kind) || kind === ConstraintKind.Fix;
+}
+
+/**
+ * Whether `kind`'s datum is a *reading* — the number a dimension measures — rather than a pinned
+ * point's coordinates. A Fix is the one kind on the other side of that line, and it needs saying:
+ * it keeps its coordinates in `datums`, exactly the way a dimension keeps its reading, so every
+ * structural test for "has a datum" passes it and garlic accepts it as a reference without
+ * complaint — while there is nothing for a reference to measure, and taking it as one does not
+ * measure the point but *free* it, silently (the pin's two degrees of freedom come back). Both
+ * places that decide whether a constraint may be driven ask this rather than those structural
+ * tests, so the rule is written once.
+ */
+export function datumIsReading(kind: ConstraintKind): boolean {
+    return kind !== ConstraintKind.Fix;
+}
+
+/**
  * Datum value shown in the UI: angles store the signed sweep (the sign picks the
- * side of the first line) and display its magnitude in degrees, point-line
- * distances flip sign (UI: positive = left of the line direction; garlic stores
- * the negated signed distance), and a diameter reads as twice the radius garlic
- * holds — everything else as stored.
+ * side of the first line) and display its magnitude in degrees, a side-carrying
+ * distance displays its magnitude too — the sign is which side, and the drawing
+ * already says that (`datumSignIsSide`) — and a diameter reads as twice the radius
+ * garlic holds. Everything else as stored.
  */
 export function toDisplayDatum(
     kind: ConstraintKind,
@@ -143,16 +174,18 @@ export function toDisplayDatum(
     display: RadiusDisplay = "radius",
 ): number {
     if (kind === ConstraintKind.Angle) return (Math.abs(value) * 180) / Math.PI;
-    if (kind === ConstraintKind.P2LDistance) return -value;
+    if (datumSignIsSide(kind)) return Math.abs(value);
     if (kind === ConstraintKind.Radius && display === "diameter") return value * 2;
     return value;
 }
 
 /**
- * Datum value for the solver: inverse of `toDisplayDatum`. For angles this yields
- * the magnitude in radians — the solver re-attaches the side sign before solving
- * (`SketchSolver.syncAngleDatumSide`) — and for a diameter half the reading, since
- * the constraint underneath is the radius.
+ * Datum value for the solver, from the magnitude the user gave. Angles store radians
+ * (the solver re-attaches the side sign before solving — `SketchSolver.syncAngleDatumSide`)
+ * and a diameter half the reading, since the constraint underneath is the radius. A
+ * side-carrying distance is the magnitude as typed: the sign is the side the dimension
+ * already sits on, which the solver attaches (`SketchSolver.sideSignedDatum`) rather than a
+ * conversion with no geometry to read guessing at it.
  */
 export function toStorageDatum(
     kind: ConstraintKind,
@@ -160,7 +193,6 @@ export function toStorageDatum(
     display: RadiusDisplay = "radius",
 ): number {
     if (kind === ConstraintKind.Angle) return (value * Math.PI) / 180;
-    if (kind === ConstraintKind.P2LDistance) return -value;
     if (kind === ConstraintKind.Radius && display === "diameter") return value / 2;
     return value;
 }

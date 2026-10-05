@@ -3,7 +3,7 @@
 
 import { AsyncController, CancelableCommand, command, PubSub } from "@chili3d/core";
 import { SketchEditor } from "../editor/sketchEditor";
-import { ConstraintKind, pointRefKey, type SketchPointRef } from "../sketchModel";
+import { ConstraintKind, datumIsReading, pointRefKey, type SketchPointRef } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import {
     allowsConstraintOnEntity,
@@ -327,11 +327,10 @@ export class ToggleDrivenConstraintCommand extends SketchConstraintCommand {
         const selected = new Set(editor.annotations.selectedConstraintIds);
         const dimensions = editor.solver
             .toData()
-            .constraints.filter(
-                (c) => selected.has(c.id) && (c.datum !== undefined || c.datums !== undefined),
-            );
-        // a geometric constraint carries no datum, so there is no reading to make a
-        // reference of — garlic refuses the mode without one
+            .constraints.filter((c) => selected.has(c.id) && datumIsReading(c.kind) && c.datum !== undefined);
+        // A constraint with no reading of its own has nothing to make a reference of: a purely
+        // geometric one carries no datum, and a Fix — which does carry datums, its coordinates —
+        // is not a reading either (`datumIsReading`).
         if (dimensions.length === 0) {
             PubSub.default.pub("statusBarTip", "sketch.drivenSelectDimension");
             return;

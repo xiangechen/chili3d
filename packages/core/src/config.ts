@@ -9,6 +9,10 @@ import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "./sna
 
 export const DefaultLightEdgeColor = 0x333333;
 export const DefaultDarkEdgeColor = 0xeeeeee;
+/** `DefaultLightEdgeColor` mixed halfway into the light theme's viewport background (#888888). */
+export const DefaultLightDrivenColor = 0x5e5e5e;
+/** `DefaultDarkEdgeColor` mixed halfway into the dark theme's viewport background (#242424). */
+export const DefaultDarkDrivenColor = 0x898989;
 
 export class VisualItemConfig extends Observable {
     defaultFaceColor = 0xdedede;
@@ -33,8 +37,25 @@ export class VisualItemConfig extends Observable {
         this.setProperty("defaultEdgeColor", value);
     }
 
+    /**
+     * The colour a driven (reference) sketch dimension draws in: a reference reads as the sketch's
+     * own line colour muted into whatever it is drawn over, and the two themes put that in
+     * different places — their backdrops are #888888 and #242424, which straddle a mid grey, so one
+     * value cannot be quiet on the one and visible on the other (`DefaultLightDrivenColor` and
+     * `DefaultDarkDrivenColor` are each their own theme's mix). No other annotation tone needs the
+     * split: the conflicts' red, the redundancy's amber and the selection's green all sit outside
+     * the greys those backdrops swallow.
+     */
+    get drivenColor() {
+        return this.getPrivateValue("drivenColor", DefaultLightDrivenColor);
+    }
+    set drivenColor(value: number) {
+        this.setProperty("drivenColor", value);
+    }
+
     applyTheme(theme: "light" | "dark") {
         this.defaultEdgeColor = theme === "light" ? DefaultLightEdgeColor : DefaultDarkEdgeColor;
+        this.drivenColor = theme === "light" ? DefaultLightDrivenColor : DefaultDarkDrivenColor;
     }
 }
 

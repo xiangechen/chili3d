@@ -4,7 +4,9 @@
 import { ObjectSnapTypes } from "../src";
 import {
     Config,
+    DefaultDarkDrivenColor,
     DefaultDarkEdgeColor,
+    DefaultLightDrivenColor,
     DefaultLightEdgeColor,
     VisualConfig,
     VisualItemConfig,
@@ -35,6 +37,20 @@ describe("VisualItemConfig", () => {
     test("should apply dark theme", () => {
         config.applyTheme("dark");
         expect(config.defaultEdgeColor).toBe(DefaultDarkEdgeColor);
+    });
+
+    // The driven tone moves with the theme the way the edge colour does, and it has to: the
+    // themes' viewport backdrops (#888888 and #242424) straddle a mid grey, so one reference
+    // grey would be quiet on the one and invisible on the other (the light theme's is
+    // 1.11:1 against #808080 — the whole reason this is not a constant).
+    test("the driven colour follows the theme, and the two themes do not share one value", () => {
+        expect(DefaultLightDrivenColor).not.toBe(DefaultDarkDrivenColor);
+
+        config.applyTheme("light");
+        expect(config.drivenColor).toBe(DefaultLightDrivenColor);
+
+        config.applyTheme("dark");
+        expect(config.drivenColor).toBe(DefaultDarkDrivenColor);
     });
 });
 

@@ -552,7 +552,7 @@ describe("dimension commands", () => {
         }
     });
 
-    test("horizontal distance accepts a negative datum and drives the signed span", async () => {
+    test("horizontal distance flips its side on a negative input and keeps it on a positive one", async () => {
         const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
@@ -576,13 +576,23 @@ describe("dimension commands", () => {
             expect(constraints[0].datum).toBeCloseTo(100);
             expect(editor.dimensionAnchors.has(constraints[0].id)).toBe(true);
 
-            // signed distances accept negative input (positiveOnly: false)
+            // a negative is the flip gesture, not a value (positiveOnly: false on purpose)
             expect(confirmDialog(dialog, "-50")).toBe(true);
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(-50);
             editor.solver.solve(true);
-            const [x1] = editor.solver.pointOf({ entityId: 1, pointIndex: 0 });
-            const [x2] = editor.solver.pointOf({ entityId: 1, pointIndex: 1 });
-            expect(x2 - x1).toBeCloseTo(-50);
+            const span = () => {
+                const [x1] = editor.solver.pointOf({ entityId: 1, pointIndex: 0 });
+                const [x2] = editor.solver.pointOf({ entityId: 1, pointIndex: 1 });
+                return x2 - x1;
+            };
+            expect(span()).toBeCloseTo(-50);
+
+            // and a positive one keeps that side — only the magnitude changes, so the geometry
+            // stays where it is instead of mirroring back across its reference
+            expect(confirmDialog(dialog, "25")).toBe(true);
+            expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(-25);
+            editor.solver.solve(true);
+            expect(span()).toBeCloseTo(-25);
             editor.exit();
         } finally {
             restorePub();

@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EMPTY_SCOPE, type ICameraController, Plane, PubSub, Result, XYZ } from "@chili3d/core";
+import {
+    EMPTY_SCOPE,
+    type ICameraController,
+    LENGTH_UNITS,
+    Plane,
+    PubSub,
+    Result,
+    type Scope,
+    XYZ,
+} from "@chili3d/core";
 import {
     createMockApplication,
     createMockView,
@@ -182,6 +191,63 @@ describe("a driven dimension", () => {
         try {
             expect(solver.setDriven(horizontal, true)).toBe(false);
             expect(constraintOf(solver, horizontal).driven).toBeUndefined();
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a pin cannot be driven — the point would come loose instead of being measured", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 100, 0);
+            const pin = solver.addConstraint({
+                kind: ConstraintKind.Fix,
+                refs: [ref(line, 0)],
+                datums: [...solver.pointOf(ref(line, 0))],
+            });
+            solver.solve(true);
+            const pinned = solver.dofs();
+
+            // A Fix carries datums — its coordinates — so it passes every structural "has a
+            // datum" test, and garlic takes it as a reference without complaint. What comes
+            // back is not a measurement of anything: it is the pin's two degrees of freedom.
+            expect(solver.setDriven(pin, true)).toBe(false);
+            solver.solve(true);
+            expect(solver.dofs()).toBe(pinned);
+            expect(constraintOf(solver, pin).driven).toBeUndefined();
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("an expression is the user's, so a round trip through a reference keeps it", () => {
+        const scope = (w: number): Scope => new Map([["w", { value: w, unit: LENGTH_UNITS }]]);
+        const solver = new SketchSolver(Plane.XY, undefined, scope(10));
+        try {
+            const line = solver.addLine(0, 0, 10, 0);
+            const refs = [ref(line, 0), ref(line, 1)];
+            const dimension = solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs,
+                datum: 20,
+            });
+            solver.solve(true);
+            expect(solver.setDatumSource(dimension, "w * 2").isOk).toBe(true);
+            solver.solve(true);
+
+            solver.setDriven(dimension, true);
+            solver.solve(true);
+            // a reference reads the geometry: the number is the measurement, not the expression
+            expect(constraintOf(solver, dimension).datum).toBeCloseTo(20, 6);
+
+            solver.setDriven(dimension, false);
+            solver.solve(true);
+            expect(constraintOf(solver, dimension).datum).toBe("w * 2");
+
+            // and it is still the expression, not a snapshot of what it once evaluated to
+            expect(solver.setScope(scope(30))).toBe(true);
+            solver.solve(true);
+            expect(measuredLength(solver, refs)).toBeCloseTo(60, 6);
         } finally {
             solver.dispose();
         }
@@ -412,6 +478,35 @@ describe("ToggleDrivenConstraintCommand", () => {
             expect(
                 editor.solver.toData().constraints.find((c) => c.id === horizontal)?.driven,
             ).toBeUndefined();
+            editor.exit();
+        } finally {
+            PubSub.default.remove("statusBarTip", onTip);
+            restoreFactory();
+        }
+    });
+
+    test("a selected pin says it too, rather than quietly letting the point go", async () => {
+        const { app, editor, restoreFactory } = setupWithTips();
+        try {
+            const pin = editor.solver.addConstraint({
+                kind: ConstraintKind.Fix,
+                refs: [{ entityId: 1, pointIndex: 0 }],
+                datums: [...editor.solver.pointOf({ entityId: 1, pointIndex: 0 })],
+            });
+            editor.solve(true);
+            // the pin's own solve reported a status of its own, and the session was already up
+            // when it did; what this test is about is what the command goes on to say
+            tips.length = 0;
+            const pinned = editor.solver.dofs();
+            editor.annotations.selectConstraints([pin]);
+
+            await new ToggleDrivenConstraintCommand().execute(app);
+
+            // a Fix wears its coordinates as `datums`, which is what a dimension wears as a
+            // reading, so the selection has to be read through the kind rather than the shape
+            expect(tips).toEqual(["sketch.drivenSelectDimension"]);
+            expect(editor.solver.toData().constraints.find((c) => c.id === pin)?.driven).toBeUndefined();
+            expect(editor.solver.dofs()).toBe(pinned);
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);

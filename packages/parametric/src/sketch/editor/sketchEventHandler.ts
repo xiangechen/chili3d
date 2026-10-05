@@ -406,6 +406,19 @@ export class SketchEventHandler implements IEventHandler {
      * as its value is.
      */
     private updatePointerHover(view: IView, event: PointerEvent): void {
+        // A datum label is the more specific target: it sits over the geometry the way the badge
+        // that used to draw it did (a DOM element the viewport never saw), so it takes the hover
+        // and whatever entity is under it lets go.
+        const uv = this.pointerToUV(view, event);
+        const overLabel = uv !== undefined && this.editor.annotations.labelAt(uv[0], uv[1]) !== undefined;
+        // Every path asks for the cursor, the geometry one included: a label has no element to
+        // hold it, so a pointer that leaves one for the line behind it would keep the grab
+        this.editor.annotations.showLabelCursor(overLabel);
+        if (overLabel) {
+            this.clearHover(view);
+            this.hoverDimensionAtPointer(view, event);
+            return;
+        }
         this.updateHover(view, event);
         if (this.hoverKey === undefined) this.hoverDimensionAtPointer(view, event);
         else this.editor.annotations.hoverConstraint(undefined);
@@ -423,6 +436,20 @@ export class SketchEventHandler implements IEventHandler {
         // pick handling first: a right-click must be able to cancel an active pick
         if (this.consumePickClick(view, event)) return;
         if (event.button !== 0) return;
+
+        // A press on a datum label picks the label up: it is drawn as mesh glyphs with no badge
+        // behind it (`addDatumDimension`), and `releaseLabelDrag` tells a click from a drag —
+        // a click selects the dimension, a drag moves the label, the second click of a
+        // double-click opens its value.
+        const pressedUV = this.pointerToUV(view, event);
+        const label =
+            pressedUV === undefined ? undefined : this.editor.annotations.labelAt(pressedUV[0], pressedUV[1]);
+        if (label !== undefined) {
+            this.editor.annotations.startLabelDrag(label, event);
+            return;
+        }
+        // a press that is not on a label is not the first half of a double-click on one
+        this.editor.annotations.clearLabelClick();
 
         // a multi-entity pick that missed every entity falls through to here: the
         // rubber-band box started below is how the user answers it with a set

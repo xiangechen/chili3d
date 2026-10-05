@@ -13,6 +13,14 @@ export type MeshOption = {
     lineOpacity?: number;
     vertexOpacity?: number;
     onTop?: boolean;
+    /**
+     * Draw the faces in their own colour instead of shading them. For flat overlay furniture whose
+     * colour *is* the information — a dimension's tone, a marker's state — a lit face renders a
+     * different colour from the unlit line drawn beside it, which is exactly what the colour was
+     * there to say. Solids that should read as solids (`arrowHandle`'s handles, a datum plane
+     * quad) leave this off.
+     */
+    unlit?: boolean;
 };
 
 export interface IVisualContext extends IDisposable {

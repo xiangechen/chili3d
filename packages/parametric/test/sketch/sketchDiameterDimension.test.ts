@@ -20,6 +20,7 @@ import { rs } from "@rstest/core";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { ConstraintKind, entityRadius, type RadiusDisplay } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
+import { laidTexts } from "./laidTexts";
 import "./setup";
 
 interface MockBadge {
@@ -145,9 +146,9 @@ function radiusOf(editor: SketchEditor, circleId: number): number {
 
 describe("a diameter dimension", () => {
     test("reads as Ø over a radius constraint", () => {
-        const { badges, editor, restore } = setup("diameter");
+        const { editor, restore } = setup("diameter");
         try {
-            expect(badgeTexts(badges)).toContain("Ø60.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("Ø60.00");
             expect(editor.solver.toData().constraints[0].kind).toBe(ConstraintKind.Radius);
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(30);
             editor.exit();
@@ -161,8 +162,9 @@ describe("a diameter dimension", () => {
         // the reading existed, carries no display field at all
         const { badges, editor, restore } = setup();
         try {
-            expect(badgeTexts(badges)).toContain("R30.00");
-            expect(badgeTexts(badges)).not.toContain("Ø60.00");
+            const laid = laidTexts(() => editor.solve(true));
+            expect(laid).toContain("R30.00");
+            expect(laid).not.toContain("Ø60.00");
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(30);
             editor.exit();
         } finally {
@@ -173,13 +175,16 @@ describe("a diameter dimension", () => {
     test("dragging the label keeps it a diameter", () => {
         const { editor, id, badges, node, restore } = setup("diameter");
         try {
-            // the last one is the live badge; earlier refreshes left disposed copies behind
-            const badge = badges.filter((b) => b.text === "Ø60.00").at(-1);
-            expect(badge).toBeDefined();
-            // happy-dom rects are zero-origin, so client coordinates map straight to view offsets
-            badge?.element.dispatchEvent(
-                new MouseEvent("pointerdown", { clientX: 470, clientY: 300, button: 0, buttons: 1 }),
-            );
+            // the label is mesh glyphs, so the press goes through the viewport's own hit-test
+            const label = {
+                offsetX: 470,
+                offsetY: 300,
+                clientX: 470,
+                clientY: 300,
+                button: 0,
+                preventDefault: () => {},
+            } as unknown as PointerEvent;
+            (editor.document.visual.eventHandler as any).pointerDown(editor.view, label);
             // dropped at uv (100, 100) — the vector is measured from the center at (50, 0).
             // `buttons: 1` is the button still being held: the drag treats a move with
             // none held as the release it never saw
@@ -191,7 +196,7 @@ describe("a diameter dimension", () => {
             expect(editor.dimensionAnchors.get(id)).toEqual({ kind: "vector", dx: 50, dy: 100 });
             expect(node.data.anchors).toEqual([{ id, anchor: { kind: "vector", dx: 50, dy: 100 } }]);
             expect(editor.solver.toData().constraints[0].display).toBe("diameter");
-            expect(badgeTexts(badges)).toContain("Ø60.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("Ø60.00");
             editor.exit();
         } finally {
             restore();
@@ -241,7 +246,7 @@ describe("a diameter written as an expression", () => {
             expect(editor.solver.toData().constraints[0].display).toBe("diameter");
             // the radius garlic holds is half the expression's 100
             expect(radiusOf(editor, circle)).toBeCloseTo(50, 6);
-            expect(badgeTexts(badges)).toContain("w");
+            expect(laidTexts(() => editor.solve(true))).toContain("w");
             editor.exit();
         } finally {
             restore();
@@ -275,7 +280,7 @@ describe("a diameter written as an expression", () => {
 
             expect(editor.solver.toData().constraints[0].datum).toBe("w");
             expect(radiusOf(editor, circle)).toBeCloseTo(100, 6);
-            expect(badgeTexts(badges)).toContain("w");
+            expect(laidTexts(() => editor.solve(true))).toContain("w");
 
             editor.editDatum(id);
             expect(dialogInput(dialog).value).toBe("w");

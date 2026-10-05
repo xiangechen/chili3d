@@ -10,10 +10,9 @@ import {
     labelOnSegment,
     measuresSupplement,
     pointLineFoot,
-    pointLineSignedDistance,
+    pointLineReading,
     signedSweep,
     toDisplayDatum,
-    toStorageDatum,
 } from "../editor/dimensionLayout";
 import type { DimensionPreview } from "../editor/sketchAnnotations";
 import type { SketchEditor, SketchElementPick } from "../editor/sketchEditor";
@@ -223,7 +222,7 @@ export class DistanceDimensionCommand extends DrivenDimensionCommand {
         if (position === undefined) return;
 
         const initial = currentDistance(editor.solver, p1, p2);
-        commitDimension(
+        void commitDimension(
             editor,
             {
                 kind: ConstraintKind.P2PDistance,
@@ -258,7 +257,7 @@ export class RadiusDimensionCommand extends DrivenDimensionCommand {
         if (position === undefined) return;
 
         // anchor the label as a vector from the center so it follows the geometry
-        commitDimension(
+        void commitDimension(
             editor,
             {
                 kind: ConstraintKind.Radius,
@@ -311,6 +310,9 @@ export async function pickDimensionPosition(
  * Resolves once the input dialog is gone. A tool that places dimensions one after
  * another awaits it: the dialog is modal, so asking for the next pick while it is still
  * open would leave that pick waiting behind a dialog the viewport cannot reach through.
+ * A one-shot tool does not, and says so with `void`: it is done either way, and awaiting
+ * would hold its command — and the ribbon's idea of what is running — open behind a dialog
+ * the user has not answered yet.
  *
  * What was typed is stored as typed: `setDatumSource` is the whole conversion, because
  * the constraint carries the reading it is written in (`SketchConstraintData.display`).
@@ -400,19 +402,17 @@ export class PointLineDistanceCommand extends DrivenDimensionCommand {
         if (position === undefined) return;
 
         const foot = pointLineFoot(uvP, uv1, uv2) ?? uv1;
-        // signed datum (display convention: positive = left of the line direction);
-        // a signed value keeps the point on its current side instead of mirroring it
-        const initial = pointLineSignedDistance(uvP, uv1, uv2);
-        commitDimension(
+        const { datum, reading } = pointLineReading(uvP, uv1, uv2);
+        void commitDimension(
             editor,
             {
                 kind: ConstraintKind.P2LDistance,
                 refs: [p, l1, l2],
-                datum: toStorageDatum(ConstraintKind.P2LDistance, initial),
+                datum,
             },
             { kind: "offset", ...labelOnSegment(uvP, foot, position) },
-            initial,
-            // a point-line distance is signed: which side of the line is the answer
+            reading,
+            // a point-line distance carries a side, so the dialog takes a minus as the flip
             { positiveOnly: !datumIsSigned(ConstraintKind.P2LDistance) },
         );
     }
@@ -439,7 +439,7 @@ export class AngleDimensionCommand extends DrivenDimensionCommand {
         if (position === undefined) return;
 
         const measured = measureAngle(editor.solver, refs, position);
-        commitDimension(
+        void commitDimension(
             editor,
             { kind: ConstraintKind.Angle, refs: measured.refs, datum: measured.datum },
             {
@@ -510,17 +510,20 @@ abstract class AxisDistanceCommand extends DrivenDimensionCommand {
         );
         if (position === undefined) return;
 
-        const initial = axis === "h" ? uv2[0] - uv1[0] : uv2[1] - uv1[1];
-        commitDimension(
+        // garlic's own reading: `second − first` along the axis, so the sign is which way along it
+        // the dimension was picked. The dialog opens on the magnitude, which is how the dimension
+        // reads too (`datumSignIsSide`).
+        const span = axis === "h" ? uv2[0] - uv1[0] : uv2[1] - uv1[1];
+        void commitDimension(
             editor,
             {
                 kind,
                 refs: [p1, p2],
-                datum: initial,
+                datum: span,
             },
             { kind: "offset", ...labelOnAxis(uv1, uv2, axis, position) },
-            initial,
-            // an axis distance is signed: which way along the axis is the answer
+            Math.abs(span),
+            // an axis distance carries a side, so the dialog takes a minus as the flip
             { positiveOnly: !datumIsSigned(kind), driven: this.driven },
         );
     }

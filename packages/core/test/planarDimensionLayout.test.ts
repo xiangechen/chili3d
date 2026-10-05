@@ -12,6 +12,7 @@ import {
     labelOnSegment,
     lineIntersection,
     measuresSupplement,
+    type Point2,
     pointLineDistance,
     pointLineDistanceDimension,
     pointLineFoot,
@@ -356,6 +357,32 @@ describe("axisDistanceDimension", () => {
         const geometry = axisDistanceDimension([10, 0], [0, 4], "h", { offset: 20, along: -7 }, SIZE)!;
         expect(geometry.segments[2]).toEqual([10, 22, 0, 22]);
         expect(geometry.textPosition).toEqual([3, 22 + raise(SIZE)]);
+    });
+
+    test("the arrow bodies fall inside the span, whichever way the two points run", () => {
+        // the pick order decides which point is `p1`, and neither way round may hang an arrowhead
+        // outside the dimension line. An arrowhead is [tip, corner, corner] with the corners an
+        // arrow's length behind the tip, so the corners' midpoint is inside the span only when
+        // the arrow was aimed along it.
+        const bodyMiddles = (axis: "h" | "v", p1: Point2, p2: Point2): number[] => {
+            const geometry = axisDistanceDimension(p1, p2, axis, { offset: 20 }, SIZE)!;
+            const [, c1, c2, , c3, c4] = geometry.triangles;
+            const index = axis === "h" ? 0 : 1;
+            return [(c1[index] + c2[index]) / 2, (c3[index] + c4[index]) / 2];
+        };
+
+        const cases: ["h" | "v", Point2, Point2][] = [
+            ["h", [0, 0], [10, 4]],
+            ["h", [10, 0], [0, 4]],
+            ["v", [0, 0], [4, 10]],
+            ["v", [0, 10], [4, 0]],
+        ];
+        for (const [axis, p1, p2] of cases) {
+            for (const coordinate of bodyMiddles(axis, p1, p2)) {
+                expect(coordinate).toBeGreaterThan(0);
+                expect(coordinate).toBeLessThan(10);
+            }
+        }
     });
 
     test("returns undefined when the span along the axis is zero", () => {

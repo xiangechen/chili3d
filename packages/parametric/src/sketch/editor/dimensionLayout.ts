@@ -46,6 +46,8 @@ import {
     type DimensionSize,
     formatMeasurement,
     type ParameterValue,
+    type Point2,
+    pointLineSignedDistance,
 } from "@chili3d/core";
 import { ConstraintKind, type RadiusDisplay, toDisplayDatum } from "../sketchModel";
 
@@ -123,4 +125,19 @@ export function formatDrivenDatum(
     display: RadiusDisplay = "radius",
 ): string {
     return `(${formatDatum(kind, value, display)})`;
+}
+
+/**
+ * A point-line distance in the two forms the sketch keeps of it: the number garlic holds and the
+ * number the dimension reads. The layout's signed distance is positive to the *left* of the line's
+ * direction and garlic's to the right, so the stored one is its negation — and since the sign is a
+ * side marker either way, what the dimension reads is the magnitude of that same number rather
+ * than a second conversion of it (`datumSignIsSide`).
+ *
+ * Every point-line dimension is built here — the pick's, the parallel lines', and the offset's
+ * tie — so the two readings cannot drift apart between tools.
+ */
+export function pointLineReading(p: Point2, l1: Point2, l2: Point2): { datum: number; reading: number } {
+    const datum = -pointLineSignedDistance(p, l1, l2);
+    return { datum, reading: Math.abs(datum) };
 }

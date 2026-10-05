@@ -26,6 +26,7 @@ import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHand
 import { ConstraintKind } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import { SketchSolver } from "../../src/sketch/solver";
+import { laidTexts } from "./laidTexts";
 import "./setup";
 
 function setup() {
@@ -119,7 +120,7 @@ describe("SketchAnnotations visibility", () => {
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
             const line = editor.solver.addLine(0, 0, 10, 0);
-            const circle = editor.solver.addCircle(20, 0, 5);
+            const circle = editor.solver.addCircle(300, 0, 5);
             editor.solver.addConstraint({
                 kind: ConstraintKind.Horizontal,
                 refs: [
@@ -127,11 +128,14 @@ describe("SketchAnnotations visibility", () => {
                     { entityId: line, pointIndex: 1 },
                 ],
             });
-            editor.solver.addConstraint({
+            const radius = editor.solver.addConstraint({
                 kind: ConstraintKind.Radius,
                 refs: [{ entityId: circle, pointIndex: 0 }],
                 datum: 5,
             });
+            // the label is what the pointer hits where it reads, so keep it off the line the
+            // hover below is about
+            editor.dimensionAnchors.set(radius, { kind: "vector", dx: 0, dy: 40 });
             editor.solve(true);
             (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
 
@@ -142,16 +146,14 @@ describe("SketchAnnotations visibility", () => {
             const countBeforeFlip = created.length;
             editor.annotations.inertConstraintSymbols = true;
 
-            // only what the flip drew: the badges from before are gone
-            const rebuilt = created.slice(countBeforeFlip);
-            const symbols = rebuilt.filter((entry) => entry.text === "H");
-            const dimensions = rebuilt.filter((entry) => entry.text !== "H");
-            expect(symbols.length).toBeGreaterThan(0);
-            expect(dimensions.length).toBeGreaterThan(0);
+            // the flip is a restyle, not a redraw: a badge that is still wanted keeps its
+            // element (`drawBadge`), which is what lets a press survive the repaint
+            expect(created.length).toBe(countBeforeFlip);
             // the symbol is drawn exactly as before, only transparent to the pointer
-            expect(symbols.every((entry) => entry.element.classList.contains(style.inert))).toBe(true);
-            // a datum dimension is draggable, so it keeps its events
-            expect(dimensions.some((entry) => entry.element.classList.contains(style.inert))).toBe(false);
+            expect(before.element.classList.contains(style.inert)).toBe(true);
+            // and a datum has no badge of its own to make inert: its value is drawn as mesh
+            // glyphs, and the pointer reaches it through the plane hit-test instead
+            expect(created.filter((entry) => entry.text !== "H")).toEqual([]);
             editor.exit();
         } finally {
             restoreFactory();
@@ -200,7 +202,7 @@ describe("SketchAnnotations visibility", () => {
                 datum: 10,
             });
             editor.solve(true);
-            expect(htmlTexts).toContain("10.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("10.00");
             editor.exit();
         } finally {
             restoreFactory();
@@ -221,7 +223,7 @@ describe("SketchAnnotations visibility", () => {
             editor.solve(true);
 
             // the `R` is the dimension's own affix (see `dimensionText`), not the caller's
-            expect(htmlTexts).toContain("R30.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("R30.00");
             editor.exit();
         } finally {
             restoreFactory();
@@ -249,7 +251,7 @@ describe("SketchAnnotations visibility", () => {
             });
             editor.dimensionAnchors.set(id, { kind: "vector", dx: 0, dy: 50 });
             editor.solve(true);
-            expect(htmlTexts).toContain("135.0°");
+            expect(laidTexts(() => editor.solve(true))).toContain("135.0°");
             editor.exit();
         } finally {
             restoreFactory();
@@ -374,11 +376,6 @@ describe("SketchAnnotationManager mesh text", () => {
         const { doc, view, restoreFactory } = setup();
         try {
             const calls = captureMesh(doc);
-            const badges: { text: string; className?: string }[] = [];
-            (view as any).htmlText = rs.fn((text: string, _point: XYZ, options?: any) => {
-                badges.push({ text, className: options?.className });
-                return { dispose: rs.fn() };
-            });
 
             const node = new SketchNode({ document: doc, plane: Plane.XY });
             const editor = SketchEditor.enter(node);
@@ -413,9 +410,6 @@ describe("SketchAnnotationManager mesh text", () => {
             );
             expect(hit).toBe(true);
 
-            // the badge stays only as the invisible interaction layer
-            const badge = badges.find((b) => b.text === "10.00");
-            expect(badge?.className).toContain(style.ghost);
             editor.exit();
         } finally {
             restoreFactory();

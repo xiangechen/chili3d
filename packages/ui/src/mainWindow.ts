@@ -12,6 +12,7 @@ import {
     Ribbon,
     RibbonTab,
     type RibbonTabProfile,
+    VisualConfig,
 } from "@chili3d/core";
 import { showDialog } from "./dialog";
 import { Editor } from "./editor";
@@ -120,6 +121,13 @@ export class MainWindow extends HTMLElement implements IWindow {
         this._editor = new Editor(app, this.ribbon);
     }
 
+    /**
+     * Applies the theme everywhere it reaches: the CSS attribute the chrome reads, and
+     * `VisualConfig`, whose colours the 3D scene draws with. Both, on every path — the
+     * `prefers-color-scheme` listener below is one, and it used to move only the attribute,
+     * leaving the scene in the theme the app started in when the OS flipped with the app set to
+     * "system". `Config` sets `VisualConfig` on `themeMode`, which covers the other path only.
+     */
     private applyTheme() {
         const themeMode = Config.instance.themeMode;
         let theme: "light" | "dark";
@@ -131,6 +139,7 @@ export class MainWindow extends HTMLElement implements IWindow {
         }
 
         document.documentElement.setAttribute("theme", theme);
+        VisualConfig.applyTheme(theme);
     }
 
     private readonly handleConfigChanged = (prop: keyof Config) => {

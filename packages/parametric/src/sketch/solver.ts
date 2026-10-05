@@ -15,7 +15,9 @@ import { newGarlicSystem } from "./garlic";
 import {
     ConstraintKind,
     datumEntityData,
+    datumIsReading,
     datumPoint,
+    datumSignIsSide,
     type ExternalRefData,
     isDatumEntityId,
     isExternalEntityId,
@@ -219,14 +221,25 @@ export class SketchSolver implements ExternalEntityHost {
             const paramIds = record.datumParamIds;
             if (sources === undefined || paramIds === undefined) continue;
             for (let index = 0; index < sources.length; index++) {
+                // only an expression moves with the scope: a literal is a storage value already in
+                // garlic, and pushing it back would let a stale sign overwrite a solved one
+                if (typeof sources[index] === "number") continue;
                 const resolved = resolveDatumSource(record.kind, sources[index], scope, record.display);
                 if (!resolved.isOk) {
                     this._datumErrors.set(record.id, resolved.error);
                     continue;
                 }
+                // an expression is a magnitude: it has no minus to gesture with, so the side the
+                // dimension is on now is the side it keeps
+                const value = this.sideSignedDatum(
+                    record.kind,
+                    resolved.value,
+                    this.datumSide(paramIds[index]),
+                    false,
+                );
                 const current = this.system.get_params(new Uint32Array([paramIds[index]]))[0];
-                if (current === resolved.value) continue;
-                this.system.set_param(paramIds[index], resolved.value);
+                if (current === value) continue;
+                this.system.set_param(paramIds[index], value);
                 changed = true;
             }
         }
@@ -235,9 +248,11 @@ export class SketchSolver implements ExternalEntityHost {
 
     /**
      * Writes a user input as one of a constraint's datums: a literal is converted into
-     * storage units, an expression is stored verbatim and resolved on the spot. A failed
-     * resolve returns the error without touching the datum — the user is editing, so the
-     * dialog rejects the input rather than the sketch silently keeping a stale value.
+     * storage units, an expression is stored verbatim and resolved on the spot. A side-carrying
+     * distance lands on the side the dimension already sits unless the input itself was negative,
+     * which is the flip gesture (`sideSignedDatum`). A failed resolve returns the error without
+     * touching the datum — the user is editing, so the dialog rejects the input rather than the
+     * sketch silently keeping a stale value.
      *
      * A driven dimension refuses the write: its datum is garlic's output, and a value
      * pushed in would be overwritten by the next solve. Editing one means turning it
@@ -255,11 +270,47 @@ export class SketchSolver implements ExternalEntityHost {
         const source = toDatumSource(record.kind, input, record.display);
         const resolved = resolveDatumSource(record.kind, source, this._scope, record.display);
         if (!resolved.isOk) return Result.err(resolved.error);
+        const value = this.sideSignedDatum(
+            record.kind,
+            resolved.value,
+            this.datumSide(paramId),
+            typeof input === "number" && input < 0,
+        );
         if (record.datumSources === undefined) record.datumSources = [];
-        record.datumSources[index] = source;
+        // the literal is stored as the value garlic takes, not as it was typed: a minus in the
+        // input was the flip gesture, and a datum source read back on the next scope change must
+        // not flip the geometry a second time
+        record.datumSources[index] = typeof source === "number" ? value : source;
         this._datumErrors.delete(constraintId);
-        this.system.set_param(paramId, resolved.value);
+        this.system.set_param(paramId, value);
         return Result.ok(undefined);
+    }
+
+    /**
+     * A side-carrying datum's value for the solver: the magnitude just resolved, on the side the
+     * dimension already sits — or on the *other* side, when the input carried a minus, which is
+     * the user asking for the flip rather than a number of their own (`datumSignIsSide`).
+     * Keeping the side is what stops an edit that only changes the magnitude from moving the
+     * geometry across its reference.
+     *
+     * `side` is the side to keep, and each caller says where it read it: the datum's own current
+     * value when the constraint is live, the geometry when it is still being built. Only a value
+     * the user typed can flip — an expression has no gesture in it, and re-resolving one must
+     * land on the same side every time.
+     */
+    private sideSignedDatum(kind: ConstraintKind, value: number, side: number, flip: boolean): number {
+        if (!datumSignIsSide(kind)) return value;
+        const current = side < 0 ? -1 : 1;
+        return Math.abs(value) * (flip ? -current : current);
+    }
+
+    /**
+     * The side a live datum sits on, read from garlic: ±1. Zero — the point on its line, the two
+     * points level — is no side at all, and reads as positive.
+     */
+    private datumSide(paramId: number | undefined): number {
+        if (paramId === undefined) return 1;
+        return this.system.get_params(new Uint32Array([paramId]))[0] < 0 ? -1 : 1;
     }
 
     // ------------------------------------------------------------------ Entity and constraint editing
@@ -312,8 +363,10 @@ export class SketchSolver implements ExternalEntityHost {
      * anchors (`SketchData.anchors`), so an op that rewrites a constraint's refs —
      * the trim op, moving a point's constraints onto the half that kept the point —
      * must not leave the anchor behind as an orphan. A constraint whose datum is an
-     * expression comes back verbatim: `persistedDatums` returns it as written.
-     * Returns false for a stale id (the constraint is gone).
+     * expression comes back verbatim: `sourceDatums` returns it as written — which is what
+     * a caller rebuilding one must hand over, since a driven dimension's *persisted* datum
+     * is the measurement rather than the source it came from
+     * (`setDriven`). Returns false for a stale id (the constraint is gone).
      */
     replaceConstraint(id: number, constraint: Omit<SketchConstraintData, "id">): boolean {
         if (!this.constraints.has(id)) return false;
@@ -327,15 +380,21 @@ export class SketchSolver implements ExternalEntityHost {
      * keeping its id and its refs. The garlic constraint is rebuilt — `driving` is fixed at
      * creation — but the sketch id survives, so the datum anchor the id keys stays put.
      *
-     * Only a dimensional constraint can go either way: garlic refuses `driving = false`
-     * without a datum to write back, and `datumParamIds` is exactly that test. Returns
-     * false when there was nothing to change, which is how a mixed selection settles.
+     * Only a constraint whose datum is a *reading* can go either way. `datumParamIds` is not
+     * that test on its own: a Fix has datum params too (its coordinates), so it passes, and
+     * garlic takes it as a reference without complaint — but there is nothing to measure, and
+     * the pin's two degrees of freedom come back instead (`datumIsReading`). Returns false when
+     * there was nothing to change, which is how a mixed selection settles.
      */
     setDriven(id: number, driven: boolean): boolean {
         const record = this.constraints.get(id);
         if (record === undefined || record.datumParamIds === undefined) return false;
+        if (!datumIsReading(record.kind)) return false;
         if ((record.driven === true) === driven) return false;
-        const datums = this.persistedDatums(record);
+        // the datum is carried from the *source*, not from what the record displays: a driven
+        // dimension displays the measurement garlic wrote back, and rebuilding from that would
+        // turn the expression the user wrote into the number it happened to evaluate to
+        const datums = this.sourceDatums(record);
         this.replaceConstraint(id, {
             kind: record.kind,
             refs: record.refs,
@@ -907,19 +966,35 @@ export class SketchSolver implements ExternalEntityHost {
      * would replace the user's expression with whatever it currently evaluates to, once
      * per commit.
      *
-     * This is also what makes a driven dimension read as the geometry's current value
-     * everywhere: its datum is garlic's output, so the number persisted here — and the
-     * one the badges and the constraint list render — is the measurement, refreshed by
-     * the solve that precedes every refresh.
+     * A driven dimension is neither: garlic's output is the whole of what it says. What it
+     * measures is not its source but the value the last solve wrote back, so the number this
+     * hands out — persisted, and the one the badges and the constraint list render — reads as
+     * the geometry. Its source is still carried in the record (`withDatum`) for `sourceDatums`.
      */
     private persistedDatums(record: ConstraintRecord): ParameterValue[] | undefined {
-        const paramIds = record.datumParamIds;
-        if (paramIds === undefined) return undefined;
-        const values = Array.from(this.system.get_params(new Uint32Array(paramIds)));
-        return values.map((value, index) => {
+        if (record.driven === true) return this.datumValues(record);
+        return this.sourceDatums(record);
+    }
+
+    /**
+     * The datums of a record as its *sources* have them: an expression as written, a literal from
+     * garlic. What a constraint rebuilt from this record must be given — going back to driving
+     * from a driven one's persisted datum would drop the expression the user wrote, since that
+     * datum is the measurement (`setDriven`).
+     */
+    private sourceDatums(record: ConstraintRecord): ParameterValue[] | undefined {
+        const values = this.datumValues(record);
+        return values?.map((value, index) => {
             const source = record.datumSources?.[index];
             return typeof source === "string" ? source : value;
         });
+    }
+
+    /** The record's datum parameters exactly as garlic holds them. */
+    private datumValues(record: ConstraintRecord): number[] | undefined {
+        const paramIds = record.datumParamIds;
+        if (paramIds === undefined) return undefined;
+        return Array.from(this.system.get_params(new Uint32Array(paramIds)));
     }
 
     dispose(): void {
@@ -1296,6 +1371,12 @@ export class SketchSolver implements ExternalEntityHost {
      * from the geometry rather than from any stored value: its datum is garlic's output,
      * so whatever was persisted there is last solve's measurement — and the first solve
      * of a session should read the geometry, not a stale copy of it.
+     *
+     * An expression it was written with is still carried as the datum's *source*, though. It is
+     * the user's, and it belongs to the dimension rather than to the driving it is not doing at
+     * the moment: dropping it here is what would leave a toggle back to driving holding a number
+     * (`sourceDatums`). Nothing resolves it meanwhile — a reference measures, and the source is
+     * only ever read back by a rebuild.
      */
     private withDatum(
         params: number[],
@@ -1303,9 +1384,13 @@ export class SketchSolver implements ExternalEntityHost {
         constraint: Omit<SketchConstraintData, "id">,
         fallback: () => number,
     ): ConstraintParams {
-        const source = constraint.driven === true ? undefined : constraint.datum;
+        if (constraint.driven === true) {
+            const value = fallback();
+            const carried = typeof constraint.datum === "string" ? constraint.datum : value;
+            return this.withDatums(params, [{ source: carried, value }]);
+        }
         return this.withDatums(params, [
-            this.datumOf(id, constraint.kind, source, fallback, constraint.display),
+            this.datumOf(id, constraint.kind, constraint.datum, fallback, constraint.display),
         ]);
     }
 
@@ -1326,6 +1411,11 @@ export class SketchSolver implements ExternalEntityHost {
      * One datum as a source/value pair. `source === undefined` is the datumless case: the
      * geometry's current value becomes both the source and the value, exactly as before.
      *
+     * A literal is a storage value already — sign and all, so it is taken as it stands. An
+     * expression is written in the reading's units, where a side-carrying distance is a magnitude
+     * (`datumSignIsSide`), so it takes the side the geometry is on — which is the side the
+     * constraint was built for, and the one a later re-resolve keeps.
+     *
      * An expression that does not resolve does NOT throw — the dimension falls back to
      * that same geometric value and the error is recorded in `datumErrors`, mirroring how
      * a failed feature keeps the body's last good shape. A bad expression must not make
@@ -1343,7 +1433,13 @@ export class SketchSolver implements ExternalEntityHost {
             return { source: value, value };
         }
         const resolved = resolveDatumSource(kind, source, this._scope, display);
-        if (resolved.isOk) return { source, value: resolved.value };
+        if (resolved.isOk) {
+            const value =
+                typeof source === "number"
+                    ? resolved.value
+                    : this.sideSignedDatum(kind, resolved.value, fallback(), false);
+            return { source, value };
+        }
         this._datumErrors.set(id, resolved.error);
         return { source, value: fallback() };
     }

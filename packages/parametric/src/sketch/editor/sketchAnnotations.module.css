@@ -130,7 +130,10 @@
 }
 
 /* a driven datum's value is drawn as grey mesh glyphs, so the badge behind it stays
-   invisible on the ghost terms — the parentheses in the text carry it either way */
+   invisible on the ghost terms — the parentheses in the text carry it either way.
+   That grey is NOT this text colour and must not be unified with it: a badge sits on the
+   panel or floats over the viewport, and only the backdrop decides which grey reads, which
+   is why the mesh tone lives in `VisualConfig.drivenColor` and moves with the theme */
 .ghost.driven,
 .ghost.driven:hover {
     color: transparent;

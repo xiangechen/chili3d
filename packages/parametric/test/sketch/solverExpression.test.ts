@@ -48,7 +48,8 @@ function measuredLength(solver: SketchSolver, line: number): number {
 describe("datum unit conversion", () => {
     test("a literal input is converted into storage units right away", () => {
         expect(toDatumSource(ConstraintKind.Angle, 90)).toBeCloseTo(Math.PI / 2);
-        expect(toDatumSource(ConstraintKind.P2LDistance, 5)).toBe(-5);
+        // a side-carrying distance is the magnitude as typed; the solver attaches the side
+        expect(toDatumSource(ConstraintKind.P2LDistance, 5)).toBe(5);
         expect(toDatumSource(ConstraintKind.P2PDistance, 5)).toBe(5);
     });
 
@@ -58,10 +59,10 @@ describe("datum unit conversion", () => {
         expect(resolved).toBeCloseTo(Math.PI / 2);
     });
 
-    test("a stored literal passes through untouched — old documents change not at all", () => {
+    test("a stored literal passes through untouched", () => {
         const stored = toStorageDatum(ConstraintKind.P2LDistance, 7);
-        expect(stored).toBe(-7);
-        expect(resolveDatumSource(ConstraintKind.P2LDistance, stored, scopeOf({})).unchecked()).toBe(-7);
+        expect(stored).toBe(7);
+        expect(resolveDatumSource(ConstraintKind.P2LDistance, stored, scopeOf({})).unchecked()).toBe(7);
     });
 
     test("an expression of the wrong unit is rejected", () => {
@@ -138,6 +139,33 @@ describe("SketchSolver expression datums", () => {
         expect(measuredLength(solver, line)).toBeCloseTo(40);
 
         expect(solver.setScope(scopeOf({ w: length(40) }))).toBe(false);
+    });
+
+    test("a scope change leaves a side-carrying literal exactly where the solve put it", () => {
+        const solver = new SketchSolver(Plane.XY, undefined, scopeOf({ w: length(20) }));
+        const source = solver.addLine(0, 0, 10, 0);
+        const copy = solver.addLine(0, 5, 10, 5);
+        // the tie an offset makes: the copy's point is left of the source's direction, so the
+        // datum is negative — a side marker, and the number garlic holds
+        const id = solver.addConstraint({
+            kind: ConstraintKind.P2LDistance,
+            refs: [
+                { entityId: copy, pointIndex: 0 },
+                { entityId: source, pointIndex: 0 },
+                { entityId: source, pointIndex: 1 },
+            ],
+            datum: -5,
+        });
+        solver.solve(true);
+        const datum = () => solver.toData().constraints.find((x) => x.id === id)?.datum as number;
+        expect(datum()).toBeCloseTo(-5);
+
+        // every document change re-resolves the scope, and a literal must not be written back
+        // from anything but garlic: a stale sign there would flip the geometry across its line
+        expect(solver.setScope(scopeOf({ w: length(40) }))).toBe(false);
+        solver.solve(true);
+        expect(datum()).toBeCloseTo(-5);
+        expect(solver.pointOf({ entityId: copy, pointIndex: 0 })[1]).toBeCloseTo(5);
     });
 
     test("setScope re-reports an unresolvable datum", () => {

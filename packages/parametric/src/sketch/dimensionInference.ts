@@ -11,7 +11,7 @@ import {
     measuresSupplement,
     type Point2,
     pointLineFoot,
-    pointLineSignedDistance,
+    pointLineReading,
     signedSweep,
 } from "./editor/dimensionLayout";
 import type { DimensionPreview } from "./editor/sketchAnnotations";
@@ -25,7 +25,6 @@ import {
     type SketchEntityData,
     type SketchPointRef,
     toDisplayDatum,
-    toStorageDatum,
 } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 import { normalizeLineRefs } from "./solverEntities";
@@ -256,6 +255,11 @@ function twoPointAxis(mode: TwoPointMode): "h" | "v" | undefined {
  * How two points read in one mode: the constraint that holds the reading, what it measures,
  * and the frame its dimension line is drawn in. Δx and Δy differ by nothing but the axis, so
  * they are one branch; the aligned reading — the two points' true separation — stands alone.
+ *
+ * An axis reading's datum is signed because garlic's is: `second − first` along the axis, so the
+ * sign says which point is to the right (or above) the other, and which one that is follows the
+ * order the two were picked in. Nothing in the UI shows it — the dimension reads the magnitude
+ * (`datumSignIsSide`).
  */
 function twoPointReading(
     mode: TwoPointMode,
@@ -323,20 +327,21 @@ function resolveTwoPoint(
             datum: reading.datum,
         },
         anchor: { kind: "offset", ...reading.label },
-        initial: reading.datum,
-        // the same rule as everywhere else, read off the geometry instead of the kind:
-        // the label chose which reading this is, and only the aligned one is a magnitude
-        // (`datumIsSigned`)
+        // an axis reading's datum is signed — which of the two points is to the right of the
+        // other — and the dialog opens on the magnitude like the dimension reads (`toDisplayDatum`)
+        initial: Math.abs(reading.datum),
+        // the same rule as everywhere else, read off the reading instead of the kind: the label
+        // chose which one this is, and only the aligned one has no side to flip (`datumSignIsSide`)
         positiveOnly: aligned,
     };
 }
 
 /**
- * A point's perpendicular distance to a line, signed so the point keeps its side — the one
- * reading both "a point and a line" and "two parallel lines" come down to. They differ only
- * in where the point comes from, so it arrives as a function of the label: fixed for the
- * first, and for the second the first line's endpoint nearest the label, so the leader
- * reaches out of the side the user placed the dimension on.
+ * A point's perpendicular distance to a line — the one reading both "a point and a line" and
+ * "two parallel lines" come down to. They differ only in where the point comes from, so it
+ * arrives as a function of the label: fixed for the first, and for the second the first line's
+ * endpoint nearest the label, so the leader reaches out of the side the user placed the
+ * dimension on.
  */
 function pointToLinePlan(
     solver: SketchSolver,
@@ -359,16 +364,16 @@ function pointToLinePlan(
         resolve: (label) => {
             const point = pointOf(label);
             const uvPoint = solver.pointOf(point);
-            const signed = pointLineSignedDistance(uvPoint, uvStart, uvEnd);
+            const { datum, reading } = pointLineReading(uvPoint, uvStart, uvEnd);
             const foot = pointLineFoot(uvPoint, uvStart, uvEnd) ?? uvStart;
             return {
                 constraint: {
                     kind: ConstraintKind.P2LDistance,
                     refs: [point, lineStart, lineEnd],
-                    datum: toStorageDatum(ConstraintKind.P2LDistance, signed),
+                    datum,
                 },
                 anchor: { kind: "offset", ...labelOnSegment(uvPoint, foot, label) },
-                initial: signed,
+                initial: reading,
                 positiveOnly: !datumIsSigned(ConstraintKind.P2LDistance),
             };
         },

@@ -17,9 +17,14 @@ describe("toDisplayDatum / toStorageDatum", () => {
         expect(toDisplayDatum(ConstraintKind.Angle, -Math.PI / 4)).toBeCloseTo(45, 9);
     });
 
-    test("point-line distance flips sign between UI and storage", () => {
+    test("a side-carrying distance reads as its magnitude, whichever side it is stored on", () => {
         expect(toDisplayDatum(ConstraintKind.P2LDistance, -30)).toBe(30);
-        expect(toStorageDatum(ConstraintKind.P2LDistance, 30)).toBe(-30);
+        expect(toDisplayDatum(ConstraintKind.P2LDistance, 30)).toBe(30);
+        expect(toDisplayDatum(ConstraintKind.HorizontalDistance, -80)).toBe(80);
+        // and the storage conversion is the magnitude as typed: the side is the solver's
+        // (SketchSolver.sideSignedDatum), not this conversion's to guess at
+        expect(toStorageDatum(ConstraintKind.P2LDistance, 30)).toBe(30);
+        expect(toStorageDatum(ConstraintKind.HorizontalDistance, 30)).toBe(30);
         expect(
             toDisplayDatum(ConstraintKind.P2LDistance, toStorageDatum(ConstraintKind.P2LDistance, 7)),
         ).toBe(7);
@@ -66,8 +71,10 @@ describe("formatDatum", () => {
         expect(formatDatum(ConstraintKind.Radius, 30)).toBe("R30.00");
         // the datum is stored in radians and displayed in degrees, to one place
         expect(formatDatum(ConstraintKind.Angle, Math.PI / 6)).toBe("30.0°");
-        // stored negative for a point on the right of the line, displayed positive
+        // a side-carrying distance reads positive on either side — the drawing says which side
         expect(formatDatum(ConstraintKind.P2LDistance, -30)).toBe("30.00");
+        expect(formatDatum(ConstraintKind.P2LDistance, 30)).toBe("30.00");
+        expect(formatDatum(ConstraintKind.HorizontalDistance, -80)).toBe("80.00");
     });
 
     test("an expression reads as written — that name is the user's intent", () => {
@@ -95,9 +102,11 @@ describe("datumReading", () => {
         // a diameter is stored as the radius it is and read as the Ø it says
         expect(datumReading(ConstraintKind.Radius, 30, "diameter")).toBe(60);
         expect(datumReading(ConstraintKind.Radius, 30)).toBe(30);
-        // a signed kind keeps its sign — that is what the sign is for
+        // a side-carrying distance opens on its magnitude too — the sign is which side the
+        // dimension sits on, and the dialog never asks the user for it (a minus in there is the
+        // flip gesture, not a value)
         expect(datumReading(ConstraintKind.P2LDistance, -30)).toBe(30);
-        expect(datumReading(ConstraintKind.HorizontalDistance, -80)).toBe(-80);
+        expect(datumReading(ConstraintKind.HorizontalDistance, -80)).toBe(80);
     });
 
     test("an expression comes back as written — reopening one must not rewrite it", () => {

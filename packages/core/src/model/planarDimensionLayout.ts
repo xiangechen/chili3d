@@ -436,6 +436,11 @@ export function pointLineDistanceDimension(
 /**
  * Horizontal/vertical distance between two points: extension lines from each point
  * to an axis-parallel dimension line placed off the points' midline.
+ *
+ * The two points are read in the order they come in, and that order is the one the arrows follow:
+ * their tips touch the ends of the span and their bodies fall inside it, which needs the direction
+ * from `p1` to `p2` — the axis's own positive direction only when the span runs that way. The text
+ * keeps the axis direction either way, so a vertical dimension always reads bottom-up.
  */
 export function axisDistanceDimension(
     p1: Point2,
@@ -453,6 +458,7 @@ export function axisDistanceDimension(
     const a: Point2 = axis === "h" ? [p1[0], linePosition] : [linePosition, p1[1]];
     const b: Point2 = axis === "h" ? [p2[0], linePosition] : [linePosition, p2[1]];
     const dir: Point2 = axis === "h" ? [1, 0] : [0, 1];
+    const spanDir: Point2 = span < 0 ? [-dir[0], -dir[1]] : dir;
     // `out` carries the sign, so gap and overshoot stay unsigned here
     const out: Point2 = axis === "h" ? [0, sign] : [sign, 0];
     const gap = DIMENSION_EXTENSION_GAP_PX * size.scale;
@@ -470,7 +476,10 @@ export function axisDistanceDimension(
             [...addDir(p2, out, gap), ...addDir(b, out, overshoot)],
             [a[0], a[1], b[0], b[1]],
         ],
-        triangles: [...arrowhead(a, [-dir[0], -dir[1]], size.scale), ...arrowhead(b, dir, size.scale)],
+        triangles: [
+            ...arrowhead(a, [-spanDir[0], -spanDir[1]], size.scale),
+            ...arrowhead(b, spanDir, size.scale),
+        ],
         textPosition: textAnchor(textPoint, out, size),
         textDirection: dir,
     };
