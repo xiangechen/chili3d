@@ -64,6 +64,8 @@ export abstract class AxisDragHandler implements IEventHandler {
     private _awaitingClick = false;
     /** Projection of the grab point on the axis minus the value at grab time; keeps dragging continuous. */
     private _grabOffset = 0;
+    /** Whether the readout box is up — kept in step with the box itself, via its `onClose`. */
+    private _boxShown = false;
 
     private _arrowIds: number[] = [];
     private _previewIds: number[] = [];
@@ -106,6 +108,13 @@ export abstract class AxisDragHandler implements IEventHandler {
     protected abstract arrowSegment(): { start: XYZ; end: XYZ };
     /** The value the drag edits (a depth, an offset, ...). */
     protected abstract currentValue(): number;
+    /**
+     * What the drag is editing, printed the way the floating box should show it, or undefined
+     * for a drag that keeps no box. Read afresh on every step, so the box follows the hand.
+     */
+    protected dragText(): string | undefined {
+        return undefined;
+    }
     /** Writes a new value. Implementations report it back to the command here. */
     protected abstract setCurrentValue(value: number): void;
     /** Whether the pointer hovers the arrow. Drives the arrow's highlight colour. */
@@ -129,6 +138,14 @@ export abstract class AxisDragHandler implements IEventHandler {
         return 1;
     }
     /**
+     * Whether the preview's faces keep their own colour instead of being shaded. Overlays
+     * whose colour *is* the information (a handle's state, a marker) want this; previews that
+     * stand in for geometry stay lit so they read as solids.
+     */
+    protected previewUnlit(): boolean {
+        return false;
+    }
+    /**
      * Whether the preview ignores depth. A preview that stands in for a solid (a boolean
      * result) stays behind whatever is in front of it; a plane being placed does not.
      */
@@ -145,6 +162,12 @@ export abstract class AxisDragHandler implements IEventHandler {
     protected clearHover(): void {}
     /** Runs after the preview meshes are up — ghosts, sibling display, ... */
     protected afterPreview(): void {}
+    /**
+     * Called after a camera change has rescaled the arrow. Previews sized in pixels (rather
+     * than in the world, the way a boolean's ghost is) rebuild here, or they keep the size
+     * they were drawn at until the next gesture rebuilds them.
+     */
+    protected onCameraChanged(_view: IView): void {}
     /** Extra teardown beyond the temp meshes this class owns. */
     protected onCleanup(): void {}
 
@@ -173,6 +196,10 @@ export abstract class AxisDragHandler implements IEventHandler {
         if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
         this.trackCamera(view);
         if (this._awaitingClick) return; // the release commits; nothing to track
+        // a gesture that keeps no readout of its own takes the last gesture's down first:
+        // the box stays up after a drag so the number can still be typed over, but it must
+        // not ride on under a drag that has nothing to put in it
+        if (this.dragText() === undefined) this.dismissDragBox();
         this._downX = event.offsetX;
         this._downY = event.offsetY;
         this._dragging = false;
@@ -190,8 +217,14 @@ export abstract class AxisDragHandler implements IEventHandler {
         this._downY = undefined;
         this._dragging = false;
 
-        if (wasDragging && this.canConfirm()) {
-            this.commitView = view;
+        if (wasDragging) {
+            // A drag is not a click, and does not open the click-move-click gesture however it
+            // settles. Letting go always lands back on the mark — a handle is drawn where the
+            // pointer dragging it is — so falling through would leave the very next twitch of
+            // the mouse dragging it again, which is not what letting go means. It bites hardest
+            // on a drag that cannot settle on a value at all, since that one never takes the
+            // branch above: the transform's origin moves the frame rather than the geometry.
+            if (this.canConfirm()) this.commitView = view;
             return;
         }
         // A plain click on the arrow starts the click-move-click gesture; Shift keeps its
@@ -277,7 +310,11 @@ export abstract class AxisDragHandler implements IEventHandler {
         this.setArrowHover(view, true);
     }
 
-    /** The second click of click-move-click: commits a committable value, else leaves the mode. */
+    /**
+     * The second click of click-move-click: settles a committable value, else leaves the
+     * mode. The readout stays up either way — the value is not committed until Enter or
+     * the confirm button, and the box is the place to still change it.
+     */
     protected finishMoveMode(view: IView): void {
         this._awaitingClick = false;
         if (this.canConfirm()) {
@@ -291,17 +328,87 @@ export abstract class AxisDragHandler implements IEventHandler {
     /** Leaves click-move-click mode without committing, resetting the value. */
     protected exitMoveMode(view: IView): void {
         this._awaitingClick = false;
-        this.setCurrentValue(0);
+        this.resetValue();
         this.setArrowHover(view, false);
         this.refreshTempShapes(view);
+        // an abandoned gesture has no value left to show: the box would hold the one the
+        // reset just threw away
+        this.dismissDragBox();
         PubSub.default.pub("clearFloatTip");
         view.document.visual.update();
+    }
+
+    /**
+     * What abandoning the click-move gesture resets the drag to: nought for a plain axis.
+     * A drag whose nought is somewhere else — a scale's is 1 — answers for itself here.
+     */
+    protected resetValue(): void {
+        this.setCurrentValue(0);
     }
 
     protected updateDrag(view: IView, event: PointerEvent): void {
         this.setCurrentValue(this.projectValue(view, event) - this._grabOffset);
         this.refreshTempShapes(view);
+        this.showDragBox(view);
         view.document.visual.update();
+    }
+
+    /**
+     * The box that rides the drag, showing the value the hand is at. Put up on the first step
+     * of a gesture and refreshed from then on; a subclass that wants no box leaves `dragText`
+     * undefined and pays nothing.
+     *
+     * It is put up by the base rather than typed into: the typed-in box is `handleNumericInput`,
+     * which needs a digit to get going and would fight this one for the same slot. The handler
+     * below is that path's, minus the sign flip — a readout is showing the value the drag has
+     * settled on, and re-reading it as an intention to negate would turn every negative move
+     * into a positive one the moment anyone pressed Enter.
+     */
+    private showDragBox(view: IView): void {
+        const text = this.dragText();
+        if (text === undefined) return;
+        if (this._boxShown) {
+            PubSub.default.pub("updateInput", text);
+            return;
+        }
+        // Whatever box is up is not this one: it may be the numeric-entry box holding a digit
+        // somebody never finished typing, whose handler is a different rule about signs. A
+        // readout with that under it would be worse than no readout, so it goes first — and
+        // when nothing is up this is the no-op it looks like.
+        PubSub.default.pub("clearInput");
+        this._boxShown = true;
+        PubSub.default.pub("showInput", text, (typed: string) => this.applyTyped(view, typed), {
+            // taken as a whole, so a number typed straight away replaces the one the drag is at
+            selectAll: true,
+            // ...but the box only reports it: the keyboard stays with the drag, or the first
+            // Enter would close the box instead of confirming the gesture it rides
+            takeFocus: false,
+            // the flag rides the box's own lifetime: once it is down, however it came down,
+            // the next step of the drag puts a fresh one up rather than updating one long gone
+            onClose: () => {
+                this._boxShown = false;
+            },
+        });
+    }
+
+    /**
+     * Takes the readout box down, for a value that did not come from the drag. Leaving it up
+     * would leave it holding a number the drag no longer has — and it is an input, so the next
+     * Enter in it would put that stale number back.
+     */
+    protected dismissDragBox(): void {
+        if (!this._boxShown) return;
+        this._boxShown = false;
+        PubSub.default.pub("clearInput");
+    }
+
+    private applyTyped(view: IView, text: string): Result<string, I18nKeys> {
+        const value = Number(text);
+        if (Number.isNaN(value)) return Result.err("error.input.invalidNumber" as I18nKeys);
+
+        this.setCurrentValue(value);
+        this.refreshTempShapes(view);
+        return Result.ok(text);
     }
 
     protected confirm(): void {
@@ -367,6 +474,7 @@ export abstract class AxisDragHandler implements IEventHandler {
                 this.document.visual.context.displayMesh([mesh], {
                     meshOpacity: this.previewOpacity(),
                     onTop: this.previewOnTop(),
+                    unlit: this.previewUnlit(),
                 }),
             );
         }
@@ -465,6 +573,7 @@ export abstract class AxisDragHandler implements IEventHandler {
     private readonly handleCameraChanged = () => {
         if (this._cameraView !== undefined && !this._cleaned) {
             this.refreshArrow(this._cameraView);
+            this.onCameraChanged(this._cameraView);
         }
     };
 }

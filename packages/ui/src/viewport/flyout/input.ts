@@ -10,6 +10,8 @@ export class Input extends HTMLElement implements IDisposable {
     private readonly _completedCallbacks: (() => void)[] = [];
     private readonly textbox: HTMLInputElement;
     private tip?: HTMLLabelElement;
+    /** What this box last put in itself, so `setText` can tell its own writing from the user's. */
+    private written: string;
 
     constructor(
         text: string,
@@ -17,11 +19,31 @@ export class Input extends HTMLElement implements IDisposable {
     ) {
         super();
         this.className = style.panel;
+        this.written = text;
         this.textbox = input({
             value: text,
             onkeydown: this.handleKeyDown,
         });
         this.append(this.textbox);
+    }
+
+    /**
+     * Refreshes the text of a box that is standing in as a readout — a drag keeping the value
+     * under the pointer while the hand moves it.
+     *
+     * Once the box holds anything other than what this last wrote, the user is typing in it and
+     * it stops being a readout: the number being typed is the one that was asked for, and the
+     * next step of the drag must not overwrite it. Comparing against what was written rather
+     * than against focus is what makes that work while the drag still has the box focused.
+     */
+    setText(text: string): void {
+        if (this.textbox.value !== this.written) return;
+        this.textbox.value = text;
+        this.written = text;
+        // and taken as a whole again: the drag rewrites this on every step, and a rewrite
+        // leaves the caret at the end of it, so without this the number being typed next
+        // would land after the one the hand is on rather than in its place
+        this.selectAll();
     }
 
     onCancelled(callback: () => void) {
@@ -38,6 +60,11 @@ export class Input extends HTMLElement implements IDisposable {
 
     override focus() {
         this.textbox.focus();
+    }
+
+    /** Takes the whole text, so the next thing typed replaces it rather than landing inside it. */
+    selectAll() {
+        this.textbox.select();
     }
 
     dispose() {

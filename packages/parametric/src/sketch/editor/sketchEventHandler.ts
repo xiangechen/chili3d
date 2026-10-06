@@ -1162,6 +1162,31 @@ export class SketchEventHandler implements IEventHandler {
     }
 }
 
+/**
+ * The sketch's own picking, with `shiftKey` set. A tool that works on a *set* (the offset,
+ * the transform) forwards every event not aimed at its own handles here as an additive one:
+ * a click adds to the set (and a click on a picked curve takes it out again), a box adds
+ * what it crosses, and a click on empty space leaves the set alone instead of dropping it.
+ *
+ * The carried fields are the whole of what the handler and everything it calls read — the
+ * label drag among them, which takes the client coordinates and calls `preventDefault`.
+ * Leaving those off once made a press on a dimension throw on a method a plain object
+ * never had.
+ */
+export function additivePick(event: PointerEvent): PointerEvent {
+    if (event.shiftKey) return event;
+    return {
+        offsetX: event.offsetX,
+        offsetY: event.offsetY,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        button: event.button,
+        shiftKey: true,
+        target: event.target,
+        preventDefault: () => {},
+    } as unknown as PointerEvent;
+}
+
 export function sketchEntityMeshes(editor: SketchEditor): ShapeMeshData[] {
     return editor.solver.entities().map((entity) => sketchEntityMesh(editor, entity));
 }

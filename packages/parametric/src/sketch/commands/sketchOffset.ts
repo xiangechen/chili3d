@@ -20,7 +20,7 @@ import {
 import { ARROW_LENGTH } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import { SketchEditor } from "../editor/sketchEditor";
-import { sketchEntityMesh } from "../editor/sketchEventHandler";
+import { additivePick, sketchEntityMesh } from "../editor/sketchEventHandler";
 import { type OffsetOutcome, offsetEntities, offsetPreview } from "../offsetOps";
 import { type DimensionAnchor, type SketchEntityData, toWorld } from "../sketchModel";
 import type { SketchSolver } from "../solver";
@@ -234,7 +234,7 @@ export class SketchOffsetSession extends AxisDragHandler {
             super.pointerDown(view, event);
             return;
         }
-        this.data.picking.pointerDown(view, additive(event));
+        this.data.picking.pointerDown(view, additivePick(event));
         this.syncSelection();
     }
 
@@ -243,7 +243,7 @@ export class SketchOffsetSession extends AxisDragHandler {
         super.pointerMove(view, event);
         this.updateBadgeInterception(view, event);
         if (this.moveMode || this.arrowGesture) return;
-        this.data.picking.pointerMove(view, additive(event));
+        this.data.picking.pointerMove(view, additivePick(event));
     }
 
     override pointerUp(view: IView, event: PointerEvent): void {
@@ -256,14 +256,14 @@ export class SketchOffsetSession extends AxisDragHandler {
         }
         // the sketch may have selected a box, or dragged a point and committed: its
         // redraw can leave the overlays stale, so they go back up whatever it did
-        this.data.picking.pointerUp(view, additive(event));
+        this.data.picking.pointerUp(view, additivePick(event));
         this.syncSelection();
         this.refresh();
     }
 
     override pointerOut(view: IView, event: PointerEvent): void {
         super.pointerOut(view, event);
-        this.data.picking.pointerOut?.(view, additive(event));
+        this.data.picking.pointerOut?.(view, additivePick(event));
     }
 
     override mouseWheel(view: IView, event: WheelEvent): void {
@@ -322,23 +322,6 @@ export class SketchOffsetSession extends AxisDragHandler {
         }
         this.refresh();
     }
-}
-
-/**
- * The sketch's own picking, with `shiftKey` set. The offset works on a *set*, and the
- * sketch's click path is the one that knows which curve is under the pointer — additive
- * makes a click add to that set (and a click on a picked curve take it out again), a box
- * add what it crossed, and a click on empty space leave the set alone instead of dropping
- * it. Only the fields the sketch reads are carried over.
- */
-function additive(event: PointerEvent): PointerEvent {
-    if (event.shiftKey) return event;
-    return {
-        offsetX: event.offsetX,
-        offsetY: event.offsetY,
-        button: event.button,
-        shiftKey: true,
-    } as PointerEvent;
 }
 
 /** Whether two anchors are the same spot and the same side. */

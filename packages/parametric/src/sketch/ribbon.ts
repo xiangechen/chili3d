@@ -31,25 +31,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             },
             {
                 groupName: "ribbon.group.draw",
-                items: [
-                    "sketch.line",
-                    "sketch.circle",
-                    "sketch.arc",
-                    "sketch.rectangle",
-                    "sketch.polygon",
-                    {
-                        type: "split",
-                        items: [
-                            "sketch.fillet",
-                            "sketch.chamfer",
-                            "sketch.trim",
-                            "sketch.extend",
-                            "sketch.break",
-                            "sketch.mirror",
-                            "sketch.offset",
-                        ],
-                    },
-                ],
+                items: ["sketch.line", "sketch.circle", "sketch.arc", "sketch.rectangle", "sketch.polygon"],
             },
             {
                 groupName: "ribbon.group.constraint",
@@ -64,6 +46,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             {
                 groupName: "ribbon.group.dimension",
                 items: [
+                    "constraint.toggleDriven",
                     "dimension",
                     ["dimension.distance", "dimension.radius", "dimension.angle"],
                     [
@@ -71,16 +54,24 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                         "dimension.horizontalDistance",
                         "dimension.verticalDistance",
                     ],
-                    "constraint.toggleDriven",
+                ],
+            },
+            {
+                groupName: "ribbon.group.modify",
+                items: [
+                    {
+                        type: "split",
+                        items: ["sketch.fillet", "sketch.chamfer"],
+                    },
+                    ["sketch.trim", "sketch.extend", "sketch.break"],
+                    ["sketch.offset", "sketch.mirror", "sketch.transform"],
                 ],
             },
             {
                 groupName: "ribbon.group.other",
                 items: [
                     "sketch.constraints",
-                    "sketch.projectEdges",
-                    "sketch.toggleExternal",
-                    "sketch.toggleConstruction",
+                    ["sketch.projectEdges", "sketch.toggleExternal", "sketch.toggleConstruction"],
                 ],
             },
         ],

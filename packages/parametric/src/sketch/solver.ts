@@ -554,6 +554,21 @@ export class SketchSolver implements ExternalEntityHost {
         cache[y] = v;
     }
 
+    /**
+     * Sets a real circle's radius without solving; used by ops that resize geometry in
+     * place. A circle keeps its radius in a param of its own (`params[2]`), which the point
+     * setters cannot reach — an arc's radius is ‖start − centre‖ and comes along with them.
+     */
+    setRadius(entityId: number, radius: number): void {
+        if (this.isFixed(entityId)) {
+            throw new Error("A fixed entity's radius cannot be changed");
+        }
+        const paramId = this.radiusParamId(entityId);
+        this.system.set_param(paramId, radius);
+        const cache = this.entityCache.get(entityId);
+        if (cache !== undefined) cache[2] = radius;
+    }
+
     /** Kinds of constraints currently applied to any point of the entity. */
     constraintKindsOn(entityId: number): ConstraintKind[] {
         return [...this.constraints.values()]

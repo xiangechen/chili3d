@@ -13,6 +13,26 @@ import type { IDisposable } from "./disposable";
 import type { MessageType } from "./messageType";
 import type { Result } from "./result";
 
+/** How the floating input opens (see `PubSubEventMap.showInput`). */
+export interface ShowInputOptions {
+    /**
+     * Opens with the text taken as a whole, so the first thing typed replaces what is
+     * there — what a box standing on a value wants, and not what a box seeded with the
+     * digit somebody just pressed wants, since that digit is the start of the number
+     * rather than something to type over.
+     */
+    selectAll?: boolean;
+    /**
+     * Whether the box takes the keyboard focus on open (the default). A readout riding a
+     * drag passes false: the keys stay with the drag, so Enter still confirms and a digit
+     * still opens the numeric box, rather than being swallowed by a box the hand never
+     * aimed at.
+     */
+    takeFocus?: boolean;
+    /** Called when the box comes down, however it came down — Enter, Escape, or replaced. */
+    onClose?: () => void;
+}
+
 export interface PubSubEventMap {
     activeViewChanged: (view: IView | undefined) => void;
     /** Hide the standalone confirm bar (see `showConfirmControl`). */
@@ -42,13 +62,26 @@ export interface PubSubEventMap {
     showDialog: (title: I18nKeys, content: HTMLElement, buttons?: DialogButton[] | (() => void)) => void;
     showFloatPanel: (options: FloatPanelOptions) => void;
     showFloatTip: (dom: HTMLElement | { level: MessageType; msg: string }) => void;
-    showInput: (text: string, handler: (text: string) => Result<string, I18nKeys>) => void;
+    /**
+     * Puts up the floating input. See `ShowInputOptions` for how the box opens; without any,
+     * it takes the focus with its text as typed into.
+     */
+    showInput: (
+        text: string,
+        handler: (text: string) => Result<string, I18nKeys>,
+        options?: ShowInputOptions,
+    ) => void;
     showPermanent: (action: () => Promise<void>, message: I18nKeys, ...args: any[]) => void;
     showProperties(document: IDocument, nodes: INode[]): void;
     showSelectionControl: (controller: AsyncController) => void;
     showToast: (message: I18nKeys, ...args: any[]) => void;
     statusBarTip: (tip: I18nKeys, ...args: any[]) => void;
     toggleChatPanel: () => void;
+    /**
+     * Replaces what the floating input holds, for a drag that keeps it up as a readout. A box
+     * the user has started typing in is left alone — see `Input.setText`.
+     */
+    updateInput: (text: string) => void;
     viewClosed: (view: IView) => void;
     viewCursor: (cursor: CursorType) => void;
     visibleChanged: (model: INode) => void;

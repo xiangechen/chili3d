@@ -20,6 +20,62 @@ describe("Input", () => {
         });
     });
 
+    describe("setText", () => {
+        test("should replace text the box wrote itself", () => {
+            const input = new Input("10", () => Result.ok("ok"));
+            input.setText("12.5");
+            expect(input.text).toBe("12.5");
+            input.setText("14");
+            expect(input.text).toBe("14");
+        });
+
+        // a readout that clobbered a half-typed number would be worse than no readout at all,
+        // and the box keeps the focus all through the drag, so focus cannot be the test
+        test("should leave alone a box the user has typed into", () => {
+            const input = new Input("10", () => Result.ok("ok"));
+            const textbox = mustQuery<HTMLInputElement>(input, "input");
+            textbox.value = "7";
+            input.setText("20");
+            expect(input.text).toBe("7");
+        });
+
+        // a rewrite leaves the caret at the end of it, so the next number typed would land
+        // after the one the hand is on rather than in its place
+        test("should take the whole text again after writing", () => {
+            const input = new Input("10", () => Result.ok("ok"));
+            const textbox = mustQuery<HTMLInputElement>(input, "input");
+            input.setText("20");
+            expect(textbox.selectionStart).toBe(0);
+            expect(textbox.selectionEnd).toBe(2);
+        });
+
+        test("should stop following once the user has cleared it", () => {
+            const input = new Input("10", () => Result.ok("ok"));
+            mustQuery<HTMLInputElement>(input, "input").value = "";
+            input.setText("20");
+            expect(input.text).toBe("");
+        });
+    });
+
+    describe("selectAll", () => {
+        test("should take the whole text", () => {
+            const input = new Input("12.5", () => Result.ok("ok"));
+            const textbox = mustQuery<HTMLInputElement>(input, "input");
+            input.selectAll();
+            expect(textbox.selectionStart).toBe(0);
+            expect(textbox.selectionEnd).toBe(4);
+        });
+
+        test("should take what is there now, not what it opened with", () => {
+            const input = new Input("12.5", () => Result.ok("ok"));
+            const textbox = mustQuery<HTMLInputElement>(input, "input");
+            input.setText("7");
+            input.selectAll();
+            expect(textbox.selectionStart).toBe(0);
+            expect(textbox.selectionEnd).toBe(1);
+        });
+    });
+
     describe("text getter", () => {
         test("should return current textbox value", () => {
             const input = new Input("initial", () => Result.ok("ok"));
