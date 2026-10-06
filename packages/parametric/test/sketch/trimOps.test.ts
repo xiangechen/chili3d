@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
+import type { CurvePiece } from "../../src/sketch/curveGeometry";
 import {
     arcAngles,
     ConstraintKind,
@@ -11,7 +12,7 @@ import {
     type SketchPointRef,
 } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
-import { type TrimOutcome, type TrimPiece, trimEntity, trimPreview } from "../../src/sketch/trimOps";
+import { type TrimOutcome, trimEntity, trimPreview } from "../../src/sketch/trimOps";
 import "./setup";
 
 const TOLERANCE = 1e-6;
@@ -290,6 +291,36 @@ describe("trimEntity constraints", () => {
         }
     });
 
+    test("keeps a driven direction dimension a reference on both halves of a split", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 10, 0);
+            const base = solver.addLine(0, 5, 10, 5);
+            solver.addConstraint({
+                kind: ConstraintKind.Angle,
+                refs: [ref(line, 0), ref(line, 1), ref(base, 0), ref(base, 1)],
+                datum: 10,
+                driven: true,
+            });
+            solver.addLine(3, -5, 3, 5);
+            solver.addLine(7, -5, 7, 5);
+
+            const outcome = trim(solver, line, [5, 0]);
+            const half = outcome.entityIds[1];
+            const angles = constraintsOf(solver, ConstraintKind.Angle);
+            expect(angles.map((c) => c.refs.map((r) => r.entityId))).toEqual([
+                [line, line, base, base],
+                [half, half, base, base],
+            ]);
+            // re-stating the direction kind per half must carry the reading with it: a
+            // dropped flag would hand back two dimensions that hold the geometry where the
+            // user placed one that only measures it
+            expect(angles.map((c) => c.driven)).toEqual([true, true]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
     test("coincides the new endpoint when the crossing lands on the cutter's own end", () => {
         const solver = new SketchSolver(Plane.XY);
         try {
@@ -435,14 +466,14 @@ describe("trimEntity constraints", () => {
 
 describe("trimPreview", () => {
     /** The piece's numbers, rounded — the crossings come out of the intersection maths. */
-    function rounded(piece: TrimPiece): number[] {
+    function rounded(piece: CurvePiece): number[] {
         const round = (value: number) => Math.round(value * 1e6) / 1e6;
         return piece.kind === "line"
             ? [...piece.point1.map(round), ...piece.point2.map(round)]
             : [...piece.center.map(round), round(piece.radius), round(piece.startAngle), round(piece.sweep)];
     }
 
-    function previewOf(solver: SketchSolver, entityId: number, uv: [number, number]): TrimPiece {
+    function previewOf(solver: SketchSolver, entityId: number, uv: [number, number]): CurvePiece {
         const piece = trimPreview(solver, entityId, uv, TOLERANCE);
         if (piece === undefined) throw new Error("the trim would not be previewed here");
         return piece;

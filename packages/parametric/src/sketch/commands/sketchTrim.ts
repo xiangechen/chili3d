@@ -3,8 +3,21 @@
 
 import { AsyncController, command, PubSub } from "@chili3d/core";
 import type { SketchEditor } from "../editor/sketchEditor";
-import { trimEntity } from "../trimOps";
+import type { SketchPreviewAt } from "../previewTypes";
+import { trimEntity, trimPreview } from "../trimOps";
 import { SketchConstraintCommand } from "./sketchConstraints";
+
+/**
+ * The trim's hover cue, on the pick's own terms: the piece the click would remove, or
+ * nothing where the trim would refuse — which is how the refusal reads before the click
+ * rather than after it.
+ */
+export function trimPreviewAt(editor: SketchEditor): SketchPreviewAt {
+    return (entityId, uv) => {
+        const piece = trimPreview(editor.solver, entityId, uv, editor.screenTolerance());
+        return piece === undefined ? undefined : { kind: "pieces", pieces: [{ piece, role: "remove" }] };
+    };
+}
 
 /**
  * Cuts away the piece of a sketch entity under the cursor — the span between the two
@@ -25,7 +38,7 @@ export class SketchTrimCommand extends SketchConstraintCommand {
             const pick = await editor.pickEntityAt(
                 "prompt.pickTrimEntity",
                 undefined,
-                undefined,
+                { previewAt: trimPreviewAt(editor) },
                 this.controller,
             );
             this.controller.dispose();

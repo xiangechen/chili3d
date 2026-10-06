@@ -19,6 +19,7 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import type { ParametricBodyNode } from "../../parametricBodyNode";
+import type { SketchPreviewAt } from "../previewTypes";
 import {
     ConstraintKind,
     datumIsSigned,
@@ -119,6 +120,7 @@ export interface SketchActivePick {
     datum?: boolean;
     preview?: SketchPickPreview;
     previewEntity?: SketchEntityPreview;
+    previewAt?: SketchPreviewAt;
 }
 
 interface PickRequest extends SketchActivePick {
@@ -567,10 +569,19 @@ export class SketchEditor implements IDisposable {
     pickEntityAt(
         prompt: I18nKeys,
         type?: SketchEntityTypeFilter,
-        options?: { datum?: boolean },
+        options?: { datum?: boolean; previewAt?: SketchPreviewAt },
         controller?: AsyncController,
     ): Promise<SketchEntityPick | undefined> {
-        return this.startPick("entityAt", prompt, type, options?.datum, undefined, controller);
+        return this.startPick(
+            "entityAt",
+            prompt,
+            type,
+            options?.datum,
+            undefined,
+            controller,
+            undefined,
+            options?.previewAt,
+        );
     }
 
     /**
@@ -1012,11 +1023,12 @@ export class SketchEditor implements IDisposable {
         preview?: SketchPickPreview,
         controller?: AsyncController,
         previewEntity?: SketchEntityPreview,
+        previewAt?: SketchPreviewAt,
     ): Promise<T> {
         this.cancelPick();
         PubSub.default.pub("statusBarTip", prompt);
         return new Promise<T>((resolve) => {
-            this.pickRequest = { kind, entityType, datum, preview, previewEntity, resolve };
+            this.pickRequest = { kind, entityType, datum, preview, previewEntity, previewAt, resolve };
             this.eventHandler.setController(this.view, controller);
             this.annotations.suppressConstraintSymbols = true;
         });

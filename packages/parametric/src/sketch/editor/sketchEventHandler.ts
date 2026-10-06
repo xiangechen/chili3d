@@ -21,6 +21,8 @@ import {
     snapConstraintKind,
     snapTargetEntityId,
 } from "../autoConstraints";
+import type { CurvePiece } from "../curveGeometry";
+import type { SketchCurvePreview } from "../previewTypes";
 import {
     arcAngles,
     ConstraintKind,
@@ -39,7 +41,6 @@ import {
     viewPixelSize,
 } from "../sketchModel";
 import { constraintTargetEntities } from "../solverEntities";
-import { type TrimPiece, trimPreview } from "../trimOps";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
 import style from "./sketchAnnotations.module.css";
 import type { SketchActivePick, SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
@@ -66,7 +67,16 @@ const BOX_SELECT_COLOR = VisualConfig.selectedEdgeColor;
  * entity it is cut out of, so it reads as an overlay rather than as hover feedback.
  */
 const TRIM_PREVIEW_COLOR = 0xff6b6b;
-const TRIM_PREVIEW_LINE_WIDTH = 3;
+/**
+ * The span an extend would add: cyan, the one hue the sketch's other cues leave free —
+ * not the highlight green the entity under the cursor already wears, not the dimension
+ * blue. Dashed as well (see `piecePreviewLineType`), because none of it is on the sketch.
+ */
+const EXTEND_PREVIEW_COLOR = 0x00c8ff;
+/** Where a break would cut: the point marker's own grey, so it reads as a vertex, not as geometry. */
+const BREAK_MARKER_COLOR = 0x8c9aa8;
+/** Preview overlays are drawn heavier than the geometry they sit over. */
+const PREVIEW_LINE_WIDTH = 3;
 /**
  * Where a picked line would leave a mirrored copy — the trim's own tone, for the same
  * reason: the copy is not on the sketch yet, so the preview is the only thing telling
@@ -775,7 +785,7 @@ export class SketchEventHandler implements IEventHandler {
             if (point !== undefined) return point;
         }
 
-        if (pick?.kind === "entityAt") return this.trimHoverTarget(view, event, pick);
+        if (pick?.kind === "entityAt") return this.entityAtHoverTarget(view, event, pick);
 
         // a multi-entity pick and a single-entity one highlight what they want picked
         // just like a plain hover does — and an element pick highlights the entity only
@@ -859,19 +869,29 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     /**
-     * The entity-and-position pick is the trim's: what it wants is not the entity but the
-     * piece of it the click would take away, so the hole is drawn instead of the whole
-     * curve. Nothing at all is drawn where the trim would refuse — on a crossing, or on a
-     * piece too short to be one — which is how the refusal reads before the click rather
-     * than after it.
+     * The entity-and-position pick is the trim's, the extend's and the break's, and what
+     * each of them asks for is one of these entities — so it lights up under the cursor
+     * exactly as an ordinary hover does, and what the click would do is drawn over it:
+     * the piece a trim would take away, the span an extend would add, the points a break
+     * would carve at.
+     *
+     * The pick's own answer is `previewAt`, and a pick that has nothing to propose yet —
+     * the extend's first step, which is still choosing its target — is an ordinary hover
+     * for that reason. Where the op would refuse there is no proposal, but the entity
+     * stays lit: the refusal is the absence of the second cue, not of the first.
      */
-    private trimHoverTarget(view: IView, event: PointerEvent, pick: SketchActivePick): HoverTarget {
+    private entityAtHoverTarget(view: IView, event: PointerEvent, pick: SketchActivePick): HoverTarget {
         const entityId = this.hitTestEntity(view, event, pick.entityType, pick.datum ?? false);
         const uv = entityId === undefined ? undefined : this.pointerToUV(view, event);
         if (entityId === undefined || uv === undefined) return {};
-        const piece = trimPreview(this.editor.solver, entityId, uv, this.editor.screenTolerance());
-        if (piece === undefined) return {};
-        return { key: trimPieceKey(entityId, piece), mesh: trimPieceMesh(this.editor, piece) };
+
+        const highlight = this.hoverHighlightMeshes(entityId);
+        const preview = pick.previewAt?.(entityId, uv);
+        if (preview === undefined) return { key: `entity:${entityId}`, meshes: highlight };
+        return {
+            key: previewKey(entityId, preview),
+            meshes: [...highlight, ...previewMeshes(this.editor, preview)],
+        };
     }
 
     /** The highlight a preview stands in front of: the hovered line, datum axes included. */
@@ -1166,20 +1186,25 @@ function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
 }
 
 /**
- * The mesh of the piece a trim would remove — the trim pick's hover cue, drawn in the
- * piece's place rather than the whole curve's. `arcSegmentMesh` samples it at the
- * editor's usual density, so a long piece stays smooth and a short one is not
+ * The mesh of a piece a pick would leave or take — the trim's and the extend's own cue,
+ * drawn over the entity's highlight rather than in its place. `arcSegmentMesh` samples it
+ * at the editor's usual density, so a long piece stays smooth and a short one is not
  * over-tessellated.
  */
-function trimPieceMesh(editor: SketchEditor, piece: TrimPiece): EdgeMeshData {
+function curvePieceMesh(
+    editor: SketchEditor,
+    piece: CurvePiece,
+    color: number,
+    lineType: "solid" | "dash" = "solid",
+): EdgeMeshData {
     const plane = editor.node.plane;
     const mesh =
         piece.kind === "line"
             ? MeshDataUtils.createEdgeMesh(
                   toWorld(plane, piece.point1[0], piece.point1[1]),
                   toWorld(plane, piece.point2[0], piece.point2[1]),
-                  TRIM_PREVIEW_COLOR,
-                  "solid",
+                  color,
+                  lineType,
               )
             : arcSegmentMesh(
                   editor,
@@ -1188,10 +1213,43 @@ function trimPieceMesh(editor: SketchEditor, piece: TrimPiece): EdgeMeshData {
                   piece.radius,
                   piece.startAngle,
                   piece.startAngle + piece.sweep,
-                  TRIM_PREVIEW_COLOR,
+                  color,
+                  lineType,
               );
-    mesh.lineWidth = TRIM_PREVIEW_LINE_WIDTH;
+    mesh.lineWidth = PREVIEW_LINE_WIDTH;
     return mesh;
+}
+
+/** Every mesh a pick's own answer is drawn with, in the order the op listed it. */
+function previewMeshes(editor: SketchEditor, preview: SketchCurvePreview): ShapeMeshData[] {
+    if (preview.kind === "markers") return preview.uvs.map((point) => markerMesh(editor, point));
+    return preview.pieces.map(({ piece, role }) =>
+        curvePieceMesh(editor, piece, piecePreviewColor(role), piecePreviewLineType(role)),
+    );
+}
+
+/**
+ * The tone a curve piece is previewed in. What is about to be *taken away* is flagged the
+ * way a broken constraint is — it is the same "this is wrong" the trim has always meant —
+ * and what is about to be *added* takes a tone of its own: not the highlight green, which
+ * the entity under the cursor is already wearing, and not the dimension blue either.
+ */
+function piecePreviewColor(role: "remove" | "add"): number {
+    return role === "remove" ? TRIM_PREVIEW_COLOR : EXTEND_PREVIEW_COLOR;
+}
+
+/** A span that is not on the sketch yet is drawn dashed, as the mirror's own proposal is. */
+function piecePreviewLineType(role: "remove" | "add"): "solid" | "dash" {
+    return role === "remove" ? "solid" : "dash";
+}
+
+/** Where a carve would cut, drawn as the same marker the entity's own points are drawn with. */
+function markerMesh(editor: SketchEditor, point: [number, number]): ShapeMeshData {
+    return MeshDataUtils.createVertexMesh(
+        toWorld(editor.node.plane, point[0], point[1]),
+        VisualConfig.editVertexSize,
+        BREAK_MARKER_COLOR,
+    );
 }
 
 /** One mirrored copy as the mirror pick previews it — the entity's own mesh, dashed. */
@@ -1201,12 +1259,22 @@ function mirrorPreviewMesh(editor: SketchEditor, copy: SketchEntityData): EdgeMe
     return mesh;
 }
 
-/** Hover identity of a previewed piece: moving within one must not re-display the mesh. */
-function trimPieceKey(entityId: number, piece: TrimPiece): string {
+/** Hover identity of a pick's proposal: moving within one must not re-display the meshes. */
+function previewKey(entityId: number, preview: SketchCurvePreview): string {
+    if (preview.kind === "markers") {
+        const round = (value: number) => Math.round(value * 1e6) / 1e6;
+        return `markers:${entityId}:${preview.uvs.map((point) => point.map(round)).join("|")}`;
+    }
+    return `piece:${entityId}:${preview.pieces
+        .map(({ piece, role }) => `${role}:${pieceKey(piece)}`)
+        .join("|")}`;
+}
+
+function pieceKey(piece: CurvePiece): string {
     const round = (value: number) => Math.round(value * 1e6) / 1e6;
     return piece.kind === "line"
-        ? `trim:${entityId}:${piece.point1.map(round)}:${piece.point2.map(round)}`
-        : `trim:${entityId}:${round(piece.startAngle)}:${round(piece.sweep)}`;
+        ? `${piece.point1.map(round)}:${piece.point2.map(round)}`
+        : `${round(piece.startAngle)}:${round(piece.sweep)}`;
 }
 
 export function sketchEntityMesh(
