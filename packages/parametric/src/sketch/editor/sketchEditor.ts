@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ANGLE_UNITS,
     type AsyncController,
     CAMERA_FLY_DURATION,
     type CameraType,
@@ -10,8 +11,10 @@ import {
     type IDocument,
     type IEventHandler,
     type IView,
+    LENGTH_UNITS,
     type ParameterValue,
     PubSub,
+    Result,
     resolveUnitSpec,
     type Scope,
     Transaction,
@@ -19,6 +22,15 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import type { ParametricBodyNode } from "../../parametricBodyNode";
+import {
+    type ArrayDraft,
+    type ArrayField,
+    type ArrayPatch,
+    arrayFieldValue,
+    DRAFT_ARRAY_ID,
+    MAX_ARRAY_COUNT,
+    withField,
+} from "../arrayOps";
 import type { SketchPreviewAt } from "../previewTypes";
 import {
     ConstraintKind,
@@ -417,8 +429,102 @@ export class SketchEditor implements IDisposable {
             this.dimensionAnchors,
             (ids) => this.eventHandler.highlightConstraintEntities(ids),
             (id) => this.editDatum(id),
+            (id, field) => this.editArrayValue(id, field),
+            () => this.arrayDraft,
             () => this.commit(),
         );
+    }
+
+    /**
+     * Opens the array tool on an existing pattern — what double-clicking one of its copies
+     * does, and the only way in: the ribbon's array button builds a *new* pattern, and this
+     * one edits the one that is there (its reference, the geometry it copies, its removal).
+     * The pattern's own numbers are edited on the canvas, one double-click each
+     * (`editArrayValue`).
+     *
+     * The array is handed over rather than fished out of the selection: what the tool has to
+     * act on is one record, and the selection is a set of entities that only *implies* which
+     * record that is.
+     */
+    editArray(arrayId: number): void {
+        this._arrayEditTarget = arrayId;
+        PubSub.default.pub("executeCommand", "sketch.array");
+    }
+
+    /**
+     * The pattern a tool is in the middle of making or changing, while one is up: what the
+     * canvas draws its numbers from when there is no record yet — or none that holds what the
+     * tool holds. Set by the array tool on ready and cleared when it ends.
+     */
+    arrayDraft: ArrayDraft | undefined;
+
+    /**
+     * The array a run of the tool was opened on, if it was opened on one — taken rather than
+     * read, so that one double-click opens the tool once and the next run builds a new pattern.
+     */
+    takeArrayEditTarget(): number | undefined {
+        const target = this._arrayEditTarget;
+        this._arrayEditTarget = undefined;
+        return target;
+    }
+
+    /**
+     * Re-opens one of an array's own numbers — what double-clicking the annotation the canvas
+     * draws it on does. The dialog is the dimensions' own, so a count and a spacing are edited
+     * in the same voice as a dimension: the same validation, and the same solve and commit
+     * behind a confirm.
+     *
+     * The number may belong to a record or to the pattern a tool is making right now
+     * (`arrayDraft`) — the only difference is where a confirmed value goes. A count is asked for
+     * as a whole number and a spacing as a length (a turn, as an angle), which is also what the
+     * dialog's title says it is naming.
+     */
+    editArrayValue(arrayId: number, field: ArrayField): void {
+        const draft = arrayId === DRAFT_ARRAY_ID ? this.arrayDraft : undefined;
+        const pattern = draft?.pattern ?? this.solver.arrays().find((array) => array.id === arrayId)?.pattern;
+        if (pattern === undefined) return;
+        const current = arrayFieldValue(pattern, field);
+        if (current === undefined) return;
+        const title = ARRAY_FIELD_TITLE[field];
+        // a draft's number is written into the tool, which is holding it until its confirm:
+        // solving and committing here would write a record that does not hold it yet
+        const write = (value: ParameterValue) => {
+            if (draft !== undefined) {
+                draft.set(field, value);
+                return;
+            }
+            this.applyArrayPatch(arrayId, { pattern: withField(pattern, field, value) });
+        };
+        const onApplied = () => {
+            if (draft === undefined) this.applyDatum();
+        };
+        // a count is a whole number of things, and the dialog opens on it as one rather than on
+        // the two decimal places a measurement reads to
+        if (field.startsWith("count")) {
+            void datumPrompt.promptDatum(
+                typeof current === "number" ? String(current) : current,
+                write,
+                onApplied,
+                undefined,
+                { title, resolve: (input) => resolveArrayCount(input, arrayCountFloor(field)) },
+            );
+            return;
+        }
+        // every other number a pattern keeps is a measurement, and measurements are signed:
+        // a negative spacing runs the direction the other way and a negative turn turns the
+        // other way round, both of which the model and the handles' own arrows allow. The
+        // dialog's default reading is positive-only, which is the dimensions' business.
+        void this.promptDatum(current, write, field === "twist" ? ANGLE_UNITS : LENGTH_UNITS, undefined, {
+            title,
+            positiveOnly: false,
+            onApplied,
+        });
+    }
+
+    /** Writes one number into an array's record, reporting a pattern the solver will not take. */
+    private applyArrayPatch(arrayId: number, patch: ArrayPatch): void {
+        const result = this.solver.updateArray(arrayId, patch);
+        if (!result.isOk) PubSub.default.pub("displayError", result.error);
     }
 
     private readonly onActiveViewChanged = (view: IView | undefined) => {
@@ -500,6 +606,9 @@ export class SketchEditor implements IDisposable {
     }
 
     readonly view: IView;
+
+    /** The array a run of the array tool was opened on — see `editArray` / `takeArrayEditTarget`. */
+    private _arrayEditTarget: number | undefined;
 
     // ------------------------------------------------------------------ Picking — the surface the sketch commands drive
 
@@ -801,8 +910,36 @@ export class SketchEditor implements IDisposable {
      */
     deleteEntities(entityIds: Iterable<number>): void {
         if (this.disposed) return;
-        const ids = [...entityIds];
-        if (ids.length === 0) return;
+        const requested = [...entityIds];
+        if (requested.length === 0) return;
+        // Deleting an array's instance takes it *out of the pattern* rather than deleting it
+        // outright: the geometry is the record's to lay down, so a delete that only removed
+        // the entity would have the next solve put it straight back. The count is untouched
+        // and the hole stays one (`SketchSolver.skipInstance`), which is how Onshape reads a
+        // deleted sketch-pattern occurrence.
+        //
+        // Which instances the ids name is settled first, because an instance is several
+        // entities and the first of them takes the whole of it out — the rest are gone by the
+        // time their turn comes, and asking afterwards would read them as ordinary deletions.
+        const instances = new Map<string, number>();
+        const ids: number[] = [];
+        for (const id of requested) {
+            const owner = this.solver.instanceOf(id);
+            if (owner === undefined) {
+                ids.push(id);
+                continue;
+            }
+            const key = `${owner.arrayId}:${owner.index}`;
+            if (instances.has(key)) continue;
+            instances.set(key, id);
+        }
+        for (const id of instances.values()) {
+            this.solver.skipInstance(id);
+        }
+        if (instances.size > 0) {
+            PubSub.default.pub("statusBarTip", "sketch.arrayInstanceRemoved{0}", instances.size);
+        }
+        if (ids.length === 0 && instances.size === 0) return;
         const removedConstraints: number[] = [];
         for (const entityId of ids) {
             // external references are not regular solver entities — they remove through their own flow
@@ -865,12 +1002,18 @@ export class SketchEditor implements IDisposable {
         apply: (value: ParameterValue) => void,
         unit: UnitSpec,
         onCancel?: () => void,
-        options?: { positiveOnly?: boolean },
+        options?: { positiveOnly?: boolean; title?: I18nKeys; onApplied?: () => void },
     ): Promise<void> {
-        return datumPrompt.promptDatum(initial, apply, () => this.applyDatum(), onCancel, {
-            ...options,
-            resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
-        });
+        return datumPrompt.promptDatum(
+            initial,
+            apply,
+            options?.onApplied ?? (() => this.applyDatum()),
+            onCancel,
+            {
+                ...options,
+                resolve: (input) => resolveUnitSpec(input, this.variableScope(), unit),
+            },
+        );
     }
 
     /** Two-value variant of `promptDatum` for multi-datum constraints (Fix = X, Y). */
@@ -1160,4 +1303,50 @@ function sameEntityIds(previous: ReadonlySet<number> | undefined, next: Readonly
         if (!previous.has(id)) return false;
     }
     return true;
+}
+
+/** What the dialog that edits an array's number is naming — the field's own name in the bar. */
+const ARRAY_FIELD_TITLE: Record<ArrayField, I18nKeys> = {
+    countX: "sketch.arrayCountX",
+    spacingX: "sketch.arraySpacingX",
+    countY: "sketch.arrayCountY",
+    spacingY: "sketch.arraySpacingY",
+    count: "common.count",
+    spacing: "sketch.arraySpacing",
+    twist: "sketch.arrayAngle",
+};
+
+/**
+ * The least a count field may be typed down to. A linear pattern's directions are counted one
+ * at a time, and one is what a direction that lays down nothing reads as — it is how the
+ * second direction of a grid is turned back off, and the model, the solver and the arrow's
+ * own drag all read it that way. A turn or a curve lays all its instances in one run, and a
+ * run of one is the seed alone: not a pattern at all, so the floor there is two.
+ */
+function arrayCountFloor(field: ArrayField): number {
+    return field === "countX" || field === "countY" ? 1 : 2;
+}
+
+/**
+ * A count as the dialog reads it: a whole number of instances, within what a pattern holds.
+ * The dialog keeps its box open and shows the message, so a typo never reaches the record —
+ * and a count below the floor is refused here rather than left to reach the record, where a
+ * whole pattern's count of one would remove the array outright (that is the tool's own
+ * button, not something to mistype into).
+ */
+function resolveArrayCount(input: ParameterValue, floor: number): Result<number> {
+    if (typeof input !== "number" || !Number.isInteger(input)) {
+        return Result.err("The count must be a whole number");
+    }
+    if (input < floor) {
+        return Result.err(
+            floor < 2
+                ? "An array direction needs at least one instance"
+                : "An array needs at least two instances",
+        );
+    }
+    if (input > MAX_ARRAY_COUNT) {
+        return Result.err(`An array holds at most ${MAX_ARRAY_COUNT} instances`);
+    }
+    return Result.ok(input);
 }

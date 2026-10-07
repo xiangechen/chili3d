@@ -43,7 +43,7 @@ export class SketchMirrorCommand extends SketchConstraintCommand {
         if (axisId === undefined) return;
         // mirrors by a Symmetric constraint, so an external edge is no more usable here
         // than it is for `constraint.symmetric` (it reports why itself)
-        if (!allowsConstraintOnEntity(ConstraintKind.Symmetric, axisId)) return;
+        if (!allowsConstraintOnEntity(editor.solver, ConstraintKind.Symmetric, axisId)) return;
 
         if (selected.length > 0) {
             this.applyMirror(editor, selected, axisId);

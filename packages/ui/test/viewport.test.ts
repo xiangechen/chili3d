@@ -52,7 +52,13 @@ rs.mock("../src/viewport/flyout", () => ({
 
 import { Viewport } from "../src/viewport/viewport";
 
-function createMockView(detected: unknown[], node: unknown) {
+function createMockView(
+    detected: unknown[],
+    node: unknown,
+    eventHandler: { isEnabled: boolean; doubleClick?: (view: unknown, event: MouseEvent) => void } = {
+        isEnabled: true,
+    },
+) {
     const doc = {
         acts: {
             length: 0,
@@ -60,7 +66,7 @@ function createMockView(detected: unknown[], node: unknown) {
             onCollectionChanged: rs.fn(),
             removeCollectionChanged: rs.fn(),
         },
-        visual: { context: { getNode: rs.fn(() => node) } },
+        visual: { context: { getNode: rs.fn(() => node) }, eventHandler },
         application: { activeView: undefined },
     };
     const view = {
@@ -101,6 +107,43 @@ describe("Viewport double-click", () => {
         expect(view.detectVisual).toHaveBeenCalledWith(12, 34);
         expect(doc.visual.context.getNode).toHaveBeenCalledWith(visual);
         expect(pubSubRecorder.pubs).toEqual([{ topic: "nodeDoubleClicked", args: [node] }]);
+    });
+
+    test("should let a session's handler take the double-click instead", () => {
+        const doubleClick = rs.fn();
+        const { doc, view } = createMockView(
+            [{ id: "visual-1" }],
+            { name: "node-1" },
+            {
+                isEnabled: true,
+                doubleClick,
+            },
+        );
+        viewport = new Viewport(view as unknown as IView, false);
+        document.body.appendChild(viewport);
+
+        dispatchDoubleClick(viewport, 12, 34);
+
+        // the handler owns the gesture, so the node path stands down — and the node lookup is
+        // never even made
+        expect(doubleClick).toHaveBeenCalledWith(view, expect.objectContaining({ type: "dblclick" }));
+        expect(view.detectVisual).not.toHaveBeenCalled();
+        expect(pubSubRecorder.pubs).toEqual([]);
+        expect(doc.visual.context.getNode).not.toHaveBeenCalled();
+    });
+
+    test("should fall back to the node when the handler is disabled", () => {
+        const doubleClick = rs.fn();
+        const node = { name: "node-1" };
+        const { doc, view } = createMockView([{ id: "visual-1" }], node, { isEnabled: false, doubleClick });
+        viewport = new Viewport(view as unknown as IView, false);
+        document.body.appendChild(viewport);
+
+        dispatchDoubleClick(viewport, 12, 34);
+
+        expect(doubleClick).not.toHaveBeenCalled();
+        expect(pubSubRecorder.pubs).toEqual([{ topic: "nodeDoubleClicked", args: [node] }]);
+        expect(doc.visual.context.getNode).toHaveBeenCalled();
     });
 
     test("should not publish when double-clicking empty space", () => {

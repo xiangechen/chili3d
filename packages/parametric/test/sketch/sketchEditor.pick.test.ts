@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type ICameraController, Plane, Result, XYZ } from "@chili3d/core";
+import { type ICameraController, Plane, PubSub, Result, XYZ } from "@chili3d/core";
 import {
     createMockApplication,
     createMockView,
@@ -11,7 +11,12 @@ import {
 import { rs } from "@rstest/core";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
-import { SKETCH_ORIGIN_ID, SKETCH_X_AXIS_ID, SKETCH_Y_AXIS_ID } from "../../src/sketch/sketchModel";
+import {
+    axisLineRefs,
+    SKETCH_ORIGIN_ID,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
+} from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "./setup";
 
@@ -121,6 +126,63 @@ describe("SketchEditor picking", () => {
             (doc.visual.eventHandler as SketchEventHandler).pointerDown(view, pointerEvent(405, 300));
 
             await expect(promise).resolves.toBe(1);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a double-click on an array's copy opens that array's tool", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const source = editor.solver.addLine(0, 0, 10, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 3, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [source],
+            );
+            editor.solve(true);
+            const array = editor.solver.arrays()[0];
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                // mock view: screen (425, 300) -> uv (25, 0), on the first copy (uv 20..30)
+                const handler = doc.visual.eventHandler as SketchEventHandler;
+                handler.doubleClick(view, pointerEvent(425, 300) as unknown as MouseEvent);
+
+                // the tool is started, and it is handed the array rather than left to infer
+                // one from the selection
+                expect(pub).toHaveBeenCalledWith("executeCommand", "sketch.array");
+                expect(editor.takeArrayEditTarget()).toBe(array.id);
+            } finally {
+                pub.mockRestore();
+            }
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a double-click on geometry that is no copy opens nothing", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(0, 0, 10, 0);
+            editor.solve(true);
+
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                // screen (405, 300) -> uv (5, 0): the drawn line, which belongs to no pattern
+                (doc.visual.eventHandler as SketchEventHandler).doubleClick(
+                    view,
+                    pointerEvent(405, 300) as unknown as MouseEvent,
+                );
+                expect(pub).not.toHaveBeenCalledWith("executeCommand", "sketch.array");
+                expect(editor.takeArrayEditTarget()).toBeUndefined();
+            } finally {
+                pub.mockRestore();
+            }
             editor.exit();
         } finally {
             restoreFactory();

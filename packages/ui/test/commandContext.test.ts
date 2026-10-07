@@ -55,6 +55,7 @@ const MATERIAL_CMD_KEY = "test.context.material";
 const LENGTH_CMD_KEY = "test.context.length";
 const FONT_CMD_KEY = "test.context.font";
 const TARGETS_CMD_KEY = "test.context.targets";
+const GUARDED_CMD_KEY = "test.context.guarded";
 
 class TestCommand extends Observable {
     async execute() {}
@@ -208,6 +209,27 @@ class TargetsCommand extends Observable implements ITargetProvider {
     }
 }
 
+/**
+ * A command whose only field is an action the panel offers while a flag is up — the shape a
+ * re-edit tool's "remove" button takes (a function property guarded by a dependency).
+ */
+class GuardedActionCommand extends Observable {
+    async execute() {}
+
+    get editing(): boolean {
+        return this.getPrivateValue("editing", false);
+    }
+    set editing(value: boolean) {
+        this.setProperty("editing", value);
+    }
+
+    removed = 0;
+    @property("test.action" as I18nKeys, { dependencies: [{ property: "editing", value: true }] })
+    remove() {
+        this.removed++;
+    }
+}
+
 describe("CommandContext", () => {
     let contexts: CommandContext[];
 
@@ -219,6 +241,7 @@ describe("CommandContext", () => {
         CommandStore.registerCommand(FontCommand, { key: FONT_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(LengthCommand, { key: LENGTH_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(TargetsCommand, { key: TARGETS_CMD_KEY, icon: "icon-ctx" });
+        CommandStore.registerCommand(GuardedActionCommand, { key: GUARDED_CMD_KEY, icon: "icon-ctx" });
         // I18n.isI18nKey (used by the combobox editor) reads the zh-CN translation table
         I18n.addLanguage({ display: "zh", language: "zh-CN", translation: {} as Locale["translation"] });
     });
@@ -234,6 +257,7 @@ describe("CommandContext", () => {
         CommandStore.unregisterCommand(FONT_CMD_KEY);
         CommandStore.unregisterCommand(LENGTH_CMD_KEY);
         CommandStore.unregisterCommand(TARGETS_CMD_KEY);
+        CommandStore.unregisterCommand(GUARDED_CMD_KEY);
         I18n.removeLanguage("zh-CN");
     });
 
@@ -455,6 +479,27 @@ describe("CommandContext", () => {
 
             command.mode = "a";
             expect(detailControl.style.display).toBe("none");
+        });
+    });
+
+    describe("guarded action button", () => {
+        test("stays hidden until the flag it depends on is up", () => {
+            const command = new GuardedActionCommand();
+            const ctx = track(new CommandContext(command));
+            document.body.appendChild(ctx);
+            // the button *is* the control the panel shows and hides — unlike the checkbox,
+            // which wraps itself in a row of its own
+            const button = mustQuery(ctx, "button");
+            expect(button.style.display).toBe("none");
+
+            command.editing = true;
+            expect(button.style.display).toBe("inherit");
+
+            (button as unknown as { _onclick: () => void })._onclick();
+            expect(command.removed).toBe(1);
+
+            command.editing = false;
+            expect(button.style.display).toBe("none");
         });
     });
 

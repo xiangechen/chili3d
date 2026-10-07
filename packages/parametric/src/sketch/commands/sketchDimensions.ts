@@ -173,7 +173,11 @@ export class DimensionCommand extends DrivenDimensionCommand {
         const { constraint } = resolved;
         // A dimension is not an associative constraint, so an entity projected from another
         // node cannot take one — `allowsConstraintOnEntity` says so through the status bar.
-        if (!constraint.refs.every((ref) => allowsConstraintOnEntity(constraint.kind, ref.entityId))) {
+        if (
+            !constraint.refs.every((ref) =>
+                allowsConstraintOnEntity(editor.solver, constraint.kind, ref.entityId),
+            )
+        ) {
             return;
         }
         // A reading the sketch already holds is not refused here the way a duplicate
@@ -198,7 +202,11 @@ export class DistanceDimensionCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined || !allowsConstraintOnEntity(ConstraintKind.P2PDistance, p1.entityId)) return;
+        if (
+            p1 === undefined ||
+            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2PDistance, p1.entityId)
+        )
+            return;
 
         // rubber-band line from the first point to the cursor while picking the second
         const uv1 = editor.solver.pointOf(p1);
@@ -213,7 +221,11 @@ export class DistanceDimensionCommand extends DrivenDimensionCommand {
                 this.controller,
             ),
         );
-        if (p2 === undefined || !allowsConstraintOnEntity(ConstraintKind.P2PDistance, p2.entityId)) return;
+        if (
+            p2 === undefined ||
+            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2PDistance, p2.entityId)
+        )
+            return;
 
         const uv2 = editor.solver.pointOf(p2);
         const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
@@ -246,7 +258,11 @@ export class RadiusDimensionCommand extends DrivenDimensionCommand {
             undefined,
             this.controller,
         );
-        if (entityId === undefined || !allowsConstraintOnEntity(ConstraintKind.Radius, entityId)) return;
+        if (
+            entityId === undefined ||
+            !allowsConstraintOnEntity(editor.solver, ConstraintKind.Radius, entityId)
+        )
+            return;
 
         const entity = editor.solver.entity(entityId)!;
         const center: [number, number] = [entity.params[0], entity.params[1]];
@@ -381,7 +397,11 @@ export class PointLineDistanceCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.P2LDistance, p.entityId)) return;
+        if (
+            p === undefined ||
+            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2LDistance, p.entityId)
+        )
+            return;
         this.beginStep();
         const lineId = await editor.pickEntity(
             "prompt.pickSketchEntity",
@@ -389,7 +409,11 @@ export class PointLineDistanceCommand extends DrivenDimensionCommand {
             { datum: true },
             this.controller,
         );
-        if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.P2LDistance, lineId)) return;
+        if (
+            lineId === undefined ||
+            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2LDistance, lineId)
+        )
+            return;
 
         const l1: SketchPointRef = { entityId: lineId, pointIndex: 0 };
         const l2: SketchPointRef = { entityId: lineId, pointIndex: 1 };
@@ -461,7 +485,9 @@ export class AngleDimensionCommand extends DrivenDimensionCommand {
             { datum: true },
             this.controller,
         );
-        return id !== undefined && allowsConstraintOnEntity(ConstraintKind.Angle, id) ? id : undefined;
+        return id !== undefined && allowsConstraintOnEntity(editor.solver, ConstraintKind.Angle, id)
+            ? id
+            : undefined;
     }
 }
 
@@ -497,10 +523,10 @@ abstract class AxisDistanceCommand extends DrivenDimensionCommand {
         const kind = this.axis === "h" ? ConstraintKind.HorizontalDistance : ConstraintKind.VerticalDistance;
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined || !allowsConstraintOnEntity(kind, p1.entityId)) return;
+        if (p1 === undefined || !allowsConstraintOnEntity(editor.solver, kind, p1.entityId)) return;
         this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p2 === undefined || !allowsConstraintOnEntity(kind, p2.entityId)) return;
+        if (p2 === undefined || !allowsConstraintOnEntity(editor.solver, kind, p2.entityId)) return;
 
         const uv1 = editor.solver.pointOf(p1);
         const uv2 = editor.solver.pointOf(p2);

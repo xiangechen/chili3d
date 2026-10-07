@@ -4,6 +4,21 @@
 import { EMPTY_SCOPE, type ParameterValue, type Plane, Result, type Scope } from "@chili3d/core";
 import type { SolveResultInfo, WasmSystem } from "../../lib/garlic";
 import { INCIDENCE_TOLERANCE } from "../features/refGeometry";
+import {
+    type ArrayInstanceSpec,
+    type ArrayPatch,
+    arrayInstanceSpecs,
+    arrayInstanceTotal,
+    arrayReferenceIds,
+    cloneArrayData,
+    copyRelation,
+    instanceFirstSlot,
+    instanceIndexOf,
+    liveInstanceIds,
+    resolveArray,
+    sameIdList,
+    seedRelations,
+} from "./arrayOps";
 import { ENTITY_PARAM_KINDS, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH } from "./entityLayout";
 import {
     type EntityTables,
@@ -28,6 +43,8 @@ import {
     SKETCH_ORIGIN_ID,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
+    type SketchArrayData,
+    type SketchArrayPattern,
     type SketchConstraintData,
     type SketchData,
     type SketchEntityData,
@@ -36,6 +53,7 @@ import {
     syncExternalRoles,
     toDatumSource,
 } from "./sketchModel";
+import { entityPoints } from "./transformOps";
 
 function findRoot(parent: Map<string, string>, key: string): string {
     let root = key;
@@ -156,6 +174,22 @@ export class SketchSolver implements ExternalEntityHost {
      * can exclude them from shape building.
      */
     private readonly constructionEntities = new Set<number>();
+    /**
+     * The sketch's arrays, by id (`SketchData.arrays`). Ids are session-local: nothing keys
+     * off an array id across sessions — the instances carry their own array's id through
+     * `SketchArrayData.instanceEntityIds` — so the allocator restarts at the loaded max + 1
+     * rather than being persisted.
+     */
+    private readonly arrayRecords = new Map<number, SketchArrayData>();
+    private arrayIdSeq = 1;
+    /**
+     * The entities the arrays generate. They are ordinary entities in every other respect —
+     * drawn, picked, built into profiles like any other — but `refreshArrays` rewrites their
+     * parameters from the record on every solve, so nothing the user does to one survives:
+     * `isFixed` names them, and the setters and the ops refuse them the way they refuse the
+     * datum and the external refs.
+     */
+    private readonly derivedEntities = new Set<number>();
     /** The pinned external entities and the refs they came from — see `externalEntities.ts`. */
     private readonly external = new ExternalEntityRegistry(this);
     private draggedParamIds: number[] = [];
@@ -200,6 +234,16 @@ export class SketchSolver implements ExternalEntityHost {
     /** Expression datums that failed to resolve at the last load or scope change. */
     get datumErrors(): ReadonlyMap<number, string> {
         return this._datumErrors;
+    }
+
+    /**
+     * The document's parameters as the solver resolves against them — the same table a
+     * constraint's expression datum is read through. Read-only, and for callers that have to
+     * resolve a value of their own: an array's numbers are the record's rather than a
+     * constraint's, and the layers that draw and edit them resolve them here.
+     */
+    get scope(): Scope {
+        return this._scope;
     }
 
     /**
@@ -433,12 +477,18 @@ export class SketchSolver implements ExternalEntityHost {
         if (isDatumEntityId(id) || isExternalEntityId(id)) {
             return Result.err("The datum and external references cannot change type");
         }
+        if (this.derivedEntities.has(id)) {
+            return Result.err("An array instance takes its type from the entity it copies");
+        }
         if (this.entityTypes.get(id) === undefined) {
             return Result.err(`Unknown sketch entity: ${id}`);
         }
         const captured = this.constraintsData().filter((c) => c.refs.some((r) => r.entityId === id));
         const construction = this.constructionEntities.has(id);
-        this.removeEntity(id);
+        // the private path: this entity is changing shape, not going away, so the arrays
+        // reading it must survive — the instances are re-laid from its new type on the
+        // solve that follows
+        this.dropEntity(id);
         // the private path, not `seedEntity`: same registration, without claiming an
         // id from the allocator (this id already exists, it is only changing shape)
         this.registerEntity(type, this.addEntityParams(type, values), id);
@@ -483,6 +533,24 @@ export class SketchSolver implements ExternalEntityHost {
         if (isExternalEntityId(id)) {
             throw new Error("External references are removed with removeExternalEntity");
         }
+        if (this.derivedEntities.has(id)) {
+            throw new Error("An array instance is removed with its array");
+        }
+        this.detachFromArrays(id);
+        const removed = this.dropEntity(id);
+        // losing a source re-lays what the pattern keeps, so leaving it half-placed for the
+        // caller's solve to fix would be an entity list that lies in between
+        this.refreshArrays();
+        return removed;
+    }
+
+    /**
+     * Forgets the entity and every constraint referencing it. The unguarded half of
+     * `removeEntity`: the array machinery and `retypeEntity` reach for this one, since what
+     * they remove is theirs to remove — an instance the pattern no longer wants, an entity
+     * that is only changing type.
+     */
+    private dropEntity(id: number): number[] {
         const paramIds = this.entityParams.get(id);
         if (paramIds === undefined) {
             throw new Error(`Unknown sketch entity: ${id}`);
@@ -504,9 +572,23 @@ export class SketchSolver implements ExternalEntityHost {
         return removedConstraints;
     }
 
-    /** Whether the entity is fixed (datum or external): targetable, but never movable/deletable/editable. */
+    /**
+     * Whether the entity is not the user's to move, delete, retype or constrain: the datum,
+     * the seeded external references, and every array instance. All three are targetable —
+     * they snap, they pick, they carry constraints the *solver* owns — but none of them is
+     * the sketch's to edit, and every op that asks "may I touch this" asks this.
+     *
+     * Note this is not the same set `entities()` filters on: the datum and the externals are
+     * solver-only rows, while an array's instances are real geometry that has to be drawn,
+     * picked and built into profiles like any other entity.
+     */
     isFixed(entityId: number): boolean {
-        return this.fixedEntities.has(entityId);
+        return this.fixedEntities.has(entityId) || this.derivedEntities.has(entityId);
+    }
+
+    /** Whether the entity is an array's own instance — laid out by the record, not by the user. */
+    isDerived(entityId: number): boolean {
+        return this.derivedEntities.has(entityId);
     }
 
     /** Whether the entity is construction geometry: a constraint/snap target that never builds profiles. */
@@ -548,6 +630,14 @@ export class SketchSolver implements ExternalEntityHost {
         if (isExternalEntityId(ref.entityId)) {
             throw new Error("An external reference cannot be moved");
         }
+        if (this.derivedEntities.has(ref.entityId)) {
+            throw new Error("An array instance is placed by its array");
+        }
+        this.writePoint(ref, u, v);
+    }
+
+    /** The unguarded half of `setPointPosition` — what the arrays themselves write with. */
+    private writePoint(ref: SketchPointRef, u: number, v: number): void {
         const [xId, yId] = this.pointParamIds(ref);
         this.system.set_param(xId, u);
         this.system.set_param(yId, v);
@@ -563,9 +653,17 @@ export class SketchSolver implements ExternalEntityHost {
      * setters cannot reach — an arc's radius is ‖start − centre‖ and comes along with them.
      */
     setRadius(entityId: number, radius: number): void {
+        if (this.derivedEntities.has(entityId)) {
+            throw new Error("An array instance's radius comes from the entity it copies");
+        }
         if (this.isFixed(entityId)) {
             throw new Error("A fixed entity's radius cannot be changed");
         }
+        this.writeRadius(entityId, radius);
+    }
+
+    /** The unguarded half of `setRadius` — what the arrays themselves write with. */
+    private writeRadius(entityId: number, radius: number): void {
         const paramId = this.radiusParamId(entityId);
         this.system.set_param(paramId, radius);
         const cache = this.entityCache.get(entityId);
@@ -623,6 +721,348 @@ export class SketchSolver implements ExternalEntityHost {
         );
     }
 
+    // ------------------------------------------------------------------ Arrays
+
+    /** The sketch's arrays, in id order — the definition, not the instances it lays out. */
+    arrays(): SketchArrayData[] {
+        return this.liveArrays().map(cloneArrayData);
+    }
+
+    /**
+     * The records themselves, in id order — the solver's own rows, NOT copies. For readers
+     * that take a number and are done before anything can move it: the canvas annotations and
+     * the array tool's preview, which between them read this on every frame of a drag. Copying
+     * there is not hypothetical waste — `cloneArrayData` round-trips JSON, and the per-frame
+     * paths are many.
+     *
+     * Anything that *keeps* what it reads takes `arrays()`, whose copy is the whole point: the
+     * serialized data, a command holding the record it opened on.
+     */
+    liveArrays(): readonly SketchArrayData[] {
+        return [...this.arrayRecords.values()].sort((a, b) => a.id - b.id);
+    }
+
+    /**
+     * One record as it stands, or `undefined` — the solver's own row, not a copy. The same
+     * bargain as `liveArrays`, for the callers that name one array rather than reading them all.
+     */
+    arrayRecord(id: number): SketchArrayData | undefined {
+        return this.arrayRecords.get(id);
+    }
+
+    /** The array an instance belongs to, or `undefined` for an entity the user made. */
+    arrayOf(entityId: number): SketchArrayData | undefined {
+        for (const data of this.arrayRecords.values()) {
+            if (liveInstanceIds(data).includes(entityId)) return cloneArrayData(data);
+        }
+        return undefined;
+    }
+
+    /**
+     * Patterns `sourceIds` and lays the instances out. The record — not a set of constraints —
+     * is what holds the pattern: garlic has no pattern constraint and no directed distance
+     * other than along the sketch's own axes, so this is the only thing that can keep an
+     * instance answering its seed.
+     *
+     * The caller solves and commits: the instances are placed here, and every later solve
+     * places them again, but it is the commit that makes any of it undoable.
+     */
+    addArray(pattern: SketchArrayPattern, sourceIds: readonly number[]): Result<number> {
+        const sources = this.arrayableSources(sourceIds);
+        if (sources.length === 0) return Result.err("Nothing to array");
+        const resolved = resolveArray(this, pattern, sources, this._scope);
+        if (!resolved.isOk) return Result.err(resolved.error);
+        const id = this.arrayIdSeq++;
+        this.arrayRecords.set(id, { id, sourceIds: sources, pattern, instanceEntityIds: [] });
+        this.refreshArrays();
+        return Result.ok(id);
+    }
+
+    /**
+     * Rewrites an array's definition. A pattern or a source list that changes only what the
+     * instances *are* keeps their ids, so the regions keyed on them survive; a change of
+     * sources re-lays the whole pattern, since the instances are ordered by source.
+     *
+     * A pattern that lays down nothing — one instance in total, which is the seed alone — is
+     * not a pattern at all, so it removes the array. That is how a count field is also the
+     * tool's way out.
+     */
+    updateArray(id: number, patch: ArrayPatch): Result<void> {
+        const data = this.arrayRecords.get(id);
+        if (data === undefined) return Result.err(`Unknown sketch array: ${id}`);
+        if (patch.pattern !== undefined && arrayInstanceTotal(patch.pattern) < 2) {
+            this.removeArray(id);
+            return Result.ok(undefined);
+        }
+        const sources =
+            patch.sourceIds === undefined ? data.sourceIds : this.arrayableSources(patch.sourceIds);
+        if (sources.length === 0) return Result.err("Nothing to array");
+        const pattern = patch.pattern ?? data.pattern;
+        const resolved = resolveArray(this, pattern, sources, this._scope);
+        if (!resolved.isOk) return Result.err(resolved.error);
+        if (!sameIdList(sources, data.sourceIds)) this.dropArrayInstances(data);
+        data.sourceIds = sources;
+        data.pattern = pattern;
+        this.refreshArrays();
+        return Result.ok(undefined);
+    }
+
+    /** Removes the array and every instance it generated. */
+    removeArray(id: number): void {
+        const data = this.arrayRecords.get(id);
+        if (data === undefined) return;
+        this.dropArrayInstances(data);
+        this.arrayRecords.delete(id);
+        this.refreshDerivedEntities();
+    }
+
+    /**
+     * Breaks the pattern: the record goes and its copies stay, as the sketch's own geometry —
+     * told the seed's shape relations again, so that a copy which was a closed loop is still
+     * one (`seedRelations`). What the record held together by re-deriving them on every solve,
+     * they now hold themselves.
+     *
+     * They stop being derived along with it, which is the whole point: from here they can be
+     * dragged, dimensioned and deleted one at a time, and the sketch's degrees of freedom go up
+     * by what each copy is free to do — the rigid-body motion of a shape nothing else pins.
+     * Answers how many relations were said again.
+     *
+     * The caller solves and commits, as with any other edit.
+     */
+    dissolveArray(id: number): number {
+        const data = this.arrayRecords.get(id);
+        if (data === undefined) return 0;
+        const relations = seedRelations(this.constraintsData(), data.sourceIds);
+        const sources = data.sourceIds.length;
+        let added = 0;
+        for (let index = 1; index < arrayInstanceTotal(data.pattern) && sources > 0; index++) {
+            const copyOf = new Map<number, number>();
+            for (let slot = 0; slot < sources; slot++) {
+                const copy = data.instanceEntityIds[instanceFirstSlot(data, index) + slot];
+                if (copy !== null) copyOf.set(data.sourceIds[slot], copy);
+            }
+            for (const relation of relations) {
+                const moved = copyRelation(relation, copyOf);
+                if (moved === undefined) continue;
+                this.addConstraint(moved);
+                added++;
+            }
+        }
+        this.arrayRecords.delete(id);
+        this.refreshDerivedEntities();
+        return added;
+    }
+
+    /**
+     * The array and instance an entity is one of, or `undefined` when the id is not an
+     * instance's. What a delete asks *before* it acts: taking one instance out takes every
+     * entity it is made of with it, so a caller holding several of them has to know they are
+     * one request — and, once the first is out, the others are no longer findable.
+     */
+    instanceOf(entityId: number): { arrayId: number; index: number } | undefined {
+        for (const data of this.arrayRecords.values()) {
+            const index = instanceIndexOf(data, entityId);
+            if (index !== undefined) return { arrayId: data.id, index };
+        }
+        return undefined;
+    }
+
+    /**
+     * Takes the instance `entityId` is out of its pattern. The count is not touched: the
+     * hole stays a hole, and raising the count later adds instances after the last one
+     * rather than filling it in — Onshape's own rule for a deleted sketch-pattern
+     * occurrence. Answers the instance index it took out, or `undefined` when the id is not
+     * an instance's — which is also what a *sibling* id of an instance already taken out
+     * answers, so a caller acting on several of them asks `instanceOf` first.
+     *
+     * The caller solves and commits, as with any other edit.
+     */
+    skipInstance(entityId: number): number | undefined {
+        for (const data of [...this.arrayRecords.values()]) {
+            const index = instanceIndexOf(data, entityId);
+            if (index === undefined) continue;
+            const from = instanceFirstSlot(data, index);
+            for (let slot = from; slot < from + data.sourceIds.length; slot++) {
+                // the entity goes here rather than in the refresh that follows: the hole is
+                // what the record keeps, so the row the refresh would look for is already
+                // gone by the time it reads the slots
+                const id = data.instanceEntityIds[slot];
+                if (id !== null && this.entityTypes.has(id)) this.dropEntity(id);
+                data.instanceEntityIds[slot] = null;
+            }
+            this.refreshArrays();
+            return index;
+        }
+        return undefined;
+    }
+
+    /**
+     * The entities worth patterning out of `ids`: real geometry, each once, in the order
+     * given. The datum and the external refs drop out — neither is geometry the solver may
+     * copy — and so does an instance, which would otherwise read the pattern back into
+     * itself.
+     */
+    private arrayableSources(ids: readonly number[]): number[] {
+        const seen = new Set<number>();
+        const sources: number[] = [];
+        for (const id of ids) {
+            if (seen.has(id) || isDatumEntityId(id) || isExternalEntityId(id)) continue;
+            if (this.derivedEntities.has(id) || this.entityTypes.get(id) === undefined) continue;
+            seen.add(id);
+            sources.push(id);
+        }
+        return sources;
+    }
+
+    /**
+     * Rebuilds every array's instances from its record: the ones already there are rewritten
+     * in place, the ones the count now calls for are created, and the ones it no longer
+     * wants are dropped. Runs at the end of every solve, which is what makes an instance
+     * follow its seed, its reference and the document's parameters at once.
+     *
+     * An array whose pattern does not currently resolve is left exactly as it was: a
+     * direction line dragged degenerate for a frame, or a parameter that only momentarily
+     * fails, must not take the pattern — or the sketch — down with it.
+     */
+    private refreshArrays(): void {
+        for (const data of this.arrayRecords.values()) {
+            const resolved = resolveArray(this, data.pattern, data.sourceIds, this._scope);
+            if (!resolved.isOk) continue;
+            data.instanceEntityIds = this.applyArrayInstances(
+                data,
+                arrayInstanceSpecs(this, data.sourceIds, resolved.value),
+            );
+        }
+        this.refreshDerivedEntities();
+    }
+
+    /**
+     * Brings the record's instances in line with `specs`, answering the ids in that same
+     * *slot* order — a spec is one (instance, source) pair, so its position is the slot
+     * `instanceEntityIds` is written in and a `null` there is an instance taken out of the
+     * pattern. Pairing slot to slot is what keeps an instance's id its own for good.
+     */
+    private applyArrayInstances(
+        data: SketchArrayData,
+        specs: readonly ArrayInstanceSpec[],
+    ): (number | null)[] {
+        const existing = data.instanceEntityIds;
+        const ids: (number | null)[] = new Array<number | null>(specs.length).fill(null);
+        const kept = new Set<number>();
+        specs.forEach((spec, slot) => {
+            const id = existing[slot];
+            // the user took this instance out: the slot keeps its hole, and the entity the
+            // next solve would otherwise lay down stays gone
+            if (id === null) return;
+            if (id !== undefined && this.entityTypes.get(id) === spec.type) {
+                this.rewriteInstance(id, spec);
+                kept.add(id);
+                ids[slot] = id;
+                return;
+            }
+            // a missing instance, or one the seed has since changed type out from under:
+            // the id is abandoned rather than reused, like every other freed id here
+            ids[slot] = this.createInstance(spec);
+        });
+        for (const id of existing) {
+            if (id !== null && !kept.has(id)) this.dropEntity(id);
+        }
+        return ids;
+    }
+
+    /** Moves an instance onto its placement, and its construction flag onto its seed's. */
+    private rewriteInstance(id: number, spec: ArrayInstanceSpec): void {
+        const entity: SketchEntityData = { id, type: spec.type, params: spec.params };
+        entityPoints(entity).forEach(([u, v], pointIndex) => {
+            this.writePoint({ entityId: id, pointIndex }, u, v);
+        });
+        // a circle keeps its radius in a param of its own; an arc's is ‖start − centre‖ and
+        // comes along with the points
+        if (spec.type === "circle") this.writeRadius(id, spec.params[2]);
+        this.setConstruction(id, spec.construction);
+    }
+
+    /** One new instance: `addArc` where the type calls for it, so its structure comes too. */
+    private createInstance(spec: ArrayInstanceSpec): number {
+        const [x1, y1, x2, y2, x3, y3] = spec.params;
+        const id =
+            spec.type === "line"
+                ? this.addLine(x1, y1, x2, y2)
+                : spec.type === "circle"
+                  ? this.addCircle(x1, y1, x2)
+                  : this.addArc(x1, y1, x2, y2, x3, y3);
+        this.setConstruction(id, spec.construction);
+        return id;
+    }
+
+    /** Drops every instance the record holds, leaving the record itself intact. */
+    private dropArrayInstances(data: SketchArrayData): void {
+        for (const id of liveInstanceIds(data)) {
+            if (this.entityTypes.has(id)) this.dropEntity(id);
+        }
+        data.instanceEntityIds = [];
+    }
+
+    private refreshDerivedEntities(): void {
+        this.derivedEntities.clear();
+        for (const data of this.arrayRecords.values()) {
+            for (const id of liveInstanceIds(data)) {
+                if (this.entityTypes.has(id)) this.derivedEntities.add(id);
+            }
+        }
+    }
+
+    /**
+     * Takes a persisted record into the live map, if it still has anything to resolve against.
+     * The instances are already loaded as ordinary entities like every other row — all this
+     * says is which of them are derived and what generates them; the solve that closes
+     * `loadData` then re-derives their geometry, which is what reconciles a record whose
+     * persisted instances and count have drifted apart (a hand-edited document).
+     *
+     * A record with no sources, with references that are gone, or reading another array's
+     * instances as its own sources, is dropped: a load has no repair to offer, and the next
+     * commit writes the sketch without it.
+     */
+    private loadArray(data: SketchArrayData): void {
+        if (arrayInstanceTotal(data.pattern) < 2 || data.sourceIds.length === 0) return;
+        if (!data.sourceIds.every((id) => this.entityTypes.has(id) && !this.derivedEntities.has(id))) {
+            return;
+        }
+        const references = arrayReferenceIds(data.pattern);
+        if (!references.every((id) => isDatumEntityId(id) || this.entityTypes.has(id))) return;
+        this.arrayRecords.set(data.id, cloneArrayData(data));
+        this.arrayIdSeq = Math.max(this.arrayIdSeq, data.id + 1);
+        for (const id of liveInstanceIds(data)) {
+            if (this.entityTypes.has(id)) this.derivedEntities.add(id);
+        }
+    }
+
+    /**
+     * Takes `id` out of every array. As a source it leaves the pattern, and the instances it
+     * carried go with it — the remaining ones are re-laid on the next refresh, since they are
+     * ordered by source. As a reference (a direction line, a centre, a curve) it leaves the
+     * pattern with nothing to lay out at all, so the whole array goes: an array pointing at
+     * geometry that is no longer there is not something to keep.
+     *
+     * An id stops existing in two ways, and this is the one that has to unwire the arrays by
+     * hand: `removeEntity` reaches it, and an external reference reaches it through
+     * `detachEntityReferences` — an external's constraints cascade on their own, but an array
+     * holds its reference by id alone.
+     */
+    private detachFromArrays(id: number): void {
+        for (const data of [...this.arrayRecords.values()]) {
+            if (arrayReferenceIds(data.pattern).includes(id)) {
+                this.removeArray(data.id);
+                continue;
+            }
+            const remaining = data.sourceIds.filter((source) => source !== id);
+            if (remaining.length === data.sourceIds.length) continue;
+            this.dropArrayInstances(data);
+            data.sourceIds = remaining;
+            if (remaining.length === 0) this.arrayRecords.delete(data.id);
+        }
+    }
+
     // ------------------------------------------------------------------ Solving
 
     solve(fine: boolean): SolveOutcome {
@@ -636,9 +1076,13 @@ export class SketchSolver implements ExternalEntityHost {
             report = this.system.solve(true);
             this.refreshCache();
         }
+        // the arrays come last: the seeds are only settled once the solver is, and an
+        // instance carries no constraints of its own, so placing one is not something to
+        // solve for — it is where the seed's solved position puts it
+        this.refreshArrays();
         return {
             result: report.result,
-            dofs: this.system.dofs(),
+            dofs: this.dofCount(),
         };
     }
 
@@ -650,7 +1094,7 @@ export class SketchSolver implements ExternalEntityHost {
         let repaired = false;
         for (const record of this.constraints.values()) {
             const ref = record.refs[0];
-            if (ref === undefined || this.fixedEntities.has(ref.entityId)) continue;
+            if (ref === undefined || this.isFixed(ref.entityId)) continue;
             const [u, v] = this.pointOf(ref);
             const projected = this.projectedIncidence(record, u, v);
             if (projected === undefined) continue;
@@ -738,7 +1182,31 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     dofs(): number {
-        return this.system.dofs();
+        return this.dofCount();
+    }
+
+    /**
+     * garlic's free-parameter count, less the ones an array instance holds. Nothing
+     * constrains an instance — the record places it — so garlic counts its parameters as
+     * free and would report a pattern of five as five times freer than it is. They are not
+     * the user's to move either way: the status bar is answering "how much of this sketch is
+     * still mine to place", and an instance never is.
+     */
+    private dofCount(): number {
+        return this.system.dofs() - this.derivedFreeParams();
+    }
+
+    /** How many of garlic's free parameters belong to array instances — see `dofCount`. */
+    private derivedFreeParams(): number {
+        if (this.derivedEntities.size === 0) return 0;
+        const free = new Set(this.system.free_param_ids());
+        let count = 0;
+        for (const id of this.derivedEntities) {
+            for (const paramId of this.entityParams.get(id) ?? []) {
+                if (free.has(paramId)) count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -746,14 +1214,16 @@ export class SketchSolver implements ExternalEntityHost {
      * garlic's row-space test (`free_param_ids`), not a residual or numeric one: it is
      * exact, needs no solve, and stays correct in singular configurations where probing
      * the solver's behaviour would not. Fixed entities (the datum, external refs) are
-     * pinned by construction and so come back in the set.
+     * pinned by construction and so come back in the set, and so do the array instances:
+     * they carry no constraints at all, but the record determines every one of their
+     * parameters, and a derived entity that read as free would be a colouring that lies.
      *
      * This is what the sketch editor colours by — fully constrained reads in the default
      * edge colour, anything else in `VisualConfig.sketchFreeColor`.
      */
     fullyConstrainedEntities(): ReadonlySet<number> {
         const free = new Set(this.system.free_param_ids());
-        const pinned = new Set<number>();
+        const pinned = new Set<number>(this.derivedEntities);
         for (const [id, paramIds] of this.entityParams) {
             if (paramIds.every((paramId) => !free.has(paramId))) pinned.add(id);
         }
@@ -781,8 +1251,10 @@ export class SketchSolver implements ExternalEntityHost {
             // the report's own DOF, not `system.dofs()`: that one reads a rank cached
             // per topology, which lags one real iteration through a singular
             // configuration — the panel would then contradict the redundancy list it
-            // is showing beside it (see `SketchEditor.publishSolveStatus`)
-            dofs: report.dofs,
+            // is showing beside it (see `SketchEditor.publishSolveStatus`). An array's
+            // instances come off it the same way they come off `dofCount`, so the count
+            // the panel shows is the sketch the user can still place.
+            dofs: report.dofs - this.derivedFreeParams(),
             conflicting: this.groupSketchIds(report.conflictGroups, byGarlicId, (g) => [
                 g.constraint,
                 ...g.counterparts,
@@ -881,7 +1353,7 @@ export class SketchSolver implements ExternalEntityHost {
         for (const record of this.constraints.values()) {
             if (record.kind !== ConstraintKind.P2PCoincident) continue;
             for (const r of record.refs) {
-                if (this.fixedEntities.has(r.entityId)) continue;
+                if (this.isFixed(r.entityId)) continue;
                 if (
                     findRoot(parent, pointRefKey(r)) === root &&
                     !group.some((g) => pointRefKey(g) === pointRefKey(r))
@@ -898,7 +1370,7 @@ export class SketchSolver implements ExternalEntityHost {
         const parent = new Map<string, string>();
         for (const record of this.constraints.values()) {
             if (record.kind !== ConstraintKind.P2PCoincident || record.refs.length !== 2) continue;
-            if (record.refs.some((r) => this.fixedEntities.has(r.entityId))) continue;
+            if (record.refs.some((r) => this.isFixed(r.entityId))) continue;
             const a = pointRefKey(record.refs[0]);
             const b = pointRefKey(record.refs[1]);
             if (!parent.has(a)) parent.set(a, a);
@@ -914,7 +1386,7 @@ export class SketchSolver implements ExternalEntityHost {
         const paramIds = new Set<number>();
         for (const ref of refs) {
             for (const r of this.coincidentGroup(ref)) {
-                if (this.fixedEntities.has(r.entityId)) continue;
+                if (this.isFixed(r.entityId)) continue;
                 for (const id of this.pointParamIds(r)) {
                     paramIds.add(id);
                 }
@@ -925,7 +1397,7 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     dragTo(ref: SketchPointRef, u: number, v: number): SolveOutcome {
-        const group = this.coincidentGroup(ref).filter((r) => !this.fixedEntities.has(r.entityId));
+        const group = this.coincidentGroup(ref).filter((r) => !this.isFixed(r.entityId));
         const groupKeys = new Set(group.map(pointRefKey));
         // A point pinned onto a line slides along it instead of following the raw
         // cursor: garlic's coarse solve does not converge from far off-manifold
@@ -970,6 +1442,11 @@ export class SketchSolver implements ExternalEntityHost {
             result.externalIdSeq = this.external.idSeq;
             result.constraintIdSeq = this.constraintIdSeq;
         }
+        // the arrays' *instances* are already in `entities` above — they are real geometry,
+        // and an arc instance's structural PointOnArc has to round-trip by id with it. What
+        // this carries is the definition they are rebuilt from; like the counters, it is
+        // emitted only once it means something
+        if (this.arrayRecords.size > 0) result.arrays = this.arrays();
         return result;
     }
 
@@ -1049,9 +1526,12 @@ export class SketchSolver implements ExternalEntityHost {
         this.constraints.clear();
         this.fixedEntities.clear();
         this.constructionEntities.clear();
+        this.arrayRecords.clear();
+        this.derivedEntities.clear();
         this.external.clear();
         this.entityIdSeq = 1;
         this.constraintIdSeq = 1;
+        this.arrayIdSeq = 1;
         this.draggedParamIds = [];
         this.seedDatum();
         this.loadData(data);
@@ -1122,6 +1602,11 @@ export class SketchSolver implements ExternalEntityHost {
     /** `ExternalEntityHost`: the serialization gate — see `idAllocatedSinceLoad`. */
     markIdAllocated(): void {
         this.idAllocatedSinceLoad = true;
+    }
+
+    /** `ExternalEntityHost`: an external's id reaches the arrays the way a sketch entity's does. */
+    detachEntityReferences(id: number): void {
+        this.detachFromArrays(id);
     }
 
     addExternalEntity(ref: ExternalRefData): void {
@@ -1639,6 +2124,12 @@ export class SketchSolver implements ExternalEntityHost {
         for (const entity of data.entities) {
             this.registerEntity(entity.type, this.addEntityParams(entity.type, entity.params), entity.id);
             if (entity.construction === true) this.constructionEntities.add(entity.id);
+        }
+        // the arrays come after the entities they read — the instances among them are already
+        // registered above, and all this does is say which of those rows are derived; the
+        // solve at the end of this method is what re-derives their geometry
+        for (const array of data.arrays ?? []) {
+            this.loadArray(array);
         }
         for (const constraint of data.constraints) {
             this.addConstraintWithId(constraint.id, constraint);

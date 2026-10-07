@@ -9,12 +9,14 @@ import {
     type EdgeMeshData,
     type FaceMeshData,
     formatMeasurement,
+    I18n,
     type IDisposable,
     type IView,
     type ShapeMeshData,
     VisualConfig,
     type VisualItemConfig,
 } from "@chili3d/core";
+import { type ArrayDraft, type ArrayField, type ArrayRun, liveInstanceIds, resolveArray } from "../arrayOps";
 import {
     arcAngles,
     ConstraintKind,
@@ -23,6 +25,7 @@ import {
     isDatumEntityId,
     isStructuralConstraint,
     pointRefKey,
+    type SketchArrayPattern,
     type SketchConstraintData,
     type SketchEntityData,
     type SketchPointRef,
@@ -380,6 +383,10 @@ export class SketchAnnotationManager implements IDisposable {
     private badgeElements = new Map<number, HTMLElement[]>();
     /** The badges on the canvas right now — what `isLiveBadge` answers from. */
     private readonly liveBadges = new Set<HTMLElement>();
+    /** The pattern a tool is making or changing right now, if one is — see `SketchEditor.arrayDraft`. */
+    private get draft(): ArrayDraft | undefined {
+        return this.getDraft();
+    }
     private badgeAnchors: { u: number; v: number; entityIds: number[] }[] = [];
     /** Resolved during a refresh, placed once the whole set is known (`placeBadges`). */
     private pendingBadges: BadgePlacement[] = [];
@@ -461,6 +468,9 @@ export class SketchAnnotationManager implements IDisposable {
         private readonly anchors: Map<number, DimensionAnchor>,
         private readonly onHighlightEntities: (entityIds: number[]) => void = () => {},
         private readonly onEditDatum: (constraintId: number) => void = () => {},
+        private readonly onEditArrayValue: (arrayId: number, field: ArrayField) => void = () => {},
+        /** The tool's live draft, asked afresh on every refresh — it comes and goes with a tool. */
+        private readonly getDraft: () => ArrayDraft | undefined = () => undefined,
         private readonly onAnchorDragEnd: (constraintId: number) => void = () => {},
     ) {
         // optional call: mock camera controllers in unit tests may lack the event API
@@ -607,6 +617,7 @@ export class SketchAnnotationManager implements IDisposable {
         };
         this.texts = [];
         this.addConstraintGraphics(px, graphics);
+        this.addArrayGraphics(px, graphics.normal);
         this.addPreviewGraphics(px, graphics.normal);
         // the badges only learn they overlap once every candidate anchor is resolved
         this.placeBadges(px);
@@ -695,6 +706,142 @@ export class SketchAnnotationManager implements IDisposable {
                     break;
             }
         }
+    }
+
+    // ------------------------------------------------------------------ Array annotations
+
+    /**
+     * Every array's own numbers, drawn where they mean something and double-clicked to change
+     * each: the run each direction makes — the line that measures it, drawn in the dimension
+     * layer's own colour — the spacing it steps by, and the count it lays down. That pairing is
+     * what SolidWorks calls "add spacing dimension" and "display instance count", and it is the
+     * only place a pattern's numbers are readable without opening its tool.
+     *
+     * The tool's own draft is drawn the same way (`SketchEditor.arrayDraft`), so the numbers of
+     * a pattern being made — or being changed, before its confirm — read exactly like those of
+     * one that is already there. The record a draft stands in for is left out while it is up:
+     * drawn both ways, the pair would disagree until the commit.
+     *
+     * They go the way the constraint symbols do — hidden while a pick is running, so a pick is
+     * never something a badge can land on by accident.
+     */
+    private addArrayGraphics(px: number, graphics: DimensionGraphics): void {
+        if (this.suppressSymbols) return;
+        const draft = this.draft;
+        // the live rows, not copies: this runs on every annotation refresh, which is every
+        // frame of a drag (`liveArrays`)
+        for (const array of this.solver.liveArrays()) {
+            if (draft?.editing === array.id) continue;
+            this.drawArrayRuns(
+                array.id,
+                array.pattern,
+                array.sourceIds,
+                [...array.sourceIds, ...liveInstanceIds(array)],
+                px,
+                graphics,
+            );
+        }
+        if (draft !== undefined) {
+            this.drawArrayRuns(draft.id, draft.pattern, draft.sourceIds, [...draft.sourceIds], px, graphics);
+        }
+    }
+
+    /**
+     * One pattern's numbers: a line per run, and the two numbers that run is placed by. The
+     * line joins the dimension graphics, so it draws in their colour, on their layer, in one
+     * batch with them — a pattern's spacing *is* a measurement, and it should read as one.
+     */
+    private drawArrayRuns(
+        id: number,
+        pattern: SketchArrayPattern,
+        sourceIds: readonly number[],
+        highlight: readonly number[],
+        px: number,
+        graphics: DimensionGraphics,
+    ): void {
+        // the numbers as they read and the runs they are taken along: the pattern's own
+        // expressions resolved against the document's parameters, exactly as the solve does
+        const resolved = resolveArray(this.solver, pattern, sourceIds, this.solver.scope);
+        if (!resolved.isOk) return;
+        for (const run of resolved.value.runs) {
+            for (let point = 0; point + 1 < run.path.length; point++) {
+                const [u1, v1] = run.path[point];
+                const [u2, v2] = run.path[point + 1];
+                graphics.segments.push([u1, v1, u2, v2]);
+            }
+            this.drawArrayNumber(id, "spacing", run, highlight, px);
+            this.drawArrayNumber(id, "count", run, highlight, px);
+        }
+    }
+
+    /** One of a run's numbers — its spacing, or the count it lays down. */
+    private drawArrayNumber(
+        id: number,
+        kind: "spacing" | "count",
+        run: ArrayRun,
+        highlight: readonly number[],
+        px: number,
+    ): void {
+        const number = run[kind];
+        const text =
+            kind === "spacing"
+                ? formatMeasurement(run.spacing.measure, run.spacing.value)
+                : `×${number.value}`;
+        // a count stands clear of the geometry it names; a spacing sits on the line it measures
+        const at: [number, number] = [
+            number.at[0],
+            number.at[1] + (kind === "count" ? BADGE_OFFSET_PX * px : 0),
+        ];
+        const title =
+            kind === "spacing"
+                ? I18n.translate(
+                      run.spacing.measure === "angle"
+                          ? "sketch.arrayAngleBadge{0}"
+                          : "sketch.arraySpacingBadge{0}",
+                      text,
+                  )
+                : I18n.translate("sketch.arrayCountBadge{0}", number.value);
+        this.drawBadge(
+            `array|${id}|${number.field}|${kind}|${number.value}|${at}`,
+            (element) => {
+                // What `registerBadgeElement` does for a constraint badge, and it has to happen
+                // on every refresh rather than on creation: `resetPlacements` empties the live
+                // set each time round, and a badge whose key has not changed keeps the element
+                // it had — `drawBadge` reuses it without drawing it again, so a hover guard
+                // reading the set would lose the very element the pointer is on. (What that
+                // costs: a hover raises a highlight, the highlight refreshes, the guard goes
+                // false, and the leave that should clear it is ignored.)
+                this.liveBadges.add(element);
+                // A number is read and doubled, never dragged, so it is a symbol's kind of
+                // badge and not a datum dimension's: while a handle is being aimed at or
+                // dragged it stops taking the pointer (`updateBadgeInterception`). The handle
+                // wins because it is what lies under the number — otherwise the press that
+                // grabs the arrow, and the click that settles the drag it is part of, both land
+                // on an overlay the sketch never hears from.
+                element.classList.toggle(style.inert, this.symbolsInert);
+                renderBadgeFace(element, text);
+                element.title = title;
+            },
+            (onCreated) =>
+                this.view.htmlText("", toWorld(this.solver.plane, at[0], at[1]), {
+                    hideDelete: true,
+                    interactive: true,
+                    className: style.badge,
+                    onCreated: (element) => onCreated(element),
+                    // hovering a number is hovering the pattern: the seeds light up with the
+                    // copies, which is what says the two are one thing
+                    onMouseEnter: () => this.onHighlightEntities([...highlight]),
+                    onMouseLeave: (event: MouseEvent) => {
+                        if (this.isLiveBadge(event.currentTarget)) this.onHighlightEntities([]);
+                    },
+                    onDoubleClick: (event: MouseEvent) => {
+                        event.stopPropagation();
+                        this.onEditArrayValue(id, number.field);
+                    },
+                    // the press is the badge's; the viewport has no business with it
+                    onClick: (event: MouseEvent) => event.stopPropagation(),
+                }),
+        );
     }
 
     /**

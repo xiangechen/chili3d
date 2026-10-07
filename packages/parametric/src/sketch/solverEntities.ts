@@ -24,6 +24,16 @@ export function constraintTargetEntities(solver: SketchSolver): SketchEntityData
 }
 
 /**
+ * Every entity a snap may land on: the constraint targets less the array instances. An
+ * instance is drawn and picked like any other entity, but it is placed by its record — a
+ * snap onto one would leave a constraint the next solve overwrites, which is the same
+ * reason `allowsConstraintOnEntity` refuses one.
+ */
+export function snapTargetEntities(solver: SketchSolver): SketchEntityData[] {
+    return constraintTargetEntities(solver).filter((entity) => !solver.isDerived(entity.id));
+}
+
+/**
  * Kinds that may reference an external entity: they relate real geometry to the
  * external (which never moves), so the real side follows it. Rigid or datum
  * kinds (Horizontal/Vertical, Fix, distances, angles, Radius) would only fight
@@ -52,10 +62,21 @@ export function isAssociativeConstraintKind(kind: ConstraintKind): boolean {
 }
 
 /**
- * Whether `kind` may target the picked entity: an external entity accepts only
- * associative kinds. A rejected pick pubs a status-bar tip and returns false.
+ * Whether `kind` may target the picked entity. An external entity accepts only associative
+ * kinds, and an array's instance accepts nothing at all: the pattern writes its parameters
+ * back on every solve, so a constraint on one would be fighting the array it belongs to —
+ * the same answer SolidWorks documents for a patterned instance. A rejected pick pubs a
+ * status-bar tip and returns false.
  */
-export function allowsConstraintOnEntity(kind: ConstraintKind, entityId: number): boolean {
+export function allowsConstraintOnEntity(
+    solver: SketchSolver,
+    kind: ConstraintKind,
+    entityId: number,
+): boolean {
+    if (solver.isDerived(entityId)) {
+        PubSub.default.pub("statusBarTip", "sketch.arrayInstanceReadOnly");
+        return false;
+    }
     if (!isExternalEntityId(entityId) || isAssociativeConstraintKind(kind)) return true;
     PubSub.default.pub("statusBarTip", "sketch.externalRefAssociativeOnly");
     return false;

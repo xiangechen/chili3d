@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import "./sketchArc";
+import "./sketchArray";
 import "./sketchBreak";
 import "./sketchCircle";
 import "./sketchCommands";

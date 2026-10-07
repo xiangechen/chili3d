@@ -28,7 +28,6 @@ import {
     ConstraintKind,
     entityPointCount,
     isDatumEntityId,
-    isExternalEntityId,
     originRef,
     SKETCH_EDGE_LINE_WIDTH,
     SKETCH_X_AXIS_ID,
@@ -147,7 +146,7 @@ export class SketchEventHandler implements IEventHandler {
         if (this.controller === controller) {
             return;
         }
-        controller?.onCancelled((r) => this.handleEscape(view));
+        controller?.onCancelled((_r) => this.handleEscape(view));
         this.controller = controller;
     }
 
@@ -540,12 +539,33 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     /**
-     * Whether a hit point is one the user may take hold of: the datum origin and external
-     * references are pickable as constraint targets but never draggable, so a press on one
-     * of them means the geometry behind it rather than the point.
+     * A double-click in the sketch: doubling one of an array's copies opens that array's tool.
+     *
+     * A copy is the only thing on canvas that *is* the pattern, so it is what the tool has to
+     * hang off — SolidWorks puts its "Edit Pattern" on the instance for the same reason, the
+     * difference being that it has a context menu to put it in and this has a double-click.
+     * The pattern's own numbers are annotated on the canvas and each is doubled to change it
+     * (`SketchAnnotationManager`); this is the way in for everything else about the pattern —
+     * its reference, the geometry it copies, its removal and its dissolution.
+     *
+     * Anything else the sketch could double-click belongs to no tool, and is left alone.
+     */
+    doubleClick(view: IView, event: MouseEvent): void {
+        const entityId = this.hitTestEntity(view, event as PointerEvent);
+        const array = entityId === undefined ? undefined : this.editor.solver.arrayOf(entityId);
+        if (array === undefined) return;
+        this.editor.editArray(array.id);
+    }
+
+    /**
+     * Whether a hit point is one the user may take hold of: the datum origin, external
+     * references and an array's instances are pickable as constraint targets but never
+     * draggable, so a press on one of them means the geometry behind it rather than the
+     * point. (`isFixed` is exactly that set, which is why none of them can be moved by any
+     * means — a drag here, a setter in an op, a dimension anywhere.)
      */
     private isDraggablePoint(ref: SketchPointRef | undefined): ref is SketchPointRef {
-        return ref !== undefined && !isDatumEntityId(ref.entityId) && !isExternalEntityId(ref.entityId);
+        return ref !== undefined && !this.editor.solver.isFixed(ref.entityId);
     }
 
     /** Hands the click to an active pick; returns whether the pick consumed it. */

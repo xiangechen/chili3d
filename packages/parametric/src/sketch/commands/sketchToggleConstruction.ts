@@ -3,7 +3,6 @@
 
 import { AsyncController, command, PubSub } from "@chili3d/core";
 import type { SketchEditor } from "../editor/sketchEditor";
-import { isDatumEntityId, isExternalEntityId } from "../sketchModel";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /**
@@ -20,9 +19,7 @@ import { SketchConstraintCommand } from "./sketchConstraints";
 export class ToggleSketchConstruction extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         // a pre-existing selection is the target — flip it in one commit and finish
-        const selected = editor
-            .selectedEntityIds()
-            .filter((id) => !isDatumEntityId(id) && !isExternalEntityId(id));
+        const selected = editor.selectedEntityIds().filter((id) => !editor.solver.isFixed(id));
         if (selected.length > 0) {
             for (const id of selected) {
                 editor.solver.setConstruction(id, !editor.solver.isConstruction(id));
@@ -42,8 +39,15 @@ export class ToggleSketchConstruction extends SketchConstraintCommand {
             );
             this.controller.dispose();
             if (id === undefined) break;
-            if (isDatumEntityId(id) || isExternalEntityId(id)) {
-                PubSub.default.pub("statusBarTip", "prompt.pickConstructionEntity");
+            if (editor.solver.isFixed(id)) {
+                // an instance takes its flag from the seed it copies, so there is nothing
+                // here to flip — and the next solve would put it back either way
+                PubSub.default.pub(
+                    "statusBarTip",
+                    editor.solver.isDerived(id)
+                        ? "sketch.arrayInstanceReadOnly"
+                        : "prompt.pickConstructionEntity",
+                );
                 continue;
             }
             // geometry is untouched — the flag only steers shape building and rendering;

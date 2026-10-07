@@ -24,7 +24,7 @@ import type { SketchSolver } from "./solver";
 import {
     arcStartRef,
     centerRef,
-    constraintTargetEntities,
+    snapTargetEntities,
     tangentConstraintFor,
     tangentKindFor,
 } from "./solverEntities";
@@ -258,7 +258,7 @@ export function snapPosition(
     tentative?: (position: [number, number]) => TentativeEntity | undefined,
 ): DragSnapResult {
     // one enumeration per probe: the table is passed down to every snap helper
-    const entities = constraintTargetEntities(solver);
+    const entities = snapTargetEntities(solver);
     let snap: DragSnap | undefined;
     if (options.pointTolerance > 0) {
         const nearest = nearestCandidate(snapCandidates(solver, entities), probe, options.pointTolerance);
@@ -412,7 +412,7 @@ function findPointSnap(
 ): DragSnap | undefined {
     // one enumeration per probe (per pointer event during a drag): the helpers
     // below only read the table, and positions are read live via solver.pointOf
-    const entities = constraintTargetEntities(solver);
+    const entities = snapTargetEntities(solver);
     if (options.pointTolerance > 0) {
         const snap = nearestPointSnap(
             solver,
@@ -477,7 +477,7 @@ function snapToExistingPoints(
     added: Omit<SketchConstraintData, "id">[],
 ): void {
     if (tolerance <= 0) return;
-    const candidates = snapCandidates(solver, constraintTargetEntities(solver), refs[0].entityId);
+    const candidates = snapCandidates(solver, snapTargetEntities(solver), refs[0].entityId);
 
     for (const ref of refs) {
         const nearest = nearestCandidate(candidates, solver.pointOf(ref), tolerance);
@@ -499,7 +499,7 @@ function snapToExistingLines(
     if (tolerance <= 0) return;
     // the entity set cannot change inside the loop (only point positions move,
     // and those are read live via solver.pointOf), so enumerate it once
-    const entities = constraintTargetEntities(solver);
+    const entities = snapTargetEntities(solver);
     for (const ref of refs) {
         // a point snap (or an existing incidence) already anchors this point
         if (
@@ -532,7 +532,7 @@ function snapToExistingCurves(
     added: Omit<SketchConstraintData, "id">[],
 ): void {
     if (tolerance <= 0) return;
-    const entities = constraintTargetEntities(solver);
+    const entities = snapTargetEntities(solver);
     for (const ref of refs) {
         // a point snap (or an existing incidence) already anchors this point
         if (
@@ -946,7 +946,7 @@ function nearestTangency(
  */
 function tangencyCandidates(solver: SketchSolver, entity: SketchEntityData): SketchEntityData[] {
     return [
-        ...constraintTargetEntities(solver).filter((x) => x.id !== entity.id),
+        ...snapTargetEntities(solver).filter((x) => x.id !== entity.id),
         datumEntityData(SKETCH_X_AXIS_ID),
         datumEntityData(SKETCH_Y_AXIS_ID),
     ];

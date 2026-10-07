@@ -6,8 +6,6 @@ import { pointLineReading } from "./editor/dimensionLayout";
 import {
     ConstraintKind,
     entityRadius,
-    isDatumEntityId,
-    isExternalEntityId,
     pointRefKey,
     type SketchEntityData,
     type SketchEntityType,
@@ -540,7 +538,7 @@ function planOffset(
 /** The picked entities an offset can copy: real geometry of a kind that has an offset. */
 function offsettableSources(solver: SketchSolver, sourceIds: readonly number[]): SketchEntityData[] {
     return [...new Set(sourceIds)]
-        .filter((id) => !isDatumEntityId(id) && !isExternalEntityId(id))
+        .filter((id) => !solver.isFixed(id))
         .map((id) => solver.entity(id))
         .filter(isOffsettable);
 }

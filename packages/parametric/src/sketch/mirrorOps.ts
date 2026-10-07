@@ -4,8 +4,6 @@
 import { Precision, Result } from "@chili3d/core";
 import {
     ConstraintKind,
-    isDatumEntityId,
-    isExternalEntityId,
     pointRefKey,
     type SketchEntityData,
     type SketchEntityType,
@@ -198,7 +196,7 @@ function planSources(
         .map((entity) => ({ type: entity.type, params: entity.params }));
     for (const id of new Set(sourceIds)) {
         // the axis is not a source: mirroring it about itself is nothing
-        if (id === axisId || isDatumEntityId(id) || isExternalEntityId(id)) continue;
+        if (id === axisId || solver.isFixed(id)) continue;
         const entity = solver.entity(id);
         if (!isMirrorable(entity)) continue;
         const plan = planMirror(entity, axis);

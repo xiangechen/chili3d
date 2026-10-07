@@ -50,6 +50,14 @@ export interface ExternalEntityHost {
     setFixed(id: number, fixed: boolean): void;
     /** Removes every constraint referencing `entityId`, returning the removed ids. */
     removeConstraintsOn(entityId: number): number[];
+    /**
+     * `id` is gone — the constraint cascade and the entity rows have already run. For the
+     * references held by id alone, which no constraint cascade reaches: an array's pattern
+     * can name an external entity (a circular pattern's centre, a curve pattern's curve), and
+     * a record left pointing at geometry that no longer exists is one that throws on the next
+     * solve rather than one that reads as gone.
+     */
+    detachEntityReferences(id: number): void;
     /** Pins `paramIds`, taken in (x, y) pairs, to a fresh datum per pair holding `values`. */
     pinPoints(paramIds: readonly number[], values: readonly number[]): ExternalPins;
     /** A fresh garlic param holding `value`, for a structural datum to pin against. */
@@ -197,6 +205,7 @@ export class ExternalEntityRegistry {
         this.pins.delete(id);
         this.host.setFixed(id, false);
         this.host.forgetEntity(id);
+        this.host.detachEntityReferences(id);
         const nodeId = this._refs.find((ref) => ref.entityId === id)?.nodeId;
         this._refs = this._refs.filter((ref) => ref.entityId !== id);
         this.pruneRefPosition(nodeId);

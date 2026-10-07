@@ -135,6 +135,7 @@ describe("SketchRibbonProfiles", () => {
         expect(groupNames).toContain("ribbon.group.constraint");
         expect(groupNames).toContain("ribbon.group.dimension");
         const allItems = flattenItems(sketchTab!.groups.flatMap((g) => g.items));
+        expect(allItems).toContain("sketch.array");
         expect(allItems).toContain("sketch.exit");
         expect(allItems).toContain("sketch.line");
         expect(allItems).toContain("sketch.mirror");

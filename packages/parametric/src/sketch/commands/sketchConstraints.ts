@@ -97,7 +97,7 @@ abstract class LineConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
-        if (lineId === undefined || !allowsConstraintOnEntity(this.kind, lineId)) return;
+        if (lineId === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, lineId)) return;
         editor.solver.addConstraint({
             kind: this.kind,
             refs: [
@@ -160,10 +160,10 @@ abstract class TwoPointConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined || !allowsConstraintOnEntity(this.kind, p1.entityId)) return;
+        if (p1 === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, p1.entityId)) return;
         this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p2 === undefined || !allowsConstraintOnEntity(this.kind, p2.entityId)) return;
+        if (p2 === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, p2.entityId)) return;
         addAndCommit(editor, this.kind, [p1, p2]);
     }
 }
@@ -273,7 +273,8 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
         if (p === undefined) return;
         this.beginStep();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
-        if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.Midpoint, lineId)) return;
+        if (lineId === undefined || !allowsConstraintOnEntity(editor.solver, ConstraintKind.Midpoint, lineId))
+            return;
         addAndCommit(editor, ConstraintKind.Midpoint, [p, ...lineRefs(lineId)]);
     }
 }
@@ -295,7 +296,11 @@ export class SymmetricConstraintCommand extends SketchConstraintCommand {
             { datum: true },
             this.controller,
         );
-        if (lineId === undefined || !allowsConstraintOnEntity(ConstraintKind.Symmetric, lineId)) return;
+        if (
+            lineId === undefined ||
+            !allowsConstraintOnEntity(editor.solver, ConstraintKind.Symmetric, lineId)
+        )
+            return;
         addAndCommit(editor, ConstraintKind.Symmetric, [p1, p2, ...lineRefs(lineId)]);
     }
 }
@@ -306,7 +311,8 @@ export class FixConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p === undefined || !allowsConstraintOnEntity(ConstraintKind.Fix, p.entityId)) return;
+        if (p === undefined || !allowsConstraintOnEntity(editor.solver, ConstraintKind.Fix, p.entityId))
+            return;
         addAndCommit(editor, ConstraintKind.Fix, [p], { datums: [...editor.solver.pointOf(p)] });
     }
 }

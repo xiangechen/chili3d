@@ -384,8 +384,19 @@ export class Viewport extends HTMLElement {
         this.handleEvent("mouseWheel", event);
     };
 
-    /** Lets feature packages react to a viewport double-click (e.g. sketch editing). */
+    /**
+     * Lets feature packages react to a viewport double-click. A session that installed a
+     * handler owning the gesture answers first — inside a sketch the double-click is the
+     * sketch's business, and the node this would otherwise reach is the one already open — and
+     * everything else falls through to the node, which is how a sketch is entered from the
+     * viewport in the first place.
+     */
     private readonly doubleClick = (event: MouseEvent) => {
+        const handler = this.view.document.visual.eventHandler;
+        if (handler.isEnabled && handler.doubleClick !== undefined) {
+            handler.doubleClick(this.view, event);
+            return;
+        }
         const detected = this.view.detectVisual(event.offsetX, event.offsetY);
         const node = detected.length ? this.view.document.visual.context.getNode(detected[0]) : undefined;
         if (node === undefined) return;

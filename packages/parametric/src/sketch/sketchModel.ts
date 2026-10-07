@@ -298,6 +298,106 @@ export interface ExternalRefData {
     dangling?: boolean;
 }
 
+export type SketchArrayType = "linear" | "circular" | "curve";
+
+/** How far one direction of a linear array steps, and how many it lays down. */
+export interface SketchArrayAxis {
+    /** Instances along this direction, the seed included; 1 lays down none. */
+    readonly count: number;
+    readonly spacing: ParameterValue;
+}
+
+/**
+ * Where a circular array turns. A point of the sketch when the user put it on geometry — it
+ * then follows that geometry the way a dimension follows what it measures — and a pair of
+ * coordinates when they put it on empty space. That is Onshape's own pair: pick a reference,
+ * or place a point.
+ */
+export type SketchArrayCenter =
+    | { readonly type: "ref"; readonly ref: SketchPointRef }
+    | { readonly type: "at"; readonly u: number; readonly v: number };
+
+/**
+ * How an array lays its instances out. Every reference is a *live* one — a point of a
+ * real entity, or the origin and the X/Y datum axes — so the instances follow whatever
+ * the referenced geometry does, exactly as a dimension follows the entity it measures.
+ *
+ * `spacing` and `twist` are `ParameterValue`s in display units (lengths in model units,
+ * angles in degrees), resolved against the document's parameters by the solver's scope;
+ * a literal is converted to solver storage units on the way in, an expression is kept as
+ * written so `setScope` can re-resolve it — the same bargain a constraint datum makes
+ * (`toDatumSource` / `resolveDatumSource`).
+ *
+ * Each pattern carries its own counts, and there is no count on the record beside them: a
+ * linear pattern's two directions mean two numbers, and a total stored next to them would be
+ * a second answer to the same question. `arrayInstanceTotal` is how the total is read.
+ */
+export type SketchArrayPattern =
+    /**
+     * Along the sketch's own two axes — the grid every pattern starts from. Each direction
+     * has its own count and spacing, and a count of 1 means that direction lays down nothing
+     * (which is how a single-direction pattern reads). A negative spacing runs the other way.
+     */
+    | { readonly type: "linear"; readonly x: SketchArrayAxis; readonly y: SketchArrayAxis }
+    /**
+     * Around `center` through `twist` — the total turn, counter-clockwise. `equalSpacing`
+     * divides it by the count so the last instance lands back on the first (a full turn
+     * spread over N); without it the turn is divided over N−1 steps and the last instance
+     * lands exactly on `twist`.
+     */
+    | {
+          readonly type: "circular";
+          readonly center: SketchArrayCenter;
+          readonly count: number;
+          readonly twist: ParameterValue;
+          readonly equalSpacing: boolean;
+      }
+    /** Along `curveId`, placed every `spacing` and turned to the curve's tangent there. */
+    | {
+          readonly type: "curve";
+          readonly curveId: number;
+          readonly count: number;
+          readonly spacing: ParameterValue;
+      };
+
+/**
+ * A pattern of sketch entities, held as a *definition* rather than as its result: the
+ * instances are ordinary entities the solver derives on every solve (`SketchSolver`'s
+ * `refreshArrays`), so editing the seed, the reference or a parameter moves the whole
+ * pattern, and a re-opened sketch rebuilds it from this record alone.
+ *
+ * garlic has no pattern (and no directed-distance) constraint, so there is nothing that
+ * could tie an instance to its seed the way a mirror ties its copy by symmetry — the
+ * record *is* the tie. That is also why instances are read-only: their params are
+ * written back from here on every solve, so a drag or a dimension on one would be
+ * overwritten.
+ *
+ * A single instance *can* be taken out of the pattern, by deleting it (`null` in
+ * `instanceEntityIds`): the count is then still the count, and the hole stays a hole —
+ * raising it later adds new instances after the last one rather than filling it in. That is
+ * Onshape's own rule for a deleted sketch-pattern occurrence, and it is what keeps the
+ * count meaning what the tool says it means.
+ */
+export interface SketchArrayData {
+    id: number;
+    /** The entities being patterned; the seed itself is instance 0 and is not duplicated. */
+    sourceIds: number[];
+    /** Everything about how the instances are laid out — the counts included. */
+    pattern: SketchArrayPattern;
+    /**
+     * The generated instances' entity ids, one slot per (instance, source): instance-major,
+     * sources in their own order. Ids come from the solver's monotonic allocator and are
+     * never reused, which is what keeps a `ProfileRef` fingerprint over a patterned region
+     * stable across sessions — and what keeps a slot paired with the same instance for good.
+     *
+     * A `null` slot is an instance the user took *out* of the pattern (see
+     * `SketchArrayData`'s own note): the slot stays, so the instances after it keep their
+     * ids. Removing the entry instead would slide every later id one slot back and quietly
+     * re-point a region fingerprint at a different hole.
+     */
+    instanceEntityIds: (number | null)[];
+}
+
 export interface SketchData {
     entities: SketchEntityData[];
     constraints: SketchConstraintData[];
@@ -337,6 +437,18 @@ export interface SketchData {
      * where the solver initializes it from the current max constraint id + 1.
      */
     constraintIdSeq?: number;
+    /**
+     * The sketch's arrays (`SketchArrayData`). Absent when the sketch has none — like the
+     * id counters, it is emitted only once it means something, because a no-op session
+     * must round-trip `dataJson` byte-identically or exiting a sketch would record a
+     * phantom history entry.
+     *
+     * The instances themselves are ordinary entries of `entities`: they are geometry the
+     * profile builder and the mesher must see like any other, and an arc instance carries
+     * the same structural `PointOnArc` constraint (`addArc`) that has to round-trip by id.
+     * This record is what says which of those entities are derived, and from what.
+     */
+    arrays?: SketchArrayData[];
 }
 
 export function emptySketchData(): SketchData {

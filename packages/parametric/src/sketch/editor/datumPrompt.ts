@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, type ParameterValue, PubSub, Result } from "@chili3d/core";
+import { I18n, type I18nKeys, type ParameterValue, PubSub, Result } from "@chili3d/core";
 
 /**
  * The datum value dialogs: a single box (`promptDatum`) and the X/Y pair
@@ -38,16 +38,28 @@ export function parseDatumInput(text: string): ParameterValue {
  * dimension after another has to wait for that: the dialog is modal, so a next pick
  * requested while it is open would never reach the viewport.
  */
+/**
+ * What the dialogs take beyond the value itself. `positiveOnly` and `resolve` are the
+ * caller's reading of the slot (the dialog cannot tell a variable name from a typo); `title`
+ * is what the box is naming, which one box does not always say on its own.
+ */
+interface DatumPromptOptions {
+    positiveOnly?: boolean;
+    /** Resolves an input to its display value — supplied by the editor, error text included. */
+    resolve?: (input: ParameterValue) => Result<number>;
+    /**
+     * The dialog's own heading, when the default does not say enough — an array's count and
+     * its spacing are edited through this same box, and the two would otherwise look alike.
+     */
+    title?: I18nKeys;
+}
+
 export function promptDatum(
     initial: ParameterValue,
     apply: (value: ParameterValue) => void,
     onApplied: () => void,
     onCancel?: () => void,
-    options?: {
-        positiveOnly?: boolean;
-        /** Resolves an input to its display value — supplied by the editor, error text included. */
-        resolve?: (input: ParameterValue) => Result<number>;
-    },
+    options?: DatumPromptOptions,
 ): Promise<void> {
     const { closed, settle } = closeLatch();
 
@@ -57,7 +69,7 @@ export function promptDatum(
     const error = createErrorLabel();
     const content = document.createElement("div");
     content.append(textbox, error);
-    PubSub.default.pub("showDialog", "dialog.title.enterValue", content, [
+    PubSub.default.pub("showDialog", options?.title ?? "dialog.title.enterValue", content, [
         {
             content: "common.confirm",
             // validation lives in shouldClose: the dialog runs onclick even when
@@ -95,13 +107,7 @@ export function promptDatum(
  * A `Result` rather than `value | message` because an expression IS a string — the two
  * would be indistinguishable.
  */
-function validateDatumInput(
-    text: string,
-    options?: {
-        positiveOnly?: boolean;
-        resolve?: (input: ParameterValue) => Result<number>;
-    },
-): Result<ParameterValue> {
+function validateDatumInput(text: string, options?: DatumPromptOptions): Result<ParameterValue> {
     const input = parseDatumInput(text);
     if (input === "") return Result.err(invalidNumber());
 
@@ -117,15 +123,12 @@ export function promptDatumPair(
     initial: [ParameterValue, ParameterValue],
     apply: (x: ParameterValue, y: ParameterValue) => void,
     onApplied: () => void,
-    options?: {
-        positiveOnly?: boolean;
-        resolve?: (input: ParameterValue) => Result<number>;
-    },
+    options?: DatumPromptOptions,
 ): Promise<void> {
     const { closed, settle } = closeLatch();
 
     const { inputX, inputY, error, content } = createDatumPairInputs(initial);
-    PubSub.default.pub("showDialog", "dialog.title.enterValue", content, [
+    PubSub.default.pub("showDialog", options?.title ?? "dialog.title.enterValue", content, [
         {
             content: "common.confirm",
             shouldClose: () => {

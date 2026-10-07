@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type ICameraController, Plane, Result, XYZ } from "@chili3d/core";
+import { type ICameraController, Plane, PubSub, Result, XYZ } from "@chili3d/core";
 import {
     createMockApplication,
     createMockView,
@@ -9,9 +9,10 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { arrayInstanceTotal, liveInstanceIds } from "../../src/sketch/arrayOps";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
-import { ConstraintKind } from "../../src/sketch/sketchModel";
+import { axisLineRefs, ConstraintKind, SKETCH_X_AXIS_ID } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "./setup";
 
@@ -82,6 +83,87 @@ describe("SketchEditor entity deletion", () => {
             expect(editor.solver.toData().constraints).toEqual([]);
             expect(editor.dimensionAnchors.size).toBe(0);
             expect(node.data.entities).toEqual([]);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("Delete on an array's instance takes it out of the pattern", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const source = editor.solver.addLine(0, 0, 10, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 3, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [source],
+            );
+            editor.solve(true);
+            const [first, second] = liveInstanceIds(editor.solver.arrays()[0]);
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                const handler = doc.visual.eventHandler as SketchEventHandler;
+                // hover the first copy (uv 20..30) rather than the seed (uv 0..10), then delete it
+                handler.pointerMove(view, pointerEvent(425, 300));
+                handler.keyDown(view, new KeyboardEvent("keydown", { key: "Delete" }));
+
+                // the geometry goes, the count does not, and the hole is a hole: the second
+                // copy keeps its own id and its own place
+                expect(editor.solver.entity(first)).toBeUndefined();
+                expect(editor.solver.entity(second)).toBeDefined();
+                expect(editor.solver.entity(source)).toBeDefined();
+                const array = node.data.arrays![0];
+                expect(arrayInstanceTotal(array.pattern)).toBe(3);
+                expect(array.instanceEntityIds).toEqual([null, second]);
+                expect(node.data.entities.map((entity) => entity.id)).toEqual([source, second]);
+                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.arrayInstanceRemoved{0}", 1);
+            } finally {
+                pub.mockRestore();
+            }
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("one delete naming several entities of one instance takes that instance out once", () => {
+        const { doc, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            // a square drawn as four edges, patterned — so one instance *is* four entities,
+            // and a delete that catches several of them is still one request
+            const corners: [number, number][] = [
+                [0, 0],
+                [10, 0],
+                [10, 10],
+                [0, 10],
+            ];
+            const source = corners.map((corner, index) => {
+                const next = corners[(index + 1) % corners.length];
+                return editor.solver.addLine(corner[0], corner[1], next[0], next[1]);
+            });
+            editor.solver.addArray(
+                { type: "linear", x: { count: 3, spacing: 40 }, y: { count: 1, spacing: 0 } },
+                source,
+            );
+            editor.solve(true);
+            const before = editor.solver.arrays()[0].instanceEntityIds.slice();
+            const instance = before.slice(0, 4) as number[];
+
+            editor.deleteEntities(instance);
+
+            // the whole instance is out, and none of its ids was left to be deleted as a
+            // plain entity once the first had already taken the instance away
+            expect(node.data.arrays![0].instanceEntityIds.slice(0, 4)).toEqual([null, null, null, null]);
+            expect(node.data.arrays![0].instanceEntityIds.slice(4)).toEqual(before.slice(4));
+            expect(instance.map((id) => editor.solver.entity(id))).toEqual([
+                undefined,
+                undefined,
+                undefined,
+                undefined,
+            ]);
             editor.exit();
         } finally {
             restoreFactory();

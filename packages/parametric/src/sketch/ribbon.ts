@@ -63,8 +63,9 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                         type: "split",
                         items: ["sketch.fillet", "sketch.chamfer"],
                     },
+                    "sketch.offset",
                     ["sketch.trim", "sketch.extend", "sketch.break"],
-                    ["sketch.offset", "sketch.mirror", "sketch.transform"],
+                    ["sketch.mirror", "sketch.transform", "sketch.array"],
                 ],
             },
             {

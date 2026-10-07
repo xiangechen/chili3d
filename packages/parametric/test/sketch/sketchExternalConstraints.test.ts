@@ -3,6 +3,7 @@
 
 import { type I18nKeys, type ICommand, Plane, PubSub } from "@chili3d/core";
 import { rs } from "@rstest/core";
+import { liveInstanceIds } from "../../src/sketch/arrayOps";
 import {
     CoincidentConstraintCommand,
     FixConstraintCommand,
@@ -25,6 +26,7 @@ import {
 } from "../../src/sketch/commands/sketchDimensions";
 import { SketchEditor, type SketchEntityTypeFilter } from "../../src/sketch/editor/sketchEditor";
 import {
+    axisLineRefs,
     ConstraintKind,
     type ExternalRefData,
     SKETCH_X_AXIS_ID,
@@ -169,22 +171,41 @@ describe("isAssociativeConstraintKind", () => {
 
 describe("allowsConstraintOnEntity", () => {
     test("pubs the tip only when an external entity meets a non-associative kind", () => {
+        const solver = new SketchSolver(Plane.XY);
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         try {
             // real entities accept any kind
-            expect(allowsConstraintOnEntity(ConstraintKind.Horizontal, 3)).toBe(true);
+            expect(allowsConstraintOnEntity(solver, ConstraintKind.Horizontal, 3)).toBe(true);
             // datum entities (axes/origin) are not external and stay untouched
-            expect(allowsConstraintOnEntity(ConstraintKind.Angle, SKETCH_X_AXIS_ID)).toBe(true);
+            expect(allowsConstraintOnEntity(solver, ConstraintKind.Angle, SKETCH_X_AXIS_ID)).toBe(true);
             expect(pub).not.toHaveBeenCalled();
 
-            expect(allowsConstraintOnEntity(ConstraintKind.Horizontal, -100)).toBe(false);
+            expect(allowsConstraintOnEntity(solver, ConstraintKind.Horizontal, -100)).toBe(false);
             expect(pub).toHaveBeenCalledWith(...REJECTION_TIP);
             pub.mockClear();
 
             // associative kinds still target external entities
-            expect(allowsConstraintOnEntity(ConstraintKind.Parallel, -100)).toBe(true);
-            expect(allowsConstraintOnEntity(ConstraintKind.PointOnLine, -100)).toBe(true);
+            expect(allowsConstraintOnEntity(solver, ConstraintKind.Parallel, -100)).toBe(true);
+            expect(allowsConstraintOnEntity(solver, ConstraintKind.PointOnLine, -100)).toBe(true);
             expect(pub).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("refuses every kind on an array's instance, associative ones included", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const lineId = solver.addLine(0, 0, 10, 0);
+        solver.addArray({ type: "linear", x: { count: 2, spacing: 10 }, y: { count: 1, spacing: 0 } }, [
+            lineId,
+        ]);
+        const instanceId = liveInstanceIds(solver.arrays()[0])[0];
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            for (const kind of [ConstraintKind.Horizontal, ConstraintKind.Parallel, ConstraintKind.Fix]) {
+                expect(allowsConstraintOnEntity(solver, kind, instanceId)).toBe(false);
+            }
+            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.arrayInstanceReadOnly");
         } finally {
             pub.mockRestore();
         }

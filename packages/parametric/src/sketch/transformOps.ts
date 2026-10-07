@@ -7,8 +7,6 @@ import {
     arcAngles,
     ConstraintKind,
     entityRadius,
-    isDatumEntityId,
-    isExternalEntityId,
     type SketchConstraintData,
     type SketchData,
     type SketchEntityData,
@@ -121,9 +119,10 @@ export function transformPoint(
 /**
  * The entity's points in `pointIndex` order — the order `setPointPosition` and the
  * coincidence groups address them by: a line's two ends, a circle's centre, an arc's
- * centre, start and end.
+ * centre, start and end. Exported because it *is* the params-to-pointIndex layout, which
+ * the array needs to write an instance's params back through the point setters.
  */
-function entityPoints(entity: SketchEntityData): [number, number][] {
+export function entityPoints(entity: SketchEntityData): [number, number][] {
     const [x1, y1, x2, y2, x3, y3] = entity.params;
     switch (entity.type) {
         case "line":
@@ -199,7 +198,7 @@ function movableEntities(solver: SketchSolver, ids: readonly number[]): SketchEn
     const seen = new Set<number>();
     const entities: SketchEntityData[] = [];
     for (const id of ids) {
-        if (seen.has(id) || isDatumEntityId(id) || isExternalEntityId(id)) continue;
+        if (seen.has(id) || solver.isFixed(id)) continue;
         seen.add(id);
         const entity = solver.entity(id);
         if (entity !== undefined) entities.push(entity);
