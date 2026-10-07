@@ -318,6 +318,184 @@ describe("monotonic id counters", () => {
             solver.dispose();
         }
     });
+
+    // ---- constraint ids carry the same contract (they key the dimension anchors) ----
+
+    test("a freed constraint id is never reissued", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 1, 0);
+            const refs = [
+                { entityId: line, pointIndex: 0 },
+                { entityId: line, pointIndex: 1 },
+            ];
+            const first = solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            const second = solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            expect(second).toBe(first + 1);
+
+            // the newest id is exactly the one a max+1 allocator would hand out again
+            solver.removeConstraint(second);
+            const third = solver.addConstraint({ kind: ConstraintKind.Vertical, refs });
+            expect(third).toBeGreaterThan(second);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("constraint counters round-trip through toData/loadData", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 1, 0);
+            const refs = [
+                { entityId: line, pointIndex: 0 },
+                { entityId: line, pointIndex: 1 },
+            ];
+            const first = solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            expect(solver.toData().constraintIdSeq).toBe(first + 1);
+
+            const restored = new SketchSolver(Plane.XY, solver.toData());
+            try {
+                expect(restored.addConstraint({ kind: ConstraintKind.Vertical, refs })).toBe(first + 1);
+            } finally {
+                restored.dispose();
+            }
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("legacy constraints without a counter initialize it from the current max+1", () => {
+        const solver = new SketchSolver(Plane.XY, {
+            entities: [
+                { id: 1, type: "line", params: [0, 0, 1, 0] },
+                { id: 2, type: "line", params: [0, 1, 1, 1] },
+            ],
+            constraints: [
+                {
+                    id: 4,
+                    kind: ConstraintKind.Horizontal,
+                    refs: [
+                        { entityId: 1, pointIndex: 0 },
+                        { entityId: 1, pointIndex: 1 },
+                    ],
+                },
+                {
+                    id: 9,
+                    kind: ConstraintKind.Horizontal,
+                    refs: [
+                        { entityId: 2, pointIndex: 0 },
+                        { entityId: 2, pointIndex: 1 },
+                    ],
+                },
+            ],
+        });
+        try {
+            expect(
+                solver.addConstraint({
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [
+                        { entityId: 1, pointIndex: 1 },
+                        { entityId: 2, pointIndex: 0 },
+                    ],
+                }),
+            ).toBe(10);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a serialized constraint counter wins over the derived fallback", () => {
+        const solver = new SketchSolver(Plane.XY, {
+            entities: [{ id: 1, type: "line", params: [0, 0, 1, 0] }],
+            constraints: [
+                {
+                    id: 2,
+                    kind: ConstraintKind.Horizontal,
+                    refs: [
+                        { entityId: 1, pointIndex: 0 },
+                        { entityId: 1, pointIndex: 1 },
+                    ],
+                },
+            ],
+            constraintIdSeq: 42,
+        });
+        try {
+            expect(
+                solver.addConstraint({
+                    kind: ConstraintKind.Vertical,
+                    refs: [
+                        { entityId: 1, pointIndex: 0 },
+                        { entityId: 1, pointIndex: 1 },
+                    ],
+                }),
+            ).toBe(42);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("reset restores the constraint counter from the data", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 1, 0);
+            const refs = [
+                { entityId: line, pointIndex: 0 },
+                { entityId: line, pointIndex: 1 },
+            ];
+            expect(solver.addConstraint({ kind: ConstraintKind.Horizontal, refs })).toBe(1);
+
+            solver.reset({
+                entities: [{ id: 1, type: "line", params: [0, 0, 1, 0] }],
+                constraints: [],
+                constraintIdSeq: 7,
+            });
+            const restoredRefs = [
+                { entityId: 1, pointIndex: 0 },
+                { entityId: 1, pointIndex: 1 },
+            ];
+            expect(solver.addConstraint({ kind: ConstraintKind.Vertical, refs: restoredRefs })).toBe(7);
+            expect(solver.toData().constraintIdSeq).toBe(8);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a pre-counter document round-trips without a constraint counter until one is allocated", () => {
+        const legacy: SketchData = {
+            entities: [
+                { id: 1, type: "line", params: [0, 0, 1, 0] },
+                { id: 2, type: "line", params: [0, 5, 1, 5] },
+            ],
+            constraints: [
+                {
+                    id: 1,
+                    kind: ConstraintKind.Horizontal,
+                    refs: [
+                        { entityId: 1, pointIndex: 0 },
+                        { entityId: 1, pointIndex: 1 },
+                    ],
+                },
+            ],
+        };
+        const solver = new SketchSolver(Plane.XY, legacy);
+        try {
+            expect(solver.toData()).toEqual(legacy);
+
+            // the derived counter continues past the loaded max id: 2, not a reissued 1
+            expect(
+                solver.addConstraint({
+                    kind: ConstraintKind.Horizontal,
+                    refs: [
+                        { entityId: 2, pointIndex: 0 },
+                        { entityId: 2, pointIndex: 1 },
+                    ],
+                }),
+            ).toBe(2);
+            expect(solver.toData().constraintIdSeq).toBe(3);
+        } finally {
+            solver.dispose();
+        }
+    });
 });
 
 describe("lastRemovedConstraintIds", () => {

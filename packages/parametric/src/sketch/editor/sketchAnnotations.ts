@@ -104,7 +104,7 @@ interface DimensionText {
     readonly u: number;
     readonly v: number;
     readonly direction: [number, number];
-    /** Flagged constraints draw in their tone's color instead of DIMENSION_COLOR. */
+    /** Flagged constraints draw in their tone's color instead of the plain dimension colour. */
     readonly tone?: DimensionTone;
     /**
      * The dimension this text belongs to, for the labels that are hit-tested — a preview's text
@@ -201,12 +201,6 @@ const STACK_MEMBER_WIDTH_PX = 26;
 /** Pointer travel (screen px) before a badge press becomes a label drag. */
 const LABEL_DRAG_THRESHOLD_PX = 4;
 /**
- * Blue for dimension graphics — matches the dark-theme `--primary-color` (#4a9eff)
- * behind the badges' `--badge-accent`; green is reserved for hover/selection highlights.
- */
-const DIMENSION_COLOR = 0x4a9eff;
-
-/**
  * Red for conflicting-constraint graphics — matches the dark-theme `--error-color`
  * (#ff6b6b), the badge conflict style uses the CSS variable itself.
  */
@@ -228,9 +222,8 @@ const REDUNDANT_COLOR = 0xffd93d;
 const SELECTED_COLOR = VisualConfig.selectedEdgeColor;
 const HOVERED_COLOR = VisualConfig.highlightFaceColor;
 
-/** Mesh colors per tone, normal dimensions included — the driven one is not written here. */
-const TONE_COLORS: Record<Exclude<DimensionTone, "driven"> | "normal", number> = {
-    normal: DIMENSION_COLOR,
+/** Mesh colours for the tones that are a fixed constant — the other two come from the theme. */
+const TONE_COLORS: Record<Exclude<DimensionTone, "driven">, number> = {
     conflict: CONFLICT_COLOR,
     redundant: REDUNDANT_COLOR,
     selected: SELECTED_COLOR,
@@ -238,14 +231,20 @@ const TONE_COLORS: Record<Exclude<DimensionTone, "driven"> | "normal", number> =
 };
 
 /**
- * The mesh colour of a tone. A driven dimension's comes from the theme rather than from the
- * constants above: a reference reads as the sketch's own line colour muted into the backdrop, and
- * the two backdrops are on opposite sides of a mid grey, so the value has to move with the theme
- * (`VisualConfig.drivenColor`). It is read here, at the refresh that uploads the mesh, rather than
- * captured — the same reason `onVisualConfigChanged` repaints.
+ * The mesh colour of a tone. Two of them come from the theme rather than from the constants
+ * above, and are read here, at the refresh that uploads the mesh, rather than captured — the
+ * same reason `onVisualConfigChanged` repaints:
+ *
+ * - a driven dimension's is the sketch's own line colour muted into the backdrop, and the two
+ *   backdrops straddle a mid grey, so one value cannot be quiet on both (`drivenColor`);
+ * - a plain dimension draws in the sketch's own line colour too (`defaultEdgeColor`) rather than
+ *   in an accent of its own: the accent is spoken for by the under-constrained blue, and a
+ *   second blue among the dimension graphics would fight it.
  */
 function toneColor(tone: DimensionTone | "normal"): number {
-    return tone === "driven" ? VisualConfig.drivenColor : TONE_COLORS[tone];
+    if (tone === "driven") return VisualConfig.drivenColor;
+    if (tone === "normal") return VisualConfig.defaultEdgeColor;
+    return TONE_COLORS[tone];
 }
 
 /**
@@ -449,7 +448,9 @@ export class SketchAnnotationManager implements IDisposable {
      * it is the only tone a theme decides (`toneColor`).
      */
     private readonly onVisualConfigChanged = (property: keyof VisualItemConfig) => {
-        if (property === "drivenColor") this.refresh();
+        // both the driven and the plain dimension colour are read at build time, so a theme
+        // switch has to rebuild the meshes the same way it repaints the shared materials
+        if (property === "drivenColor" || property === "defaultEdgeColor") this.refresh();
     };
 
     // ------------------------------------------------------------------ Selection and refresh
@@ -1293,7 +1294,7 @@ export class SketchAnnotationManager implements IDisposable {
 
     private toEdgeMesh(
         segments: [number, number, number, number][],
-        color: number = DIMENSION_COLOR,
+        color: number = VisualConfig.defaultEdgeColor,
     ): EdgeMeshData {
         const position = new Float32Array(segments.length * 6);
         segments.forEach(([x1, y1, x2, y2], i) => {
@@ -1307,7 +1308,7 @@ export class SketchAnnotationManager implements IDisposable {
     /** The solid arrowheads as one face mesh: three corners per triangle, indexed in order. */
     private toFaceMesh(
         corners: DimensionGeometry["triangles"],
-        color: number = DIMENSION_COLOR,
+        color: number = VisualConfig.defaultEdgeColor,
     ): FaceMeshData {
         const position = new Float32Array(corners.length * 3);
         const normal = new Float32Array(corners.length * 3);

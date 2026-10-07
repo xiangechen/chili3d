@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type EdgeMeshData,
     type I18nKeys,
     type IDocument,
     type IEdge,
@@ -20,6 +21,8 @@ import {
     Result,
     serializable,
     serialize,
+    VisualConfig,
+    type VisualItemConfig,
 } from "@chili3d/core";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { syncNodeWatches } from "../nodeWatch";
@@ -37,6 +40,8 @@ import {
     type SketchConstraintData,
     type SketchData,
     type SketchEntityData,
+    shapeEntityIds,
+    sketchConstraintColor,
     toWorld,
 } from "./sketchModel";
 import { SketchSolver } from "./solver";
@@ -213,10 +218,74 @@ export class SketchNode extends ParameterShapeNode {
         this.emitPropertyChanged("shape", this._shape);
     }
 
+    /**
+     * Entity ids the constraints pin down completely, or undefined when nothing is
+     * colouring this sketch. Derived and session-scoped — never serialized, never part of
+     * the shape; it only picks the per-segment colours the mesh is built with.
+     */
+    private _fullyConstrained?: ReadonlySet<number>;
+    private _watchingConstraintColors = false;
+
+    /**
+     * Colours the sketch by constraint state, the way the sketch editor wants it: the
+     * entities in `ids` draw in the default edge colour, everything else in
+     * `VisualConfig.sketchFreeColor`. `undefined` drops the colouring and the sketch goes
+     * back to one flat colour, which is what leaving the editor does.
+     */
+    setConstraintColors(ids: ReadonlySet<number> | undefined): void {
+        if (this._fullyConstrained === ids) return;
+        this._fullyConstrained = ids;
+        this.syncConstraintColorWatch();
+        this._mesh = undefined;
+        this.emitPropertyChanged("shape", this._shape);
+    }
+
+    /**
+     * The free colour is baked into the mesh's vertex colours, so unlike the shared edge
+     * materials it cannot follow a theme switch in place. While this node is colouring, a
+     * change to either colour has to rebuild the mesh — after that it is nobody's to update.
+     */
+    private syncConstraintColorWatch(): void {
+        const shouldWatch = this._fullyConstrained !== undefined;
+        if (shouldWatch === this._watchingConstraintColors) return;
+        this._watchingConstraintColors = shouldWatch;
+        if (shouldWatch) VisualConfig.onPropertyChanged(this.handleConstraintColorChanged);
+        else VisualConfig.removePropertyChanged(this.handleConstraintColorChanged);
+    }
+
+    private readonly handleConstraintColorChanged = (property: keyof VisualItemConfig) => {
+        if (property !== "sketchFreeColor" && property !== "defaultEdgeColor") return;
+        this._mesh = undefined;
+        this.emitPropertyChanged("shape", this._shape);
+    };
+
     protected override createMesh(): IShapeMeshData {
         const mesh = this.sketchMesh();
-        if (mesh.edges !== undefined) mesh.edges.lineWidth = SKETCH_EDGE_LINE_WIDTH;
-        return mesh;
+        const edges = mesh.edges;
+        if (edges === undefined) return mesh;
+        // A fresh mesh with a fresh edges object, never the ones handed in: `sketchMesh`
+        // may be returning the shape's own mesh, and writing this session's width or
+        // colours into that would outlive the session — the colouring would stick after
+        // the editor closed. Built field by field because `sketchMesh` may hand back a
+        // `MultiShapeMesh`, whose accessors a spread would not carry over.
+        return {
+            edges: { ...edges, lineWidth: SKETCH_EDGE_LINE_WIDTH, color: this.edgeColors(edges) },
+            faces: mesh.faces,
+            vertexs: mesh.vertexs,
+        };
+    }
+
+    /**
+     * The per-segment colours for the current constraint state, or the flat colour the
+     * kernel reported when no session is colouring. The compound's edges are in
+     * `buildEdges` order — the sketch's own entities, then the profile-role externals —
+     * which is exactly what `shapeEntityIds` lists, and `range[i]` is edge i's vertex
+     * span, so the colours line up without a second mapping.
+     */
+    private edgeColors(edges: EdgeMeshData): number | number[] {
+        const pinned = this._fullyConstrained;
+        if (pinned === undefined) return edges.color ?? VisualConfig.defaultEdgeColor;
+        return constraintEdgeColors(edges.range, shapeEntityIds(this.data), pinned);
     }
 
     private sketchMesh(): IShapeMeshData {
@@ -719,6 +788,40 @@ function constraintsReferenceAny(
     entityIds: ReadonlySet<number>,
 ): boolean {
     return constraints.some((constraint) => constraint.refs.some((ref) => entityIds.has(ref.entityId)));
+}
+
+/**
+ * The per-vertex colours for a sketch's edges: `entityIds[i]` owns edge i, whose vertices
+ * span `ranges[i]`, and it draws in the default edge colour when the constraints pin it
+ * and in `VisualConfig.sketchFreeColor` otherwise. `buildEdges` emits the edges in
+ * `shapeEntityIds` order, and the kernel reports one range per edge in that same order, so
+ * the two arrays line up index for index.
+ */
+export function constraintEdgeColors(
+    ranges: ReadonlyArray<{ count: number }>,
+    entityIds: readonly number[],
+    pinned: ReadonlySet<number>,
+): number[] {
+    const colors: number[] = [];
+    for (let index = 0; index < ranges.length; index++) {
+        const [r, g, b] = linearRgb(sketchConstraintColor(pinned, entityIds[index]));
+        for (let vertex = 0; vertex < ranges[index].count; vertex++) colors.push(r, g, b);
+    }
+    return colors;
+}
+
+/**
+ * An sRGB hex colour as the linear triple the renderer's vertex colours want
+ * (`LineSegments2` reads them straight in the shader, with no conversion of its own).
+ * three performs this same srgb→linear step inside `Color.setHex`; parametric does not
+ * depend on three, so the one formula it needs is spelled out here.
+ */
+function linearRgb(hex: number): [number, number, number] {
+    const channel = (byte: number) => {
+        const srgb = byte / 255;
+        return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+    };
+    return [channel((hex >> 16) & 0xff), channel((hex >> 8) & 0xff), channel(hex & 0xff)];
 }
 
 /** Whether any stored entity param moved beyond tolerance (ids and layout are stable). */

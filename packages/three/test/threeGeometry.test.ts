@@ -3,6 +3,7 @@
 
 import { ShapeTypes } from "@chili3d/core";
 import { Box3, Mesh, MeshBasicMaterial, Points } from "three";
+import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { defaultEdgeMaterial, edgeMaterialOfWidth } from "../src/materials";
 import { ThreeGeometry } from "../src/threeGeometry";
@@ -310,6 +311,94 @@ describe("ThreeGeometry", () => {
             expect(geo.edges()!.renderOrder).toBe(0);
             expect(geo.faces()!.material).toBe(faceMaterial);
             expect(geo.faces()!.renderOrder).toBe(0);
+        });
+    });
+
+    describe("per-segment edge colours", () => {
+        /** The mock's edge mesh spans 6 vertices, so a full colour array is 6 rgb triples. */
+        const colors = new Array(18).fill(0).map((_, i) => (i < 9 ? 0.1 : 0.9));
+
+        test("a colour array gives the edges their own vertex-coloured material", () => {
+            const node = createTestGeometryNode({ edgeColors: colors });
+            const geo = new ThreeGeometry(node, context);
+
+            const material = geo.edges()!.material as LineMaterial;
+            expect(material.vertexColors).toBe(true);
+            // a copy, not the shared one: painting that would give every other visual of
+            // the same width the sketch's colours too
+            expect(material).not.toBe(defaultEdgeMaterial);
+            expect(defaultEdgeMaterial.vertexColors).toBe(false);
+            // and white, so the vertex colour is what decides — see the tint test below
+            expect(material.color.getHex()).toBe(0xffffff);
+        });
+
+        test("the shared material's own colour does not tint the vertex colours", () => {
+            // three multiplies the vertex colour by the material's own. The shared material
+            // carries `defaultEdgeColor`, which the light theme makes near-black — inherited,
+            // it would darken a per-segment blue to almost nothing and only look right in the
+            // dark theme, where that colour is near-white.
+            const original = defaultEdgeMaterial.color.getHex();
+            defaultEdgeMaterial.color.set(0x333333);
+            try {
+                const node = createTestGeometryNode({ edgeColors: colors });
+                const geo = new ThreeGeometry(node, context);
+                expect((geo.edges()!.material as LineMaterial).color.getHex()).toBe(0xffffff);
+            } finally {
+                defaultEdgeMaterial.color.set(original);
+            }
+        });
+
+        test("the colours land on the geometry, where LineSegments2 reads them", () => {
+            const node = createTestGeometryNode({ edgeColors: colors });
+            const geo = new ThreeGeometry(node, context);
+
+            const geometry = geo.edges()!.geometry;
+            expect(geometry.getAttribute("instanceColorStart")).toBeDefined();
+            expect(geometry.getAttribute("instanceColorEnd")).toBeDefined();
+        });
+
+        test("a flat colour keeps the shared per-width material", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+
+            const material = geo.edges()!.material as LineMaterial;
+            expect(material).toBe(defaultEdgeMaterial);
+            expect(material.vertexColors).toBe(false);
+            expect(geo.edges()!.geometry.getAttribute("instanceColorStart")).toBeUndefined();
+        });
+
+        test("a width-matched shared material is still shared when there are no colours", () => {
+            const node = createTestGeometryNode({ edgeLineWidth: 2 });
+            const geo = new ThreeGeometry(node, context);
+            expect(geo.edges()!.material).toBe(edgeMaterialOfWidth(2));
+        });
+
+        test("the colours survive the on-top material swap", () => {
+            // the sketch editor renders its node on top, and that path replaces the material
+            // with a clone — the vertex-colour flag has to come through it
+            const node = createTestGeometryNode({ edgeColors: colors });
+            const geo = new ThreeGeometry(node, context);
+            geo.setRenderOnTop(true);
+
+            const material = geo.edges()!.material as LineMaterial;
+            expect(material).not.toBe(defaultEdgeMaterial);
+            expect(material.vertexColors).toBe(true);
+            expect((material as any).depthTest).toBe(false);
+        });
+
+        test("dispose releases the material this visual owned", () => {
+            const node = createTestGeometryNode({ edgeColors: colors });
+            const geo = new ThreeGeometry(node, context);
+            const material = geo.edges()!.material as LineMaterial;
+
+            let released = false;
+            material.addEventListener("dispose", () => {
+                released = true;
+            });
+            geo.dispose();
+            expect(released).toBe(true);
+            // the shared materials are never a visual's to dispose
+            expect(defaultEdgeMaterial.vertexColors).toBe(false);
         });
     });
 

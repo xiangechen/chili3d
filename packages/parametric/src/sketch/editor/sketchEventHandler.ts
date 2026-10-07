@@ -36,6 +36,7 @@ import {
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
+    sketchConstraintColor,
     toUV,
     toWorld,
     viewPixelSize,
@@ -57,8 +58,6 @@ const EXTERNAL_DANGLING_COLOR = 0xdd4444;
 const CONSTRUCTION_COLOR = 0x6c8ebf;
 /** Live-snap target accent — distinct from the green hover/selection and blue dimensions. */
 const SNAP_HIGHLIGHT_COLOR = 0xff9800;
-/** Entity point markers (endpoints, centers) — a neutral grey against either theme's background. */
-const ENTITY_POINT_COLOR = 0x8c9aa8;
 /** Rubber-band box outline — matches the selection highlight its release produces. */
 const BOX_SELECT_COLOR = VisualConfig.selectedEdgeColor;
 /**
@@ -242,6 +241,19 @@ export class SketchEventHandler implements IEventHandler {
         this.showConstructionEntities();
         this.showEntityPoints();
         view?.update();
+    }
+
+    /**
+     * Re-renders just the entity point markers. They carry their entity's constraint
+     * colour, so a constraint that flips which entities are pinned has to redraw them —
+     * nothing moved, only what the markers read in changed.
+     */
+    refreshEntityPoints(): void {
+        const view = this.editor.document.application.activeView;
+        if (view === undefined) return;
+        this.clearEntityPoints(view);
+        this.showEntityPoints();
+        view.update();
     }
 
     /**
@@ -1192,18 +1204,21 @@ export function sketchEntityMeshes(editor: SketchEditor): ShapeMeshData[] {
 }
 
 /** Vertex meshes at every entity point of the constraint targets — see `showEntityPoints`. */
+/**
+ * The markers on every constraint target's own points. Each takes the colour its entity's
+ * line draws in — the default edge colour when the constraints pin that entity, the free
+ * colour otherwise — so a point reads as part of its line rather than as a separate thing.
+ */
 function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
     const plane = editor.node.plane;
+    const pinned = editor.fullyConstrained;
     const meshes: ShapeMeshData[] = [];
     for (const entity of constraintTargetEntities(editor.solver)) {
+        const color = sketchConstraintColor(pinned, entity.id);
         for (let pointIndex = 0; pointIndex < entityPointCount(entity.type); pointIndex++) {
             const [u, v] = editor.solver.pointOf({ entityId: entity.id, pointIndex });
             meshes.push(
-                MeshDataUtils.createVertexMesh(
-                    toWorld(plane, u, v),
-                    VisualConfig.editVertexSize,
-                    ENTITY_POINT_COLOR,
-                ),
+                MeshDataUtils.createVertexMesh(toWorld(plane, u, v), VisualConfig.editVertexSize, color),
             );
         }
     }

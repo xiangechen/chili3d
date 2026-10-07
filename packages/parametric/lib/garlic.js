@@ -240,6 +240,19 @@ export class WasmSystem {
         return ret >>> 0;
     }
     /**
+     * 自由参数（未被约束完全确定）的 id 列表，升序：全约束草图返回空
+     * 数组。供前端按 SolidWorks 习惯给实体着色（全约束/欠约束）——
+     * 实体全约束 ⟺ 其全部 ParamId 不在此列表。判定语义（行空间归属，
+     * 不依赖残差，未求解的草图也可用）与成本见内核 `System::free_param_ids`。
+     * @returns {Uint32Array}
+     */
+    free_param_ids() {
+        const ret = wasm.wasmsystem_free_param_ids(this.__wbg_ptr);
+        var v1 = getArrayU32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
      * 批量读回参数值（Float64Array）
      * @param {Uint32Array} ids
      * @returns {Float64Array}

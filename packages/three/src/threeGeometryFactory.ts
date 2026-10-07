@@ -105,6 +105,17 @@ export class ThreeGeometryFactory {
         return material;
     }
 
+    /**
+     * Applies a mesh's colour to the geometry and material it was built with. A single colour
+     * tints the material; an array is per-vertex and goes onto the geometry instead —
+     * `LineSegments2` keeps those on its instanced start/end attributes (`setColors`), while
+     * faces and points take a plain `color` attribute.
+     *
+     * The material is whitened for the array case because the vertex colour is *multiplied* by
+     * the material's own: a caller that cloned a shared per-width material would otherwise
+     * inherit whatever tint it carried, and the light theme's near-black `defaultEdgeColor`
+     * would turn a sketch's blue into almost nothing.
+     */
     static setColor(
         buffer: BufferGeometry,
         data: { color?: number | number[] },
@@ -114,7 +125,12 @@ export class ThreeGeometryFactory {
             material.color.set(data.color);
         } else if (Array.isArray(data.color)) {
             material.vertexColors = true;
-            buffer.setAttribute("color", new Float32BufferAttribute(data.color, 3));
+            material.color.set(0xffffff);
+            if (buffer instanceof LineSegmentsGeometry) {
+                buffer.setColors(data.color);
+            } else {
+                buffer.setAttribute("color", new Float32BufferAttribute(data.color, 3));
+            }
         }
     }
 

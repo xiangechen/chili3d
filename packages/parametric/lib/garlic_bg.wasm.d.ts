@@ -7,6 +7,7 @@ export const wasmsystem_add_params: (a: number, b: number, c: number, d: number,
 export const wasmsystem_clear_dragged: (a: number, b: number, c: number) => [number, number];
 export const wasmsystem_diagnose: (a: number) => [number, number, number];
 export const wasmsystem_dofs: (a: number) => number;
+export const wasmsystem_free_param_ids: (a: number) => [number, number];
 export const wasmsystem_get_params: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmsystem_load_sketch: (a: any) => [number, number, number];
 export const wasmsystem_mark_dragged: (a: number, b: number, c: number) => [number, number];

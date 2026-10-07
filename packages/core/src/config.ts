@@ -13,6 +13,13 @@ export const DefaultDarkEdgeColor = 0xeeeeee;
 export const DefaultLightDrivenColor = 0x5e5e5e;
 /** `DefaultDarkEdgeColor` mixed halfway into the dark theme's viewport background (#242424). */
 export const DefaultDarkDrivenColor = 0x898989;
+/**
+ * A sketch entity that is not fully constrained, in the sketch editor — the SolidWorks
+ * convention: an under-defined line reads blue until every one of its parameters is
+ * pinned, at which point it falls back to `defaultEdgeColor`. One value for both themes,
+ * unlike `drivenColor`: this blue stays legible on either backdrop (#888888 and #242424).
+ */
+export const DefaultSketchFreeColor = 0x1c4eff;
 
 export class VisualItemConfig extends Observable {
     defaultFaceColor = 0xdedede;
@@ -51,6 +58,19 @@ export class VisualItemConfig extends Observable {
     }
     set drivenColor(value: number) {
         this.setProperty("drivenColor", value);
+    }
+
+    /**
+     * The colour an under-constrained sketch entity draws in while the sketch editor is
+     * open. Baked into the mesh's vertex colours rather than read per frame, so a node
+     * that is currently colouring listens for changes here and rebuilds (see
+     * `SketchNode.syncConstraintColorWatch`). Not re-picked per theme — see the constant.
+     */
+    get sketchFreeColor() {
+        return this.getPrivateValue("sketchFreeColor", DefaultSketchFreeColor);
+    }
+    set sketchFreeColor(value: number) {
+        this.setProperty("sketchFreeColor", value);
     }
 
     applyTheme(theme: "light" | "dark") {

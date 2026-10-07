@@ -141,6 +141,8 @@ export function createTestGeometryNode(
         hasEdges?: boolean;
         hasVertexs?: boolean;
         edgeLineWidth?: number;
+        /** Per-vertex edge colours — what a sketch being edited hands in for its constraint state. */
+        edgeColors?: number[];
     } = {},
 ): GeometryNode & Notifiable {
     const listeners: Array<(prop: string) => void> = [];
@@ -194,7 +196,7 @@ export function createTestGeometryNode(
             edges: hasEdges
                 ? ({
                       position: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0]),
-                      color: 0xff0000,
+                      color: overrides.edgeColors ?? 0xff0000,
                       lineType: "solid" as const,
                       lineWidth: overrides.edgeLineWidth,
                       range: [{ start: 0, count: 6, shape: edgeShape }],

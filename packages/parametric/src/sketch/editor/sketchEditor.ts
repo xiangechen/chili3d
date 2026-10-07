@@ -161,6 +161,8 @@ export class SketchEditor implements IDisposable {
     /** The outcome and diagnostics of the last fine solve — republished after picks, rendered by the panel. */
     private lastOutcome: SolveOutcome = { result: "Ok", dofs: 0 };
     private sketchDiagnostics: SketchDiagnostics = { dofs: 0, conflicting: [], redundant: [] };
+    /** The entity set currently pushed to the node's constraint colouring — see `publishConstraintColors`. */
+    private colouring: ReadonlySet<number> | undefined;
     private constraintsPanel?: SketchConstraintsPanel;
 
     /**
@@ -724,8 +726,13 @@ export class SketchEditor implements IDisposable {
     solve(fine: boolean): SolveOutcome {
         const outcome = this.solver.solve(fine);
         this.lastOutcome = outcome;
-        // garlic's diagnose only has the expected semantics right after a solve
-        if (fine) this.sketchDiagnostics = this.solver.diagnose();
+        // garlic's diagnose only has the expected semantics right after a solve. The
+        // colouring rides along with it: it is structural — which params the constraints
+        // pin — so a drag frame cannot change it, and it is not free at sketch size.
+        if (fine) {
+            this.sketchDiagnostics = this.solver.diagnose();
+            this.publishConstraintColors();
+        }
         this.annotations.setConflictingConstraints(this.sketchDiagnostics.conflicting);
         this.annotations.setRedundantConstraints(this.sketchDiagnostics.redundant);
         this.annotations.refresh();
@@ -956,6 +963,8 @@ export class SketchEditor implements IDisposable {
         this.disposed = true;
         this.cancelPick();
         this.document.visual.context.setNodeOnTop([this.node], false);
+        // the session owned the colouring; the sketch goes back to one flat colour
+        this.node.setConstraintColors(undefined);
         this.node.setEditingSession(false);
         this.node.removePropertyChanged(this.onNodeDataChanged);
         try {
@@ -1054,9 +1063,33 @@ export class SketchEditor implements IDisposable {
         }
     }
 
+    /**
+     * Hands the node the constraint colouring — fully constrained entities in the default
+     * edge colour, the rest in `VisualConfig.sketchFreeColor`. Republishes on every fine
+     * solve, so it rebuilds the node's mesh only when the set really changed: an unchanged
+     * set would otherwise drop and re-create the edge geometry for nothing.
+     */
+    private publishConstraintColors(): void {
+        const pinned = this.solver.fullyConstrainedEntities();
+        if (sameEntityIds(this.colouring, pinned)) return;
+        this.colouring = pinned;
+        this.node.setConstraintColors(pinned);
+        // the point markers carry the same colour, so they have to follow the flip too
+        this.eventHandler.refreshEntityPoints();
+    }
+
     /** Diagnostics of the last fine solve — the constraint list panel renders these. */
     get diagnostics(): SketchDiagnostics {
         return this.sketchDiagnostics;
+    }
+
+    /**
+     * The entity ids the constraints pin, as of the last fine solve — the set this session
+     * colours by. The entity-point markers read it too, so a point takes the same colour
+     * as the line it belongs to. Undefined only before the session's first solve.
+     */
+    get fullyConstrained(): ReadonlySet<number> | undefined {
+        return this.colouring;
     }
 
     /**
@@ -1115,4 +1148,16 @@ export class SketchEditor implements IDisposable {
             handler["canRotate"] = value;
         }
     }
+}
+
+/**
+ * Whether two entity-id sets hold the same entities. `previous` may be undefined, which
+ * is the "nothing is colouring this sketch" state a fresh session starts in.
+ */
+function sameEntityIds(previous: ReadonlySet<number> | undefined, next: ReadonlySet<number>): boolean {
+    if (previous === undefined || previous.size !== next.size) return false;
+    for (const id of next) {
+        if (!previous.has(id)) return false;
+    }
+    return true;
 }

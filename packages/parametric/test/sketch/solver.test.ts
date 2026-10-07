@@ -1311,3 +1311,105 @@ describe("SketchSolver", () => {
         });
     });
 });
+
+describe("fullyConstrainedEntities", () => {
+    function fix(solver: SketchSolver, entityId: number, pointIndex: number, x: number, y: number) {
+        solver.addConstraint({
+            kind: ConstraintKind.Fix,
+            refs: [{ entityId, pointIndex }],
+            datums: [x, y],
+        });
+    }
+
+    test("a free entity is not in the set, and no solve is needed to say so", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 10, 0);
+            expect(solver.fullyConstrainedEntities().has(line)).toBe(false);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("pinning both endpoints puts the entity in the set", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const line = solver.addLine(0, 0, 10, 0);
+            fix(solver, line, 0, 0, 0);
+            expect(solver.fullyConstrainedEntities().has(line)).toBe(false);
+            fix(solver, line, 1, 10, 0);
+            expect(solver.fullyConstrainedEntities().has(line)).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a pinned line with another hanging off it: only the pinned one is in the set", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const a = solver.addLine(0, 0, 10, 0);
+            const b = solver.addLine(10, 0, 10, 10);
+            fix(solver, a, 0, 0, 0);
+            fix(solver, a, 1, 10, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: a, pointIndex: 1 },
+                    { entityId: b, pointIndex: 0 },
+                ],
+            });
+            const pinned = solver.fullyConstrainedEntities();
+            expect(pinned.has(a)).toBe(true);
+            expect(pinned.has(b)).toBe(false);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("two lines rigidly bound to each other are both free — the pair can still move", () => {
+        // The case a "pin the others, then probe what is left" check gets wrong: pinning A
+        // makes B look pinned as well, but the pair as a whole still translates, so the
+        // row-space answer is that neither is constrained.
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const a = solver.addLine(0, 0, 10, 0);
+            const b = solver.addLine(0, 5, 10, 5);
+            for (const pointIndex of [0, 1]) {
+                solver.addConstraint({
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [
+                        { entityId: a, pointIndex },
+                        { entityId: b, pointIndex },
+                    ],
+                });
+            }
+            const pinned = solver.fullyConstrainedEntities();
+            expect(pinned.has(a)).toBe(false);
+            expect(pinned.has(b)).toBe(false);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("the datum and external refs are pinned by construction", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const pinned = solver.fullyConstrainedEntities();
+            expect(pinned.has(SKETCH_ORIGIN_ID)).toBe(false); // datum lives outside the entity table
+            expect(pinned.has(SKETCH_X_AXIS_ID)).toBe(false);
+            // a dimension alone leaves the line free — it fixes a distance, not a position
+            const line = solver.addLine(0, 0, 10, 0);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                ],
+                datum: 10,
+            });
+            expect(solver.fullyConstrainedEntities().has(line)).toBe(false);
+        } finally {
+            solver.dispose();
+        }
+    });
+});

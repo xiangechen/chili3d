@@ -24,7 +24,7 @@
     },
     "lint-staged": {
         "*.{ts,js,css,json,mjs}": [
-            "npx biome check --write"
+            "npx biome check --write --no-errors-on-unmatched"
         ],
         "*.{c,h,cxx,hxx,cpp,hpp}": [
             "npx clang-format --style=Webkit --sort-includes -i"

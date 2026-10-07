@@ -22,7 +22,6 @@ import {
     isDatumEntityId,
     isExternalEntityId,
     isStructuralConstraint,
-    nextSketchId,
     pointRefKey,
     type RadiusDisplay,
     resolveDatumSource,
@@ -170,12 +169,15 @@ export class SketchSolver implements ExternalEntityHost {
     private readonly _datumErrors = new Map<number, string>();
 
     /**
-     * Monotonic id allocation, serialized as SketchData.entityIdSeq/externalIdSeq:
-     * freed ids are never reused, so a stale ProfileRef fingerprint (keyed on entity
-     * ids) can never match a geometrically different region. Real ids count up from
-     * 1, external ids count down from FIRST_EXTERNAL_ENTITY_ID (the registry's).
+     * Monotonic id allocation, serialized as SketchData.entityIdSeq/externalIdSeq/
+     * constraintIdSeq: freed ids are never reused, so a stale ProfileRef fingerprint
+     * (keyed on entity ids) can never match a geometrically different region, and a
+     * stale dimension anchor (keyed on constraint ids) can never be inherited by a
+     * later constraint. Real ids count up from 1, external ids count down from
+     * FIRST_EXTERNAL_ENTITY_ID (the registry's).
      */
     private entityIdSeq = 1;
+    private constraintIdSeq = 1;
     /**
      * Counter emission gate: `toData` writes the counters only when the loaded data
      * carried them or an allocation happened since — a no-op session on a
@@ -339,7 +341,8 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     addConstraint(constraint: Omit<SketchConstraintData, "id">): number {
-        const id = nextSketchId([...this.constraints.values()]);
+        const id = this.constraintIdSeq++;
+        this.idAllocatedSinceLoad = true;
         this.addConstraintWithId(id, constraint);
         return id;
     }
@@ -457,8 +460,8 @@ export class SketchSolver implements ExternalEntityHost {
                 dropped.push(constraint.id);
             }
         }
-        // after the captured constraints are back in the map, so `nextSketchId`
-        // cannot hand this one the id of a constraint being re-created
+        // the re-added constraints already advanced the allocator, so this one cannot
+        // take the id of a constraint that was just re-created
         if (type === "arc") {
             this.addConstraint({
                 kind: ConstraintKind.PointOnArc,
@@ -739,6 +742,25 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     /**
+     * The entity ids every one of whose parameters is pinned by the constraints. This is
+     * garlic's row-space test (`free_param_ids`), not a residual or numeric one: it is
+     * exact, needs no solve, and stays correct in singular configurations where probing
+     * the solver's behaviour would not. Fixed entities (the datum, external refs) are
+     * pinned by construction and so come back in the set.
+     *
+     * This is what the sketch editor colours by — fully constrained reads in the default
+     * edge colour, anything else in `VisualConfig.sketchFreeColor`.
+     */
+    fullyConstrainedEntities(): ReadonlySet<number> {
+        const free = new Set(this.system.free_param_ids());
+        const pinned = new Set<number>();
+        for (const [id, paramIds] of this.entityParams) {
+            if (paramIds.every((paramId) => !free.has(paramId))) pinned.add(id);
+        }
+        return pinned;
+    }
+
+    /**
      * Constraint diagnostics — garlic semantics require a solve first (`solve`
      * then `diagnose`), so callers run this after a fine solve. The garlic
      * report keys constraints by garlic id; they are mapped back to sketch
@@ -946,6 +968,7 @@ export class SketchSolver implements ExternalEntityHost {
         if (this.idCountersPersisted || this.idAllocatedSinceLoad) {
             result.entityIdSeq = this.entityIdSeq;
             result.externalIdSeq = this.external.idSeq;
+            result.constraintIdSeq = this.constraintIdSeq;
         }
         return result;
     }
@@ -1028,6 +1051,7 @@ export class SketchSolver implements ExternalEntityHost {
         this.constructionEntities.clear();
         this.external.clear();
         this.entityIdSeq = 1;
+        this.constraintIdSeq = 1;
         this.draggedParamIds = [];
         this.seedDatum();
         this.loadData(data);
@@ -1203,6 +1227,11 @@ export class SketchSolver implements ExternalEntityHost {
     }
 
     private addConstraintWithId(id: number, constraint: Omit<SketchConstraintData, "id">): void {
+        // Explicit ids (loadData, replaceConstraint, the retype's re-creations) still
+        // advance the counter, so a later allocation never reissues them — that is what
+        // `retypeEntity` relies on when it re-adds the captured constraints and then
+        // asks the allocator for the arc's structural PointOnArc.
+        this.constraintIdSeq = Math.max(this.constraintIdSeq, id + 1);
         const { params, datumParamIds, datumSources, garlicKind } = this.buildConstraintParams(
             constraint,
             id,
@@ -1617,10 +1646,16 @@ export class SketchSolver implements ExternalEntityHost {
         // id counters: trust the serialized ones; data written before counters
         // initializes from the current max+1 / min-1 via the seeding above
         if (data.entityIdSeq !== undefined) this.entityIdSeq = Math.max(this.entityIdSeq, data.entityIdSeq);
+        if (data.constraintIdSeq !== undefined) {
+            this.constraintIdSeq = Math.max(this.constraintIdSeq, data.constraintIdSeq);
+        }
         if (data.externalIdSeq !== undefined) {
             this.external.idSeq = Math.min(this.external.idSeq, data.externalIdSeq);
         }
-        this.idCountersPersisted = data.entityIdSeq !== undefined || data.externalIdSeq !== undefined;
+        this.idCountersPersisted =
+            data.entityIdSeq !== undefined ||
+            data.externalIdSeq !== undefined ||
+            data.constraintIdSeq !== undefined;
         this.idAllocatedSinceLoad = false;
         // normalize roles for documents written before role derivation (and for
         // hand-edited data): an unpinned ref any constraint references is a profile

@@ -47,6 +47,11 @@ const OnTopMaterialKey = "onTopMaterial";
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material | Material[];
     private _edgeMaterial: LineMaterial = defaultEdgeMaterial;
+    /**
+     * True while `_edgeMaterial` is a copy this object owns — a mesh carrying per-segment
+     * colours needs its own material (`initEdges`), and that one must be disposed with us.
+     */
+    private _ownsEdgeMaterial = false;
     private _edges?: LineSegments2;
     private _faces?: Mesh;
     private _vertexs?: Points;
@@ -158,6 +163,12 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
             this._edges.geometry.dispose();
             this._edges = null as any;
         }
+        if (this._ownsEdgeMaterial) {
+            // our own copy (per-segment colours) — the shared materials are never disposed here
+            this._edgeMaterial.dispose();
+            this._ownsEdgeMaterial = false;
+            this._edgeMaterial = defaultEdgeMaterial;
+        }
         if (this._faces) {
             this.disposeOnTopMaterial(this._faces);
             this.remove(this._faces);
@@ -176,11 +187,29 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private initEdges(data: EdgeMeshData) {
         const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
-        this._edgeMaterial = edgeMaterialOfWidth(data.lineWidth);
+        this._edgeMaterial = this.edgeMaterialFor(data, buff);
         this._edges = new LineSegments2(buff, this._edgeMaterial);
         this._edges.layers.set(Constants.Layers.Wireframe);
         if (this._renderOnTop) this.applyOnTopMaterial(this._edges, this._edgeMaterial);
         this.add(this._edges);
+    }
+
+    /**
+     * The edge material: the shared per-width one by default. A mesh carrying per-segment
+     * colours — what a sketch being edited hands in for its constraint state — needs a
+     * material of its own instead, because `vertexColors` is a material flag and the
+     * shared materials are keyed by width alone: setting it there would repaint every
+     * other visual of that width. The copy belongs to this object and is disposed with it.
+     */
+    private edgeMaterialFor(data: EdgeMeshData, geometry: LineSegmentsGeometry): LineMaterial {
+        if (!Array.isArray(data.color)) return edgeMaterialOfWidth(data.lineWidth);
+        const material = edgeMaterialOfWidth(data.lineWidth).clone();
+        // `setColor` puts the per-segment colours on the geometry and whitens the material —
+        // the whitening is what matters here, since the clone inherited the shared material's
+        // `defaultEdgeColor` (see its comment)
+        ThreeGeometryFactory.setColor(geometry, data, material);
+        this._ownsEdgeMaterial = true;
+        return material;
     }
 
     private initFaces(data: FaceMeshData) {

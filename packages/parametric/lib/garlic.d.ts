@@ -389,6 +389,13 @@ export class WasmSystem {
      */
     dofs(): number;
     /**
+     * 自由参数（未被约束完全确定）的 id 列表，升序：全约束草图返回空
+     * 数组。供前端按 SolidWorks 习惯给实体着色（全约束/欠约束）——
+     * 实体全约束 ⟺ 其全部 ParamId 不在此列表。判定语义（行空间归属，
+     * 不依赖残差，未求解的草图也可用）与成本见内核 `System::free_param_ids`。
+     */
+    free_param_ids(): Uint32Array;
+    /**
      * 批量读回参数值（Float64Array）
      */
     get_params(ids: Uint32Array): Float64Array;
@@ -451,6 +458,7 @@ export interface InitOutput {
     readonly wasmsystem_clear_dragged: (a: number, b: number, c: number) => [number, number];
     readonly wasmsystem_diagnose: (a: number) => [number, number, number];
     readonly wasmsystem_dofs: (a: number) => number;
+    readonly wasmsystem_free_param_ids: (a: number) => [number, number];
     readonly wasmsystem_get_params: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmsystem_load_sketch: (a: any) => [number, number, number];
     readonly wasmsystem_mark_dragged: (a: number, b: number, c: number) => [number, number];

@@ -370,4 +370,48 @@ describe("ThreeGeometryFactory", () => {
             expect(create().renderOrder).toBe(999);
         });
     });
+
+    describe("per-vertex colours", () => {
+        test("an edge colour array lands on the instanced attributes", () => {
+            const segment = ThreeGeometryFactory.createEdgeGeometry({
+                position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                range: [],
+                color: [1, 0, 0, 0, 1, 0],
+                lineType: "solid",
+            });
+
+            // where `LineSegments2` actually reads them — a plain `color` attribute would
+            // never reach the line shader, which is what this used to write
+            expect(segment.geometry.getAttribute("instanceColorStart")).toBeDefined();
+            expect(segment.geometry.getAttribute("instanceColorEnd")).toBeDefined();
+            expect(segment.geometry.getAttribute("color")).toBeUndefined();
+            expect((segment.material as LineMaterial).vertexColors).toBe(true);
+        });
+
+        test("a face colour array still takes the plain color attribute", () => {
+            const mesh = ThreeGeometryFactory.createFaceGeometry({
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
+                normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
+                uv: new Float32Array([0, 0, 1, 0, 0, 1]),
+                index: new Uint32Array([0, 1, 2]),
+                groups: [],
+                range: [],
+                color: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+            });
+
+            expect(mesh.geometry.getAttribute("color")).toBeDefined();
+            expect(mesh.geometry.getAttribute("instanceColorStart")).toBeUndefined();
+        });
+
+        test("the material is whitened, so the vertex colours are not tinted by it", () => {
+            // a caller that cloned a shared per-width material hands one in already tinted
+            const material = new LineMaterial({ color: 0x333333 });
+            ThreeGeometryFactory.setColor(
+                new LineSegmentsGeometry(),
+                { color: [1, 0, 0, 0, 1, 0] },
+                material,
+            );
+            expect(material.color.getHex()).toBe(0xffffff);
+        });
+    });
 });

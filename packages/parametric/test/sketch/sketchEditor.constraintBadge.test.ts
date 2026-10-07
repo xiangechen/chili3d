@@ -1256,10 +1256,11 @@ describe("SketchEditor dimension preview", () => {
 });
 
 describe("SketchEditor conflicting constraint display", () => {
-    // CONFLICT_COLOR / REDUNDANT_COLOR / DIMENSION_COLOR in sketchAnnotations.ts are module-private
+    // the flagged tones are module-private in sketchAnnotations.ts; a plain dimension reads
+    // in the theme's own edge colour, so it is taken from `VisualConfig` (`toneColor`)
     const CONFLICT_COLOR = 0xff6b6b;
     const REDUNDANT_COLOR = 0xffd93d;
-    const DIMENSION_COLOR = 0x4a9eff;
+    const DIMENSION_COLOR = VisualConfig.defaultEdgeColor;
 
     // a line that is told to be both horizontal and vertical, with two contradictory
     // length dimensions — garlic flags the constraints that contradict the established
@@ -1432,9 +1433,9 @@ describe("SketchEditor conflicting constraint display", () => {
 });
 
 describe("SketchEditor driven dimension display", () => {
-    // the driven tone is the theme's to say, so it is read from `VisualConfig` rather than
-    // copied — the two themes put a reference grey in different places (see `drivenColor`)
-    const DIMENSION_COLOR = 0x4a9eff;
+    // a plain dimension reads in the theme's own edge colour, so it is taken from
+    // `VisualConfig` rather than copied — the same reason the driven tone is (`toneColor`)
+    const DIMENSION_COLOR = VisualConfig.defaultEdgeColor;
 
     /** A length dimension the user has switched to a reference. */
     function setupDriven() {

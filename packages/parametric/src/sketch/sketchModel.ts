@@ -13,6 +13,7 @@ import {
     resolveUnitSpec,
     type Scope,
     type UnitSpec,
+    VisualConfig,
     XYZ,
 } from "@chili3d/core";
 import { ConstraintKind } from "../../lib/garlic";
@@ -328,6 +329,14 @@ export interface SketchData {
      * where the solver initializes it from the current min external id − 1.
      */
     externalIdSeq?: number;
+    /**
+     * Next constraint id (monotonic, counts up from 1). Constraint ids key the
+     * persisted dimension anchors, so they carry the same no-reuse guarantee as
+     * `entityIdSeq`: a freed id inherited by a later constraint would drag that
+     * constraint's label to the old one's anchor. Absent in pre-counter documents,
+     * where the solver initializes it from the current max constraint id + 1.
+     */
+    constraintIdSeq?: number;
 }
 
 export function emptySketchData(): SketchData {
@@ -358,17 +367,13 @@ export function syncExternalRoles(data: Pick<SketchData, "constraints" | "extern
     return changed;
 }
 
-export function nextSketchId(items: ReadonlyArray<{ id: number }>): number {
-    return items.reduce((max, item) => Math.max(max, item.id), 0) + 1;
-}
-
 /**
  * Reserved entity ids for the sketch datum: the origin point and the X/Y axis
  * lines. Real entity ids are allocated monotonically from 1 (`entityIdSeq` in the
- * solver, persisted as `SketchData.entityIdSeq`; `nextSketchId` serves constraint
- * ids only), so negatives never clash. Datum entities live only in the solver —
- * never serialized as entities, never rendered as sketch geometry — but
- * constraints may reference them and are serialized as ordinary
+ * solver, persisted as `SketchData.entityIdSeq`; constraint ids count up the same
+ * way from `SketchData.constraintIdSeq`), so negatives never clash. Datum entities
+ * live only in the solver — never serialized as entities, never rendered as sketch
+ * geometry — but constraints may reference them and are serialized as ordinary
  * `SketchConstraintData`.
  */
 export const SKETCH_ORIGIN_ID = -1;
@@ -426,6 +431,16 @@ export function shapeEntityIds(data: SketchData): number[] {
         ...profileEntities(data).map((entity) => entity.id),
         ...profileExternalRefs(data).map((r) => r.entityId),
     ];
+}
+
+/**
+ * The colour a sketch entity draws in while the sketch editor is open — its line and its
+ * own point markers alike: the default edge colour once the constraints pin every one of
+ * its parameters, the free colour until then. `pinned` is undefined outside a colouring
+ * session, where nothing is pinned and so everything draws free.
+ */
+export function sketchConstraintColor(pinned: ReadonlySet<number> | undefined, entityId: number): number {
+    return pinned?.has(entityId) ? VisualConfig.defaultEdgeColor : VisualConfig.sketchFreeColor;
 }
 
 /** Point ref of the sketch origin (0, 0). */
