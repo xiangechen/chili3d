@@ -2,10 +2,18 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane, Precision } from "@chili3d/core";
+import { projectPoint, sampleEntity } from "../../src/sketch/curveEval";
 import { offsetEntities, offsetPreview } from "../../src/sketch/offsetOps";
-import { ConstraintKind, type SketchEntityData, toDisplayDatum } from "../../src/sketch/sketchModel";
+import {
+    ConstraintKind,
+    clampedUniformKnots,
+    entityPointCount,
+    type SketchEntityData,
+    toDisplayDatum,
+} from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import { joinLoop } from "../../src/sketch/solverEntities";
+import { trimEntity } from "../../src/sketch/trimOps";
 import "./setup";
 
 const TOLERANCE = 1e-6;
@@ -683,6 +691,228 @@ describe("offsetEntities ties", () => {
             const diagnostics = solver.diagnose();
             expect(diagnostics.conflicting).toEqual([]);
             expect(diagnostics.redundant).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
+describe("offsetEntities on the numeric curve families", () => {
+    // The offset of a curve is not a curve of its own kind, so these five come out as an entity
+    // of the *offset's* own kind: the source's geometry plus a distance, evaluated as the
+    // parallel curve. That is OpenCASCADE's answer too — `Geom_OffsetCurve` is a basis curve
+    // and an offset value — and it is what keeps a three-point conic's offset from arriving as
+    // twenty-something control points the user has to look at.
+    const FAMILIES: [string, (solver: SketchSolver) => number][] = [
+        ["ellipse", (solver) => solver.addEllipse(0, 0, 6, 0, 0, 3)],
+        ["ellipseArc", (solver) => solver.addEllipseArc(0, 0, 6, 0, 0, 3, 6, 0, 0, 3)],
+        ["conic", (solver) => solver.addConic(0, 0, 6, 8, 12, 0, 0.7)],
+        ["bezier", (solver) => solver.addBezier([0, 0, 2, 6, 8, 6, 10, 0])],
+        [
+            "nurbs",
+            (solver) =>
+                solver.addNurbs([0, 0, 1, 3, 3, 4, 5, 0, 7, -2, 9, 1], {
+                    degree: 3,
+                    knots: clampedUniformKnots(6, 3),
+                }),
+        ],
+    ];
+
+    test.each(FAMILIES)("offsets a %s into an offset curve at the distance asked for", (_label, build) => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const source = build(solver);
+            solver.solve(true);
+            const result = offsetEntities(solver, [source], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+
+            const copy = entity(solver, result.value.createdEntityIds[0]);
+            expect(copy.type).toBe("offsetCurve");
+            expect(copy.offset).toEqual({
+                sourceId: source,
+                sourceType: entity(solver, source).type,
+                distance: 1,
+            });
+
+            // every point of the source sits one unit off the copy: this is the parallel curve
+            // itself, exactly, not a curve fitted to look like one
+            for (const point of sampleEntity(entity(solver, source), 32)) {
+                expect(projectPoint(copy, point).distance).toBeCloseTo(1, 9);
+            }
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("has no control points of its own, and follows its source", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const ellipse = solver.addEllipse(0, 0, 6, 0, 0, 3);
+            solver.solve(true);
+            const result = offsetEntities(solver, [ellipse], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+            const copyId = result.value.createdEntityIds[0];
+
+            // nothing of it is a point, which is the whole of "no more handles than its source"
+            expect(entityPointCount(entity(solver, copyId))).toBe(0);
+            // and it is not something the user edits: it is the ops' to keep, like an array's
+            expect(solver.isFixed(copyId)).toBe(true);
+
+            // its geometry is its source's, read live — widen the ellipse and the copy follows
+            solver.setPointPosition({ entityId: ellipse, pointIndex: 1 }, 8, 0);
+            solver.solve(true);
+            const moved = entity(solver, copyId);
+            expect(moved.params).toEqual(entity(solver, ellipse).params);
+            for (const point of sampleEntity(entity(solver, ellipse), 16)) {
+                expect(projectPoint(moved, point).distance).toBeCloseTo(1, 9);
+            }
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("cannot be joined to a chain: it has no endpoint to stitch", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            // a line and a curve that meet, so their copies meet too — except that the curve's
+            // copy has no endpoint refs at all, which is the price of having no points
+            const line = solver.addLine(0, 0, 6, 0);
+            const bezier = solver.addBezier([6, 0, 8, 4, 10, 4, 12, 0]);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: line, pointIndex: 1 },
+                    { entityId: bezier, pointIndex: 0 },
+                ],
+            });
+            solver.solve(true);
+
+            const result = offsetEntities(solver, [line, bezier], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+
+            // the line copy is still tied and stitched as it always was; the curve copy is not
+            // a party to any of it — the caller is told, not left to notice
+            const [lineCopy, curveCopy] = result.value.createdEntityIds;
+            expect(kindsOn(solver, lineCopy)).toContain(ConstraintKind.P2LDistance);
+            expect(kindsOn(solver, curveCopy)).toEqual([]);
+            expect(result.value.noJoin).toBeGreaterThan(0);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("previews the offset the op would build, ref and all", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const bezier = solver.addBezier([0, 0, 2, 6, 8, 6, 10, 0]);
+            solver.solve(true);
+
+            const preview = offsetPreview(solver, [bezier], 1, TOLERANCE);
+            expect(preview).toHaveLength(1);
+            const result = offsetEntities(solver, [bezier], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+
+            const built = entity(solver, result.value.createdEntityIds[0]);
+            expect(preview[0].type).toBe("offsetCurve");
+            expect(preview[0].offset).toEqual(built.offset);
+            expect(preview[0].params).toEqual(built.params);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("round-trips an offset curve through a saved sketch", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const conic = solver.addConic(0, 0, 6, 8, 12, 0, 0.7);
+            solver.solve(true);
+            const result = offsetEntities(solver, [conic], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+
+            const data = solver.toData();
+            const reloaded = new SketchSolver(Plane.XY, data);
+            expect(reloaded.toData()).toEqual(data);
+            const copyId = result.value.createdEntityIds[0];
+            expect(entity(reloaded, copyId).offset).toEqual(entity(solver, copyId).offset);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("refuses a distance the geometry cannot carry, and takes one it can", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            // the (6, 3) ellipse turns on a radius of 1.5 at the ends of its major axis, so an
+            // inward offset past that folds the parallel curve through itself
+            const ellipse = solver.addEllipse(0, 0, 6, 0, 0, 3);
+            solver.solve(true);
+
+            const folded = offsetEntities(solver, [ellipse], -2, TOLERANCE);
+            expect(folded.isOk).toBe(false);
+            if (folded.isOk) throw new Error("unreachable");
+            expect(folded.error).toBe("The offset distance is larger than the geometry it comes from");
+
+            const gentle = offsetEntities(solver, [ellipse], -1, TOLERANCE);
+            expect(gentle.isOk).toBe(true);
+            const outward = offsetEntities(solver, [ellipse], 1, TOLERANCE);
+            expect(outward.isOk).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
+/**
+ * What a copy's source does *to* it: a copy reads its source's params, so a source that goes
+ * away takes its copies with it, and one that changes kind tells them what it now is.
+ */
+describe("offsetEntities' copies and their source", () => {
+    test("goes with its source when the source is deleted", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const bezier = solver.addBezier([0, 0, 2, 6, 8, 6, 10, 0]);
+            solver.solve(true);
+            const result = offsetEntities(solver, [bezier], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+            const copy = result.value.createdEntityIds[0];
+
+            solver.removeEntity(bezier);
+
+            // a copy has no params of its own — it *is* its source's — so one left behind would
+            // be geometry that draws and builds from nothing at all
+            expect(solver.entity(copy)).toBeUndefined();
+            expect(solver.entities().map((entity) => entity.id)).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("reads the kind its source has been retyped to", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const ellipse = solver.addEllipse(0, 20, 10, 20, 0, 25);
+            solver.solve(true);
+            const result = offsetEntities(solver, [ellipse], 1, TOLERANCE);
+            expect(result.isOk).toBe(true);
+            if (!result.isOk) throw new Error(result.error);
+            const copy = result.value.createdEntityIds[0];
+
+            // the Y axis cuts the ellipse twice, so a click short of the seam trims it into an
+            // ellipse arc — and the copy has to be told, or it would read the new params as the
+            // ellipse they no longer lay out
+            const trimmed = trimEntity(solver, ellipse, [10, 21], TOLERANCE);
+            expect(trimmed.isOk).toBe(true);
+            expect(entity(solver, ellipse).type).toBe("ellipseArc");
+            expect(entity(solver, copy).offset?.sourceType).toBe("ellipseArc");
+            // the window is read in the same parameter on both sides of that swap, so a copy
+            // that filled its source still fills it: the trim is the ellipse's, not the copy's
+            expect(entity(solver, copy).offset?.window).toBeUndefined();
         } finally {
             solver.dispose();
         }

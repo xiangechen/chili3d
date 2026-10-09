@@ -41,6 +41,7 @@ function setup() {
             line: () => Result.ok({ isEqual: () => false }),
             circle: () => Result.ok({ isEqual: () => false }),
             arc: () => Result.ok({ isEqual: () => false }),
+            bezier: () => Result.ok({ isEqual: () => false }),
             wire: () => Result.ok({ isEqual: () => false }),
             combine: () => Result.ok({ isEqual: () => false }),
         },
@@ -420,11 +421,15 @@ describe("datum picking (origin and axes)", () => {
 
             // screen (450, 300) -> uv (50, 0): on the X axis, far from the line
             expect(handler.hitTestEntity(view, pointerEvent(450, 300), "line")).toBeUndefined();
-            expect(handler.hitTestEntity(view, pointerEvent(450, 300), "line", true)).toBe(SKETCH_X_AXIS_ID);
+            expect(handler.hitTestEntity(view, pointerEvent(450, 300), "line", true)?.entityId).toBe(
+                SKETCH_X_AXIS_ID,
+            );
             // a circle filter excludes the axes even with datum enabled
             expect(handler.hitTestEntity(view, pointerEvent(450, 300), "circle", true)).toBeUndefined();
             // screen (400, 250) -> uv (0, 50): on the Y axis
-            expect(handler.hitTestEntity(view, pointerEvent(400, 250), "line", true)).toBe(SKETCH_Y_AXIS_ID);
+            expect(handler.hitTestEntity(view, pointerEvent(400, 250), "line", true)?.entityId).toBe(
+                SKETCH_Y_AXIS_ID,
+            );
             editor.exit();
         } finally {
             restoreFactory();
@@ -456,6 +461,71 @@ describe("datum picking (origin and axes)", () => {
     });
 });
 
+describe("control net hover", () => {
+    test("a segment pick highlights the net line it would name, not the curve", async () => {
+        const { doc, view, restoreFactory } = setup();
+        const displayMesh = rs.fn((_meshes: unknown[]) => 1);
+        (doc.visual.context as any).displayMesh = displayMesh;
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addBezier([0, 0, 0, 40, 30, 40, 30, 0]);
+            editor.solve(true);
+            displayMesh.mockClear();
+
+            // the parallel tool is waiting for a segment, so its pick asks for one
+            const promise = editor.pickEntityAt("prompt.pickSketchEntity", "line", { segments: true });
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+            // screen (415, 260) -> uv (15, 40): on the line between the two handles
+            handler.pointerMove(view, pointerEvent(415, 260));
+
+            const highlighted = displayMesh.mock.calls.at(-1)?.[0] as any[];
+            expect(highlighted.length).toBe(1);
+            // the two control points the click would name, and nothing of the curve
+            expect(Array.from(highlighted[0].position as Float32Array)).toEqual([0, 40, 0, 30, 40, 0]);
+
+            editor.cancelPick();
+            await expect(promise).resolves.toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
+describe("control net hit testing", () => {
+    test("a segment pick names the pair of control points it landed between", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            // control points (0,0), (0,40), (30,40), (30,0): the curve peaks at (15,30),
+            // ten units under the net segment between the two handles
+            const id = editor.solver.addBezier([0, 0, 0, 40, 30, 40, 30, 0]);
+            editor.solve(true);
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            // screen (415, 260) -> uv (15, 40): on the line between the handles
+            const onNet = handler.hitTestEntity(view, pointerEvent(415, 260), undefined, false, true);
+            expect(onNet).toEqual({ entityId: id, segment: [1, 2] });
+            // the same click as a plain entity pick has nothing there — what is drawn dashed
+            // is not the curve, and the curve is all a plain pick reads
+            expect(handler.hitTestEntity(view, pointerEvent(415, 260))).toBeUndefined();
+
+            // screen (415, 270) -> uv (15, 30): the top of the curve itself
+            expect(handler.hitTestEntity(view, pointerEvent(415, 270))?.entityId).toBe(id);
+            // and no segment pick is there: a free curve is drawn *by* its control points,
+            // so the curve is not a segment of anything
+            expect(
+                handler.hitTestEntity(view, pointerEvent(415, 270), undefined, false, true),
+            ).toBeUndefined();
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+});
+
 describe("arc entity hit testing", () => {
     test("distances follow the ccw sweep: radial inside, endpoint-anchored outside", () => {
         const { doc, view, restoreFactory } = setup();
@@ -468,9 +538,9 @@ describe("arc entity hit testing", () => {
             const handler = doc.visual.eventHandler as SketchEventHandler;
 
             // screen (407, 293) -> uv (7, 7): on the rim inside the sweep
-            expect(handler.hitTestEntity(view, pointerEvent(407, 293))).toBe(1);
+            expect(handler.hitTestEntity(view, pointerEvent(407, 293))?.entityId).toBe(1);
             // screen (415, 300) -> uv (15, 0): on the start ray, 5 past the start point
-            expect(handler.hitTestEntity(view, pointerEvent(415, 300))).toBe(1);
+            expect(handler.hitTestEntity(view, pointerEvent(415, 300))?.entityId).toBe(1);
             // screen (392, 285) -> uv (-8, 15): past the end ray; 7 from the rim circle but
             // ~9.4 from the nearer endpoint, so the sweep-aware distance misses
             expect(handler.hitTestEntity(view, pointerEvent(392, 285))).toBeUndefined();

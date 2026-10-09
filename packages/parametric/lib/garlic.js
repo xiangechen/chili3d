@@ -4,9 +4,12 @@
  * 内建约束枚举（docs/05「ConstraintKind 枚举与 params 布局」；params 布局严格等于各约束 `params()` 的顺序，
  * 带 datum 的约束 datum ParamId 占末位）。新增内建约束须同步加入本枚举、`layout` 与 `from_u32`。
  *
- * C ABI 判别值由 `from_u32` 固定（当前 0..=27），与枚举声明顺序解耦——
- * 调整顺序不会破坏已发布的 FFI 数值契约。
- * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27}
+ * C ABI 判别值由 `from_u32` 固定（当前 0..=54），与枚举声明顺序解耦——
+ * 调整顺序不会破坏已发布的 FFI 数值契约。曲线族在 2026-10 由控制点 B 样条
+ * 改为 Bézier + NURBS：33/34 与 39/40/43/45/46 这 7 个原样条槽位**改义**为
+ * 参数形状相同的 Bézier 对应项（0.1.0 尚未发布），NURBS 相关 kind 追加在
+ * 47..=54，判别值无空洞。
+ * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54}
  */
 export const ConstraintKind = Object.freeze({
     /**
@@ -122,6 +125,127 @@ export const ConstraintKind = Object.freeze({
      * 内切且弧为外时内核自动置 flip，无需导出层指定）
      */
     TangentCircleArc: 27, "27": "TangentCircleArc",
+    /**
+     * p.x, p.y, c.x, c.y, m.x, m.y, n.x, n.y（三点式椭圆：中心/长轴点/短轴点）
+     */
+    PointOnEllipse: 28, "28": "PointOnEllipse",
+    /**
+     * l1.x, l1.y, l2.x, l2.y, c.x, c.y, m.x, m.y, n.x, n.y（branch 语义同 TangentLineCircle）
+     */
+    TangentLineEllipse: 29, "29": "TangentLineEllipse",
+    /**
+     * rho, datum（末位，无量纲）
+     */
+    ConicRho: 30, "30": "ConicRho",
+    /**
+     * p.x, p.y, s.x, s.y, c.x, c.y, e.x, e.y, rho, t（t 为辅助曲线参数，末位；
+     * 调用方创建并给初值，如投影值）
+     */
+    PointOnConic: 31, "31": "PointOnConic",
+    /**
+     * l1.x, l1.y, l2.x, l2.y, s.x, s.y, c.x, c.y, e.x, e.y, rho, t（t 末位；
+     * 接触点式无 branch）
+     */
+    TangentLineConic: 32, "32": "TangentLineConic",
+    /**
+     * p.x, p.y, cp0.x, cp0.y, cp1.x, cp1.y, cp2.x, cp2.y, cp3.x, cp3.y, t
+     * （定长 11：固定三次 Bézier 恒 4 个控制点，t 为辅助曲线参数，末位）
+     */
+    PointOnBezier: 33, "33": "PointOnBezier",
+    /**
+     * l1.x, l1.y, l2.x, l2.y, cp0.x, cp0.y, …, cp3.x, cp3.y, t（定长 13，t 末位）
+     */
+    TangentLineBezier: 34, "34": "TangentLineBezier",
+    /**
+     * p.x, p.y, cp0.x, cp0.y, …, cp_{n−1}.x, cp_{n−1}.y, w0, …, w_{n−1}, t
+     * （变长 3n+3：n 个控制点 + n 个有理权重 + 辅助曲线参数 t 末位；次数与
+     * 节点矢量经 `nurbs` 入参给出，n 由节点矢量长度反推）
+     */
+    PointOnNurbs: 35, "35": "PointOnNurbs",
+    /**
+     * l1.x, l1.y, l2.x, l2.y, cp0…, w0…, t（变长 3n+5，t 末位，同上）
+     */
+    TangentLineNurbs: 36, "36": "TangentLineNurbs",
+    /**
+     * 曲线-曲线相切（双接触点参数式，见 `TangentCurveCurve`）：布局
+     * [curve1…, t1, curve2…, t2]，t1/t2 为辅助接触点参数（Dimensionless，
+     * 调用方创建并给初值，如两曲线最近点对投影）。以下 18 种组合按族序
+     * Circle < Arc < Ellipse < Conic < Bezier < Nurbs 规范化（kind 自描述
+     * 两段布局；圆族内部组合已有 tangentcc/tangentca/tangentaa，不走本族）。
+     * Bézier 段定长（恒 8 参数），NURBS 段变长（3n，随 `nurbs` 结构数据）；
+     * 曲线 1 为 NURBS（即 Nurbs-Nurbs）时分界同样由结构数据推出
+     * c1.x, c1.y, r1, t1, ec.x, ec.y, em.x, em.y, en.x, en.y, t2
+     */
+    TangentCircleEllipse: 37, "37": "TangentCircleEllipse",
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, ec.x, ec.y, em.x, em.y, en.x, en.y, t2
+     */
+    TangentArcEllipse: 38, "38": "TangentArcEllipse",
+    /**
+     * c1.x, c1.y, r1, t1, s.x, s.y, c.x, c.y, e.x, e.y, rho, t2
+     */
+    TangentCircleConic: 39, "39": "TangentCircleConic",
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, s.x, s.y, c.x, c.y, e.x, e.y, rho, t2
+     */
+    TangentArcConic: 40, "40": "TangentArcConic",
+    /**
+     * c1.x, c1.y, r1, t1, bp0.x, bp0.y, …, bp3.x, bp3.y, t2（定长）
+     */
+    TangentCircleBezier: 41, "41": "TangentCircleBezier",
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, bp0…, t2（定长）
+     */
+    TangentArcBezier: 42, "42": "TangentArcBezier",
+    /**
+     * e1.c/m/n 各 (x, y), t1, e2.c/m/n 各 (x, y), t2
+     */
+    TangentEllipseEllipse: 43, "43": "TangentEllipseEllipse",
+    /**
+     * e1.c/m/n 各 (x, y), t1, s.x, s.y, c.x, c.y, e.x, e.y, rho, t2
+     */
+    TangentEllipseConic: 44, "44": "TangentEllipseConic",
+    /**
+     * e.c/m/n 各 (x, y), t1, bp0…, t2（定长）
+     */
+    TangentEllipseBezier: 45, "45": "TangentEllipseBezier",
+    /**
+     * co1.s/c/e 各 (x, y) + rho, t1, co2.s/c/e 各 (x, y) + rho, t2
+     */
+    TangentConicConic: 46, "46": "TangentConicConic",
+    /**
+     * co.s/c/e 各 (x, y) + rho, t1, bp0…, t2（定长）
+     */
+    TangentConicBezier: 47, "47": "TangentConicBezier",
+    /**
+     * bp0…, t1, bp′0…, t2（定长：两段各 8 参数）
+     */
+    TangentBezierBezier: 48, "48": "TangentBezierBezier",
+    /**
+     * c1.x, c1.y, r1, t1, cp0…, w0…, t2（变长：曲线 2 为 NURBS）
+     */
+    TangentCircleNurbs: 49, "49": "TangentCircleNurbs",
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, cp0…, w0…, t2（变长）
+     */
+    TangentArcNurbs: 50, "50": "TangentArcNurbs",
+    /**
+     * e.c/m/n 各 (x, y), t1, cp0…, w0…, t2（变长）
+     */
+    TangentEllipseNurbs: 51, "51": "TangentEllipseNurbs",
+    /**
+     * co.s/c/e 各 (x, y) + rho, t1, cp0…, w0…, t2（变长）
+     */
+    TangentConicNurbs: 52, "52": "TangentConicNurbs",
+    /**
+     * bp0…, t1, cp0…, w0…, t2（变长）
+     */
+    TangentBezierNurbs: 53, "53": "TangentBezierNurbs",
+    /**
+     * cp0…, w0…, t1, cp′0…, w′0…, t2（双变长 3n1+1+3n2+1：两段皆 NURBS，
+     * 分界与各段控制点数由 `nurbs` 结构数据推出，不依赖 ParamKind）
+     */
+    TangentNurbsNurbs: 54, "54": "TangentNurbsNurbs",
 });
 
 /**
@@ -164,6 +288,14 @@ export class WasmSystem {
      *   自动交换两圆/两弧（TangentCircleArc 布局不对称无法交换，改为置 flip
      *   标志），维持 c1 为外圆（外弧）的内核约定（同 TangentCC::auto）。
      *
+     * `nurbs` 仅对含 NURBS 的 kind 有效（其他 kind 必须为 None，否则报错）：
+     * 给出每段 NURBS 的**结构性构造常量**（`{ degree, knots }`，按曲线在约束
+     * 中的 canonical 序每段一项——Circle &lt; Arc &lt; Ellipse &lt; Conic &lt; Bezier
+     * &lt; Nurbs，故 NURBS 段恒为末段；Nurbs-Nurbs 相切给两项）。
+     * 控制点数由节点矢量长度反推（n = knots.length − degree − 1），权重是
+     * 求解参数、照常放在 `params` 里（控制点后紧跟 n 个权重，t 仍在末位）。
+     * 缺省的钳制均匀节点矢量即 `[0]×(degree+1) + [1, 2, …] + [n−degree]×(degree+1)`。
+     *
      * datum 只读契约（同内核 `System::add_constraint` rustdoc）：datum 参数
      * 必须只经 `set_param` 从 JS 侧驱动，不得同时是任何约束的未知量或从动
      * 输出；违反时不报错，但其消费块读到的是求解前的旧值（下一次 solve
@@ -175,12 +307,15 @@ export class WasmSystem {
      * @param {boolean} driving
      * @param {number} tag
      * @param {number | null} [branch]
+     * @param {NurbsSpec[] | null} [nurbs]
      * @returns {number}
      */
-    add_constraint(kind, params, datum, driving, tag, branch) {
+    add_constraint(kind, params, datum, driving, tag, branch, nurbs) {
         const ptr0 = passArray32ToWasm0(params, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmsystem_add_constraint(this.__wbg_ptr, kind, ptr0, len0, !isLikeNone(datum), isLikeNone(datum) ? 0 : datum, driving, tag, isLikeNone(branch) ? Number.MAX_SAFE_INTEGER : (branch) >> 0);
+        var ptr1 = isLikeNone(nurbs) ? 0 : passArrayJsValueToWasm0(nurbs, wasm.__wbindgen_malloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmsystem_add_constraint(this.__wbg_ptr, kind, ptr0, len0, !isLikeNone(datum), isLikeNone(datum) ? 0 : datum, driving, tag, isLikeNone(branch) ? Number.MAX_SAFE_INTEGER : (branch) >> 0, ptr1, len1);
         if (ret[2]) {
             throw takeFromExternrefTable0(ret[1]);
         }
@@ -527,6 +662,16 @@ function passArrayF64ToWasm0(arg, malloc) {
     const ptr = malloc(arg.length * 8, 8) >>> 0;
     getFloat64ArrayMemory0().set(arg, ptr / 8);
     WASM_VECTOR_LEN = arg.length;
+    return ptr;
+}
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    for (let i = 0; i < array.length; i++) {
+        const add = addToExternrefTable0(array[i]);
+        getDataViewMemory0().setUint32(ptr + 4 * i, add, true);
+    }
+    WASM_VECTOR_LEN = array.length;
     return ptr;
 }
 

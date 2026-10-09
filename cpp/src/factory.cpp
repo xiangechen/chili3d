@@ -1015,6 +1015,131 @@ public:
         return ShapeResult { edge.Edge(), true, "" };
     }
 
+    /// A rational B-spline (NURBS) edge, of which `bezier` is the special case. `knots` is the
+    /// *flat* vector the sketch entity stores — one entry per index, repeats and all, its length
+    /// always poles + degree + 1 — folded here into the distinct knots and multiplicities the
+    /// kernel takes. An empty `weights` means the non-rational form.
+    ///
+    /// Nothing below may raise: the Release build sets `-sDISABLE_EXCEPTION_CATCHING=1`, so an
+    /// OCCT raise aborts the module instead of unwinding. Every way the kernel could refuse the
+    /// input — a degree out of range or past what the pole count carries, a decreasing or
+    /// unclamped knot vector, an interior multiplicity past the degree, knots too close to tell
+    /// apart, a weight it cannot divide by — is answered here first, before the curve is built.
+    static ShapeResult bspline(
+        const Vector3Array& poles, const NumberArray& weights, const NumberArray& knots, int degree)
+    {
+        std::vector<Vector3> pts = vecFromJSArray<Vector3>(poles);
+        int count = static_cast<int>(pts.size());
+        if (degree < 1 || degree > Geom_BSplineCurve::MaxDegree()) {
+            return ShapeResult { TopoDS_Shape(), false, "A bspline degree is out of range" };
+        }
+        if (count < degree + 1) {
+            return ShapeResult { TopoDS_Shape(), false, "A bspline needs at least degree + 1 poles" };
+        }
+
+        std::vector<double> wts = vecFromJSArray<double>(weights);
+        std::string error = bsplineWeightError(wts, count);
+        if (!error.empty()) {
+            return ShapeResult { TopoDS_Shape(), false, error };
+        }
+
+        std::vector<double> kn = vecFromJSArray<double>(knots);
+        if (static_cast<int>(kn.size()) != count + degree + 1) {
+            return ShapeResult { TopoDS_Shape(), false, "A bspline knot vector is poles + degree + 1 long" };
+        }
+        std::vector<double> distinct;
+        std::vector<int> mults;
+        error = foldKnots(kn, degree, distinct, mults);
+        if (!error.empty()) {
+            return ShapeResult { TopoDS_Shape(), false, error };
+        }
+
+        BRepBuilderAPI_MakeEdge edge(makeBsplineCurve(pts, wts, distinct, mults, degree));
+        if (!edge.IsDone()) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create bspline" };
+        }
+        return ShapeResult { edge.Edge(), true, "" };
+    }
+
+    /// The reason a weight list is not one the kernel takes, or `""` when it is. An empty list is
+    /// the non-rational form and always fits.
+    static std::string bsplineWeightError(const std::vector<double>& wts, int count)
+    {
+        if (!wts.empty() && static_cast<int>(wts.size()) != count) {
+            return "A bspline needs one weight per pole";
+        }
+        for (size_t i = 0; i < wts.size(); i++) {
+            if (!std::isfinite(wts[i]) || wts[i] <= Precision::Confusion()) {
+                return "A bspline weight must be positive";
+            }
+        }
+        return "";
+    }
+
+    /// Folds the *flat* knot vector — one entry per index, repeats and all — into the distinct
+    /// knots and multiplicities the kernel takes, or returns the reason it is not one it accepts.
+    /// The last of those reasons matters as much as the first: an interval between distinct knots
+    /// thinner than an ULP is what `CheckCurveData` refuses, so knots that close fold here too.
+    /// The caller has checked the vector's length, so the fold always has both ends to read.
+    static std::string foldKnots(
+        const std::vector<double>& kn,
+        int degree,
+        std::vector<double>& distinct,
+        std::vector<int>& mults)
+    {
+        for (size_t i = 0; i < kn.size(); i++) {
+            if (!std::isfinite(kn[i])) {
+                return "A bspline knot must be finite";
+            }
+            if (!distinct.empty() && kn[i] < distinct.back()) {
+                return "A bspline knot vector must not decrease";
+            }
+            if (!distinct.empty() && kn[i] - distinct.back() <= Epsilon(std::abs(distinct.back()))) {
+                mults.back() += 1;
+            } else {
+                distinct.push_back(kn[i]);
+                mults.push_back(1);
+            }
+        }
+        // non-periodic: clamped at both ends, and no interior multiplicity past the degree
+        if (mults.front() != degree + 1 || mults.back() != degree + 1) {
+            return "A bspline must be clamped at both ends";
+        }
+        for (size_t i = 1; i + 1 < mults.size(); i++) {
+            if (mults[i] > degree) {
+                return "A bspline knot multiplicity is too high";
+            }
+        }
+        return "";
+    }
+
+    /// The kernel curve for a bspline whose poles, weights and knots have all been checked: the
+    /// four arrays `Geom_BSplineCurve` reads, built as the one call that needs them all at once.
+    static Handle(Geom_Curve) makeBsplineCurve(
+        const std::vector<Vector3>& pts,
+        const std::vector<double>& wts,
+        const std::vector<double>& distinct,
+        const std::vector<int>& mults,
+        int degree)
+    {
+        int count = static_cast<int>(pts.size());
+        NCollection_Array1<gp_Pnt> arrayofPnt(1, count);
+        for (int i = 0; i < count; i++) {
+            arrayofPnt.SetValue(i + 1, Vector3::toPnt(pts[i]));
+        }
+        NCollection_Array1<double> arrayOfWeight(1, count);
+        for (int i = 0; i < count; i++) {
+            arrayOfWeight.SetValue(i + 1, wts.empty() ? 1.0 : wts[i]);
+        }
+        NCollection_Array1<double> arrayOfKnot(1, static_cast<int>(distinct.size()));
+        NCollection_Array1<int> arrayOfMult(1, static_cast<int>(mults.size()));
+        for (size_t i = 0; i < distinct.size(); i++) {
+            arrayOfKnot.SetValue(static_cast<int>(i) + 1, distinct[i]);
+            arrayOfMult.SetValue(static_cast<int>(i) + 1, mults[i]);
+        }
+        return new Geom_BSplineCurve(arrayofPnt, arrayOfWeight, arrayOfKnot, arrayOfMult, degree);
+    }
+
     static ShapeResult helix(
         const Vector3& origin,
         const Vector3& normal,
@@ -2238,6 +2363,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("circle", &ShapeFactory::circle)
         .class_function("arc", &ShapeFactory::arc)
         .class_function("bezier", &ShapeFactory::bezier)
+        .class_function("bspline", &ShapeFactory::bspline)
         .class_function("helix", &ShapeFactory::helix)
         .class_function("rect", &ShapeFactory::rect)
         .class_function("point", &ShapeFactory::point)

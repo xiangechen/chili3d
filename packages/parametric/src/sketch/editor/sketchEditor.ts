@@ -107,6 +107,23 @@ export interface SketchElementPick {
 export interface SketchEntityPick {
     entityId: number;
     uv: [number, number];
+    /**
+     * The two control points the click landed between, when the pick asked for a *segment*
+     * (`segments`) and it landed on a free curve's control net. A segment of a free curve is
+     * not something the sketch stores: it is the line between two of the entity's own control
+     * points — the line the user sees drawn dashed, and the one a constraint can name, garlic
+     * reading four bare points. Absent for a line, whose own two points are its segment.
+     */
+    segment?: readonly [number, number];
+}
+
+/**
+ * What an entity hit-test found: the entity, and — for a pick that asked for a segment — the
+ * two control points the click was on the line between.
+ */
+export interface SketchEntityHit {
+    readonly entityId: number;
+    readonly segment?: readonly [number, number];
 }
 
 /** Live-preview callback fed with the pointer uv on each move; undefined when off-plane. */
@@ -130,6 +147,12 @@ export interface SketchActivePick {
     entityType?: SketchEntityTypeFilter;
     /** Entity picks only: also allow picking the datum X/Y axes. */
     datum?: boolean;
+    /**
+     * Entity picks only: pick a *segment* — a line, or the line between two control points of
+     * a free curve (its control net, drawn dashed). What the pick answers with carries which
+     * pair it was (`SketchEntityPick.segment`).
+     */
+    segments?: boolean;
     preview?: SketchPickPreview;
     previewEntity?: SketchEntityPreview;
     previewAt?: SketchPreviewAt;
@@ -430,9 +453,63 @@ export class SketchEditor implements IDisposable {
             (ids) => this.eventHandler.highlightConstraintEntities(ids),
             (id) => this.editDatum(id),
             (id, field) => this.editArrayValue(id, field),
+            (id) => this.editOffsetValue(id),
             () => this.arrayDraft,
             () => this.commit(),
         );
+    }
+
+    /**
+     * Opens an offset curve's distance — what double-clicking its number on the canvas does.
+     * The copy has no geometry of its own, so the number *is* the whole of what the user
+     * decides about it: the dialog writes it into the entity and `applyDatum` solves and
+     * commits, which is what puts the copy where the new distance says.
+     *
+     * The number is stored resolved, as a pattern's count is: an expression may be typed and is
+     * read against the document's parameters, but what the entity keeps is its value.
+     */
+    editOffsetValue(entityId: number): void {
+        const ref = this.solver.entity(entityId)?.offset;
+        if (ref === undefined) return;
+        // A value may parse and still be one the geometry refuses (a distance that folds the
+        // copy): the dialog reports it, and this holds the commit back, so a refused edit
+        // leaves no solve-and-commit — and no undo step — behind it.
+        let accepted = false;
+        void this.promptDatum(
+            ref.distance,
+            (value) => {
+                accepted = this.applyOffsetDistance(entityId, value);
+            },
+            LENGTH_UNITS,
+            undefined,
+            {
+                title: "sketch.offsetDistance",
+                // a negative distance offsets to the other side of the source, which is a real
+                // answer — the tool's own arrow allows it
+                positiveOnly: false,
+                onApplied: () => {
+                    if (accepted) this.applyDatum();
+                },
+            },
+        );
+    }
+
+    /**
+     * Writes a distance into an offset curve, reporting one the geometry cannot carry.
+     * `false` is a write that did not happen: the caller holds back its commit.
+     */
+    private applyOffsetDistance(entityId: number, value: ParameterValue): boolean {
+        const resolved = resolveUnitSpec(value, this.variableScope(), LENGTH_UNITS);
+        if (!resolved.isOk) {
+            PubSub.default.pub("displayError", resolved.error);
+            return false;
+        }
+        const result = this.solver.setOffsetDistance(entityId, resolved.value);
+        if (!result.isOk) {
+            PubSub.default.pub("displayError", result.error);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -680,7 +757,7 @@ export class SketchEditor implements IDisposable {
     pickEntityAt(
         prompt: I18nKeys,
         type?: SketchEntityTypeFilter,
-        options?: { datum?: boolean; previewAt?: SketchPreviewAt },
+        options?: { datum?: boolean; previewAt?: SketchPreviewAt; segments?: boolean },
         controller?: AsyncController,
     ): Promise<SketchEntityPick | undefined> {
         return this.startPick(
@@ -692,6 +769,7 @@ export class SketchEditor implements IDisposable {
             controller,
             undefined,
             options?.previewAt,
+            options?.segments,
         );
     }
 
@@ -748,14 +826,14 @@ export class SketchEditor implements IDisposable {
         }
 
         if (request.kind === "entities") {
-            const entity = this.eventHandler.hitTestEntity(
+            const hit = this.eventHandler.hitTestEntity(
                 view,
                 event,
                 request.entityType,
                 request.datum ?? false,
             );
-            if (entity === undefined) return false;
-            this.resolvePick([entity]);
+            if (hit === undefined) return false;
+            this.resolvePick([hit.entityId]);
             return true;
         }
 
@@ -767,28 +845,35 @@ export class SketchEditor implements IDisposable {
         }
 
         if (request.kind === "entityAt") {
-            const entityId = this.eventHandler.hitTestEntity(
+            const hit = this.eventHandler.hitTestEntity(
                 view,
                 event,
                 request.entityType,
                 request.datum ?? false,
+                request.segments ?? false,
             );
             const uv = this.eventHandler.pointerToUV(view, event);
-            if (entityId !== undefined && uv !== undefined) this.resolvePick({ entityId, uv });
+            if (hit !== undefined && uv !== undefined) this.resolvePick({ ...hit, uv });
             return true;
         }
 
-        let value: unknown;
-        if (request.kind === "point") {
-            value = this.eventHandler.hitTestPoint(view, event);
-        } else if (request.kind === "entity") {
-            value = this.eventHandler.hitTestEntity(view, event, request.entityType, request.datum ?? false);
-        } else {
-            value = this.eventHandler.pointerToUV(view, event);
-        }
-
+        const value = this.hitTestPickValue(view, event, request);
         if (value !== undefined) this.resolvePick(value);
         return true;
+    }
+
+    /**
+     * The value a kind-based pick answers with: the point under the pointer, the id of the
+     * entity under it, or the place itself. `undefined` when the pointer found nothing, which
+     * the caller reads as a miss.
+     */
+    private hitTestPickValue(view: IView, event: PointerEvent, request: PickRequest): unknown {
+        if (request.kind === "point") return this.eventHandler.hitTestPoint(view, event);
+        if (request.kind === "entity") {
+            return this.eventHandler.hitTestEntity(view, event, request.entityType, request.datum ?? false)
+                ?.entityId;
+        }
+        return this.eventHandler.pointerToUV(view, event);
     }
 
     /**
@@ -807,16 +892,11 @@ export class SketchEditor implements IDisposable {
             this.resolvePick({ hit: { kind: "point", ref }, uv });
             return;
         }
-        const entityId = this.eventHandler.hitTestEntity(
-            view,
-            event,
-            request.entityType,
-            request.datum ?? false,
-        );
+        const hit = this.eventHandler.hitTestEntity(view, event, request.entityType, request.datum ?? false);
         this.resolvePick(
-            entityId === undefined
+            hit === undefined
                 ? { hit: { kind: "position" }, uv }
-                : { hit: { kind: "entity", entityId }, uv },
+                : { hit: { kind: "entity", entityId: hit.entityId }, uv },
         );
     }
 
@@ -912,34 +992,8 @@ export class SketchEditor implements IDisposable {
         if (this.disposed) return;
         const requested = [...entityIds];
         if (requested.length === 0) return;
-        // Deleting an array's instance takes it *out of the pattern* rather than deleting it
-        // outright: the geometry is the record's to lay down, so a delete that only removed
-        // the entity would have the next solve put it straight back. The count is untouched
-        // and the hole stays one (`SketchSolver.skipInstance`), which is how Onshape reads a
-        // deleted sketch-pattern occurrence.
-        //
-        // Which instances the ids name is settled first, because an instance is several
-        // entities and the first of them takes the whole of it out — the rest are gone by the
-        // time their turn comes, and asking afterwards would read them as ordinary deletions.
-        const instances = new Map<string, number>();
-        const ids: number[] = [];
-        for (const id of requested) {
-            const owner = this.solver.instanceOf(id);
-            if (owner === undefined) {
-                ids.push(id);
-                continue;
-            }
-            const key = `${owner.arrayId}:${owner.index}`;
-            if (instances.has(key)) continue;
-            instances.set(key, id);
-        }
-        for (const id of instances.values()) {
-            this.solver.skipInstance(id);
-        }
-        if (instances.size > 0) {
-            PubSub.default.pub("statusBarTip", "sketch.arrayInstanceRemoved{0}", instances.size);
-        }
-        if (ids.length === 0 && instances.size === 0) return;
+        const { ids, instances } = this.takeInstancesOut(requested);
+        if (ids.length === 0 && instances === 0) return;
         const removedConstraints: number[] = [];
         for (const entityId of ids) {
             // external references are not regular solver entities — they remove through their own flow
@@ -956,6 +1010,39 @@ export class SketchEditor implements IDisposable {
         if (ids.some(isExternalEntityId)) this.refreshExternalDisplay();
         this.solve(true);
         this.commit();
+    }
+
+    /**
+     * Takes the requested ids apart: the ones that are a pattern's instances are taken *out
+     * of the pattern* rather than deleted — the geometry is the record's to lay down, so a
+     * delete that only removed the entity would have the next solve put it straight back.
+     * The count is untouched and the hole stays one (`SketchSolver.skipInstance`), which is
+     * how Onshape reads a deleted sketch-pattern occurrence.
+     *
+     * Which instances the ids name is settled in one pass, because an instance is several
+     * entities and the first of them takes the whole of it out — the rest are gone by the
+     * time their turn comes, and asking afterwards would read them as ordinary deletions.
+     * Returns what is left to delete outright, and how many instances were taken out.
+     */
+    private takeInstancesOut(requested: readonly number[]): { ids: number[]; instances: number } {
+        const instances = new Map<string, number>();
+        const ids: number[] = [];
+        for (const id of requested) {
+            const owner = this.solver.instanceOf(id);
+            if (owner === undefined) {
+                ids.push(id);
+                continue;
+            }
+            const key = `${owner.arrayId}:${owner.index}`;
+            if (!instances.has(key)) instances.set(key, id);
+        }
+        for (const id of instances.values()) {
+            this.solver.skipInstance(id);
+        }
+        if (instances.size > 0) {
+            PubSub.default.pub("statusBarTip", "sketch.arrayInstanceRemoved{0}", instances.size);
+        }
+        return { ids, instances: instances.size };
     }
 
     /**
@@ -1002,7 +1089,7 @@ export class SketchEditor implements IDisposable {
         apply: (value: ParameterValue) => void,
         unit: UnitSpec,
         onCancel?: () => void,
-        options?: { positiveOnly?: boolean; title?: I18nKeys; onApplied?: () => void },
+        options?: { positiveOnly?: boolean; maxExclusive?: number; title?: I18nKeys; onApplied?: () => void },
     ): Promise<void> {
         return datumPrompt.promptDatum(
             initial,
@@ -1068,7 +1155,11 @@ export class SketchEditor implements IDisposable {
             (value) => this.solver.setDatumSource(constraintId, value),
             unit,
             undefined,
-            { positiveOnly: !datumIsSigned(constraint.kind) },
+            {
+                positiveOnly: !datumIsSigned(constraint.kind),
+                // a conic's rho is a ratio in (0, 1) — the one datum with a ceiling
+                ...(constraint.kind === ConstraintKind.ConicRho ? { maxExclusive: 1 } : {}),
+            },
         );
     }
 
@@ -1176,11 +1267,21 @@ export class SketchEditor implements IDisposable {
         controller?: AsyncController,
         previewEntity?: SketchEntityPreview,
         previewAt?: SketchPreviewAt,
+        segments?: boolean,
     ): Promise<T> {
         this.cancelPick();
         PubSub.default.pub("statusBarTip", prompt);
         return new Promise<T>((resolve) => {
-            this.pickRequest = { kind, entityType, datum, preview, previewEntity, previewAt, resolve };
+            this.pickRequest = {
+                kind,
+                entityType,
+                datum,
+                preview,
+                previewEntity,
+                previewAt,
+                segments,
+                resolve,
+            };
             this.eventHandler.setController(this.view, controller);
             this.annotations.suppressConstraintSymbols = true;
         });

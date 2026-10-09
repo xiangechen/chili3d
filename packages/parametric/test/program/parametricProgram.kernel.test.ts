@@ -153,6 +153,35 @@ describe("sketch and extrude", () => {
         expect(nodeIds(doc)).toEqual([]);
     });
 
+    test("a program's nurbs entity becomes a curve the body is built from", () => {
+        const doc = newDoc();
+        // the program states control points and nothing else; the sketch's own layout — unit
+        // weights and the clamped uniform structure — is the builder's (`nurbsParams`)
+        const loop = [
+            [0, 0],
+            [30, 5],
+            [15, 30],
+            [45, 15],
+            [60, 40],
+            [20, 45],
+            [0, 0],
+        ];
+        const result = run(doc, [
+            { op: "sketch", id: "s1", plane: "XY", entities: [{ type: "nurbs", params: loop.flat() }] },
+            { op: "extrude", id: "b1", sketch: "s1", depth: 10 },
+        ]);
+        const body = createdBody(doc, result, "b1");
+        expectClean(body);
+        // the profile closed into a face and was extruded: the body is 10 deep, and its
+        // footprint stays inside the control polygon the program gave
+        const [minX, minY, minZ, maxX, maxY, maxZ] = extent(body);
+        expect(minX).toBeGreaterThanOrEqual(-1);
+        expect(maxX).toBeLessThanOrEqual(61);
+        expect(maxZ - minZ).toBeCloseTo(10, 6);
+        expect(minY).toBeGreaterThanOrEqual(-1);
+        expect(maxY).toBeLessThanOrEqual(46);
+    });
+
     test("a sketch can be built on a planar face of an existing body", () => {
         const doc = newDoc();
         const first = run(doc, plate(20));

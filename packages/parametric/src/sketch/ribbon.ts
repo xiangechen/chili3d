@@ -31,7 +31,25 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             },
             {
                 groupName: "ribbon.group.draw",
-                items: ["sketch.line", "sketch.circle", "sketch.arc", "sketch.rectangle", "sketch.polygon"],
+                items: [
+                    "sketch.line",
+                    {
+                        type: "split",
+                        items: ["sketch.circle", "sketch.ellipse"],
+                    },
+                    {
+                        type: "split",
+                        items: ["sketch.arc", "sketch.ellipseArc"],
+                    },
+                    {
+                        type: "split",
+                        items: ["sketch.bezier", "sketch.nurbs", "sketch.conic"],
+                    },
+                    {
+                        type: "split",
+                        items: ["sketch.rectangle", "sketch.polygon"],
+                    },
+                ],
             },
             {
                 groupName: "ribbon.group.constraint",
@@ -46,7 +64,6 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
             {
                 groupName: "ribbon.group.dimension",
                 items: [
-                    "constraint.toggleDriven",
                     "dimension",
                     ["dimension.distance", "dimension.radius", "dimension.angle"],
                     [
@@ -72,6 +89,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                 groupName: "ribbon.group.other",
                 items: [
                     "sketch.constraints",
+                    "constraint.toggleDriven",
                     ["sketch.projectEdges", "sketch.toggleExternal", "sketch.toggleConstruction"],
                 ],
             },

@@ -2,7 +2,7 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const __wbg_wasmsystem_free: (a: number, b: number) => void;
-export const wasmsystem_add_constraint: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
+export const wasmsystem_add_constraint: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => [number, number, number];
 export const wasmsystem_add_params: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const wasmsystem_clear_dragged: (a: number, b: number, c: number) => [number, number];
 export const wasmsystem_diagnose: (a: number) => [number, number, number];

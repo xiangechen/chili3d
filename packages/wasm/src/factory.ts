@@ -503,6 +503,13 @@ export class ShapeFactory implements IShapeFactory {
             "Bezier Error",
         ) as Result<IEdge>;
     }
+    bspline(poles: XYZLike[], weights: number[] | undefined, knots: number[], degree: number): Result<IEdge> {
+        return convertShapeResult(
+            wasm.ShapeFactory.bspline,
+            [poles, weights ?? [], knots, degree],
+            "Bspline Error",
+        ) as Result<IEdge>;
+    }
     helix(
         origin: XYZLike,
         normal: XYZLike,

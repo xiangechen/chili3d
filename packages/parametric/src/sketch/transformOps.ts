@@ -2,10 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision, Result } from "@chili3d/core";
+import { nurbsWeights, sampleEntity } from "./curveEval";
 import { isBroken } from "./entityEditOps";
 import {
     arcAngles,
     ConstraintKind,
+    entityPointCount,
     entityRadius,
     type SketchConstraintData,
     type SketchData,
@@ -118,34 +120,26 @@ export function transformPoint(
 
 /**
  * The entity's points in `pointIndex` order — the order `setPointPosition` and the
- * coincidence groups address them by: a line's two ends, a circle's centre, an arc's
- * centre, start and end. Exported because it *is* the params-to-pointIndex layout, which
- * the array needs to write an instance's params back through the point setters.
+ * coincidence groups address them by. Every type lays its points out as the leading
+ * pairs of its params (a circle's radius and a conic's rho trail as scalars of their
+ * own), so the layout is the count, not the type. Exported because it *is* the
+ * params-to-pointIndex layout, which the array needs to write an instance's params
+ * back through the point setters.
  */
 export function entityPoints(entity: SketchEntityData): [number, number][] {
-    const [x1, y1, x2, y2, x3, y3] = entity.params;
-    switch (entity.type) {
-        case "line":
-            return [
-                [x1, y1],
-                [x2, y2],
-            ];
-        case "circle":
-            return [[x1, y1]];
-        default:
-            return [
-                [x1, y1],
-                [x2, y2],
-                [x3, y3],
-            ];
+    const points: [number, number][] = [];
+    for (let pointIndex = 0; pointIndex < entityPointCount(entity); pointIndex++) {
+        points.push([entity.params[pointIndex * 2], entity.params[pointIndex * 2 + 1]]);
     }
+    return points;
 }
 
 /**
  * One entity's transformed params, in its own layout. A circle's radius is a param of its
  * own and has to be scaled with it; an arc's is ‖start − centre‖ and comes along with its
- * points. An arc's orientation survives a positive scale, so — unlike a mirror — its start
- * and end keep their places.
+ * points. A conic's rho and a NURBS' weights trail the same way but are dimensionless, so
+ * a similarity leaves them alone — they are carried, not transformed. An arc's orientation
+ * survives a positive scale, so — unlike a mirror — its start and end keep their places.
  */
 export function transformParams(
     entity: SketchEntityData,
@@ -156,13 +150,21 @@ export function transformParams(
     if (entity.type === "circle") {
         return [...points[0], entity.params[2] * transform.scale];
     }
+    if (entity.type === "conic") {
+        return [...points.flat(), entity.params[6]];
+    }
+    if (entity.type === "nurbs") {
+        return [...points.flat(), ...nurbsWeights(entity.params)];
+    }
     return points.flat();
 }
 
 /**
  * The corners that bound an entity, for the base: a circle bounds by its own reach, and an
  * arc by the extremes it sweeps through — its centre and ends alone would bound a half turn
- * no taller than its chord, sitting the triad on the string rather than on the bow.
+ * no taller than its chord, sitting the triad on the string rather than on the bow. The
+ * curve families have no such closed form handy, so they bound by a sampled polyline —
+ * near enough for where the triad sits.
  */
 function boundsCorners(entity: SketchEntityData): [number, number][] {
     if (entity.type === "circle") {
@@ -172,7 +174,12 @@ function boundsCorners(entity: SketchEntityData): [number, number][] {
             [cx + r, cy + r],
         ];
     }
-    if (entity.type !== "arc") return entityPoints(entity);
+    if (entity.type === "line") return entityPoints(entity);
+    if (entity.type !== "arc") {
+        // the free curves and the ellipse family: no closed form handy, so bound by a sampled
+        // polyline — near enough for where the triad sits
+        return sampleEntity(entity, 48);
+    }
     const corners = entityPoints(entity);
     const [cx, cy] = entity.params;
     const radius = entityRadius(entity);
@@ -240,10 +247,33 @@ export function isIdentityTransform(transform: SketchTransform): boolean {
     );
 }
 
+/**
+ * The extent a scale of zero would take from the entity — what `scalingProblem` guards.
+ * A circle or an arc answers its radius; an ellipse its longer semi-axis; a conic or a
+ * nurbs the spread of its control points (the furthest pair), which is the only size a
+ * has before it is evaluated.
+ */
+function entityExtent(entity: SketchEntityData): number {
+    if (entity.type === "circle" || entity.type === "arc") return entityRadius(entity);
+    const points = entityPoints(entity);
+    if (entity.type === "ellipse" || entity.type === "ellipseArc") {
+        const major = Math.hypot(points[1][0] - points[0][0], points[1][1] - points[0][1]);
+        const minor = Math.hypot(points[2][0] - points[0][0], points[2][1] - points[0][1]);
+        return Math.max(major, minor);
+    }
+    let spread = 0;
+    for (let i = 0; i < points.length; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+            spread = Math.max(spread, Math.hypot(points[j][0] - points[i][0], points[j][1] - points[i][1]));
+        }
+    }
+    return spread;
+}
+
 /** Why the entity cannot come through the transform, or `undefined` when it can. */
 function scalingProblem(entity: SketchEntityData, transform: SketchTransform): string | undefined {
     if (entity.type === "line") return undefined;
-    if (entityRadius(entity) * transform.scale <= Precision.Distance) {
+    if (entityExtent(entity) * transform.scale <= Precision.Distance) {
         return "The scale would collapse the sketch geometry";
     }
     return undefined;

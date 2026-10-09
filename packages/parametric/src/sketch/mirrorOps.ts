@@ -4,6 +4,8 @@
 import { Precision, Result } from "@chili3d/core";
 import {
     ConstraintKind,
+    defaultNurbsSpec,
+    entityPointCount,
     pointRefKey,
     type SketchEntityData,
     type SketchEntityType,
@@ -102,53 +104,107 @@ function axisOf(solver: SketchSolver, axisId: number): Result<MirrorAxis> {
     return Result.ok({ a: [x1, y1], b: [x2, y2] });
 }
 
+/** A reflection of one point in the plane, as `planMirror` passes it down to its helpers. */
+type Reflect = (point: readonly [number, number]) => [number, number];
+
 /**
  * The copy of one entity: its reflected params, and the point pairs that tie them
- * together. An arc's start and end swap places — a reflection reverses orientation, so
- * the mirrored span only reads counter-clockwise from start to end with them exchanged.
+ * together.
+ *
+ * Most entities are just their points: a reflection moves those and leaves everything
+ * else alone — a circle's radius, a conic's rho and a NURBS' weights are not points, and
+ * `pointPlan` carries them through untouched. Two entities say more. An arc's rim points
+ * trade places, because a reflection reverses orientation and the mirrored span only reads
+ * counter-clockwise with them exchanged. An ellipseArc's do not: its sweep is measured in
+ * its own frame, and the mirrored frame is left-handed, so the frame itself carries the
+ * flip and the rim points keep their places (swapping them would draw the complement). A
+ * conic equally keeps its pole order — a bezier's direction is its poles', not the
+ * plane's — and its knots are outside the params altogether.
  */
 function planMirror(entity: SketchEntityData, axis: MirrorAxis): MirrorPlan {
-    const { a, b } = axis;
-    if (entity.type === "line") {
-        const [x1, y1, x2, y2] = entity.params;
-        return {
-            type: "line",
-            params: [...reflectPoint([x1, y1], a, b), ...reflectPoint([x2, y2], a, b)],
-            pairs: [
-                { source: { entityId: entity.id, pointIndex: 0 }, copyIndex: 0 },
-                { source: { entityId: entity.id, pointIndex: 1 }, copyIndex: 1 },
-            ],
-            equalRadius: false,
-        };
+    const reflect: Reflect = (point) => reflectPoint(point, axis.a, axis.b);
+    switch (entity.type) {
+        case "line":
+            return pointPlan(entity, 2, reflect);
+        case "circle":
+            return { ...pointPlan(entity, 1, reflect), equalRadius: true };
+        case "ellipse":
+            return pointPlan(entity, 3, reflect);
+        case "conic":
+            return pointPlan(entity, 3, reflect);
+        case "arc": {
+            // the reflected arc runs counter-clockwise from the image of the source's END
+            const center = reflect([entity.params[0], entity.params[1]]);
+            const start = reflect([entity.params[2], entity.params[3]]);
+            const end = reflect([entity.params[4], entity.params[5]]);
+            return {
+                type: "arc",
+                params: [...center, ...end, ...start],
+                pairs: mirrorPairs(entity.id, 3, [1, 2]),
+                equalRadius: false,
+            };
+        }
+        case "ellipseArc": {
+            const frame = chunkPoints(entity.params, 3).flatMap(reflect);
+            const start = reflect([entity.params[6], entity.params[7]]);
+            const end = reflect([entity.params[8], entity.params[9]]);
+            return {
+                type: "ellipseArc",
+                params: [...frame, ...start, ...end],
+                pairs: mirrorPairs(entity.id, 5),
+                equalRadius: false,
+            };
+        }
+        default:
+            // the free curves — a cubic bezier or a NURBS: every control point reflected
+            return pointPlan(entity, entityPointCount(entity), reflect);
     }
-    const [cx, cy] = entity.params;
-    const center = reflectPoint([cx, cy], a, b);
-    if (entity.type === "circle") {
-        return {
-            type: "circle",
-            params: [...center, entity.params[2]],
-            pairs: [{ source: centerRef(entity.id), copyIndex: 0 }],
-            equalRadius: true,
-        };
-    }
-    const start = reflectPoint([entity.params[2], entity.params[3]], a, b);
-    const end = reflectPoint([entity.params[4], entity.params[5]], a, b);
+}
+
+/**
+ * The plan for an entity that reflects point by point: its first `count` point slots
+ * mirrored, and every param past them — a radius, a rho, a NURBS' weights — carried
+ * through as it is.
+ */
+function pointPlan(entity: SketchEntityData, count: number, reflect: Reflect): MirrorPlan {
     return {
-        type: "arc",
-        // the reflected arc runs counter-clockwise from the image of the source's END
-        params: [...center, ...end, ...start],
-        pairs: [
-            { source: centerRef(entity.id), copyIndex: 0 },
-            { source: { entityId: entity.id, pointIndex: 2 }, copyIndex: 1 },
-            { source: { entityId: entity.id, pointIndex: 1 }, copyIndex: 2 },
-        ],
+        type: entity.type,
+        params: [...chunkPoints(entity.params, count).flatMap(reflect), ...entity.params.slice(count * 2)],
+        pairs: mirrorPairs(entity.id, count),
         equalRadius: false,
     };
 }
 
+/**
+ * The point pairs of a copy: source point `i` answers copy point `i`, except that `swap`
+ * names two that trade places (an arc's rim points, see `planMirror`).
+ */
+function mirrorPairs(entityId: number, count: number, swap?: [number, number]): MirrorPair[] {
+    const pairs: MirrorPair[] = [];
+    for (let pointIndex = 0; pointIndex < count; pointIndex++) {
+        let copyIndex = pointIndex;
+        if (swap !== undefined && pointIndex === swap[0]) copyIndex = swap[1];
+        else if (swap !== undefined && pointIndex === swap[1]) copyIndex = swap[0];
+        pairs.push({ source: { entityId, pointIndex }, copyIndex });
+    }
+    return pairs;
+}
+
+/** The params' point slots as coordinate pairs: the first `count` pairs of the params. */
+function chunkPoints(params: readonly number[], count: number): [number, number][] {
+    const points: [number, number][] = [];
+    for (let i = 0; i < count; i++) {
+        points.push([params[i * 2], params[i * 2 + 1]]);
+    }
+    return points;
+}
+
 /** A source entity eligible to be mirrored: real geometry of a kind the solver can reflect. */
 function isMirrorable(entity: SketchEntityData | undefined): entity is SketchEntityData {
-    return entity !== undefined && ["line", "circle", "arc"].includes(entity.type);
+    return (
+        entity !== undefined &&
+        ["line", "circle", "arc", "ellipse", "ellipseArc", "conic", "bezier", "nurbs"].includes(entity.type)
+    );
 }
 
 /** A source to mirror, with the copy already worked out. */
@@ -268,13 +324,11 @@ interface MirroredCopy {
 
 /** Adds one mirrored copy's geometry and keeps its construction flag; the ties come after. */
 function addCopy(solver: SketchSolver, entity: SketchEntityData, plan: MirrorPlan): number {
-    const [x1, y1, x2, y2, x3, y3] = plan.params;
-    const copyId =
-        plan.type === "line"
-            ? solver.addLine(x1, y1, x2, y2)
-            : plan.type === "circle"
-              ? solver.addCircle(x1, y1, x2)
-              : solver.addArc(x1, y1, x2, y2, x3, y3);
+    // the source's own knots: a reflection moves the control points, not the curve's
+    // structure. `entity()` always carries them for a NURBS, the fallback being the
+    // same clamped uniform default the evaluation falls back to
+    const nurbs = entity.nurbs ?? defaultNurbsSpec(entityPointCount(entity));
+    const copyId = solver.addEntityFromParams(plan.type, plan.params, nurbs);
     if (solver.isConstruction(entity.id)) solver.setConstruction(copyId, true);
     return copyId;
 }
@@ -330,31 +384,68 @@ function addTies(
         solver,
         pairs.map((pair) => pair.source),
     );
+    tieSymmetries(solver, pairs, groups, axisRefs);
+    tieCopySizes(solver, copies);
+    tieMirroredCoincidences(solver, groups, copyOf);
+}
+
+/**
+ * A symmetry per mirrored point pair — except that points a coincidence already joins
+ * share one symmetry, since garlic spells such a pair as a single parameter and the second
+ * row would be the first over again (see the module header).
+ */
+function tieSymmetries(
+    solver: SketchSolver,
+    pairs: readonly MirroredPair[],
+    groups: readonly SketchPointRef[][],
+    axisRefs: readonly SketchPointRef[],
+): void {
     // the first point of a group stands for all of it
     const headOf = new Map<string, string>();
     for (const group of groups) {
         for (const member of group) headOf.set(pointRefKey(member), pointRefKey(group[0]));
     }
-    const standsForItsGroup = (ref: SketchPointRef) => {
-        const head = headOf.get(pointRefKey(ref));
-        return head === undefined || head === pointRefKey(ref);
-    };
-
     for (const { source, copy } of pairs) {
-        if (standsForItsGroup(source)) {
+        const head = headOf.get(pointRefKey(source));
+        // a point in no group is a head of itself: the map has nothing for it
+        if (head === undefined || head === pointRefKey(source)) {
             solver.addConstraint({ kind: ConstraintKind.Symmetric, refs: [source, copy, ...axisRefs] });
         }
     }
+}
+
+/**
+ * The sizes a point symmetry leaves free. A circle's radius and a conic's rho are params of
+ * their own, which the symmetries never reach, so each copy is pinned to its source's value
+ * the same way an offset keeps the size it was created with.
+ */
+function tieCopySizes(solver: SketchSolver, copies: readonly MirroredCopy[]): void {
     for (const { entity, plan, copyId } of copies) {
-        // a circle's radius is its own param: the center symmetry leaves it free
-        if (!plan.equalRadius) continue;
-        solver.addConstraint({
-            kind: ConstraintKind.EqualRadius,
-            refs: [centerRef(entity.id), centerRef(copyId)],
-        });
+        if (plan.equalRadius) {
+            solver.addConstraint({
+                kind: ConstraintKind.EqualRadius,
+                refs: [centerRef(entity.id), centerRef(copyId)],
+            });
+        }
+        if (plan.type === "conic") {
+            solver.addConstraint({
+                kind: ConstraintKind.ConicRho,
+                refs: [{ entityId: copyId, pointIndex: 0 }],
+                datum: entity.params[6],
+            });
+        }
     }
-    // the copy keeps the source's own structure, so a point the source joins stays joined
-    // — and a later drag has nothing left to add
+}
+
+/**
+ * The copy keeps the source's own structure, so a point the source joins stays joined —
+ * and a later drag has nothing left to add.
+ */
+function tieMirroredCoincidences(
+    solver: SketchSolver,
+    groups: readonly SketchPointRef[][],
+    copyOf: ReadonlyMap<string, SketchPointRef>,
+): void {
     for (const group of groups) {
         const head = copyOf.get(pointRefKey(group[0]));
         if (head === undefined) continue;

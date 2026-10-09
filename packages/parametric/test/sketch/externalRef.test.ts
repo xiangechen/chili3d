@@ -392,7 +392,7 @@ function arcBasisEdge(cx: number, cy: number, radius: number, a0: number, a1: nu
     } as unknown as IEdge;
 }
 
-function splineEdge(): IEdge {
+function freeformEdge(): IEdge {
     const start = new XYZ({ x: 0, y: 0, z: 0 });
     const end = new XYZ({ x: 10, y: 10, z: 0 });
     return {
@@ -467,8 +467,8 @@ describe("resolveExternalRefs", () => {
     });
 
     test("an unsupported curve kind marks the ref dangling", () => {
-        const spline = splineEdge();
-        const { doc } = setup(spline);
+        const freeform = freeformEdge();
+        const { doc } = setup(freeform);
         const ref: ExternalRefData = {
             entityId: -100,
             nodeId: doc.modelManager.findNode(() => true)!.id,

@@ -31,6 +31,8 @@ import { ParametricBodyNode } from "../parametricBodyNode";
 import { captureFaceRef, type PlaneFaceRef, sketchPlaneOfFace } from "../sketch/planeRef";
 import {
     ConstraintKind,
+    defaultNurbsSpec,
+    nurbsParams,
     type SketchConstraintData,
     type SketchData,
     type SketchEntityData,
@@ -346,9 +348,10 @@ function buildSketchData(document: IDocument, op: SketchOp, plane: Plane): Sketc
     const entities: SketchEntityData[] = op.entities.map((entity, index) => ({
         id: index + 1,
         type: entity.type,
-        params: entity.params,
+        params: entity.type === "nurbs" ? nurbsParams(entity.params) : entity.params,
         // emitted only when set, so a plain sketch keeps its minimal serialized form
         ...(entity.construction === true ? { construction: true } : {}),
+        ...(entity.type === "nurbs" ? { nurbs: defaultNurbsSpec(entity.params.length / 2) } : {}),
     }));
     const data: SketchData = {
         entities,

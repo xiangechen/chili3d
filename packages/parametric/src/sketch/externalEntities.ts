@@ -360,7 +360,7 @@ export class ExternalEntityRegistry {
         // Only the point params are pinned here — a circle's radius param is not a
         // coordinate pair and gets its own Radius pin below.
         const { datumParamIds, constraintIds } = this.host.pinPoints(
-            paramIds.slice(0, entityPointCount(type) * 2),
+            paramIds.slice(0, entityPointCount({ type, params }) * 2),
             params,
         );
         if (type === "circle") {

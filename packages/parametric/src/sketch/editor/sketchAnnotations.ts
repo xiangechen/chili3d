@@ -17,6 +17,7 @@ import {
     type VisualItemConfig,
 } from "@chili3d/core";
 import { type ArrayDraft, type ArrayField, type ArrayRun, liveInstanceIds, resolveArray } from "../arrayOps";
+import { conicShoulder, entityDomain, evaluateEntity, isFreeCurveType } from "../curveEval";
 import {
     arcAngles,
     ConstraintKind,
@@ -24,6 +25,7 @@ import {
     entityRadius,
     isDatumEntityId,
     isStructuralConstraint,
+    type OffsetCurveRef,
     pointRefKey,
     type SketchArrayPattern,
     type SketchConstraintData,
@@ -48,6 +50,7 @@ import {
     formatDrivenDatum,
     labelOnAxis,
     labelOnSegment,
+    leaderDimension,
     measuresSupplement,
     pointLineDistance,
     pointLineDistanceDimension,
@@ -81,9 +84,35 @@ const CONSTRAINT_BADGES: Partial<Record<ConstraintKind, { label: string; command
     [ConstraintKind.TangentLineArc]: { label: "T", command: "constraint.tangent" },
     [ConstraintKind.TangentArcArc]: { label: "T", command: "constraint.tangent" },
     [ConstraintKind.TangentCircleArc]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentLineEllipse]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentLineConic]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentLineBezier]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentLineNurbs]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentCircleEllipse]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentArcEllipse]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentCircleConic]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentArcConic]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentCircleBezier]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentCircleNurbs]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentArcBezier]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentArcNurbs]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentEllipseEllipse]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentEllipseConic]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentEllipseBezier]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentEllipseNurbs]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentConicConic]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentConicBezier]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentConicNurbs]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentBezierBezier]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentBezierNurbs]: { label: "T", command: "constraint.tangent" },
+    [ConstraintKind.TangentNurbsNurbs]: { label: "T", command: "constraint.tangent" },
     [ConstraintKind.PointOnLine]: { label: "⊙", command: "constraint.pointOn" },
     [ConstraintKind.PointOnCircle]: { label: "⊙", command: "constraint.pointOn" },
     [ConstraintKind.PointOnArc]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.PointOnEllipse]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.PointOnConic]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.PointOnBezier]: { label: "⊙", command: "constraint.pointOn" },
+    [ConstraintKind.PointOnNurbs]: { label: "⊙", command: "constraint.pointOn" },
     [ConstraintKind.Midpoint]: { label: "M", command: "constraint.midpoint" },
     [ConstraintKind.Symmetric]: { label: "S", command: "constraint.symmetric" },
     [ConstraintKind.HorizontalAlign]: { label: "⬌", command: "constraint.horizontalAlign" },
@@ -174,6 +203,18 @@ interface BadgeCluster {
  * datum badge cannot.
  */
 type DimensionTone = "conflict" | "redundant" | "selected" | "hovered" | "driven";
+
+/** One bucket per tone, `normal` first, built by `make` — the key set a refresh collects into. */
+function toneBuckets<T>(make: (tone: DimensionTone | "normal") => T): Record<DimensionTone | "normal", T> {
+    return {
+        normal: make("normal"),
+        conflict: make("conflict"),
+        redundant: make("redundant"),
+        selected: make("selected"),
+        hovered: make("hovered"),
+        driven: make("driven"),
+    };
+}
 
 /** Slack around a label's glyph block, in screen pixels: the edges are still the label. */
 const LABEL_HIT_SLACK_PX = 4;
@@ -307,6 +348,13 @@ export type DimensionPreview =
           readonly p1: [number, number];
           readonly p2: [number, number];
           readonly axis: "h" | "v";
+          readonly position: [number, number];
+      }
+    /** A conic's rho: a leader from the shoulder point out to the label. */
+    | {
+          readonly kind: "rho";
+          readonly point: [number, number];
+          readonly rho: number;
           readonly position: [number, number];
       };
 
@@ -469,6 +517,7 @@ export class SketchAnnotationManager implements IDisposable {
         private readonly onHighlightEntities: (entityIds: number[]) => void = () => {},
         private readonly onEditDatum: (constraintId: number) => void = () => {},
         private readonly onEditArrayValue: (arrayId: number, field: ArrayField) => void = () => {},
+        private readonly onEditOffsetValue: (entityId: number) => void = () => {},
         /** The tool's live draft, asked afresh on every refresh — it comes and goes with a tool. */
         private readonly getDraft: () => ArrayDraft | undefined = () => undefined,
         private readonly onAnchorDragEnd: (constraintId: number) => void = () => {},
@@ -607,31 +656,18 @@ export class SketchAnnotationManager implements IDisposable {
         this.keptBadges.clear();
         const px = this.pixelSize();
         // flagged datum dimensions route to their tone's bucket and draw in its color
-        const graphics: Record<DimensionTone | "normal", DimensionGraphics> = {
-            normal: { segments: [], triangles: [] },
-            conflict: { segments: [], triangles: [] },
-            redundant: { segments: [], triangles: [] },
-            selected: { segments: [], triangles: [] },
-            hovered: { segments: [], triangles: [] },
-            driven: { segments: [], triangles: [] },
-        };
+        const graphics = toneBuckets<DimensionGraphics>(() => ({ segments: [], triangles: [] }));
         this.texts = [];
         this.addConstraintGraphics(px, graphics);
         this.addArrayGraphics(px, graphics.normal);
+        this.addOffsetGraphics(px);
         this.addPreviewGraphics(px, graphics.normal);
         // the badges only learn they overlap once every candidate anchor is resolved
         this.placeBadges(px);
         // whatever no badge claimed is a badge that went away
         this.retireBadges();
 
-        const corners: Record<DimensionTone | "normal", DimensionGeometry["triangles"]> = {
-            normal: [...graphics.normal.triangles],
-            conflict: [...graphics.conflict.triangles],
-            redundant: [...graphics.redundant.triangles],
-            selected: [...graphics.selected.triangles],
-            hovered: [...graphics.hovered.triangles],
-            driven: [...graphics.driven.triangles],
-        };
+        const corners = toneBuckets<DimensionGeometry["triangles"]>((tone) => [...graphics[tone].triangles]);
         for (const text of this.texts) {
             const box = this.pushTextTriangles(corners[text.tone ?? "normal"], text, px);
             if (box === undefined || text.constraint === undefined) continue;
@@ -699,6 +735,7 @@ export class SketchAnnotationManager implements IDisposable {
                 case ConstraintKind.Angle:
                 case ConstraintKind.HorizontalDistance:
                 case ConstraintKind.VerticalDistance:
+                case ConstraintKind.ConicRho:
                     this.addDatumDimension(constraint, px, graphics[this.toneOf(constraint) ?? "normal"]);
                     break;
                 default:
@@ -747,6 +784,87 @@ export class SketchAnnotationManager implements IDisposable {
     }
 
     /**
+     * Every offset curve's distance, as one number on the canvas — the same reading a pattern's
+     * spacing gets, and for the same reason: it is a number the geometry is *derived* from, so
+     * it is read and doubled rather than dragged, and a double click opens it
+     * (`onEditOffsetValue`). A dimension would say the same thing, but a dimension is a
+     * constraint's badge and an offset curve has no constraint — the number lives in the entity
+     * (`OffsetCurveRef.distance`), which is exactly a pattern's number's situation.
+     */
+    private addOffsetGraphics(px: number): void {
+        if (this.suppressSymbols) return;
+        for (const entity of this.solver.entities()) {
+            const ref = entity.offset;
+            if (entity.type !== "offsetCurve" || ref === undefined) continue;
+            this.drawOffsetDistance(entity, ref, px);
+        }
+    }
+
+    /** One offset curve's distance, as a badge just outside the copy it reads. */
+    private drawOffsetDistance(entity: SketchEntityData, ref: OffsetCurveRef, px: number): void {
+        const at = this.offsetNumberAnchor(entity, ref, px);
+        if (at === undefined) return;
+        const distance = Math.abs(ref.distance);
+        const text = formatMeasurement("length", distance);
+        // The key carries where the number sits, as a pattern's does: `drawBadge` reuses the
+        // element a key already has without drawing it again, so a key that named only the
+        // entity and its distance would leave the number behind when the geometry moves.
+        this.drawBadge(
+            `offset|${entity.id}|${ref.distance}|${at}`,
+            (element) => {
+                // What `registerBadgeElement` does for a constraint badge, and on every refresh
+                // rather than on creation: a reused element must be listed again or a hover
+                // guard would read the pointer as having left (see `drawArrayNumber`).
+                this.liveBadges.add(element);
+                element.classList.toggle(style.inert, this.symbolsInert);
+                renderBadgeFace(element, text);
+                element.title = I18n.translate("sketch.offsetDistanceBadge{0}", text);
+            },
+            (onCreated) =>
+                this.view.htmlText("", toWorld(this.solver.plane, at[0], at[1]), {
+                    hideDelete: true,
+                    interactive: true,
+                    className: style.badge,
+                    onCreated: (element) => onCreated(element),
+                    // hovering the number is hovering the pair: the source lights up with the copy
+                    onMouseEnter: () => this.onHighlightEntities([ref.sourceId, entity.id]),
+                    onMouseLeave: (event: MouseEvent) => {
+                        if (this.isLiveBadge(event.currentTarget)) this.onHighlightEntities([]);
+                    },
+                    onDoubleClick: (event: MouseEvent) => {
+                        event.stopPropagation();
+                        this.onEditOffsetValue(entity.id);
+                    },
+                    // the press is the badge's; the viewport has no business with it
+                    onClick: (event: MouseEvent) => event.stopPropagation(),
+                }),
+        );
+    }
+
+    /**
+     * Where that number sits: just past the copy, along the line the offset runs — the
+     * direction from the source's middle to the copy's, pushed a little further out so the
+     * number reads beside the curve rather than on it.
+     */
+    private offsetNumberAnchor(
+        entity: SketchEntityData,
+        ref: OffsetCurveRef,
+        px: number,
+    ): [number, number] | undefined {
+        const source = this.solver.entity(ref.sourceId);
+        if (source === undefined) return undefined;
+        const [start, end] = entityDomain(entity);
+        const middle = (start + end) / 2;
+        const onSource = evaluateEntity(source, middle);
+        const onCopy = evaluateEntity(entity, middle);
+        const [dx, dy] = [onCopy[0] - onSource[0], onCopy[1] - onSource[1]];
+        const length = Math.hypot(dx, dy);
+        if (length < 1e-9) return undefined;
+        const reach = length + BADGE_OFFSET_PX * px;
+        return [onSource[0] + (dx / length) * reach, onSource[1] + (dy / length) * reach];
+    }
+
+    /**
      * One pattern's numbers: a line per run, and the two numbers that run is placed by. The
      * line joins the dimension graphics, so it draws in their colour, on their layer, in one
      * batch with them — a pattern's spacing *is* a measurement, and it should read as one.
@@ -783,26 +901,9 @@ export class SketchAnnotationManager implements IDisposable {
         px: number,
     ): void {
         const number = run[kind];
-        const text =
-            kind === "spacing"
-                ? formatMeasurement(run.spacing.measure, run.spacing.value)
-                : `×${number.value}`;
-        // a count stands clear of the geometry it names; a spacing sits on the line it measures
-        const at: [number, number] = [
-            number.at[0],
-            number.at[1] + (kind === "count" ? BADGE_OFFSET_PX * px : 0),
-        ];
-        const title =
-            kind === "spacing"
-                ? I18n.translate(
-                      run.spacing.measure === "angle"
-                          ? "sketch.arrayAngleBadge{0}"
-                          : "sketch.arraySpacingBadge{0}",
-                      text,
-                  )
-                : I18n.translate("sketch.arrayCountBadge{0}", number.value);
+        const face = arrayNumberFace(kind, run, px);
         this.drawBadge(
-            `array|${id}|${number.field}|${kind}|${number.value}|${at}`,
+            `array|${id}|${number.field}|${kind}|${number.value}|${face.at}`,
             (element) => {
                 // What `registerBadgeElement` does for a constraint badge, and it has to happen
                 // on every refresh rather than on creation: `resetPlacements` empties the live
@@ -819,29 +920,42 @@ export class SketchAnnotationManager implements IDisposable {
                 // grabs the arrow, and the click that settles the drag it is part of, both land
                 // on an overlay the sketch never hears from.
                 element.classList.toggle(style.inert, this.symbolsInert);
-                renderBadgeFace(element, text);
-                element.title = title;
+                renderBadgeFace(element, face.text);
+                element.title = face.title;
             },
-            (onCreated) =>
-                this.view.htmlText("", toWorld(this.solver.plane, at[0], at[1]), {
-                    hideDelete: true,
-                    interactive: true,
-                    className: style.badge,
-                    onCreated: (element) => onCreated(element),
-                    // hovering a number is hovering the pattern: the seeds light up with the
-                    // copies, which is what says the two are one thing
-                    onMouseEnter: () => this.onHighlightEntities([...highlight]),
-                    onMouseLeave: (event: MouseEvent) => {
-                        if (this.isLiveBadge(event.currentTarget)) this.onHighlightEntities([]);
-                    },
-                    onDoubleClick: (event: MouseEvent) => {
-                        event.stopPropagation();
-                        this.onEditArrayValue(id, number.field);
-                    },
-                    // the press is the badge's; the viewport has no business with it
-                    onClick: (event: MouseEvent) => event.stopPropagation(),
-                }),
+            this.arrayNumberLabel(id, number.field, face, highlight),
         );
+    }
+
+    /**
+     * The label of one of a run's numbers: read-and-doubled rather than dragged, it lights
+     * the pattern up on hover and opens the number's own field on a double click.
+     */
+    private arrayNumberLabel(
+        id: number,
+        field: ArrayField,
+        face: ArrayNumberFace,
+        highlight: readonly number[],
+    ): (onCreated: (element: HTMLElement) => void) => IDisposable {
+        return (onCreated) =>
+            this.view.htmlText("", toWorld(this.solver.plane, face.at[0], face.at[1]), {
+                hideDelete: true,
+                interactive: true,
+                className: style.badge,
+                onCreated: (element) => onCreated(element),
+                // hovering a number is hovering the pattern: the seeds light up with the
+                // copies, which is what says the two are one thing
+                onMouseEnter: () => this.onHighlightEntities([...highlight]),
+                onMouseLeave: (event: MouseEvent) => {
+                    if (this.isLiveBadge(event.currentTarget)) this.onHighlightEntities([]);
+                },
+                onDoubleClick: (event: MouseEvent) => {
+                    event.stopPropagation();
+                    this.onEditArrayValue(id, field);
+                },
+                // the press is the badge's; the viewport has no business with it
+                onClick: (event: MouseEvent) => event.stopPropagation(),
+            });
     }
 
     /**
@@ -886,9 +1000,16 @@ export class SketchAnnotationManager implements IDisposable {
             case ConstraintKind.PointOnLine:
             case ConstraintKind.PointOnCircle:
             case ConstraintKind.PointOnArc:
+            case ConstraintKind.PointOnEllipse:
+            case ConstraintKind.PointOnConic:
+            case ConstraintKind.PointOnBezier:
+            case ConstraintKind.PointOnNurbs:
             case ConstraintKind.Midpoint:
             case ConstraintKind.Fix:
-                // the constraint is about this one point
+                // the constraint is about this one point. Every PointOn* belongs here: the
+                // anchor has to read the *point*, not the curve it sits on — a conic's or a
+                // bezier's params are control points, and the default branch below would read
+                // them as a centre and a radius and float the badge off the curve entirely.
                 return [pointBadgeAnchor(this.solver.pointOf(constraint.refs[0]), px)];
             case ConstraintKind.HorizontalAlign:
             case ConstraintKind.VerticalAlign:
@@ -898,6 +1019,11 @@ export class SketchAnnotationManager implements IDisposable {
                 return constraint.refs
                     .slice(0, 2)
                     .map((ref) => pointBadgeAnchor(this.solver.pointOf(ref), px));
+            case ConstraintKind.Parallel:
+            case ConstraintKind.Perpendicular:
+            case ConstraintKind.EqualLength:
+            case ConstraintKind.Angle:
+                return this.segmentBadgeAnchors(constraint, px);
             default: {
                 const hint = this.refsMidpoint(constraint.refs);
                 const entityIds = [...new Set(constraint.refs.map((r) => r.entityId))];
@@ -906,6 +1032,36 @@ export class SketchAnnotationManager implements IDisposable {
                     .filter((anchor) => anchor !== undefined);
             }
         }
+    }
+
+    /**
+     * Anchor beside each *segment* a two-line constraint names, one badge per segment.
+     *
+     * Those kinds read their refs in pairs — garlic takes four bare points per pair of
+     * segments — so the pair is the geometry the badge belongs beside, whatever entity holds
+     * the two points: a line's own span, or the line between two control points of a free
+     * curve. Reading it off the *entity* instead puts the badge wherever the entity's params
+     * happen to point: a free curve's are its control points, and the anchor came out a
+     * centre-and-radius away from the curve (the two badges of a joint's parallelism, one
+     * per span, floated together off to one side).
+     *
+     * A datum axis is the exception the pair cannot carry: it is a unit stub at the origin,
+     * so its badge sits beside the projection of the constraint's own midpoint onto it.
+     */
+    private segmentBadgeAnchors(constraint: SketchConstraintData, px: number): [number, number][] {
+        const off = BADGE_OFFSET_PX * px;
+        const hint = this.refsMidpoint(constraint.refs);
+        const anchors: [number, number][] = [];
+        for (let index = 0; index + 1 < constraint.refs.length; index += 2) {
+            const [from, to] = [constraint.refs[index], constraint.refs[index + 1]];
+            const [a, b] = [this.solver.pointOf(from), this.solver.pointOf(to)];
+            anchors.push(
+                from.entityId === to.entityId && isDatumEntityId(from.entityId)
+                    ? projectBeside(a, b, hint, off)
+                    : offsetFromSegment(a, b, off),
+            );
+        }
+        return anchors;
     }
 
     /**
@@ -928,6 +1084,18 @@ export class SketchAnnotationManager implements IDisposable {
             return isDatumEntityId(entityId)
                 ? projectBeside(p1, p2, hint, off)
                 : offsetFromSegment(p1, p2, off);
+        }
+        if (isFreeCurveType(entity.type)) {
+            // A free curve's params are its *control points*, so the centre-and-radius reading
+            // below would put the badge wherever the first two of them happen to point. The
+            // curve's own midpoint, pushed off along the line away from the constraint's other
+            // party, is where the relation actually is.
+            const [start, end] = entityDomain(entity);
+            const at = evaluateEntity(entity, (start + end) / 2);
+            const away: [number, number] = [at[0] - hint[0], at[1] - hint[1]];
+            const norm = Math.hypot(away[0], away[1]);
+            if (norm < 1e-9) return [at[0], at[1] + off];
+            return [at[0] + (away[0] / norm) * off, at[1] + (away[1] / norm) * off];
         }
         const [cx, cy] = entity.params;
         const radius =
@@ -1071,9 +1239,29 @@ export class SketchAnnotationManager implements IDisposable {
                 );
             case ConstraintKind.Angle:
                 return this.angleGeometry(constraint, size);
+            case ConstraintKind.ConicRho:
+                return this.rhoGeometry(constraint, size);
             default:
                 return undefined;
         }
+    }
+
+    /**
+     * The leader a conic's rho reads on. It hangs off the shoulder point rather than off
+     * the curve's frame, so the anchor vector stored for it is measured from there — which
+     * is also what makes the label follow the curve as the conic is reshaped.
+     */
+    private rhoGeometry(
+        constraint: SketchConstraintData,
+        size: DimensionSize,
+    ): DimensionGeometry | undefined {
+        const params = this.solver.entity(constraint.refs[0].entityId)?.params;
+        if (params === undefined) return undefined;
+        const shoulder = conicShoulder(params);
+        const anchor = this.anchors.get(constraint.id);
+        const offset: [number, number] =
+            anchor?.kind === "vector" ? [anchor.dx, anchor.dy] : [size.textHeight * 4, size.textHeight * 4];
+        return leaderDimension(shoulder, offset, size);
     }
 
     private angleGeometry(
@@ -1120,6 +1308,16 @@ export class SketchAnnotationManager implements IDisposable {
         }
         if (preview.kind === "axisDistance") {
             this.previewAxisDistance(preview, px, graphics);
+            return;
+        }
+        if (preview.kind === "rho") {
+            const geometry = leaderDimension(
+                preview.point,
+                [preview.position[0] - preview.point[0], preview.position[1] - preview.point[1]],
+                sketchDimensionSize(px),
+            );
+            pushDimensionGeometry(graphics, geometry);
+            this.pushPreviewText(formatMeasurement("rho", preview.rho), geometry);
             return;
         }
         this.previewAngle(preview, px, graphics);
@@ -2155,6 +2353,13 @@ export class SketchAnnotationManager implements IDisposable {
                 const vertex = angleVertex(points[0], points[1], points[2], points[3]);
                 return { kind: "vector", dx: uv[0] - vertex[0], dy: uv[1] - vertex[1] };
             }
+            case ConstraintKind.ConicRho: {
+                const params = this.solver.entity(constraint.refs[0].entityId)?.params;
+                if (params === undefined) return undefined;
+                // the leader hangs off the shoulder point, the way `dimensionGeometry` draws it
+                const shoulder = conicShoulder(params);
+                return { kind: "vector", dx: uv[0] - shoulder[0], dy: uv[1] - shoulder[1] };
+            }
             default:
                 return undefined;
         }
@@ -2247,6 +2452,38 @@ function createStackCount(count: number): HTMLElement {
     badge.className = style.stackCount;
     badge.textContent = String(count);
     return badge;
+}
+
+/** One of a run's numbers as its badge reads: the text, where it sits, what hovering says. */
+interface ArrayNumberFace {
+    readonly text: string;
+    readonly at: [number, number];
+    readonly title: string;
+}
+
+/**
+ * A number of an array run, as its badge draws it. A spacing reads as the measurement it is
+ * and sits on the line it measures; a count reads as a bare multiplier and stands clear of
+ * the geometry it names.
+ */
+function arrayNumberFace(kind: "spacing" | "count", run: ArrayRun, px: number): ArrayNumberFace {
+    const number = run[kind];
+    if (kind === "count") {
+        return {
+            text: `×${number.value}`,
+            at: [number.at[0], number.at[1] + BADGE_OFFSET_PX * px],
+            title: I18n.translate("sketch.arrayCountBadge{0}", number.value),
+        };
+    }
+    const text = formatMeasurement(run.spacing.measure, run.spacing.value);
+    return {
+        text,
+        at: [number.at[0], number.at[1]],
+        title: I18n.translate(
+            run.spacing.measure === "angle" ? "sketch.arrayAngleBadge{0}" : "sketch.arraySpacingBadge{0}",
+            text,
+        ),
+    };
 }
 
 /** The box the drawn segments of one dimension fit in, for the pointer's broad phase. */

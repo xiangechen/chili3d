@@ -2,11 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 /**
- * An array's own numbers as the canvas draws them: the spacing along the run from the seed to
- * its first copy — with the line that measures it — and the instance count on that copy. Each
- * one is double-clicked to change it, which is what SolidWorks calls "add spacing dimension"
- * and "display instance count", and the only place a pattern's numbers read without opening
- * its tool.
+ * The numbers a sketch's derived geometry reads on the canvas, as they are drawn and edited:
+ * an array's spacing and count — the run from the seed to its first copy, with the line that
+ * measures it, and the count on that copy — and an offset curve's distance.
+ *
+ * Each one is double-clicked to change it, which is what SolidWorks calls "add spacing
+ * dimension" and "display instance count", and the only place these numbers read without
+ * opening their tool. They are the same species — a number the geometry is derived *from*,
+ * where a dimension's is a number the geometry is measured *by* — which is why they share one
+ * drawing and one dialog rather than a dimension's.
  */
 
 import { type I18nKeys, Plane, PubSub } from "@chili3d/core";
@@ -19,6 +23,7 @@ import {
 } from "../../src/sketch/arrayOps";
 import style from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
+import { offsetEntities } from "../../src/sketch/offsetOps";
 import { originRef, type SketchArrayPattern } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import { badgeView, type MockBadge } from "./_helpers/sketchBadges";
@@ -414,6 +419,95 @@ describe("an array's numbers on the canvas", () => {
             expect(faces).not.toContain("×3");
             editor.exit();
         } finally {
+            ctx.restoreFactory();
+        }
+    });
+});
+
+describe("an offset curve's distance on the canvas", () => {
+    /** The ellipse the offset tests use, offset once at 1 — its copy has no points at all. */
+    function setupOffset() {
+        const ctx = badgeView();
+        const node = new SketchNode({ document: ctx.doc, plane: Plane.XY });
+        const editor = SketchEditor.enter(node);
+        const ellipse = editor.solver.addEllipse(0, 0, 6, 0, 0, 3);
+        editor.solve(true);
+        const result = offsetEntities(editor.solver, [ellipse], 1, 1e-6);
+        expect(result.isOk).toBe(true);
+        if (!result.isOk) throw new Error(result.error);
+        const copy = result.value.createdEntityIds[0];
+        editor.solve(true);
+        return { ...ctx, editor, node, ellipse, copy, ...captureDialog() };
+    }
+
+    test("draws the distance the copy runs at, beside the copy", () => {
+        const ctx = setupOffset();
+        try {
+            const badge = badgeFaced(ctx.badges, "1.00");
+            // the number is the distance the entity holds, which is the whole of what the user
+            // decides about a copy that has no geometry of its own
+            expect(ctx.editor.solver.entity(ctx.copy)?.offset?.distance).toBe(1);
+            // it sits past the copy: the ellipse's domain starts at its major axis, so its
+            // middle is the far end (u = −6), and the copy there is one further out again
+            expect(badge.position.x).toBeLessThan(-7);
+        } finally {
+            ctx.restorePub();
+            ctx.restoreFactory();
+        }
+    });
+
+    test("follows the geometry it reads, as a pattern's number does", () => {
+        const ctx = setupOffset();
+        try {
+            const before = badgeFaced(ctx.badges, "1.00").position.x;
+            const drawn = ctx.badges.length;
+
+            // widen the ellipse: the copy rides out with it, and the number goes with the copy
+            ctx.editor.solver.setPointPosition({ entityId: ctx.ellipse, pointIndex: 1 }, 10, 0);
+            ctx.editor.solve(true);
+            ctx.editor.annotations.refresh();
+
+            // A fresh element rather than the old one restyled: `drawBadge` reuses the element a
+            // key already has without drawing it again, so the key has to name where the number
+            // sits — the same reason a pattern's key carries its run's anchor.
+            expect(ctx.badges.length).toBeGreaterThan(drawn);
+            expect(badgeFaced(ctx.badges, "1.00").position.x).toBeLessThan(before);
+        } finally {
+            ctx.restorePub();
+            ctx.restoreFactory();
+        }
+    });
+
+    test("opens the distance for editing when its number is double-clicked", () => {
+        const ctx = setupOffset();
+        try {
+            badgeFaced(ctx.badges, "1.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            expect(ctx.dialog.title).toBe("sketch.offsetDistance");
+            expect((ctx.dialog.content?.querySelector("input") as HTMLInputElement).value).toBe("1.00");
+
+            expect(confirmDialog(ctx.dialog, "2.5")).toBe(true);
+
+            // the entity takes it, and the commit writes it into the sketch the node holds
+            expect(ctx.editor.solver.entity(ctx.copy)?.offset?.distance).toBe(2.5);
+            expect(ctx.node.data.entities.find((entity) => entity.id === ctx.copy)?.offset?.distance).toBe(
+                2.5,
+            );
+        } finally {
+            ctx.restorePub();
+            ctx.restoreFactory();
+        }
+    });
+
+    test("refuses a distance the source cannot carry, leaving the copy where it was", () => {
+        const ctx = setupOffset();
+        try {
+            badgeFaced(ctx.badges, "1.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            // the (6, 3) ellipse turns on a radius of 1.5 at the ends of its major axis, so an
+            // inward offset past that folds the parallel curve through itself
+            expect(confirmDialog(ctx.dialog, "-2")).toBe(true);
+            expect(ctx.editor.solver.entity(ctx.copy)?.offset?.distance).toBe(1);
+        } finally {
+            ctx.restorePub();
             ctx.restoreFactory();
         }
     });

@@ -13,7 +13,7 @@
  * `DimensionMeasurement`. The measure tools' readouts are deliberately not part of this —
  * a transient readout is not a dimension, and it writes its angles to two places.
  */
-export type DimensionMeasurement = "length" | "angle" | "radius" | "diameter";
+export type DimensionMeasurement = "length" | "angle" | "radius" | "diameter" | "rho";
 
 /**
  * A measured value in pieces: the digits, and the affixes they sit between. In pieces
@@ -32,7 +32,7 @@ export function measurementDecimals(measurement: DimensionMeasurement): number {
     return measurement === "angle" ? 1 : 2;
 }
 
-/** The affixes a measurement reads with: `R` for a radius, `Ø` for a diameter, `°` for an angle. */
+/** The affixes a measurement reads with: `R` for a radius, `Ø` for a diameter, `°` for an angle, `ρ` for a conic's rho. */
 export function measurementAffixes(measurement: DimensionMeasurement): { prefix: string; suffix: string } {
     switch (measurement) {
         case "radius":
@@ -41,6 +41,8 @@ export function measurementAffixes(measurement: DimensionMeasurement): { prefix:
             return { prefix: "Ø", suffix: "" };
         case "angle":
             return { prefix: "", suffix: "°" };
+        case "rho":
+            return { prefix: "ρ", suffix: "" };
         default:
             return { prefix: "", suffix: "" };
     }

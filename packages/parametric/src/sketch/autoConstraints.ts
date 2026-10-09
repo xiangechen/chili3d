@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision } from "@chili3d/core";
+import { closestCurvePair, intersectCurves, projectPoint, sampleEntity } from "./curveEval";
 import {
     arcAngles,
     axisLineRefs,
@@ -31,11 +32,15 @@ import {
 
 const DEFAULT_ANGLE_TOLERANCE_DEG = 5;
 
-/** Incidence constraints pinning a point onto a curve (line/circle/arc). */
+/** Incidence constraints pinning a point onto a curve. */
 const INCIDENCE_KINDS: readonly ConstraintKind[] = [
     ConstraintKind.PointOnLine,
     ConstraintKind.PointOnCircle,
     ConstraintKind.PointOnArc,
+    ConstraintKind.PointOnEllipse,
+    ConstraintKind.PointOnConic,
+    ConstraintKind.PointOnBezier,
+    ConstraintKind.PointOnNurbs,
 ];
 
 export interface AutoConstraintOptions {
@@ -97,8 +102,8 @@ export function mirrorPeers(solver: SketchSolver, ref: SketchPointRef): Set<stri
  * line endpoints, circle center, arc center/start/end. The centers snap like any
  * other point, so a circle drawn onto a center is concentric by constraint.
  */
-function snappablePointIndices(type: SketchEntityType): number[] {
-    return Array.from({ length: entityPointCount(type) }, (_, pointIndex) => pointIndex);
+function snappablePointIndices(entity: Pick<SketchEntityData, "type" | "params">): number[] {
+    return Array.from({ length: entityPointCount(entity) }, (_, pointIndex) => pointIndex);
 }
 
 /**
@@ -119,18 +124,23 @@ function hasIncidence(solver: SketchSolver, ref: SketchPointRef): boolean {
  * - near-horizontal / near-vertical lines get a Horizontal / Vertical constraint;
  * - an entity already (near-)tangent to a line, circle, arc or axis gets the
  *   matching tangent constraint.
+ * `pointIndices` narrows that to the points listed — a command whose entity has points the
+ * *tool* derived (a projected probe) passes the ones the user actually placed, so no snap can
+ * pull a derived point off the shape the derivation just put it on.
+ *
  * Returns the added constraints. Call `solve` afterwards.
  */
 export function applyAutoConstraints(
     solver: SketchSolver,
     entityId: number,
     options: AutoConstraintOptions,
+    pointIndices?: readonly number[],
 ): Omit<SketchConstraintData, "id">[] {
     const added: Omit<SketchConstraintData, "id">[] = [];
     const entity = solver.entities().find((x) => x.id === entityId);
     if (entity === undefined) return added;
 
-    const refs: SketchPointRef[] = snappablePointIndices(entity.type).map((pointIndex) => ({
+    const refs: SketchPointRef[] = (pointIndices ?? snappablePointIndices(entity)).map((pointIndex) => ({
         entityId,
         pointIndex,
     }));
@@ -153,13 +163,16 @@ export function applyAutoConstraints(
 
 /**
  * A magnetic snap target for a dragged point: the geometry the position resolves
- * onto, with the point refs the matching incidence constraint is built from.
+ * onto, with the point refs the matching incidence constraint is built from. The
+ * `curve` variant covers the ellipse and the free curves: their PointOn kinds
+ * read the curve's entity id alone (`refs[1]`), so one ref carries them all.
  */
 export type DragSnap =
     | { kind: "point"; point: SketchPointRef; position: [number, number] }
     | { kind: "line"; lineRefs: [SketchPointRef, SketchPointRef]; position: [number, number] }
     | { kind: "circle"; circleRef: SketchPointRef; position: [number, number] }
-    | { kind: "arc"; arcRefs: [SketchPointRef, SketchPointRef]; position: [number, number] };
+    | { kind: "arc"; arcRefs: [SketchPointRef, SketchPointRef]; position: [number, number] }
+    | { kind: "curve"; constraintKind: ConstraintKind; curveRef: SketchPointRef; position: [number, number] };
 
 /** Result of a magnetic snap probe: the position to resolve to, plus the target for feedback. */
 export interface DragSnapResult {
@@ -185,15 +198,17 @@ export function snapConstraint(ref: SketchPointRef, snap: DragSnap): Omit<Sketch
             return { kind, refs: [ref, snap.circleRef] };
         case "arc":
             return { kind, refs: [ref, ...snap.arcRefs] };
+        case "curve":
+            return { kind, refs: [ref, snap.curveRef] };
     }
 }
 
 /** The constraint kind a snap adds — what the feedback badge shows. */
 export function snapConstraintKind(snap: DragSnap): ConstraintKind {
-    return SNAP_KINDS[snap.kind];
+    return snap.kind === "curve" ? snap.constraintKind : SNAP_KINDS[snap.kind];
 }
 
-const SNAP_KINDS: Record<DragSnap["kind"], ConstraintKind> = {
+const SNAP_KINDS: Record<Exclude<DragSnap["kind"], "curve">, ConstraintKind> = {
     point: ConstraintKind.P2PCoincident,
     line: ConstraintKind.PointOnLine,
     circle: ConstraintKind.PointOnCircle,
@@ -214,6 +229,8 @@ export function snapTargetEntityId(snap: DragSnap): number | undefined {
             return snap.circleRef.entityId;
         case "arc":
             return snap.arcRefs[0].entityId;
+        case "curve":
+            return snap.curveRef.entityId;
     }
 }
 
@@ -460,9 +477,9 @@ function curveSnapExclusions(
 
 /** Every point ref of `ref`'s own entity — the sibling set the collapse guard checks. */
 function ownPointRefs(solver: SketchSolver, ref: SketchPointRef): SketchPointRef[] {
-    const type = solver.entity(ref.entityId)?.type;
-    if (type === undefined) return [ref];
-    return snappablePointIndices(type).map((pointIndex) => ({ entityId: ref.entityId, pointIndex }));
+    const entity = solver.entity(ref.entityId);
+    if (entity === undefined) return [ref];
+    return snappablePointIndices(entity).map((pointIndex) => ({ entityId: ref.entityId, pointIndex }));
 }
 
 interface SnapCandidate {
@@ -569,27 +586,68 @@ function nearestCurveSnap(
         const projection = projectOntoEntity(entity, probe);
         if (projection === undefined || projection.distance >= tolerance) continue;
         if (nearest !== undefined && projection.distance >= nearest.distance) continue;
-        nearest = { distance: projection.distance, snap: curveSnap(entity, projection.position) };
+        const snap = curveSnap(entity, projection.position);
+        if (snap === undefined) continue;
+        nearest = { distance: projection.distance, snap };
     }
     return nearest?.snap;
 }
 
-/** The snap onto `entity`'s curve, with the refs `PointOnCircle`/`PointOnArc` are built from. */
-function curveSnap(entity: SketchEntityData, position: [number, number]): DragSnap {
-    return entity.type === "circle"
-        ? { kind: "circle", circleRef: centerRef(entity.id), position }
-        : { kind: "arc", arcRefs: [centerRef(entity.id), arcStartRef(entity.id)], position };
+/**
+ * The snap onto `entity`'s curve, with the refs the matching PointOn kind is built from —
+ * `undefined` for an entity no curve snap names (a line snaps to its ends, and an offset curve
+ * carries no params to snap to). Answering rather than raising keeps a caller that widens its
+ * candidate set from turning "nothing to snap to" into a crash.
+ */
+function curveSnap(entity: SketchEntityData, position: [number, number]): DragSnap | undefined {
+    switch (entity.type) {
+        case "circle":
+            return { kind: "circle", circleRef: centerRef(entity.id), position };
+        case "arc":
+            return { kind: "arc", arcRefs: [centerRef(entity.id), arcStartRef(entity.id)], position };
+        case "ellipse":
+        case "ellipseArc":
+        case "conic":
+        case "bezier":
+        case "nurbs":
+            return {
+                kind: "curve",
+                constraintKind: POINT_ON_KINDS[entity.type],
+                curveRef: { entityId: entity.id, pointIndex: 0 },
+                position,
+            };
+        default:
+            // the caller reads this as "no snap here" rather than an error
+            return undefined;
+    }
 }
 
+/** The PointOn kind pinning a point onto each non-line curve family's curve. */
+const POINT_ON_KINDS: Record<
+    Exclude<SketchEntityType, "line" | "circle" | "arc" | "offsetCurve">,
+    ConstraintKind
+> = {
+    ellipse: ConstraintKind.PointOnEllipse,
+    ellipseArc: ConstraintKind.PointOnEllipse,
+    conic: ConstraintKind.PointOnConic,
+    bezier: ConstraintKind.PointOnBezier,
+    nurbs: ConstraintKind.PointOnNurbs,
+};
+
 /**
- * Nearest point of a circle/arc entity's curve to the probe — the radial
- * projection, undefined at the center (no radial direction) and off an arc's
- * sweep.
+ * Nearest point of an entity's drawn curve to the probe. A circle/arc keeps its
+ * radial projection — undefined at the center (no radial direction) and off an
+ * arc's sweep; the numeric families read `curveEval`'s projection, whose clamp to
+ * the drawn domain plays the sweep rule for them.
  */
 function projectOntoEntity(
     entity: SketchEntityData,
     [u, v]: [number, number],
 ): { position: [number, number]; distance: number } | undefined {
+    if (entity.type !== "circle" && entity.type !== "arc") {
+        const projection = projectPoint(entity, [u, v]);
+        return { position: projection.point, distance: projection.distance };
+    }
     const [cx, cy] = entity.params;
     const dx = u - cx;
     const dy = v - cy;
@@ -617,7 +675,7 @@ function snapCandidates(
     const candidates: SnapCandidate[] = entities
         .filter((e) => excludeEntityId === undefined || e.id !== excludeEntityId)
         .flatMap((e) =>
-            snappablePointIndices(e.type).map((pointIndex) => {
+            snappablePointIndices(e).map((pointIndex) => {
                 const ref = { entityId: e.id, pointIndex };
                 return { ref, position: solver.pointOf(ref) };
             }),
@@ -646,7 +704,7 @@ function nearestPointSnap(
     const candidates: SnapCandidate[] = [];
     for (const entity of entities) {
         if (excludeEntityIds?.has(entity.id)) continue;
-        for (const pointIndex of snappablePointIndices(entity.type)) {
+        for (const pointIndex of snappablePointIndices(entity)) {
             const candidateRef = { entityId: entity.id, pointIndex };
             if (excluded.has(pointRefKey(candidateRef))) continue;
             candidates.push({ ref: candidateRef, position: solver.pointOf(candidateRef) });
@@ -955,15 +1013,74 @@ function tangencyCandidates(solver: SketchSolver, entity: SketchEntityData): Ske
 /**
  * How far the pair is from being tangent (sketch units) — the distance it would
  * have to close up along the constraint's direction. `undefined` when the pair
- * cannot be tangent there: two lines; a contact off the drawn geometry (a line
- * segment's span, an arc's sweep), so a tangency the user cannot see is never
- * constrained; or a degenerate one (a line through the center, concentric
- * centers), where the relation says nothing.
+ * cannot be tangent there: two lines; a crossing of the drawn curves (a tangency
+ * the user cannot see is never constrained); a contact off the drawn geometry (a
+ * line segment's span, an arc's sweep); or a degenerate one (a line through the
+ * center, concentric centers), where the relation says nothing.
  */
 function tangencyGap(a: SketchEntityData, b: SketchEntityData, tolerance: number): number | undefined {
-    if (a.type === "line") return b.type === "line" ? undefined : lineRoundGap(a, b);
-    if (b.type === "line") return lineRoundGap(b, a);
-    return roundRoundGap(a, b, tolerance);
+    if (a.type === "line") return b.type === "line" ? undefined : lineCurveGap(a, b);
+    if (b.type === "line") return lineCurveGap(b, a);
+    if (isRound(a) && isRound(b)) return roundRoundGap(a, b, tolerance);
+    return curvePairGap(a, b);
+}
+
+/** The circle/arc families, whose tangency gaps keep their analytic center/radius forms. */
+function isRound(entity: SketchEntityData): boolean {
+    return entity.type === "circle" || entity.type === "arc";
+}
+
+/**
+ * Tangency gap of a line and a curve. The circle/arc families keep the analytic
+ * |distance(center, line) − radius|; the free curves and the ellipse read the
+ * curve's signed normal distance to the line: its local minima sit exactly where
+ * the curve's tangent runs parallel to the line, so the smallest one is the gap a
+ * tangency would close. A crossing of the drawn curves is not a tangency.
+ */
+function lineCurveGap(line: SketchEntityData, curve: SketchEntityData): number | undefined {
+    if (
+        curve.type !== "ellipse" &&
+        curve.type !== "ellipseArc" &&
+        curve.type !== "conic" &&
+        curve.type !== "bezier" &&
+        curve.type !== "nurbs"
+    ) {
+        return lineRoundGap(line, curve);
+    }
+    const [x1, y1, x2, y2] = line.params;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lengthSq = dx * dx + dy * dy;
+    if (lengthSq < 1e-12) return undefined;
+    // the datum axes are infinite lines: their crossings and contacts are read on
+    // the support; a drawn segment crosses and grazes only on its span
+    const datum = isDatumEntityId(line.id);
+    if (intersectCurves(line, curve, datum).length > 0) return undefined;
+
+    const length = Math.sqrt(lengthSq);
+    let best: { gap: number; contact: [number, number] } | undefined;
+    for (const point of sampleEntity(curve, 128)) {
+        const gap = Math.abs(dy * (point[0] - x1) - dx * (point[1] - y1)) / length;
+        if (best === undefined || gap < best.gap) best = { gap, contact: point };
+    }
+    if (best === undefined) return undefined;
+    if (!datum) {
+        const t = ((best.contact[0] - x1) * dx + (best.contact[1] - y1) * dy) / lengthSq;
+        if (t < 0 || t > 1) return undefined;
+    }
+    return best.gap;
+}
+
+/**
+ * Tangency gap of two curves when at least one is an ellipse or a free curve:
+ * the distance between their nearest points. The nearest pair's connector is
+ * perpendicular to both curves, which a tangent contact satisfies with distance
+ * zero — so this is the gap the constraint would close. A crossing of the drawn
+ * curves reads as no tangency at all.
+ */
+function curvePairGap(a: SketchEntityData, b: SketchEntityData): number | undefined {
+    if (intersectCurves(a, b, false).length > 0) return undefined;
+    return closestCurvePair(a, b).distance;
 }
 
 /** Tangency gap of a line and a circle/arc: |distance(center, line) − radius|. */

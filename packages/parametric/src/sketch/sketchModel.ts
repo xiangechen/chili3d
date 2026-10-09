@@ -12,6 +12,7 @@ import {
     Result,
     resolveUnitSpec,
     type Scope,
+    UNITLESS,
     type UnitSpec,
     VisualConfig,
     XYZ,
@@ -24,17 +25,59 @@ export { ConstraintKind };
 /** Screen-pixel line width of sketch geometry (entity edges, in and out of the editor). */
 export const SKETCH_EDGE_LINE_WIDTH = 2;
 
-export type SketchEntityType = "line" | "circle" | "arc";
+export type SketchEntityType =
+    | "line"
+    | "circle"
+    | "arc"
+    | "ellipse"
+    | "ellipseArc"
+    | "conic"
+    | "bezier"
+    | "nurbs"
+    | "offsetCurve";
 
 /**
  * line: params = [x1, y1, x2, y2]; circle: params = [cx, cy, r];
  * arc: params = [cx, cy, sx, sy, ex, ey] (center, start, end; radius = ‖s−c‖,
- * counter-clockwise sweep from start to end) — all in sketch (u, v) coordinates.
+ * counter-clockwise sweep from start to end);
+ * ellipse: params = [cx, cy, mx, my, nx, ny] (center, major-axis point, minor-axis
+ * point — garlic reads the two axis points as perpendicular, which the entity's
+ * structural Perpendicular constraint keeps true);
+ * ellipseArc: the ellipse layout plus [sx, sy, ex, ey] (start, end; both pinned on the
+ * ellipse by structural PointOnEllipse constraints, counter-clockwise sweep of the
+ * ellipse parameter from start to end);
+ * conic: params = [sx, sy, cx, cy, ex, ey, rho] (start, control, end, and the shoulder
+ * ratio ρ ∈ (0, 1): a rational quadratic bezier with weights [1, ρ/(1−ρ), 1]);
+ * bezier: params = [cp0x, cp0y, …, cp3x, cp3y] (the four control poles of a cubic);
+ * nurbs: params = [cp0x, cp0y, …, cp_{n−1}x, cp_{n−1}y, w0, …, w_{n−1}] (n control
+ * poles followed by their rational weights, with the degree and knot vector in
+ * `nurbs`);
+ * offsetCurve: params are its *source's*, verbatim, and `offset` says which entity they
+ * came from and how far off it this curve runs — the entity has no geometry of its own to
+ * lay out, so nothing of it is a solver parameter at all — all in sketch (u, v) coordinates.
  */
 export interface SketchEntityData {
     id: number;
     type: SketchEntityType;
     params: number[];
+    /**
+     * A NURBS' construction constants (see `NurbsSpec`). They ride on the entity rather
+     * than in `params` because garlic takes them as a separate argument to
+     * `add_constraint` — they are not solver parameters, so they are not params at all:
+     * the control points and weights beside them are. Present on a nurbs entity only.
+     */
+    nurbs?: NurbsSpec;
+    /**
+     * What an `offsetCurve` is the offset *of*: the entity whose geometry it carries in
+     * `params`, the kind those params lay out (`params` alone cannot say — an offset of a
+     * circle and an offset of a line are laid out differently), and the distance.
+     *
+     * The source's kind rides here rather than being looked up because the curve math reads
+     * an entity on its own — no solver, no other entity — and an offset curve has to be
+     * readable the same way. Its own kind is `offsetCurve`; this is the kind underneath.
+     */
+    offset?: OffsetCurveRef;
+
     /**
      * Construction geometry: a constraint/snap/drag target like any other entity,
      * but excluded from the shape and therefore from profile building — the
@@ -45,20 +88,129 @@ export interface SketchEntityData {
 }
 
 /**
+ * A NURBS curve's construction constants: the degree and the *flat* knot vector (one
+ * entry per index, repeats and all, length = poles + degree + 1). garlic's own name for
+ * the pair, and the shape its `add_constraint` takes them in; the sketch's default
+ * construction is the clamped uniform one (`clampedUniformKnots`), which is what every
+ * CAD sketch tool offers and all the user ever gets.
+ */
+export interface NurbsSpec {
+    degree: number;
+    knots: number[];
+}
+
+/**
+ * What an `offsetCurve` runs parallel to. The distance is in sketch units and signed by the
+ * source's own reading of "one side" (see `offsetOps`): a claim about the *pair*, so it is
+ * kept with the pair rather than in the offset's own params — which are the source's.
+ */
+export interface OffsetCurveRef {
+    /** The entity whose geometry this curve carries, and which it follows as it changes. */
+    sourceId: number;
+    /** How that entity's params lay out — the array of positions this curve sits off. */
+    sourceType: Exclude<SketchEntityType, "offsetCurve">;
+    distance: number;
+    /**
+     * The stretch of the source this copy runs over, when it has been trimmed — absent is the
+     * whole of it. A window rather than new geometry: an offset curve is only the parallel
+     * curve of what it reads, so cutting it is cutting the source's range, and the copy stays
+     * exact — and stays following its source — afterwards.
+     *
+     * Both numbers are in the **source's own parameter** — the absolute angle for the ellipse
+     * families, the knots for a NURBS, [0, 1] for a bezier or conic. That is what keeps a
+     * copy's ends exact: nothing can pin them (a copy has no point of its own), so the window
+     * is the whole of where they are, and a length read off a polyline would bake its own
+     * error in. On a periodic source (the ellipse) the second may run past the first by up to
+     * a turn, which is how a piece straddling the source's seam is named; on any other it
+     * cannot, and a window is clamped into the source it has.
+     *
+     * It can only be a window *of the source*: off the ends of the source there is no parallel
+     * curve at all, which is why extending a copy past its source's end extends the source.
+     */
+    window?: [number, number];
+}
+
+/**
+ * The degree the sketch gives a NURBS of `poleCount` control poles: cubic, or one less
+ * than the pole count when there are not enough poles to be cubic (garlic's own bound is
+ * degree ≤ poles − 1). Two poles come out degree 1 — a straight line, which is what the
+ * tool draws before the third pick — and a lone pole degree 0, which is not a curve at all:
+ * that is what a tool's first pick is before the probe reaches its second, and what keeps
+ * the knot vector the evaluation reads consistent with the poles it has.
+ */
+export function defaultNurbsDegree(poleCount: number): number {
+    // floored: a malformed entity reads as a *fraction* of a pole when its params are not
+    // three per pole (`nurbsPoleCount`), and a fractional degree is not a curve — it is
+    // `new Array(degree + 1)` throwing out of a rebuild
+    return Math.max(0, Math.min(3, Math.floor(poleCount) - 1));
+}
+
+/**
+ * A NURBS' params from its control points alone: control points, then one weight each — the
+ * layout the entity stores (`SketchEntityData`). A tool drawing the curve it is still picking
+ * has the points and nothing else to give, and the entity it commits carries the unit weights
+ * this fills in. Point pairs *without* the weights are not a layout the evaluation can read
+ * (three params per pole is), which is how a spline being drawn came to be read as a curve of
+ * a fractional degree.
+ */
+export function nurbsParams(poles: readonly number[]): number[] {
+    return [...poles, ...new Array<number>(Math.floor(poles.length / 2)).fill(1)];
+}
+
+/**
+ * garlic's clamped uniform knot vector (`nurbs.rs::clamped_uniform`), n = `poleCount`:
+ * the first and last knots carry multiplicity degree + 1, so the curve is clamped at both
+ * ends, and the interior knots are the integers between them. The curve's domain is
+ * [knots[degree], knots[poleCount]] — which is what `curveEval` reads.
+ */
+export function clampedUniformKnots(poleCount: number, degree: number): number[] {
+    const knots = new Array<number>(degree + 1).fill(0);
+    for (let i = 1; i < poleCount - degree; i++) knots.push(i);
+    for (let i = 0; i <= degree; i++) knots.push(poleCount - degree);
+    return knots;
+}
+
+/** The NurbsSpec a sketch NURBS of `poleCount` control poles is built with. */
+export function defaultNurbsSpec(poleCount: number): NurbsSpec {
+    const degree = defaultNurbsDegree(poleCount);
+    return { degree, knots: clampedUniformKnots(poleCount, degree) };
+}
+
+/**
  * line: pointIndex 0 = start, 1 = end; circle: pointIndex 0 = center;
- * arc: pointIndex 0 = center, 1 = start, 2 = end.
+ * arc: pointIndex 0 = center, 1 = start, 2 = end;
+ * ellipse: pointIndex 0 = center, 1 = major-axis point, 2 = minor-axis point;
+ * ellipseArc: the ellipse's 0–2, then 3 = start, 4 = end;
+ * conic: pointIndex 0 = start, 1 = control, 2 = end (rho is a scalar, not a point);
+ * bezier: pointIndex i = the i-th control pole (all four are points);
+ * nurbs: pointIndex i = the i-th control pole — its weights are params too, but they are
+ * not addressed as points and have no index here.
  */
 export interface SketchPointRef {
     entityId: number;
     pointIndex: number;
 }
 
-/** Addressable points per entity type (the `pointIndex` layout of `SketchPointRef`). */
-const ENTITY_POINT_COUNTS: Record<SketchEntityType, number> = { circle: 1, line: 2, arc: 3 };
+/** Addressable points per fixed-size entity type; a nurbs' count follows its pole count. */
+const ENTITY_POINT_COUNTS: Record<Exclude<SketchEntityType, "nurbs">, number> = {
+    // an offset curve has no point of its own: it is its source's geometry, moved
+    offsetCurve: 0,
+    circle: 1,
+    line: 2,
+    arc: 3,
+    ellipse: 3,
+    ellipseArc: 5,
+    conic: 3,
+    bezier: 4,
+};
 
-/** Number of point refs an entity of `type` exposes (`pointIndex` runs 0..n−1). */
-export function entityPointCount(type: SketchEntityType): number {
-    return ENTITY_POINT_COUNTS[type];
+/** Number of point refs an entity exposes (`pointIndex` runs 0..n−1). */
+export function entityPointCount(entity: Pick<SketchEntityData, "type" | "params">): number {
+    // a nurbs holds three params per pole — the pole's two coordinates and its weight — and a
+    // params list that is not a whole number of them floors, the way `curveEval.nurbsPoleCount`
+    // does: the two must agree, or a foreign or hand-edited list reads as a fraction of a pole
+    if (entity.type === "nurbs") return Math.floor(entity.params.length / 3);
+    return ENTITY_POINT_COUNTS[entity.type];
 }
 
 export interface SketchConstraintData {
@@ -98,14 +250,27 @@ export interface SketchConstraintData {
 }
 
 /**
- * The arc's structural PointOnArc (all refs on the arc itself) is part of the entity,
- * not a user constraint — it gets no badge and no row in the constraint list, and
- * deleting it would break the arc geometry.
+ * Structural constraints are part of the entity, not user constraints — they get no
+ * badge and no row in the constraint list, and deleting one would break the entity's
+ * geometry. They are: the arc's PointOnArc (keeps the end on the circle of center +
+ * start); the ellipseArc's PointOnEllipse (same, for start and end on the ellipse);
+ * the ellipse family's Perpendicular (keeps the minor-axis point perpendicular to the
+ * major axis — garlic reads the two axis points as perpendicular, so without it the
+ * solved curve and the drawn one would diverge). All of them reference their own
+ * entity alone; the Perpendicular case is told from a same-line user pick by its
+ * ref pattern [c, m, c, n] — two different points either side of the repeated center.
  */
 export function isStructuralConstraint(constraint: SketchConstraintData): boolean {
+    const selfReferential = constraint.refs.every((r) => r.entityId === constraint.refs[0].entityId);
+    if (!selfReferential) return false;
+    if (constraint.kind === ConstraintKind.PointOnArc || constraint.kind === ConstraintKind.PointOnEllipse) {
+        return true;
+    }
     return (
-        constraint.kind === ConstraintKind.PointOnArc &&
-        constraint.refs.every((r) => r.entityId === constraint.refs[0].entityId)
+        constraint.kind === ConstraintKind.Perpendicular &&
+        constraint.refs.length === 4 &&
+        constraint.refs[0].pointIndex === constraint.refs[2].pointIndex &&
+        constraint.refs[1].pointIndex !== constraint.refs[3].pointIndex
     );
 }
 
@@ -114,7 +279,10 @@ export function isStructuralConstraint(constraint: SketchConstraintData): boolea
  * resolve to, and what `toDatumSource`/`resolveDatumSource` convert between.
  */
 export function datumUnitSpec(kind: ConstraintKind): UnitSpec {
-    return kind === ConstraintKind.Angle ? ANGLE_UNITS : LENGTH_UNITS;
+    if (kind === ConstraintKind.Angle) return ANGLE_UNITS;
+    // rho is a ratio — it converts through no unit at all
+    if (kind === ConstraintKind.ConicRho) return UNITLESS;
+    return LENGTH_UNITS;
 }
 
 /**
@@ -631,7 +799,11 @@ export function entityRadius(entity: SketchEntityData): number {
  * offset into the opposite direction comes back with its endpoints swapped and reads
  * as a different line until they are compared as a pair. An arc's are ordered — the
  * sweep is directed — so they must match in place; a circle's radius counts as much
- * as its center.
+ * as its center. An ellipse reads the same however its frame is signed or swapped —
+ * (c, u, v) and (c, −u, v) are one curve — the conic and the cubic bezier read the
+ * same taken in reverse, which is what a reflection across the curve's own axis of
+ * symmetry lands on, and a nurbs does not: its knot vector is what fixes which way
+ * round the curve runs, so a reversed one is a genuinely different entity.
  *
  * The mirror uses it to leave out a copy that is already in the sketch, and the
  * offset to refuse one that would land on existing geometry: an overlapping pair
@@ -647,16 +819,133 @@ export function sameEntityGeometry(
     // Different kinds lay their params out differently: a line's four slots read against an
     // arc's six happen to line up wherever the numbers agree, matching shapes that are not.
     if (type !== otherType) return false;
-    const near = (a: number, b: number) => Math.abs(a - b) <= tolerance;
-    const nearPoint = (p: readonly number[], q: readonly number[]) => near(p[0], q[0]) && near(p[1], q[1]);
-    if (type === "line") {
-        return (
-            (nearPoint(first, second) && nearPoint(first.slice(2), second.slice(2))) ||
-            (nearPoint(first, second.slice(2)) && nearPoint(first.slice(2), second))
-        );
+    switch (type) {
+        case "line":
+            return sameLine(first, second, tolerance);
+        case "circle":
+            return nearPoint(first, second, tolerance) && near(first[2], second[2], tolerance);
+        case "ellipse":
+            return sameEllipseFrame(first, second, tolerance);
+        case "ellipseArc":
+            return sameEllipseArc(first, second, tolerance);
+        case "conic":
+            return sameConic(first, second, tolerance);
+        case "bezier":
+            return sameBezier(first, second, tolerance);
+        default:
+            // the rest — a nurbs among them, whose knots are not in `params` and so cannot be
+            // compared here: a reversed or re-knotted one simply reads as another curve, which
+            // costs the duplicate check a match at worst, never a wrong one
+            return sameInPlace(first, second, tolerance);
     }
-    if (type === "circle") return nearPoint(first, second) && near(first[2], second[2]);
-    return first.every((value, index) => near(value, second[index]));
+}
+
+/** Whether `a` and `b` are within `tolerance` of each other. */
+function near(a: number, b: number, tolerance: number): boolean {
+    return Math.abs(a - b) <= tolerance;
+}
+
+/** Whether the points two param vectors start with are in the same place. */
+function nearPoint(p: readonly number[], q: readonly number[], tolerance: number): boolean {
+    return near(p[0], q[0], tolerance) && near(p[1], q[1], tolerance);
+}
+
+/** Whether the params agree slot for slot, read in the same direction. */
+function sameInPlace(first: readonly number[], second: readonly number[], tolerance: number): boolean {
+    return (
+        first.length === second.length && first.every((value, index) => near(value, second[index], tolerance))
+    );
+}
+
+/** Whether two lines draw one segment: their endpoints are unordered, so either way round. */
+function sameLine(first: readonly number[], second: readonly number[], tolerance: number): boolean {
+    return (
+        (nearPoint(first, second, tolerance) && nearPoint(first.slice(2), second.slice(2), tolerance)) ||
+        (nearPoint(first, second.slice(2), tolerance) && nearPoint(first.slice(2), second, tolerance))
+    );
+}
+
+/** Whether two cubics draw one curve: the same poles in order, or poled in reverse. */
+function sameBezier(first: readonly number[], second: readonly number[], tolerance: number): boolean {
+    // the same cubic poled in reverse: pole i answers pole 3−i
+    const reversed =
+        first.length === second.length &&
+        nearPoint(first, second.slice(6), tolerance) &&
+        nearPoint(first.slice(2), second.slice(4), tolerance) &&
+        nearPoint(first.slice(4), second.slice(2), tolerance) &&
+        nearPoint(first.slice(6), second, tolerance);
+    return sameInPlace(first, second, tolerance) || reversed;
+}
+
+/** Whether two conics draw one arc: the same poles in order, or the same arc read end for start. */
+function sameConic(first: readonly number[], second: readonly number[], tolerance: number): boolean {
+    // the same arc read end-for-start: poles swap places, rho keeps its own
+    const reversed =
+        nearPoint(first, second.slice(4), tolerance) &&
+        nearPoint(first.slice(2), second.slice(2), tolerance) &&
+        nearPoint(first.slice(4), second, tolerance) &&
+        near(first[6], second[6], tolerance);
+    return sameInPlace(first, second, tolerance) || reversed;
+}
+
+/** Whether two ellipseArcs draw one curve: one frame, one rim pair, swept the same way round. */
+function sameEllipseArc(first: readonly number[], second: readonly number[], tolerance: number): boolean {
+    // frame and rim tell an arc from its complement only with the sweep's middle —
+    // the two share the frame and the rim point pair
+    const rimSame =
+        (nearPoint(first.slice(6), second.slice(6), tolerance) &&
+            nearPoint(first.slice(8), second.slice(8), tolerance)) ||
+        (nearPoint(first.slice(6), second.slice(8), tolerance) &&
+            nearPoint(first.slice(8), second.slice(6), tolerance));
+    return (
+        sameEllipseFrame(first, second, tolerance) &&
+        rimSame &&
+        nearPoint(ellipseArcMiddle(first), ellipseArcMiddle(second), tolerance)
+    );
+}
+
+/**
+ * Whether two ellipse frames draw one curve: same center, and the axis vectors agreeing
+ * up to sign and order — (c, u, v), (c, −u, v) and (c, v, u) all parametrize the same
+ * ellipse.
+ */
+function sameEllipseFrame(first: readonly number[], second: readonly number[], tolerance: number): boolean {
+    if (!nearPoint(first, second, tolerance)) return false;
+    const u = [first[2] - first[0], first[3] - first[1]];
+    const v = [first[4] - first[0], first[5] - first[1]];
+    const u2 = [second[2] - second[0], second[3] - second[1]];
+    const v2 = [second[4] - second[0], second[5] - second[1]];
+    // an axis vector matches up to its sign: the frame point may sit on either end of the axis
+    const match = (a: number[], b: number[]) =>
+        (near(a[0], b[0], tolerance) && near(a[1], b[1], tolerance)) ||
+        (near(a[0], -b[0], tolerance) && near(a[1], -b[1], tolerance));
+    return (match(u, u2) && match(v, v2)) || (match(u, v2) && match(v, u2));
+}
+
+/**
+ * The point an ellipseArc's sweep passes through at its middle. The axes are perpendicular
+ * (the structural constraint), so a point's frame angle reads off the axis projections,
+ * and the sweep runs counter-clockwise in the frame from the start's angle.
+ */
+function ellipseArcMiddle(params: readonly number[]): [number, number] {
+    const [cx, cy, mx, my, nx, ny, sx, sy, ex, ey] = params;
+    const u = [mx - cx, my - cy];
+    const v = [nx - cx, ny - cy];
+    const angleOf = (x: number, y: number) => {
+        const dx = x - cx;
+        const dy = y - cy;
+        return Math.atan2(
+            (dx * v[0] + dy * v[1]) / (v[0] * v[0] + v[1] * v[1]),
+            (dx * u[0] + dy * u[1]) / (u[0] * u[0] + u[1] * u[1]),
+        );
+    };
+    const start = angleOf(sx, sy);
+    const sweep = (angleOf(ex, ey) - start + Math.PI * 4) % (Math.PI * 2);
+    const middle = start + sweep / 2;
+    return [
+        cx + u[0] * Math.cos(middle) + v[0] * Math.sin(middle),
+        cy + u[1] * Math.cos(middle) + v[1] * Math.sin(middle),
+    ];
 }
 
 /** Sketch (u, v) → world: origin + xvec * u + yvec * v. */

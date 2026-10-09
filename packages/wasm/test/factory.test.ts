@@ -20,7 +20,7 @@ import { MockShape } from "@chili3d/core/test-utils";
 import type { ShapeFactory } from "../src/factory";
 import type { OccEdge, OccFace, OccSolid } from "../src/shape";
 import { OccCylindricalSurface, OccPlane } from "../src/surface";
-import { createTestConverter, createTestFactory, surfaceOfFace, unwrapOk } from "./helpers";
+import { basisCurveOfEdge, createTestConverter, createTestFactory, surfaceOfFace, unwrapOk } from "./helpers";
 import "./setup";
 
 let factory: ShapeFactory;
@@ -153,6 +153,115 @@ describe("ShapeFactory — curves & wires", () => {
             const points = [XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 10, y: 10, z: 0 })];
             const result = factory.bezier(points, [1, 2, 1]);
             expect(result.isOk).toBe(true);
+        });
+    });
+
+    describe("bspline", () => {
+        const points = [
+            XYZ.zero,
+            new XYZ({ x: 2, y: 4, z: 0 }),
+            new XYZ({ x: 6, y: 6, z: 0 }),
+            new XYZ({ x: 10, y: 2, z: 0 }),
+        ];
+        const cubic = [0, 0, 0, 0, 1, 1, 1, 1];
+
+        test("a clamped cubic with bezier knots is the same curve as the bezier edge", () => {
+            const bspline = factory.bspline(points, undefined, cubic, 3);
+            expect(bspline.isOk).toBe(true);
+            const bezier = factory.bezier(points);
+            expect(bezier.isOk).toBe(true);
+            // the same polynomial over the same [0, 1]: every parameter must land on the
+            // same point, which is what says the knots, degree and poles were mapped right
+            for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+                const fromBspline = basisCurveOfEdge(bspline.value as OccEdge).d0(t);
+                const fromBezier = basisCurveOfEdge(bezier.value as OccEdge).d0(t);
+                expect(fromBspline.x).toBeCloseTo(fromBezier.x, 9);
+                expect(fromBspline.y).toBeCloseTo(fromBezier.y, 9);
+            }
+        });
+
+        test("carries the rational weights through", () => {
+            const weights = [1, 2, 1];
+            const rational = factory.bspline(
+                [points[0], points[1], points[2]],
+                weights,
+                [0, 0, 0, 1, 1, 1],
+                2,
+            );
+            expect(rational.isOk).toBe(true);
+            const bezier = factory.bezier([points[0], points[1], points[2]], weights);
+            expect(bezier.isOk).toBe(true);
+            // a weight of 2 pulls the curve towards its control point: asserting the two
+            // shapes agree is what says the weight reached the kernel at all
+            for (const t of [0.25, 0.5, 0.75]) {
+                const fromBspline = basisCurveOfEdge(rational.value as OccEdge).d0(t);
+                const fromBezier = basisCurveOfEdge(bezier.value as OccEdge).d0(t);
+                expect(fromBspline.x).toBeCloseTo(fromBezier.x, 9);
+                expect(fromBspline.y).toBeCloseTo(fromBezier.y, 9);
+            }
+            // and the weight really pulls: a weight above one draws the curve towards its
+            // own control point, so the weighted midpoint is nearer it than the unit one
+            const plain = factory.bspline(
+                [points[0], points[1], points[2]],
+                undefined,
+                [0, 0, 0, 1, 1, 1],
+                2,
+            );
+            const pulled = basisCurveOfEdge(rational.value as OccEdge).d0(0.5);
+            const unit = basisCurveOfEdge(plain.value as OccEdge).d0(0.5);
+            const control = points[1];
+            expect(Math.hypot(pulled.x - control.x, pulled.y - control.y)).toBeLessThan(
+                Math.hypot(unit.x - control.x, unit.y - control.y),
+            );
+        });
+
+        test("a clamped multi-span curve interpolates the ends of its control polygon", () => {
+            const poles = [...points, new XYZ({ x: 12, y: 6, z: 0 }), new XYZ({ x: 14, y: 0, z: 0 })];
+            const knots = [0, 0, 0, 0, 1, 2, 3, 3, 3, 3];
+            const result = factory.bspline(poles, undefined, knots, 3);
+            expect(result.isOk).toBe(true);
+            const curve = basisCurveOfEdge(result.value as OccEdge);
+            const start = curve.d0(0);
+            const end = curve.d0(3);
+            expect(start.x).toBeCloseTo(poles[0].x, 9);
+            expect(start.y).toBeCloseTo(poles[0].y, 9);
+            expect(end.x).toBeCloseTo(poles[5].x, 9);
+            expect(end.y).toBeCloseTo(poles[5].y, 9);
+        });
+
+        // 27 poles and a degree of 26: the kernel's own `MaxDegree()` is 25, and a degree past
+        // it raises inside `Geom_BSplineCurve` rather than coming back as an error
+        const beyond = Array.from({ length: 27 }, (_, i) => new XYZ({ x: i, y: 0, z: 0 }));
+        const beyondKnots = [...Array(27).fill(0), ...Array(27).fill(1)];
+
+        // Each of these would make OCCT raise, and the module is built with exception
+        // catching off — a raise aborts everything, so every one of them has to come back
+        // as an error result instead.
+        test.each([
+            ["a degree of zero", points, undefined, cubic, 0],
+            ["a degree past the kernel's own limit", beyond, undefined, beyondKnots, 26],
+            ["a degree the poles cannot carry", points, undefined, cubic, 4],
+            ["a knot vector of the wrong length", points, undefined, [0, 0, 0, 1, 1, 1], 3],
+            ["an unclamped knot vector", points, undefined, [0, 1, 2, 3, 4, 5, 6, 7], 3],
+            ["a decreasing knot vector", points, undefined, [0, 0, 0, 0, 1, 0.5, 1, 1], 3],
+            [
+                "an interior multiplicity past the degree",
+                [...points, ...points],
+                undefined,
+                [0, 0, 0, 0, 0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1],
+                3,
+            ],
+            ["a weight per pole missing", points, [1, 1], cubic, 3],
+            ["a weight of zero", points, [1, 0, 1, 1], cubic, 3],
+            ["a negative weight", points, [1, -1, 1, 1], cubic, 3],
+        ])("refuses %s rather than aborting", (_name, poles, weights, knots, degree) => {
+            const result = factory.bspline(
+                poles as XYZ[],
+                weights as number[] | undefined,
+                knots as number[],
+                degree as number,
+            );
+            expect(result.isOk).toBe(false);
         });
     });
 

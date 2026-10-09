@@ -58,6 +58,7 @@ function setup() {
         value: {
             line: () => Result.ok({ isEqual: () => false }),
             circle: () => Result.ok({ isEqual: () => false }),
+            bezier: () => Result.ok({ isEqual: () => false }),
             wire: () => Result.ok({ isEqual: () => false }),
             combine: () => Result.ok({ isEqual: () => false }),
         },
@@ -317,6 +318,46 @@ describe("SketchAnnotations visibility", () => {
             const vs = shown.map((b) => b.v).sort((a, b) => a - b);
             expect(vs[0]).toBeCloseTo(18, 5);
             expect(vs[1]).toBeCloseTo(68, 5);
+            editor.exit();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a constraint on a control-net segment anchors beside that segment", () => {
+        const { doc, view, restoreFactory } = setup();
+        try {
+            const badges: { text: string; u: number; v: number }[] = [];
+            (view as any).htmlText = rs.fn((text: string, point: XYZ) => {
+                badges.push({ text, u: point.x, v: point.y });
+                return { dispose: rs.fn() };
+            });
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            // control points (0,0), (0,40), (30,40), (30,0): the segment between the two
+            // handles runs (0,40)-(30,40), ten units above the curve it steers
+            const bezier = editor.solver.addBezier([0, 0, 0, 40, 30, 40, 30, 0]);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Parallel,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                    { entityId: bezier, pointIndex: 1 },
+                    { entityId: bezier, pointIndex: 2 },
+                ],
+            });
+            editor.solve(true);
+
+            (doc.visual.eventHandler as SketchEventHandler).pointerMove(view, pointerEvent(405, 300));
+            const shown = badges.filter((b) => b.text === "∥");
+            expect(shown.map((b) => [b.u, b.v]).sort((a, b) => a[0] - b[0])).toEqual([
+                // the line's own midpoint, offset by the 18 world units px = 1 makes
+                [5, 18],
+                // and the control-net segment's midpoint — not a place read off the bezier's
+                // params as if they were a centre and a radius
+                [15, 58],
+            ]);
             editor.exit();
         } finally {
             restoreFactory();

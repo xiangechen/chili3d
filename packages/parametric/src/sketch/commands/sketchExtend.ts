@@ -58,7 +58,9 @@ export class SketchExtendCommand extends SketchConstraintCommand {
             this.beginStep();
             const target = await editor.pickEntityAt(
                 "prompt.pickExtendTarget",
-                ["line", "arc"],
+                // an offset copy is a curve with ends like any other, though what moves when one
+                // of them does is the window it is drawn over rather than a point (see `extendOps`)
+                ["line", "arc", "ellipseArc", "conic", "bezier", "nurbs", "offsetCurve"],
                 undefined,
                 this.controller,
             );

@@ -25,6 +25,7 @@
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GProp_GProps.hxx>
 #include <GeomAbs_JoinType.hxx>
+#include <Geom_BSplineCurve.hxx>
 #include <Geom_OffsetCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <HLRAlgo_Projector.hxx>
@@ -498,9 +499,32 @@ public:
         if (curve.IsNull()) {
             return TopoDS_Edge();
         }
+        // Geom_OffsetCurve raises only for a basis that is both C0 and a B-spline it cannot read
+        // as G1 — and it looks through any trim/offset wrapper to the curve underneath, while its
+        // own Continuity() reports one order lower than that basis's (a C1 basis reads as C0), so
+        // the check has to unwrap rather than read the curve here. The Release build catches
+        // nothing (`-sDISABLE_EXCEPTION_CATCHING=1` aborts the module), so that one raise is
+        // answered here first.
+        Handle(Geom_Curve) basis = curve;
+        while (true) {
+            if (basis->IsKind(STANDARD_TYPE(Geom_TrimmedCurve))) {
+                basis = Handle(Geom_TrimmedCurve)::DownCast(basis)->BasisCurve();
+            } else if (basis->IsKind(STANDARD_TYPE(Geom_OffsetCurve))) {
+                basis = Handle(Geom_OffsetCurve)::DownCast(basis)->BasisCurve();
+            } else {
+                break;
+            }
+        }
+        if (basis->Continuity() == GeomAbs_C0 && basis->IsKind(STANDARD_TYPE(Geom_BSplineCurve))
+            && !Handle(Geom_BSplineCurve)::DownCast(basis)->IsG1(start, end, Precision::Angular())) {
+            return TopoDS_Edge();
+        }
         Handle(Geom_TrimmedCurve) trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
         Handle(Geom_OffsetCurve) offsetCurve = new Geom_OffsetCurve(trimmedCurve, offset, dir);
         BRepBuilderAPI_MakeEdge builder(offsetCurve);
+        if (!builder.IsDone()) {
+            return TopoDS_Edge();
+        }
         return builder.Edge();
     }
 

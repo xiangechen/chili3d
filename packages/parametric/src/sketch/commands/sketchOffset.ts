@@ -21,7 +21,7 @@ import { ARROW_LENGTH } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import { SketchEditor } from "../editor/sketchEditor";
 import { additivePick, sketchEntityMesh } from "../editor/sketchEventHandler";
-import { type OffsetOutcome, offsetEntities, offsetPreview } from "../offsetOps";
+import { curveOffsetAnchor, type OffsetOutcome, offsetEntities, offsetPreview } from "../offsetOps";
 import { type DimensionAnchor, type SketchEntityData, toWorld } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import { SketchConstraintCommand } from "./sketchConstraints";
@@ -528,8 +528,12 @@ function anchorOn(entity: SketchEntityData): OffsetAnchor | undefined {
         if (radius <= Precision.Distance) return undefined;
         return { point: [cx + radius, cy], direction: [1, 0] }; // outward: a circle's own positive
     }
-    // an arc's left is the way to its centre, and its start point carries its radius
-    const radius = Math.hypot(sx - cx, sy - cy);
-    if (radius <= Precision.Distance) return undefined;
-    return { point: [sx, sy], direction: [(cx - sx) / radius, (cy - sy) / radius] };
+    if (entity.type === "arc") {
+        // an arc's left is the way to its centre, and its start point carries its radius
+        const radius = Math.hypot(sx - cx, sy - cy);
+        if (radius <= Precision.Distance) return undefined;
+        return { point: [sx, sy], direction: [(cx - sx) / radius, (cy - sy) / radius] };
+    }
+    // the numeric families: no analytic frame, so the curve reads its own middle
+    return curveOffsetAnchor(entity);
 }

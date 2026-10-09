@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EMPTY_SCOPE, type ParameterValue, type Plane, Result, type Scope } from "@chili3d/core";
+import { EMPTY_SCOPE, type ParameterValue, type Plane, Precision, Result, type Scope } from "@chili3d/core";
 import type { SolveResultInfo, WasmSystem } from "../../lib/garlic";
 import { INCIDENCE_TOLERANCE } from "../features/refGeometry";
 import {
@@ -19,7 +19,24 @@ import {
     sameIdList,
     seedRelations,
 } from "./arrayOps";
-import { ENTITY_PARAM_KINDS, PARAM_KIND_COORDINATE, PARAM_KIND_LENGTH } from "./entityLayout";
+import {
+    type CurveEntity,
+    closestCurvePair,
+    entityDomain,
+    isClosedCurveType,
+    nurbsPoleCount,
+    nurbsPoleValues,
+    nurbsWeights,
+    projectPoint,
+    nurbsSpec as specOf,
+} from "./curveEval";
+import {
+    entityParamKinds,
+    normalizeNurbsParams,
+    PARAM_KIND_COORDINATE,
+    PARAM_KIND_DIMENSIONLESS,
+    PARAM_KIND_LENGTH,
+} from "./entityLayout";
 import {
     type EntityTables,
     type ExternalEntityHost,
@@ -27,6 +44,9 @@ import {
     type ExternalPins,
 } from "./externalEntities";
 import { newGarlicSystem } from "./garlic";
+// the guard the offset op refuses a folded copy by, applied here to a distance the user
+// changes afterwards: the same geometry, the same answer
+import { offsetFolds } from "./offsetOps";
 import {
     ConstraintKind,
     datumEntityData,
@@ -37,6 +57,8 @@ import {
     isDatumEntityId,
     isExternalEntityId,
     isStructuralConstraint,
+    type NurbsSpec,
+    type OffsetCurveRef,
     pointRefKey,
     type RadiusDisplay,
     resolveDatumSource,
@@ -82,6 +104,40 @@ export interface SolveOutcome {
 }
 
 /**
+ * A NURBS entity's params from its control poles, weights and construction constants, in
+ * the order the entity stores them: the poles' coordinates first, then one weight per pole.
+ * Throws on a pole count the knot vector or the degree cannot carry: that is not a curve,
+ * and the first constraint built on it would be the thing that found out.
+ */
+function nurbsEntityValues(poles: readonly number[], spec: NurbsSpec, weights?: readonly number[]): number[] {
+    const poleCount = poles.length / 2;
+    if (poleCount < 2 || poles.length % 2 !== 0) {
+        throw new Error(`A nurbs needs at least two control poles, got ${poleCount}`);
+    }
+    if (spec.degree < 1 || spec.degree > poleCount - 1) {
+        throw new Error(`A nurbs of ${poleCount} control poles cannot carry degree ${spec.degree}`);
+    }
+    if (spec.knots.length !== poleCount + spec.degree + 1) {
+        throw new Error(`A nurbs knot vector is poles + degree + 1 long, got ${spec.knots.length}`);
+    }
+    const values = weights ?? new Array<number>(poleCount).fill(1);
+    if (values.length !== poleCount) {
+        throw new Error(`A nurbs needs one weight per pole, got ${values.length}`);
+    }
+    return [...poles, ...values];
+}
+
+/** Whether two NURBS describe the same curve structure — the same degree and the same knots. */
+function sameNurbsSpec(first: NurbsSpec | undefined, second: NurbsSpec | undefined): boolean {
+    if (first === undefined || second === undefined) return first === second;
+    return (
+        first.degree === second.degree &&
+        first.knots.length === second.knots.length &&
+        first.knots.every((knot, index) => knot === second.knots[index])
+    );
+}
+
+/**
  * What the solver can say about the constraint set beyond the solve result: the
  * degrees of freedom left and the constraints (sketch ids, not garlic ids) it
  * flags as conflicting or redundant. Structural constraints the user never sees
@@ -106,8 +162,44 @@ interface ConstraintParams {
     /** The params a datum was written into, when the kind carries one. */
     datumParamIds?: number[];
     datumSources?: ParameterValue[];
+    /**
+     * Auxiliary contact parameters (the t of a PointOn/Tangent against a conic,
+     * bezier, nurbs or curve pair): created with the constraint, seeded from the current
+     * geometry, owned by it — `removeConstraint` removes them with it. They are
+     * solver internals, never persisted: a reload re-seeds them (`buildConstraintParams`),
+     * which keeps a saved sketch byte-identical whether or not it carries them.
+     */
+    auxParamIds?: number[];
+    /**
+     * The construction constants of the NURBS segments the constraint names, in its own
+     * canonical curve order — garlic takes them as an argument of its own, beside the
+     * params, since a knot vector cannot be recovered from a param list.
+     */
+    nurbs?: NurbsSpec[];
     /** garlic kind when it differs from the sketch-level kind (arc radius → P2PDistance). */
     garlicKind?: ConstraintKind;
+}
+
+/**
+ * The shortest an offset copy's window may be, as a fraction of the source's own parameter
+ * range: below it the copy has nothing left to draw and is deleted rather than kept as a
+ * speck. A fraction, not a distance, because a window is a parameter range and the families
+ * measure it differently (an angle, a knot span, a unit interval).
+ */
+const OFFSET_WINDOW_MIN_FRACTION = 1e-9;
+
+/**
+ * A copy of an offset ref, its window tuple included: the refs the solver keeps are its own,
+ * and the ones it hands out are the caller's to do what it likes with — the same reason a
+ * NURBS' knots are copied on the way in and on the way out.
+ */
+function copyOffsetRef(ref: OffsetCurveRef): OffsetCurveRef {
+    return {
+        sourceId: ref.sourceId,
+        sourceType: ref.sourceType,
+        distance: ref.distance,
+        ...(ref.window === undefined ? {} : { window: [ref.window[0], ref.window[1]] as [number, number] }),
+    };
 }
 
 /** The kinds whose value arrives through a datum param rather than from the geometry. */
@@ -119,6 +211,40 @@ const DATUM_CONSTRAINTS: ReadonlySet<ConstraintKind> = new Set([
     ConstraintKind.HorizontalDistance,
     ConstraintKind.VerticalDistance,
     ConstraintKind.Fix,
+    ConstraintKind.ConicRho,
+]);
+
+/**
+ * The kinds carrying auxiliary contact parameters (the t of a PointOn/Tangent against
+ * a conic, bezier, nurbs or curve pair, the t1/t2 of a curve-curve tangency):
+ * `buildConstraintParams` routes them to `curveConstraintParams`, which creates and seeds
+ * the aux params. PointOnEllipse/TangentLineEllipse carry no t and stay on the plain path.
+ */
+const AUX_CURVE_CONSTRAINTS: ReadonlySet<ConstraintKind> = new Set([
+    ConstraintKind.PointOnConic,
+    ConstraintKind.TangentLineConic,
+    ConstraintKind.PointOnBezier,
+    ConstraintKind.TangentLineBezier,
+    ConstraintKind.PointOnNurbs,
+    ConstraintKind.TangentLineNurbs,
+    ConstraintKind.TangentCircleEllipse,
+    ConstraintKind.TangentArcEllipse,
+    ConstraintKind.TangentCircleConic,
+    ConstraintKind.TangentArcConic,
+    ConstraintKind.TangentCircleBezier,
+    ConstraintKind.TangentArcBezier,
+    ConstraintKind.TangentCircleNurbs,
+    ConstraintKind.TangentArcNurbs,
+    ConstraintKind.TangentEllipseEllipse,
+    ConstraintKind.TangentEllipseConic,
+    ConstraintKind.TangentEllipseBezier,
+    ConstraintKind.TangentEllipseNurbs,
+    ConstraintKind.TangentConicConic,
+    ConstraintKind.TangentConicBezier,
+    ConstraintKind.TangentConicNurbs,
+    ConstraintKind.TangentBezierBezier,
+    ConstraintKind.TangentBezierNurbs,
+    ConstraintKind.TangentNurbsNurbs,
 ]);
 
 interface ConstraintRecord {
@@ -127,6 +253,8 @@ interface ConstraintRecord {
     refs: SketchPointRef[];
     garlicId: number;
     datumParamIds?: number[];
+    /** Auxiliary t params of a PointOn/Tangent against a conic, bezier, nurbs or curve pair. */
+    auxParamIds?: number[];
     /**
      * What each `datumParamIds` entry was written from, in the same order: a number
      * may be read back from garlic (that is how the solver normalizes a literal),
@@ -157,6 +285,27 @@ export class SketchSolver implements ExternalEntityHost {
     private readonly entityTypes = new Map<number, SketchEntityType>();
     private readonly entityParams = new Map<number, number[]>();
     private readonly entityCache = new Map<number, number[]>();
+    /**
+     * The construction constants of the NURBS entities, by id — their degree and knot
+     * vector. Beside the params rather than among them because garlic takes the pair as an
+     * argument of its own (`add_constraint`'s `nurbs`): they are not solver parameters, and
+     * nothing in a solve moves them.
+     */
+    private readonly entityNurbs = new Map<number, NurbsSpec>();
+    /**
+     * What an offset curve runs parallel to. It has no geometry of its own — `entities()` and
+     * `entity()` compose it from its *source's* params as they are now, which is what makes an
+     * offset copy follow the entity it came from without a refresh of its own, and what makes
+     * its own params empty: nothing of it is a solver parameter, so `entityParamKinds` gives
+     * garlic none and no constraint can name it.
+     */
+    private readonly entityOffsets = new Map<number, OffsetCurveRef>();
+    /**
+     * The internal constraints holding each NURBS' rational weights (`pinNurbsWeights`), by
+     * entity id: the datum param each weight is held at, and the pin itself. Never
+     * serialized — a load re-pins every weight at the value it came back with.
+     */
+    private readonly weightPins = new Map<number, { datumParamIds: number[]; constraintIds: number[] }>();
     private readonly constraints = new Map<number, ConstraintRecord>();
     /** garlic param ids of the datum entities (origin, X/Y axes), keyed by reserved id. */
     private readonly datumParams = new Map<number, number[]>();
@@ -371,17 +520,151 @@ export class SketchSolver implements ExternalEntityHost {
 
     addArc(cx: number, cy: number, sx: number, sy: number, ex: number, ey: number): number {
         const id = this.registerEntity("arc", this.addEntityParams("arc", [cx, cy, sx, sy, ex, ey]));
-        // structural constraint (invisible in the UI): keeps the end point on the
-        // circle defined by center + start, so the arc always ends at its end point
+        this.addStructuralConstraints(id, "arc");
+        return id;
+    }
+
+    addEllipse(cx: number, cy: number, mx: number, my: number, nx: number, ny: number): number {
+        const id = this.registerEntity("ellipse", this.addEntityParams("ellipse", [cx, cy, mx, my, nx, ny]));
+        this.addStructuralConstraints(id, "ellipse");
+        return id;
+    }
+
+    addEllipseArc(
+        cx: number,
+        cy: number,
+        mx: number,
+        my: number,
+        nx: number,
+        ny: number,
+        sx: number,
+        sy: number,
+        ex: number,
+        ey: number,
+    ): number {
+        const id = this.registerEntity(
+            "ellipseArc",
+            this.addEntityParams("ellipseArc", [cx, cy, mx, my, nx, ny, sx, sy, ex, ey]),
+        );
+        this.addStructuralConstraints(id, "ellipseArc");
+        return id;
+    }
+
+    addConic(sx: number, sy: number, cx: number, cy: number, ex: number, ey: number, rho: number): number {
+        return this.registerEntity("conic", this.addEntityParams("conic", [sx, sy, cx, cy, ex, ey, rho]));
+    }
+
+    /** A cubic bezier through its four control poles: `poles` is [x0, y0, x1, y1, x2, y2, x3, y3]. */
+    addBezier(poles: readonly number[]): number {
+        if (poles.length !== 8) {
+            throw new Error(`A bezier needs exactly four control poles, got ${poles.length / 2}`);
+        }
+        return this.registerEntity("bezier", this.addEntityParams("bezier", [...poles]));
+    }
+
+    /**
+     * A NURBS through its control poles and construction constants: garlic's general form,
+     * whose weights are params of their own beside the poles (see `SketchEntityData`).
+     * `weights` defaults to the unit weights of a plain B-spline — what the sketch's own
+     * tool draws with, and what a caller copying a curve's shape alone wants.
+     */
+    addNurbs(poles: readonly number[], spec: NurbsSpec, weights?: readonly number[]): number {
+        const values = nurbsEntityValues(poles, spec, weights);
+        const id = this.registerEntity("nurbs", this.addEntityParams("nurbs", values), undefined, spec);
+        this.pinNurbsWeights(id);
+        return id;
+    }
+
+    /**
+     * Holds every one of a NURBS' rational weights at the value it carries, with one
+     * internal constraint each.
+     *
+     * garlic takes the weights as *solve parameters* — `PointOnNurbs`'s layout is
+     * control points, then weights, then the contact parameter, and its Jacobian has a
+     * column per weight. Left unpinned they are free variables the solver will use to
+     * satisfy a constraint, and a weight driven to zero or below is a curve the kernel
+     * refuses outright: OCCT raises on a non-positive weight (the Release build turns that
+     * into a failed shape, not a crash, but the sketch's profile would be gone all the
+     * same). The sketch draws the unit weights every CAD tool's spline has and offers no
+     * way to edit them, so they are constants here.
+     *
+     * The pin is `ConicRho` — garlic's one scalar pin, whose residual is exactly
+     * `value − datum` (the kind is named for where it was first needed, not for what it
+     * does) — and, like the datum's own Fix pins, it is solver-internal: never in
+     * `constraints`, so never serialized, annotated or removable. A tool that let the user
+     * edit weights would replace them with real dimensions.
+     */
+    private pinNurbsWeights(id: number): void {
+        const params = this.entityParams.get(id);
+        const cache = this.entityCache.get(id);
+        if (this.entityTypes.get(id) !== "nurbs" || params === undefined || cache === undefined) return;
+        const datumParamIds: number[] = [];
+        const constraintIds: number[] = [];
+        for (let index = nurbsPoleCount(cache) * 2; index < params.length; index++) {
+            // a weight is dimensionless, exactly as a conic's rho is (`datumConstraintParams`)
+            const datum = this.createDatumParam(cache[index], PARAM_KIND_DIMENSIONLESS);
+            datumParamIds.push(datum);
+            constraintIds.push(
+                this.system.add_constraint(
+                    ConstraintKind.ConicRho,
+                    new Uint32Array([params[index], datum]),
+                    null,
+                    true,
+                    0,
+                ),
+            );
+        }
+        this.weightPins.set(id, { datumParamIds, constraintIds });
+    }
+
+    /** Drops a NURBS' weight pins: the constraints first, then the datums they read. */
+    private unpinNurbsWeights(id: number): void {
+        const pins = this.weightPins.get(id);
+        if (pins === undefined) return;
+        for (const constraintId of pins.constraintIds) this.system.remove_constraint(constraintId);
+        for (const datumParamId of pins.datumParamIds) this.system.remove_param(datumParamId);
+        this.weightPins.delete(id);
+    }
+
+    /**
+     * The constraints that are part of the entity rather than the user's: an arc's end on its
+     * circle, and the ellipse family's axis perpendicularity (garlic reads the two axis points
+     * as perpendicular — without the pin the solved curve and the drawn one diverge) plus, for
+     * an ellipseArc, both rim points on the ellipse. Rebuilt by `retypeEntity` after the swap,
+     * since garlic param ids do not survive it.
+     */
+    private addStructuralConstraints(id: number, type: SketchEntityType): void {
+        if (type === "arc") {
+            this.addConstraint({
+                kind: ConstraintKind.PointOnArc,
+                refs: [
+                    { entityId: id, pointIndex: 2 },
+                    { entityId: id, pointIndex: 0 },
+                    { entityId: id, pointIndex: 1 },
+                ],
+            });
+            return;
+        }
+        if (type !== "ellipse" && type !== "ellipseArc") return;
         this.addConstraint({
-            kind: ConstraintKind.PointOnArc,
+            kind: ConstraintKind.Perpendicular,
             refs: [
-                { entityId: id, pointIndex: 2 },
                 { entityId: id, pointIndex: 0 },
                 { entityId: id, pointIndex: 1 },
+                { entityId: id, pointIndex: 0 },
+                { entityId: id, pointIndex: 2 },
             ],
         });
-        return id;
+        if (type !== "ellipseArc") return;
+        for (const pointIndex of [3, 4]) {
+            this.addConstraint({
+                kind: ConstraintKind.PointOnEllipse,
+                refs: [
+                    { entityId: id, pointIndex },
+                    { entityId: id, pointIndex: 0 },
+                ],
+            });
+        }
     }
 
     addConstraint(constraint: Omit<SketchConstraintData, "id">): number {
@@ -400,6 +683,9 @@ export class SketchSolver implements ExternalEntityHost {
         this.system.remove_constraint(record.garlicId);
         for (const datumParamId of record.datumParamIds ?? []) {
             this.system.remove_param(datumParamId);
+        }
+        for (const auxParamId of record.auxParamIds ?? []) {
+            this.system.remove_param(auxParamId);
         }
         this.constraints.delete(id);
     }
@@ -473,7 +759,32 @@ export class SketchSolver implements ExternalEntityHost {
         type: SketchEntityType,
         values: number[],
         transform: (constraint: SketchConstraintData) => Omit<SketchConstraintData, "id"> | undefined,
+        nurbs?: NurbsSpec,
     ): Result<number[]> {
+        const refused = this.assertRetypeable(id);
+        if (!refused.isOk) return Result.err(refused.error);
+        const captured = this.constraintsData().filter((c) => c.refs.some((r) => r.entityId === id));
+        const construction = this.constructionEntities.has(id);
+        // the private path: this entity is changing shape, not going away, so the arrays
+        // reading it must survive — the instances are re-laid from its new type on the
+        // solve that follows
+        this.dropEntity(id);
+        // the private path, not `seedEntity`: same registration, without claiming an
+        // id from the allocator (this id already exists, it is only changing shape)
+        this.registerEntity(type, this.addEntityParams(type, values), id, nurbs);
+        if (construction) this.constructionEntities.add(id);
+
+        const dropped = this.reapplyConstraints(captured, transform);
+        // the re-added constraints already advanced the allocator, so this one cannot
+        // take the id of a constraint that was just re-created
+        this.addStructuralConstraints(id, type);
+        this.pinNurbsWeights(id);
+        this.repointOffsetCopies(id, type);
+        return Result.ok(dropped);
+    }
+
+    /** Refuses a retype the id itself forbids: a datum, an external ref, an array instance, an unknown id. */
+    private assertRetypeable(id: number): Result<void> {
         if (isDatumEntityId(id) || isExternalEntityId(id)) {
             return Result.err("The datum and external references cannot change type");
         }
@@ -483,17 +794,18 @@ export class SketchSolver implements ExternalEntityHost {
         if (this.entityTypes.get(id) === undefined) {
             return Result.err(`Unknown sketch entity: ${id}`);
         }
-        const captured = this.constraintsData().filter((c) => c.refs.some((r) => r.entityId === id));
-        const construction = this.constructionEntities.has(id);
-        // the private path: this entity is changing shape, not going away, so the arrays
-        // reading it must survive — the instances are re-laid from its new type on the
-        // solve that follows
-        this.dropEntity(id);
-        // the private path, not `seedEntity`: same registration, without claiming an
-        // id from the allocator (this id already exists, it is only changing shape)
-        this.registerEntity(type, this.addEntityParams(type, values), id);
-        if (construction) this.constructionEntities.add(id);
+        return Result.ok(undefined);
+    }
 
+    /**
+     * Re-creates each captured constraint under its own id, and returns the ids of the ones
+     * that could not come back. A kind the new type cannot express (an EqualRadius over an
+     * arc, whose `radiusParamId` throws) is a drop, not a failure of the whole retype.
+     */
+    private reapplyConstraints(
+        captured: readonly SketchConstraintData[],
+        transform: (constraint: SketchConstraintData) => Omit<SketchConstraintData, "id"> | undefined,
+    ): number[] {
         const dropped: number[] = [];
         for (const constraint of captured) {
             if (isStructuralConstraint(constraint)) continue;
@@ -502,27 +814,141 @@ export class SketchSolver implements ExternalEntityHost {
                 dropped.push(constraint.id);
                 continue;
             }
-            // A kind the new type cannot express (an EqualRadius over an arc, whose
-            // radiusParamId throws) is a drop, not a failure of the whole retype.
             try {
                 this.addConstraintWithId(constraint.id, next);
             } catch {
                 dropped.push(constraint.id);
             }
         }
-        // the re-added constraints already advanced the allocator, so this one cannot
-        // take the id of a constraint that was just re-created
-        if (type === "arc") {
-            this.addConstraint({
-                kind: ConstraintKind.PointOnArc,
-                refs: [
-                    { entityId: id, pointIndex: 2 },
-                    { entityId: id, pointIndex: 0 },
-                    { entityId: id, pointIndex: 1 },
-                ],
-            });
+        return dropped;
+    }
+
+    /**
+     * Moves an offset curve's distance. The copy has no geometry of its own — it reads its
+     * source — so there is nothing to solve for: this writes the ref, and the caller solves and
+     * commits. A distance the source cannot carry is refused here, before the geometry it would
+     * fold through exists.
+     */
+    setOffsetDistance(entityId: number, distance: number): Result<void> {
+        const ref = this.entityOffsets.get(entityId);
+        if (ref === undefined) return Result.err("Not an offset curve");
+        if (!Number.isFinite(distance) || Math.abs(distance) <= Precision.Distance) {
+            return Result.err("The offset distance is too small");
         }
-        return Result.ok(dropped);
+        const source = this.entity(ref.sourceId);
+        if (source === undefined) return Result.err("The entity an offset curve reads is gone");
+        if (offsetFolds(source, distance)) {
+            return Result.err("The offset distance is larger than the geometry it comes from");
+        }
+        this.entityOffsets.set(entityId, { ...ref, distance });
+        return Result.ok(undefined);
+    }
+
+    /**
+     * Moves an offset curve's ends: the stretch of its source the copy runs over, in that
+     * source's own parameter (`OffsetCurveRef.window`). `undefined` puts the copy back over
+     * the whole source.
+     *
+     * A copy has no geometry of its own — it reads its source — so this is the one write
+     * there is, and it is what the trim, the extend and the two handles on the copy's ends
+     * all come to. Nothing is solved for: the caller solves and commits afterwards, exactly
+     * as it does after a distance (see `setOffsetDistance`).
+     *
+     * A window longer than the source can carry, or one that has shrunk to nothing, is
+     * refused rather than drawn as something it is not: the op that cut the copy knows which
+     * half to keep, and one that would leave no copy at all deletes the entity instead.
+     * Only a closed source (an ellipse) may carry a window past its own start — that is a
+     * piece straddling its seam, and the parameter there is the one before it, on round.
+     */
+    setOffsetWindow(entityId: number, window: [number, number] | undefined): Result<void> {
+        const ref = this.entityOffsets.get(entityId);
+        if (ref === undefined) return Result.err("Not an offset curve");
+        const whole: OffsetCurveRef = {
+            sourceId: ref.sourceId,
+            sourceType: ref.sourceType,
+            distance: ref.distance,
+        };
+        if (window === undefined) {
+            this.entityOffsets.set(entityId, whole);
+            return Result.ok(undefined);
+        }
+        const source = this.entity(ref.sourceId);
+        if (source === undefined) return Result.err("The entity an offset curve reads is gone");
+        const [first, last] = window[0] <= window[1] ? window : [window[1], window[0]];
+        const [domainStart, domainEnd] = entityDomain(source);
+        const reach = domainEnd - domainStart;
+        const span = last - first;
+        if (!Number.isFinite(span) || span <= reach * OFFSET_WINDOW_MIN_FRACTION) {
+            return Result.err("The offset copy would be left with nothing");
+        }
+        if (span > reach + Precision.Distance) {
+            return Result.err("The offset copy cannot run past the end of what it came from");
+        }
+        // a window covering the whole source *is* the whole source: kept as one it would make
+        // the copy read as a trimmed piece of itself (see `isClosedEntity`), which is a
+        // distinction nothing on the canvas can show and every reader would have to undo
+        if (span >= reach - Precision.Distance) {
+            this.entityOffsets.set(entityId, whole);
+            return Result.ok(undefined);
+        }
+        // a closed source is read on the round: a window past its end is the same window as the
+        // one a turn back, so the start is folded there rather than left wherever a caller put
+        // it. An open one is the source's own extent and nothing else — an end that has walked
+        // off it is geometry the source cannot carry (the extend grows the source for this).
+        if (isClosedCurveType(source.type)) {
+            const folded = domainStart + ((((first - domainStart) % reach) + reach) % reach);
+            this.entityOffsets.set(entityId, { ...whole, window: [folded, folded + span] });
+            return Result.ok(undefined);
+        }
+        if (first < domainStart - Precision.Distance || last > domainEnd + Precision.Distance) {
+            return Result.err("The offset copy cannot run past the end of what it came from");
+        }
+        this.entityOffsets.set(entityId, { ...whole, window: [first, last] });
+        return Result.ok(undefined);
+    }
+
+    /** An offset curve's source and how far it runs off it, or undefined for any other entity. */
+    offsetRefOf(entityId: number): OffsetCurveRef | undefined {
+        const ref = this.entityOffsets.get(entityId);
+        return ref === undefined ? undefined : copyOffsetRef(ref);
+    }
+
+    /**
+     * Tells every copy of a retyped source what it now reads. A copy carries its source's
+     * *kind* (`OffsetCurveRef.sourceType`) because the curve math reads an entity on its own,
+     * and a trim that turns an ellipse into an ellipseArc — or a circle into an arc — leaves
+     * that kind saying something the entity no longer is. The parameter a copy's window is
+     * read in is the same on both sides of those two swaps (an absolute angle), so a window
+     * that still fits stands as it is.
+     *
+     * What the swap *can* change is how much of the source there is — an ellipse trimmed into
+     * an ellipseArc draws one sweep of it — so every window is re-fitted afterwards.
+     */
+    private repointOffsetCopies(sourceId: number, type: SketchEntityType): void {
+        if (type === "offsetCurve") return;
+        for (const [id, ref] of [...this.entityOffsets]) {
+            if (ref.sourceId !== sourceId) continue;
+            this.entityOffsets.set(id, { ...ref, sourceType: type });
+            this.refitOffsetWindow(id);
+        }
+    }
+
+    /**
+     * Re-reads a copy's window against its source's domain *now*, dropping one the shrunk source
+     * can no longer carry: the copy reads the whole of it again, which is what a window that no
+     * longer names a piece of anything comes to. The write is `setOffsetWindow`'s, so one
+     * reading decides what fits.
+     */
+    private refitOffsetWindow(id: number): void {
+        const ref = this.entityOffsets.get(id);
+        if (ref === undefined || ref.window === undefined) return;
+        if (this.setOffsetWindow(id, ref.window).isOk) return;
+        const whole: OffsetCurveRef = {
+            sourceId: ref.sourceId,
+            sourceType: ref.sourceType,
+            distance: ref.distance,
+        };
+        this.entityOffsets.set(id, whole);
     }
 
     /** Removes the entity and every constraint referencing it; returns removed constraint ids. */
@@ -533,11 +959,14 @@ export class SketchSolver implements ExternalEntityHost {
         if (isExternalEntityId(id)) {
             throw new Error("External references are removed with removeExternalEntity");
         }
-        if (this.derivedEntities.has(id)) {
+        // An offset copy is `derived` too, but it is the user's own curve — the solver places
+        // it and nothing more — so it goes like any other entity the user drew.
+        if (this.isArrayInstance(id)) {
             throw new Error("An array instance is removed with its array");
         }
         this.detachFromArrays(id);
         const removed = this.dropEntity(id);
+        removed.push(...this.dropOffsetCopies(id));
         // losing a source re-lays what the pattern keeps, so leaving it half-placed for the
         // caller's solve to fix would be an entity list that lies in between
         this.refreshArrays();
@@ -562,33 +991,69 @@ export class SketchSolver implements ExternalEntityHost {
                 removedConstraints.push(record.id);
             }
         }
+        // the pins before the params they hold: a weight's own pin is an active constraint
+        // on it, and garlic refuses to drop a param one still references
+        this.unpinNurbsWeights(id);
         for (const paramId of paramIds) {
             this.system.remove_param(paramId);
         }
         this.entityTypes.delete(id);
         this.entityParams.delete(id);
         this.entityCache.delete(id);
+        this.entityNurbs.delete(id);
+        this.entityOffsets.delete(id);
         this.constructionEntities.delete(id);
         return removedConstraints;
     }
 
     /**
-     * Whether the entity is not the user's to move, delete, retype or constrain: the datum,
-     * the seeded external references, and every array instance. All three are targetable —
-     * they snap, they pick, they carry constraints the *solver* owns — but none of them is
-     * the sketch's to edit, and every op that asks "may I touch this" asks this.
+     * Removes the offset copies of a source that is going away. A copy's params *are* its
+     * source's (`offsetGeometry`), so one whose source is gone has no geometry at all — it
+     * would draw and build from an empty parameter list. That is the same answer a pattern's
+     * instances get when their seed is deleted, and for the same reason.
+     */
+    private dropOffsetCopies(sourceId: number): number[] {
+        const removed: number[] = [];
+        // a copy of an offset copy is never built (`offsettableSources` refuses one), so one
+        // pass is enough and no queue is needed
+        for (const [id, ref] of [...this.entityOffsets]) {
+            if (ref.sourceId === sourceId) removed.push(...this.dropEntity(id));
+        }
+        return removed;
+    }
+
+    /**
+     * Whether the entity is not the user's to move, retype or constrain: the datum, the seeded
+     * external references, every array instance, and every offset copy. All four are
+     * targetable — they snap, they pick, they carry constraints the *solver* owns — but none
+     * of them is the sketch's to edit, and every op that asks "may I touch this" asks this.
+     *
+     * An offset copy is the one of the four that is *cut*: it is drawn geometry the user chose
+     * to put there, so a trim, an extend and a delete are all its own and ask
+     * `entity.type === "offsetCurve"` on top of this (`trimOps`, `extendOps`). What it cannot
+     * be is rewritten — it has no point for a move or a retype to take hold of, which is what
+     * this set is really about.
      *
      * Note this is not the same set `entities()` filters on: the datum and the externals are
-     * solver-only rows, while an array's instances are real geometry that has to be drawn,
-     * picked and built into profiles like any other entity.
+     * solver-only rows, while an array's instances and an offset copy are real geometry that
+     * has to be drawn, picked and built into profiles like any other entity.
      */
     isFixed(entityId: number): boolean {
         return this.fixedEntities.has(entityId) || this.derivedEntities.has(entityId);
     }
 
-    /** Whether the entity is an array's own instance — laid out by the record, not by the user. */
+    /** Whether the entity is laid out by something else — a pattern's instance, or a copy of a source. */
     isDerived(entityId: number): boolean {
         return this.derivedEntities.has(entityId);
+    }
+
+    /**
+     * Whether the entity is one a *pattern* lays out: an instance. `isDerived` less the offset
+     * copies, which the solver places too but which the user still owns — they are deleted
+     * like anything drawn (see `removeEntity`), where an instance goes with its array.
+     */
+    private isArrayInstance(entityId: number): boolean {
+        return this.derivedEntities.has(entityId) && this.entityOffsets.get(entityId) === undefined;
     }
 
     /** Whether the entity is construction geometry: a constraint/snap target that never builds profiles. */
@@ -668,6 +1133,32 @@ export class SketchSolver implements ExternalEntityHost {
         this.system.set_param(paramId, radius);
         const cache = this.entityCache.get(entityId);
         if (cache !== undefined) cache[2] = radius;
+    }
+
+    /** The unguarded write of one scalar (non-point) param: a conic's rho. */
+    private writeScalar(entityId: number, index: number, value: number): void {
+        const paramId = this.entityParams.get(entityId)![index];
+        this.system.set_param(paramId, value);
+        const cache = this.entityCache.get(entityId);
+        if (cache !== undefined) cache[index] = value;
+    }
+
+    /**
+     * Sets a real conic's rho without solving; the curve ops need it when a trim or an
+     * extend reparametrizes the arc — the poles move through the point setters, the rho
+     * through here.
+     */
+    setConicRho(entityId: number, rho: number): void {
+        if (this.derivedEntities.has(entityId)) {
+            throw new Error("An array instance's rho comes from the entity it copies");
+        }
+        if (this.isFixed(entityId)) {
+            throw new Error("A fixed entity's rho cannot be changed");
+        }
+        if (this.entityTypes.get(entityId) !== "conic") {
+            throw new Error(`Entity ${entityId} is not a conic`);
+        }
+        this.writeScalar(entityId, 6, rho);
     }
 
     /** Kinds of constraints currently applied to any point of the entity. */
@@ -954,13 +1445,13 @@ export class SketchSolver implements ExternalEntityHost {
             // the user took this instance out: the slot keeps its hole, and the entity the
             // next solve would otherwise lay down stays gone
             if (id === null) return;
-            if (id !== undefined && this.entityTypes.get(id) === spec.type) {
+            if (id !== undefined && this.canRewriteInstance(id, spec)) {
                 this.rewriteInstance(id, spec);
                 kept.add(id);
                 ids[slot] = id;
                 return;
             }
-            // a missing instance, or one the seed has since changed type out from under:
+            // a missing instance, or one the seed has since changed shape out from under:
             // the id is abandoned rather than reused, like every other freed id here
             ids[slot] = this.createInstance(spec);
         });
@@ -970,6 +1461,22 @@ export class SketchSolver implements ExternalEntityHost {
         return ids;
     }
 
+    /**
+     * Whether a stored instance can be moved onto `spec` in place rather than re-made. The
+     * type alone is not enough: a rewrite writes one point per pole of the spec into an
+     * instance that was built from the *old* spec, so a list the instance is too short to
+     * hold indexes past its end (`writePoint` refuses), and a NURBS has to still carry its
+     * source's construction constants — the rewrite moves control points and never touches
+     * the knots, so a re-knotted source is a different curve rather than a moved copy.
+     */
+    private canRewriteInstance(id: number, spec: ArrayInstanceSpec): boolean {
+        if (this.entityTypes.get(id) !== spec.type) return false;
+        const params = this.entityCache.get(id);
+        if (params === undefined || params.length !== spec.params.length) return false;
+        if (spec.type !== "nurbs") return true;
+        return sameNurbsSpec(this.entityNurbs.get(id), spec.nurbs);
+    }
+
     /** Moves an instance onto its placement, and its construction flag onto its seed's. */
     private rewriteInstance(id: number, spec: ArrayInstanceSpec): void {
         const entity: SketchEntityData = { id, type: spec.type, params: spec.params };
@@ -977,20 +1484,76 @@ export class SketchSolver implements ExternalEntityHost {
             this.writePoint({ entityId: id, pointIndex }, u, v);
         });
         // a circle keeps its radius in a param of its own; an arc's is ‖start − centre‖ and
-        // comes along with the points
+        // comes along with the points; a conic's rho is a scalar param the same way, and a
+        // nurbs' weights are params of their own past the control points
         if (spec.type === "circle") this.writeRadius(id, spec.params[2]);
+        if (spec.type === "conic") this.writeScalar(id, 6, spec.params[6]);
+        if (spec.type === "nurbs") this.writeWeights(id, nurbsWeights(spec.params));
         this.setConstruction(id, spec.construction);
     }
 
-    /** One new instance: `addArc` where the type calls for it, so its structure comes too. */
+    /**
+     * Writes a NURBS' rational weights in place. Like a circle's radius they live in params
+     * of their own — past the control points — so the point setters never reach them.
+     */
+    private writeWeights(entityId: number, weights: readonly number[]): void {
+        const params = this.entityParams.get(entityId);
+        const cache = this.entityCache.get(entityId);
+        if (params === undefined || cache === undefined) return;
+        const poles = nurbsPoleCount(cache);
+        for (let i = 0; i < poles && i < weights.length; i++) {
+            this.system.set_param(params[poles * 2 + i], weights[i]);
+            cache[poles * 2 + i] = weights[i];
+        }
+    }
+
+    /**
+     * Adds an entity of `type` laid out the way `SketchEntityData` carries it — the one
+     * place that reads a params vector as an entity, shared by every caller that holds
+     * geometry in that form rather than a call per point (an array instance, a mirrored
+     * copy). The types that carry structure — `arc`, `ellipse`, `ellipseArc` — get it, as
+     * their own `add*` would apply it; a NURBS' `nurbs` are its source's construction
+     * constants, which a similarity leaves alone and which cannot be defaulted here.
+     */
+    addEntityFromParams(
+        type: SketchEntityType,
+        params: readonly number[],
+        nurbs?: NurbsSpec,
+        offset?: OffsetCurveRef,
+    ): number {
+        const [x1, y1, x2, y2, x3, y3] = params;
+        switch (type) {
+            case "offsetCurve":
+                // nothing of it is a solver parameter: its geometry is its source's, read
+                // live, so it is registered with none and only the ref is kept
+                if (offset === undefined) throw new Error("An offset curve needs its source");
+                return this.registerEntity("offsetCurve", [], undefined, undefined, offset);
+            case "line":
+                return this.addLine(x1, y1, x2, y2);
+            case "circle":
+                return this.addCircle(x1, y1, x2);
+            case "arc":
+                return this.addArc(x1, y1, x2, y2, x3, y3);
+            case "ellipse":
+                return this.addEllipse(x1, y1, x2, y2, x3, y3);
+            case "ellipseArc":
+                return this.addEllipseArc(x1, y1, x2, y2, x3, y3, params[6], params[7], params[8], params[9]);
+            case "conic":
+                return this.addConic(x1, y1, x2, y2, x3, y3, params[6]);
+            case "bezier":
+                return this.addBezier(params);
+            case "nurbs": {
+                if (nurbs === undefined) {
+                    throw new Error("A nurbs entity needs its curve's construction constants");
+                }
+                return this.addNurbs(nurbsPoleValues(params), nurbs, nurbsWeights(params));
+            }
+        }
+    }
+
+    /** One new instance, with the construction flag it came in with. */
     private createInstance(spec: ArrayInstanceSpec): number {
-        const [x1, y1, x2, y2, x3, y3] = spec.params;
-        const id =
-            spec.type === "line"
-                ? this.addLine(x1, y1, x2, y2)
-                : spec.type === "circle"
-                  ? this.addCircle(x1, y1, x2)
-                  : this.addArc(x1, y1, x2, y2, x3, y3);
+        const id = this.addEntityFromParams(spec.type, spec.params, spec.nurbs);
         this.setConstruction(id, spec.construction);
         return id;
     }
@@ -1005,6 +1568,9 @@ export class SketchSolver implements ExternalEntityHost {
 
     private refreshDerivedEntities(): void {
         this.derivedEntities.clear();
+        for (const id of this.entityOffsets.keys()) {
+            if (this.entityTypes.has(id)) this.derivedEntities.add(id);
+        }
         for (const data of this.arrayRecords.values()) {
             for (const id of liveInstanceIds(data)) {
                 if (this.entityTypes.has(id)) this.derivedEntities.add(id);
@@ -1145,9 +1711,36 @@ export class SketchSolver implements ExternalEntityHost {
                 const radius = Math.hypot(start[0] - center[0], start[1] - center[1]);
                 return projectOntoCircle(center, radius, u, v);
             }
+            case ConstraintKind.PointOnEllipse:
+            case ConstraintKind.PointOnConic:
+            case ConstraintKind.PointOnBezier:
+            case ConstraintKind.PointOnNurbs:
+                return this.projectOntoCurve(record, u, v);
             default:
                 return undefined;
         }
+    }
+
+    /**
+     * Nearest position on the numeric curve an incidence constraint pins its point
+     * to. An ellipseArc's manifold is its whole ellipse — garlic reads only the c/m/n
+     * params — so the projection runs on the unswept curve. The projection also re-seeds
+     * the constraint's aux contact t, keeping the next solve near where the point is.
+     */
+    private projectOntoCurve(record: ConstraintRecord, u: number, v: number): [number, number] | undefined {
+        const entityId = record.refs[1].entityId;
+        const type = this.entityTypes.get(entityId);
+        const params = this.entityCache.get(entityId);
+        if (type === undefined || params === undefined) return undefined;
+        const curve: CurveEntity =
+            type === "ellipseArc"
+                ? { type: "ellipse", params: params.slice(0, 6) }
+                : { type, params, nurbs: this.entityNurbs.get(entityId) };
+        if (curve.type === "line" || curve.type === "circle" || curve.type === "arc") return undefined;
+        const projection = projectPoint(curve, [u, v]);
+        const aux = record.auxParamIds?.[0];
+        if (aux !== undefined) this.system.set_param(aux, projection.t);
+        return projection.point;
     }
 
     /**
@@ -1299,11 +1892,34 @@ export class SketchSolver implements ExternalEntityHost {
             .map(([id, params]) => ({
                 id,
                 type: this.entityTypes.get(id)!,
-                params: [...params],
-                // emitted only when set — a sketch without construction geometry
-                // must round-trip byte-identical (no phantom history entry)
+                ...this.offsetGeometry(id, params),
+                // emitted only when set — a sketch without construction geometry or a
+                // NURBS must round-trip byte-identical (no phantom history entry)
                 ...(this.constructionEntities.has(id) ? { construction: true } : {}),
+                ...(this.entityNurbs.has(id) ? { nurbs: this.copyNurbsSpec(id) } : {}),
             }));
+    }
+
+    /**
+     * An entity's geometry as its readers see it: its own params, or — for an offset curve —
+     * the params and spec of the source it follows, read *now*.
+     */
+    private offsetGeometry(
+        id: number,
+        params: number[],
+    ): { params: number[]; nurbs?: NurbsSpec; offset?: OffsetCurveRef } {
+        const offset = this.entityOffsets.get(id);
+        if (offset === undefined) return { params: [...params] };
+        const source = this.entityCache.get(offset.sourceId);
+        return {
+            params: source === undefined ? [] : [...source],
+            // The spec travels with the params: both are the source's, and a copy has no
+            // geometry of its own to be read with a spec of its own. Without this a copy of a
+            // NURBS reads as the *default* clamped uniform curve of that many poles — a
+            // different curve wherever the source's knots are not the default ones.
+            ...(this.entityNurbs.has(offset.sourceId) ? { nurbs: this.copyNurbsSpec(offset.sourceId) } : {}),
+            offset: copyOffsetRef(offset),
+        };
     }
 
     /** Current data of one entity, or undefined when unknown. Datum axes answer synthetic line data. */
@@ -1311,7 +1927,19 @@ export class SketchSolver implements ExternalEntityHost {
         if (id === SKETCH_X_AXIS_ID || id === SKETCH_Y_AXIS_ID) return datumEntityData(id);
         const type = this.entityTypes.get(id);
         const params = this.entityCache.get(id);
-        return type === undefined || params === undefined ? undefined : { id, type, params: [...params] };
+        if (type === undefined || params === undefined) return undefined;
+        return {
+            id,
+            type,
+            ...this.offsetGeometry(id, params),
+            ...(this.entityNurbs.has(id) ? { nurbs: this.copyNurbsSpec(id) } : {}),
+        };
+    }
+
+    /** The stored construction constants, copied — the caller's to keep or change. */
+    private copyNurbsSpec(id: number): NurbsSpec {
+        const spec = this.entityNurbs.get(id)!;
+        return { degree: spec.degree, knots: [...spec.knots] };
     }
 
     pointOf(ref: SketchPointRef): [number, number] {
@@ -1331,6 +1959,21 @@ export class SketchSolver implements ExternalEntityHost {
                 return [this.pointOf({ entityId, pointIndex: 0 }), this.pointOf({ entityId, pointIndex: 1 })];
             case "arc":
                 return [this.pointOf({ entityId, pointIndex: 1 }), this.pointOf({ entityId, pointIndex: 2 })];
+            case "ellipseArc":
+                return [this.pointOf({ entityId, pointIndex: 3 }), this.pointOf({ entityId, pointIndex: 4 })];
+            case "conic":
+                return [this.pointOf({ entityId, pointIndex: 0 }), this.pointOf({ entityId, pointIndex: 2 })];
+            case "bezier":
+                return [this.pointOf({ entityId, pointIndex: 0 }), this.pointOf({ entityId, pointIndex: 3 })];
+            case "nurbs": {
+                // a clamped curve interpolates its first and last control point, which is
+                // what makes them its ends
+                const last = nurbsPoleCount(this.entityCache.get(entityId) ?? []) - 1;
+                return [
+                    this.pointOf({ entityId, pointIndex: 0 }),
+                    this.pointOf({ entityId, pointIndex: last }),
+                ];
+            }
             default:
                 return [this.pointOf({ entityId, pointIndex: 0 })];
         }
@@ -1523,6 +2166,11 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityTypes.clear();
         this.entityParams.clear();
         this.entityCache.clear();
+        // a spec the new state has no NURBS for would otherwise ride along on its id: the
+        // reload may hand that id to any entity, and the stale knots would be its curve
+        this.entityNurbs.clear();
+        this.entityOffsets.clear();
+        this.weightPins.clear();
         this.constraints.clear();
         this.fixedEntities.clear();
         this.constructionEntities.clear();
@@ -1589,9 +2237,11 @@ export class SketchSolver implements ExternalEntityHost {
 
     /** `ExternalEntityHost`: drops the entity's rows; its garlic params are the caller's. */
     forgetEntity(id: number): void {
+        this.unpinNurbsWeights(id);
         this.entityTypes.delete(id);
         this.entityParams.delete(id);
         this.entityCache.delete(id);
+        this.entityNurbs.delete(id);
     }
 
     setFixed(id: number, fixed: boolean): void {
@@ -1694,7 +2344,13 @@ export class SketchSolver implements ExternalEntityHost {
 
     // ------------------------------------------------------------------ Constraint-parameter plumbing
 
-    private registerEntity(type: SketchEntityType, paramIds: number[], id?: number): number {
+    private registerEntity(
+        type: SketchEntityType,
+        paramIds: number[],
+        id?: number,
+        nurbs?: NurbsSpec,
+        offset?: OffsetCurveRef,
+    ): number {
         let entityId: number;
         if (id === undefined) {
             entityId = this.entityIdSeq++;
@@ -1708,6 +2364,15 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityTypes.set(entityId, type);
         this.entityParams.set(entityId, paramIds);
         this.entityCache.set(entityId, [...this.system.get_params(new Uint32Array(paramIds))]);
+        // copied: the spec is the caller's object, and the entity's own outlives it
+        if (nurbs !== undefined)
+            this.entityNurbs.set(entityId, { degree: nurbs.degree, knots: [...nurbs.knots] });
+        if (offset !== undefined) {
+            this.entityOffsets.set(entityId, copyOffsetRef(offset));
+            // derived, like an array's instances: the user's to constrain and to delete, but
+            // not to edit — its geometry is the entity it came from
+            this.derivedEntities.add(entityId);
+        }
         return entityId;
     }
 
@@ -1717,10 +2382,8 @@ export class SketchSolver implements ExternalEntityHost {
         // `retypeEntity` relies on when it re-adds the captured constraints and then
         // asks the allocator for the arc's structural PointOnArc.
         this.constraintIdSeq = Math.max(this.constraintIdSeq, id + 1);
-        const { params, datumParamIds, datumSources, garlicKind } = this.buildConstraintParams(
-            constraint,
-            id,
-        );
+        const { params, datumParamIds, datumSources, auxParamIds, nurbs, garlicKind } =
+            this.buildConstraintParams(constraint, id);
         // `driving` is garlic's own flag: true means the datum is an input, false means it
         // is the write-back target of a reference dimension. A constraint with no datum
         // must stay driving — garlic refuses the other way round.
@@ -1730,6 +2393,8 @@ export class SketchSolver implements ExternalEntityHost {
             null,
             constraint.driven !== true,
             0,
+            null,
+            nurbs ?? null,
         );
         this.constraints.set(id, {
             id,
@@ -1738,6 +2403,7 @@ export class SketchSolver implements ExternalEntityHost {
             garlicId,
             datumParamIds,
             datumSources,
+            auxParamIds,
             display: constraint.display,
             driven: constraint.driven,
         });
@@ -1749,7 +2415,165 @@ export class SketchSolver implements ExternalEntityHost {
         id: number,
     ): ConstraintParams {
         if (DATUM_CONSTRAINTS.has(constraint.kind)) return this.datumConstraintParams(constraint, id);
+        if (AUX_CURVE_CONSTRAINTS.has(constraint.kind)) return this.curveConstraintParams(constraint);
         return { params: this.geometricConstraintParams(constraint) };
+    }
+
+    /**
+     * The garlic params of a constraint against a conic, bezier, nurbs or a curve pair —
+     * the kinds carrying auxiliary contact parameters t. Each aux is created here, seeded
+     * from the current geometry (a projection, a closest pair), and owned by the
+     * constraint: `removeConstraint` disposes of them, and a reload re-seeds them from
+     * whatever geometry it finds, so the persisted sketch never mentions them.
+     */
+    private curveConstraintParams(constraint: Omit<SketchConstraintData, "id">): ConstraintParams {
+        const { refs } = constraint;
+        switch (constraint.kind) {
+            case ConstraintKind.PointOnConic:
+            case ConstraintKind.PointOnBezier:
+            case ConstraintKind.PointOnNurbs:
+                return this.pointOnCurveParams(refs);
+            case ConstraintKind.TangentLineConic:
+            case ConstraintKind.TangentLineBezier:
+            case ConstraintKind.TangentLineNurbs:
+                return this.lineTangentCurveParams(refs);
+            default:
+                return this.curvePairParams(refs);
+        }
+    }
+
+    /** A point held on a curve: the point, the curve, and its one contact parameter. */
+    private pointOnCurveParams(refs: readonly SketchPointRef[]): ConstraintParams {
+        const curveId = refs[1].entityId;
+        const aux = this.addAuxParams([this.seedCurveParameter(curveId, this.pointOf(refs[0]))]);
+        return {
+            params: [...this.pointParams(refs[0]), ...this.curveCoreParamIds(curveId), ...aux],
+            auxParamIds: aux,
+            nurbs: this.nurbsSpecsOf([curveId]),
+        };
+    }
+
+    /**
+     * A line tangent to a curve. The contact is unknown before the first solve, so its
+     * parameter is seeded from the line's midpoint projected on the curve — the closest
+     * cheap guess at where the two will meet.
+     */
+    private lineTangentCurveParams(refs: readonly SketchPointRef[]): ConstraintParams {
+        const [ax, ay] = this.pointOf(refs[0]);
+        const [bx, by] = this.pointOf(refs[1]);
+        const curveId = refs[2].entityId;
+        const aux = this.addAuxParams([this.seedCurveParameter(curveId, [(ax + bx) / 2, (ay + by) / 2])]);
+        return {
+            params: [...this.lineParams(refs[0], refs[1]), ...this.curveCoreParamIds(curveId), ...aux],
+            auxParamIds: aux,
+            nurbs: this.nurbsSpecsOf([curveId]),
+        };
+    }
+
+    /**
+     * A curve-curve tangency: refs are [{A, 0}, {B, 0}], the garlic layout is
+     * [curve1…, t1, curve2…, t2], and the two contact parameters are seeded from the curves'
+     * closest pair — which is the point the user drew them meeting at.
+     */
+    private curvePairParams(refs: readonly SketchPointRef[]): ConstraintParams {
+        const [first, second] = [refs[0].entityId, refs[1].entityId];
+        const [tA, tB] = this.seedCurvePairParameters(first, second);
+        const aux = this.addAuxParams([tA, tB]);
+        return {
+            params: [...this.curveCoreParamIds(first), aux[0], ...this.curveCoreParamIds(second), aux[1]],
+            auxParamIds: aux,
+            nurbs: this.nurbsSpecsOf([first, second]),
+        };
+    }
+
+    /**
+     * The `nurbs` argument garlic's curve kinds take: one construction-constants entry per
+     * NURBS segment, in the constraint's own canonical curve order (nurbs is the last
+     * family, so the segment list is the NURBS members of the curve list, in order).
+     * `undefined` for a constraint with no NURBS in it — garlic wants the argument absent
+     * rather than empty there.
+     */
+    private nurbsSpecsOf(entityIds: readonly number[]): NurbsSpec[] | undefined {
+        const specs = entityIds
+            .filter((id) => this.entityTypes.get(id) === "nurbs")
+            .map((id) => this.nurbsSpecOf(id));
+        return specs.length === 0 ? undefined : specs;
+    }
+
+    /** Dimensionless aux params for a constraint's contact t's, seeded with `values`. */
+    private addAuxParams(values: readonly number[]): number[] {
+        const ids = this.system.add_params(
+            new Uint8Array(values.length).fill(PARAM_KIND_DIMENSIONLESS),
+            new Float64Array(values),
+        );
+        return Array.from(ids);
+    }
+
+    /** The entity as the curve data `curveEval` reads: its type and current params. */
+    private curveDataOf(entityId: number): CurveEntity {
+        const type = this.entityTypes.get(entityId);
+        const params = this.entityCache.get(entityId);
+        if (type === undefined || params === undefined) {
+            throw new Error(`Unknown sketch entity: ${entityId}`);
+        }
+        // a NURBS is only the curve its knots say it is: without them the numeric read
+        // would fall back to the default structure and seed a t on another curve
+        return { type, params, nurbs: this.entityNurbs.get(entityId) };
+    }
+
+    /** t seed for a point-on/tangent against a conic, bezier or nurbs: the point's projection. */
+    private seedCurveParameter(entityId: number, point: [number, number]): number {
+        return projectPoint(this.curveDataOf(entityId), point).t;
+    }
+
+    /** t1/t2 seeds for a curve-curve tangency: the curves' closest pair. */
+    private seedCurvePairParameters(firstId: number, secondId: number): [number, number] {
+        const pair = closestCurvePair(this.curveDataOf(firstId), this.curveDataOf(secondId));
+        return [pair.tA, pair.tB];
+    }
+
+    /**
+     * The garlic params a tangent/point-on kind reads for one curve of a pair, by family:
+     * circle [c, r], arc [c, s], the ellipse family [c, m, n] (an ellipseArc reads as its
+     * ellipse — the sweep params are not part of the layout), conic [s, c, e, rho] and the
+     * free curves (bezier, nurbs) their whole param list, control points then weights.
+     */
+    private curveCoreParamIds(entityId: number): number[] {
+        const type = this.entityTypes.get(entityId);
+        const params = this.entityParams.get(entityId);
+        if (type === undefined || params === undefined) {
+            throw new Error(`Unknown sketch entity: ${entityId}`);
+        }
+        switch (type) {
+            case "circle":
+                return [...params];
+            case "arc":
+                return params.slice(0, 4);
+            case "ellipse":
+            case "ellipseArc":
+                return params.slice(0, 6);
+            case "conic":
+            case "bezier":
+            case "nurbs":
+                return [...params];
+            default:
+                throw new Error(`Entity ${entityId} is not a curve pair member: ${type}`);
+        }
+    }
+
+    /**
+     * The construction constants a NURBS entity is constrained with — its own, or the
+     * clamped uniform default for one whose stored pair does not fit its pole count
+     * (hand-edited data). Read through `curveEval.nurbsSpec`, the same call the evaluation
+     * makes: a t seed and the solve it seeds must not be talking about two curves.
+     */
+    private nurbsSpecOf(entityId: number): NurbsSpec {
+        const type = this.entityTypes.get(entityId);
+        const params = this.entityCache.get(entityId);
+        if (type !== "nurbs" || params === undefined) {
+            throw new Error(`Entity ${entityId} is not a nurbs`);
+        }
+        return specOf({ type, params, nurbs: this.entityNurbs.get(entityId) });
     }
 
     /**
@@ -1809,6 +2633,10 @@ export class SketchSolver implements ExternalEntityHost {
                     this.radiusParamId(refs[0].entityId),
                     ...this.arcParams(refs[1], refs[2]),
                 ];
+            case ConstraintKind.PointOnEllipse:
+                return [...this.pointParams(refs[0]), ...this.ellipseCoreParamIds(refs[1].entityId)];
+            case ConstraintKind.TangentLineEllipse:
+                return [...this.lineParams(refs[0], refs[1]), ...this.ellipseCoreParamIds(refs[2].entityId)];
             default:
                 // A datum kind never reaches here — `buildConstraintParams` routes it first.
                 throw new Error(`Unsupported constraint kind: ${constraint.kind}`);
@@ -1854,6 +2682,14 @@ export class SketchSolver implements ExternalEntityHost {
                 );
             case ConstraintKind.Fix:
                 return this.fixConstraintParams(constraint, id);
+            case ConstraintKind.ConicRho:
+                return this.withDatum(
+                    [this.conicRhoParamId(refs[0].entityId)],
+                    id,
+                    constraint,
+                    () => this.entityCache.get(refs[0].entityId)![6],
+                    PARAM_KIND_DIMENSIONLESS,
+                );
             default:
                 throw new Error(`Unsupported datum constraint kind: ${constraint.kind}`);
         }
@@ -1912,15 +2748,18 @@ export class SketchSolver implements ExternalEntityHost {
         id: number,
         constraint: Omit<SketchConstraintData, "id">,
         fallback: () => number,
+        paramKind: number = PARAM_KIND_LENGTH,
     ): ConstraintParams {
         if (constraint.driven === true) {
             const value = fallback();
             const carried = typeof constraint.datum === "string" ? constraint.datum : value;
-            return this.withDatums(params, [{ source: carried, value }]);
+            return this.withDatums(params, [{ source: carried, value }], paramKind);
         }
-        return this.withDatums(params, [
-            this.datumOf(id, constraint.kind, constraint.datum, fallback, constraint.display),
-        ]);
+        return this.withDatums(
+            params,
+            [this.datumOf(id, constraint.kind, constraint.datum, fallback, constraint.display)],
+            paramKind,
+        );
     }
 
     /** The garlic params of each ref, concatenated in ref order. */
@@ -1973,8 +2812,12 @@ export class SketchSolver implements ExternalEntityHost {
         return { source, value: fallback() };
     }
 
-    private withDatums(params: number[], datums: readonly DatumValue[]): ConstraintParams {
-        const datumParamIds = datums.map((datum) => this.createDatumParam(datum.value));
+    private withDatums(
+        params: number[],
+        datums: readonly DatumValue[],
+        paramKind: number = PARAM_KIND_LENGTH,
+    ): ConstraintParams {
+        const datumParamIds = datums.map((datum) => this.createDatumParam(datum.value, paramKind));
         return {
             params: [...params, ...datumParamIds],
             datumParamIds,
@@ -1982,20 +2825,45 @@ export class SketchSolver implements ExternalEntityHost {
         };
     }
 
-    createDatumParam(value: number): number {
-        return Number(
-            this.system.add_params(new Uint8Array([PARAM_KIND_LENGTH]), new Float64Array([value]))[0],
-        );
+    createDatumParam(value: number, kind: number = PARAM_KIND_LENGTH): number {
+        return Number(this.system.add_params(new Uint8Array([kind]), new Float64Array([value]))[0]);
     }
 
-    /** [l1.p1, l1.p2, l2.p1, l2.p2] param ids for two-line constraints. */
+    /**
+     * [l1.p1, l1.p2, l2.p1, l2.p2] param ids for two-line constraints. garlic reads four bare
+     * points and keeps no entity table to check them against, so what makes a pair of them a
+     * *segment* is checked here.
+     *
+     * Two lines' points make one whichever lines they are — that is what these kinds are for,
+     * and the offset's own connector runs between a source and its copy. Anything that is not
+     * a line has to bring *its own* two points: a free curve's control points are a segment of
+     * its own (the bezier tool's chain holds its joints by stating the handles either side of
+     * one as parallel), as are an ellipse's frame points (its structural perpendicularity is a
+     * Perpendicular on [center, major] × [center, minor]). A ref that is neither — a circle's
+     * centre, an arc's radius point, a pair spanning two such entities — is the mistargeted
+     * Parallel/Perpendicular/EqualLength the guard is here to catch.
+     */
     private twoLineParams(refs: SketchPointRef[]): number[] {
         return [
-            ...this.linePointParamIds(refs[0]),
-            ...this.linePointParamIds(refs[1]),
-            ...this.linePointParamIds(refs[2]),
-            ...this.linePointParamIds(refs[3]),
+            ...this.segmentPointParamIds(refs[0], refs[1]),
+            ...this.segmentPointParamIds(refs[2], refs[3]),
         ];
+    }
+
+    /** One segment of a two-line constraint: two points of one line, or two of one entity. */
+    private segmentPointParamIds(
+        first: SketchPointRef,
+        second: SketchPointRef,
+    ): [number, number, number, number] {
+        const lineLike = (ref: SketchPointRef) =>
+            isDatumEntityId(ref.entityId) || this.entityTypes.get(ref.entityId) === "line";
+        const ownTwoPoints = first.entityId === second.entityId && first.pointIndex !== second.pointIndex;
+        if (!ownTwoPoints && !(lineLike(first) && lineLike(second))) {
+            throw new Error(
+                `Entity ${second.entityId} is not a line with ${first.entityId}: a segment's two points are one entity's`,
+            );
+        }
+        return [...this.pointParamIds(first), ...this.pointParamIds(second)];
     }
 
     private typedPointParamIds(ref: SketchPointRef, type: SketchEntityType): [number, number] {
@@ -2029,6 +2897,27 @@ export class SketchSolver implements ExternalEntityHost {
         return this.typedPointParamIds(ref, "arc");
     }
 
+    /**
+     * The ellipse family's six core params (c, m, n) of an ellipse or ellipseArc — the
+     * layout PointOnEllipse and TangentLineEllipse read. An ellipseArc answers its
+     * ellipse: its sweep params sit past the six.
+     */
+    private ellipseCoreParamIds(entityId: number): number[] {
+        const type = this.entityTypes.get(entityId);
+        if (type !== "ellipse" && type !== "ellipseArc") {
+            throw new Error(`Entity ${entityId} is not an ellipse`);
+        }
+        return this.entityParams.get(entityId)!.slice(0, 6);
+    }
+
+    /** A conic's rho param — what a ConicRho datum drives. */
+    private conicRhoParamId(entityId: number): number {
+        if (this.entityTypes.get(entityId) !== "conic") {
+            throw new Error(`Entity ${entityId} is not a conic`);
+        }
+        return this.entityParams.get(entityId)![6];
+    }
+
     private pointCacheIndices(ref: SketchPointRef): [number, number] {
         const type = this.entityTypes.get(ref.entityId);
         if (type === "line" && (ref.pointIndex === 0 || ref.pointIndex === 1)) {
@@ -2039,6 +2928,26 @@ export class SketchSolver implements ExternalEntityHost {
         }
         if (type === "circle" && ref.pointIndex === 0) {
             return [0, 1];
+        }
+        if (type === "ellipse" && ref.pointIndex >= 0 && ref.pointIndex <= 2) {
+            return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
+        }
+        if (type === "ellipseArc" && ref.pointIndex >= 0 && ref.pointIndex <= 4) {
+            return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
+        }
+        if (type === "conic" && ref.pointIndex >= 0 && ref.pointIndex <= 2) {
+            return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
+        }
+        if (type === "bezier" && ref.pointIndex >= 0 && ref.pointIndex <= 3) {
+            return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
+        }
+        if (type === "nurbs") {
+            // a nurbs' poles are the params' first two thirds; the weights past them are
+            // not points (see `entityPointCount`)
+            const poleCount = nurbsPoleCount(this.entityCache.get(ref.entityId) ?? []);
+            if (ref.pointIndex >= 0 && ref.pointIndex < poleCount) {
+                return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
+            }
         }
         throw new Error(`Invalid point ref ${ref.entityId}:${ref.pointIndex}`);
     }
@@ -2113,6 +3022,33 @@ export class SketchSolver implements ExternalEntityHost {
         }
     }
 
+    /**
+     * Takes one stored entity into the live tables, repaired where the data cannot be read as
+     * it stands: a NURBS' params are read as whole poles (`normalizeNurbsParams`) and its
+     * structure is the fitted one when what was stored does not describe those poles — the
+     * clamped uniform default every read falls back to, so the entity that comes back says
+     * what it is rather than claiming a structure it cannot be evaluated with.
+     */
+    private loadEntity(entity: SketchEntityData): void {
+        if (entity.type === "offsetCurve") {
+            // Its params are its source's, not a solver parameter of its own: what is stored is
+            // the ref, and the geometry is read through it (`offsetGeometry`), so a document
+            // that has drifted is repaired by its source rather than by a normalizer.
+            if (entity.offset === undefined) return;
+            this.registerEntity("offsetCurve", [], entity.id, undefined, entity.offset);
+            if (entity.construction === true) this.constructionEntities.add(entity.id);
+            return;
+        }
+        const values = entity.type === "nurbs" ? normalizeNurbsParams(entity.params) : entity.params;
+        const spec =
+            entity.type === "nurbs"
+                ? specOf({ type: "nurbs", params: values, nurbs: entity.nurbs })
+                : undefined;
+        this.registerEntity(entity.type, this.addEntityParams(entity.type, values), entity.id, spec);
+        this.pinNurbsWeights(entity.id);
+        if (entity.construction === true) this.constructionEntities.add(entity.id);
+    }
+
     private loadData(data: SketchData): void {
         // The constraints are rebuilt below, so their datum errors are too.
         this._datumErrors.clear();
@@ -2122,8 +3058,7 @@ export class SketchSolver implements ExternalEntityHost {
             this.external.addExternalEntity(ref);
         }
         for (const entity of data.entities) {
-            this.registerEntity(entity.type, this.addEntityParams(entity.type, entity.params), entity.id);
-            if (entity.construction === true) this.constructionEntities.add(entity.id);
+            this.loadEntity(entity);
         }
         // the arrays come after the entities they read — the instances among them are already
         // registered above, and all this does is say which of those rows are derived; the
@@ -2156,7 +3091,7 @@ export class SketchSolver implements ExternalEntityHost {
 
     private addEntityParams(type: SketchEntityType, values: number[]): number[] {
         const ids = this.system.add_params(
-            new Uint8Array(ENTITY_PARAM_KINDS[type]),
+            new Uint8Array(entityParamKinds(type, values.length)),
             new Float64Array(values),
         );
         return Array.from(ids);

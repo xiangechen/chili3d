@@ -189,7 +189,7 @@ function expectClean(...bodies: ParametricBodyNode[]): void {
     expect(broken).toEqual([]);
 }
 
-/** Extent with a tolerance — revolved/cylindrical faces are B-spline approximations. */
+/** Extent with a tolerance — revolved/cylindrical faces are curved-surface approximations. */
 function expectExtent(body: ParametricBodyNode, expected: number[], digits = 1): void {
     extent(body).forEach((value, index) => expect(value).toBeCloseTo(expected[index], digits));
 }

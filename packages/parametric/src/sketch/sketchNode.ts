@@ -23,10 +23,24 @@ import {
     serialize,
     VisualConfig,
     type VisualItemConfig,
+    type XYZ,
 } from "@chili3d/core";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { syncNodeWatches } from "../nodeWatch";
 import { ensureVariableSync } from "../variableSync";
+import {
+    conicWeight,
+    curveControlPoints,
+    ellipseAxes,
+    ellipseSweep,
+    entityDomain,
+    entityTangentAt,
+    evaluateEntity,
+    nurbsSpec,
+    nurbsWeights,
+    offsetDrawnWindow,
+    offsetSideSign,
+} from "./curveEval";
 import { normalizeSnapshot } from "./entityLayout";
 import { type ExternalResolveResult, resolveExternalRefs } from "./externalRef";
 import { type DatumPlaneName, datumPlaneOf, type PlaneFaceRef, resolveFacePlane } from "./planeRef";
@@ -364,7 +378,196 @@ export class SketchNode extends ParameterShapeNode {
                 return shapeFactory.circle(this.plane.normal, toWorld(this.plane, p[0], p[1]), p[2]);
             case "arc":
                 return this.arcEdge(p as [number, number, number, number, number, number]);
+            case "ellipse":
+                return this.ellipseEdge(p);
+            case "ellipseArc":
+                return this.ellipseArcEdge(p);
+            case "conic":
+                return this.conicEdge(p);
+            case "bezier":
+                return this.bezierEdge(p);
+            case "nurbs":
+                return this.nurbsEdge(entity);
+            case "offsetCurve":
+                return this.offsetCurveEdge(entity);
         }
+    }
+
+    /** One offset copy's edge, built off its source's own edge and cut to the window drawn. */
+    private offsetCurveEdge(entity: SketchEntityData): Result<IEdge> {
+        const ref = entity.offset;
+        if (ref === undefined) return Result.err("An offset curve carries no offset");
+        // its params are the source's, so the basis is the source's own edge, built
+        // the same way the source's would be
+        const source: SketchEntityData = {
+            id: entity.id,
+            type: ref.sourceType,
+            params: entity.params,
+            ...(entity.nurbs === undefined ? {} : { nurbs: entity.nurbs }),
+        };
+        const basis = this.entityEdge(source);
+        if (!basis.isOk) return Result.err(basis.error);
+        // the edge's own offset: the kernel holds the pair (basis, distance) as a
+        // `Geom_OffsetCurve` rather than deriving a curve of some other kind
+        const offset = basis.value.offset(this.offsetReach(source, ref.distance), this.plane.normal);
+        // the window the canvas draws, not the one the entity stores: a source that has
+        // moved out from under its window leaves a stretch the copy no longer covers,
+        // and the two readers have to clamp it the same way or the built edge would be
+        // a piece of a curve the drawing does not show
+        const window = offsetDrawnWindow(entity);
+        if (!offset.isOk || window === undefined) return offset;
+        // a trimmed copy: the kernel's offset shares its basis's parameter, so the
+        // window is cut straight out of it. `trim` answers `undefined` for a window
+        // that is empty within tolerance — which is a copy with nothing left.
+        const trimmed = offset.value.trim(window[0], window[1]);
+        return trimmed === undefined
+            ? Result.err("The offset copy is too short to build")
+            : Result.ok(trimmed);
+    }
+
+    /**
+     * The signed distance the kernel is handed for an offset curve.
+     *
+     * `offsetOps` measures a positive distance along the curve's **left** normal (and, for a
+     * closed source, outward — `offsetSideSign`), while the kernel's own `offset` moves along
+     * the *right* of the curve's direction: `edge.offset(1, +Z)` on an edge running along +x
+     * comes out at y = −1, not y = +1. Measured, and easy to get backwards — the two readings
+     * agree on nothing but their zero. So the reach the op computed is negated on the way in,
+     * and the shape lands where the drawing already shows the copy.
+     *
+     * The side is read once, at the middle: for the curves a sketch offsets it is the same at
+     * every point along them (a closed one is convex, so "outward" faces the same way round).
+     */
+    private offsetReach(source: SketchEntityData, distance: number): number {
+        const [start, end] = entityDomain(source);
+        const middle = (start + end) / 2;
+        const tangent = entityTangentAt(source, middle);
+        const norm = Math.hypot(tangent[0], tangent[1]);
+        if (norm < 1e-12) return distance;
+        const side = offsetSideSign(
+            source,
+            evaluateEntity(source, middle),
+            -tangent[1] / norm,
+            tangent[0] / norm,
+        );
+        return -side * distance;
+    }
+
+    /**
+     * The ellipse's frame for the kernel, and how the drawn parameters map onto it. The
+     * axes are orthogonalized defensively (the structural constraint keeps m ⊥ n, but a
+     * mid-drag cache can lag). The kernel wants a right-handed major-first frame, so:
+     * the minor axis is flipped to the counter-clockwise side of the major when the drawn
+     * pair is clockwise (`ccw` — same point set, the parameter negates), and the axes
+     * swap when the minor is the longer (`swapped` — OCCT wants major ≥ minor, and the
+     * parameter shifts a quarter turn). `xdir` is the sketch-space direction of the
+     * kernel's major axis.
+     */
+    private ellipseKernelFrame(p: readonly number[]):
+        | {
+              center: XYZ;
+              xdir: [number, number];
+              major: number;
+              minor: number;
+              ccw: boolean;
+              swapped: boolean;
+          }
+        | undefined {
+        const { center, u, v } = ellipseAxes(p);
+        // n with its component along m removed: the perpendicular the constraint asks for
+        const uu = u[0] * u[0] + u[1] * u[1];
+        const vOrtho: [number, number] =
+            uu < 1e-24
+                ? v
+                : [
+                      v[0] - ((v[0] * u[0] + v[1] * u[1]) / uu) * u[0],
+                      v[1] - ((v[0] * u[0] + v[1] * u[1]) / uu) * u[1],
+                  ];
+        const uLength = Math.hypot(u[0], u[1]);
+        const vLength = Math.hypot(vOrtho[0], vOrtho[1]);
+        if (uLength < Precision.Distance || vLength < Precision.Distance) return undefined;
+        const ccw = u[0] * vOrtho[1] - u[1] * vOrtho[0] > 0;
+        const swapped = vLength > uLength;
+        const vCanonical: [number, number] = ccw ? vOrtho : [-vOrtho[0], -vOrtho[1]];
+        return {
+            center: toWorld(this.plane, center[0], center[1]),
+            xdir: swapped ? vCanonical : u,
+            major: Math.max(uLength, vLength),
+            minor: Math.min(uLength, vLength),
+            ccw,
+            swapped,
+        };
+    }
+
+    private ellipseEdge(p: readonly number[]): Result<IEdge> {
+        const frame = this.ellipseKernelFrame(p);
+        if (frame === undefined) return Result.err("Ellipse is degenerate (an axis collapsed)");
+        return shapeFactory.ellipse(
+            this.plane.normal,
+            frame.center,
+            toWorld(this.plane, frame.xdir[0], frame.xdir[1]).sub(this.plane.origin),
+            frame.major,
+            frame.minor,
+        );
+    }
+
+    /**
+     * The ellipseArc as the swept piece of its ellipse: the full ellipse edge trimmed to
+     * the [tStart, tEnd] parameter range (`ellipseSweep`; the kernel's ellipse parameter
+     * matches the c + u·cos t + v·sin t reading). A zero sweep is no edge at all. The
+     * range is mapped through the kernel frame's two adjustments (`ellipseKernelFrame`):
+     * a clockwise drawn pair negates it, a minor-longer swap shifts it a quarter turn.
+     */
+    private ellipseArcEdge(p: readonly number[]): Result<IEdge> {
+        const [tStart, tEnd] = ellipseSweep(p);
+        if (tEnd - tStart <= Precision.Angle) return Result.err("Ellipse arc is degenerate (zero sweep)");
+        const ellipse = this.ellipseEdge(p);
+        if (!ellipse.isOk) return ellipse;
+        const frame = this.ellipseKernelFrame(p)!;
+        let [from, to] = frame.ccw ? [tStart, tEnd] : [-tEnd, -tStart];
+        if (frame.swapped) {
+            from -= Math.PI / 2;
+            to -= Math.PI / 2;
+        }
+        const edge = ellipse.value.trim(from, to);
+        return edge === undefined ? Result.err("Ellipse arc trim failed") : Result.ok(edge);
+    }
+
+    /**
+     * The conic as its rational quadratic bezier: weights [1, w, 1] with w = ρ/(1−ρ).
+     * ρ is kept a hair inside (0, 1) — a 0 is a straight line the kernel's bezier can
+     * still carry, a 1 is no curve at all.
+     */
+    private conicEdge(p: readonly number[]): Result<IEdge> {
+        const rho = Math.min(1 - 1e-6, Math.max(1e-6, p[6]));
+        const points = [
+            toWorld(this.plane, p[0], p[1]),
+            toWorld(this.plane, p[2], p[3]),
+            toWorld(this.plane, p[4], p[5]),
+        ];
+        return shapeFactory.bezier(points, [1, conicWeight(rho), 1]);
+    }
+
+    /** The cubic bezier as the kernel's Bezier through its four control poles. */
+    private bezierEdge(p: readonly number[]): Result<IEdge> {
+        const points: XYZ[] = [];
+        for (let i = 0; i + 1 < p.length; i += 2) {
+            points.push(toWorld(this.plane, p[i], p[i + 1]));
+        }
+        return shapeFactory.bezier(points);
+    }
+
+    /**
+     * The NURBS as the kernel's own rational B-spline: the control points and weights the
+     * entity solves with, read against the knots it carries. The kernel wants the flat knot
+     * vector this entity stores as it is (see `IShapeFactory.bspline`), so the drawn curve
+     * and the solved one are the same curve — a piece of one that a trim left behind keeps
+     * its own knots and is built exactly, not refitted.
+     */
+    private nurbsEdge(entity: SketchEntityData): Result<IEdge> {
+        const spec = nurbsSpec(entity);
+        const poles = curveControlPoints(entity).map(([u, v]) => toWorld(this.plane, u, v));
+        return shapeFactory.bspline(poles, nurbsWeights(entity.params), spec.knots, spec.degree);
     }
 
     /** arc params = [cx, cy, sx, sy, ex, ey]; the end point only fixes the sweep angle. */

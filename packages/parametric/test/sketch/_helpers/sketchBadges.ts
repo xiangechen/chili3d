@@ -84,8 +84,12 @@ export function badgeView() {
     const previous = Object.getOwnPropertyDescriptor(globalThis, "shapeFactory");
     Object.defineProperty(globalThis, "shapeFactory", {
         value: {
-            line: () => Result.ok({ isEqual: () => false }),
+            // an edge the kernel can offset (the offset-curve entity build asks it to)
+            line: () =>
+                Result.ok({ isEqual: () => false, offset: () => Result.ok({ isEqual: () => false }) }),
             circle: () => Result.ok({ isEqual: () => false }),
+            ellipse: () =>
+                Result.ok({ isEqual: () => false, offset: () => Result.ok({ isEqual: () => false }) }),
             wire: () => Result.ok({ isEqual: () => false }),
             combine: () => Result.ok({ isEqual: () => false }),
         },

@@ -48,7 +48,8 @@ function circleEdge(cx: number, cy: number, radius: number) {
     } as unknown as IEdge;
 }
 
-function splineEdge() {
+/** A free-form edge (neither a line nor a circle, i.e. the "other" kind) with fixed extents. */
+function freeformEdge() {
     return {
         curve: { basisCurve: {} },
         startPoint: () => xyz(0, 0, 0),
@@ -61,7 +62,7 @@ function splineEdge() {
 }
 
 /** A free-form edge with a fixed mid point and length — the "other" fingerprint fields. */
-function spline(mid: XYZ, length: number) {
+function freeform(mid: XYZ, length: number) {
     return {
         curve: { basisCurve: {} },
         startPoint: () => xyz(0, 0, 0),
@@ -92,7 +93,7 @@ function degenerateEdge(): IEdge {
 }
 
 /** The length query works (the "other" invariant passes) but the capture's pointAt throws. */
-function uncapturableSpline(length: number): IEdge {
+function uncapturableFreeform(length: number): IEdge {
     return {
         curve: { basisCurve: {} },
         startPoint: () => xyz(0, 0, 0),
@@ -129,7 +130,7 @@ describe("captureEdgeRef", () => {
     });
 
     test("captures midpoint and length for other curves", () => {
-        const ref = captureEdgeRef(splineEdge());
+        const ref = captureEdgeRef(freeformEdge());
         expect(ref.kind).toBe("other");
         const other = ref as Extract<EdgeRef, { kind: "other" }>;
         expect(other.mid).toEqual({ x: 1, y: 1, z: 0 });
@@ -297,8 +298,8 @@ describe("edgeMatchesRefInvariant", () => {
     });
 
     test("a length change breaks the other-curve invariant", () => {
-        const ref = captureEdgeRef(splineEdge());
-        const longer = { ...splineEdge(), length: () => 10 } as unknown as IEdge;
+        const ref = captureEdgeRef(freeformEdge());
+        const longer = { ...freeformEdge(), length: () => 10 } as unknown as IEdge;
         expect(edgeMatchesRefInvariant(longer, ref)).toBe(false);
     });
 });
@@ -325,9 +326,9 @@ describe("matchEdgeIndexesTracked — invariant verification and splits", () => 
     });
 
     test("demotes an other-curve id hit whose length changed", () => {
-        const ref: EdgeRef = { ...captureEdgeRef(splineEdge()), edgeId: "f1:0" };
-        const longer = { ...splineEdge(), length: () => 10 } as unknown as IEdge;
-        const shape = shapeWith(longer, splineEdge());
+        const ref: EdgeRef = { ...captureEdgeRef(freeformEdge()), edgeId: "f1:0" };
+        const longer = { ...freeformEdge(), length: () => 10 } as unknown as IEdge;
+        const shape = shapeWith(longer, freeformEdge());
         const result = matchEdgeIndexesTracked(shape, [ref], ["f1:0", "f1:1"]);
 
         expect(result.unchecked()).toEqual([1]);
@@ -434,8 +435,8 @@ describe("matchEdgeIndexesTracked — invariant verification and splits", () => 
     test("a hit whose fingerprint capture throws scores as no exact match", () => {
         // Both hits keep the length invariant; the first throws when its fingerprint
         // is captured for scoring, so only the healthy piece can match exactly.
-        const ref: EdgeRef = { ...captureEdgeRef(splineEdge()), edgeId: "f1:0", splitPiece: true };
-        const shape = shapeWith(uncapturableSpline(Math.hypot(2, 2)), splineEdge());
+        const ref: EdgeRef = { ...captureEdgeRef(freeformEdge()), edgeId: "f1:0", splitPiece: true };
+        const shape = shapeWith(uncapturableFreeform(Math.hypot(2, 2)), freeformEdge());
         const result = matchEdgeIndexesTracked(shape, [ref], ["f1:0", "f1:0"]);
 
         expect(result.unchecked()).toEqual([1]);
@@ -622,8 +623,8 @@ describe("matchEdgesAnchored", () => {
         // fingerprint recovers another edge, but the anchor must stay the user's
         // ref: the original edge can claim it back once the invariant holds again,
         // and rewriting would lose the live id.
-        const ref: EdgeRef = { ...captureEdgeRef(spline(xyz(3, 3, 0), 5)), edgeId: "f1:0" };
-        const shape = shapeWith(spline(xyz(9, 9, 0), 10), spline(xyz(3, 3, 0), 5));
+        const ref: EdgeRef = { ...captureEdgeRef(freeform(xyz(3, 3, 0), 5)), edgeId: "f1:0" };
+        const shape = shapeWith(freeform(xyz(9, 9, 0), 10), freeform(xyz(3, 3, 0), 5));
         const result = matchEdgesAnchored(shape, [ref], ["f1:0", "f1:1"]);
 
         const { indexes, anchors } = result.unchecked()!;
@@ -634,8 +635,8 @@ describe("matchEdgesAnchored", () => {
     test("re-anchors when the stored id died even though its invariant would have failed too", () => {
         // Same geometry as above, but the stored id is gone from the rebuilt shape —
         // the re-anchor contract applies.
-        const ref: EdgeRef = { ...captureEdgeRef(spline(xyz(3, 3, 0), 5)), edgeId: "gone:3" };
-        const shape = shapeWith(spline(xyz(9, 9, 0), 10), spline(xyz(3, 3, 0), 5));
+        const ref: EdgeRef = { ...captureEdgeRef(freeform(xyz(3, 3, 0), 5)), edgeId: "gone:3" };
+        const shape = shapeWith(freeform(xyz(9, 9, 0), 10), freeform(xyz(3, 3, 0), 5));
         const result = matchEdgesAnchored(shape, [ref], ["f1:0", "f1:1"]);
 
         const { indexes, anchors } = result.unchecked()!;

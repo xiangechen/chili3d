@@ -288,6 +288,28 @@ export function radiusDimension(
 }
 
 /**
+ * Leader dimension: a line from the measured point out to the label, the arrowhead
+ * sitting on the point and pointing at it — the radius dimension's leader without a
+ * center or a rim, for a value that hangs off one point of the geometry (a conic's
+ * rho at its shoulder point). `labelOffset` is the picked label relative to the
+ * point; a label too close in is pushed out to the same margin the radius uses.
+ */
+export function leaderDimension(point: Point2, labelOffset: Point2, size: DimensionSize): DimensionGeometry {
+    const [dx, dy] = labelOffset;
+    const length = Math.hypot(dx, dy);
+    const dir: Point2 = length < 1e-9 ? [Math.SQRT1_2, Math.SQRT1_2] : [dx / length, dy / length];
+    const labelDistance = Math.max(length, DIMENSION_RADIAL_LABEL_MARGIN_PX * size.scale);
+    const label: Point2 = [point[0] + dir[0] * labelDistance, point[1] + dir[1] * labelDistance];
+
+    return {
+        segments: [[point[0], point[1], label[0], label[1]]],
+        triangles: arrowhead(point, [-dir[0], -dir[1]], size.scale),
+        textPosition: textAnchor(label, [-dir[1], dir[0]], size),
+        textDirection: dir,
+    };
+}
+
+/**
  * Diameter dimension: the same leader direction as `radiusDimension`, but drawn across
  * the circle rather than out from its center. Both arrowheads sit on the rim — one on
  * each side of the center — and point outward, so what is measured is the full width and

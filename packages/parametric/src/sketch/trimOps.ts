@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Result } from "@chili3d/core";
+import { entityDomain, isClosedCurveType, isClosedEntity, isFreeCurveType, projectPoint } from "./curveEval";
 import {
     type CurveCrossing,
     type CurvePiece,
@@ -17,11 +18,15 @@ import {
     circleToArcConstraint,
     dropBrokenConstraints,
     type EditOutcome,
+    ellipseToArcConstraint,
     guardedEdit,
     migrateConstraints,
     pinCut,
+    shortenCurveEntity,
+    splitCurveEntity,
 } from "./entityEditOps";
-import type { SketchEntityData } from "./sketchModel";
+import { windowParameterAt } from "./offsetOps";
+import type { SketchEntityData, SketchPointRef } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
 /**
@@ -115,9 +120,18 @@ export function trimPreview(
     return plan.isOk ? planPiece(plan.value) : undefined;
 }
 
+/**
+ * Whether the entity's *drawn* curve closes on itself. An offset copy has no closedness of its
+ * own kind — it is a piece of the parallel curve of whatever it reads, and reads as closed
+ * only while it runs over the whole of a closed source (`isClosedEntity`).
+ */
+function closedCurve(entity: SketchEntityData): boolean {
+    return entity.type === "offsetCurve" ? isClosedEntity(entity) : isClosedCurveType(entity.type);
+}
+
 /** A crossing at the entity's own end bounds no piece: it is where the entity stops. */
 function atOwnEnd(entity: SketchEntityData, cut: CurveCrossing, length: number, tolerance: number): boolean {
-    if (entity.type === "circle") return false;
+    if (closedCurve(entity)) return false;
     return cut.s <= tolerance || cut.s >= length - tolerance;
 }
 
@@ -136,9 +150,13 @@ function planTrim(
 ): Result<TrimPlan> {
     const entity = solver.entity(entityId);
     if (entity === undefined) return Result.err("Unknown sketch entity");
-    // the datum and the external references are reference geometry: they cut, but
-    // they are never cut up
-    if (solver.isFixed(entityId)) return Result.err("The datum and external references cannot be trimmed");
+    // The datum, the external references and an array's instances are reference geometry:
+    // they cut, but they are never cut up. An offset copy is the exception — the solver does
+    // place it, but it is the user's own curve, and the copy's window is exactly what a trim
+    // is written to (see `trimOffsetCopy`).
+    if (solver.isFixed(entityId) && entity.type !== "offsetCurve") {
+        return Result.err("The datum and external references cannot be trimmed");
+    }
     const tol = Math.max(tolerance, 1e-6);
 
     const length = entityLength(entity);
@@ -159,10 +177,10 @@ function planTrim(
 
 /**
  * How much of the entity the piece under the click takes. No crossing bounds a piece
- * at all when the entity has none, or a circle has only one — and that is the case all
- * three CAD systems resolve by removing the whole curve rather than refusing
- * (FreeCAD's delGeometry, Fusion "deletes the original"). A circle also wraps, so its
- * piece is measured round the seam rather than as a difference of its two parameters.
+ * at all when the entity has none, or a closed curve has only one — and that is the case
+ * all three CAD systems resolve by removing the whole curve rather than refusing
+ * (FreeCAD's delGeometry, Fusion "deletes the original"). A closed curve also wraps, so
+ * its piece is measured round the seam rather than as a difference of its two parameters.
  */
 function removedLength(
     entity: SketchEntityData,
@@ -170,21 +188,22 @@ function removedLength(
     cuts: readonly CurveCrossing[],
     length: number,
 ): number {
-    if (cuts.length === 0 || (entity.type === "circle" && cuts.length < 2)) return length;
-    if (entity.type === "circle") return wrappedSpan(span, length);
+    if (cuts.length === 0 || (closedCurve(entity) && cuts.length < 2)) return length;
+    if (closedCurve(entity)) return wrappedSpan(span, length);
     return (span.to?.s ?? length) - (span.from?.s ?? 0);
 }
 
 /**
  * The plan for a piece that is neither the whole curve nor too short to be one: a
- * circle becomes the arc keeping its complement, a piece at one of the entity's ends
- * shortens it, and one in the middle splits it. `undefined` for a span that bounds no
- * such piece — the caller has already ruled out the two ends of that range.
+ * closed curve becomes the open one keeping its complement (a circle the arc, an
+ * ellipse the ellipseArc), a piece at one of the entity's ends shortens it, and one in
+ * the middle splits it. `undefined` for a span that bounds no such piece — the caller
+ * has already ruled out the two ends of that range.
  */
 function boundedPlan(entity: SketchEntityData, span: RemovedSpan): TrimPlan | undefined {
     const { from, to } = span;
-    // a circle has no ends, so its span is always bounded by two cuts
-    if (entity.type === "circle") {
+    // a closed curve has no ends, so its span is always bounded by two cuts
+    if (closedCurve(entity)) {
         return from !== undefined && to !== undefined ? { kind: "retype", entity, from, to } : undefined;
     }
     // one cut and one end: the piece runs from the end to the cut, and the end moves
@@ -209,8 +228,8 @@ function planPiece(plan: TrimPlan): CurvePiece {
         case "split":
             return pieceGeometry(entity, plan.from.s, plan.to.s - plan.from.s);
         case "retype":
-            // a circle's removed span wraps through the seam: its arc-length is not
-            // simply the difference of the two parameters
+            // a closed curve's removed span wraps through the seam: its arc-length is
+            // not simply the difference of the two parameters
             return pieceGeometry(entity, plan.from.s, wrappedSpan(plan, length));
     }
 }
@@ -219,6 +238,12 @@ function planPiece(plan: TrimPlan): CurvePiece {
 
 /** Carries out a plan. */
 function applyPlan(solver: SketchSolver, plan: TrimPlan, tolerance: number): Result<TrimOutcome> {
+    // An offset copy is cut the same three ways and written a fourth: every one of them is a
+    // *window* on the source it reads, since the copy has no point for the moves below to take
+    // hold of (see `trimOffsetCopy`).
+    if (plan.kind !== "delete" && plan.entity.type === "offsetCurve") {
+        return trimOffsetCopy(solver, plan);
+    }
     switch (plan.kind) {
         case "delete":
             return Result.ok({
@@ -231,8 +256,69 @@ function applyPlan(solver: SketchSolver, plan: TrimPlan, tolerance: number): Res
         case "split":
             return split(solver, plan.entity, plan.from, plan.to, tolerance);
         case "retype":
-            return circleToArc(solver, plan.entity, plan.from, plan.to, tolerance);
+            return plan.entity.type === "circle"
+                ? circleToArc(solver, plan.entity, plan.from, plan.to, tolerance)
+                : ellipseToArc(solver, plan.entity, plan.from, plan.to, tolerance);
     }
+}
+
+/**
+ * Carries out a plan on an offset copy, as a window on the source it reads.
+ *
+ * All three of a trim's shapes come out the same way they do on any other curve — a piece at
+ * an end shortens the copy, a piece in the middle splits it in two, and a whole closed copy
+ * keeps the complement of the removed span — but each is written as the *parameter range* the
+ * copy is then drawn over rather than by moving a point, because there is no point to move:
+ * a copy is only the parallel curve of what it reads, so where it stops is a number on the
+ * pair (`OffsetCurveRef.window`) and nothing else.
+ *
+ * The cuts are read into that parameter by projecting them onto the copy
+ * (`offsetOps.windowParameterAt`), which is exact — the one measurement in the trim that has to
+ * be, since no constraint can pin a copy's end to the cutter the way it pins a real curve's.
+ */
+function trimOffsetCopy(
+    solver: SketchSolver,
+    plan: Exclude<TrimPlan, { kind: "delete" }>,
+): Result<TrimOutcome> {
+    const copy = plan.entity;
+    const ref = solver.offsetRefOf(copy.id);
+    if (ref === undefined) return Result.err("Not an offset curve");
+    const [start, end] = entityDomain(copy);
+    if (plan.kind === "shorten") {
+        const at = windowParameterAt(copy, plan.cut.point);
+        const window: [number, number] = plan.atOrigin ? [at, end] : [start, at];
+        return setCopyWindow(solver, copy.id, window);
+    }
+    const from = windowParameterAt(copy, plan.from.point);
+    const to = windowParameterAt(copy, plan.to.point);
+    if (plan.kind === "retype") {
+        // a closed copy loses the removed span and keeps the rest, which runs forward from the
+        // span's far bound to its near one — round the source's seam when that bound sits
+        // after it, which is the one window a turn long rather than a piece of one
+        const keptEnd = from > to ? from : from + (end - start);
+        return setCopyWindow(solver, copy.id, [to, keptEnd]);
+    }
+    const kept = setCopyWindow(solver, copy.id, [start, from]);
+    if (!kept.isOk) return kept;
+    const newId = solver.addEntityFromParams("offsetCurve", [], undefined, {
+        sourceId: ref.sourceId,
+        sourceType: ref.sourceType,
+        distance: ref.distance,
+        window: [to, end],
+    });
+    if (solver.isConstruction(copy.id)) solver.setConstruction(newId, true);
+    return Result.ok({ entityIds: [copy.id, newId], removedConstraints: [], deletedEntities: [] });
+}
+
+/** Writes one window onto a copy, as the outcome a trim reports. */
+function setCopyWindow(
+    solver: SketchSolver,
+    entityId: number,
+    window: [number, number],
+): Result<TrimOutcome> {
+    const written = solver.setOffsetWindow(entityId, window);
+    if (!written.isOk) return Result.err(written.error);
+    return Result.ok({ entityIds: [entityId], removedConstraints: [], deletedEntities: [] });
 }
 
 /**
@@ -247,6 +333,18 @@ function shorten(
     atOrigin: boolean,
     tolerance: number,
 ): Result<TrimOutcome> {
+    // A free curve cannot move one end and keep its shape: what is left is the *same curve*
+    // shortened, which is a different control-point set (`shortenCurveEntity`), exactly as
+    // it is for the middle span of a `split`.
+    if (isFreeCurveType(entity.type)) {
+        const reshaped = shortenCurveEntity(solver, entity, projectPoint(entity, cut.point).t, atOrigin);
+        if (!reshaped.isOk) return Result.err(reshaped.error);
+        const kept = solver.entity(entity.id);
+        if (kept === undefined) return Result.err("Unknown sketch entity");
+        // the cut end is the piece's own: the reshape renumbers what it left
+        pinCut(solver, atOrigin ? originEnd(kept) : farEnd(kept), cut, tolerance);
+        return Result.ok({ entityIds: [entity.id], removedConstraints: reshaped.value, deletedEntities: [] });
+    }
     const ref = atOrigin ? originEnd(entity) : farEnd(entity);
     const removedConstraints = dropBrokenConstraints(solver, ref);
     solver.setPointPosition(ref, cut.point[0], cut.point[1]);
@@ -259,6 +357,13 @@ function shorten(
  * far half is added as a new entity. The half holding the entity's origin keeps the
  * id — the same choice FreeCAD makes, and the reason the constraints that migrate are
  * only the ones hung off the far end.
+ *
+ * The free curves cannot move one end and keep their shape: their kept half is the
+ * *same curve* shortened, which is a different control-point set (`splitCurveEntity`
+ * reparametrizes it, and moves the far end's constraints onto the new half itself), and
+ * their far half likewise. A NURBS piece is reshaped rather than reparametrized, which is
+ * the one way a split loses constraints — the ones reading control points the kept piece no
+ * longer has, whose ids come back to be reported.
  */
 function split(
     solver: SketchSolver,
@@ -268,18 +373,49 @@ function split(
     tolerance: number,
 ): Result<TrimOutcome> {
     const far = farEnd(entity);
-    const farPoint = solver.pointOf(far);
-    solver.setPointPosition(far, from.point[0], from.point[1]);
+    const carved = carveFarHalf(solver, entity, from, to, far);
+    if (!carved.isOk) return Result.err(carved.error);
+    // Each half's fresh end is the crossing the trim made there: the kept half's far end,
+    // and the new half's — its own start. Both are read off the *kept* entity: a free
+    // curve's split re-makes its control-point list, so the far end the entity had before
+    // is not the point that now sits at the cut (and on a reshaped NURBS it may not exist).
+    const kept = solver.entity(entity.id);
+    if (kept === undefined) return Result.err("Unknown sketch entity");
+    pinCut(solver, farEnd(kept), from, tolerance);
+    pinCut(solver, { entityId: carved.value.newId, pointIndex: originEnd(kept).pointIndex }, to, tolerance);
+    return Result.ok({
+        entityIds: [entity.id, carved.value.newId],
+        removedConstraints: carved.value.dropped,
+        deletedEntities: [],
+    });
+}
 
+/**
+ * Cuts the far half off, by whichever of the two strategies the entity's type calls for, and
+ * reports the new entity's id along with the constraints the cut lost.
+ */
+function carveFarHalf(
+    solver: SketchSolver,
+    entity: SketchEntityData,
+    from: CurveCrossing,
+    to: CurveCrossing,
+    far: SketchPointRef,
+): Result<{ newId: number; dropped: number[] }> {
+    const farPoint = solver.pointOf(far);
+    if (isFreeCurveType(entity.type)) {
+        const carved = splitCurveEntity(
+            solver,
+            entity,
+            projectPoint(entity, from.point).t,
+            projectPoint(entity, to.point).t,
+        );
+        if (!carved.isOk) return Result.err(carved.error);
+        return Result.ok({ newId: carved.value.newId, dropped: carved.value.dropped });
+    }
+    solver.setPointPosition(far, from.point[0], from.point[1]);
     const newId = addFarHalf(solver, entity, to.point, farPoint);
     migrateConstraints(solver, entity, far, newId);
-    // each half's fresh end is the crossing the trim made there: the kept half's far
-    // end, and the new half's — its own start, not the index the far end had
-    pinCut(solver, far, from, tolerance);
-    pinCut(solver, { entityId: newId, pointIndex: originEnd(entity).pointIndex }, to, tolerance);
-    // nothing is dropped: every constraint either follows the far point onto the new half
-    // or is re-stated per half, and both keep their id — so every anchor stays put
-    return Result.ok({ entityIds: [entity.id, newId], removedConstraints: [], deletedEntities: [] });
+    return Result.ok({ newId, dropped: [] });
 }
 
 /**
@@ -313,17 +449,48 @@ function circleToArc(
     });
 }
 
+/**
+ * Trims an ellipse into the ellipseArc its removed span leaves behind — the circle's
+ * own retype one frame richer: the centre and both axis points survive (the arc layout
+ * opens with them), so the relations reading the frame carry over as they are and only
+ * the two rim points are new.
+ */
+function ellipseToArc(
+    solver: SketchSolver,
+    entity: SketchEntityData,
+    from: CurveCrossing,
+    to: CurveCrossing,
+    tolerance: number,
+): Result<TrimOutcome> {
+    // the kept arc runs counter-clockwise from the far bound of the removed span round
+    // to its near bound: the complement of what was removed
+    const retyped = solver.retypeEntity(
+        entity.id,
+        "ellipseArc",
+        [...entity.params.slice(0, 6), to.point[0], to.point[1], from.point[0], from.point[1]],
+        (constraint) => ellipseToArcConstraint(solver, constraint, entity.id),
+    );
+    if (!retyped.isOk) return Result.err(retyped.error);
+    pinCut(solver, { entityId: entity.id, pointIndex: 3 }, to, tolerance);
+    pinCut(solver, { entityId: entity.id, pointIndex: 4 }, from, tolerance);
+    return Result.ok({
+        entityIds: [entity.id],
+        removedConstraints: retyped.value,
+        deletedEntities: [],
+    });
+}
+
 // ------------------------------------------------------------------ Positions along an entity
 
 /**
  * The two cuts the click sits between, or the entity's own end where there is none.
- * A circle wraps, so when there is no cut on one side of the click, that side is the
- * cut across the seam.
+ * A closed curve wraps, so when there is no cut on one side of the click, that side is
+ * the cut across the seam.
  */
 function spanAround(entity: SketchEntityData, cuts: CurveCrossing[], click: number): RemovedSpan {
     const before = cuts.filter((cut) => cut.s < click).at(-1);
     const after = cuts.find((cut) => cut.s > click);
-    if (entity.type !== "circle") {
+    if (!closedCurve(entity)) {
         return {
             ...(before === undefined ? {} : { from: before }),
             ...(after === undefined ? {} : { to: after }),
@@ -332,7 +499,7 @@ function spanAround(entity: SketchEntityData, cuts: CurveCrossing[], click: numb
     return { from: before ?? cuts.at(-1), to: after ?? cuts[0] };
 }
 
-/** The arc-length the removed span covers on a circle, wrapping through the seam. */
+/** The arc-length the removed span covers on a closed curve, wrapping through the seam. */
 function wrappedSpan(span: RemovedSpan, length: number): number {
     const from = span.from?.s ?? 0;
     const to = span.to?.s ?? 0;

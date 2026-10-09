@@ -21,7 +21,17 @@ import {
     snapConstraintKind,
     snapTargetEntityId,
 } from "../autoConstraints";
+import {
+    curveControlPoints,
+    entityDomain,
+    evaluateEntity,
+    isClosedEntity,
+    isFreeCurveType,
+    projectPoint,
+    sampleEntity,
+} from "../curveEval";
 import type { CurvePiece } from "../curveGeometry";
+import { windowParameterAt } from "../offsetOps";
 import type { SketchCurvePreview } from "../previewTypes";
 import {
     arcAngles,
@@ -43,7 +53,7 @@ import {
 import { constraintTargetEntities } from "../solverEntities";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
 import style from "./sketchAnnotations.module.css";
-import type { SketchActivePick, SketchEditor, SketchEntityTypeFilter } from "./sketchEditor";
+import type { SketchActivePick, SketchEditor, SketchEntityHit, SketchEntityTypeFilter } from "./sketchEditor";
 
 const PICK_TOLERANCE_PX = 8;
 const CIRCLE_SEGMENTS = 64;
@@ -114,6 +124,11 @@ export class SketchEventHandler implements IEventHandler {
     isEnabled: boolean = true;
 
     private draggingRef?: SketchPointRef;
+    /**
+     * The offset copy's end being dragged, while one is: the copy has no point for a drag to
+     * hold, so it is not `draggingRef` and travels its own path (`dragCopyEnd`).
+     */
+    private draggingCopyEnd?: { readonly entityId: number; readonly atOrigin: boolean };
     private dragPreviewId?: number;
     private hoverMeshId?: number;
     private hoverKey?: string;
@@ -223,8 +238,8 @@ export class SketchEventHandler implements IEventHandler {
 
     /**
      * Re-renders the session's geometry overlays — the external references, the
-     * construction entities and the entity point markers — after the geometry
-     * behind them was added, removed, moved or re-resolved.
+     * construction entities and the entity points with their control nets — after the
+     * geometry behind them was added, removed, moved or re-resolved.
      */
     refreshGeometryOverlays(): void {
         const view = this.editor.document.application.activeView;
@@ -243,9 +258,9 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     /**
-     * Re-renders just the entity point markers. They carry their entity's constraint
-     * colour, so a constraint that flips which entities are pinned has to redraw them —
-     * nothing moved, only what the markers read in changed.
+     * Re-renders just the entity points and their control nets. They carry their entity's
+     * constraint colour, so a constraint that flips which entities are pinned has to redraw
+     * them — nothing moved, only what the markers and the net read in changed.
      */
     refreshEntityPoints(): void {
         const view = this.editor.document.application.activeView;
@@ -257,8 +272,10 @@ export class SketchEventHandler implements IEventHandler {
 
     /**
      * Session-persistent markers on every entity point — line endpoints, circle and
-     * arc centers, arc start and end. They are what drawing snaps to and what
-     * dragging grabs, so they are worth seeing before the cursor reaches them.
+     * arc centers, arc start and end — and, for a free curve, the dashed control net that
+     * ties them to the curve. The points are what drawing snaps to and what dragging
+     * grabs, so they are worth seeing before the cursor reaches them, and a handle is only
+     * legible with the net beside it.
      */
     private showEntityPoints(): void {
         const view = this.editor.document.application.activeView;
@@ -318,7 +335,7 @@ export class SketchEventHandler implements IEventHandler {
         let best: SketchPointRef | undefined;
         let bestDistance = PICK_TOLERANCE_PX;
         for (const entity of this.pickableEntities()) {
-            const pointCount = entityPointCount(entity.type);
+            const pointCount = entityPointCount(entity);
             for (let pointIndex = 0; pointIndex < pointCount; pointIndex++) {
                 const [u, v] = solver.pointOf({ entityId: entity.id, pointIndex });
                 const screen = view.worldToScreen(toWorld(plane, u, v));
@@ -343,12 +360,21 @@ export class SketchEventHandler implements IEventHandler {
         return constraintTargetEntities(this.editor.solver);
     }
 
+    /**
+     * The entity under the cursor, or — for a pick that asked for a segment — the pairing of
+     * it with the two control points the click was between.
+     *
+     * A segment pick reads a *line* as itself (its own two points are its segment) and a free
+     * curve through its control net: what is drawn dashed between its control points is what
+     * the click can name, and the curve those points steer is not a segment of anything.
+     */
     hitTestEntity(
         view: IView,
         event: PointerEvent,
         type?: SketchEntityTypeFilter,
         datum = false,
-    ): number | undefined {
+        segments = false,
+    ): SketchEntityHit | undefined {
         const uv = this.pointerToUV(view, event);
         if (uv === undefined) return undefined;
         const tolerance = this.worldTolerance(view, event);
@@ -356,23 +382,30 @@ export class SketchEventHandler implements IEventHandler {
         const types: readonly SketchEntityType[] | undefined =
             type === undefined ? undefined : typeof type === "string" ? [type] : type;
 
-        let best: number | undefined;
+        let best: SketchEntityHit | undefined;
         let bestDistance = tolerance;
-        const consider = (id: number, distance: number) => {
+        const consider = (hit: SketchEntityHit, distance: number) => {
             if (distance < bestDistance) {
                 bestDistance = distance;
-                best = id;
+                best = hit;
             }
         };
         for (const entity of this.pickableEntities()) {
+            if (segments) {
+                const net = controlNetHit(uv, entity);
+                if (net !== undefined) {
+                    consider({ entityId: entity.id, segment: net.segment }, net.distance);
+                    continue;
+                }
+            }
             if (types !== undefined && !types.includes(entity.type)) continue;
-            consider(entity.id, entityDistance(uv, entity));
+            consider({ entityId: entity.id }, entityDistance(uv, entity));
         }
         // datum axes are infinite lines, pickable only when the pick opts in;
         // checked last so real geometry wins ties (e.g. a line lying on an axis)
         if (datum && (types === undefined || types.includes("line"))) {
-            consider(SKETCH_X_AXIS_ID, Math.abs(uv[1]));
-            consider(SKETCH_Y_AXIS_ID, Math.abs(uv[0]));
+            consider({ entityId: SKETCH_X_AXIS_ID }, Math.abs(uv[1]));
+            consider({ entityId: SKETCH_Y_AXIS_ID }, Math.abs(uv[0]));
         }
         return best;
     }
@@ -389,6 +422,10 @@ export class SketchEventHandler implements IEventHandler {
         if (isBadgeEventTarget(event.target)) return;
         if (this.draggingRef !== undefined) {
             this.dragPointAtPointer(view, event);
+            return;
+        }
+        if (this.draggingCopyEnd !== undefined) {
+            this.dragCopyEndAtPointer(view, event);
             return;
         }
         if (this.boxStart !== undefined) {
@@ -415,6 +452,39 @@ export class SketchEventHandler implements IEventHandler {
         this.editor.solver.dragTo(ref, position[0], position[1]);
         this.updateDragPreview(view);
         this.showSnapFeedback(view, snap);
+        this.editor.annotations.refresh();
+    }
+
+    /**
+     * Moves the end of an offset copy being dragged to wherever the pointer now is: the pointer
+     * is projected onto the copy's support (`windowParameterAt`) and the window bound written
+     * there, which is what an extend of the same copy would write.
+     *
+     * The **source does not move**. Dragging the handle out past the source's own end would ask
+     * the copy to follow a parallel curve that does not exist, and the answer is the refusal
+     * `setOffsetWindow` gives — the handle simply stops at the end. Growing the source is the
+     * *extend* tool's gesture, aimed at a boundary the user picks; a drag that silently rewrote
+     * the geometry the copy is read from would be a side effect nobody asked for.
+     *
+     * Nothing is solved while the drag runs, and nothing needs to be: a copy has no parameter,
+     * so the window *is* the whole of where its ends are, and the solve on the release is what
+     * commits the move (`pointerUp`).
+     */
+    private dragCopyEndAtPointer(view: IView, event: PointerEvent): void {
+        const drag = this.draggingCopyEnd;
+        const uv = this.pointerToUV(view, event);
+        const copy = drag === undefined ? undefined : this.editor.solver.entity(drag.entityId);
+        if (drag === undefined || uv === undefined || copy === undefined) return;
+        const [start, end] = entityDomain(copy);
+        const at = windowParameterAt(copy, uv);
+        // a refused window (past the source's end, or one that would leave nothing) writes
+        // nothing, so the handle holds where it was rather than following the pointer
+        const written = this.editor.solver.setOffsetWindow(
+            drag.entityId,
+            drag.atOrigin ? [at, end] : [start, at],
+        );
+        if (!written.isOk) return;
+        this.updateDragPreview(view);
         this.editor.annotations.refresh();
     }
 
@@ -496,6 +566,13 @@ export class SketchEventHandler implements IEventHandler {
             this.beginPointDrag(view, ref);
             return;
         }
+        // an offset copy's own end, where one is marked: it is a handle like a point's, and a
+        // press on one is a drag (see `beginCopyEndDrag`)
+        const copyEnd = this.hitTestCopyEnd(view, event);
+        if (copyEnd !== undefined) {
+            this.beginCopyEndDrag(view, copyEnd);
+            return;
+        }
         this.selectEntityAtPointer(view, event, ref);
     }
 
@@ -551,7 +628,7 @@ export class SketchEventHandler implements IEventHandler {
      * Anything else the sketch could double-click belongs to no tool, and is left alone.
      */
     doubleClick(view: IView, event: MouseEvent): void {
-        const entityId = this.hitTestEntity(view, event as PointerEvent);
+        const entityId = this.hitTestEntity(view, event as PointerEvent)?.entityId;
         const array = entityId === undefined ? undefined : this.editor.solver.arrayOf(entityId);
         if (array === undefined) return;
         this.editor.editArray(array.id);
@@ -589,7 +666,7 @@ export class SketchEventHandler implements IEventHandler {
      * rubber-band handle either, so pressing one only drops the selections.
      */
     private selectEntityAtPointer(view: IView, event: PointerEvent, pointRef?: SketchPointRef): void {
-        const entityId = this.hitTestEntity(view, event);
+        const entityId = this.hitTestEntity(view, event)?.entityId;
         if (entityId !== undefined) {
             this.selectEntity(view, entityId, event.shiftKey);
             return;
@@ -598,6 +675,44 @@ export class SketchEventHandler implements IEventHandler {
         if (pointRef !== undefined) return;
         this.boxStart = { x: event.offsetX, y: event.offsetY };
         this.boxAdditive = event.shiftKey;
+    }
+
+    /**
+     * The end of an offset copy under the pointer, if any. Its handles are exactly where the
+     * markers are drawn (`offsetEndMeshes`), and it is found on the same terms a point is — a
+     * copy with no ends of its own (one drawn over the whole of a closed source) has none.
+     */
+    private hitTestCopyEnd(
+        view: IView,
+        event: PointerEvent,
+    ): { entityId: number; atOrigin: boolean } | undefined {
+        const plane = this.editor.node.plane;
+        let best: { entityId: number; atOrigin: boolean } | undefined;
+        let bestDistance = PICK_TOLERANCE_PX;
+        for (const entity of this.pickableEntities()) {
+            for (const end of copyEndPositions(entity)) {
+                const screen = view.worldToScreen(toWorld(plane, end.point[0], end.point[1]));
+                const distance = Math.hypot(screen.x - event.offsetX, screen.y - event.offsetY);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    best = { entityId: entity.id, atOrigin: end.atOrigin };
+                }
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Takes hold of an offset copy's end. There is nothing to tell the solver about — a copy has
+     * no parameter for a drag to hold, and the window is written straight through on every move
+     * — so this only clears what the drag replaces and hands the drawing to the preview.
+     */
+    private beginCopyEndDrag(view: IView, end: { entityId: number; atOrigin: boolean }): void {
+        this.draggingCopyEnd = end;
+        this.clearHover(view);
+        this.clearEntityPoints(view);
+        this.clearConstructionEntities(view);
+        this.updateDragPreview(view);
     }
 
     private beginPointDrag(view: IView, ref: SketchPointRef): void {
@@ -633,6 +748,10 @@ export class SketchEventHandler implements IEventHandler {
             this.finishBox(view, boxStart, event);
             return;
         }
+        if (this.draggingCopyEnd !== undefined) {
+            this.endCopyEndDrag(view);
+            return;
+        }
         if (this.draggingRef === undefined) return;
         const ref = this.draggingRef;
         this.draggingRef = undefined;
@@ -660,9 +779,26 @@ export class SketchEventHandler implements IEventHandler {
         this.handleDelete(view, event);
     }
 
-    /** Escape peels off one layer at a time: label placement, pick, constraint selection, entity selection, session. */
+    /**
+     * Ends a copy-end drag that is still in flight: the release landed outside the window, or
+     * Escape ended it. The window is already written — every move wrote it — so finishing is
+     * the markers back and the move made the user's to undo.
+     */
+    private endCopyEndDrag(view: IView): void {
+        if (this.draggingCopyEnd === undefined) return;
+        this.draggingCopyEnd = undefined;
+        this.clearDragPreview(view);
+        this.showEntityPoints();
+        this.syncAnnotationHighlights();
+        this.editor.commit();
+        this.editor.solve(true);
+    }
+
+    /** Escape peels off one layer at a time: a drag in flight, label placement, pick, constraint selection, entity selection, session. */
     private handleEscape(view: IView): void {
-        if (this.boxStart !== undefined) {
+        if (this.draggingCopyEnd !== undefined) {
+            this.endCopyEndDrag(view);
+        } else if (this.boxStart !== undefined) {
             this.cancelBox(view);
         } else if (this.editor.annotations.isLabelDragging) {
             this.editor.annotations.cancelLabelDrag();
@@ -682,7 +818,8 @@ export class SketchEventHandler implements IEventHandler {
         // whose node-selection step can delete the very sketch node being edited,
         // leaving the editor drawing into an invisible orphan
         event.stopImmediatePropagation();
-        if (this.editor.isPicking || this.draggingRef !== undefined) return;
+        if (this.editor.isPicking || this.draggingRef !== undefined || this.draggingCopyEnd !== undefined)
+            return;
         const hoveredConstraint = this.editor.annotations.hoveredConstraintId;
         if (hoveredConstraint !== undefined) {
             this.editor.deleteConstraints([hoveredConstraint]);
@@ -857,22 +994,30 @@ export class SketchEventHandler implements IEventHandler {
         event: PointerEvent,
         pick: SketchActivePick | undefined,
     ): HoverTarget {
-        const entityId = this.hitTestEntity(view, event, pick?.entityType, pick?.datum ?? false);
-        if (entityId === undefined) return {};
+        const hit = this.hitTestEntity(
+            view,
+            event,
+            pick?.entityType,
+            pick?.datum ?? false,
+            pick?.segments ?? false,
+        );
+        if (hit === undefined) return {};
 
-        const preview = this.entityPreviewTarget(entityId, pick);
+        const preview = hit.segment === undefined ? this.entityPreviewTarget(hit.entityId, pick) : undefined;
         if (preview !== undefined) return preview;
 
-        if (isDatumEntityId(entityId)) {
+        if (isDatumEntityId(hit.entityId)) {
             return {
-                key: `entity:${entityId}`,
-                mesh: this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor),
+                key: `entity:${hit.entityId}`,
+                mesh: this.datumAxisMesh(hit.entityId, VisualConfig.highlightEdgeColor),
             };
         }
-        const entity = this.editor.solver.entity(entityId);
-        return entity === undefined
-            ? {}
-            : { key: `entity:${entityId}`, mesh: sketchEntityMesh(this.editor, entity) };
+        const entity = this.editor.solver.entity(hit.entityId);
+        if (entity === undefined) return {};
+        if (hit.segment === undefined) {
+            return { key: `entity:${hit.entityId}`, mesh: sketchEntityMesh(this.editor, entity) };
+        }
+        return { key: segmentKey(hit), meshes: [controlNetSegmentMesh(this.editor, entity, hit.segment)] };
     }
 
     /**
@@ -894,7 +1039,7 @@ export class SketchEventHandler implements IEventHandler {
             // keep the old highlight and never draw the proposal
             key: `mirror:${entityId}`,
             meshes: [
-                ...this.hoverHighlightMeshes(entityId),
+                ...this.hoverHighlightMeshes({ entityId }),
                 ...preview.map((copy) => mirrorPreviewMesh(this.editor, copy)),
             ],
         };
@@ -913,26 +1058,39 @@ export class SketchEventHandler implements IEventHandler {
      * stays lit: the refusal is the absence of the second cue, not of the first.
      */
     private entityAtHoverTarget(view: IView, event: PointerEvent, pick: SketchActivePick): HoverTarget {
-        const entityId = this.hitTestEntity(view, event, pick.entityType, pick.datum ?? false);
-        const uv = entityId === undefined ? undefined : this.pointerToUV(view, event);
-        if (entityId === undefined || uv === undefined) return {};
+        const hit = this.hitTestEntity(
+            view,
+            event,
+            pick.entityType,
+            pick.datum ?? false,
+            pick.segments ?? false,
+        );
+        const uv = hit === undefined ? undefined : this.pointerToUV(view, event);
+        if (hit === undefined || uv === undefined) return {};
 
-        const highlight = this.hoverHighlightMeshes(entityId);
-        const preview = pick.previewAt?.(entityId, uv);
-        if (preview === undefined) return { key: `entity:${entityId}`, meshes: highlight };
+        const highlight = this.hoverHighlightMeshes(hit);
+        const preview = pick.previewAt?.(hit.entityId, uv);
+        if (preview === undefined) return { key: segmentKey(hit), meshes: highlight };
         return {
-            key: previewKey(entityId, preview),
+            key: previewKey(hit.entityId, preview),
             meshes: [...highlight, ...previewMeshes(this.editor, preview)],
         };
     }
 
-    /** The highlight a preview stands in front of: the hovered line, datum axes included. */
-    private hoverHighlightMeshes(entityId: number): ShapeMeshData[] {
-        if (isDatumEntityId(entityId)) {
-            return [this.datumAxisMesh(entityId, VisualConfig.highlightEdgeColor)];
+    /**
+     * The highlight a hover draws: the entity's own line, or — when the pick is after a
+     * *segment* and the cursor is on one — the segment itself, so which pair the click would
+     * name is on screen before the click is made.
+     */
+    private hoverHighlightMeshes(hit: SketchEntityHit): ShapeMeshData[] {
+        if (isDatumEntityId(hit.entityId)) {
+            return [this.datumAxisMesh(hit.entityId, VisualConfig.highlightEdgeColor)];
         }
-        const entity = this.editor.solver.entity(entityId);
-        return entity === undefined ? [] : [sketchEntityMesh(this.editor, entity)];
+        const entity = this.editor.solver.entity(hit.entityId);
+        if (entity === undefined) return [];
+        return hit.segment === undefined
+            ? [sketchEntityMesh(this.editor, entity)]
+            : [controlNetSegmentMesh(this.editor, entity, hit.segment)];
     }
 
     /** Full-length dashed axis line used for datum hover/constraint highlight. */
@@ -1223,11 +1381,11 @@ export function sketchEntityMeshes(editor: SketchEditor): ShapeMeshData[] {
     return editor.solver.entities().map((entity) => sketchEntityMesh(editor, entity));
 }
 
-/** Vertex meshes at every entity point of the constraint targets — see `showEntityPoints`. */
 /**
- * The markers on every constraint target's own points. Each takes the colour its entity's
- * line draws in — the default edge colour when the constraints pin that entity, the free
- * colour otherwise — so a point reads as part of its line rather than as a separate thing.
+ * The markers on every constraint target's own points, and the dashed control net of the
+ * free curves — see `showEntityPoints`. Each marker takes the colour its entity's line draws
+ * in — the default edge colour when the constraints pin that entity, the free colour
+ * otherwise — so a point reads as part of its line rather than as a separate thing.
  */
 function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
     const plane = editor.node.plane;
@@ -1235,12 +1393,67 @@ function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
     const meshes: ShapeMeshData[] = [];
     for (const entity of constraintTargetEntities(editor.solver)) {
         const color = sketchConstraintColor(pinned, entity.id);
-        for (let pointIndex = 0; pointIndex < entityPointCount(entity.type); pointIndex++) {
+        for (let pointIndex = 0; pointIndex < entityPointCount(entity); pointIndex++) {
             const [u, v] = editor.solver.pointOf({ entityId: entity.id, pointIndex });
             meshes.push(
                 MeshDataUtils.createVertexMesh(toWorld(plane, u, v), VisualConfig.editVertexSize, color),
             );
         }
+        meshes.push(...controlNetMeshes(editor, entity, color));
+        for (const end of copyEndPositions(entity)) {
+            meshes.push(
+                MeshDataUtils.createVertexMesh(
+                    toWorld(plane, end.point[0], end.point[1]),
+                    VisualConfig.editVertexSize,
+                    color,
+                ),
+            );
+        }
+    }
+    return meshes;
+}
+
+/**
+ * The two ends of an offset copy, as the handles the user grabs — `[]` for anything else, and
+ * for a copy drawn over the whole of a closed source, which is closed and has no ends.
+ *
+ * A copy has no point of its own (`entityPointCount` is 0), so its ends are the one thing about
+ * it a marker has to be drawn from the *curve* rather than from the solver. Drawn at the size
+ * of an entity point and in the copy's own colour, because that is what they are: the places
+ * the copy can be taken hold of, exactly as a line's endpoints are (see `SketchEventHandler`,
+ * which finds them with this same function and so cannot disagree with what is on screen).
+ */
+function copyEndPositions(
+    entity: SketchEntityData,
+): { readonly atOrigin: boolean; readonly point: [number, number] }[] {
+    if (entity.type !== "offsetCurve" || isClosedEntity(entity)) return [];
+    const [start, end] = entityDomain(entity);
+    return [
+        { atOrigin: true, point: evaluateEntity(entity, start) },
+        { atOrigin: false, point: evaluateEntity(entity, end) },
+    ];
+}
+
+/**
+ * The control net of a free curve, dashed: the segments between the control points a conic,
+ * a cubic bezier or a NURBS is drawn *by* rather than through. Their markers alone say where
+ * the handles are and nothing about what they do — the curve does not pass through an
+ * interior one, and the tangent at a clamped end runs along the first and last segment. Every
+ * other family's points are on its curve (an arc's centre and ends, a circle's centre), so a
+ * net would be a line to nowhere. Drawn in the entity's own colour, so the net reads as part
+ * of the curve it steers rather than as construction geometry.
+ */
+function controlNetMeshes(editor: SketchEditor, entity: SketchEntityData, color: number): ShapeMeshData[] {
+    if (!isFreeCurveType(entity.type)) return [];
+    const plane = editor.node.plane;
+    const points = curveControlPoints(entity);
+    const meshes: ShapeMeshData[] = [];
+    for (let index = 1; index < points.length; index++) {
+        const [u0, v0] = points[index - 1];
+        const [u1, v1] = points[index];
+        meshes.push(
+            MeshDataUtils.createEdgeMesh(toWorld(plane, u0, v0), toWorld(plane, u1, v1), color, "dash"),
+        );
     }
     return meshes;
 }
@@ -1249,7 +1462,7 @@ function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
  * The mesh of a piece a pick would leave or take — the trim's and the extend's own cue,
  * drawn over the entity's highlight rather than in its place. `arcSegmentMesh` samples it
  * at the editor's usual density, so a long piece stays smooth and a short one is not
- * over-tessellated.
+ * over-tessellated; the numeric families come in already sampled, as a polyline.
  */
 function curvePieceMesh(
     editor: SketchEditor,
@@ -1258,24 +1471,28 @@ function curvePieceMesh(
     lineType: "solid" | "dash" = "solid",
 ): EdgeMeshData {
     const plane = editor.node.plane;
-    const mesh =
-        piece.kind === "line"
-            ? MeshDataUtils.createEdgeMesh(
-                  toWorld(plane, piece.point1[0], piece.point1[1]),
-                  toWorld(plane, piece.point2[0], piece.point2[1]),
-                  color,
-                  lineType,
-              )
-            : arcSegmentMesh(
-                  editor,
-                  piece.center[0],
-                  piece.center[1],
-                  piece.radius,
-                  piece.startAngle,
-                  piece.startAngle + piece.sweep,
-                  color,
-                  lineType,
-              );
+    let mesh: EdgeMeshData;
+    if (piece.kind === "line") {
+        mesh = MeshDataUtils.createEdgeMesh(
+            toWorld(plane, piece.point1[0], piece.point1[1]),
+            toWorld(plane, piece.point2[0], piece.point2[1]),
+            color,
+            lineType,
+        );
+    } else if (piece.kind === "polyline") {
+        mesh = polylineMesh(editor, piece.points, color, lineType);
+    } else {
+        mesh = arcSegmentMesh(
+            editor,
+            piece.center[0],
+            piece.center[1],
+            piece.radius,
+            piece.startAngle,
+            piece.startAngle + piece.sweep,
+            color,
+            lineType,
+        );
+    }
     mesh.lineWidth = PREVIEW_LINE_WIDTH;
     return mesh;
 }
@@ -1332,9 +1549,9 @@ function previewKey(entityId: number, preview: SketchCurvePreview): string {
 
 function pieceKey(piece: CurvePiece): string {
     const round = (value: number) => Math.round(value * 1e6) / 1e6;
-    return piece.kind === "line"
-        ? `${piece.point1.map(round)}:${piece.point2.map(round)}`
-        : `${round(piece.startAngle)}:${round(piece.sweep)}`;
+    if (piece.kind === "line") return `${piece.point1.map(round)}:${piece.point2.map(round)}`;
+    if (piece.kind === "polyline") return piece.points.map((point) => point.map(round).join(",")).join(":");
+    return `${round(piece.startAngle)}:${round(piece.sweep)}`;
 }
 
 export function sketchEntityMesh(
@@ -1351,11 +1568,30 @@ export function sketchEntityMesh(
     } else if (entity.type === "arc") {
         const [cx, cy, r, a0, sweep] = arcGeometry(entity.params);
         mesh = arcSegmentMesh(editor, cx, cy, r, a0, a0 + sweep, color, lineType);
-    } else {
+    } else if (entity.type === "circle") {
         mesh = arcSegmentMesh(editor, x1, y1, entity.params[2], 0, Math.PI * 2, color, lineType);
+    } else {
+        mesh = polylineMesh(editor, sampleEntity(entity), color, lineType);
     }
     mesh.lineWidth = SKETCH_EDGE_LINE_WIDTH;
     return mesh;
+}
+
+/** The numeric curve families (ellipse, conic, bezier, nurbs) sampled into one segment chain. */
+function polylineMesh(
+    editor: SketchEditor,
+    uvs: readonly [number, number][],
+    color: number,
+    lineType: "solid" | "dash" = "solid",
+): EdgeMeshData {
+    const plane = editor.node.plane;
+    const position = new Float32Array(Math.max(0, uvs.length - 1) * 6);
+    for (let i = 1; i < uvs.length; i++) {
+        const p0 = toWorld(plane, uvs[i - 1][0], uvs[i - 1][1]);
+        const p1 = toWorld(plane, uvs[i][0], uvs[i][1]);
+        position.set([p0.x, p0.y, p0.z, p1.x, p1.y, p1.z], (i - 1) * 6);
+    }
+    return { position, range: [], color, lineType };
 }
 
 /** Icon (and fallback label) for the constraint a snap release would add. */
@@ -1413,12 +1649,59 @@ function arcSegmentMesh(
     return { position, range: [], color, lineType };
 }
 
-/** uv distance to an entity's curve: segment, arc sweep, or circle circumference. */
+/** Hover key of a hit, covering which net segment it was as well as which entity. */
+function segmentKey(hit: SketchEntityHit): string {
+    return hit.segment === undefined
+        ? `entity:${hit.entityId}`
+        : `segment:${hit.entityId}:${hit.segment[0]}-${hit.segment[1]}`;
+}
+
+/** The line between two of an entity's control points, as the hover highlight draws it. */
+function controlNetSegmentMesh(
+    editor: SketchEditor,
+    entity: SketchEntityData,
+    segment: readonly [number, number],
+): EdgeMeshData {
+    const plane = editor.node.plane;
+    const points = curveControlPoints(entity);
+    const from = points[segment[0]];
+    const to = points[segment[1]];
+    return MeshDataUtils.createEdgeMesh(
+        toWorld(plane, ...from),
+        toWorld(plane, ...to),
+        VisualConfig.highlightEdgeColor,
+        "solid",
+    );
+}
+
+/**
+ * The control net segment of `entity` nearest `uv`, with its distance — undefined for an
+ * entity that has no net. Only a free curve has one: the lines between the control points it
+ * is drawn *by* rather than through (`controlNetMeshes` draws them dashed).
+ */
+function controlNetHit(
+    uv: [number, number],
+    entity: SketchEntityData,
+): { segment: [number, number]; distance: number } | undefined {
+    if (!isFreeCurveType(entity.type)) return undefined;
+    const points = curveControlPoints(entity);
+    let best: { segment: [number, number]; distance: number } | undefined;
+    for (let index = 1; index < points.length; index++) {
+        const [x0, y0] = points[index - 1];
+        const [x1, y1] = points[index];
+        const distance = pointToSegmentDistance(uv[0], uv[1], x0, y0, x1, y1);
+        if (best === undefined || distance < best.distance) best = { segment: [index - 1, index], distance };
+    }
+    return best;
+}
+
+/** uv distance to an entity's curve: segment, arc sweep, circle circumference, or a numeric projection. */
 function entityDistance(uv: [number, number], entity: SketchEntityData): number {
     const [x1, y1, x2, y2] = entity.params;
     if (entity.type === "line") return pointToSegmentDistance(uv[0], uv[1], x1, y1, x2, y2);
     if (entity.type === "arc") return pointToArcDistance(uv[0], uv[1], entity.params);
-    return Math.abs(Math.hypot(uv[0] - x1, uv[1] - y1) - entity.params[2]);
+    if (entity.type === "circle") return Math.abs(Math.hypot(uv[0] - x1, uv[1] - y1) - entity.params[2]);
+    return projectPoint(entity, uv).distance;
 }
 
 function pointToSegmentDistance(
