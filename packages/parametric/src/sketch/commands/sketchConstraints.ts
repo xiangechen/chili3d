@@ -2,14 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import { AsyncController, CancelableCommand, command, PubSub } from "@chili3d/core";
-import { SketchEditor } from "../editor/sketchEditor";
+import { SketchEditor, type SketchEntityPick } from "../editor/sketchEditor";
 import { ConstraintKind, datumIsReading, pointRefKey, type SketchPointRef } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import {
     allowsConstraintOnEntity,
-    arcStartRef,
-    centerRef,
+    equalConstraintFor,
     lineRefs,
+    pointOnConstraintFor,
     tangentConstraintFor,
 } from "../solverEntities";
 
@@ -19,6 +19,20 @@ function editorOrError(): SketchEditor | undefined {
         PubSub.default.pub("displayError", "No active sketch editor");
     }
     return editor;
+}
+
+/**
+ * The two point refs a picked segment is: a line's own endpoints, or the two control points
+ * of a free curve's control net the click landed between (`SketchEntityPick.segment`). What
+ * the segment-reading constraints are built from, so a handle line can be constrained the
+ * way a line can.
+ */
+function segmentRefs(pick: SketchEntityPick): [SketchPointRef, SketchPointRef] {
+    const [first, second] = pick.segment ?? [0, 1];
+    return [
+        { entityId: pick.entityId, pointIndex: first },
+        { entityId: pick.entityId, pointIndex: second },
+    ];
 }
 
 export abstract class SketchConstraintCommand extends CancelableCommand {
@@ -96,15 +110,16 @@ abstract class LineConstraintCommand extends SketchConstraintCommand {
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
-        const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
-        if (lineId === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, lineId)) return;
-        editor.solver.addConstraint({
-            kind: this.kind,
-            refs: [
-                { entityId: lineId, pointIndex: 0 },
-                { entityId: lineId, pointIndex: 1 },
-            ],
-        });
+        // a segment: a line, or the line between two control points of a free curve — the
+        // net the editor draws dashed, so "make this handle line horizontal" is a pick
+        const pick = await editor.pickEntityAt(
+            "prompt.pickSketchEntity",
+            "line",
+            { segments: true },
+            this.controller,
+        );
+        if (pick === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, pick.entityId)) return;
+        editor.solver.addConstraint({ kind: this.kind, refs: segmentRefs(pick) });
         editor.solve(true);
         editor.commit();
     }
@@ -124,23 +139,20 @@ abstract class TwoLineConstraintCommand extends SketchConstraintCommand {
     protected abstract readonly kind: ConstraintKind.Parallel | ConstraintKind.Perpendicular;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        this.beginStep();
-        const l1 = await editor.pickEntity(
-            "prompt.pickSketchEntity",
-            "line",
-            { datum: true },
-            this.controller,
-        );
-        if (l1 === undefined) return;
-        this.beginStep();
-        const l2 = await editor.pickEntity(
-            "prompt.pickSketchEntity",
-            "line",
-            { datum: true },
-            this.controller,
-        );
-        if (l2 === undefined) return;
-        addAndCommit(editor, this.kind, [...lineRefs(l1), ...lineRefs(l2)]);
+        const next = () =>
+            editor.pickEntityAt(
+                "prompt.pickSketchEntity",
+                "line",
+                { datum: true, segments: true },
+                this.beginStep(),
+            );
+        const first = await next();
+        if (first === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, first.entityId))
+            return;
+        const second = await next();
+        if (second === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, second.entityId))
+            return;
+        addAndCommit(editor, this.kind, [...segmentRefs(first), ...segmentRefs(second)]);
     }
 }
 
@@ -198,19 +210,12 @@ export class EqualConstraintCommand extends SketchConstraintCommand {
             PubSub.default.pub("displayError", "Equal requires two entities of the same type");
             return;
         }
-        const refs =
-            t1 === "line"
-                ? [...lineRefs(e1), ...lineRefs(e2)]
-                : t1 === "circle"
-                  ? [centerRef(e1), centerRef(e2)]
-                  : [centerRef(e1), arcStartRef(e1), centerRef(e2), arcStartRef(e2)];
-        const kind =
-            t1 === "line"
-                ? ConstraintKind.EqualLength
-                : t1 === "circle"
-                  ? ConstraintKind.EqualRadius
-                  : ConstraintKind.EqualArcRadius;
-        addAndCommit(editor, kind, refs);
+        const equal = equalConstraintFor(t1, e1, e2);
+        if (equal === undefined) {
+            PubSub.default.pub("displayError", "Equal applies to lines, circles and arcs");
+            return;
+        }
+        addAndCommit(editor, equal.kind, equal.refs);
     }
 }
 
@@ -254,14 +259,9 @@ export class PointOnConstraintCommand extends SketchConstraintCommand {
             this.controller,
         );
         if (entityId === undefined) return;
-        const type = editor.solver.entity(entityId)?.type;
-        if (type === "line") {
-            addAndCommit(editor, ConstraintKind.PointOnLine, [p, ...lineRefs(entityId)]);
-        } else if (type === "circle") {
-            addAndCommit(editor, ConstraintKind.PointOnCircle, [p, centerRef(entityId)]);
-        } else if (type === "arc") {
-            addAndCommit(editor, ConstraintKind.PointOnArc, [p, centerRef(entityId), arcStartRef(entityId)]);
-        }
+        const constraint = pointOnConstraintFor(editor.solver.entity(entityId)?.type, p, entityId);
+        if (constraint === undefined) return;
+        addAndCommit(editor, constraint.kind, constraint.refs);
     }
 }
 

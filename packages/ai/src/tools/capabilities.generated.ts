@@ -122,6 +122,16 @@ export const shapeCapabilities: ShapeCapability[] = [
         ],
     },
     {
+        method: "bspline",
+        returnKind: "edge",
+        params: [
+            { name: "poles", kind: "xyzArray" },
+            { name: "weights", kind: "numberArray" },
+            { name: "knots", kind: "numberArray" },
+            { name: "degree", kind: "number" },
+        ],
+    },
+    {
         method: "helix",
         returnKind: "wire",
         params: [
@@ -1947,6 +1957,7 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   shell(faces: refArray) -> shell
   solid(shells: refArray) -> solid
   bezier(points: xyzArray, weights: numberArray?) -> edge
+  bspline(poles: xyzArray, weights: numberArray, knots: numberArray, degree: number) -> edge
   helix(origin: xyz, normal: xyz, xDir: xyz, radius: number, pitch: number, angle: number) -> wire
   point(point: xyz) -> vertex
   line(start: xyz, end: xyz) -> edge

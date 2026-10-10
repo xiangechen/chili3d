@@ -25,6 +25,7 @@ export {
     distanceDimension,
     labelOnAxis,
     labelOnSegment,
+    leaderDimension,
     lineIntersection,
     measuresSupplement,
     type Point2,
@@ -66,7 +67,7 @@ export function sketchDimensionSize(px: number): DimensionSize {
 
 /**
  * How a constraint kind reads: a radius dimension is a radius — or a diameter, when the
- * constraint says so — and an angle one an angle.
+ * constraint says so — an angle one an angle, and a conic's rho the ratio it is.
  */
 export function measurementOf(kind: ConstraintKind, display: RadiusDisplay = "radius"): DimensionMeasurement {
     switch (kind) {
@@ -74,6 +75,8 @@ export function measurementOf(kind: ConstraintKind, display: RadiusDisplay = "ra
             return display === "diameter" ? "diameter" : "radius";
         case ConstraintKind.Angle:
             return "angle";
+        case ConstraintKind.ConicRho:
+            return "rho";
         default:
             return "length";
     }

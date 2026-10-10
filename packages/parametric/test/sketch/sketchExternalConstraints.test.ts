@@ -72,6 +72,10 @@ function fakeEditor() {
         pickEntity: rs.fn((_prompt: I18nKeys, _type?: SketchEntityTypeFilter) =>
             Promise.resolve(entityQueue.shift()),
         ),
+        pickEntityAt: rs.fn((_prompt: I18nKeys, _type?: SketchEntityTypeFilter) => {
+            const entityId = entityQueue.shift();
+            return Promise.resolve(entityId === undefined ? undefined : { entityId, uv: [0, 0] });
+        }),
         pickPosition: rs.fn((_prompt: I18nKeys) => Promise.resolve(undefined)),
         pointQueue,
         entityQueue,

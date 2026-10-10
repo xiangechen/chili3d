@@ -8,6 +8,7 @@ import {
     EqualConstraintCommand,
     FixConstraintCommand,
     HorizontalAlignConstraintCommand,
+    HorizontalConstraintCommand,
     MidpointConstraintCommand,
     ParallelConstraintCommand,
     PerpendicularConstraintCommand,
@@ -32,6 +33,8 @@ function fakeEditor() {
     const solver = new SketchSolver(Plane.XY);
     const pointQueue: SketchPointRef[] = [];
     const entityQueue: number[] = [];
+    /** Which control points a queued entity pick landed between, when it names a segment. */
+    const segmentQueue: [number, number][] = [];
     return {
         node: { plane: Plane.XY },
         solver,
@@ -41,8 +44,18 @@ function fakeEditor() {
         pickEntity: rs.fn((_prompt: I18nKeys, _type?: SketchEntityTypeFilter) =>
             Promise.resolve(entityQueue.shift()),
         ),
+        // the segment-reading commands pick through `pickEntityAt`, which answers with where
+        // the click was as well — a line pick answers without a net segment, and one queued
+        // here says the click landed between that pair of an entity's control points
+        pickEntityAt: rs.fn((_prompt: I18nKeys, _type?: SketchEntityTypeFilter) => {
+            const entityId = entityQueue.shift();
+            if (entityId === undefined) return Promise.resolve(undefined);
+            const segment = segmentQueue.shift();
+            return Promise.resolve({ entityId, uv: [0, 0], ...(segment === undefined ? {} : { segment }) });
+        }),
         pointQueue,
         entityQueue,
+        segmentQueue,
     };
 }
 
@@ -62,6 +75,13 @@ function constraintsOf(editor: FakeEditor, kind: ConstraintKind) {
 }
 
 const ref = (entityId: number, pointIndex: number): SketchPointRef => ({ entityId, pointIndex });
+
+/** The three kinds the Equal tool can produce — all an Equal pick may add. */
+const EQUAL_KINDS: readonly ConstraintKind[] = [
+    ConstraintKind.EqualLength,
+    ConstraintKind.EqualRadius,
+    ConstraintKind.EqualArcRadius,
+];
 
 describe("Parallel/PerpendicularConstraintCommand", () => {
     test.each([
@@ -172,6 +192,45 @@ describe("EqualConstraintCommand", () => {
 
             expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
             expect(editor.solver.toData().constraints).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        {
+            name: "two ellipses",
+            add: (s: SketchSolver) => [s.addEllipse(0, 0, 10, 0, 0, 5), s.addEllipse(40, 0, 10, 0, 0, 5)],
+        },
+        {
+            name: "two conics",
+            add: (s: SketchSolver) => [
+                s.addConic(0, 0, 5, 6, 10, 0, 0.5),
+                s.addConic(20, 0, 25, 6, 30, 0, 0.5),
+            ],
+        },
+        {
+            name: "two beziers",
+            add: (s: SketchSolver) => [
+                s.addBezier([0, 0, 5, 6, 10, 0, 15, 6]),
+                s.addBezier([20, 0, 25, 6, 30, 0, 35, 6]),
+            ],
+        },
+    ])("$name: the pick is refused, not thrown out of the constraint being built", async ({ add }) => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const [e1, e2] = add(editor.solver);
+            editor.entityQueue.push(e1, e2);
+
+            await runCommand(new EqualConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("displayError", "Equal applies to lines, circles and arcs");
+            expect(editor.solver.toData().constraints.filter((c) => EQUAL_KINDS.includes(c.kind))).toEqual(
+                [],
+            );
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {
             pub.mockRestore();
@@ -526,6 +585,46 @@ describe("datum picks (origin and axes)", () => {
             editor.solver.solve(true);
             const [y1, y2] = [editor.solver.pointOf(ref(line, 0))[1], editor.solver.pointOf(ref(line, 1))[1]];
             expect(y2).toBeCloseTo(y1, 6);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+});
+
+describe("constraint commands on a control net segment", () => {
+    test("parallel reads the line between two handles the way it reads a line", async () => {
+        const editor = fakeEditor();
+        try {
+            const bezier = editor.solver.addBezier([0, 0, 0, 40, 30, 40, 30, 0]);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            editor.entityQueue.push(bezier, line);
+            // the click landed on the line between the two handles of the bezier
+            editor.segmentQueue.push([1, 2]);
+
+            await runCommand(new ParallelConstraintCommand(), editor);
+
+            const parallel = constraintsOf(editor, ConstraintKind.Parallel);
+            expect(parallel.length).toBe(1);
+            // the handle line is the two control points the click was between; the other
+            // segment is the line's own two points
+            expect(parallel[0].refs).toEqual([ref(bezier, 1), ref(bezier, 2), ref(line, 0), ref(line, 1)]);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("horizontal on a handle line names that pair and commits", async () => {
+        const editor = fakeEditor();
+        try {
+            const bezier = editor.solver.addBezier([0, 0, 0, 40, 30, 40, 30, 0]);
+            editor.entityQueue.push(bezier);
+            editor.segmentQueue.push([0, 1]);
+
+            await runCommand(new HorizontalConstraintCommand(), editor);
+
+            const horizontal = constraintsOf(editor, ConstraintKind.Horizontal);
+            expect(horizontal.length).toBe(1);
+            expect(horizontal[0].refs).toEqual([ref(bezier, 0), ref(bezier, 1)]);
         } finally {
             editor.solver.dispose();
         }

@@ -2,7 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
+import { entityDomain, evaluateEntity, isClosedEntity, projectPoint } from "../../src/sketch/curveEval";
 import type { CurvePiece } from "../../src/sketch/curveGeometry";
+import { offsetEntities, windowParameterAt } from "../../src/sketch/offsetOps";
 import {
     arcAngles,
     ConstraintKind,
@@ -468,9 +470,9 @@ describe("trimPreview", () => {
     /** The piece's numbers, rounded — the crossings come out of the intersection maths. */
     function rounded(piece: CurvePiece): number[] {
         const round = (value: number) => Math.round(value * 1e6) / 1e6;
-        return piece.kind === "line"
-            ? [...piece.point1.map(round), ...piece.point2.map(round)]
-            : [...piece.center.map(round), round(piece.radius), round(piece.startAngle), round(piece.sweep)];
+        if (piece.kind === "line") return [...piece.point1.map(round), ...piece.point2.map(round)];
+        if (piece.kind === "polyline") return piece.points.flatMap((point) => point.map(round));
+        return [...piece.center.map(round), round(piece.radius), round(piece.startAngle), round(piece.sweep)];
     }
 
     function previewOf(solver: SketchSolver, entityId: number, uv: [number, number]): CurvePiece {
@@ -539,6 +541,218 @@ describe("trimPreview", () => {
             expect(trimPreview(solver, horizontal, [5, 0], TOLERANCE)).toBeUndefined();
             // and neither does the datum, which is never the thing being cut
             expect(trimPreview(solver, -2, [0, 0], TOLERANCE)).toBeUndefined();
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
+/**
+ * An offset copy is cut like any other curve and written differently: it has no point to move,
+ * so every one of a trim's shapes lands as a *window* on the source the copy reads.
+ */
+describe("trimEntity on an offset copy", () => {
+    const near = (got: readonly number[], want: readonly number[]) => {
+        expect(got[0]).toBeCloseTo(want[0], 9);
+        expect(got[1]).toBeCloseTo(want[1], 9);
+    };
+    const nearPoint = (got: readonly number[], want: readonly number[]) => {
+        expect(got[0]).toBeCloseTo(want[0], 6);
+        expect(got[1]).toBeCloseTo(want[1], 6);
+    };
+
+    /** A straight cubic with its copy one unit to its left, plus two cutters across both. */
+    function offsetSolver() {
+        const solver = new SketchSolver(Plane.XY);
+        const source = solver.addBezier([0, 0, 4, 0, 8, 0, 12, 0]);
+        solver.solve(true);
+        const offset = offsetEntities(solver, [source], 1, TOLERANCE);
+        if (!offset.isOk) throw new Error(offset.error);
+        const copy = offset.value.createdEntityIds[0];
+        return { solver, source, copy };
+    }
+
+    /** The parameter range the copy is drawn over — its window, in the source's parameter. */
+    function drawnWindow(solver: SketchSolver, copyId: number): [number, number] {
+        return entityDomain(entityOf(solver, copyId));
+    }
+
+    test("reads a second cut in the copy's own window, not in the source's own turn", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const source = solver.addEllipse(0, 0, 10, 0, 0, 5);
+            solver.solve(true);
+            const offset = offsetEntities(solver, [source], 1, TOLERANCE);
+            if (!offset.isOk) throw new Error(offset.error);
+            const copy = offset.value.createdEntityIds[0];
+            // a window straddling the source's seam: the copy is drawn from 5.5 to 7.5
+            solver.setOffsetWindow(copy, [5.5, 7.5]);
+
+            // a point on the copy at source parameter 7.0 — past one turn, so a projection
+            // folds it back to 0.717, which is *outside* the window the copy is drawn over
+            const t = 7.0 - Math.PI * 2;
+            const on = evaluateEntity(entityOf(solver, source), t);
+            const reach = Math.hypot(5 * Math.cos(t), 10 * Math.sin(t));
+            const probe: [number, number] = [
+                on[0] + (5 * Math.cos(t)) / reach,
+                on[1] + (10 * Math.sin(t)) / reach,
+            ];
+
+            // the reading is the turn the *window* covers, not the one the projection handed
+            // back: without that fold, a cut there writes the complement of the piece meant
+            expect(windowParameterAt(entityOf(solver, copy), probe)).toBeCloseTo(7.0, 6);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("shortens a copy to the crossing nearest the click", () => {
+        const { solver, copy } = offsetSolver();
+        try {
+            solver.addLine(4, 0, 4, 2);
+            solver.addLine(8, 0, 8, 2);
+            solver.solve(true);
+
+            // the click is past the last crossing, so the piece from it to the far end goes
+            trim(solver, copy, [10, 1]);
+
+            near(drawnWindow(solver, copy), [0, 2 / 3]);
+            // and the drawn curve is the piece that is left, exactly: the copy ends at (8, 1)
+            nearPoint(evaluateEntity(entityOf(solver, copy), 2 / 3), [8, 1]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("shortens from the origin end when the click is before the first crossing", () => {
+        const { solver, copy } = offsetSolver();
+        try {
+            solver.addLine(4, 0, 4, 2);
+            solver.addLine(8, 0, 8, 2);
+            solver.solve(true);
+
+            trim(solver, copy, [2, 1]);
+
+            near(drawnWindow(solver, copy), [1 / 3, 1]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("draws the piece it would remove, as the sampled curve it is", () => {
+        const { solver, copy } = offsetSolver();
+        try {
+            solver.addLine(4, 0, 4, 2);
+            solver.addLine(8, 0, 8, 2);
+            solver.solve(true);
+
+            const piece = trimPreview(solver, copy, [6, 1], TOLERANCE);
+
+            expect(piece?.kind).toBe("polyline");
+            if (piece?.kind !== "polyline") throw new Error("expected a sampled piece");
+            expect(piece.points[0][0]).toBeCloseTo(4, 6);
+            expect(piece.points.at(-1)?.[0]).toBeCloseTo(8, 6);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("splits a copy crossed twice, keeping the id for the origin half", () => {
+        const { solver, copy } = offsetSolver();
+        try {
+            solver.addLine(4, 0, 4, 2);
+            solver.addLine(8, 0, 8, 2);
+            solver.solve(true);
+
+            const outcome = trim(solver, copy, [6, 1]);
+
+            expect(outcome.entityIds).toEqual([copy, outcome.entityIds[1]]);
+            expect(outcome.deletedEntities).toEqual([]);
+            near(drawnWindow(solver, copy), [0, 1 / 3]);
+            const far = outcome.entityIds[1];
+            near(drawnWindow(solver, far), [2 / 3, 1]);
+            // the far half is a copy of the same source, at the same distance — the two halves
+            // are two windows on one pair rather than two curves that happen to line up
+            const { sourceId, sourceType, distance } = entityOf(solver, copy).offset!;
+            expect(entityOf(solver, far).offset).toMatchObject({ sourceId, sourceType, distance });
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("deletes the copy when the piece under the click is all of it", () => {
+        const { solver, source, copy } = offsetSolver();
+        try {
+            solver.solve(true);
+            const outcome = trim(solver, copy, [6, 1]);
+
+            expect(outcome.deletedEntities).toEqual([copy]);
+            expect(solver.entity(copy)).toBeUndefined();
+            // the source it read is untouched: the copy was the user's to delete, the source
+            // is the geometry it came from
+            expect(entityOf(solver, source).type).toBe("bezier");
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    /**
+     * An ellipse with its copy one unit out, which the sketch's own X axis cuts at t = 0 and
+     * t = π — the datum is a cutter like any other entity, so a closed copy comes out in two
+     * halves without anything being drawn for it.
+     */
+    function closedCopy(): { solver: SketchSolver; ellipse: number; copy: number } {
+        const solver = new SketchSolver(Plane.XY);
+        const ellipse = solver.addEllipse(0, 0, 10, 0, 0, 5);
+        solver.solve(true);
+        const offset = offsetEntities(solver, [ellipse], 1, TOLERANCE);
+        if (!offset.isOk) throw new Error(offset.error);
+        return { solver, ellipse, copy: offset.value.createdEntityIds[0] };
+    }
+
+    test("opens a closed copy into the arc its removed span leaves", () => {
+        const { solver, ellipse, copy } = closedCopy();
+        try {
+            // The X and Y axes both cut the copy, at t = 0, π/2, π and 3π/2. The click is on the
+            // quarter between the first two, so that quarter goes and the rest is kept — the
+            // complement, from the far bound of the removed span round to its near one.
+            trim(solver, copy, evaluateEntity(entityOf(solver, copy), Math.PI / 4));
+
+            const kept = entityOf(solver, copy);
+            expect(isClosedEntity(kept)).toBe(false);
+            near(drawnWindow(solver, copy), [Math.PI / 2, Math.PI * 2]);
+            // the kept arc is the copy's own curve: every point of it is still one unit off the
+            // source it reads
+            for (const t of [Math.PI / 2, Math.PI, Math.PI * 1.5, Math.PI * 2]) {
+                expect(projectPoint(entityOf(solver, ellipse), evaluateEntity(kept, t)).distance).toBeCloseTo(
+                    1,
+                    6,
+                );
+            }
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("keeps a span that straddles the seam as a window running past it", () => {
+        const { solver, ellipse, copy } = closedCopy();
+        try {
+            // the click is on the quarter between t = π/2 and t = π, so that goes and what is
+            // kept contains the seam at t = 0 — which no window *inside* the source's range can
+            // name, and is written instead as a range running a turn past its end
+            trim(solver, copy, evaluateEntity(entityOf(solver, copy), Math.PI * 0.75));
+
+            const [from, to] = drawnWindow(solver, copy);
+            expect(from).toBeCloseTo(Math.PI, 6);
+            expect(to).toBeCloseTo(Math.PI * 2.5, 6);
+            for (const t of [from, Math.PI * 1.75, to]) {
+                expect(
+                    projectPoint(entityOf(solver, ellipse), evaluateEntity(entityOf(solver, copy), t))
+                        .distance,
+                ).toBeCloseTo(1, 6);
+            }
+            // the seam is inside the kept span: t = 2π is the ellipse's right extreme
+            expect(evaluateEntity(entityOf(solver, copy), Math.PI * 2)[0]).toBeCloseTo(11, 3);
         } finally {
             solver.dispose();
         }

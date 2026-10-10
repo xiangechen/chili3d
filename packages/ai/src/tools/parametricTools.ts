@@ -40,11 +40,14 @@ const OPS_SCHEMA = {
         entities: {
             type: "array",
             description:
-                "Sketch geometry in sketch (u, v) coordinates: line params [x1,y1,x2,y2]; circle params [cx,cy,r]; arc params [cx,cy,sx,sy,ex,ey] (center, start, end; counter-clockwise). A closed profile needs its points in perimeter order, first point repeated as the last. Set construction: true on reference geometry (e.g. a symmetry or revolve axis) — it stays usable in constraints but is excluded from profiles and features.",
+                "Sketch geometry in sketch (u, v) coordinates: line params [x1,y1,x2,y2]; circle params [cx,cy,r]; arc params [cx,cy,sx,sy,ex,ey] (center, start, end; counter-clockwise); ellipse params [cx,cy,mx,my,nx,ny] (center, a point of the major axis, a point of the minor axis); ellipseArc params [cx,cy,mx,my,nx,ny,sx,sy,ex,ey] (an ellipse's frame, then the arc's start and end, counter-clockwise); conic params [sx,sy,cx,cy,ex,ey,rho] (start, control pole, end, and the shoulder ratio 0<rho<1: <0.5 an ellipse piece, 0.5 a parabola, >0.5 a hyperbola); bezier params [cp0x,cp0y,cp1x,cp1y,cp2x,cp2y,cp3x,cp3y] (the four control points of a cubic); nurbs params [cp0x,cp0y,...] (two or more control points of a spline: cubic where there are points enough for it, with unit weights). A closed profile needs its points in perimeter order, first point repeated as the last. Set construction: true on reference geometry (e.g. a symmetry or revolve axis) — it stays usable in constraints but is excluded from profiles and features.",
             items: {
                 type: "object",
                 properties: {
-                    type: { type: "string", enum: ["line", "circle", "arc"] },
+                    type: {
+                        type: "string",
+                        enum: ["line", "circle", "arc", "ellipse", "ellipseArc", "conic", "bezier", "nurbs"],
+                    },
                     params: { type: "array", items: { type: "number" } },
                     construction: {
                         type: "boolean",
@@ -58,14 +61,14 @@ const OPS_SCHEMA = {
         constraints: {
             type: "array",
             description:
-                "Optional sketch constraints. Omit entirely for a plain sketch of fixed coordinates — constraints are what makes the sketch re-solvable when a dimension changes. Entity ids are the 1-based index of the entity in `entities`; point indexes follow the entity type (line: 0=start 1=end; circle: 0=center; arc: 0=center 1=start 2=end).",
+                "Optional sketch constraints. Omit entirely for a plain sketch of fixed coordinates — constraints are what makes the sketch re-solvable when a dimension changes. Entity ids are the 1-based index of the entity in `entities`; point indexes follow the entity type (line: 0=start 1=end; circle: 0=center; arc: 0=center 1=start 2=end; ellipse: 0=center 1=major-axis point 2=minor-axis point; ellipseArc: an ellipse's 0-2 plus 3=start 4=end; conic: 0=start 1=control 2=end; bezier and nurbs: the control point index).",
             items: {
                 type: "object",
                 properties: {
                     kind: {
                         type: "string",
                         description:
-                            "P2PCoincident, Horizontal, Vertical, Parallel, Perpendicular, EqualLength, PointOnLine, Midpoint, Symmetric, TangentLineCircle, P2PDistance, P2LDistance, Angle, Radius, HorizontalDistance, VerticalDistance, Fix, ...",
+                            "P2PCoincident, Horizontal, Vertical, Parallel, Perpendicular, EqualLength, PointOnLine, PointOnCircle, PointOnArc, PointOnEllipse, PointOnConic, PointOnBezier, PointOnNurbs, Midpoint, Symmetric, TangentLineCircle, TangentCircleCircle, TangentLineArc, TangentArcArc, TangentCircleArc, TangentLineEllipse, TangentLineConic, TangentLineBezier, TangentLineNurbs, TangentCircleEllipse, TangentArcEllipse, TangentCircleConic, TangentArcConic, TangentCircleBezier, TangentArcBezier, TangentCircleNurbs, TangentArcNurbs, TangentEllipseEllipse, TangentEllipseConic, TangentEllipseBezier, TangentEllipseNurbs, TangentConicConic, TangentConicBezier, TangentConicNurbs, TangentBezierBezier, TangentBezierNurbs, TangentNurbsNurbs, P2PDistance, P2LDistance, Angle, Radius, ConicRho (datum = the conic's rho), HorizontalDistance, VerticalDistance, Fix, ...",
                     },
                     refs: {
                         type: "array",

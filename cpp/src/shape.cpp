@@ -4,6 +4,8 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
+#include <algorithm>
+
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepAlgoAPI_Splitter.hxx>
@@ -25,6 +27,9 @@
 #include <GCPnts_AbscissaPoint.hxx>
 #include <GProp_GProps.hxx>
 #include <GeomAbs_JoinType.hxx>
+#include <GeomConvert.hxx>
+#include <Geom_BSplineCurve.hxx>
+#include <Geom_BezierCurve.hxx>
 #include <Geom_OffsetCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <HLRAlgo_Projector.hxx>
@@ -379,6 +384,33 @@ public:
 
 class Edge {
 public:
+    /** Samples of `|D1 × dir|` taken per knot span when asking whether an offset is defined. */
+    constexpr static int OFFSET_VANISH_PER_SPAN = 8;
+    /**
+     * Golden-section steps run on a span whose samples dip — see `Edge::leastCross`. A collapse
+     * reached transversally (the derivative reversing, so its magnitude runs straight through
+     * zero) leaves a minimum only as small as the bracket is narrow, not squared as a touch of
+     * zero would: at 0.618 to the step, this puts the reachable ratio below 1e-14, and the search
+     * simply stalls at the last representable parameter past that.
+     */
+    constexpr static int OFFSET_VANISH_SEARCH_STEPS = 80;
+    /**
+     * A span whose least sample is within this much of the greatest sample anywhere is searched
+     * for a collapse. Loose on purpose: a quadratic touch of zero leaves its span's least sample
+     * at roughly a 64th of the peak, so a tight gate would skip the very spans worth searching.
+     */
+    constexpr static double OFFSET_VANISH_SUSPECT = 0.5;
+    /**
+     * How close to zero `|D1 × dir|` has to come, against the greatest it reaches, to be a
+     * collapse. The kernel's own condition is `<= gp::Resolution()` (`DBL_MIN`) — an exact zero —
+     * so this only has to span the gap between "exactly zero" and "small but real", and every
+     * order of magnitude it is loosened by is a curve the kernel could have offset refused. The
+     * search above reaches machine noise either way a collapse arrives, six orders clear of this.
+     * Measured on a hairpin, a curve that turns through a half-turn and keeps a derivative
+     * throughout, the ratio is 0.25 — eight orders the other side of it.
+     */
+    constexpr static double OFFSET_VANISH_RELATIVE = 1e-9;
+
     static TopoDS_Edge fromCurve(const Geom_Curve* curve)
     {
         Handle(Geom_Curve) handleCurve(curve);
@@ -498,10 +530,186 @@ public:
         if (curve.IsNull()) {
             return TopoDS_Edge();
         }
+        // Geom_OffsetCurve raises only for a basis that is both C0 and a B-spline it cannot read
+        // as G1 — and it looks through any trim/offset wrapper to the curve underneath, while its
+        // own Continuity() reports one order lower than that basis's (a C1 basis reads as C0), so
+        // the check has to unwrap rather than read the curve here. The Release build catches
+        // nothing (`-sDISABLE_EXCEPTION_CATCHING=1` aborts the module), so that one raise is
+        // answered here first.
+        Handle(Geom_Curve) basis = curve;
+        while (true) {
+            if (basis->IsKind(STANDARD_TYPE(Geom_TrimmedCurve))) {
+                basis = Handle(Geom_TrimmedCurve)::DownCast(basis)->BasisCurve();
+            } else if (basis->IsKind(STANDARD_TYPE(Geom_OffsetCurve))) {
+                basis = Handle(Geom_OffsetCurve)::DownCast(basis)->BasisCurve();
+            } else {
+                break;
+            }
+        }
+        if (basis->Continuity() == GeomAbs_C0 && basis->IsKind(STANDARD_TYPE(Geom_BSplineCurve))
+            && !Handle(Geom_BSplineCurve)::DownCast(basis)->IsG1(start, end, Precision::Angular())) {
+            return TopoDS_Edge();
+        }
+        // That is not the only raise in reach, and `MakeEdge` below is where the next one fires:
+        // it evaluates the offset at both of its ends (`BRepLib_MakeEdge`), and an offset has no
+        // value where the basis' derivative vanishes or runs along `dir` — `CalculateD0` reports
+        // that, `GeomAdaptor_Curve::EvalD0` turns it into `Geom_UndefinedValue`, and the Release
+        // build aborts the module on it. A clamped basis whose first two control points coincide
+        // is the ordinary way in: its derivative at the first knot is (degree/span)·(pole2−pole1),
+        // which is zero. Measured: a cubic with two coincident leading poles aborted here.
+        // This stays for every kind of basis, not just the splines `offsetUndefined` reads below:
+        // an analytic curve can lose the reading at an end too — a line offset along its own
+        // direction has its derivative parallel to `dir` — and that is a null edge, not a scan.
+        if (basis->EvalD1(start).D1.CrossMagnitude(dir) <= gp::Resolution()
+            || basis->EvalD1(end).D1.CrossMagnitude(dir) <= gp::Resolution()) {
+            return TopoDS_Edge();
+        }
+        // The ends are not the only place the derivative can vanish, and the reading has no offset
+        // there either — this is reached through the curve rather than through its bounds.
+        if (basis->IsKind(STANDARD_TYPE(Geom_BSplineCurve)) || basis->IsKind(STANDARD_TYPE(Geom_BezierCurve))) {
+            Handle(Geom_BSplineCurve) spline = Handle(Geom_BSplineCurve)::DownCast(basis);
+            if (spline.IsNull()) {
+                spline = GeomConvert::CurveToBSplineCurve(basis);
+            }
+            if (offsetUndefined(spline, dir)) {
+                return TopoDS_Edge();
+            }
+        }
         Handle(Geom_TrimmedCurve) trimmedCurve = new Geom_TrimmedCurve(curve, start, end);
         Handle(Geom_OffsetCurve) offsetCurve = new Geom_OffsetCurve(trimmedCurve, offset, dir);
         BRepBuilderAPI_MakeEdge builder(offsetCurve);
+        if (!builder.IsDone()) {
+            return TopoDS_Edge();
+        }
         return builder.Edge();
+    }
+
+    /** `|D1(u) × dir|` — the one quantity `Geom_OffsetCurveUtils::CalculateD0` refuses on. */
+    static double crossAt(const Handle(Geom_BSplineCurve) & spline, double u, const gp_Dir& dir)
+    {
+        return spline->EvalD1(u).D1.CrossMagnitude(dir);
+    }
+
+    /**
+     * The smallest `|D1 × dir|` on `[from, to]`, by golden-section search. A collapse of the
+     * derivative is a *local* minimum of it, and the search wants only that the shape around one
+     * keeps falling towards it and rising after — which it does, whether the magnitude curves to
+     * the bottom (the derivative's own value touching zero) or runs straight through it (the
+     * derivative reversing). A derivative-based step would need the second derivative's sign to
+     * behave at exactly the point that is degenerating; this needs nothing of it.
+     */
+    static double leastCross(
+        const Handle(Geom_BSplineCurve) & spline, const gp_Dir& dir, double from, double to)
+    {
+        constexpr double PHI = 0.6180339887498949;
+        double low = from, high = to;
+        double left = high - (high - low) * PHI;
+        double right = low + (high - low) * PHI;
+        double leftCross = crossAt(spline, left, dir);
+        double rightCross = crossAt(spline, right, dir);
+        for (int step = 0; step < OFFSET_VANISH_SEARCH_STEPS; step++) {
+            if (leftCross < rightCross) {
+                high = right;
+                right = left;
+                rightCross = leftCross;
+                left = high - (high - low) * PHI;
+                leftCross = crossAt(spline, left, dir);
+            } else {
+                low = left;
+                left = right;
+                leftCross = rightCross;
+                right = low + (high - low) * PHI;
+                rightCross = crossAt(spline, right, dir);
+            }
+        }
+        return std::min(leftCross, rightCross);
+    }
+
+    /**
+     * Whether an offset of this B-spline has no value anywhere — the one thing the kernel's offset
+     * cannot survive. `Geom_OffsetCurveUtils::CalculateD0` reports it wherever
+     * `|D1 × dir| <= gp::Resolution()` (`DBL_MIN`, an *exact* zero), `GeomAdaptor_Curve::EvalD0`
+     * turns that into a `Geom_UndefinedValue`, and the Release build aborts the whole module on it
+     * because it catches nothing. `MakeEdge` only ever evaluates the two ends, so a collapse in
+     * between gives way while building and dies on the next evaluation of the edge it returned.
+     *
+     * Reading the curve, not the control vectors: the derivative of a B-spline is a B-spline whose
+     * control vectors are `p/(u[i+p+1] − u[i+1])·(P[i+1] − P[i])`, so a *zero* one is two
+     * neighbouring control points that coincide. But the converse does not hold — a curve whose
+     * derivative control vectors are all non-zero can still cancel to zero between them: a cubic
+     * through (0,0), (1,0), (0,0), (1,0) has `3(2t−1)²` for its derivative, zero at `t = ½`, and its
+     * three derivative control vectors are none of them zero. That reading also *refuses* curves it
+     * should not: a span a thousandth of its neighbours leaves one control vector small while the
+     * derivative itself, mixing its neighbours, stays whole.
+     *
+     * A curve that only turns, however far — a hook, a hairpin — keeps its derivative away from
+     * zero everywhere and is unaffected: measured on such a cubic, the derivative falls to a
+     * quarter of its peak, eight orders of magnitude clear of the threshold below.
+     */
+    static bool offsetUndefined(const Handle(Geom_BSplineCurve) & spline, const gp_Dir& dir)
+    {
+        // every read below raises outside its range, and a raise is an abort of its own
+        const int degree = spline->Degree();
+        const int knots = spline->NbKnots();
+        if (degree < 1 || knots < 2 || spline->NbPoles() < 2) {
+            return true;
+        }
+        const double first = spline->FirstParameter();
+        const double last = spline->LastParameter();
+        if (!(last > first)) {
+            return true;
+        }
+
+        // Sampled a knot span at a time: a span is where the curve is one polynomial, and a
+        // collapse is local to one, so a span far shorter than its neighbours (which a step over
+        // the whole curve would straddle) still gets its own samples.
+        std::vector<double> sampleUs;
+        std::vector<double> sampleCrosses;
+        std::vector<int> spanStarts;
+        std::vector<int> spanEnds;
+        for (int span = 1; span <= knots - 1; span++) {
+            const double from = spline->Knot(span);
+            const double to = spline->Knot(span + 1);
+            if (!(to > from)) {
+                continue; // a repeated knot bounds no span
+            }
+            spanStarts.push_back(static_cast<int>(sampleUs.size()));
+            for (int i = 0; i <= OFFSET_VANISH_PER_SPAN; i++) {
+                const double u = from + ((to - from) * i) / OFFSET_VANISH_PER_SPAN;
+                sampleUs.push_back(u);
+                sampleCrosses.push_back(crossAt(spline, u, dir));
+            }
+            spanEnds.push_back(static_cast<int>(sampleUs.size()) - 1);
+        }
+        if (sampleCrosses.empty()) {
+            return true;
+        }
+        const double largest = *std::max_element(sampleCrosses.begin(), sampleCrosses.end());
+        if (largest <= 0.0) {
+            return true; // no derivative at all: nothing to offset
+        }
+
+        // A span whose samples dip is where a collapse can hide, and it is what the search is for.
+        // The gate is deliberately loose, because samples alone see very little of one: a span's
+        // least sample sits at a sixteenth of its peak where the magnitude runs straight through
+        // the zero and a sixty-fourth where it only touches it, and either is well inside this. A
+        // tight gate would skip the very spans worth searching, and catching a collapse would come
+        // down to whether it happened to land on a sample. A span that merely varies in speed is
+        // searched too, costs one golden-section run, and answers far above the threshold.
+        double least = largest;
+        for (size_t span = 0; span < spanStarts.size(); span++) {
+            const int start = spanStarts[span];
+            const int end = spanEnds[span];
+            double spanLeast = sampleCrosses[start];
+            for (int i = start + 1; i <= end; i++) {
+                spanLeast = std::min(spanLeast, sampleCrosses[i]);
+            }
+            least = std::min(least, spanLeast);
+            if (spanLeast <= largest * OFFSET_VANISH_SUSPECT) {
+                least = std::min(least, leastCross(spline, dir, sampleUs[start], sampleUs[end]));
+            }
+        }
+        return least <= largest * OFFSET_VANISH_RELATIVE;
     }
 
     static PointAndParameterArray intersect(const TopoDS_Edge& edge, const TopoDS_Edge& otherEdge)

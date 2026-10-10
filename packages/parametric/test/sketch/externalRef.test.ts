@@ -38,11 +38,13 @@ import {
     dragSnapPosition,
     snapPosition,
 } from "../../src/sketch/autoConstraints";
+import { projectPoint } from "../../src/sketch/curveEval";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
 import { captureExternalRef, resolveExternalRefs } from "../../src/sketch/externalRef";
 import {
     ConstraintKind,
+    defaultNurbsSpec,
     type ExternalRefData,
     FIRST_EXTERNAL_ENTITY_ID,
     isExternalEntityId,
@@ -171,6 +173,73 @@ describe("SketchSolver external entities", () => {
             const outcome = solver.solve(true);
             expect(outcome.result.startsWith("Ok")).toBe(true);
             expect(solver.pointOf({ entityId: circle, pointIndex: 0 })[1]).toBeCloseTo(0, 6);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("constraints against a reference's own shape leave that shape where it was", () => {
+        // A reference's *scalars* — a conic's rho, a NURBS' weights — are solve parameters to
+        // garlic exactly as a coordinate is, so an unpinned one is freedom the solver uses to
+        // satisfy a constraint on the reference (measured: a rho driven 0.5 → 0.70, weights
+        // 1,1,1,1 → 0.74, 1.61, 0.43, 1.14). Only the sketch side may move.
+        const conic: ExternalRefData = {
+            entityId: -102,
+            nodeId: "src",
+            edge: { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } },
+            role: "reference",
+            snapshot: [0, 0, 1, 2, 2, 0, 0.5],
+            type: "conic",
+        };
+        const nurbs: ExternalRefData = {
+            entityId: -103,
+            nodeId: "src",
+            edge: { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 1, y: 0, z: 0 } },
+            role: "reference",
+            snapshot: [0, 0, 1, 2, 2, 0, 5, 5, 1, 1, 1, 1],
+            type: "nurbs",
+        };
+        const solver = new SketchSolver(Plane.XY, dataWith(conic, nurbs));
+        try {
+            const conicPoint = solver.addCircle(1, 1.5, 1);
+            solver.addConstraint({
+                kind: ConstraintKind.PointOnConic,
+                refs: [
+                    { entityId: conicPoint, pointIndex: 0 },
+                    { entityId: conic.entityId, pointIndex: 0 },
+                ],
+            });
+            const nurbsPoint = solver.addCircle(1, 1.5, 1);
+            solver.addConstraint({
+                kind: ConstraintKind.PointOnNurbs,
+                refs: [
+                    { entityId: nurbsPoint, pointIndex: 0 },
+                    { entityId: nurbs.entityId, pointIndex: 0 },
+                ],
+            });
+
+            const outcome = solver.solve(true);
+            expect(outcome.result.startsWith("Ok")).toBe(true);
+            // the whole of each reference, to the solver's own tolerance: it leaves a pinned
+            // coordinate a hair off (measured 1e-8) and that is all it may do
+            for (const [reference, snapshot] of [
+                [conic, conic.snapshot],
+                [nurbs, nurbs.snapshot],
+            ] as const) {
+                const params = solver
+                    .externalEntitiesData()
+                    .find((entity) => entity.id === reference.entityId)!.params;
+                params.forEach((value, index) => expect(value).toBeCloseTo(snapshot[index], 6));
+            }
+            // and the constraints really were satisfied on that side: the conic's apex is (1, 1),
+            // and the nurbs point landed on the nurbs (its own nearest reading of that point is
+            // the point itself)
+            expect(solver.pointOf({ entityId: conicPoint, pointIndex: 0 })).toEqual([1, 1]);
+            const onNurbs = projectPoint(
+                { type: "nurbs", params: nurbs.snapshot, nurbs: defaultNurbsSpec(4) },
+                solver.pointOf({ entityId: nurbsPoint, pointIndex: 0 }),
+            );
+            expect(onNurbs.distance).toBeLessThan(1e-6);
         } finally {
             solver.dispose();
         }
@@ -392,7 +461,7 @@ function arcBasisEdge(cx: number, cy: number, radius: number, a0: number, a1: nu
     } as unknown as IEdge;
 }
 
-function splineEdge(): IEdge {
+function freeformEdge(): IEdge {
     const start = new XYZ({ x: 0, y: 0, z: 0 });
     const end = new XYZ({ x: 10, y: 10, z: 0 });
     return {
@@ -467,8 +536,8 @@ describe("resolveExternalRefs", () => {
     });
 
     test("an unsupported curve kind marks the ref dangling", () => {
-        const spline = splineEdge();
-        const { doc } = setup(spline);
+        const freeform = freeformEdge();
+        const { doc } = setup(freeform);
         const ref: ExternalRefData = {
             entityId: -100,
             nodeId: doc.modelManager.findNode(() => true)!.id,

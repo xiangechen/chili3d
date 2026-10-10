@@ -44,6 +44,131 @@ describe("degenerate edge guards", () => {
         expect(edge.offset(5, XYZ.unitX).isOk).toBe(false);
     });
 
+    test.each([
+        [
+            "its leading",
+            [XYZ.zero, XYZ.zero, new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 20, y: 0, z: 0 })],
+        ],
+        [
+            "its trailing",
+            [
+                XYZ.zero,
+                new XYZ({ x: 10, y: 10, z: 0 }),
+                new XYZ({ x: 20, y: 0, z: 0 }),
+                new XYZ({ x: 20, y: 0, z: 0 }),
+            ],
+        ],
+        // the fold-back keeps both ends' derivatives alive (P1 and P2 coincide instead), so only the
+        // reading of the whole control polygon catches it
+        [
+            "its middle",
+            [XYZ.zero, new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 10, y: 10, z: 0 }), XYZ.zero],
+        ],
+    ])("offset of a spline with %s control points repeated returns an error Result", (_which, poles) => {
+        // A repeated control point leaves the spline's derivative zero there — (degree/span)·(P[n] −
+        // P[n−1]) between the pair — and the parallel curve has no value at a point where the curve
+        // stops. Evaluating the offset raises inside the kernel, which the Release build turns into
+        // an abort of the whole module. The middle case is the one that aborts while building:
+        // measuring it, the offset edge came back and it was the *next* evaluation that died.
+        const edge = unwrapOk(factory.bspline(poles, undefined, [0, 0, 0, 0, 1, 1, 1, 1], 3)) as OccEdge;
+        const offset = edge.offset(2, XYZ.unitZ);
+        expect(offset.isOk).toBe(false);
+    });
+
+    test("offset of a spline whose derivative cancels between its poles returns an error Result", () => {
+        // Every derivative control vector is non-zero — 3·(P1−P0), 3·(P2−P1), 3·(P3−P2) are
+        // (3,0), (−3,0), (3,0) — and yet the derivative itself, 3(2t−1)², is zero at t = ½. Reading
+        // the control vectors (what the guard used to do) lets this through; `MakeEdge` evaluates
+        // nothing but the two ends, so it built an edge anyway, and evaluating that edge raised
+        // inside the kernel — an abort of the whole module, since the Release build catches
+        // nothing. Measured before the fix: the offset came back ok and `d1(½)` on it aborted.
+        const poles = [XYZ.zero, new XYZ({ x: 1, y: 0, z: 0 }), XYZ.zero, new XYZ({ x: 1, y: 0, z: 0 })];
+        const edge = unwrapOk(factory.bspline(poles, undefined, [0, 0, 0, 0, 1, 1, 1, 1], 3)) as OccEdge;
+
+        // the precondition, so the refusal below is about *this* curve: the derivative really does
+        // reach zero in the middle while staying alive at both ends
+        const middle = edge.curve.d1((edge.curve.firstParameter() + edge.curve.lastParameter()) / 2);
+        expect(Math.hypot(middle.vec.x, middle.vec.y, middle.vec.z)).toBeLessThan(1e-12);
+        for (const t of [0, 1]) {
+            const end = edge.curve.d1(t).vec;
+            expect(Math.hypot(end.x, end.y, end.z)).toBeGreaterThan(1);
+        }
+
+        expect(edge.offset(2, XYZ.unitZ).isOk).toBe(false);
+    });
+
+    test("offset of a spline whose derivative collapses between the samples is refused", () => {
+        // This cubic's derivative is a quadratic that is zero at t = 3/16 — a point no sample of
+        // the span lands on, since they sit at eighths. Read at the samples alone the least of
+        // them is a quarter of the peak and nothing looks wrong, so a reading that stops at
+        // sampling passes the curve; the guard refines the span and finds the collapse. The
+        // first two assertions pin exactly that: the samples do not show it.
+        // Its derivative control values are 117·(39, −89, 39)/39 — none of them zero, so the
+        // control-vector reading misses it twice over.
+        const poles = [
+            XYZ.zero,
+            new XYZ({ x: 39, y: 0, z: 0 }),
+            new XYZ({ x: -50, y: 0, z: 0 }),
+            new XYZ({ x: -11, y: 0, z: 0 }),
+        ];
+        const edge = unwrapOk(factory.bspline(poles, undefined, [0, 0, 0, 0, 1, 1, 1, 1], 3)) as OccEdge;
+
+        const magnitudes = Array.from({ length: 9 }, (_, i) => {
+            const vec = edge.curve.d1(i / 8).vec;
+            return Math.hypot(vec.x, vec.y, vec.z);
+        });
+        const peak = Math.max(...magnitudes);
+        expect(peak).toBeGreaterThan(1);
+        expect(Math.min(...magnitudes) / peak).toBeGreaterThan(0.15);
+
+        // the collapse is real, just off the grid
+        const vec = edge.curve.d1(3 / 16).vec;
+        expect(Math.hypot(vec.x, vec.y, vec.z)).toBeLessThan(1e-12);
+
+        expect(edge.offset(2, XYZ.unitZ).isOk).toBe(false);
+    });
+
+    test("offset of a spline with a span a thousandth of its neighbours is still built", () => {
+        // 3·(P2−P1) is 3e-13 where its neighbours are 3, so a reading that weighs one control
+        // vector against the greatest one refuses this curve outright — which is what the guard
+        // used to do, and it refused curves the kernel offsets without complaint. The derivative
+        // never comes near zero: it blends its neighbours rather than following either one, so it
+        // stays above 1 everywhere.
+        const poles = [
+            XYZ.zero,
+            new XYZ({ x: 1, y: 0, z: 0 }),
+            new XYZ({ x: 1 + 1e-13, y: 0, z: 0 }),
+            new XYZ({ x: 2, y: 0, z: 0 }),
+        ];
+        const edge = unwrapOk(factory.bspline(poles, undefined, [0, 0, 0, 0, 1, 1, 1, 1], 3)) as OccEdge;
+        for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+            const vec = edge.curve.d1(t).vec;
+            expect(Math.hypot(vec.x, vec.y, vec.z)).toBeGreaterThan(1);
+        }
+
+        const offset = edge.offset(2, XYZ.unitZ);
+        expect(offset.isOk).toBe(true);
+        if (!offset.isOk) throw new Error(offset.error);
+        expect(offset.value.length()).toBeGreaterThan(0);
+    });
+
+    test("offset of a spline that only turns is still built", () => {
+        // A hairpin turns a full half-turn and keeps a derivative everywhere, so it has an offset —
+        // and a sketch draws hairpins. Reading the derivative's control vectors as a convex hull
+        // (the coarser guard this could have been) refuses exactly this shape.
+        const hairpin = [
+            XYZ.zero,
+            new XYZ({ x: 20, y: 0, z: 0 }),
+            new XYZ({ x: 20, y: 10, z: 0 }),
+            new XYZ({ x: 0, y: 10, z: 0 }),
+        ];
+        const edge = unwrapOk(factory.bspline(hairpin, undefined, [0, 0, 0, 0, 1, 1, 1, 1], 3)) as OccEdge;
+        const offset = edge.offset(2, XYZ.unitZ);
+        expect(offset.isOk).toBe(true);
+        if (!offset.isOk) throw new Error(offset.error);
+        expect(offset.value.length()).toBeGreaterThan(0);
+    });
+
     test("parameter and point queries do not abort", () => {
         const edge = degenerateEdgeOf(createSphere(factory, XYZ.zero, 10));
         const first = edge.firstParameter();

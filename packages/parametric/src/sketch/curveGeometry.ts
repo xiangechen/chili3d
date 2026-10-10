@@ -2,8 +2,22 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ellipseParameterOf,
+    ellipseSweep,
+    entityArcLength,
+    intersectCurves,
+    isClosedCurveType,
+    lengthAtPoint,
+    pointAtSupportLength,
+    projectPoint,
+    projectSupport,
+    sampleSupportPiece,
+    supportLengthAt,
+} from "./curveEval";
+import {
     arcAngles,
     datumEntityData,
+    entityPointCount,
     isDatumEntityId,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
@@ -23,6 +37,11 @@ import type { SketchSolver } from "./solver";
  * the whole circle: that is what a trim's cutters are found with, and what an extension
  * runs out to. `intersectWithin` adds the extent test on top, for a crossing that has to
  * fall on the geometry the user can actually see.
+ *
+ * The line, circle and arc keep their analytic answers (exact, and fast enough to run per
+ * hover); the free curves and the ellipse read through `curveEval`'s numerics —
+ * sampled projections, Newton-refined crossings — so a mixed pair of curves crosses in one
+ * code path.
  */
 
 /** One crossing of an entity with another entity, as a position along the first. */
@@ -36,9 +55,11 @@ export interface CurveCrossing {
 }
 
 /**
- * A piece of a sketch entity, in the two shapes a curve is drawn in. The ops hand this to
+ * A piece of a sketch entity, in the shapes a curve is drawn in. The ops hand this to
  * the editor, which knows how to mesh it; keeping the piece in sketch terms is what lets a
- * preview and the op it previews agree on it without either knowing about meshes.
+ * preview and the op it previews agree on it without either knowing about meshes. The
+ * numeric families (ellipse, conic, bezier, nurbs) answer in the one shape they have: a sampled
+ * polyline — `sampleSupportPiece`'s, so a piece running past an end draws too.
  */
 export type CurvePiece =
     | { readonly kind: "line"; readonly point1: [number, number]; readonly point2: [number, number] }
@@ -49,34 +70,67 @@ export type CurvePiece =
           /** Radians, counter-clockwise, from `startAngle`. */
           readonly startAngle: number;
           readonly sweep: number;
-      };
+      }
+    | { readonly kind: "polyline"; readonly points: readonly [number, number][] };
+
+/** The two end point indices of an open entity; `undefined` for a closed one, which has none. */
+export function entityEndIndices(
+    entity: Pick<SketchEntityData, "type" | "params">,
+): [number, number] | undefined {
+    switch (entity.type) {
+        case "line":
+            return [0, 1];
+        case "arc":
+            return [1, 2];
+        case "ellipseArc":
+            return [3, 4];
+        case "conic":
+            return [0, 2];
+        case "bezier":
+            return [0, 3];
+        case "nurbs":
+            // clamped at both ends, so the first and last control point are on the curve —
+            // which is what makes them its ends
+            return [0, entityPointCount(entity) - 1];
+        default:
+            return undefined;
+    }
+}
 
 /** The point ref the entity's origin end sits at: a line's start, an arc's start. */
 export function originEnd(entity: SketchEntityData): SketchPointRef {
-    return { entityId: entity.id, pointIndex: entity.type === "line" ? 0 : 1 };
+    return { entityId: entity.id, pointIndex: entityEndIndices(entity)?.[0] ?? 0 };
 }
 
 /** The point ref at the other end: a line's end, an arc's end. */
 export function farEnd(entity: SketchEntityData): SketchPointRef {
-    return { entityId: entity.id, pointIndex: entity.type === "line" ? 1 : 2 };
+    return { entityId: entity.id, pointIndex: entityEndIndices(entity)?.[1] ?? 0 };
 }
 
 // ------------------------------------------------------------------ Positions along an entity
 
-/** Length `s` runs over: a line's length, an arc's swept length, a circle's circumference. */
+/**
+ * Length `s` runs over: a line's length, an arc's swept length, a circle's
+ * circumference. The numeric families measure their drawn curve by sampling
+ * (`curveEval.entityArcLength`).
+ */
 export function entityLength(entity: SketchEntityData): number {
     if (entity.type === "line") {
         return Math.hypot(entity.params[2] - entity.params[0], entity.params[3] - entity.params[1]);
     }
-    const radius = entityRadiusOf(entity);
-    return entity.type === "circle" ? Math.PI * 2 * radius : arcAngles(entity.params)[1] * radius;
+    if (entity.type === "circle" || entity.type === "arc") {
+        const radius = entityRadiusOf(entity);
+        return entity.type === "circle" ? Math.PI * 2 * radius : arcAngles(entity.params)[1] * radius;
+    }
+    return entityArcLength(entity);
 }
 
 /**
  * Where `point` sits along the entity, as a distance from its origin — a line's start
- * point, an arc's start point, a circle's zero angle. One scalar for all three, so
+ * point, an arc's start point, a circle's zero angle. One scalar for all seven types, so
  * the piece between two cuts is an interval and "shorter than the tolerance" means
- * the same thing everywhere.
+ * the same thing everywhere. The numeric families read the arclength of the point's
+ * projection, which is the same reading on the drawn curve.
  */
 export function parameterAt(entity: SketchEntityData, point: [number, number]): number {
     if (entity.type === "line") {
@@ -85,10 +139,37 @@ export function parameterAt(entity: SketchEntityData, point: [number, number]): 
         if (length < 1e-12) return 0;
         return ((point[0] - x1) * (x2 - x1) + (point[1] - y1) * (y2 - y1)) / length;
     }
-    const [cx, cy] = entity.params;
-    const from = originAngle(entity);
-    const angle = Math.atan2(point[1] - cy, point[0] - cx);
-    return normalizeAngle(angle - from) * entityRadiusOf(entity);
+    if (entity.type === "circle" || entity.type === "arc") {
+        const [cx, cy] = entity.params;
+        const from = originAngle(entity);
+        const angle = Math.atan2(point[1] - cy, point[0] - cx);
+        return normalizeAngle(angle - from) * entityRadiusOf(entity);
+    }
+    return lengthAtPoint(entity, point);
+}
+
+/**
+ * Where `point` sits along the entity's *support* curve, as a signed distance from its
+ * origin: past the far end reads beyond `entityLength`, past the origin end negative
+ * (an arc's and an ellipseArc's wrap is the caller's to undo — `extendOps.endParameter`).
+ * That is the reading an extend needs: its corner lies off the drawn curve by definition.
+ */
+export function supportParameterAt(entity: SketchEntityData, point: [number, number]): number {
+    if (
+        entity.type === "line" ||
+        entity.type === "circle" ||
+        entity.type === "arc" ||
+        entity.type === "ellipse"
+    ) {
+        return parameterAt(entity, point);
+    }
+    if (entity.type === "ellipseArc") {
+        // the angle on the whole ellipse, folded into the sweep's own turn, then measured
+        const [start] = ellipseSweep(entity.params);
+        const t = start + normalizeAngle(ellipseParameterOf(entity.params, point) - start);
+        return supportLengthAt(entity, t);
+    }
+    return supportLengthAt(entity, projectSupport(entity, point).t);
 }
 
 /** The circle an entity lies on: a circle's own, an arc's from centre to start. */
@@ -105,10 +186,13 @@ export function pointAt(entity: SketchEntityData, s: number): [number, number] {
         const t = length < 1e-12 ? 0 : s / length;
         return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t];
     }
-    const [cx, cy] = entity.params;
-    const radius = entityRadiusOf(entity);
-    const angle = originAngle(entity) + s / radius;
-    return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+    if (entity.type === "circle" || entity.type === "arc") {
+        const [cx, cy] = entity.params;
+        const radius = entityRadiusOf(entity);
+        const angle = originAngle(entity) + s / radius;
+        return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+    }
+    return pointAtSupportLength(entity, s);
 }
 
 /** Where `s` counts from: a circle's zero angle, an arc's start ray. */
@@ -118,14 +202,19 @@ export function originAngle(entity: SketchEntityData): number {
 
 /**
  * The piece of an entity between two positions along it, in the terms the editor draws
- * entities in — a straight segment for a line, an arc of the entity's own circle
- * otherwise. `start` and `arcLength` are the arclength `parameterAt` speaks, so the
- * angle falls out of the radius without either caller going near one. A negative
- * `arcLength` sweeps backwards, which is how a piece before the origin end is drawn.
+ * entities in — a straight segment for a line, an arc of the entity's own circle, a
+ * sampled polyline for the numeric families. `start` and `arcLength` are the arclength
+ * `parameterAt` speaks, so the angle falls out of the radius without either caller going
+ * near one. A negative `arcLength` sweeps backwards, which is how a piece before the
+ * origin end is drawn; on the numeric families the sampling runs on the support curve,
+ * so a piece past an end (an extend's gain) draws too.
  */
 export function pieceGeometry(entity: SketchEntityData, start: number, arcLength: number): CurvePiece {
     if (entity.type === "line") {
         return { kind: "line", point1: pointAt(entity, start), point2: pointAt(entity, start + arcLength) };
+    }
+    if (entity.type !== "circle" && entity.type !== "arc") {
+        return { kind: "polyline", points: sampleSupportPiece(entity, start, start + arcLength) };
     }
     const radius = entityRadiusOf(entity);
     return {
@@ -173,7 +262,7 @@ export function cuttersFor(solver: SketchSolver, entity: SketchEntityData): Sket
 
 /** An entity with no extent defines no crossing: a zero-length line, a point arc. */
 export function isDegenerate(entity: SketchEntityData): boolean {
-    return entity.type === "line" ? entityLength(entity) < 1e-9 : entityRadiusOf(entity) < 1e-9;
+    return entityLength(entity) < 1e-9;
 }
 
 /**
@@ -193,8 +282,8 @@ export function collapseCuts(
         if (previous !== undefined && cut.s - previous.s <= tolerance) continue;
         merged.push(cut);
     }
-    // a circle's first and last cut can be one crossing either side of the seam
-    if (entity.type === "circle" && merged.length > 1) {
+    // a closed curve's first and last cut can be one crossing either side of the seam
+    if (isClosedCurveType(entity.type) && merged.length > 1) {
         const seam = merged[0].s + entityLength(entity) - merged[merged.length - 1].s;
         if (seam <= tolerance) merged.pop();
     }
@@ -206,8 +295,18 @@ export function collapseCuts(
  * as its infinite line and a circle as the whole circle, so a crossing reaches beyond the
  * geometry the user can see. That is what an extension runs out to, and what a trim's
  * cutters are enumerated with before `intersectWithin` puts the extent test back on.
+ *
+ * Two line/circle/arc pairs keep their exact analytic answers; anything touching the
+ * numeric families goes through `intersectCurves`' sampled-and-refined search, whose
+ * support domains carry the same reading (an ellipseArc's whole ellipse, a bezier's
+ * clamped extrapolation).
  */
 export function rawIntersections(a: SketchEntityData, b: SketchEntityData): [number, number][] {
+    const analytic = (type: SketchEntityData["type"]) =>
+        type === "line" || type === "circle" || type === "arc";
+    if (!analytic(a.type) || !analytic(b.type)) {
+        return intersectCurves(a, b, true).map((crossing) => crossing.point);
+    }
     return a.type === "line" && b.type === "line"
         ? intersectLineLine(lineOf(a), lineOf(b))
         : a.type === "line"
@@ -252,6 +351,11 @@ export function onEntity(entity: SketchEntityData, point: [number, number], tole
     // a datum axis is the infinite line it is drawn as
     if (isDatumEntityId(entity.id)) return true;
     if (entity.type === "line") return pointToSegmentDistance(point, lineOf(entity)) <= tolerance;
+    if (entity.type !== "circle" && entity.type !== "arc") {
+        // a numeric family's projection is clamped to the drawn domain, so the extent
+        // test is the distance test
+        return projectPoint(entity, point).distance <= tolerance;
+    }
     const { center, radius } = circleOf(entity);
     const off = Math.hypot(point[0] - center[0], point[1] - center[1]);
     if (Math.abs(off - radius) > tolerance) return false;

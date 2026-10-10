@@ -1445,6 +1445,43 @@ describe("snapPosition", () => {
         solver.dispose();
     });
 
+    test("reports no tangency for a probe that lands on top of an existing ellipse", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addEllipse(0, 0, 4, 0, 0, 2);
+        solver.solve(true);
+
+        // the very same ellipse as the one already there. Its nearest distance to that one is
+        // zero, which is what the gap reading is built on — but the gap is zero because the two
+        // lie on each other, and "tangent" is not what that is.
+        const { tangentKind } = snapPosition(
+            solver,
+            [10, 10],
+            { pointTolerance: 0.1, lineTolerance: 0.5 },
+            () => ({ type: "ellipse", params: [0, 0, 4, 0, 0, 2] }),
+        );
+
+        expect(tangentKind).toBeUndefined();
+        solver.dispose();
+    });
+
+    test("reports no tangency for a bezier drawn straight along an existing line", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addLine(0, 0, 10, 0);
+        solver.solve(true);
+
+        // a cubic whose poles all sit on the line: its distance to the line is zero everywhere,
+        // so the gap reading alone would call this a tangency along its whole length
+        const { tangentKind } = snapPosition(
+            solver,
+            [10, 10],
+            { pointTolerance: 0.1, lineTolerance: 0.5 },
+            () => ({ type: "bezier", params: [0, 0, 3, 0, 6, 0, 10, 0] }),
+        );
+
+        expect(tangentKind).toBeUndefined();
+        solver.dispose();
+    });
+
     test("reports no tangency for a probe whose entity comes out clear of the rest", () => {
         const solver = new SketchSolver(Plane.XY);
         solver.addCircle(20, 0, 5);

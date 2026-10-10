@@ -153,6 +153,121 @@ describe("sketch and extrude", () => {
         expect(nodeIds(doc)).toEqual([]);
     });
 
+    test("a program's nurbs entity becomes a curve the body is built from", () => {
+        const doc = newDoc();
+        // the program states control points and nothing else; the sketch's own layout — unit
+        // weights and the clamped uniform structure — is the builder's (`nurbsParams`)
+        const loop = [
+            [0, 0],
+            [30, 5],
+            [15, 30],
+            [45, 15],
+            [60, 40],
+            [20, 45],
+            [0, 0],
+        ];
+        const result = run(doc, [
+            { op: "sketch", id: "s1", plane: "XY", entities: [{ type: "nurbs", params: loop.flat() }] },
+            { op: "extrude", id: "b1", sketch: "s1", depth: 10 },
+        ]);
+        const body = createdBody(doc, result, "b1");
+        expectClean(body);
+        // the profile closed into a face and was extruded: the body is 10 deep, and its
+        // footprint stays inside the control polygon the program gave
+        const [minX, minY, minZ, maxX, maxY, maxZ] = extent(body);
+        expect(minX).toBeGreaterThanOrEqual(-1);
+        expect(maxX).toBeLessThanOrEqual(61);
+        expect(maxZ - minZ).toBeCloseTo(10, 6);
+        expect(minY).toBeGreaterThanOrEqual(-1);
+        expect(maxY).toBeLessThanOrEqual(46);
+    });
+
+    test.each([
+        {
+            why: "an odd number of coordinates",
+            entity: { type: "nurbs" as const, params: [0, 0, 10, 10, 20] },
+            match: /two or more control points/,
+        },
+        {
+            why: "a single control point",
+            entity: { type: "nurbs" as const, params: [0, 0] },
+            match: /two or more control points/,
+        },
+        {
+            why: "an ellipse missing its minor axis",
+            entity: { type: "ellipse" as const, params: [0, 0, 10, 0, 0] },
+            match: /ellipse takes 6 params, got 5/,
+        },
+        {
+            why: "a three-pole cubic bezier",
+            entity: { type: "bezier" as const, params: [0, 0, 10, 10, 20, 20] },
+            match: /bezier takes 8 params, got 6/,
+        },
+        {
+            why: "a conic without its rho",
+            entity: { type: "conic" as const, params: [0, 0, 5, 5, 10, 0] },
+            match: /conic takes 7 params, got 6/,
+        },
+    ])("a sketch op entity with $why fails the program", ({ entity, match }) => {
+        const doc = newDoc();
+        // the shape path reads these positionally and draws whatever it can find — an ellipse
+        // missing an axis builds a box of NaNs, a three-pole "cubic" bezier is a curve — so a
+        // program that states the wrong number of numbers has to be refused where it is read
+        const message = runExpectingFailure(doc, [
+            { op: "sketch", id: "s1", plane: "XY", entities: [entity] },
+        ]);
+        expect(message).toMatch(match);
+        expect(nodeIds(doc)).toEqual([]);
+    });
+
+    test.each<{ why: string; build: () => unknown; match: RegExp }>([
+        {
+            why: "no entities array at all",
+            build: () => ({ op: "sketch", id: "s1", plane: "XY", entities: undefined }),
+            match: /needs an entities array/,
+        },
+        {
+            why: "an entity with no params array",
+            build: () => ({
+                op: "sketch",
+                id: "s1",
+                plane: "XY",
+                entities: [{ type: "line", params: undefined }],
+            }),
+            match: /needs a params array/,
+        },
+        {
+            why: "an entity of a type the reader does not know",
+            build: () => ({
+                op: "sketch",
+                id: "s1",
+                plane: "XY",
+                entities: [{ type: "spiral", params: [0, 0] }],
+            }),
+            match: /unknown entity type "spiral"/,
+        },
+        {
+            why: "a constraint with no refs array",
+            build: () => ({
+                op: "sketch",
+                id: "s1",
+                plane: "XY",
+                entities: [{ type: "line", params: [0, 0, 10, 0] }],
+                constraints: [{ kind: "P2PDistance", refs: undefined }],
+            }),
+            match: /needs a refs array/,
+        },
+    ])("a sketch op with $why fails the program", ({ build, match }) => {
+        const doc = newDoc();
+        // These arguments are the model's own JSON: nothing validates them on the way in, so a
+        // field left out arrives as `undefined` and used to reach a `.length` on it — a TypeError
+        // that names no entity and says nothing about what was short. The reader is where the
+        // shape of an entity is already checked, so the guards belong beside those checks.
+        const message = runExpectingFailure(doc, [build() as ParametricOp]);
+        expect(message).toMatch(match);
+        expect(nodeIds(doc)).toEqual([]);
+    });
+
     test("a sketch can be built on a planar face of an existing body", () => {
         const doc = newDoc();
         const first = run(doc, plate(20));

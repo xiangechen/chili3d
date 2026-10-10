@@ -106,6 +106,15 @@ export interface IShapeFactory {
     shell(faces: IFace[]): Result<IShell>;
     solid(shells: IShell[]): Result<ISolid>;
     bezier(points: XYZLike[], weights?: number[]): Result<IEdge>;
+    /**
+     * A rational B-spline edge, clamped at both ends: the general form `bezier` is a special
+     * case of. `knots` is the *flat* vector (one entry per index, repeats and all, length
+     * `poles + degree + 1`), the way a sketch entity stores it; an empty `weights` is the
+     * non-rational form. Anything the kernel cannot build — a degree the pole count cannot
+     * carry, an unclamped or decreasing knot vector, a non-positive weight — comes back as an
+     * error result rather than a shape.
+     */
+    bspline(poles: XYZLike[], weights: number[] | undefined, knots: number[], degree: number): Result<IEdge>;
     helix(
         origin: XYZLike,
         normal: XYZLike,

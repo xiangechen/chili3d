@@ -3,15 +3,20 @@
 
 import "./sketchArc";
 import "./sketchArray";
+import "./sketchBezier";
 import "./sketchBreak";
 import "./sketchCircle";
 import "./sketchCommands";
+import "./sketchConic";
 import "./sketchConstraints";
 import "./sketchCornerCommands";
 import "./sketchDimensions";
+import "./sketchEllipse";
+import "./sketchEllipseArc";
 import "./sketchExtend";
 import "./sketchLine";
 import "./sketchMirror";
+import "./sketchNurbs";
 import "./sketchOffset";
 import "./sketchPolygon";
 import "./sketchProjectEdges";

@@ -666,6 +666,7 @@ interface EmbindModule {
     chamfer2d(_0: TopoDS_Face, _1: TopoDS_Edge, _2: TopoDS_Edge, _3: number): ShapeResult;
     polygon(_0: Array<Vector3>): ShapeResult;
     bezier(_0: Array<Vector3>, _1: Array<number>): ShapeResult;
+    bspline(_0: Array<Vector3>, _1: Array<number>, _2: Array<number>, _3: number): ShapeResult;
     fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
     chamfer(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
     filletTracked(_0: TopoDS_Shape, _1: Array<number>, _2: number): TrackedShapeResult;

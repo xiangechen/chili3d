@@ -3,6 +3,7 @@
 
 import { command, PubSub } from "@chili3d/core";
 import { breakEntity, breakPreview } from "../breakOps";
+import { isClosedCurveType } from "../curveEval";
 import type { SketchEditor, SketchEntityPick } from "../editor/sketchEditor";
 import type { SketchPreviewAt } from "../previewTypes";
 import { SketchConstraintCommand } from "./sketchConstraints";
@@ -12,8 +13,8 @@ import { SketchConstraintCommand } from "./sketchConstraints";
  *
  * Once a closed curve's first point is in, every later hover previews the cut on *that*
  * entity, wherever the pointer happens to be — the second point is a position along the
- * circle, and insisting the pointer be over the thin curve itself would make it a test of
- * aim rather than of intent. The op projects it the same way.
+ * closed curve, and insisting the pointer be over the thin curve itself would make it a
+ * test of aim rather than of intent. The op projects it the same way.
  */
 export function breakPreviewAt(editor: SketchEditor, first?: SketchEntityPick): SketchPreviewAt {
     return (entityId, uv) => {
@@ -33,10 +34,10 @@ export function breakPreviewAt(editor: SketchEditor, first?: SketchEntityPick): 
  * coincidence — so the new point is a real vertex the sketch can be constrained by, not a
  * merely cosmetic seam.
  *
- * A line or an arc takes one click; a circle takes two, because a closed curve has no ends
- * to cut from and a single cut would leave the same closed curve behind (Onshape's rule for
- * closed curves). The command stays active and commits each curve as it lands, so a profile
- * can be carved piece by piece and every one is its own undo step.
+ * A line or an arc takes one click; a closed curve (a circle, an ellipse) takes two, because
+ * it has no ends to cut from and a single cut would leave the same closed curve behind
+ * (Onshape's rule for closed curves). The command stays active and commits each curve as it
+ * lands, so a profile can be carved piece by piece and every one is its own undo step.
  */
 @command({ key: "sketch.break", icon: "icon-break" })
 export class SketchBreakCommand extends SketchConstraintCommand {
@@ -52,7 +53,8 @@ export class SketchBreakCommand extends SketchConstraintCommand {
             if (first === undefined) break;
 
             const uvs: [number, number][] = [first.uv];
-            if (editor.solver.entity(first.entityId)?.type === "circle") {
+            const pickedType = editor.solver.entity(first.entityId)?.type;
+            if (pickedType !== undefined && isClosedCurveType(pickedType)) {
                 const second = await this.pickSecondPoint(editor, first);
                 if (second === undefined) break;
                 uvs.push(second.uv);

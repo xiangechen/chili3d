@@ -1,6 +1,23 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+ * NURBS 的参数无关结构数据（次数 + 节点矢量）。求解参数（控制点、权重）
+ * 不进此结构——它是构造常量，随约束对象持有并经 `Constraint::structure()`
+ * 与 `ConRec::nurbs` 序列化往返（docs/04「序列化与互操作」）。控制点数由
+ * `knots.len() − degree − 1` 唯一确定，变长布局的分界即以此推导。
+ */
+export interface NurbsSpec {
+    /**
+     * 次数（≤ `MAX_DEGREE`）
+     */
+    degree: number;
+    /**
+     * 节点矢量（长度 = n + degree + 1）
+     */
+    knots: number[];
+}
+
+/**
  * `diagnose` 的返回（ConstraintId 展开为 u32；camelCase 字段）
  */
 export interface DiagReportInfo {
@@ -191,6 +208,13 @@ export interface ConRec {
      * external/internal；其余约束为 `None`
      */
     extra: string | null;
+    /**
+     * NURBS 段的结构性构造常量（`Constraint::structure()`）：次数 + 节点矢量，
+     * 按曲线在约束中的 canonical 序每段一项（Nurbs-Nurbs 相切 2 项，单曲线
+     * NURBS 约束 1 项）。`params` 只承载 ParamId，次数/节点矢量无法从参数表
+     * 反推，故单独携带；不含 NURBS 的约束为 `None`（携带即报错）
+     */
+    nurbs?: NurbsSpec[];
 }
 
 /**
@@ -217,8 +241,11 @@ export interface Sketch {
  * 内建约束枚举（docs/05「ConstraintKind 枚举与 params 布局」；params 布局严格等于各约束 `params()` 的顺序，
  * 带 datum 的约束 datum ParamId 占末位）。新增内建约束须同步加入本枚举、`layout` 与 `from_u32`。
  *
- * C ABI 判别值由 `from_u32` 固定（当前 0..=27），与枚举声明顺序解耦——
- * 调整顺序不会破坏已发布的 FFI 数值契约。
+ * C ABI 判别值由 `from_u32` 固定（当前 0..=54），与枚举声明顺序解耦——
+ * 调整顺序不会破坏已发布的 FFI 数值契约。曲线族在 2026-10 由控制点 B 样条
+ * 改为 Bézier + NURBS：33/34 与 39/40/43/45/46 这 7 个原样条槽位**改义**为
+ * 参数形状相同的 Bézier 对应项（0.1.0 尚未发布），NURBS 相关 kind 追加在
+ * 47..=54，判别值无空洞。
  */
 export enum ConstraintKind {
     /**
@@ -334,6 +361,127 @@ export enum ConstraintKind {
      * 内切且弧为外时内核自动置 flip，无需导出层指定）
      */
     TangentCircleArc = 27,
+    /**
+     * p.x, p.y, c.x, c.y, m.x, m.y, n.x, n.y（三点式椭圆：中心/长轴点/短轴点）
+     */
+    PointOnEllipse = 28,
+    /**
+     * l1.x, l1.y, l2.x, l2.y, c.x, c.y, m.x, m.y, n.x, n.y（branch 语义同 TangentLineCircle）
+     */
+    TangentLineEllipse = 29,
+    /**
+     * rho, datum（末位，无量纲）
+     */
+    ConicRho = 30,
+    /**
+     * p.x, p.y, s.x, s.y, c.x, c.y, e.x, e.y, rho, t（t 为辅助曲线参数，末位；
+     * 调用方创建并给初值，如投影值）
+     */
+    PointOnConic = 31,
+    /**
+     * l1.x, l1.y, l2.x, l2.y, s.x, s.y, c.x, c.y, e.x, e.y, rho, t（t 末位；
+     * 接触点式无 branch）
+     */
+    TangentLineConic = 32,
+    /**
+     * p.x, p.y, cp0.x, cp0.y, cp1.x, cp1.y, cp2.x, cp2.y, cp3.x, cp3.y, t
+     * （定长 11：固定三次 Bézier 恒 4 个控制点，t 为辅助曲线参数，末位）
+     */
+    PointOnBezier = 33,
+    /**
+     * l1.x, l1.y, l2.x, l2.y, cp0.x, cp0.y, …, cp3.x, cp3.y, t（定长 13，t 末位）
+     */
+    TangentLineBezier = 34,
+    /**
+     * p.x, p.y, cp0.x, cp0.y, …, cp_{n−1}.x, cp_{n−1}.y, w0, …, w_{n−1}, t
+     * （变长 3n+3：n 个控制点 + n 个有理权重 + 辅助曲线参数 t 末位；次数与
+     * 节点矢量经 `nurbs` 入参给出，n 由节点矢量长度反推）
+     */
+    PointOnNurbs = 35,
+    /**
+     * l1.x, l1.y, l2.x, l2.y, cp0…, w0…, t（变长 3n+5，t 末位，同上）
+     */
+    TangentLineNurbs = 36,
+    /**
+     * 曲线-曲线相切（双接触点参数式，见 `TangentCurveCurve`）：布局
+     * [curve1…, t1, curve2…, t2]，t1/t2 为辅助接触点参数（Dimensionless，
+     * 调用方创建并给初值，如两曲线最近点对投影）。以下 18 种组合按族序
+     * Circle < Arc < Ellipse < Conic < Bezier < Nurbs 规范化（kind 自描述
+     * 两段布局；圆族内部组合已有 tangentcc/tangentca/tangentaa，不走本族）。
+     * Bézier 段定长（恒 8 参数），NURBS 段变长（3n，随 `nurbs` 结构数据）；
+     * 曲线 1 为 NURBS（即 Nurbs-Nurbs）时分界同样由结构数据推出
+     * c1.x, c1.y, r1, t1, ec.x, ec.y, em.x, em.y, en.x, en.y, t2
+     */
+    TangentCircleEllipse = 37,
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, ec.x, ec.y, em.x, em.y, en.x, en.y, t2
+     */
+    TangentArcEllipse = 38,
+    /**
+     * c1.x, c1.y, r1, t1, s.x, s.y, c.x, c.y, e.x, e.y, rho, t2
+     */
+    TangentCircleConic = 39,
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, s.x, s.y, c.x, c.y, e.x, e.y, rho, t2
+     */
+    TangentArcConic = 40,
+    /**
+     * c1.x, c1.y, r1, t1, bp0.x, bp0.y, …, bp3.x, bp3.y, t2（定长）
+     */
+    TangentCircleBezier = 41,
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, bp0…, t2（定长）
+     */
+    TangentArcBezier = 42,
+    /**
+     * e1.c/m/n 各 (x, y), t1, e2.c/m/n 各 (x, y), t2
+     */
+    TangentEllipseEllipse = 43,
+    /**
+     * e1.c/m/n 各 (x, y), t1, s.x, s.y, c.x, c.y, e.x, e.y, rho, t2
+     */
+    TangentEllipseConic = 44,
+    /**
+     * e.c/m/n 各 (x, y), t1, bp0…, t2（定长）
+     */
+    TangentEllipseBezier = 45,
+    /**
+     * co1.s/c/e 各 (x, y) + rho, t1, co2.s/c/e 各 (x, y) + rho, t2
+     */
+    TangentConicConic = 46,
+    /**
+     * co.s/c/e 各 (x, y) + rho, t1, bp0…, t2（定长）
+     */
+    TangentConicBezier = 47,
+    /**
+     * bp0…, t1, bp′0…, t2（定长：两段各 8 参数）
+     */
+    TangentBezierBezier = 48,
+    /**
+     * c1.x, c1.y, r1, t1, cp0…, w0…, t2（变长：曲线 2 为 NURBS）
+     */
+    TangentCircleNurbs = 49,
+    /**
+     * a.c.x, a.c.y, a.s.x, a.s.y, t1, cp0…, w0…, t2（变长）
+     */
+    TangentArcNurbs = 50,
+    /**
+     * e.c/m/n 各 (x, y), t1, cp0…, w0…, t2（变长）
+     */
+    TangentEllipseNurbs = 51,
+    /**
+     * co.s/c/e 各 (x, y) + rho, t1, cp0…, w0…, t2（变长）
+     */
+    TangentConicNurbs = 52,
+    /**
+     * bp0…, t1, cp0…, w0…, t2（变长）
+     */
+    TangentBezierNurbs = 53,
+    /**
+     * cp0…, w0…, t1, cp′0…, w′0…, t2（双变长 3n1+1+3n2+1：两段皆 NURBS，
+     * 分界与各段控制点数由 `nurbs` 结构数据推出，不依赖 ParamKind）
+     */
+    TangentNurbsNurbs = 54,
 }
 
 /**
@@ -362,13 +510,21 @@ export class WasmSystem {
      *   自动交换两圆/两弧（TangentCircleArc 布局不对称无法交换，改为置 flip
      *   标志），维持 c1 为外圆（外弧）的内核约定（同 TangentCC::auto）。
      *
+     * `nurbs` 仅对含 NURBS 的 kind 有效（其他 kind 必须为 None，否则报错）：
+     * 给出每段 NURBS 的**结构性构造常量**（`{ degree, knots }`，按曲线在约束
+     * 中的 canonical 序每段一项——Circle &lt; Arc &lt; Ellipse &lt; Conic &lt; Bezier
+     * &lt; Nurbs，故 NURBS 段恒为末段；Nurbs-Nurbs 相切给两项）。
+     * 控制点数由节点矢量长度反推（n = knots.length − degree − 1），权重是
+     * 求解参数、照常放在 `params` 里（控制点后紧跟 n 个权重，t 仍在末位）。
+     * 缺省的钳制均匀节点矢量即 `[0]×(degree+1) + [1, 2, …] + [n−degree]×(degree+1)`。
+     *
      * datum 只读契约（同内核 `System::add_constraint` rustdoc）：datum 参数
      * 必须只经 `set_param` 从 JS 侧驱动，不得同时是任何约束的未知量或从动
      * 输出；违反时不报错，但其消费块读到的是求解前的旧值（下一次 solve
      * 自愈；循环共享永不静止）。
      * 返回 ConstraintId。
      */
-    add_constraint(kind: ConstraintKind, params: Uint32Array, datum: number | null | undefined, driving: boolean, tag: number, branch?: number | null): number;
+    add_constraint(kind: ConstraintKind, params: Uint32Array, datum: number | null | undefined, driving: boolean, tag: number, branch?: number | null, nurbs?: NurbsSpec[] | null): number;
     /**
      * 批量新建参数。kinds: 0 = Coordinate, 1 = Length, 2 = Dimensionless。
      * 返回 ParamId 数组（Uint32Array）。
@@ -453,7 +609,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmsystem_free: (a: number, b: number) => void;
-    readonly wasmsystem_add_constraint: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => [number, number, number];
+    readonly wasmsystem_add_constraint: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number) => [number, number, number];
     readonly wasmsystem_add_params: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmsystem_clear_dragged: (a: number, b: number, c: number) => [number, number];
     readonly wasmsystem_diagnose: (a: number) => [number, number, number];

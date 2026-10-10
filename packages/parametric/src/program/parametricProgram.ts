@@ -28,9 +28,12 @@ import type {
     RevolveFeatureData,
 } from "../features/feature";
 import { ParametricBodyNode } from "../parametricBodyNode";
+import { ENTITY_PARAM_COUNTS } from "../sketch/entityLayout";
 import { captureFaceRef, type PlaneFaceRef, sketchPlaneOfFace } from "../sketch/planeRef";
 import {
     ConstraintKind,
+    defaultNurbsSpec,
+    nurbsParams,
     type SketchConstraintData,
     type SketchData,
     type SketchEntityData,
@@ -342,14 +345,59 @@ function resolveSketchPlane(
     }
 }
 
+/**
+ * An op entity's params, checked against the layout its type reads them in. Both readers of a
+ * sketch's entities are positional and tolerate a short list — the shape path (`SketchNode`)
+ * draws a `bezier` of three poles as a curve and an `ellipse` missing its minor axis as a box of
+ * NaNs, while the solver pads what it is handed — so a program that states the wrong number of
+ * numbers would come back as geometry nobody asked for rather than as an error. A nurbs carries
+ * its pole count in the length itself: the op states the control points alone and the weights are
+ * the layout's, so it is checked for a whole number of (x, y) pairs instead.
+ */
+function opEntityParams(type: SketchEntityType, params: number[]): number[] {
+    // The arguments are a model's JSON, not a call this module compiled: nothing checks them
+    // before they arrive, so a field left out reaches here as `undefined`. The reading below is
+    // what turns a wrong count into something the caller can act on, and it has to have a list
+    // to read — a `TypeError` out of it says nothing about which entity was short of what.
+    if (!Array.isArray(params)) {
+        throw new Error(`an entity of type "${type}" needs a params array`);
+    }
+    if (type === "nurbs") {
+        // halved, a list that is not whole pairs is a *fraction* of a pole, and the fractional
+        // pole count that follows gives a fractional degree and a non-integer knot
+        // (`defaultNurbsDegree`)
+        if (params.length % 2 !== 0 || params.length < 4) {
+            throw new Error(
+                `a nurbs needs two or more control points, as (x, y) pairs — got ${params.length} numbers`,
+            );
+        }
+        return params;
+    }
+    const expected = ENTITY_PARAM_COUNTS[type];
+    if (expected === undefined) {
+        throw new Error(`unknown entity type "${type}"`);
+    }
+    if (params.length !== expected) {
+        throw new Error(`${type} takes ${expected} params, got ${params.length}`);
+    }
+    return params;
+}
+
 function buildSketchData(document: IDocument, op: SketchOp, plane: Plane): SketchData {
-    const entities: SketchEntityData[] = op.entities.map((entity, index) => ({
-        id: index + 1,
-        type: entity.type,
-        params: entity.params,
-        // emitted only when set, so a plain sketch keeps its minimal serialized form
-        ...(entity.construction === true ? { construction: true } : {}),
-    }));
+    if (!Array.isArray(op.entities)) {
+        throw new Error("a sketch op needs an entities array");
+    }
+    const entities: SketchEntityData[] = op.entities.map((entity, index) => {
+        const params = opEntityParams(entity.type, entity.params);
+        return {
+            id: index + 1,
+            type: entity.type,
+            params: entity.type === "nurbs" ? nurbsParams(params) : params,
+            // emitted only when set, so a plain sketch keeps its minimal serialized form
+            ...(entity.construction === true ? { construction: true } : {}),
+            ...(entity.type === "nurbs" ? { nurbs: defaultNurbsSpec(params.length / 2) } : {}),
+        };
+    });
     const data: SketchData = {
         entities,
         constraints: [],
@@ -360,6 +408,9 @@ function buildSketchData(document: IDocument, op: SketchOp, plane: Plane): Sketc
     if (constraints.length === 0) return data;
 
     data.constraints = constraints.map((constraint, index) => {
+        if (!Array.isArray(constraint.refs)) {
+            throw new Error(`constraint ${index + 1} needs a refs array`);
+        }
         const refs = constraint.refs.map((ref) => ({ entityId: ref.entity, pointIndex: ref.point }));
         const entry: SketchConstraintData = {
             id: index + 1,

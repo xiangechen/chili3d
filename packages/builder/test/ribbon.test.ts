@@ -136,8 +136,12 @@ describe("SketchRibbonProfiles", () => {
         expect(groupNames).toContain("ribbon.group.dimension");
         const allItems = flattenItems(sketchTab!.groups.flatMap((g) => g.items));
         expect(allItems).toContain("sketch.array");
+        expect(allItems).toContain("sketch.bezier");
         expect(allItems).toContain("sketch.exit");
         expect(allItems).toContain("sketch.line");
+        expect(allItems).toContain("sketch.nurbs");
+        // the free curves' one tool until garlic's families were split into bezier and nurbs
+        expect(allItems).not.toContain("sketch.spline");
         expect(allItems).toContain("sketch.mirror");
         expect(allItems).toContain("sketch.offset");
         expect(allItems).toContain("sketch.polygon");

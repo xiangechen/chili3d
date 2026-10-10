@@ -361,7 +361,11 @@ export async function commitDimension(
             editor.dimensionAnchors.delete(id);
             editor.solve(true);
         },
-        { positiveOnly: options?.positiveOnly },
+        {
+            positiveOnly: options?.positiveOnly,
+            // a conic's rho is a ratio in (0, 1) — the one datum with a ceiling
+            ...(constraint.kind === ConstraintKind.ConicRho ? { maxExclusive: 1 } : {}),
+        },
     );
 }
 

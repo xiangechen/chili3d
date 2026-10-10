@@ -111,7 +111,7 @@ ${navigationProfiles()}
 The workflow to teach:
 1. {sketch.create} — pick a plane or a flat face; the sketch is created and opens for editing.
 2. The Sketch tab appears (it is contextual — visible only while sketching, and get_ribbon reports it as contextual). The camera locks to a straight-on orthographic view of the sketch plane, the solid's own faces are hidden, and rotation is disabled.
-3. Draw with {sketch.line}, {sketch.circle}, {sketch.arc}, {sketch.rectangle}.
+3. Draw with {sketch.line}, {sketch.circle}, {sketch.arc}, {sketch.rectangle}, {sketch.ellipse}, {sketch.ellipseArc}, {sketch.conic} (a rho-driven conic through its start and end, bent by a control point) and {sketch.bezier} (a cubic drawn from four control points) / {sketch.nurbs} (a spline drawn from any number of them — control-point curves, so only their first and last lie on the drawn curve).
 4. Points snap while drawing — to nearby points, to lines and axes, and to circles and arcs — and a nearly horizontal or vertical line silently gets a Horizontal/Vertical constraint; near-tangent entities are constrained tangent. The same magnetic snapping applies while dragging a point, and the constraint is added when the drag settles.
 5. Constraints come from the Constraint group and dimensions from the Dimension group. A dimension is placed with a live preview and a value dialog: confirming commits it as one undo step, cancelling rolls the constraint back. Double-click a dimension later to change its value.
 6. The status bar reports under-constrained, fully-constrained or conflicting.

@@ -10,12 +10,14 @@ import {
     resolveUnitSpec,
     type Scope,
 } from "@chili3d/core";
+import { tangentAtSupportLength } from "./curveEval";
 import { entityRadiusOf, isDegenerate, originAngle, parameterAt, pointAt } from "./curveGeometry";
 import {
     ConstraintKind,
     isDatumEntityId,
     isExternalEntityId,
     isStructuralConstraint,
+    type NurbsSpec,
     type SketchArrayAxis,
     type SketchArrayCenter,
     type SketchArrayData,
@@ -314,6 +316,12 @@ export interface ArrayInstanceSpec {
     readonly sourceId: number;
     readonly type: SketchEntityType;
     readonly params: number[];
+    /**
+     * A NURBS source's construction constants, which its instances are built from: a
+     * similarity moves the control points but leaves the degree and the knots alone, so
+     * they are the source's own, carried rather than transformed.
+     */
+    readonly nurbs?: NurbsSpec;
     /** Whether the instance copies construction geometry. */
     readonly construction: boolean;
 }
@@ -336,15 +344,19 @@ function resolveAngle(source: ParameterValue, scope: Scope): Result<number> {
 }
 
 /**
- * The tangent angle of `entity` at `s`, the position `parameterAt` speaks. Exact for all
- * three curve kinds rather than read off a chord: a line's tangent is its own direction, and
- * a circle's or an arc's turns a quarter counter-clockwise off the radius, since `s` grows
- * counter-clockwise.
+ * The tangent angle of `entity` at `s`, the position `parameterAt` speaks. Exact for the
+ * three analytic kinds rather than read off a chord: a line's tangent is its own direction,
+ * and a circle's or an arc's turns a quarter counter-clockwise off the radius, since `s`
+ * grows counter-clockwise. The numeric families differentiate their own curve at `s`.
  */
 function tangentAngle(entity: SketchEntityData, s: number): number {
     if (entity.type === "line") {
         const [x1, y1, x2, y2] = entity.params;
         return Math.atan2(y2 - y1, x2 - x1);
+    }
+    if (entity.type !== "circle" && entity.type !== "arc") {
+        const [tx, ty] = tangentAtSupportLength(entity, s);
+        return Math.atan2(ty, tx);
     }
     const radius = entityRadiusOf(entity);
     if (radius <= Precision.Distance) return 0;
@@ -779,6 +791,7 @@ export function arrayInstanceSpecs(
                 sourceId: source.id,
                 type: source.type,
                 params: transformParams(source, resolved.base, transform),
+                ...(source.nurbs === undefined ? {} : { nurbs: source.nurbs }),
                 construction: solver.isConstruction(source.id),
             });
         }
@@ -814,6 +827,9 @@ export function arrayPreview(
             id: spec.sourceId,
             type: spec.type,
             params: spec.params,
+            // the spec travels with the params: a NURBS instance read without it would be the
+            // default clamped uniform curve of that many poles, not the source's own shape
+            ...(spec.nurbs === undefined ? {} : { nurbs: spec.nurbs }),
             ...(spec.construction ? { construction: true } : {}),
         }));
 }

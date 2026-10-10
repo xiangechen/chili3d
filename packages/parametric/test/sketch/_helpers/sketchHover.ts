@@ -16,7 +16,7 @@ import type { SketchEventHandler } from "../../../src/sketch/editor/sketchEventH
  * the cursor is what those tests are about, so the view records every mesh handed to it
  * and the whole shape layer is stubbed out.
  *
- * The view maps world (x, y, 0) to screen (400 + x, 300 − y), so a hover's screen
+ * The view maps world (x, y, 0) to screen (400 + x, 300 + y), so a hover's screen
  * coordinates are the sketch's own plus that offset.
  */
 export function setupSketchHover() {
@@ -45,10 +45,13 @@ export function setupSketchHover() {
     const previous = Object.getOwnPropertyDescriptor(globalThis, "shapeFactory");
     Object.defineProperty(globalThis, "shapeFactory", {
         value: {
-            line: () => Result.ok({ isEqual: () => false }),
-            circle: () => Result.ok({ isEqual: () => false }),
-            wire: () => Result.ok({ isEqual: () => false }),
-            combine: () => Result.ok({ isEqual: () => false }),
+            line: () => Result.ok(fakeEdge()),
+            circle: () => Result.ok(fakeEdge()),
+            arc: () => Result.ok(fakeEdge()),
+            ellipse: () => Result.ok(fakeEdge()),
+            bezier: () => Result.ok(fakeEdge()),
+            wire: () => Result.ok(fakeEdge()),
+            combine: () => Result.ok(fakeEdge()),
         },
         writable: true,
         configurable: true,
@@ -61,6 +64,19 @@ export function setupSketchHover() {
         }
     };
     return { doc, view, displayed, restoreFactory };
+}
+
+/**
+ * A stand-in for the shape layer, which the hover tests stub out: `isEqual` is what a
+ * regeneration compares wires by, and `offset`/`trim` are what the sketch asks an *edge* to do
+ * for an offset copy (`sketchNode` offsets its source's edge and cuts the window out). Both
+ * answer themselves, which is all a stub has to do.
+ */
+function fakeEdge(): any {
+    const edge: any = { isEqual: () => false };
+    edge.offset = () => Result.ok(edge);
+    edge.trim = () => edge;
+    return edge;
 }
 
 export function pointerEvent(x: number, y: number): PointerEvent {

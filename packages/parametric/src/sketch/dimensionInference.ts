@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { ParameterValue } from "@chili3d/core";
+import { conicShoulder } from "./curveEval";
 import {
     angleVertex,
     type DimensionAnchor,
@@ -152,11 +153,70 @@ function inferSingle(element: DimensionElement, solver: SketchSolver): Dimension
     if (element.kind !== "entity") return undefined;
     const entity = solver.entity(element.entityId);
     if (entity === undefined) return undefined;
-    if (entity.type === "line") {
-        // a datum axis is infinite: there is no length in it to read
-        return isDatumEntityId(entity.id) ? undefined : buildLineLength(solver, entity.id);
+    switch (entity.type) {
+        case "line":
+            // a datum axis is infinite: there is no length in it to read
+            return isDatumEntityId(entity.id) ? undefined : buildLineLength(solver, entity.id);
+        case "circle":
+        case "arc":
+            return buildRadiusReading(entity);
+        case "ellipse":
+        case "ellipseArc":
+            return buildEllipseMajorAxis(entity);
+        case "conic":
+            return buildConicRho(entity);
+        default:
+            // a free curve has no reading of its own — its control points are dimensioned one by one
+            return undefined;
     }
-    return buildRadiusReading(entity);
+}
+
+/**
+ * An ellipse family's major semi-axis, read between the center and the major-axis
+ * point — the plain point-point distance over the entity's own two first refs.
+ */
+function buildEllipseMajorAxis(entity: SketchEntityData): DimensionPlan {
+    const center: SketchPointRef = { entityId: entity.id, pointIndex: 0 };
+    const major: SketchPointRef = { entityId: entity.id, pointIndex: 1 };
+    const uvCenter: [number, number] = [entity.params[0], entity.params[1]];
+    const uvMajor: [number, number] = [entity.params[2], entity.params[3]];
+    const length = Math.hypot(uvMajor[0] - uvCenter[0], uvMajor[1] - uvCenter[1]);
+
+    return {
+        preview: (label) => ({ kind: "distance", p1: uvCenter, p2: uvMajor, position: label }),
+        resolve: (label) => ({
+            constraint: { kind: ConstraintKind.P2PDistance, refs: [center, major], datum: length },
+            anchor: { kind: "offset", ...labelOnSegment(uvCenter, uvMajor, label) },
+            initial: length,
+            positiveOnly: !datumIsSigned(ConstraintKind.P2PDistance),
+        }),
+    };
+}
+
+/**
+ * A conic's rho, read at its shoulder point: the leader says where rho lives on the
+ * curve, and the datum is the ratio itself — dimensionless, and bounded to (0, 1) by
+ * the dialog's own rule for the kind (`commitDimension`).
+ */
+function buildConicRho(entity: SketchEntityData): DimensionPlan {
+    const entityId = entity.id;
+    const rho = entity.params[6];
+    return {
+        preview: (label) => ({ kind: "rho", point: conicShoulder(entity.params), rho, position: label }),
+        resolve: (label) => {
+            const shoulder = conicShoulder(entity.params);
+            return {
+                constraint: {
+                    kind: ConstraintKind.ConicRho,
+                    refs: [{ entityId, pointIndex: 0 }],
+                    datum: rho,
+                },
+                anchor: { kind: "vector", dx: label[0] - shoulder[0], dy: label[1] - shoulder[1] },
+                initial: rho,
+                positiveOnly: true,
+            };
+        },
+    };
 }
 
 function buildTwoEntities(
@@ -172,10 +232,22 @@ function buildTwoEntities(
             ? buildLineGap(solver, firstId, secondId)
             : buildAngle(solver, firstId, secondId);
     }
-    if (first.type !== "line" && second.type !== "line") {
+    // a center distance needs two centers — the conic's and the free curves' point 0 is an
+    // endpoint, so those pairs are dimensioned by picking the points themselves
+    if (hasCenter(first) && hasCenter(second)) {
         return buildCenterDistance(first, second);
     }
     return undefined;
+}
+
+/** Whether the entity's point 0 is its center — what a two-entity distance reads between. */
+function hasCenter(entity: SketchEntityData): boolean {
+    return (
+        entity.type === "circle" ||
+        entity.type === "arc" ||
+        entity.type === "ellipse" ||
+        entity.type === "ellipseArc"
+    );
 }
 
 /**

@@ -1,8 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MultistepCommand, PubSub, property } from "@chili3d/core";
+import { type EdgeMeshData, MultistepCommand, PubSub, property, VisualConfig } from "@chili3d/core";
 import { applyAutoConstraints } from "../autoConstraints";
+import { curveChainMesh } from "../curveMesh";
 import { SketchEditor } from "../editor/sketchEditor";
 import { toUV } from "../sketchModel";
 
@@ -36,10 +37,39 @@ export abstract class SketchMultistepCommand extends MultistepCommand {
         return SketchEditor.getActive()!;
     }
 
+    /**
+     * Whether a freshly committed entity takes the drawing hints' auto-constraints (see
+     * `applyAutoConstraints`). A command whose entity's points the *tool* derived answers no:
+     * those points are not the user's, and a snap onto whatever happens to lie near one —
+     * the neighbouring segment's own curve, say — would be fought by the derivation that
+     * placed it. Such a command states the relations it means itself.
+     */
+    protected takesAutoConstraints(): boolean {
+        return true;
+    }
+
+    /**
+     * Which of a freshly committed entity's points take those auto-constraints: `undefined` for
+     * every point, or the indices of the ones the *user* placed. A command that derives some of
+     * its points — an ellipse's minor probe is projected onto the major axis's perpendicular,
+     * not picked — answers with the picked ones, so a snap cannot pull a derived point off the
+     * shape the derivation just placed it on.
+     */
+    protected autoConstraintPoints(): readonly number[] | undefined {
+        return undefined;
+    }
+
     /** Applies auto-constraints to a freshly added entity, then solves and commits. */
     protected commitNewEntity(entityId: number): void {
         if (this.construction) this.editor.solver.setConstruction(entityId, true);
-        applyAutoConstraints(this.editor.solver, entityId, { pointTolerance: this.editor.screenTolerance() });
+        if (this.takesAutoConstraints()) {
+            applyAutoConstraints(
+                this.editor.solver,
+                entityId,
+                { pointTolerance: this.editor.screenTolerance() },
+                this.autoConstraintPoints(),
+            );
+        }
         this.editor.solve(true);
         this.editor.commit();
     }
@@ -47,5 +77,18 @@ export abstract class SketchMultistepCommand extends MultistepCommand {
     /** Sketch (u, v) of the point picked by the step at `index`. */
     protected uvOf(index: number): [number, number] {
         return toUV(this.editor.node.plane, this.stepDatas[index].point!);
+    }
+
+    /**
+     * A numeric-curve preview from its sketch-uv polyline: the ellipse and the free curves
+     * draw sampled (`curveEval.sampleEntity`), where a line or an
+     * arc has a kernel shape to preview instead.
+     */
+    protected meshCurvePolyline(
+        uvs: readonly [number, number][],
+        color: number = VisualConfig.defaultEdgeColor,
+    ): EdgeMeshData {
+        // the same chain the committed entity draws as, so the preview is the edge to come
+        return curveChainMesh(this.editor.node.plane, uvs, color);
     }
 }

@@ -20,9 +20,15 @@ left half-built.
 - { op: "sketch", id, plane?, entities, constraints?, name? }
   plane: "XY" (default) | "YZ" | "ZX" | { nodeId, faceIndex } to sketch on a planar face of an existing node.
   entities are in sketch (u, v) coordinates:
-    line   params [x1, y1, x2, y2]
-    circle params [cx, cy, r]
-    arc    params [cx, cy, sx, sy, ex, ey]  (center, start, end; sweeps counter-clockwise)
+    line       params [x1, y1, x2, y2]
+    circle     params [cx, cy, r]
+    arc        params [cx, cy, sx, sy, ex, ey]  (center, start, end; sweeps counter-clockwise)
+    ellipse    params [cx, cy, mx, my, nx, ny]  (center, a point of the major axis, a point of the minor axis)
+    ellipseArc params [cx, cy, mx, my, nx, ny, sx, sy, ex, ey]  (an ellipse's frame, then start and end; counter-clockwise)
+    conic      params [sx, sy, cx, cy, ex, ey, rho]  (start, control pole, end; rho in (0, 1) is the shoulder
+               ratio: < 0.5 an ellipse piece, 0.5 a parabola, > 0.5 a hyperbola)
+    bezier     params [cp0x, cp0y, cp1x, cp1y, cp2x, cp2y, cp3x, cp3y]  (the four control points of a cubic)
+    nurbs      params [cp0x, cp0y, ...]  (two or more control points of a spline, cubic where there are points enough for it)
   A closed profile needs its segments in perimeter order with the first point repeated as the last.
 - { op: "extrude", id, sketch, depth, symmetric?, startOffset?, body?, operation? }
   Without "body" it starts a new body. With "body" + "operation" (fuse/cut/common) the new prism
@@ -60,11 +66,16 @@ Then run a run_program query on "b1" to find which edge index is the top front e
 Constraints (optional). A sketch without constraints is a fixed drawing: its coordinates are final
 and a later dimension change cannot move anything. Add constraints when the sketch should stay
 solvable. "entity" is the 1-based position of the entity in "entities"; "point" follows the entity
-type (line: 0=start 1=end; circle: 0=center; arc: 0=center 1=start 2=end).
+type (line: 0=start 1=end; circle: 0=center; arc: 0=center 1=start 2=end; ellipse: 0=center
+1=major-axis point 2=minor-axis point; ellipseArc: an ellipse's 0-2 plus 3=start 4=end;
+conic: 0=start 1=control 2=end; bezier and nurbs: the control point index).
   { kind: "P2PCoincident", refs: [{entity:1,point:1},{entity:2,point:0}] }   // join two endpoints
   { kind: "Horizontal", refs: [{entity:1,point:0},{entity:1,point:1}] }
   { kind: "P2PDistance", refs: [{entity:1,point:0},{entity:2,point:0}], datum: 40 }
-Dimension kinds take a "datum" — a number or an expression, as above.
+Dimension kinds take a "datum" — a number or an expression, as above. A conic's shape is driven with
+{ kind: "ConicRho", refs: [{entity:1,point:0}], datum: 0.5 }, and tangency between curves uses the
+Tangent* kinds (TangentLineEllipse, TangentCircleBezier, TangentConicConic, ... — one per pair of
+curve families), with PointOnEllipse/PointOnConic/PointOnBezier/PointOnNurbs for incidence on those curves.
 Coincident endpoints, Horizontal/Vertical and a few dimensions are enough for a well-formed rectangle —
 an under-constrained sketch still works, it just has free degrees of freedom.
 

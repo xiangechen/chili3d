@@ -383,6 +383,79 @@ describe("extendEntity refusals", () => {
     });
 });
 
+describe("extendEntity keeps what it did not move", () => {
+    test("drops what reads an interior pole the prolongation rewrites", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const bez = solver.addBezier([0, 0, 4, 0, 8, 0, 12, 0]);
+            // a second curve whose start sits on the bezier's *first handle*, tied to it
+            const handle = solver.addLine(4, 0, 4, -6);
+            const tie = solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: bez, pointIndex: 1 },
+                    { entityId: handle, pointIndex: 0 },
+                ],
+            });
+            const boundary = solver.addLine(15, -10, 15, 10);
+            solver.solve(true);
+            const before = solver.pointOf({ entityId: bez, pointIndex: 1 });
+
+            const outcome = extend(solver, {
+                targetId: bez,
+                targetUv: [12, 0],
+                boundaryId: boundary,
+                boundaryUv: [15, 0],
+            });
+
+            // The far end moving rewrites the interior poles — a prolongation reparametrizes the
+            // whole piece — so the handle lands somewhere new and what read it is gone. Which is
+            // the other half of the pair above: that one holds the *unmoved* end's constraint, and
+            // between them they are what tells "dropped because it moved" from "not dropped".
+            expect(solver.pointOf({ entityId: bez, pointIndex: 1 })).not.toEqual(before);
+            expect(outcome.removedConstraints).toEqual([tie]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("leaves a constraint on the far end alone when the other end is prolonged", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const bez = solver.addBezier([0, 0, 4, 0, 8, 0, 12, 0]);
+            // a second curve starting on the bezier's own first pole, tied to it
+            const tail = solver.addLine(0, 0, 0, 10);
+            const tie = solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: bez, pointIndex: 0 },
+                    { entityId: tail, pointIndex: 0 },
+                ],
+            });
+            const boundary = solver.addLine(15, -10, 15, 10);
+            solver.solve(true);
+
+            const outcome = extend(solver, {
+                targetId: bez,
+                targetUv: [12, 0],
+                boundaryId: boundary,
+                boundaryUv: [15, 0],
+            });
+
+            // The prolongation rewrites the piece's control points, the interior ones above all —
+            // but the end it did *not* move comes back exactly where it was (de Casteljau returns
+            // it unchanged), so nothing the user put on it has been broken and nothing may be
+            // dropped: a coincidence there would otherwise vanish, silently, whenever the other
+            // end was pulled.
+            expect(solver.pointOf({ entityId: bez, pointIndex: 0 })).toEqual([0, 0]);
+            expect(outcome.removedConstraints).toEqual([]);
+            expect(solver.toData().constraints.some((c) => c.id === tie)).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
 describe("extendEntity constraints", () => {
     test("reads a tolerance of zero as the least confirmable distance the plan uses", () => {
         const solver = new SketchSolver(Plane.XY);

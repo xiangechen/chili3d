@@ -48,6 +48,11 @@ interface DatumPromptOptions {
     /** Resolves an input to its display value — supplied by the editor, error text included. */
     resolve?: (input: ParameterValue) => Result<number>;
     /**
+     * An exclusive upper bound on the resolved value — a conic's rho is a ratio under 1,
+     * the one slot with a ceiling as well as a floor.
+     */
+    maxExclusive?: number;
+    /**
      * The dialog's own heading, when the default does not say enough — an array's count and
      * its spacing are edited through this same box, and the two would otherwise look alike.
      */
@@ -115,6 +120,9 @@ function validateDatumInput(text: string, options?: DatumPromptOptions): Result<
     if (resolved === undefined) return Result.err(invalidNumber());
     if (!resolved.isOk) return Result.err(resolved.error);
     if (options?.positiveOnly !== false && resolved.value <= 0) return Result.err(invalidNumber());
+    if (options?.maxExclusive !== undefined && resolved.value >= options.maxExclusive) {
+        return Result.err(invalidNumber());
+    }
     return Result.ok(input);
 }
 

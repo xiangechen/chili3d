@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { WasmSystem } from "../../lib/garlic";
-import { normalizeSnapshot } from "./entityLayout";
+import { normalizeSnapshot, PARAM_KIND_DIMENSIONLESS } from "./entityLayout";
 import {
     ConstraintKind,
     type ExternalRefData,
@@ -60,8 +60,13 @@ export interface ExternalEntityHost {
     detachEntityReferences(id: number): void;
     /** Pins `paramIds`, taken in (x, y) pairs, to a fresh datum per pair holding `values`. */
     pinPoints(paramIds: readonly number[], values: readonly number[]): ExternalPins;
-    /** A fresh garlic param holding `value`, for a structural datum to pin against. */
-    createDatumParam(value: number): number;
+    /**
+     * A fresh garlic param holding `value`, for a structural datum to pin against.
+     * `kind` is its garlic param kind, defaulting to a length: a datum pinning a
+     * dimensionless param has to say so, or the unit conversion scales one side of the
+     * pin and it stops holding.
+     */
+    createDatumParam(value: number, kind?: number): number;
     /** Records that an id was allocated since the last load — the serialization gate. */
     markIdAllocated(): void;
 }
@@ -351,18 +356,17 @@ export class ExternalEntityRegistry {
     /**
      * Seeds one external entity into the regular entity tables (marked fixed): raw
      * garlic params in the entity layout, every point pinned by an internal Fix
-     * constraint (circles additionally pin the radius with an internal Radius
-     * constraint). Net dofs contribution is zero; the structural constraints stay
-     * out of the solver's constraint table.
+     * constraint, and every scalar beside them by a pin of its own (a circle's radius with
+     * an internal Radius one, a conic's rho and a NURBS' weights with `ConicRho`). Net dofs
+     * contribution is zero; the structural constraints stay out of the solver's constraint
+     * table.
      */
     private seedExternalEntity(entityId: number, type: SketchEntityType, params: number[]): void {
         const paramIds = this.host.seedEntity(type, params, entityId);
         // Only the point params are pinned here — a circle's radius param is not a
         // coordinate pair and gets its own Radius pin below.
-        const { datumParamIds, constraintIds } = this.host.pinPoints(
-            paramIds.slice(0, entityPointCount(type) * 2),
-            params,
-        );
+        const pointParams = entityPointCount({ type, params }) * 2;
+        const { datumParamIds, constraintIds } = this.host.pinPoints(paramIds.slice(0, pointParams), params);
         if (type === "circle") {
             const radiusDatum = this.host.createDatumParam(params[2]);
             datumParamIds.push(radiusDatum);
@@ -370,6 +374,30 @@ export class ExternalEntityRegistry {
                 this.host.system.add_constraint(
                     ConstraintKind.Radius,
                     new Uint32Array([paramIds[2], radiusDatum]),
+                    null,
+                    true,
+                    0,
+                ),
+            );
+        }
+        // The params past the points are scalars — a conic's rho, a NURBS' weights — and each
+        // needs its own pin as much as a coordinate does: garlic takes them as *solve*
+        // parameters, so left free the solver uses a reference's own shape to satisfy a
+        // constraint on it (measured: a rho driven from 0.5 to 0.75, a weight from 1 to 0.43).
+        // `ConicRho` is garlic's one scalar pin, the kind the sketch's own NURBS weights are
+        // held with (`SketchSolver.pinNurbsWeights`); a circle's radius is excluded, its
+        // `Radius` pin above being the one its length needs.
+        for (
+            let index = type === "circle" ? paramIds.length : pointParams;
+            index < paramIds.length;
+            index++
+        ) {
+            const datum = this.host.createDatumParam(params[index], PARAM_KIND_DIMENSIONLESS);
+            datumParamIds.push(datum);
+            constraintIds.push(
+                this.host.system.add_constraint(
+                    ConstraintKind.ConicRho,
+                    new Uint32Array([paramIds[index], datum]),
                     null,
                     true,
                     0,
