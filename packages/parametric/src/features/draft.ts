@@ -123,6 +123,11 @@ function resolveDraftFaces(
                 feature.faces[matched.value.refIndexes[k]].splitPiece,
             ),
         );
+        // A picked face the input no longer has costs the user that taper, not the whole
+        // draft — the same tolerance the sketch-profile path keeps.
+        if (matched.value.missing.length > 0) {
+            context.tracking.unresolved = { key: "faces", refIndexes: matched.value.missing };
+        }
     }
     return Result.ok(matched.value.indexes.map((index) => faces[index]));
 }

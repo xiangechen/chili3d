@@ -3,7 +3,7 @@
 
 import { BoundingBox, type IEdge, type IFace, type ShapeType, ShapeTypes, XYZ } from "@chili3d/core";
 import { registerProfileEntities } from "../src/features/profileEntities";
-import { matchProfileIndexes } from "../src/features/profileMatcher";
+import { matchProfileIndexes, matchProfilesTolerant } from "../src/features/profileMatcher";
 import { captureProfileRef, type ProfileRef } from "../src/features/profileRef";
 
 function lineEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
@@ -439,6 +439,51 @@ describe("source-face normal gate (press-pull refs)", () => {
             [ref],
         );
         expect(tilted).toMatchObject({ isOk: true, value: [0] });
+    });
+});
+
+describe("matchProfilesTolerant (a pick that went)", () => {
+    /**
+     * A circle-face ref `offset` away in x. Captured with a zero region fingerprint (the
+     * `faceOf` default), so it scores off its single edge alone: finite against a one-edge
+     * circle face, Infinity against a face whose edge count differs.
+     */
+    function circleRef(offset: number): ProfileRef {
+        return captureProfileRef(faceOf([circleEdge(offset, 0, 5)]));
+    }
+
+    test("a pick that matches no face at all is reported missing, not fatal", () => {
+        const squareA = faceOf([...SQUARE_A]);
+        const refs = [captureProfileRef(squareA), circleRef(0)];
+
+        // The circle ref's curve type is absent from both faces, so nothing scores finite.
+        const result = matchProfilesTolerant([squareA, faceOf([...SQUARE_B])], refs);
+
+        expect(result.isOk).toBe(true);
+        expect(result.unchecked()).toEqual({ indexes: [0], refIndexes: [0], missing: [1] });
+    });
+
+    test("the probe gives the lone leftover face to the exact match, not to the rough one", () => {
+        // The square pick locks its own face by entity set; the circle face is then the only
+        // free one left for the two circle refs. The rough ref scores finite against it and
+        // the exact ref scores zero, and a lone candidate carries no comparative evidence —
+        // handing the face to the rough ref would both mis-assign it and report the exact
+        // ref (which really does match) as the one that went.
+        const faces = [
+            faceOf([...SQUARE_A], [], boxOf(0, 0, 1, 1), 1),
+            faceOf([circleEdge(0, 0, 5)], [], boxOf(-5, -5, 5, 5), 25),
+            faceOf([...SQUARE_B], [], boxOf(5, 5, 7, 7), 4),
+        ];
+        const locked = { ...captureProfileRef(faces[0]), entities: [1, 2, 3, 4] };
+
+        const result = matchProfilesTolerant(
+            faces,
+            [locked, circleRef(0.4), circleRef(0)],
+            [[1, 2, 3, 4], undefined, undefined],
+        );
+
+        expect(result.isOk).toBe(true);
+        expect(result.unchecked()).toEqual({ indexes: [0, 1], refIndexes: [0, 2], missing: [1] });
     });
 });
 

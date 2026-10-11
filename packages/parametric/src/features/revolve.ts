@@ -108,17 +108,24 @@ function resolveRevolve(feature: RevolveFeatureData, context: FeatureContext): R
     const angle = resolveUnitSpec(feature.angle, context.scope, ANGLE_UNITS);
     if (!angle.isOk) return Result.err(angle.error);
     const { axis, anchor } = resolveAxis(feature, context);
-    const profiles = resolveProfiles(sketch, feature.profiles);
-    if (!profiles.isOk) return Result.err(profiles.error);
+    const resolved = resolveProfiles(sketch, feature.profiles);
+    if (!resolved.isOk) return Result.err(resolved.error);
+    const { profiles, missing, refIndexes } = resolved.value;
     const tracking = context.tracking;
     if (tracking !== undefined) {
         // Re-anchored refs for the body's write-back (see ShapeTracking).
         if (anchor !== undefined) tracking.resolvedEdges = [anchor];
         if (feature.profiles !== undefined && feature.profiles.length > 0) {
-            tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
+            // Positional, so a pick that is gone keeps its stored ref (see the extrude path).
+            const anchors = [...feature.profiles];
+            for (const [k, profile] of profiles.entries()) {
+                anchors[refIndexes[k]] = captureProfileRef(profile.face);
+            }
+            tracking.resolvedProfiles = anchors;
+            if (missing.length > 0) tracking.unresolved = { key: "profiles", refIndexes: missing };
         }
     }
-    return Result.ok({ sketch, axis, angle: angle.value, profiles: profiles.value });
+    return Result.ok({ sketch, axis, angle: angle.value, profiles });
 }
 
 /**

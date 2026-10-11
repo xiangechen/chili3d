@@ -60,6 +60,11 @@ export function extrudeFromSourceFaces(
                     true,
                 ),
             );
+            // A pick the source no longer has costs the user that face, not the whole
+            // press-pull — the same tolerance the sketch-profile path keeps.
+            if (matched.value.missing.length > 0) {
+                context.tracking.unresolved = { key: "profiles", refIndexes: matched.value.missing };
+            }
         }
         const faces = matched.value.indexes.map((index) => worldFaces[index]);
         const ids = matched.value.indexes.map((index) => faceIds?.[index]);

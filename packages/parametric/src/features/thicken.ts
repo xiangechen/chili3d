@@ -134,6 +134,11 @@ function resolveThickenFaces(
                 feature.source.profiles[matched.value.refIndexes[k]].splitPiece,
             ),
         );
+        // A source face the body no longer has costs the user that pick, not the whole
+        // thicken — the same tolerance the sketch-profile path keeps.
+        if (matched.value.missing.length > 0) {
+            context.tracking.unresolved = { key: "profiles", refIndexes: matched.value.missing };
+        }
     }
     const faces = matched.value.indexes.map((index) => worldFaces[index]);
     const ids = matched.value.indexes.map((index) => faceIds?.[index]);

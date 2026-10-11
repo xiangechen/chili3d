@@ -3,6 +3,7 @@
 
 import type { IShape, Matrix4, Result } from "@chili3d/core";
 import type { FeatureTimelineState } from "./bodyTracking";
+import type { UnresolvedInputs } from "./feature";
 import { idIsShared, indexesOfOverlappingId } from "./trackedId";
 
 /**
@@ -42,6 +43,12 @@ export interface FeatureCacheEntry {
      */
     readonly faceIds?: (string | undefined)[];
     readonly edgeIds?: (string | undefined)[];
+    /**
+     * Picks the feature could not re-resolve when this entry was computed. Carried here
+     * because a cache hit rebuilds only the shape and its ids — a warning that lived on
+     * the step alone would disappear on the second rebuild of an unchanged chain.
+     */
+    readonly unresolved?: UnresolvedInputs;
 }
 
 /** Which of the two tracked id arrays a query addresses. */

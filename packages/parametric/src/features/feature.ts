@@ -400,6 +400,19 @@ export interface FeatureContext {
     readonly tracking?: ShapeTracking;
 }
 
+/**
+ * Inputs a feature could not re-resolve this run. A feature with several picks (an
+ * extrude's regions, a boolean's tools) builds from the ones it still has and reports
+ * the rest here instead of failing whole — the row then says which picks are gone and
+ * keeps the slot open for a re-pick, rather than dropping the user's choice.
+ */
+export interface UnresolvedInputs {
+    /** The feature's field the lost inputs belong to (e.g. `profiles`, `toolIds`). */
+    readonly key: string;
+    /** Positions within that field's list, ascending. */
+    readonly refIndexes: readonly number[];
+}
+
 export interface ShapeTracking {
     readonly inputFaceIds: readonly (string | undefined)[];
     outputFaceIds: (string | undefined)[];
@@ -418,6 +431,12 @@ export interface ShapeTracking {
      * them back into the feature, same re-anchoring contract as `resolvedProfiles`.
      */
     resolvedEdges?: EdgeRef[];
+    /**
+     * Picked inputs that no longer resolve this run (see `UnresolvedInputs`). Set by a
+     * handler that built from the surviving picks; left undefined when everything
+     * resolved, which is the normal case and the only one with no cost.
+     */
+    unresolved?: UnresolvedInputs;
 }
 
 /**

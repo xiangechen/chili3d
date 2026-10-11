@@ -10,6 +10,7 @@ import {
     isCancelableCommand,
     Logger,
     PubSub,
+    pendingWork,
 } from "@chili3d/core";
 
 export class CommandService implements IService {
@@ -46,11 +47,23 @@ export class CommandService implements IService {
     };
 
     private readonly executeCommand = async (commandName: CommandKeys) => {
+        // A command is the app's unit of "work in flight": a scripted run waits on this
+        // rather than on a timer (see `pendingWork`). The release covers the whole call,
+        // including the cancellation path below.
+        const released = pendingWork.begin();
+        try {
+            await this.runCommand(commandName);
+        } finally {
+            released();
+        }
+    };
+
+    private async runCommand(commandName: CommandKeys) {
         const command = commandName === "special.last" ? this.app.lastCommand : commandName;
         if (!command || !(await this.canExecute(command))) return;
         Logger.info(`executing command ${command}`);
         await this.executeAsync(command);
-    };
+    }
 
     private async executeAsync(commandName: CommandKeys) {
         const commandCtor = CommandStore.getCommand(commandName)!;

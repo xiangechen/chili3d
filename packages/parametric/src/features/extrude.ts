@@ -192,12 +192,22 @@ function resolveSketchProfiles(
         feature.sketchId === undefined ? undefined : findSketch(context.document, feature.sketchId);
     if (sketch === undefined) return Result.err("Sketch not found");
 
-    const profiles = resolveProfiles(sketch, feature.profiles);
-    if (!profiles.isOk) return Result.err(profiles.error);
+    const resolved = resolveProfiles(sketch, feature.profiles);
+    if (!resolved.isOk) return Result.err(resolved.error);
+    const { profiles, missing, refIndexes } = resolved.value;
     if (feature.profiles !== undefined && feature.profiles.length > 0 && context.tracking !== undefined) {
-        context.tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
+        // Written back POSITIONALLY: a pick that is gone keeps its stored ref, so the
+        // next edit still has it to re-match and the user still has it to re-pick.
+        const anchors = [...feature.profiles];
+        for (const [k, profile] of profiles.entries()) {
+            anchors[refIndexes[k]] = captureProfileRef(profile.face);
+        }
+        context.tracking.resolvedProfiles = anchors;
+        if (missing.length > 0) {
+            context.tracking.unresolved = { key: "profiles", refIndexes: missing };
+        }
     }
-    return Result.ok({ sketch, profiles: profiles.value });
+    return Result.ok({ sketch, profiles });
 }
 
 function extrudeTracked(

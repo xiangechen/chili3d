@@ -9,6 +9,7 @@ import { createMockApplication, createMockVisualWithDocument, TestDocument } fro
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
 import { captureEdgeRef, type EdgeRef } from "../src/features/edgeRef";
 import type { SweepFeatureData } from "../src/features/feature";
+import { captureProfileRef } from "../src/features/profileRef";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { type SketchData, SketchNode } from "../src/sketch";
 import "./sketch/setup";
@@ -274,5 +275,62 @@ describe("sweep ids from the tracked kernel (real kernel)", () => {
         profileSketch.setDataEmitShapeChanged(profileRect(true));
         expect(body.shape.isOk).toBe(true);
         expect(faceSnapshot(body)).toEqual(before);
+    });
+});
+
+/**
+ * A sweep can take its profile from another body's face instead of a sketch (the `source`
+ * contract), and those picks are stored as fingerprints to be re-found on a rebuilt shape.
+ * When several stored refs name the SAME face — the pieces a split left behind, meeting the
+ * one face they merged back into — the face is swept once and the list heals back to a single
+ * ref. That collapse is the point, not a lost pick: the refs described one face all along, so
+ * it must not be reported as a missing input (see `pressPullFaceId.kernel.test.ts` for the
+ * split-then-re-merge edit that produces it for a press-pull).
+ */
+describe("a sweep's source picks collapsing onto one face (real kernel)", () => {
+    test("a re-merged face heals the list to one ref, with nothing reported missing", () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        doc.visual = createMockVisualWithDocument(doc) as unknown as typeof doc.visual;
+        const sketch = new SketchNode({ document: doc, id: "psk", plane: Plane.XY, data: pathRect(20) });
+        doc.modelManager.addNode(sketch);
+        // The source is the host itself — the sweep runs on the body whose own top face it
+        // presses off, which is the shape a press-pull-onto-yourself takes.
+        const host = new ParametricBodyNode({
+            document: doc,
+            id: "b1",
+            features: [{ id: "e1", type: "extrude", sketchId: sketch.id, depth: 20 }],
+        });
+        doc.modelManager.addNode(host);
+        expect(host.shape.isOk).toBe(true);
+
+        const faces = facesOf(host);
+        const top = faces.findIndex((face) => face.normal(0, 0)[1].z > 1 - 1e-6);
+        expect(top).toBeGreaterThanOrEqual(0);
+        const topId = host.faceIdAt(top);
+        const picked = captureProfileRef(faces[top], topId, host.faceIdIsShared(topId), true);
+
+        host.setFeaturesEmitShapeChanged([
+            ...host.features,
+            {
+                id: "f1",
+                type: "sweep",
+                path: {
+                    nodeId: host.id,
+                    edges: [
+                        pathRef(host, [-10, -10, 20], [10, -10, 20]),
+                        pathRef(host, [10, -10, 20], [10, 10, 20]),
+                    ],
+                },
+                source: { nodeId: host.id, profiles: [{ ...picked }, { ...picked }] },
+            } satisfies SweepFeatureData,
+        ]);
+
+        const item = host.featureItems()[1];
+        expect(item.error).toBeUndefined();
+        expect(item.warning).toBeUndefined();
+        expect(item.missingInputs).toBeUndefined();
+        // Healed: the two refs described one face, so one ref comes back out.
+        const stored = host.features[1] as SweepFeatureData;
+        expect(stored.source?.profiles).toHaveLength(1);
     });
 });

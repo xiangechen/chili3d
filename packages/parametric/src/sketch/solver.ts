@@ -148,6 +148,54 @@ export interface SketchDiagnostics {
     dofs: number;
     conflicting: number[];
     redundant: number[];
+    /**
+     * The subset of `conflicting` whose conflict garlic sources to a size GUARD
+     * (`kind: "guard"`) rather than to linearly dependent rows: a dimension has driven a
+     * segment or a radius down to nothing, so the geometry collapsed. A DIFFERENT repair
+     * from every other conflict — deleting constraints never helps (the guard's other
+     * declarers stay, and the degenerate configuration is below the threshold either way;
+     * garlic's trial deletion does not even classify them), so the panel offers "change
+     * the driving dimension or relax the constraint" instead of "delete one of these".
+     *
+     * The flagged id is the constraint declaring the collapsed size, not the dimension
+     * that forced it: garlic blames the declarer (that is what it can map the guard back
+     * to), while the value to change lives on another constraint. Naming them still tells
+     * the user WHERE the geometry collapsed.
+     */
+    guardConflicts: number[];
+}
+
+/**
+ * How many trial deletions `recoverySuggestions` runs before giving up. Each trial is
+ * a full diagnostic pass, so the cost is linear in this number — and a sketch whose
+ * solver state is reported as broken is usually a handful of constraints deep in the
+ * fault, not hundreds. Past the cap the answer is reported as `truncated` rather than
+ * silently incomplete.
+ */
+export const RECOVERY_SUGGESTION_BUDGET = 64;
+
+/**
+ * The result of trial deletion: which constraints can be deleted to make the sketch
+ * consistent again. Each list holds ids where removing **any one** clears the whole
+ * conflict (or redundancy) — they are alternatives, not a set to delete together.
+ *
+ * The two `entangled` flags record the case the group lists cannot express: the sketch
+ * is flagged but no single deletion fixes it (several constraints conflict at once and
+ * the dependency re-routes into the survivors), so the user has to remove a combination.
+ *
+ * A guard conflict is NOT reported here, not even as entangled: a collapsed size cannot
+ * be repaired by deleting anything, so the answer is a different kind of edit entirely
+ * (`SketchDiagnostics.guardConflicts`, rendered by the panel's own line).
+ *
+ * `truncated` means the trial budget ran out before every candidate was tried; the
+ * lists may then be shorter than the truth and the `entangled` flags are withheld.
+ */
+export interface RecoverySuggestions {
+    conflicts: number[];
+    redundancies: number[];
+    conflictsEntangled: boolean;
+    redundanciesEntangled: boolean;
+    truncated: boolean;
 }
 
 /** One datum as it goes into garlic: what to persist alongside the value it resolved to. */
@@ -345,6 +393,18 @@ export class SketchSolver implements ExternalEntityHost {
     /** The dragged parameters as the gesture found them, for a drag that gets cancelled. */
     private draggedOrigin: { readonly ids: Uint32Array; readonly values: Float64Array } | undefined =
         undefined;
+    /**
+     * The whole system's parameter values when the gesture began. `dragTo` writes this
+     * back before applying each frame's target, so every frame solves from the gesture's
+     * START rather than from the previous frame's answer.
+     *
+     * Why it matters: the solve minimizes how far the geometry moves, so a solve that
+     * starts where the last one ended carries that choice forward — the same cursor
+     * position reached along a different path would leave the free geometry somewhere
+     * else. Restoring first makes the dragged result a function of where the pointer is,
+     * not of how it got there.
+     */
+    private draggedBaseline: Float64Array | undefined = undefined;
     /**
      * The document's parameters, re-read by every expression datum. Held as a snapshot
      * rather than a live reference: `document.variables.evaluate()` re-resolves the
@@ -1825,12 +1885,19 @@ export class SketchSolver implements ExternalEntityHost {
 
     /**
      * The entity ids every one of whose parameters is pinned by the constraints. This is
-     * garlic's row-space test (`free_param_ids`), not a residual or numeric one: it is
-     * exact, needs no solve, and stays correct in singular configurations where probing
-     * the solver's behaviour would not. Fixed entities (the datum, external refs) are
-     * pinned by construction and so come back in the set, and so do the array instances:
-     * they carry no constraints at all, but the record determines every one of their
-     * parameters, and a derived entity that read as free would be a colouring that lies.
+     * garlic's row-space test (`free_param_ids`), not a residual or numeric one: it asks
+     * which columns the constraint rows span, so it needs no solve — and a solve is
+     * exactly what could not answer it here, since the one configuration in question is
+     * the exactly-solved one, where a fillet's tangency rows are singular and the rank of
+     * the current point is itself the thing in doubt. garlic settles that case on its own
+     * (a rank-deficient block is re-ranked at a perturbed copy of the parameters before
+     * the per-column answer is taken), so the set stays right where a probe of the
+     * solver's behaviour would not.
+     *
+     * Fixed entities (the datum, external refs) are pinned by construction and so come
+     * back in the set, and so do the array instances: they carry no constraints at all,
+     * but the record determines every one of their parameters, and a derived entity that
+     * read as free would be a colouring that lies.
      *
      * This is what the sketch editor colours by — fully constrained reads in the default
      * edge colour, anything else in `VisualConfig.sketchFreeColor`.
@@ -1847,16 +1914,20 @@ export class SketchSolver implements ExternalEntityHost {
     /**
      * Constraint diagnostics — garlic semantics require a solve first (`solve`
      * then `diagnose`), so callers run this after a fine solve. The garlic
-     * report keys constraints by garlic id; they are mapped back to sketch
-     * constraint ids here, which silently drops the structural pins (they have
-     * no `ConstraintRecord`).
+     * report keys constraints by garlic id; `recordsByGarlicId` maps them back to
+     * sketch constraint ids and drops the ones the user cannot act on.
      *
      * Both lists cover the WHOLE group, not only the constraint garlic happened
      * to flag: a conflict group names just the failing constraint, a redundant
-     * group just the one judged excess — but any member of either group is an
-     * equally valid fix (drop either side of a contradiction, or any one of a
-     * duplicating set), so the counterparts/sources are merged in and the user
-     * sees the full choice set rather than the solver's arbitrary pick.
+     * group just the one judged excess. Which members are an equally valid fix is
+     * a DIFFERENT question — the group is a rank/coefficient heuristic ("which
+     * rows are related"), not a deletion set. `recoverySuggestions` answers that
+     * one by trial deletion, and the two sets differ on roughly half of the
+     * conflicting cases in chain-like sketches (measured in garlic's
+     * `tests/diagnose_vs_removal.rs`): the conflict group's intersection can miss
+     * a constraint a single deletion would fix, and the redundant group's union
+     * answers "who derives it" rather than "who can be deleted", so it can flag
+     * seven members with none deletable.
      */
     diagnose(): SketchDiagnostics {
         const report = this.system.diagnose();
@@ -1877,12 +1948,81 @@ export class SketchSolver implements ExternalEntityHost {
                 g.constraint,
                 ...g.sources,
             ]),
+            // The flat `conflicting` list is both kinds' union and cannot tell them apart
+            // (garlic's `overlay_guard_conflicts` says so), so the split has to come off
+            // the groups. `counterparts` is empty on a guard group by construction, but it
+            // reads through the same members function as `conflicting` above, so the two
+            // stay subsets of each other by shape rather than by convention.
+            guardConflicts: this.groupSketchIds(
+                report.conflictGroups.filter((g) => g.kind === "guard"),
+                byGarlicId,
+                (g) => [g.constraint, ...g.counterparts],
+            ),
         };
     }
 
+    /**
+     * "Delete which one and the sketch is consistent again" — answered by trial
+     * deletion (garlic's `diagnose_by_removal`, SolveSpace's fallback), not by the
+     * rank heuristic `diagnose` uses. Every returned id is a constraint whose
+     * single removal clears the whole list, so any ONE of them is a complete fix.
+     *
+     * This is an on-demand query: it costs about one `diagnose` per candidate, so
+     * it belongs behind a user gesture, never on the per-solve path. `budget` caps
+     * the number of trials; a run that hits the cap reports `truncated` and the
+     * lists are then incomplete — which is why the two `entangled` flags are
+     * withheld in that case (an empty list would otherwise read as "nothing helps"
+     * when it only means "nothing was tried").
+     *
+     * The entangled case is the one the group lists cannot express: when several
+     * constraints conflict at once the dependency re-routes into the survivors as
+     * each is dropped, so no single deletion clears it and every trial reports
+     * `NoEffect` — the honest answer is "remove a combination".
+     *
+     * A GUARD conflict is deliberately NOT that answer, though it also comes back with
+     * no `ConflictCulprit`: garlic only classifies row-sourced conflicts (`ConflictKind`,
+     * and `classify_removal`'s gating), so a collapsed size would otherwise read as the
+     * entangled case and tell the user to remove a combination that does not exist. The
+     * test is therefore "a ROW-sourced conflict is in the baseline", read off the groups
+     * rather than off the flat list — which is both kinds' union and cannot tell them
+     * apart (see `diagnose`). The repair for those is on `SketchDiagnostics.guardConflicts`.
+     */
+    recoverySuggestions(budget = RECOVERY_SUGGESTION_BUDGET): RecoverySuggestions {
+        const report = this.system.diagnose_by_removal(budget);
+        const byGarlicId = this.recordsByGarlicId();
+        const conflicts: number[] = [];
+        const redundancies: number[] = [];
+        for (const trial of report.trials) {
+            const sketchId = byGarlicId.get(trial.constraint);
+            if (sketchId === undefined) continue;
+            if (trial.effect === "ConflictCulprit") conflicts.push(sketchId);
+            else if (trial.effect === "RedundancySource") redundancies.push(sketchId);
+        }
+        const rowConflict = report.baseline.conflictGroups.some((g) => g.kind === "rows");
+        const ascending = (a: number, b: number) => a - b;
+        return {
+            conflicts: conflicts.sort(ascending),
+            redundancies: redundancies.sort(ascending),
+            conflictsEntangled: !report.truncated && rowConflict && conflicts.length === 0,
+            redundanciesEntangled:
+                !report.truncated && report.baseline.redundant.length > 0 && redundancies.length === 0,
+            truncated: report.truncated,
+        };
+    }
+
+    /**
+     * The garlic id → sketch id map both diagnostics read the report through. Two kinds of
+     * row are dropped, and both have to be: the datum and external pins never entered
+     * `this.constraints` at all (they are created straight on the system, see `pinPoints`),
+     * and the STRUCTURAL constraints do have a record but no row in the constraint list and
+     * no way to delete them (`isStructuralConstraint` — the panel filters with it, and
+     * deleting one would break the entity's own geometry). Without the second filter a
+     * trial deletion could hand the user "delete #42" for a row they cannot see.
+     */
     private recordsByGarlicId(): Map<number, number> {
         const byGarlicId = new Map<number, number>();
         for (const record of this.constraints.values()) {
+            if (isStructuralConstraint(record)) continue;
             byGarlicId.set(record.garlicId, record.id);
         }
         return byGarlicId;
@@ -2061,12 +2201,22 @@ export class SketchSolver implements ExternalEntityHost {
         // back (see `cancelDrag`). Taken before `mark_dragged`, which pins them.
         const ids = new Uint32Array(this.draggedParamIds);
         this.draggedOrigin = { ids, values: this.system.get_params(ids) };
+        this.draggedBaseline = this.system.params_snapshot();
         this.system.mark_dragged(new Uint32Array(this.draggedParamIds));
     }
 
     dragTo(ref: SketchPointRef, u: number, v: number): SolveOutcome {
         const group = this.coincidentGroup(ref).filter((r) => !this.isFixed(r.entityId));
         const groupKeys = new Set(group.map(pointRefKey));
+        // Back to the gesture's start before this frame reads or writes anything (see
+        // `draggedBaseline`): the projection below reads the incidence geometry off the
+        // cached entities, so restoring afterwards would compute this frame's target
+        // against the line the LAST frame moved — the path dependence the baseline exists
+        // to remove. The restore also marks whatever the last frame moved as needing
+        // re-solving, so the coarse solve still does the work it has to.
+        if (this.draggedBaseline !== undefined) {
+            this.system.restore_params(this.draggedBaseline);
+        }
         // A point pinned onto a line slides along it instead of following the raw
         // cursor: garlic's coarse solve does not converge from far off-manifold
         // positions, which would leave the point drifting off its constraint and
@@ -2082,6 +2232,7 @@ export class SketchSolver implements ExternalEntityHost {
 
     endDrag(): SolveOutcome {
         this.draggedOrigin = undefined;
+        this.draggedBaseline = undefined;
         if (this.draggedParamIds.length > 0) {
             this.system.clear_dragged(new Uint32Array(this.draggedParamIds));
             this.draggedParamIds = [];
@@ -2102,6 +2253,7 @@ export class SketchSolver implements ExternalEntityHost {
     cancelDrag(): SolveOutcome {
         const origin = this.draggedOrigin;
         this.draggedOrigin = undefined;
+        this.draggedBaseline = undefined;
         if (origin !== undefined) {
             for (let index = 0; index < origin.ids.length; index++) {
                 this.system.set_param(origin.ids[index], origin.values[index]);
@@ -2233,6 +2385,7 @@ export class SketchSolver implements ExternalEntityHost {
         this.arrayIdSeq = 1;
         this.draggedParamIds = [];
         this.draggedOrigin = undefined;
+        this.draggedBaseline = undefined;
         this.seedDatum();
         this.loadData(data);
     }

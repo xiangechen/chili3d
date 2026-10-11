@@ -119,6 +119,19 @@
     margin-top: 6px;
 }
 
+/* A pick the feature could not re-resolve: the slot it used to fill stays on the row. */
+.missingInput {
+    font-size: 12px;
+    color: var(--warning-color);
+    font-style: italic;
+}
+
+/* And on a feature that can re-pick, the line is that action — so it reads as a link. */
+.missingInputAction {
+    cursor: pointer;
+    text-decoration: underline;
+}
+
 /* A referenced node's name is a link into that node: click selects, double-click edits. */
 .reference {
     flex: 1 1 auto;

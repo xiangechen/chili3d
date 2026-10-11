@@ -1,0 +1,15 @@
+{
+    "//": "What 'settled' means, checked from inside: dispatching a command marks work in flight, and the app reports itself idle only once that command has finished. A runner that slept a fixed time would pass this whatever the app did — which is the failure this harness exists to avoid. `edit.undo` is used because it needs no dialog; a command that opens one never settles until the dialog is answered, which is the harness telling the truth about a modal.",
+    "start": "document",
+    "steps": [
+        {
+            "kind": "eval",
+            "expression": "(() => { const pending = globalThis.__chiliTest.pendingWork; if (!pending.isIdle) throw new Error('the app was busy before anything was asked of it'); globalThis.__scenarioSawBusy = false; globalThis.__chiliTest.dispatch('edit.undo'); if (!pending.isIdle) globalThis.__scenarioSawBusy = true; return true; })()"
+        },
+        {
+            "kind": "eval",
+            "expression": "(() => { if (!globalThis.__scenarioSawBusy) throw new Error('the command never marked itself in flight — the settle signal would say nothing'); if (!globalThis.__chiliTest.pendingWork.isIdle) throw new Error('still busy after the runner waited for settle'); return true; })()"
+        },
+        { "kind": "screenshot", "name": "01-settled" }
+    ]
+}

@@ -18,6 +18,29 @@ export interface NurbsSpec {
 }
 
 /**
+ * `diagnose_by_removal` 的返回（camelCase 字段）。
+ *
+ * `trials` 是\"删掉哪一条能修复\"的定义级答案，与 `diagnose()` 的组**互补而非
+ * 等价**：组按交集/并集启发式给\"相关行\"，会漏报单删可解项、也会在纠缠时
+ * 过报（实测见 `tests/diagnose_vs_removal.rs` 模块文档）。`truncated` = 预算
+ * 耗尽的部分结果，是数据不是错误。
+ */
+export interface RemovalReportInfo {
+    /**
+     * 试删前的基线诊断（分类的参照系）
+     */
+    baseline: DiagReportInfo;
+    /**
+     * 逐约束试删结果（按约束 id 升序，确定性顺序）
+     */
+    trials: RemovalTrialInfo[];
+    /**
+     * 预算耗尽、候选集中仍有未试删的约束
+     */
+    truncated: boolean;
+}
+
+/**
  * `diagnose` 的返回（ConstraintId 展开为 u32；camelCase 字段）
  */
 export interface DiagReportInfo {
@@ -115,6 +138,12 @@ export interface RedundantGroupInfo {
 }
 
 /**
+ * 冲突来源（与内核 `diagnose::ConflictKind` 同构）：消费方按此换渲染口径——
+ * `Rows` 给\"删谁\"的单删候选，`Guard` 给\"改驱动尺寸/放宽约束\
+ */
+export type ConflictKindInfo = "rows" | "guard";
+
+/**
  * 冲突组（启发式候选，非删除保证，见 diagnose 模块文档）
  */
 export interface ConflictGroupInfo {
@@ -123,7 +152,11 @@ export interface ConflictGroupInfo {
      */
     constraint: number;
     /**
-     * 冲突另一方候选（多行取交集）
+     * 冲突来源（`Rows` 才可经试删确认元凶）
+     */
+    kind: ConflictKindInfo;
+    /**
+     * 冲突另一方候选（多行取交集；`Guard` 类恒空）
      */
     counterparts: number[];
     /**
@@ -160,6 +193,32 @@ export interface SubSystemDiagInfo {
      * 子系统自由度
      */
     dofs: number;
+}
+
+/**
+ * 单条约束的试删记录（camelCase 字段）
+ */
+export interface RemovalTrialInfo {
+    /**
+     * 被试删的约束 id
+     */
+    constraint: number;
+    /**
+     * 删除后的角色分类
+     */
+    effect: RemovalEffectInfo;
+    /**
+     * 删除后的全系统自由度
+     */
+    dofsAfter: number;
+    /**
+     * 删除后的冲突清单（与基线逐项比对用）
+     */
+    conflictingAfter: number[];
+    /**
+     * 删除后的冗余清单
+     */
+    redundantAfter: number[];
 }
 
 /**
@@ -236,16 +295,39 @@ export interface Sketch {
     constraints: ConRec[];
 }
 
+/**
+ * 试删一条约束后的角色分类（serde 序列化为字符串字面量，同 `SolveResultInfo`）
+ */
+export type RemovalEffectInfo = "ConflictCulprit" | "RedundancySource" | "NoEffect";
+
 
 /**
  * 内建约束枚举（docs/05「ConstraintKind 枚举与 params 布局」；params 布局严格等于各约束 `params()` 的顺序，
  * 带 datum 的约束 datum ParamId 占末位）。新增内建约束须同步加入本枚举、`layout` 与 `from_u32`。
  *
- * C ABI 判别值由 `from_u32` 固定（当前 0..=54），与枚举声明顺序解耦——
- * 调整顺序不会破坏已发布的 FFI 数值契约。曲线族在 2026-10 由控制点 B 样条
- * 改为 Bézier + NURBS：33/34 与 39/40/43/45/46 这 7 个原样条槽位**改义**为
- * 参数形状相同的 Bézier 对应项（0.1.0 尚未发布），NURBS 相关 kind 追加在
- * 47..=54，判别值无空洞。
+ * C ABI 判别值 = 本枚举的**隐式判别值**（声明序）= `from_u32` 表 = cbindgen
+ * 头文件里 C 侧看到的数值（当前 0..=54，无空洞）。数值契约一经发布不得改动——
+ * 新增约束接在末尾取新值。曲线族在 2026-10 由控制点 B 样条改为 Bézier +
+ * NURBS：7 个原样条槽位**改义**为参数形状相同的 Bézier 对应项（0.1.0 未发布）。
+ *
+ * 上面那句"与声明顺序解耦"原先只是**意图**：判别值当时全按声明序隐式取值，
+ * 曲线族变体一插错位置就与 `from_u32` 表（以及 cbindgen 头文件）错位 14 项
+ * （35..=48，仅 C/FFI 路径取错约束种类）。2026-10 六轮起判别值**一律显式
+ * 给出**（= `from_u32` 表 = cbindgen 头文件里 C 侧看到的数值）⟹ 解耦成为
+ * 事实：声明序只是可读性安排，插入新变体不会静默挪动既有值——这是 0.1
+ * 发布前最后的定型窗口。两张表由单测 `from_u32_matches_discriminants` 逐项
+ * 互锁（并断言判别值从 0 起密集连续）。
+ *
+ * 声明序 = **几何族优先**的分类学（2026-10 六轮重排，0.1 未发布故不背兼容包袱）：
+ * 点与通用 → 点-线 → 线-线 → 圆 → 弧 → 椭圆 → 圆锥 → Bézier → NURBS →
+ * 曲线-曲线相切（18 组组合一段）；族内按**关系**排（尺寸/相等 → 点在…上 →
+ * 线相切 → 族内组合）。各段边界见枚举体内的 `// ---- 段名 ----` 分隔注释。
+ * 判别值**与声明序一致**（递增、从 0 起密集连续）：C 头文件、`from_u32` 表、
+ * 源码三者同序，数值即可目视核对。
+ * 重排动因是旧序的"添加史"性质：0..27 是 MVP 基础批、28..34 是椭圆/圆锥/
+ * Bézier 批、35..46 与 49..54 是两批曲线相切组合、47/48 是 NURBS 的点/线两项
+ * （编号均为重排前映射，见 docs/04 六轮条目）——同族被批次切开（`PointOnEllipse`
+ * 与 `PointOnNurbs` 相距 19），组合段也被劈成两截。
  */
 export enum ConstraintKind {
     /**
@@ -257,110 +339,110 @@ export enum ConstraintKind {
      */
     P2PDistance = 1,
     /**
-     * a, b
-     */
-    Equal = 2,
-    /**
-     * p.x, p.y, l1.x, l1.y, l2.x, l2.y
-     */
-    PointOnLine = 3,
-    /**
-     * p1.x, p1.y, p2.x, p2.y（残差只用 y，x 两列是 Jacobian 结构零，但 params 仍需传齐 4 个）
-     */
-    Horizontal = 4,
-    /**
-     * 同 Horizontal
-     */
-    Vertical = 5,
-    /**
-     * l1.p1, l1.p2, l2.p1, l2.p2 各 (x, y)
-     */
-    Parallel = 6,
-    /**
-     * 同 Parallel
-     */
-    Perpendicular = 7,
-    /**
-     * p.x, p.y, l1.x, l1.y, l2.x, l2.y, datum（末位）
-     */
-    P2LDistance = 8,
-    /**
-     * l1.p1, l1.p2, l2.p1, l2.p2 各 (x, y), datum（弧度，末位）
-     */
-    Angle = 9,
-    /**
-     * rad, datum（末位）
-     */
-    Radius = 10,
-    /**
-     * l1 与 l2 的端点各 (x, y)
-     */
-    EqualLength = 11,
-    /**
-     * r1, r2
-     */
-    EqualRadius = 12,
-    /**
-     * p.x, p.y, c.x, c.y, rad
-     */
-    PointOnCircle = 13,
-    /**
-     * p.x, p.y, l1.x, l1.y, l2.x, l2.y
-     */
-    Midpoint = 14,
-    /**
-     * p1.x, p1.y, p2.x, p2.y, l1.x, l1.y, l2.x, l2.y
-     */
-    Symmetric = 15,
-    /**
-     * l1.x, l1.y, l2.x, l2.y, c.x, c.y, rad（branch 语义见 wasm/FFI 的 add_constraint）
-     */
-    TangentLineCircle = 16,
-    /**
-     * c1.x, c1.y, r1, c2.x, c2.y, r2（branch 语义见 wasm/FFI 的 add_constraint）
-     */
-    TangentCircleCircle = 17,
-    /**
      * p1.x, p1.y, p2.x, p2.y, datum（有向水平距离，末位）
      */
-    HorizontalDistance = 18,
+    HorizontalDistance = 2,
     /**
      * 同 HorizontalDistance（有向竖直距离）
      */
-    VerticalDistance = 19,
+    VerticalDistance = 3,
     /**
      * p1.x, p1.y, p2.x, p2.y（同高度）
      */
-    HorizontalAlign = 20,
+    HorizontalAlign = 4,
     /**
      * p1.x, p1.y, p2.x, p2.y（同横坐标）
      */
-    VerticalAlign = 21,
+    VerticalAlign = 5,
+    /**
+     * a, b
+     */
+    Equal = 6,
     /**
      * p.x, p.y, X0, Y0（2 个 datum ParamId 占末两位，无 Some(v) 语法糖）
      */
-    Fix = 22,
+    Fix = 7,
     /**
-     * p.x, p.y, c.x, c.y, s.x, s.y（s 为弧起点/半径参考点，r = ‖s−c‖）
+     * p.x, p.y, l1.x, l1.y, l2.x, l2.y
      */
-    PointOnArc = 23,
+    PointOnLine = 8,
+    /**
+     * p.x, p.y, l1.x, l1.y, l2.x, l2.y, datum（末位）
+     */
+    P2LDistance = 9,
+    /**
+     * p.x, p.y, l1.x, l1.y, l2.x, l2.y
+     */
+    Midpoint = 10,
+    /**
+     * p1.x, p1.y, p2.x, p2.y, l1.x, l1.y, l2.x, l2.y
+     */
+    Symmetric = 11,
+    /**
+     * p1.x, p1.y, p2.x, p2.y（残差只用 y，x 两列是 Jacobian 结构零，但 params 仍需传齐 4 个）
+     */
+    Horizontal = 12,
+    /**
+     * 同 Horizontal
+     */
+    Vertical = 13,
+    /**
+     * l1.p1, l1.p2, l2.p1, l2.p2 各 (x, y)
+     */
+    Parallel = 14,
+    /**
+     * 同 Parallel
+     */
+    Perpendicular = 15,
+    /**
+     * l1.p1, l1.p2, l2.p1, l2.p2 各 (x, y), datum（弧度，末位）
+     */
+    Angle = 16,
+    /**
+     * l1 与 l2 的端点各 (x, y)
+     */
+    EqualLength = 17,
+    /**
+     * rad, datum（末位）
+     */
+    Radius = 18,
+    /**
+     * r1, r2
+     */
+    EqualRadius = 19,
+    /**
+     * p.x, p.y, c.x, c.y, rad
+     */
+    PointOnCircle = 20,
+    /**
+     * l1.x, l1.y, l2.x, l2.y, c.x, c.y, rad（branch 语义见 wasm/FFI 的 add_constraint）
+     */
+    TangentLineCircle = 21,
+    /**
+     * c1.x, c1.y, r1, c2.x, c2.y, r2（branch 语义见 wasm/FFI 的 add_constraint）
+     */
+    TangentCircleCircle = 22,
     /**
      * c1.x, c1.y, s1.x, s1.y, c2.x, c2.y, s2.x, s2.y
      */
-    EqualArcRadius = 24,
+    EqualArcRadius = 23,
+    /**
+     * p.x, p.y, c.x, c.y, s.x, s.y（s 为弧起点/半径参考点，r = ‖s−c‖）
+     */
+    PointOnArc = 24,
     /**
      * l1.x, l1.y, l2.x, l2.y, c.x, c.y, s.x, s.y（branch 语义同 TangentLineCircle）
      */
     TangentLineArc = 25,
     /**
-     * c1.x, c1.y, s1.x, s1.y, c2.x, c2.y, s2.x, s2.y（branch 语义同 TangentCircleCircle）
-     */
-    TangentArcArc = 26,
-    /**
      * c.x, c.y, rad, a.c.x, a.c.y, a.s.x, a.s.y（branch 语义同 TangentCircleCircle；
      * 内切且弧为外时内核自动置 flip，无需导出层指定）
      */
-    TangentCircleArc = 27,
+    TangentCircleArc = 26,
+    /**
+     * c1.x, c1.y, s1.x, s1.y, c2.x, c2.y, s2.x, s2.y（branch 语义同 TangentCircleCircle）
+     */
+    TangentArcArc = 27,
     /**
      * p.x, p.y, c.x, c.y, m.x, m.y, n.x, n.y（三点式椭圆：中心/长轴点/短轴点）
      */
@@ -405,9 +487,12 @@ export enum ConstraintKind {
     /**
      * 曲线-曲线相切（双接触点参数式，见 `TangentCurveCurve`）：布局
      * [curve1…, t1, curve2…, t2]，t1/t2 为辅助接触点参数（Dimensionless，
-     * 调用方创建并给初值，如两曲线最近点对投影）。以下 18 种组合按族序
+     * 调用方创建并给初值，如两曲线最近点对投影）。全部 18 种组合按族序
      * Circle < Arc < Ellipse < Conic < Bezier < Nurbs 规范化（kind 自描述
      * 两段布局；圆族内部组合已有 tangentcc/tangentca/tangentaa，不走本族）。
+     * 本段**连续无插入**（判别值 37..=54）：族序对表与 kernel 的
+     * `CURVE_TANGENT_COMBOS` 逐下标对齐，由单测 `combo_kinds_parallel_table_pinned`
+     * 交叉钉住。
      * Bézier 段定长（恒 8 参数），NURBS 段变长（3n，随 `nurbs` 结构数据）；
      * 曲线 1 为 NURBS（即 Nurbs-Nurbs）时分界同样由结构数据推出
      * c1.x, c1.y, r1, t1, ec.x, ec.y, em.x, em.y, en.x, en.y, t2
@@ -541,6 +626,18 @@ export class WasmSystem {
      */
     diagnose(): DiagReportInfo;
     /**
+     * 逐约束试删诊断：给"删掉哪一条能修复"的定义级答案（SolveSpace 式兜底，
+     * 见 `diagnose` 模块文档与 `tests/diagnose_vs_removal.rs` 的实测对照）。
+     *
+     * 只在用户主动追问时调用——成本约 O(候选数 × 一次诊断)，不要进每帧路径。
+     * `budget` = 试删次数上限（`None` 不限）；耗尽时 `truncated` 为 true，
+     * 未试删的约束不在 `trials` 里（部分结果是数据不是错误）。
+     *
+     * 语义：删后冲突/冗余清单清空才命中 `ConflictCulprit`/`RedundancySource`；
+     * 多约束纠缠、无单删解时全部退化为 `NoEffect`。
+     */
+    diagnose_by_removal(budget?: number | null): RemovalReportInfo;
+    /**
      * 全系统自由度
      */
     dofs(): number;
@@ -576,6 +673,13 @@ export class WasmSystem {
      */
     constructor();
     /**
+     * 整状态参数快照：一组 Float64Array，交给 [`Self::restore_params`] 还原。
+     *
+     * 拖拽的每帧都从这里重来一次，而不是从上一帧的解继续——那样几何会随指针走过
+     * 的路径漂移，同一个终点位置因路径不同而得到不同的解。
+     */
+    params_snapshot(): Float64Array;
+    /**
      * 删除约束（tombstone，句柄不位移；重复删除报 UnknownConstraint）
      */
     remove_constraint(id: number): void;
@@ -583,6 +687,10 @@ export class WasmSystem {
      * 删除参数（被活跃约束引用时报 ParamInUse，先删约束再删参数）
      */
     remove_param(id: number): void;
+    /**
+     * 还原 [`Self::params_snapshot`] 的快照，并把还原中变化的参数标记为待重解。
+     */
+    restore_params(values: Float64Array): void;
     /**
      * 保存草图（docs/04「序列化与互操作」序列化，与 native `System::export_sketch`
      * 同一份格式定义）。返回 `{ sketch, skipped }` 对象：
@@ -613,14 +721,17 @@ export interface InitOutput {
     readonly wasmsystem_add_params: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmsystem_clear_dragged: (a: number, b: number, c: number) => [number, number];
     readonly wasmsystem_diagnose: (a: number) => [number, number, number];
+    readonly wasmsystem_diagnose_by_removal: (a: number, b: number) => [number, number, number];
     readonly wasmsystem_dofs: (a: number) => number;
     readonly wasmsystem_free_param_ids: (a: number) => [number, number];
     readonly wasmsystem_get_params: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmsystem_load_sketch: (a: any) => [number, number, number];
     readonly wasmsystem_mark_dragged: (a: number, b: number, c: number) => [number, number];
     readonly wasmsystem_new: () => number;
+    readonly wasmsystem_params_snapshot: (a: number) => [number, number];
     readonly wasmsystem_remove_constraint: (a: number, b: number) => [number, number];
     readonly wasmsystem_remove_param: (a: number, b: number) => [number, number];
+    readonly wasmsystem_restore_params: (a: number, b: number, c: number) => [number, number];
     readonly wasmsystem_save_sketch: (a: number) => [number, number, number];
     readonly wasmsystem_set_param: (a: number, b: number, c: number) => [number, number];
     readonly wasmsystem_solve: (a: number, b: number) => [number, number, number];

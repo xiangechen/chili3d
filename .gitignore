@@ -7,3 +7,6 @@ coverage
 .clang-format
 CMakeUserPresets.json
 types
+
+# a scenario run's screenshots (/test/scenarios/<name>/*.png)
+/test/scenarios

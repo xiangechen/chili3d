@@ -974,6 +974,27 @@ describe("matchSourceFaceIndexes (press-pull face claiming)", () => {
         expect(claimed(faces, ["top", "other"], [pieceRef(0, 10, "top")])).toEqual([0]);
     });
 
+    test("a pick the source no longer has is reported missing, and the rest still match", () => {
+        // A press-pull with two picks where the second face is gone: the first still
+        // sweeps and the loss is named, rather than the whole feature failing — the same
+        // contract the sketch-profile and boolean-tool paths keep.
+        const faces = [rectPiece(0, 10), rectPiece(30, 40)];
+        const refs = [pieceRef(0, 10, "top"), pieceRef(0, 10, "gone")];
+
+        const matched = matchSourceFaceIndexes(faces, ["top", "top"], refs);
+
+        expect(matched.isOk).toBe(true);
+        expect(matched.unchecked()).toEqual({ indexes: [0], refIndexes: [0], missing: [1] });
+    });
+
+    test("every pick gone still fails, rather than building from nothing", () => {
+        const faces = [rectPiece(0, 10)];
+        const matched = matchSourceFaceIndexes(faces, ["top"], [pieceRef(0, 10, "gone")]);
+
+        expect(matched.isOk).toBe(false);
+        expect(matched.error).toBe("Face not found after rebuild");
+    });
+
     test("a flagged ref narrows to the one piece matching the fingerprint", () => {
         const faces = [rectPiece(0, 10), rectPiece(30, 40), rectPiece(50, 60)];
         const ref: ProfileRef = { ...pieceRef(0, 10, "top"), splitPiece: true };

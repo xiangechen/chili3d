@@ -127,6 +127,11 @@ function resolveOpenFaces(
                 feature.faces[matched.value.refIndexes[k]].splitPiece,
             ),
         );
+        // A picked face the input no longer has costs the user that opening, not the whole
+        // shell — the same tolerance the sketch-profile path keeps.
+        if (matched.value.missing.length > 0) {
+            context.tracking.unresolved = { key: "faces", refIndexes: matched.value.missing };
+        }
     }
     return Result.ok({
         faces: matched.value.indexes.map((index) => faces[index]),

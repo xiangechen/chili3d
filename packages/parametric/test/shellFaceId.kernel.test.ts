@@ -4,14 +4,15 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type IEdge, type IFace, Plane, ShapeTypes } from "@chili3d/core";
+import { type IEdge, type IFace, Plane, ShapeTypes, XYZ } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
 import { captureEdgeRef } from "../src/features/edgeRef";
 import type { FeatureData, FilletFeatureData, ShellFeatureData } from "../src/features/feature";
 import { captureProfileRef } from "../src/features/profileRef";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
-import type { SketchData } from "../src/sketch/sketchModel";
+import { sketchPlaneOfFace } from "../src/sketch/planeRef";
+import { type SketchData, toUV } from "../src/sketch/sketchModel";
 import { SketchNode } from "../src/sketch/sketchNode";
 
 const WASM_BINARY = readFileSync(
@@ -255,5 +256,111 @@ describe("the kernel's offset channel and the openings", () => {
         // A thicken has no closing faces, so nothing is skipped and the copy is still reported.
         const tracked = shapeFactory.makeThickSolidBySimpleTracked!(top, -2).unchecked()!;
         expect(tracked.offsetFaceMap).toContain(0);
+    });
+});
+
+/**
+ * A picked face can SPLIT and later merge back. The box top and the boss top are one T-shaped
+ * face here: deepening the box pulls its top up, and the face breaks into two non-coplanar
+ * pieces, each of which gets its own ref. Undoing the deep edit brings the pieces back together
+ * as the one face the user picked in the first place — so the ref list has to HEAL to a single
+ * ref, with nothing reported missing. The merged face's id is a compound of both ancestors', so
+ * each piece's id still names it and the id path hands it to exactly one ref (the press-pull
+ * side of the same mechanism is `pressPullFaceId.kernel.test.ts`).
+ */
+function tTopBody(): ParametricBodyNode {
+    const doc = new TestDocument({ application: createMockApplication() });
+    doc.visual = createMockVisualWithDocument(doc) as unknown as typeof doc.visual;
+
+    const base = new SketchNode({ document: doc, plane: Plane.XY, data: rect(-20, -20, 20, 20) });
+    doc.modelManager.addNode(base);
+    const profiles = base.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+    const body = new ParametricBodyNode({
+        document: doc,
+        features: [
+            {
+                id: "e1",
+                type: "extrude",
+                sketchId: base.id,
+                depth: 20,
+                profiles: [captureProfileRef(profiles[0].shape as unknown as IFace)],
+            },
+        ],
+    });
+    doc.modelManager.addNode(body);
+
+    // A boss fused onto the box's -Y face, its top at the box top (z = 20), so the two tops
+    // merge into one T-shaped face for the shell to open.
+    const side = facesOf(body).find((face) => face.normal(0, 0)[1].y < -1 + 1e-6);
+    expect(side).toBeDefined();
+    const plane = sketchPlaneOfFace(side!);
+    const corners = [
+        new XYZ({ x: -10, y: -20, z: 12 }),
+        new XYZ({ x: 10, y: -20, z: 12 }),
+        new XYZ({ x: 10, y: -20, z: 20 }),
+        new XYZ({ x: -10, y: -20, z: 20 }),
+    ].map((p) => toUV(plane, p));
+    const boss = new SketchNode({
+        document: doc,
+        plane,
+        data: {
+            entities: corners.map((uv, k) => ({
+                id: k + 1,
+                type: "line" as const,
+                params: [...uv, ...corners[(k + 1) % corners.length]],
+            })),
+            constraints: [],
+        },
+    });
+    doc.modelManager.addNode(boss);
+    const bossProfiles = boss.mesh.faces?.range.filter((x) => x.shape.shapeType === ShapeTypes.face) ?? [];
+    body.setFeaturesEmitShapeChanged([
+        ...body.features,
+        {
+            id: "e2",
+            type: "extrude",
+            sketchId: boss.id,
+            depth: 10,
+            operation: "fuse",
+            profiles: [captureProfileRef(bossProfiles[0].shape as unknown as IFace)],
+        },
+    ]);
+
+    const top = facesOf(body)[topIndex(facesOf(body))];
+    body.setFeaturesEmitShapeChanged([
+        ...body.features,
+        {
+            id: "s1",
+            type: "shell",
+            thickness: 2,
+            faces: [captureProfileRef(top, body.faceIdAt(topIndex(facesOf(body))))],
+        } satisfies ShellFeatureData,
+    ]);
+    return body;
+}
+
+describe("a shell's picked face splitting and merging back", () => {
+    test("the refs heal to one when the pieces meet again, with nothing reported missing", () => {
+        const body = tTopBody();
+        const setDepth = (depth: number) =>
+            body.setFeaturesEmitShapeChanged(body.features.map((f) => (f.id === "e1" ? { ...f, depth } : f)));
+        const shell = () => body.features[2] as ShellFeatureData;
+        const row = () => body.featureItems()[2];
+
+        expect(errors(body)).toEqual([undefined, undefined, undefined]);
+        expect(shell().faces).toHaveLength(1);
+
+        // The box top rises away from the boss top: one T-face becomes two pieces, one ref each.
+        setDepth(40);
+        expect(errors(body)).toEqual([undefined, undefined, undefined]);
+        expect(shell().faces).toHaveLength(2);
+
+        // Deepening back merges them: both piece refs name the re-merged face, so it is opened
+        // once and the list heals back to the single ref the user picked.
+        setDepth(20);
+        expect(errors(body)).toEqual([undefined, undefined, undefined]);
+        expect(shell().faces).toHaveLength(1);
+        expect(row().warning).toBeUndefined();
+        expect(row().missingInputs).toBeUndefined();
     });
 });

@@ -4,7 +4,7 @@
 import { type IEdge, type IFace, Matrix4, Result, ShapeNode, ShapeTypes } from "@chili3d/core";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import type { ExtrudeFeatureData, FeatureContext } from "./feature";
-import { matchProfileIndexes } from "./profileMatcher";
+import { matchProfilesTolerant, PROFILE_AMBIGUOUS, PROFILE_NOT_FOUND } from "./profileMatcher";
 import { type ProfileRef, profileScore } from "./profileRef";
 import { MATCH_TOLERANCE } from "./refGeometry";
 import { indexesOfOverlappingId } from "./trackedId";
@@ -44,26 +44,50 @@ export function matchSourceFaceIndexes(
     if (!claims.isOk) return Result.err(claims.error);
 
     const { adopted, adoptedBy, taken, fingerprintRefs } = claims.value;
-    if (fingerprintRefs.length > 0) {
-        const matched = matchFingerprintRefs(faces, faceIds, refs, fingerprintRefs, taken);
-        if (!matched.isOk) return Result.err(matched.error);
-        for (const [k, faceIndex] of matched.value.entries()) {
-            adopted.push(faceIndex);
-            adoptedBy.push(fingerprintRefs[k]);
-        }
+    if (fingerprintRefs.length === 0) {
+        return Result.ok({ indexes: adopted, refIndexes: adoptedBy, missing: [] });
     }
-    return Result.ok({ indexes: adopted, refIndexes: adoptedBy });
+
+    const matched = matchFingerprintRefs(faces, faceIds, refs, fingerprintRefs, taken);
+    if (!matched.isOk) {
+        // Nothing in the geometric pass matched. Refs with a live id already carried the
+        // feature, so those faces still get swept and the geometric refs are the loss;
+        // with none adopted either, there is no face left to build from and the feature
+        // fails the way it always did.
+        if (matched.error === PROFILE_NOT_FOUND && adopted.length > 0) {
+            return Result.ok({ indexes: adopted, refIndexes: adoptedBy, missing: [...fingerprintRefs] });
+        }
+        return Result.err(SOURCE_FACE_ERRORS[matched.error] ?? matched.error);
+    }
+
+    const { indexes, pickedAt, missingAt } = matched.value;
+    for (const [k, faceIndex] of indexes.entries()) {
+        adopted.push(faceIndex);
+        adoptedBy.push(fingerprintRefs[pickedAt[k]]);
+    }
+    return Result.ok({
+        indexes: adopted,
+        refIndexes: adoptedBy,
+        missing: missingAt.map((k) => fingerprintRefs[k]).sort((a, b) => a - b),
+    });
 }
 
 /**
  * The faces a press-pull sweeps, plus the ref that adopted each — `indexes` and
  * `refIndexes` are parallel (a position in the feature's `source.profiles`). The id
- * path's `taken` guard and `matchProfileIndexes`' one-claim-per-ref keep `indexes`
+ * path's `taken` guard and the matcher's one-claim-per-ref keep `indexes`
  * duplicate-free, so callers re-anchor exactly one ref per entry.
  */
 export interface MatchedSourceFaces {
     readonly indexes: number[];
     readonly refIndexes: number[];
+    /**
+     * Positions in `source.profiles` that matched no face, ascending. The feature builds
+     * from the picks it still has and reports these through `ShapeTracking.unresolved`
+     * rather than failing whole — the same contract the sketch-profile and boolean-tool
+     * paths keep. All of them missing is still an error: there is nothing left to build.
+     */
+    readonly missing: number[];
 }
 
 interface FaceClaims {
@@ -105,17 +129,27 @@ function claimFacesById(
     return Result.ok({ adopted, adoptedBy, taken, fingerprintRefs });
 }
 
-/** Returns the face index each fingerprint-only ref settled on, in `fingerprintRefs` order. */
+/** What the geometric pass placed, in terms of `fingerprintRefs` — see `matchSourceFaceIndexes`. */
+interface FingerprintMatch {
+    /** Real face indexes, in `pickedAt` order. */
+    indexes: number[];
+    /** Positions INTO `fingerprintRefs` that each `indexes` entry came from. */
+    pickedAt: number[];
+    /** Positions into `fingerprintRefs` that no face matched. */
+    missingAt: number[];
+}
+
+/** The face each fingerprint-only ref settled on, and the ones none did, in `fingerprintRefs` terms. */
 function matchFingerprintRefs(
     faces: IFace[],
     faceIds: readonly (string | undefined)[] | undefined,
     refs: ProfileRef[],
     fingerprintRefs: number[],
     taken: Set<number>,
-): Result<number[]> {
+): Result<FingerprintMatch> {
     const remainingIndexes = faces.map((_, index) => index).filter((index) => !taken.has(index));
     const remainingRefs = fingerprintRefs.map((index) => refs[index]);
-    const matched = matchProfileIndexes(
+    const matched = matchProfilesTolerant(
         remainingIndexes.map((index) => faces[index]),
         remainingRefs,
         undefined,
@@ -136,8 +170,12 @@ function matchFingerprintRefs(
             return entitySegment(refId) === entitySegment(faceId);
         },
     );
-    if (!matched.isOk) return Result.err(SOURCE_FACE_ERRORS[matched.error] ?? matched.error);
-    return Result.ok(matched.value.map((index) => remainingIndexes[index]));
+    if (!matched.isOk) return Result.err(matched.error);
+    return Result.ok({
+        indexes: matched.value.indexes.map((index) => remainingIndexes[index]),
+        pickedAt: matched.value.refIndexes,
+        missingAt: matched.value.missing,
+    });
 }
 
 /**
@@ -158,8 +196,8 @@ function entitySegment(id: string): string {
  * shared with sketch profiles is an implementation detail).
  */
 const SOURCE_FACE_ERRORS: Record<string, string> = {
-    "Sketch profile match is ambiguous after rebuild": "Face match is ambiguous after rebuild",
-    "Sketch profile not found after rebuild": "Face not found after rebuild",
+    [PROFILE_AMBIGUOUS]: "Face match is ambiguous after rebuild",
+    [PROFILE_NOT_FOUND]: "Face not found after rebuild",
 };
 
 /**

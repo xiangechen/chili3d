@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
+import { applyCornerOps, findCorners } from "../../src/sketch/cornerOps";
 import {
     axisLineRefs,
     ConstraintKind,
@@ -1411,5 +1412,125 @@ describe("fullyConstrainedEntities", () => {
         } finally {
             solver.dispose();
         }
+    });
+
+    test("a filleted rectangle is fully constrained the moment it is dimensioned", () => {
+        // Regression (reported as: the status bar says "Fully constrained" while some edges
+        // still draw in the free colour, and dragging anything repairs it). A fillet is
+        // exactly tangent where it is built, and at that configuration garlic's row-space
+        // query sees the tangency rows as dependent — so the fillet and the two edges it
+        // joins were reported free. Dragging moves the geometry off the exact tangency,
+        // which is why that repaired the colours. The fix is garlic-side: `free_param_ids`
+        // now applies the same singular-configuration re-check `diagnose`'s redundancy list
+        // already had (see garlic's tests/fillet_redundant.rs).
+        const solver = new SketchSolver(Plane.XY);
+        const pt = (entityId: number, pointIndex: number): SketchPointRef => ({ entityId, pointIndex });
+        try {
+            const [u1, v1, u2, v2] = [0, 0, 40, 30];
+            const top = solver.addLine(u1, v2, u2, v2);
+            const right = solver.addLine(u2, v2, u2, v1);
+            const bottom = solver.addLine(u2, v1, u1, v1);
+            const left = solver.addLine(u1, v1, u1, v2);
+            const loop = [top, right, bottom, left];
+            // the rectangle tool's own constraint set: a joined loop plus H/V per edge
+            for (let i = 0; i < loop.length; i++) {
+                solver.addConstraint({
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [pt(loop[i], 1), pt(loop[(i + 1) % loop.length], 0)],
+                });
+            }
+            for (const [entityId, kind] of [
+                [top, ConstraintKind.Horizontal],
+                [right, ConstraintKind.Vertical],
+                [bottom, ConstraintKind.Horizontal],
+                [left, ConstraintKind.Vertical],
+            ] as const) {
+                solver.addConstraint({ kind, refs: [pt(entityId, 0), pt(entityId, 1)] });
+            }
+            // the origin corner is pinned, and the two corners away from it are filleted
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [pt(bottom, 1), originRef()],
+            });
+            const found = findCorners(solver, loop, 0.1, "fillet");
+            if (!found.isOk) throw new Error(found.error);
+            const corners = found.value.filter((corner) => corner.line1 !== left && corner.line2 !== left);
+            expect(corners).toHaveLength(2);
+            expect(applyCornerOps(solver, corners, { method: "fillet", radius: 5 }).isOk).toBe(true);
+
+            // then the width and the height
+            solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [pt(bottom, 0), pt(bottom, 1)],
+                datum: 35,
+            });
+            solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [pt(left, 0), pt(left, 1)],
+                datum: 30,
+            });
+            solver.solve(true);
+
+            expect(solver.diagnose().dofs).toBe(0);
+            const pinned = solver.fullyConstrainedEntities();
+            const entities = solver.toData().entities.map((entity) => entity.id);
+            expect(entities.filter((id) => !pinned.has(id))).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
+describe("SketchSolver drag baseline", () => {
+    /** Two free lines: the second is only held by the first, so the solve has room to choose. */
+    function twoLines() {
+        const solver = new SketchSolver(Plane.XY);
+        const first = solver.addLine(0, 0, 10, 0);
+        const second = solver.addLine(20, 0, 30, 0);
+        solver.addConstraint({
+            kind: ConstraintKind.Horizontal,
+            refs: [
+                { entityId: first, pointIndex: 0 },
+                { entityId: first, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+        return { solver, first, second };
+    }
+
+    test("the same target reached by two different paths leaves the same sketch", () => {
+        const { solver, first } = twoLines();
+        const ref: SketchPointRef = { entityId: first, pointIndex: 1 };
+
+        // The long way round: many frames, each of which the solver answers from the
+        // gesture's start rather than from where the last one left the geometry.
+        solver.beginDrag([ref]);
+        for (let step = 0; step < 10; step++) {
+            solver.dragTo(ref, 5 + step, step);
+        }
+        solver.dragTo(ref, 15, 0);
+        const wandered = solver.entities();
+        solver.endDrag();
+
+        solver.beginDrag([ref]);
+        solver.dragTo(ref, 15, 0);
+        const direct = solver.entities();
+        solver.endDrag();
+
+        expect(wandered).toEqual(direct);
+    });
+
+    test("holding the pointer still does not keep moving the sketch", () => {
+        const { solver, first } = twoLines();
+        const ref: SketchPointRef = { entityId: first, pointIndex: 1 };
+
+        solver.beginDrag([ref]);
+        solver.dragTo(ref, 12, 3);
+        const settled = solver.entities();
+        for (let frame = 0; frame < 20; frame++) {
+            solver.dragTo(ref, 12, 3);
+        }
+        expect(solver.entities()).toEqual(settled);
+        solver.endDrag();
     });
 });

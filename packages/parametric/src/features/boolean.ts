@@ -53,16 +53,23 @@ const booleanHandler: FeatureHandler<BooleanFeatureData> = {
         if (context.input === undefined) {
             return Result.err("boolean requires a preceding feature");
         }
-        const tools = collectTools(feature, context.document);
-        if (!tools.isOk) return Result.err(tools.error);
+        const collected = collectTools(feature, context.document);
+        if (!collected.isOk) return Result.err(collected.error);
+        const { tools, missing } = collected.value;
+        if (missing.length > 0 && context.tracking !== undefined) {
+            // The tools that are still there are what the user can see; combining them
+            // and naming the ones that went beats refusing the whole boolean, which
+            // would leave the row with nothing to re-pick either.
+            context.tracking.unresolved = { key: "toolIds", refIndexes: missing };
+        }
         const tracked = TRACKED[feature.operation](shapeFactory);
-        const toolShapes = toolShapesInHostSpace(tools.value, context.host);
+        const toolShapes = toolShapesInHostSpace(tools, context.host);
         // `transformedMul` copies are intermediate inputs — the kernel reads them
         // eagerly, so dispose them once the operation returns.
-        const owned = toolShapes.filter((x, i) => x !== tools.value[i].shape.unchecked());
+        const owned = toolShapes.filter((x, i) => x !== tools[i].shape.unchecked());
         try {
             if (context.tracking !== undefined && tracked !== undefined) {
-                return evaluateTracked(context, tools.value, toolShapes, tracked);
+                return evaluateTracked(context, tools, toolShapes, tracked);
             }
             switch (feature.operation) {
                 case "common":
@@ -95,15 +102,29 @@ function toolShapesInHostSpace(tools: ShapeNode[], host: IShapeHost): IShape[] {
     });
 }
 
-function collectTools(feature: BooleanFeatureData, document: IDocument): Result<ShapeNode[]> {
+/**
+ * The tool bodies that still resolve, plus the positions in `toolIds` whose node has
+ * gone. A deleted tool is a pick the user can put back; a tool that is PRESENT but has
+ * no shape yet is a chain that has not finished, and the caller is told to wait rather
+ * than combine what happens to be there.
+ */
+function collectTools(
+    feature: BooleanFeatureData,
+    document: IDocument,
+): Result<{ tools: ShapeNode[]; missing: number[] }> {
     const tools: ShapeNode[] = [];
-    for (const id of feature.toolIds) {
+    const missing: number[] = [];
+    for (const [index, id] of feature.toolIds.entries()) {
         const node = document.modelManager.findNode((n) => n.id === id);
-        if (!(node instanceof ShapeNode)) return Result.err("Boolean tool not found");
+        if (!(node instanceof ShapeNode)) {
+            missing.push(index);
+            continue;
+        }
         if (!node.shape.isOk) return Result.err("Boolean tool has no shape");
         tools.push(node);
     }
-    return Result.ok(tools);
+    if (tools.length === 0) return Result.err("Boolean tool not found");
+    return Result.ok({ tools, missing });
 }
 
 const TRACKED: Record<BooleanOperation, (factory: IShapeFactory) => TrackedMethod | undefined> = {

@@ -259,6 +259,64 @@ describe("applyCornerOps fillet", () => {
         }
     });
 
+    // The colouring side of the same story. `fullyConstrainedEntities` reads garlic's
+    // per-column verdicts (`free_param_ids`) — a separate pass from the redundancy list
+    // above, and the one that has to decide a column is pinned at a point where the
+    // tangency rows are singular. An exactly-determined filleted corner is where that
+    // verdict is hardest, so it is worth pinning: the arc's params are answered by the
+    // tangencies and the fillet's coincidences, nothing else.
+    test("every entity of a pinned fillet reads as fully constrained", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const pin = (entityId: number, pointIndex: number) => {
+            const [x, y] = solver.pointOf(ref(entityId, pointIndex));
+            solver.addConstraint({
+                kind: ConstraintKind.Fix,
+                refs: [ref(entityId, pointIndex)],
+                datums: [x, y],
+            });
+        };
+        try {
+            const a = solver.addLine(0, 0, 10, 0);
+            const b = solver.addLine(10, 0, 10, 10);
+            solver.addConstraint({ kind: ConstraintKind.P2PCoincident, refs: [ref(a, 1), ref(b, 0)] });
+            solver.addConstraint({ kind: ConstraintKind.Horizontal, refs: [ref(a, 0), ref(a, 1)] });
+            solver.addConstraint({ kind: ConstraintKind.Vertical, refs: [ref(b, 0), ref(b, 1)] });
+            solver.solve(true);
+
+            expect(
+                applyCornerOps(solver, [cornerOf(solver, a, b)], { method: "fillet", radius: 2 }).isOk,
+            ).toBe(true);
+            solver.solve(true);
+
+            // Pin the filleted corner exactly — pinning comes after the trim, since a
+            // length dimension on a corner edge is what `confirmCorner` refuses to cut
+            // through. Each line takes its far end, its direction and its length; the ARC
+            // is deliberately left to the two tangencies and the two coincidences the
+            // fillet wrote, which is the configuration whose columns the singular-point
+            // recheck has to get right — a Fix on the arc would answer for them instead.
+            pin(a, 0);
+            pin(b, 1);
+            for (const line of [a, b]) {
+                const [x1, y1, x2, y2] = solver.entity(line)!.params;
+                solver.addConstraint({
+                    kind: ConstraintKind.P2PDistance,
+                    refs: [ref(line, 0), ref(line, 1)],
+                    datum: Math.hypot(x2 - x1, y2 - y1),
+                });
+            }
+            solver.solve(true);
+
+            const ids = solver.entities().map((entity) => entity.id);
+            const pinned = solver.fullyConstrainedEntities();
+            // Two trimmed lines and the arc — a fillet adds entities without freeing any.
+            expect(ids).toHaveLength(3);
+            expect(solver.diagnose().dofs).toBe(0);
+            expect(ids.filter((id) => !pinned.has(id))).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
     // Rigidity is asserted through the geometry as well: the invariants must survive an
     // arbitrary perturbation, which is the property the DOF count is meant to capture.
     test("stays tangent and keeps its radius when the geometry is perturbed", () => {

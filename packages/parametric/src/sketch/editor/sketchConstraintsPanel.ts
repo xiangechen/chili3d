@@ -8,6 +8,7 @@ import {
     type RadiusDisplay,
     type SketchConstraintData,
 } from "../sketchModel";
+import { RECOVERY_SUGGESTION_BUDGET } from "../solver";
 import { formatDatum, formatDrivenDatum, radiusDisplayOf } from "./dimensionLayout";
 import { applyConstraintIcon, badgeIcon, badgeSymbol } from "./sketchAnnotations";
 import style from "./sketchConstraintsPanel.module.css";
@@ -72,6 +73,11 @@ const CONSTRAINT_LABELS: Record<ConstraintKind, I18nKeys> = {
     [ConstraintKind.TangentNurbsNurbs]: "command.constraint.tangent",
 };
 
+/** `#3, #7` — how the answers name constraints, matching the `#` the rows' chips use. */
+function describeIds(ids: readonly number[]): string {
+    return ids.map((id) => `#${id}`).join(", ");
+}
+
 /**
  * The name a row carries. A radius the sheet reads as a diameter is named for the
  * reading, not for the constraint underneath it — the row would otherwise say "Radius"
@@ -120,6 +126,8 @@ export class SketchConstraintsPanel {
     readonly element: HTMLElement;
     private readonly headerSection: HTMLElement;
     private readonly headerCount: HTMLElement;
+    private readonly findButton: HTMLButtonElement;
+    private readonly answerSection: HTMLElement;
     private readonly listSection: HTMLElement;
     private readonly rows = new Map<number, HTMLElement>();
     private disposed = false;
@@ -136,15 +144,23 @@ export class SketchConstraintsPanel {
         I18n.set(headerLabel, "textContent", "sketch.constraints");
         this.headerCount = document.createElement("span");
         this.headerCount.className = style.count;
-        this.headerSection.append(dot, headerLabel, this.headerCount);
+        this.findButton = this.buildFindButton();
+        this.headerSection.append(dot, headerLabel, this.headerCount, this.findButton);
+        this.answerSection = document.createElement("div");
+        this.answerSection.className = style.answer;
         this.listSection = document.createElement("div");
         this.listSection.className = style.list;
-        this.element.append(this.headerSection, this.listSection);
+        this.element.append(this.headerSection, this.answerSection, this.listSection);
         editor.annotations.onSelectionChanged = this.syncSelection;
     }
 
     refresh(): void {
         if (this.disposed) return;
+        // The trial run's answer is about the constraint set as it was: any edit (including
+        // the deletion it just suggested) makes it stale, so it never outlives a refresh —
+        // what is re-rendered here is only the part that is a baseline fact, which is as
+        // fresh as the list beside it.
+        this.renderAnswer([]);
         this.refreshList();
     }
 
@@ -167,7 +183,7 @@ export class SketchConstraintsPanel {
     /** Header count plus the state dot: red on conflict, amber on redundant, green when fully constrained. */
     private refreshHeader(count: number): void {
         this.headerCount.textContent = String(count);
-        const { dofs, conflicting, redundant } = this.editor.diagnostics;
+        const { dofs, conflicting, redundant, guardConflicts } = this.editor.diagnostics;
         const state =
             conflicting.length > 0
                 ? style.conflicting
@@ -178,6 +194,84 @@ export class SketchConstraintsPanel {
                     : undefined;
         this.headerSection.classList.remove(style.conflicting, style.redundant, style.ok);
         if (state !== undefined) this.headerSection.classList.add(state);
+        // Trial deletion answers a DELETION question, so it is only worth offering where a
+        // deletion could be the answer: a row-sourced conflict or a redundancy. A guard
+        // conflict already has its answer on screen (see `renderAnswer`), and running the
+        // trials for one would spend a diagnostic pass per candidate to find nothing —
+        // garlic does not classify them at all. `guardConflicts` is a subset of
+        // `conflicting` (a constraint carries one conflict group, so the two sources never
+        // share an id), which is what makes the complement the row-sourced ones.
+        const guards = new Set(guardConflicts);
+        const deletionQuestion =
+            redundant.length > 0 || conflicting.some((constraint) => !guards.has(constraint));
+        this.findButton.hidden = !deletionQuestion;
+    }
+
+    /**
+     * "Find the culprit": the one question the row chips cannot answer. They mark the
+     * constraints garlic's rank heuristic relates; deleting one is what the user
+     * actually does next, and that is a different set (see `recoverySuggestions`).
+     * Runs on demand — it costs about one diagnostic pass per candidate.
+     */
+    private buildFindButton(): HTMLButtonElement {
+        const button = document.createElement("button");
+        button.className = style.find;
+        button.hidden = true;
+        I18n.set(button, "textContent", "sketch.recovery.find");
+        button.addEventListener("click", (e) => {
+            e.stopPropagation();
+            this.showRecoverySuggestions();
+        });
+        return button;
+    }
+
+    private showRecoverySuggestions(): void {
+        const suggestions = this.editor.solver.recoverySuggestions();
+        const lines: string[] = [];
+        if (suggestions.conflicts.length > 0) {
+            lines.push(I18n.translate("sketch.recovery.conflict{0}", describeIds(suggestions.conflicts)));
+        } else if (suggestions.conflictsEntangled) {
+            lines.push(I18n.translate("sketch.recovery.entangledConflict"));
+        }
+        if (suggestions.redundancies.length > 0) {
+            lines.push(I18n.translate("sketch.recovery.redundant{0}", describeIds(suggestions.redundancies)));
+        } else if (suggestions.redundanciesEntangled) {
+            lines.push(I18n.translate("sketch.recovery.entangledRedundant"));
+        }
+        // A truncated run may have stopped short of the culprit: the lists above are
+        // "what was found in the first N trials", and saying so is the difference
+        // between a partial answer and a wrong one.
+        if (suggestions.truncated) {
+            lines.push(I18n.translate("sketch.recovery.truncated{0}", RECOVERY_SUGGESTION_BUDGET));
+        }
+        this.renderAnswer(lines);
+    }
+
+    /**
+     * The answer section: what the diagnostics already say, then whatever the on-demand
+     * trial run added.
+     *
+     * A guard conflict belongs to the first half and gets its own wording rather than
+     * falling into the deletion advice: a size driven to nothing is repaired by editing a
+     * value, and garlic never names a deletable culprit for it. Being a baseline fact is
+     * why it needs no button press — there is nothing to look up.
+     */
+    private renderAnswer(trialLines: readonly string[]): void {
+        const guards = this.editor.diagnostics.guardConflicts;
+        const lines = [
+            ...(guards.length === 0
+                ? []
+                : [I18n.translate("sketch.recovery.guardConflict{0}", describeIds(guards))]),
+            ...trialLines,
+        ];
+        this.answerSection.replaceChildren(
+            ...lines.map((text) => {
+                const line = document.createElement("div");
+                line.className = style.answerLine;
+                line.textContent = text;
+                return line;
+            }),
+        );
     }
 
     private refreshList(): void {

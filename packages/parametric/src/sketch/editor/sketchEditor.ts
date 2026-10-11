@@ -195,7 +195,12 @@ export class SketchEditor implements IDisposable {
     private readonly rollback: RollbackMap;
     /** The outcome and diagnostics of the last fine solve — republished after picks, rendered by the panel. */
     private lastOutcome: SolveOutcome = { result: "Ok", dofs: 0 };
-    private sketchDiagnostics: SketchDiagnostics = { dofs: 0, conflicting: [], redundant: [] };
+    private sketchDiagnostics: SketchDiagnostics = {
+        dofs: 0,
+        conflicting: [],
+        redundant: [],
+        guardConflicts: [],
+    };
     /** The entity set currently pushed to the node's constraint colouring — see `publishConstraintColors`. */
     private colouring: ReadonlySet<number> | undefined;
     private constraintsPanel?: SketchConstraintsPanel;

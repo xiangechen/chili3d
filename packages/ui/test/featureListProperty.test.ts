@@ -27,6 +27,8 @@ rs.mock("../src/property/featureListProperty.module.css", () => ({
     body: "fl-body",
     errorText: "fl-error-text",
     warningText: "fl-warning-text",
+    missingInput: "fl-missing-input",
+    missingInputAction: "fl-missing-input-action",
     param: "fl-param",
     reference: "fl-reference",
     menu: "fl-menu",
@@ -66,6 +68,7 @@ function featureNode(parameters: FeatureItem["parameters"], item?: Partial<Featu
         moveFeatureTo: rs.fn(),
         renameFeature: rs.fn(),
         removeFeature: rs.fn(),
+        reselectShapes: rs.fn((_featureId: string) => {}),
         activateReference: rs.fn((_featureId: string, _key: string) => {}),
     } as unknown as INode & IFeatureListNode;
 }
@@ -280,6 +283,61 @@ describe("FeatureListProperty", () => {
         expect(mustQuery(prop, ".fl-warning-text").textContent).toBe(
             "Sketch has unresolved external references",
         );
+    });
+
+    test("a pick the feature lost stands in for itself, in the row's own body", () => {
+        const doc = createMockDocument();
+        const node = featureNode([{ key: "depth", display: "option.command.depth", value: 5 }], {
+            warning: "Missing inputs: 1",
+            missingInputs: [{ key: "profiles", refIndex: 1, label: "Missing input #2" }],
+        });
+        const prop = new FeatureListProperty(doc, node);
+        expandFirstRow(prop);
+
+        // A warning does not force expansion, so this is the visible outcome only after
+        // the user opens the row — the placeholder is where the pick itself would be.
+        const rows = Array.from(mustQuery<HTMLElement>(prop, ".fl-body").children);
+        expect(rows.length).toBe(3);
+        expect(rows[0].className).toBe("fl-warning-text");
+        expect(rows[1].className).toBe("fl-missing-input");
+        expect(rows[1].textContent).toBe("Missing input #2");
+        expect(rows[2].className).toBe("fl-param");
+    });
+
+    test("the placeholder is the re-pick's door on a feature that can re-pick", () => {
+        const doc = createMockDocument();
+        const node = featureNode([{ key: "depth", display: "option.command.depth", value: 5 }], {
+            reselectable: true,
+            warning: "Missing inputs: 1",
+            missingInputs: [{ key: "profiles", refIndex: 1, label: "Missing input #2" }],
+        });
+        const prop = new FeatureListProperty(doc, node);
+        expandFirstRow(prop);
+
+        const row = mustQuery<HTMLElement>(prop, ".fl-missing-input");
+        expect(row.className).toContain("fl-missing-input-action");
+
+        // The action goes through the node's own contract method — the same door the row
+        // menu's re-pick uses — so the panel does not need to know what a feature picks.
+        (row as unknown as { _onclick: () => void })._onclick();
+        expect(node.reselectShapes).toHaveBeenCalledWith("b1");
+    });
+
+    test("the placeholder is plain text on a feature that cannot re-pick", () => {
+        const doc = createMockDocument();
+        const node = featureNode([{ key: "depth", display: "option.command.depth", value: 5 }], {
+            warning: "Missing inputs: 1",
+            missingInputs: [{ key: "toolIds", refIndex: 0, label: "Missing input #1" }],
+        });
+        const prop = new FeatureListProperty(doc, node);
+        expandFirstRow(prop);
+
+        // Nothing to offer a re-pick (a boolean whose tool node was deleted): the slot is
+        // still named, but the row must not look clickable.
+        const row = mustQuery<HTMLElement>(prop, ".fl-missing-input");
+        expect(row.className).not.toContain("fl-missing-input-action");
+        expect(row.textContent).toBe("Missing input #1");
+        expect(node.reselectShapes).not.toHaveBeenCalled();
     });
 
     test("renders the feature's reference above its parameters", () => {

@@ -1,0 +1,11 @@
+{
+    "//": "The app comes up, opens a document and draws its viewport. The floor every other scenario stands on: if the loading screen never clears or the view never gets laid out, this is the one that says so.",
+    "start": "document",
+    "steps": [
+        {
+            "kind": "eval",
+            "expression": "(() => { if (!globalThis.activeView) throw new Error('the new document has no active view'); return true; })()"
+        },
+        { "kind": "screenshot", "name": "01-viewport" }
+    ]
+}

@@ -4,7 +4,9 @@
 import {
     type AsyncController,
     type FeatureItem,
+    type FeatureMissingInput,
     type FeatureReference,
+    I18n,
     type I18nKeys,
     type IDocument,
     type IEqualityComparer,
@@ -34,7 +36,13 @@ import {
     ProfileReselectSession,
     RibChainReselectSession,
 } from "./commands/reselectSession";
-import { evaluateFeature, type FeatureData, featureHandler, type ShapeTracking } from "./features";
+import {
+    evaluateFeature,
+    type FeatureData,
+    featureHandler,
+    type ShapeTracking,
+    type UnresolvedInputs,
+} from "./features";
 import {
     BodyTimeline,
     type FeatureCacheEntry,
@@ -101,6 +109,8 @@ interface FeatureStepOutput {
     readonly resolvedProfiles?: ProfileRef[];
     /** Edge anchors the feature actually matched this run — re-anchored into the feature. */
     readonly resolvedEdges?: EdgeRef[];
+    /** Picks that no longer resolved this run; the feature built from the rest. */
+    readonly unresolved?: UnresolvedInputs;
 }
 
 export interface ParametricBodyNodeOptions {
@@ -175,6 +185,8 @@ export class ParametricBodyNode
     private readonly _featureErrors = new Map<string, string>();
     /** Non-fatal conditions surfaced on the feature row (e.g. a sketch's dangling external refs). */
     private readonly _featureWarnings = new Map<string, string>();
+    /** Picks each feature could not re-resolve on the last run, by feature id. */
+    private readonly _featureUnresolved = new Map<string, UnresolvedInputs>();
     /** What the last successful run produced — cache entries and per-index chain states. */
     private readonly _timeline = new BodyTimeline();
     /** Guards against re-entrant evaluation when a watched node generates mid-evaluation. */
@@ -302,11 +314,27 @@ export class ParametricBodyNode
                 suppressed: feature.suppressed === true,
                 error: this._featureErrors.get(feature.id),
                 warning: this._featureWarnings.get(feature.id),
+                missingInputs: this.missingInputs(feature),
                 reselectable: handler?.reselectable === true,
                 references: this.featureReferences(feature),
                 parameters: handler?.parameters(feature) ?? [],
             };
         });
+    }
+
+    /**
+     * The placeholders this feature's row shows for the picks it lost — one per entry,
+     * numbered the way the user counts them (1-based), because the label is read by a
+     * person looking at "Profile 1, Profile 2", not by an index.
+     */
+    private missingInputs(feature: FeatureData): FeatureMissingInput[] | undefined {
+        const unresolved = this._featureUnresolved.get(feature.id);
+        if (unresolved === undefined || unresolved.refIndexes.length === 0) return undefined;
+        return unresolved.refIndexes.map((refIndex) => ({
+            key: unresolved.key,
+            refIndex,
+            label: I18n.translate("body.missingPick{0}", refIndex + 1),
+        }));
     }
 
     /**
@@ -660,6 +688,7 @@ export class ParametricBodyNode
         this.syncWatchedNodes();
         this._featureErrors.clear();
         this._featureWarnings.clear();
+        this._featureUnresolved.clear();
         this._evaluating = true;
         try {
             return this.evaluateChain();
@@ -757,6 +786,7 @@ export class ParametricBodyNode
         const nextCache: FeatureCacheEntry[] = [];
         const resolvedProfiles = new Map<string, ProfileRef[]>();
         const resolvedEdges = new Map<string, EdgeRef[]>();
+        const unresolved = new Map<string, UnresolvedInputs>();
         const features = this.features;
         const stop = this._rollbackIndex ?? features.length;
         // Sketches already re-resolved this run (see followReferencedSketches): a
@@ -776,7 +806,9 @@ export class ParametricBodyNode
                 this.followReferencedSketches(feature, followedSketches);
                 this.refreshConsumedTools(feature);
                 const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
-                if (!step.isOk) return this.abandonChain(feature, step.error, nextCache, features);
+                if (!step.isOk) {
+                    return this.abandonChain(feature, step.error, nextCache, features, unresolved);
+                }
                 input = step.value.shape;
                 faceIds = step.value.faceIds;
                 edgeIds = step.value.edgeIds;
@@ -786,12 +818,16 @@ export class ParametricBodyNode
                 if (step.value.resolvedEdges !== undefined) {
                     resolvedEdges.set(feature.id, step.value.resolvedEdges);
                 }
+                if (step.value.unresolved !== undefined) {
+                    unresolved.set(feature.id, step.value.unresolved);
+                }
             }
         } finally {
             this._timeline.endRun();
         }
         this._timeline.commit(nextCache, timeline, this.currentShape());
         this.refreshAnchoredRefs(resolvedProfiles, resolvedEdges);
+        this.markUnresolvedInputs(unresolved);
         this.markUnresolvedExternalRefs(features);
         // An empty feature list (user removed every feature) is an empty compound, so
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
@@ -802,18 +838,22 @@ export class ParametricBodyNode
     /**
      * Ends the run at the feature that failed. The previous cache and shape stay: id queries
      * must keep describing the displayed shape, not a truncated prefix of a rebuild that never
-     * made it to the screen. The sketch warnings are repopulated here too — they describe
-     * sketch state, not the chain run, and one failing feature would otherwise wipe them off
-     * the other rows.
+     * made it to the screen. The unresolved-input warnings are repopulated here too — the
+     * per-feature lost picks collected before the failure (`unresolved`, the ones the success
+     * path installs at its end) as well as the sketch-level ones: they describe what the
+     * features ahead of the failure already reached, not the chain run, and one failing feature
+     * would otherwise wipe them off the other rows.
      */
     private abandonChain(
         feature: FeatureData,
         error: string,
         nextCache: FeatureCacheEntry[],
         features: FeatureData[],
+        unresolved: ReadonlyMap<string, UnresolvedInputs>,
     ): Result<IShape> {
         this._featureErrors.set(feature.id, String(error));
         this._timeline.discard(nextCache, this.currentShape());
+        this.markUnresolvedInputs(unresolved);
         this.markUnresolvedExternalRefs(features);
         return Result.err(error);
     }
@@ -985,7 +1025,27 @@ export class ParametricBodyNode
                 dangling = sketch !== undefined && danglingProfileRefs(sketch).length > 0;
                 checked.set(feature.sketchId, dangling);
             }
-            if (dangling) this._featureWarnings.set(feature.id, "Sketch has unresolved external references");
+            // The feature's own lost picks are the more specific fault and keep the row:
+            // a sketch-level note does not replace "one of your picks is gone".
+            if (dangling && !this._featureUnresolved.has(feature.id)) {
+                this._featureWarnings.set(feature.id, "Sketch has unresolved external references");
+            }
+        }
+    }
+
+    /**
+     * Records the picks each feature could not re-resolve — the feature built from the
+     * rest, so this is a warning on the row rather than a failure. The rows themselves
+     * (`featureItems().missingInputs`) come from the same map; this only adds the one-line
+     * summary a collapsed row shows.
+     */
+    private markUnresolvedInputs(unresolved: ReadonlyMap<string, UnresolvedInputs>): void {
+        for (const [featureId, inputs] of unresolved) {
+            this._featureUnresolved.set(featureId, inputs);
+            this._featureWarnings.set(
+                featureId,
+                I18n.translate("body.missingInputs{0}", inputs.refIndexes.length),
+            );
         }
     }
 
@@ -1004,7 +1064,12 @@ export class ParametricBodyNode
         const cached = this.validCacheEntry(key, input, nextCache.length);
         if (cached !== undefined) {
             nextCache.push(cached);
-            return Result.ok({ shape: cached.shape, faceIds: cached.faceIds, edgeIds: cached.edgeIds });
+            return Result.ok({
+                shape: cached.shape,
+                faceIds: cached.faceIds,
+                edgeIds: cached.edgeIds,
+                unresolved: cached.unresolved,
+            });
         }
         return this.evaluateAndCache(feature, key, scope, input, faceIds, edgeIds, nextCache);
     }
@@ -1041,6 +1106,7 @@ export class ParametricBodyNode
             edgeIds: tracking.outputEdgeIds.length > 0 ? tracking.outputEdgeIds : undefined,
             resolvedProfiles: tracking.resolvedProfiles,
             resolvedEdges: tracking.resolvedEdges,
+            unresolved: tracking.unresolved,
         };
         nextCache.push({
             json: key,
@@ -1049,6 +1115,7 @@ export class ParametricBodyNode
             shape: output.shape,
             faceIds: output.faceIds,
             edgeIds: output.edgeIds,
+            unresolved: output.unresolved,
         });
         return Result.ok(output);
     }

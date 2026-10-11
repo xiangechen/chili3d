@@ -64,6 +64,43 @@
     background-color: var(--hover-background-color);
 }
 
+/* shown only while the sketch is flagged — the query behind it is not free */
+.find {
+    padding: 1px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--foreground-secondary-color);
+    font-size: 10px;
+    line-height: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:hover {
+        color: var(--foreground-color);
+        background-color: var(--hover-background-color);
+    }
+}
+
+/* the trial-deletion answer: plain text lines under the header, cleared on any edit */
+.answer {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex-shrink: 0;
+}
+
+.answer:not(:empty) {
+    padding: 6px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.answerLine {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--foreground-secondary-color);
+}
+
 /* the issue chip a flagged row carries next to its name */
 .chip {
     flex-shrink: 0;

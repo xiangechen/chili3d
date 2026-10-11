@@ -4,6 +4,7 @@
 import {
     Binding,
     type FeatureItem,
+    type FeatureMissingInput,
     type FeatureParameter,
     type FeatureParameterChoice,
     type FeatureReference,
@@ -154,11 +155,29 @@ export class FeatureListProperty extends HTMLElement {
         return div(
             { className: style.body },
             ...(message === undefined ? [] : [message]),
+            ...(item.missingInputs ?? []).map((missing) => this.missingInputRow(item, missing)),
             ...(item.references ?? []).map((ref) => this.referenceRow(item, ref)),
             ...item.parameters
                 .filter((param) => isParameterVisible(item, param))
                 .map((param) => this.parameterRow(item, param)),
         );
+    }
+
+    /**
+     * A pick the feature built without, standing where the pick itself would be. On a
+     * feature that can re-pick, the line is the door to it — the node's own
+     * `reselectShapes`, the same action the row's menu offers, reached from the thing the
+     * user is looking at rather than from a menu item for it. A feature that cannot
+     * re-pick (`reselectable` unset, e.g. a boolean whose tool node was deleted) keeps the
+     * plain line: the slot is shown, and the way back is to put the node back.
+     */
+    private missingInputRow(item: FeatureItem, missing: FeatureMissingInput) {
+        const repickable = item.reselectable === true;
+        return div({
+            className: repickable ? `${style.missingInput} ${style.missingInputAction}` : style.missingInput,
+            textContent: missing.label,
+            ...(repickable ? { onclick: () => this.node.reselectShapes?.(item.id) } : {}),
+        });
     }
 
     /**

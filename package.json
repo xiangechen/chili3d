@@ -10,6 +10,7 @@
         "build:wasm": "cd cpp && cmake --preset release && cmake --build --preset release",
         "build:types": "node scripts/generate_types.mjs",
         "check": "biome check --write",
+        "check:garlic": "node scripts/check-garlic.mjs",
         "dev": "rspack dev",
         "format": "biome check --write . && npx clang-format --style=Webkit --sort-includes -i ./cpp/src/**",
         "generate:capabilities": "node scripts/generate-shape-capabilities.mjs",
@@ -17,6 +18,7 @@
         "release": "node scripts/release.mjs",
         "setup:wasm": "node scripts/setup_wasm_deps.mjs",
         "test": "rstest",
+        "test:scenarios": "node scripts/scenario.mjs",
         "testc": "rstest --coverage"
     },
     "simple-git-hooks": {

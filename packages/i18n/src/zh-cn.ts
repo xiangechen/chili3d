@@ -80,6 +80,8 @@ export default {
         "body.group": "组",
         "body.imported": "导入的模型",
         "body.line": "直线",
+        "body.missingInputs{0}": "缺失的输入：{0}",
+        "body.missingPick{0}": "缺失的输入 #{0}",
         "body.meshNode": "网格节点",
         "body.multiShape": "多形状",
         "body.parametricBody": "参数化实体",
@@ -585,6 +587,16 @@ export default {
         "sketch.offsetNoJoin{0}": "有 {0} 个角的两条偏移曲线不相交，未能接缝",
         "sketch.noConstraints": "无约束",
         "sketch.noProjectableEdges": "没有可投影的共面边线",
+        "sketch.recovery.conflict{0}": "删掉 {0} 中任意一条即可消除冲突",
+        "sketch.recovery.entangledConflict":
+            "这些约束互相支撑，删掉任何单独一条都消除不了冲突，需要删掉一组。",
+        "sketch.recovery.entangledRedundant":
+            "这些约束互相支撑，删掉任何单独一条都消除不了冗余，需要删掉一组。",
+        "sketch.recovery.find": "找出元凶",
+        "sketch.recovery.guardConflict{0}":
+            "有尺寸把 {0} 逼到了塌缩：请改驱动尺寸或放宽约束，删掉任何单独一条都无效。",
+        "sketch.recovery.redundant{0}": "删掉 {0} 中任意一条即可消除冗余",
+        "sketch.recovery.truncated{0}": "只试删了前 {0} 条约束,结论可能不完整",
         "sketch.redundant": "冗余约束",
         "sketch.rollbackFailed": "部分实体无法回滚到草图的时间线位置",
         "sketch.trimRemovedConstraints{0}": "修剪移除了 {0} 个约束",

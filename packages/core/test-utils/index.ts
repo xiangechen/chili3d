@@ -13,4 +13,5 @@ export * from "./mockShape";
 export * from "./mockShapeFactory";
 export * from "./mockView";
 export * from "./mockVisual";
+export * from "./shapeAssert";
 export * from "./testDocument";

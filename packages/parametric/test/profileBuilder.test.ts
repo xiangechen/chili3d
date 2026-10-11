@@ -662,7 +662,7 @@ describe("resolveProfiles", () => {
             const result = resolveProfiles(sketch, [ref]);
 
             expect(result.isOk).toBe(true);
-            const resolved = result.unchecked()!;
+            const resolved = result.unchecked()!.profiles;
             expect(resolved.length).toBe(1);
             // Faces come from a separate sketchProfiles call, so compare by content.
             expect(resolved[0].face.findSubShapes(ShapeTypes.edge)).toEqual([circleB]);
@@ -678,10 +678,30 @@ describe("resolveProfiles", () => {
             const result = resolveProfiles(sketchWith([...OUTER, ...HOLE]));
 
             expect(result.isOk).toBe(true);
-            const resolved = result.unchecked()!;
+            const resolved = result.unchecked()!.profiles;
             expect(resolved.length).toBe(1);
             expect(resolved[0].index).toBe(0);
             expect(resolved[0].face.findSubShapes(ShapeTypes.edge).length).toBe(8);
+        } finally {
+            restore();
+        }
+    });
+
+    test("the same pick named twice is refused, not built twice or dropped", () => {
+        const { restore } = setup();
+        try {
+            const a = square(0, 0, 10, 10);
+            const b = square(20, 20, 30, 30);
+            const refB = captureProfileRef(faceOf(b));
+
+            // Two refs naming one region cannot both be satisfied under one-claim-per-ref.
+            // Refusing is the honest answer: building one of them twice would extrude the
+            // region twice, and reporting the second as a lost pick would drop a region
+            // the user still has.
+            const result = resolveProfiles(sketchWith([...a, ...b]), [refB, refB]);
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("Sketch profile match is ambiguous after rebuild");
         } finally {
             restore();
         }
@@ -694,7 +714,7 @@ describe("resolveProfiles", () => {
             const result = resolveProfiles(sketchWith([...OUTER, ...HOLE]), [ref]);
 
             expect(result.isOk).toBe(true);
-            const resolved = result.unchecked()!;
+            const resolved = result.unchecked()!.profiles;
             expect(resolved.length).toBe(1);
             // The inner loop follows the outer ones in the combined profile list.
             expect(resolved[0].index).toBe(1);
@@ -715,7 +735,7 @@ describe("resolveProfiles", () => {
             const result = resolveProfiles(sketch, [ref]);
 
             expect(result.isOk).toBe(true);
-            const resolved = result.unchecked()!;
+            const resolved = result.unchecked()!.profiles;
             expect(resolved.length).toBe(1);
             expect(new Set(resolved[0].face.findSubShapes(ShapeTypes.edge))).toEqual(new Set(second));
             expect(faces[resolved[0].index].findSubShapes(ShapeTypes.edge)).toEqual(
@@ -826,12 +846,13 @@ describe("profile topology defects", () => {
             const c = square(40, 40, 42, 42);
 
             const refB = captureProfileRef(faceOf(b));
-            const before = resolveProfiles(sketchWith([...a, ...b]), [refB]).unchecked()![0].index;
+            const before = resolveProfiles(sketchWith([...a, ...b]), [refB]).unchecked()!.profiles[0].index;
 
             // Adding an unrelated loop after b keeps b's positional index, which still
             // indexes the profile mesh ranges (see preselectCurrentProfiles).
             const refB2 = captureProfileRef(faceOf(b));
-            const after = resolveProfiles(sketchWith([...a, ...b, ...c]), [refB2]).unchecked()![0].index;
+            const after = resolveProfiles(sketchWith([...a, ...b, ...c]), [refB2]).unchecked()!.profiles[0]
+                .index;
 
             expect(after).toBe(before);
         } finally {
@@ -846,9 +867,8 @@ describe("profile topology defects", () => {
             const b = square(20, 20, 22, 22);
             const c = square(40, 40, 42, 42);
 
-            const before = resolveProfiles(
-                sketchWithIds([...a, ...b], [1, 2, 3, 4, 5, 6, 7, 8]),
-            ).unchecked()!;
+            const before = resolveProfiles(sketchWithIds([...a, ...b], [1, 2, 3, 4, 5, 6, 7, 8])).unchecked()!
+                .profiles;
             expect(before.map((p) => p.seed)).toEqual(["e1.2.3.4", "e5.6.7.8"]);
 
             // Inserting c ahead of b shifts b's positional index 1 → 2, but the entity
@@ -856,7 +876,7 @@ describe("profile topology defects", () => {
             // survives profile reordering.
             const after = resolveProfiles(
                 sketchWithIds([...a, ...c, ...b], [1, 2, 3, 4, 9, 10, 11, 12, 5, 6, 7, 8]),
-            ).unchecked()!;
+            ).unchecked()!.profiles;
             expect(after.map((p) => p.index)).toEqual([0, 1, 2]);
             expect(after.map((p) => p.seed)).toEqual(["e1.2.3.4", "e9.10.11.12", "e5.6.7.8"]);
         } finally {
@@ -880,7 +900,7 @@ describe("profile topology defects", () => {
             // Overlapping squares route through the kernel; both regions report the
             // same bounding entity set (e.g. the lens regions of two crossing circles).
             const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
-            const profiles = resolveProfiles(sketchWith(edges)).unchecked()!;
+            const profiles = resolveProfiles(sketchWith(edges)).unchecked()!.profiles;
 
             expect(profiles.map((p) => p.seed)).toEqual(["e1.2", "e1.2~1"]);
         } finally {
@@ -905,7 +925,7 @@ describe("profile topology defects", () => {
         const restore = mockShapeFactory({ facesFromEdges });
         try {
             const edges = [...square(0, 0, 2, 2), ...square(1, 1, 3, 3)];
-            const profiles = resolveProfiles(sketchWith(edges)).unchecked()!;
+            const profiles = resolveProfiles(sketchWith(edges)).unchecked()!.profiles;
 
             expect(profiles.map((p) => p.seed)).toEqual(["e1.2~1", "e1.2"]);
         } finally {

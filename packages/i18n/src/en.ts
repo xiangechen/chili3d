@@ -85,6 +85,8 @@ export default {
         "body.group": "Group",
         "body.imported": "Imported",
         "body.line": "Line",
+        "body.missingInputs{0}": "Missing inputs: {0}",
+        "body.missingPick{0}": "Missing input #{0}",
         "body.meshNode": "Mesh Node",
         "body.multiShape": "Multi Shape",
         "body.parametricBody": "Parametric Body",
@@ -600,6 +602,17 @@ export default {
         "sketch.offsetNoJoin{0}": "{0} corners could not be joined: their offset curves stay apart",
         "sketch.noConstraints": "No constraints",
         "sketch.noProjectableEdges": "No coplanar edges could be projected",
+        "sketch.recovery.conflict{0}": "Delete any one of {0} to clear the conflict",
+        "sketch.recovery.entangledConflict":
+            "These constraints hold each other up: deleting any single one leaves the conflict. Remove a combination.",
+        "sketch.recovery.entangledRedundant":
+            "These constraints hold each other up: deleting any single one leaves the redundancy. Remove a combination.",
+        "sketch.recovery.find": "Find the culprit",
+        "sketch.recovery.guardConflict{0}":
+            "A dimension has driven {0} down to nothing: change the driving dimension or relax the constraint. Deleting any single constraint does not help.",
+        "sketch.recovery.redundant{0}": "Delete any one of {0} to clear the redundancy",
+        "sketch.recovery.truncated{0}":
+            "Only the first {0} constraints were tried — the answer may be incomplete",
         "sketch.redundant": "Redundant constraints",
         "sketch.rollbackFailed": "Some bodies could not be rolled back to the sketch's timeline position",
         "sketch.trimRemovedConstraints{0}": "The trim removed {0} constraints",

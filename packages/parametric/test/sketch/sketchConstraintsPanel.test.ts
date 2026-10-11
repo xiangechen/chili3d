@@ -416,3 +416,204 @@ describe("SketchEditor constraint diagnostics", () => {
         }
     });
 });
+
+describe("SketchEditor 'find the culprit'", () => {
+    const answerLines = (content: HTMLElement) =>
+        [...content.querySelectorAll(`.${style.answerLine}`)].map((line) => line.textContent);
+
+    test("the offer is hidden while the sketch is clean and appears once it is flagged", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(0, 0, 100, 0);
+            const refs = lineRefs(line);
+            editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            const find = content.querySelector<HTMLButtonElement>(`.${style.find}`);
+            expect(find).not.toBeNull();
+            expect(find!.textContent).toBe(I18n.translate("sketch.recovery.find"));
+            expect(find!.hidden).toBe(true);
+
+            // a second, contradicting distance flags the sketch
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 100 });
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 50 });
+            editor.solve(true);
+            editor.toggleConstraintsPanel();
+            const flagged = ctx.panels.at(-1)!.content;
+            const button = flagged.querySelector<HTMLButtonElement>(`.${style.find}`);
+            expect(button!.hidden).toBe(false);
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("clicking it names the constraints whose single deletion clears the conflict", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(0, 0, 100, 0);
+            const refs = lineRefs(line);
+            const first = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs,
+                datum: 100,
+            });
+            const second = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs,
+                datum: 50,
+            });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            expect(answerLines(content)).toEqual([]);
+
+            content.querySelector<HTMLButtonElement>(`.${style.find}`)!.click();
+
+            expect(answerLines(content)).toEqual([
+                I18n.translate("sketch.recovery.conflict{0}", `#${first}, #${second}`),
+            ]);
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("an entangled conflict says so instead of naming a scapegoat", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(-1.36, 2.38, 2.3, -0.61);
+            const refs = lineRefs(line);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Fix,
+                refs: [refs[0]],
+                datums: [-0.87, -4.75],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Fix,
+                refs: [refs[1]],
+                datums: [2.3, -0.61],
+            });
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 4.81 });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.HorizontalDistance,
+                refs,
+                datum: 1.13,
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.VerticalDistance,
+                refs,
+                datum: 5.11,
+            });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            content.querySelector<HTMLButtonElement>(`.${style.find}`)!.click();
+
+            expect(answerLines(content)).toEqual([I18n.translate("sketch.recovery.entangledConflict")]);
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("a collapsed size is answered on sight, and offers no deletion run", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const refs = lineRefs(line);
+            const declaring = editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 0 });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+
+            // Not "delete any one of …" (a collapsed size cannot be repaired by deleting) and
+            // not the entangled wording either (there is no combination to remove). It needs
+            // no button press: the answer is in the diagnostics, not in a trial run — which
+            // is also why the offer to run one is withdrawn.
+            expect(answerLines(content)).toEqual([
+                I18n.translate("sketch.recovery.guardConflict{0}", `#${declaring}`),
+            ]);
+            expect(content.querySelector<HTMLButtonElement>(`.${style.find}`)!.hidden).toBe(true);
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("a collapsed size beside a deletion question keeps the offer", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const refs = lineRefs(line);
+            const declaring = editor.solver.addConstraint({ kind: ConstraintKind.Horizontal, refs });
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 0 });
+            // A second, disconnected line carries a contradictory pair — a row-sourced
+            // conflict, whose answer really does come from the trials.
+            const other = editor.solver.addLine(20, 0, 28, 0);
+            const otherRefs = lineRefs(other);
+            const first = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: otherRefs,
+                datum: 10,
+            });
+            const second = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: otherRefs,
+                datum: 12,
+            });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            const guard = I18n.translate("sketch.recovery.guardConflict{0}", `#${declaring}`);
+            expect(answerLines(content)).toEqual([guard]);
+
+            content.querySelector<HTMLButtonElement>(`.${style.find}`)!.click();
+
+            // The baseline line stays; the trial run answers the other half.
+            expect(answerLines(content)).toEqual([
+                guard,
+                I18n.translate("sketch.recovery.conflict{0}", `#${first}, #${second}`),
+            ]);
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("the answer does not outlive an edit of the constraints it was about", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            const line = editor.solver.addLine(0, 0, 100, 0);
+            const refs = lineRefs(line);
+            const first = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs,
+                datum: 100,
+            });
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 50 });
+            editor.solve(true);
+
+            editor.toggleConstraintsPanel();
+            const content = ctx.panels.at(-1)!.content;
+            content.querySelector<HTMLButtonElement>(`.${style.find}`)!.click();
+            expect(answerLines(content)).toHaveLength(1);
+
+            // deleting the constraint it suggested changes the question entirely
+            editor.deleteConstraints([first]);
+            editor.solve(true);
+
+            expect(answerLines(content)).toEqual([]);
+        } finally {
+            ctx.cleanup();
+        }
+    });
+});

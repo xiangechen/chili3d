@@ -370,7 +370,10 @@ function resolveSketchSection(
 ): Result<ResolvedSection> {
     const profiles = resolveProfiles(sketch, [ref]);
     if (!profiles.isOk) return Result.err(profiles.error);
-    const { face, seed } = profiles.value[0];
+    // One ref in, so `missing` is necessarily empty here and is ignored: unlike a
+    // multi-pick feature a loft cannot build from the rest — the sections ARE the shape,
+    // so a profile that has gone is the feature's error, not a warning.
+    const { face, seed } = profiles.value.profiles[0];
     const seedBase = `sketch:${sketch.id}:${seed}`;
     const faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
     const wire = face.outerWire();

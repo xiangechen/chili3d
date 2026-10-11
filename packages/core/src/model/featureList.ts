@@ -61,6 +61,22 @@ export interface FeatureReference {
     readonly node: INode;
 }
 
+/**
+ * A picked input a feature no longer resolves, as the feature row shows it. `key` and
+ * `refIndex` name the slot the pick came out of — which field, and which position within
+ * the feature's own list for that field — so the row can say which pick went and a reader
+ * can find it in the stored feature. They identify the slot; the re-pick itself is the
+ * feature's own whole-list action (`IFeatureListNode.reselectShapes`).
+ */
+export interface FeatureMissingInput {
+    /** The feature field the input belongs to, e.g. `profiles` or `toolIds`. */
+    readonly key: string;
+    /** Position within that field's list, as stored on the feature (0-based). */
+    readonly refIndex: number;
+    /** The row's wording, already translated. */
+    readonly label: string;
+}
+
 /** One row of a parametric body's ordered feature list. */
 export interface FeatureItem {
     readonly id: string;
@@ -79,6 +95,13 @@ export interface FeatureItem {
      * does not force expansion like an error does.
      */
     readonly warning?: string;
+    /**
+     * Picked inputs the feature could not re-resolve and built without. The row shows one
+     * placeholder line per entry in place of the pick, so the user can see WHICH input went
+     * rather than finding the feature quietly operating on fewer inputs. On a `reselectable`
+     * feature the line is also the door to the re-pick.
+     */
+    readonly missingInputs?: readonly FeatureMissingInput[];
     /** Set when the feature's shape references (e.g. fillet edges) can be re-picked. */
     readonly reselectable?: boolean;
     /** Nodes this feature holds (e.g. its sketch), shown as link rows above the parameters. */

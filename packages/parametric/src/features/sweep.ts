@@ -158,12 +158,18 @@ function resolveSweepProfiles(
     const sketch =
         feature.sketchId === undefined ? undefined : findSketch(context.document, feature.sketchId);
     if (sketch === undefined) return Result.err("Sketch not found");
-    const profiles = resolveProfiles(sketch, feature.profiles);
-    if (!profiles.isOk) return Result.err(profiles.error);
+    const resolved = resolveProfiles(sketch, feature.profiles);
+    if (!resolved.isOk) return Result.err(resolved.error);
+    const { profiles, missing, refIndexes } = resolved.value;
     if (context.tracking !== undefined && feature.profiles !== undefined && feature.profiles.length > 0) {
-        context.tracking.resolvedProfiles = profiles.value.map(({ face }) => captureProfileRef(face));
+        const anchors = [...feature.profiles];
+        for (const [k, profile] of profiles.entries()) {
+            anchors[refIndexes[k]] = captureProfileRef(profile.face);
+        }
+        context.tracking.resolvedProfiles = anchors;
+        if (missing.length > 0) context.tracking.unresolved = { key: "profiles", refIndexes: missing };
     }
-    return Result.ok(profiles.value.map((profile) => sketchSweepProfile(sketch, profile, context, owned)));
+    return Result.ok(profiles.map((profile) => sketchSweepProfile(sketch, profile, context, owned)));
 }
 
 /**
@@ -215,6 +221,11 @@ function resolveSourceProfiles(
                 true,
             ),
         );
+        // A source face the body no longer has costs the user that pick, not the whole
+        // sweep — the same tolerance the sketch path above keeps.
+        if (matched.value.missing.length > 0) {
+            context.tracking.unresolved = { key: "profiles", refIndexes: matched.value.missing };
+        }
     }
     return Result.ok(
         matched.value.indexes.map((index) =>

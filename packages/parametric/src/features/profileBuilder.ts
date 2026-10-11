@@ -29,7 +29,7 @@ import {
     needsKernelSplit,
     sampleLoop,
 } from "./profileGeometry";
-import { matchProfileIndexes } from "./profileMatcher";
+import { matchProfilesTolerant } from "./profileMatcher";
 import type { ProfileRef } from "./profileRef";
 import { profileSeeds } from "./profileSeeds";
 
@@ -267,22 +267,54 @@ export interface ResolvedProfile {
     readonly seed: string;
 }
 
+/** What {@link resolveProfiles} found, and what it could not. */
+export interface ResolvedProfiles {
+    /** The profiles the refs still match, in ref order. */
+    readonly profiles: ResolvedProfile[];
+    /**
+     * Positions in the feature's own `profiles` array that no longer resolve. A feature
+     * with several picks can build from the rest and say so (`ShapeTracking.unresolved`),
+     * which is what keeps a deleted region from being silently dropped off the feature.
+     */
+    readonly missing: number[];
+    /** Parallel to `profiles`: which position in the feature's array each came from. */
+    readonly refIndexes: number[];
+}
+
 /**
  * The profiles a feature should operate on: every outer profile (holes applied) when
  * `profiles` is undefined/empty, otherwise the profiles the stored refs re-match to
  * (see `matchProfileIndexes`) — an explicitly selected inner loop extrudes as a solid.
+ *
+ * A pick that is GONE is reported through `missing` rather than failing the whole
+ * feature; a pick that is AMBIGUOUS still fails, because the group match would have to
+ * guess which of two candidates the user meant. The distinction is not cosmetic: the
+ * first is something the user can see and repair, the second is a wrong answer that
+ * looks right.
  */
-export function resolveProfiles(sketch: SketchNode, profiles?: ProfileRef[]): Result<ResolvedProfile[]> {
+export function resolveProfiles(sketch: SketchNode, profiles?: ProfileRef[]): Result<ResolvedProfiles> {
     const profileSet = sketchProfiles(sketch);
     if (!profileSet.isOk) return Result.err(profileSet.error);
     const all = allProfiles(profileSet.value);
     const seeds = profileSeeds(all);
+    const build = (indexes: number[], refIndexes: number[], missing: number[]): ResolvedProfiles => ({
+        profiles: indexes.map((index) => ({ face: all[index], index, seed: seeds[index] })),
+        missing,
+        refIndexes,
+    });
     if (profiles === undefined || profiles.length === 0) {
-        return Result.ok(profileSet.value.outer.map((face, index) => ({ face, index, seed: seeds[index] })));
+        const outer = profileSet.value.outer;
+        // The seed's position is the profile's own position in the combined list.
+        return Result.ok({
+            profiles: outer.map((face, index) => ({ face, index, seed: seeds[index] })),
+            missing: [],
+            refIndexes: outer.map((_, index) => index),
+        });
     }
-    const indexes = matchProfileIndexes(all, profiles, profileEntitiesOf(profileSet.value));
-    if (!indexes.isOk) return Result.err(indexes.error);
-    return Result.ok(indexes.value.map((index) => ({ face: all[index], index, seed: seeds[index] })));
+    const partition = matchProfilesTolerant(all, profiles, profileEntitiesOf(profileSet.value));
+    if (!partition.isOk) return Result.err(partition.error);
+    const { indexes, refIndexes, missing } = partition.value;
+    return Result.ok(build(indexes, refIndexes, missing));
 }
 
 /** All selectable profiles — outer (with holes) first, then inner loops; matches the sketch's profile mesh order. */
