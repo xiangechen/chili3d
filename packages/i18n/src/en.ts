@@ -128,6 +128,9 @@ export default {
         "command.constraint.midpoint": "Midpoint",
         "command.constraint.parallel": "Parallel",
         "command.constraint.perpendicular": "Perpendicular",
+        "command.constraint.curvature": "Curvature continuous",
+        "command.constraint.ellipseNormal": "Perpendicular to Ellipse",
+        "command.constraint.equalOffset": "Equal Offset",
         "command.constraint.pointOn": "Point On Entity",
         "command.constraint.symmetric": "Symmetric",
         "command.constraint.tangent": "Tangent",
@@ -560,6 +563,7 @@ export default {
         "ribbon.tab.plugin": "Plugin",
         "ribbon.tab.sketch": "Sketch",
         "sketch.conflicting": "Conflicting constraints",
+        "sketch.solveFailed": "The sketch could not be solved — that change did not take",
         "sketch.conicRho": "Rho",
         "sketch.constraintExists": "Constraint already exists",
         "sketch.dimensionSelectionTooMany": "Select at most two entities to dimension",
@@ -569,7 +573,8 @@ export default {
         "sketch.driven": "A driven dimension measures the geometry without constraining it",
         "sketch.drivenNotEditable": "A driven dimension is read-only — switch it back to driving to edit it",
         "sketch.drivenSelectDimension": "Select a dimension to switch it between driving and driven",
-        "sketch.externalRefAssociativeOnly": "External references only accept associative constraints",
+        "sketch.externalRefFrozen":
+            "An external reference is frozen geometry — this constraint needs at least one sketch entity",
         "sketch.externalRefsLost{0}":
             "{0} sketch external references lost their source; profiles use frozen geometry",
         "sketch.externalRefTypeChanged": "External reference type changed — its constraints were removed",

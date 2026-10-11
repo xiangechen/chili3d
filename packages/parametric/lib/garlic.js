@@ -5,17 +5,17 @@
  * 带 datum 的约束 datum ParamId 占末位）。新增内建约束须同步加入本枚举、`layout` 与 `from_u32`。
  *
  * C ABI 判别值 = 本枚举的**隐式判别值**（声明序）= `from_u32` 表 = cbindgen
- * 头文件里 C 侧看到的数值（当前 0..=54，无空洞）。数值契约一经发布不得改动——
+ * 头文件里 C 侧看到的数值（当前 0..=61，无空洞）。数值契约一经发布不得改动——
  * 新增约束接在末尾取新值。曲线族在 2026-10 由控制点 B 样条改为 Bézier +
  * NURBS：7 个原样条槽位**改义**为参数形状相同的 Bézier 对应项（0.1.0 未发布）。
  *
- * 上面那句"与声明顺序解耦"原先只是**意图**：判别值当时全按声明序隐式取值，
- * 曲线族变体一插错位置就与 `from_u32` 表（以及 cbindgen 头文件）错位 14 项
- * （35..=48，仅 C/FFI 路径取错约束种类）。2026-10 六轮起判别值**一律显式
- * 给出**（= `from_u32` 表 = cbindgen 头文件里 C 侧看到的数值）⟹ 解耦成为
- * 事实：声明序只是可读性安排，插入新变体不会静默挪动既有值——这是 0.1
- * 发布前最后的定型窗口。两张表由单测 `from_u32_matches_discriminants` 逐项
- * 互锁（并断言判别值从 0 起密集连续）。
+ * 判别值是**隐式**的（枚举无 `= N`，值即声明序），因此**插入/挪动变体会平移
+ * 其后全部判别值**——这不是"解耦"，而是同一份数值的两个视图。防线是单测
+ * `from_u32_matches_discriminants` 把枚举判别值与 `from_u32` 表逐项互锁（并
+ * 断言从 0 起密集连续）：任何会改变既有数值的重排都会让它**立即报红**，不会
+ * 静默漂移。但报红 ≠ 数值没变——发布后**新增只能接在末尾**，0.1 发布前是最后
+ * 的重排窗口。历史事故：曲线族变体曾插错位置，与 `from_u32` 表（及 cbindgen
+ * 头文件）错位 14 项（35..=48，仅 C/FFI 路径取错约束种类），正是该测试抓出。
  *
  * 声明序 = **几何族优先**的分类学（2026-10 六轮重排，0.1 未发布故不背兼容包袱）：
  * 点与通用 → 点-线 → 线-线 → 圆 → 弧 → 椭圆 → 圆锥 → Bézier → NURBS →
@@ -27,7 +27,7 @@
  * Bézier 批、35..46 与 49..54 是两批曲线相切组合、47/48 是 NURBS 的点/线两项
  * （编号均为重排前映射，见 docs/04 六轮条目）——同族被批次切开（`PointOnEllipse`
  * 与 `PointOnNurbs` 相距 19），组合段也被劈成两截。
- * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54}
+ * @enum {0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61}
  */
 export const ConstraintKind = Object.freeze({
     /**
@@ -267,6 +267,34 @@ export const ConstraintKind = Object.freeze({
      * 分界与各段控制点数由 `nurbs` 结构数据推出，不依赖 ParamKind）
      */
     TangentNurbsNurbs: 54, "54": "TangentNurbsNurbs",
+    /**
+     * p.x, p.y, q.x, q.y, c.x, c.y, m.x, m.y, n.x, n.y（线 (p,q) 在椭圆接触端 p 处正交）
+     */
+    EllipseNormal: 55, "55": "EllipseNormal",
+    /**
+     * r1, r2, r3, r4（四圆半径差相等）
+     */
+    EqualOffsetC: 56, "56": "EqualOffsetC",
+    /**
+     * c1,s1, c2,s2, c3,s3, c4,s4（四弧半径差相等）
+     */
+    EqualOffsetA: 57, "57": "EqualOffsetA",
+    /**
+     * l1.p1, l1.p2, p1, l2.p1, l2.p2, p2（两对线距相等）
+     */
+    EqualOffsetL: 58, "58": "EqualOffsetL",
+    /**
+     * b1.cp0…cp3, b2.cp0…cp3（Bézier–Bézier G2；branch 0..=3 编码接缝端）
+     */
+    CurvatureBB: 59, "59": "CurvatureBB",
+    /**
+     * b.cp0…cp3, l.p1, l.p2（Bézier–直线 G2）
+     */
+    CurvatureBL: 60, "60": "CurvatureBL",
+    /**
+     * b.cp0…cp3, a.center, a.start, a.end（Bézier–圆弧 G2）
+     */
+    CurvatureBA: 61, "61": "CurvatureBA",
 });
 
 /**
@@ -298,12 +326,17 @@ export class WasmSystem {
      * 必须走此路径，显式传齐全部 datum）。`driving` 决定 datum 是输入
      * （驱动）还是写回目标（从动）；无 datum 的约束只允许 driving = true。
      *
-     * `branch` 仅对相切约束有效（其他 kind 必须为 None，否则报错）：
-     * - None：按当前几何自动判定分支（TangentLC::detect / TangentCC::auto，
-     *   圆弧相切 TangentLA/TangentAA/TangentCA 同）；
-     * - Some(1)：显式正分支（TangentLineCircle/TangentLineArc = Positive，
+     * `branch` 仅对相切族与 G2 曲率族有效（其他 kind 必须为 None，否则报错）：
+     * - None：按当前几何自动判定（相切族走 TangentLC::detect / TangentCC::auto，
+     *   圆弧相切 TangentLA/TangentAA/TangentCA 同；G2 曲率走 Curvature*::detect，
+     *   取两端点距离最近的一对端）；
+     * - 相切族 `Some(1)`：显式正分支（TangentLineCircle/TangentLineArc = Positive，
      *   TangentCircleCircle/TangentArcArc = External）；
-     * - Some(-1)：显式负分支（Negative / Internal）；
+     * - 相切族 `Some(-1)`：显式负分支（Negative / Internal）；
+     * - G2 曲率族（CurvatureBB/CurvatureBL/CurvatureBA）`Some(1..=4)`：显式接缝端对
+     *   ——1=(Start,Start)、2=(Start,End)、3=(End,Start)、4=(End,End)（Start = 曲线的
+     *   t=0 端：Bézier 的 cp0 / 直线的 p1 / 圆弧的 start）。**0 编码留给"自动"**
+     *   （与 FFI 的 `branch = 0` 一致），故端对从 1 起编号；
      * - 其他值报错。显式分支走 new_checked 校验：与当前几何矛盾时返回
      *   TangentBranchConflict。显式 Internal 时若 r1 < r2，new_checked
      *   自动交换两圆/两弧（TangentCircleArc 布局不对称无法交换，改为置 flip

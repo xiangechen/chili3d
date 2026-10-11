@@ -4,6 +4,7 @@
 import { PubSub } from "@chili3d/core";
 import {
     ConstraintKind,
+    isDimensionKind,
     isExternalEntityId,
     pointRefKey,
     type SketchEntityData,
@@ -34,11 +35,12 @@ export function snapTargetEntities(solver: SketchSolver): SketchEntityData[] {
 }
 
 /**
- * Kinds that may reference an external entity: they relate real geometry to the
- * external (which never moves), so the real side follows it. Rigid or datum
- * kinds (Horizontal/Vertical, Fix, distances, angles, Radius) would only fight
- * the external's structural pins — redundant at best, an unsatisfiable conflict
- * at worst.
+ * Kinds that relate two entities to each other without carrying a reading of their own —
+ * they hold a *relationship* the sketch can always reach by moving its own side, so an
+ * external entity among their refs is no obstacle whatever else they name.
+ *
+ * The kinds *not* in here read as a value, and whether an external may take part depends
+ * on what else the constraint names (`allowsConstraintOnRefs`).
  */
 const ASSOCIATIVE_KINDS: readonly ConstraintKind[] = [
     ConstraintKind.P2PCoincident,
@@ -88,24 +90,68 @@ export function isAssociativeConstraintKind(kind: ConstraintKind): boolean {
 }
 
 /**
- * Whether `kind` may target the picked entity. An external entity accepts only associative
- * kinds, and an array's instance accepts nothing at all: the pattern writes its parameters
- * back on every solve, so a constraint on one would be fighting the array it belongs to —
- * the same answer SolidWorks documents for a patterned instance. A rejected pick pubs a
- * status-bar tip and returns false.
+ * Whether `entityId` may be a constraint target at all. An array's instance may not: the
+ * pattern writes its parameters back on every solve, so a constraint on one would be
+ * fighting the array it belongs to — the same answer SolidWorks documents for a patterned
+ * instance. Nothing else is ruled out here, because what an *external* entity accepts is a
+ * property of the whole constraint rather than of the one entity — that is
+ * `allowsConstraintOnRefs`.
  */
+export function isConstraintTarget(solver: SketchSolver, entityId: number): boolean {
+    if (!solver.isDerived(entityId)) return true;
+    PubSub.default.pub("statusBarTip", "sketch.arrayInstanceReadOnly");
+    return false;
+}
+
+/**
+ * Whether a constraint of `kind` over `refs` may be asserted. A rejected pick pubs a
+ * status-bar tip and returns false.
+ *
+ * An external (projected) entity is frozen geometry: it never moves, so what a constraint
+ * naming one says is satisfied by the *other* entities it names. That is why the
+ * associative kinds make sense against one at all — a coincidence onto a projected corner,
+ * a parallel to a projected edge — and it is just as true of a dimension, whose reading is
+ * a value the sketch side moves to reach: "this point is 20 mm from that projected edge"
+ * drives the point and the external is only where the measurement starts. So the rule is
+ * about the whole constraint rather than about each entity, and the rigid kinds are refused
+ * only when *every* entity they name is external, leaving nothing the constraint could
+ * move. FreeCAD draws the same line with `areBothPointsOrSegmentsFixed`; its dimensions over
+ * nothing but fixed geometry are not refused but created as references instead, which here
+ * is `measuresOnlyExternalGeometry`.
+ */
+export function allowsConstraintOnRefs(
+    solver: SketchSolver,
+    kind: ConstraintKind,
+    refs: readonly SketchPointRef[],
+): boolean {
+    if (!refs.every((ref) => isConstraintTarget(solver, ref.entityId))) return false;
+    if (isAssociativeConstraintKind(kind)) return true;
+    // a dimension always may: when an external is all it names, the reading is of frozen
+    // geometry, and the caller places it as a reference instead of driving anything
+    if (isDimensionKind(kind)) return true;
+    if (refs.some((ref) => !isExternalEntityId(ref.entityId))) return true;
+    PubSub.default.pub("statusBarTip", "sketch.externalRefFrozen");
+    return false;
+}
+
+/** One entity's worth of the same rule, for the commands that pick a single target. */
 export function allowsConstraintOnEntity(
     solver: SketchSolver,
     kind: ConstraintKind,
     entityId: number,
 ): boolean {
-    if (solver.isDerived(entityId)) {
-        PubSub.default.pub("statusBarTip", "sketch.arrayInstanceReadOnly");
-        return false;
-    }
-    if (!isExternalEntityId(entityId) || isAssociativeConstraintKind(kind)) return true;
-    PubSub.default.pub("statusBarTip", "sketch.externalRefAssociativeOnly");
-    return false;
+    return allowsConstraintOnRefs(solver, kind, [{ entityId, pointIndex: 0 }]);
+}
+
+/**
+ * Whether a dimension names nothing but external (projected) geometry — a reading of the
+ * frozen model rather than of the sketch. Such a dimension is placed as a *reference*: there
+ * is nothing on either side free to move, so asserting it would only fight the structural
+ * pins the external is held by. FreeCAD creates exactly these as `driving = False`; the
+ * result is the same state the user reaches by hand with `constraint.toggleDriven`.
+ */
+export function measuresOnlyExternalGeometry(refs: readonly SketchPointRef[]): boolean {
+    return refs.length > 0 && refs.every((ref) => isExternalEntityId(ref.entityId));
 }
 
 /** Point refs addressing an entity as a line (pointIndex 0/1). */

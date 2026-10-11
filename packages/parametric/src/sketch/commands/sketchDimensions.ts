@@ -26,7 +26,12 @@ import {
     type SketchPointRef,
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
-import { allowsConstraintOnEntity, normalizeLineRefs } from "../solverEntities";
+import {
+    allowsConstraintOnRefs,
+    isConstraintTarget,
+    measuresOnlyExternalGeometry,
+    normalizeLineRefs,
+} from "../solverEntities";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /** The longest selection the inference table ever reads — two elements, whatever they are. */
@@ -171,20 +176,12 @@ export class DimensionCommand extends DrivenDimensionCommand {
         const resolved = inferDimension(this.elements, editor.solver)?.resolve(label);
         if (resolved === undefined) return;
         const { constraint } = resolved;
-        // A dimension is not an associative constraint, so an entity projected from another
-        // node cannot take one — `allowsConstraintOnEntity` says so through the status bar.
-        if (
-            !constraint.refs.every((ref) =>
-                allowsConstraintOnEntity(editor.solver, constraint.kind, ref.entityId),
-            )
-        ) {
-            return;
-        }
+        if (!allowsConstraintOnRefs(editor.solver, constraint.kind, constraint.refs)) return;
         // A reading the sketch already holds is not refused here the way a duplicate
         // *constraint* is: it is placed, and the solve judges it (see `commitDimension`).
         await commitDimension(editor, constraint, resolved.anchor, resolved.initial, {
             positiveOnly: resolved.positiveOnly,
-            driven: this.driven,
+            driven: this.driven || measuresOnlyExternalGeometry(constraint.refs),
         });
     }
 }
@@ -202,11 +199,7 @@ export class DistanceDimensionCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (
-            p1 === undefined ||
-            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2PDistance, p1.entityId)
-        )
-            return;
+        if (p1 === undefined) return;
 
         // rubber-band line from the first point to the cursor while picking the second
         const uv1 = editor.solver.pointOf(p1);
@@ -221,11 +214,10 @@ export class DistanceDimensionCommand extends DrivenDimensionCommand {
                 this.controller,
             ),
         );
-        if (
-            p2 === undefined ||
-            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2PDistance, p2.entityId)
-        )
-            return;
+        if (p2 === undefined) return;
+
+        const refs = normalizeLineRefs(editor.solver, p1, p2);
+        if (!allowsConstraintOnRefs(editor.solver, ConstraintKind.P2PDistance, refs)) return;
 
         const uv2 = editor.solver.pointOf(p2);
         const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
@@ -236,14 +228,10 @@ export class DistanceDimensionCommand extends DrivenDimensionCommand {
         const initial = currentDistance(editor.solver, p1, p2);
         void commitDimension(
             editor,
-            {
-                kind: ConstraintKind.P2PDistance,
-                refs: normalizeLineRefs(editor.solver, p1, p2),
-                datum: initial,
-            },
+            { kind: ConstraintKind.P2PDistance, refs, datum: initial },
             { kind: "offset", ...labelOnSegment(uv1, uv2, position) },
             initial,
-            { driven: this.driven },
+            { driven: this.driven || measuresOnlyExternalGeometry(refs) },
         );
     }
 }
@@ -258,11 +246,9 @@ export class RadiusDimensionCommand extends DrivenDimensionCommand {
             undefined,
             this.controller,
         );
-        if (
-            entityId === undefined ||
-            !allowsConstraintOnEntity(editor.solver, ConstraintKind.Radius, entityId)
-        )
-            return;
+        if (entityId === undefined) return;
+        const refs: SketchPointRef[] = [{ entityId, pointIndex: 0 }];
+        if (!allowsConstraintOnRefs(editor.solver, ConstraintKind.Radius, refs)) return;
 
         const entity = editor.solver.entity(entityId)!;
         const center: [number, number] = [entity.params[0], entity.params[1]];
@@ -275,14 +261,10 @@ export class RadiusDimensionCommand extends DrivenDimensionCommand {
         // anchor the label as a vector from the center so it follows the geometry
         void commitDimension(
             editor,
-            {
-                kind: ConstraintKind.Radius,
-                refs: [{ entityId, pointIndex: 0 }],
-                datum: radius,
-            },
+            { kind: ConstraintKind.Radius, refs, datum: radius },
             { kind: "vector", dx: position[0] - center[0], dy: position[1] - center[1] },
             radius,
-            { driven: this.driven },
+            { driven: this.driven || measuresOnlyExternalGeometry(refs) },
         );
     }
 }
@@ -354,7 +336,7 @@ export async function commitDimension(
     }
     return editor.promptDatum(
         initial,
-        (value) => editor.solver.setDatumSource(id, value),
+        (value) => editor.writeDatum(id, value),
         datumUnitSpec(constraint.kind),
         () => {
             editor.solver.removeConstraint(id);
@@ -401,11 +383,7 @@ export class PointLineDistanceCommand extends DrivenDimensionCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (
-            p === undefined ||
-            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2LDistance, p.entityId)
-        )
-            return;
+        if (p === undefined) return;
         this.beginStep();
         const lineId = await editor.pickEntity(
             "prompt.pickSketchEntity",
@@ -413,14 +391,14 @@ export class PointLineDistanceCommand extends DrivenDimensionCommand {
             { datum: true },
             this.controller,
         );
-        if (
-            lineId === undefined ||
-            !allowsConstraintOnEntity(editor.solver, ConstraintKind.P2LDistance, lineId)
-        )
-            return;
+        if (lineId === undefined) return;
 
         const l1: SketchPointRef = { entityId: lineId, pointIndex: 0 };
         const l2: SketchPointRef = { entityId: lineId, pointIndex: 1 };
+        const refs = [p, l1, l2];
+        // the perpendicular distance from a sketch point to a projected edge is the
+        // elsewhere-ordinary case of this command: the point moves, the edge does not
+        if (!allowsConstraintOnRefs(editor.solver, ConstraintKind.P2LDistance, refs)) return;
         const uvP = editor.solver.pointOf(p);
         const uv1 = editor.solver.pointOf(l1);
         const uv2 = editor.solver.pointOf(l2);
@@ -433,15 +411,14 @@ export class PointLineDistanceCommand extends DrivenDimensionCommand {
         const { datum, reading } = pointLineReading(uvP, uv1, uv2);
         void commitDimension(
             editor,
-            {
-                kind: ConstraintKind.P2LDistance,
-                refs: [p, l1, l2],
-                datum,
-            },
+            { kind: ConstraintKind.P2LDistance, refs, datum },
             { kind: "offset", ...labelOnSegment(uvP, foot, position) },
             reading,
-            // a point-line distance carries a side, so the dialog takes a minus as the flip
-            { positiveOnly: !datumIsSigned(ConstraintKind.P2LDistance) },
+            {
+                // a point-line distance carries a side, so the dialog takes a minus as the flip
+                positiveOnly: !datumIsSigned(ConstraintKind.P2LDistance),
+                driven: this.driven || measuresOnlyExternalGeometry(refs),
+            },
         );
     }
 }
@@ -460,6 +437,9 @@ export class AngleDimensionCommand extends DrivenDimensionCommand {
             { entityId: l2Id, pointIndex: 0 },
             { entityId: l2Id, pointIndex: 1 },
         ];
+        // one of the two lines may be a projected edge — the angle to a body edge is a
+        // reading the sketch side reaches; two projected lines leave nothing to turn
+        if (!allowsConstraintOnRefs(editor.solver, ConstraintKind.Angle, refs)) return;
         const [a1, a2, b1, b2] = refs.map((r) => editor.solver.pointOf(r));
         const position = await pickDimensionPosition(editor, this.beginStep(), (uv) =>
             uv === undefined ? undefined : { kind: "angle", a1, a2, b1, b2, position: uv },
@@ -476,11 +456,15 @@ export class AngleDimensionCommand extends DrivenDimensionCommand {
                 dy: position[1] - measured.vertex[1],
             },
             toDisplayDatum(ConstraintKind.Angle, measured.datum),
-            { driven: this.driven },
+            { driven: this.driven || measuresOnlyExternalGeometry(measured.refs) },
         );
     }
 
-    /** One line of the angle; `datum: true` also lets the X/Y axes serve as a reference. */
+    /**
+     * One line of the angle; `datum: true` also lets the X/Y axes serve as a reference.
+     * What the pick may be is the *pair's* business, so this only asks whether the line is
+     * one a constraint can name at all — an array's instance is not.
+     */
     private async pickLine(editor: SketchEditor): Promise<number | undefined> {
         this.beginStep();
         const id = await editor.pickEntity(
@@ -489,9 +473,7 @@ export class AngleDimensionCommand extends DrivenDimensionCommand {
             { datum: true },
             this.controller,
         );
-        return id !== undefined && allowsConstraintOnEntity(editor.solver, ConstraintKind.Angle, id)
-            ? id
-            : undefined;
+        return id !== undefined && isConstraintTarget(editor.solver, id) ? id : undefined;
     }
 }
 
@@ -527,10 +509,13 @@ abstract class AxisDistanceCommand extends DrivenDimensionCommand {
         const kind = this.axis === "h" ? ConstraintKind.HorizontalDistance : ConstraintKind.VerticalDistance;
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined || !allowsConstraintOnEntity(editor.solver, kind, p1.entityId)) return;
+        if (p1 === undefined) return;
         this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p2 === undefined || !allowsConstraintOnEntity(editor.solver, kind, p2.entityId)) return;
+        if (p2 === undefined) return;
+
+        const refs = [p1, p2];
+        if (!allowsConstraintOnRefs(editor.solver, kind, refs)) return;
 
         const uv1 = editor.solver.pointOf(p1);
         const uv2 = editor.solver.pointOf(p2);
@@ -546,15 +531,14 @@ abstract class AxisDistanceCommand extends DrivenDimensionCommand {
         const span = axis === "h" ? uv2[0] - uv1[0] : uv2[1] - uv1[1];
         void commitDimension(
             editor,
-            {
-                kind,
-                refs: [p1, p2],
-                datum: span,
-            },
+            { kind, refs, datum: span },
             { kind: "offset", ...labelOnAxis(uv1, uv2, axis, position) },
             Math.abs(span),
-            // an axis distance carries a side, so the dialog takes a minus as the flip
-            { positiveOnly: !datumIsSigned(kind), driven: this.driven },
+            {
+                // an axis distance carries a side, so the dialog takes a minus as the flip
+                positiveOnly: !datumIsSigned(kind),
+                driven: this.driven || measuresOnlyExternalGeometry(refs),
+            },
         );
     }
 }

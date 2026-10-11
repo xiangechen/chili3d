@@ -114,6 +114,9 @@ export default {
         "command.constraint.midpoint": "Ponto Médio",
         "command.constraint.parallel": "Paralelo",
         "command.constraint.perpendicular": "Perpendicular",
+        "command.constraint.curvature": "Curvatura contínua",
+        "command.constraint.ellipseNormal": "Perpendicular à elipse",
+        "command.constraint.equalOffset": "Deslocamento igual",
         "command.constraint.pointOn": "Ponto na Entidade",
         "command.constraint.symmetric": "Simétrico",
         "command.constraint.tangent": "Tangente",
@@ -197,6 +200,7 @@ export default {
         "ribbon.tab.sketch": "Esboço",
         "ribbon.tab.parametric": "Paramétrico",
         "sketch.conflicting": "Restrições conflitantes",
+        "sketch.solveFailed": "Não foi possível resolver o esboço — essa alteração não teve efeito",
         "sketch.conicRho": "Rho",
         "sketch.constraintExists": "Restrição já existe",
         "sketch.dimensionSelectionTooMany": "Selecione no máximo duas entidades para cotar",
@@ -207,7 +211,8 @@ export default {
         "sketch.drivenNotEditable":
             "Uma cota conduzida é somente leitura — volte-a para condutora para editá-la",
         "sketch.drivenSelectDimension": "Selecione uma cota para alterná-la entre condutora e conduzida",
-        "sketch.externalRefAssociativeOnly": "Referências externas aceitam apenas restrições associativas",
+        "sketch.externalRefFrozen":
+            "Uma referência externa é geometria congelada — esta restrição precisa de pelo menos uma entidade do esboço",
         "sketch.externalRefsLost{0}":
             "{0} referências externas do esboço perderam a origem; os perfis usam a geometria congelada",
         "sketch.externalRefTypeChanged":

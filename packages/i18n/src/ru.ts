@@ -69,6 +69,9 @@ export default {
         "command.constraint.midpoint": "Середина",
         "command.constraint.parallel": "Параллельно",
         "command.constraint.perpendicular": "Перпендикулярно",
+        "command.constraint.curvature": "Непрерывность кривизны",
+        "command.constraint.ellipseNormal": "Перпендикуляр к эллипсу",
+        "command.constraint.equalOffset": "Равное смещение",
         "command.constraint.pointOn": "Точка на объекте",
         "command.constraint.symmetric": "Симметрия",
         "command.constraint.tangent": "Касательная",
@@ -453,6 +456,7 @@ export default {
         "ribbon.tab.plugin": "Расширение",
         "ribbon.tab.sketch": "Эскиз",
         "sketch.conflicting": "Конфликтующие ограничения",
+        "sketch.solveFailed": "Эскиз не удалось решить — это изменение не применилось",
         "sketch.conicRho": "Rho",
         "sketch.constraintExists": "Ограничение уже существует",
         "sketch.dimensionSelectionTooMany": "Для нанесения размера выберите не более двух объектов",
@@ -464,7 +468,8 @@ export default {
             "Измерительный размер доступен только для чтения — переключите его обратно в задающий, чтобы изменить",
         "sketch.drivenSelectDimension":
             "Выберите размер, чтобы переключить его между задающим и измерительным",
-        "sketch.externalRefAssociativeOnly": "Внешние ссылки допускают только ассоциативные ограничения",
+        "sketch.externalRefFrozen":
+            "Внешняя ссылка — это зафиксированная геометрия; этому ограничению нужен хотя бы один объект эскиза",
         "sketch.externalRefTypeChanged": "Тип внешней ссылки изменился — связанные ограничения удалены",
         "sketch.fullyConstrained": "Полностью ограничен",
         "sketch.issue.conflicting": "Конфликт",

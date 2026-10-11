@@ -7,6 +7,7 @@ import { ConstraintKind, datumIsReading, pointRefKey, type SketchPointRef } from
 import type { SketchSolver } from "../solver";
 import {
     allowsConstraintOnEntity,
+    allowsConstraintOnRefs,
     equalConstraintFor,
     lineRefs,
     pointOnConstraintFor,
@@ -172,10 +173,13 @@ abstract class TwoPointConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
         this.beginStep();
         const p1 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p1 === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, p1.entityId)) return;
+        if (p1 === undefined) return;
         this.beginStep();
         const p2 = await editor.pickPoint("prompt.pickSketchPoint", undefined, this.controller);
-        if (p2 === undefined || !allowsConstraintOnEntity(editor.solver, this.kind, p2.entityId)) return;
+        if (p2 === undefined) return;
+        // the pair is what the rule reads: either point may be a projected one, as long as
+        // the other is real geometry for the alignment to move
+        if (!allowsConstraintOnRefs(editor.solver, this.kind, [p1, p2])) return;
         addAndCommit(editor, this.kind, [p1, p2]);
     }
 }
@@ -273,9 +277,12 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
         if (p === undefined) return;
         this.beginStep();
         const lineId = await editor.pickEntity("prompt.pickSketchEntity", "line", undefined, this.controller);
-        if (lineId === undefined || !allowsConstraintOnEntity(editor.solver, ConstraintKind.Midpoint, lineId))
-            return;
-        addAndCommit(editor, ConstraintKind.Midpoint, [p, ...lineRefs(lineId)]);
+        if (lineId === undefined) return;
+        // a projected edge is a legitimate midpoint to hold a real point against — the
+        // external is what stays put, the point is what moves
+        const refs = [p, ...lineRefs(lineId)];
+        if (!allowsConstraintOnRefs(editor.solver, ConstraintKind.Midpoint, refs)) return;
+        addAndCommit(editor, ConstraintKind.Midpoint, refs);
     }
 }
 
@@ -296,12 +303,12 @@ export class SymmetricConstraintCommand extends SketchConstraintCommand {
             { datum: true },
             this.controller,
         );
-        if (
-            lineId === undefined ||
-            !allowsConstraintOnEntity(editor.solver, ConstraintKind.Symmetric, lineId)
-        )
-            return;
-        addAndCommit(editor, ConstraintKind.Symmetric, [p1, p2, ...lineRefs(lineId)]);
+        if (lineId === undefined) return;
+        // the mirror line may be a projected edge: it is the fixed side the two points
+        // reflect across, and both of them are the user's own geometry to move
+        const refs = [p1, p2, ...lineRefs(lineId)];
+        if (!allowsConstraintOnRefs(editor.solver, ConstraintKind.Symmetric, refs)) return;
+        addAndCommit(editor, ConstraintKind.Symmetric, refs);
     }
 }
 

@@ -1121,6 +1121,22 @@ export class SketchEditor implements IDisposable {
         });
     }
 
+    /**
+     * Hands a confirmed datum to the solver and reports a write it refused.
+     *
+     * The dialog closes on the value either way, so a write that never landed is
+     * otherwise indistinguishable from a geometry that would not move: the sketch keeps
+     * the reading it had, no conflict and no redundancy appear (nothing about the sketch
+     * is inconsistent — the constraint simply still holds its old value), and the
+     * dimension goes on looking exactly like a driving one that was ignored. A datum
+     * fails to land when the constraint is gone, when it has become a reference, or when
+     * the value does not resolve against the scope; each of those says so here.
+     */
+    writeDatum(constraintId: number, value: ParameterValue, index = 0): void {
+        const written = this.solver.setDatumSource(constraintId, value, index);
+        if (!written.isOk) PubSub.default.pub("displayError", written.error);
+    }
+
     /** What a confirmed datum does to the session, whatever the dialog looked like. */
     private applyDatum(): void {
         this.solve(true);
@@ -1145,8 +1161,8 @@ export class SketchEditor implements IDisposable {
             this.promptDatumPair(
                 [constraint.datums[0], constraint.datums[1]],
                 (x, y) => {
-                    this.solver.setDatumSource(constraintId, x, 0);
-                    this.solver.setDatumSource(constraintId, y, 1);
+                    this.writeDatum(constraintId, x, 0);
+                    this.writeDatum(constraintId, y, 1);
                 },
                 unit,
             );
@@ -1157,7 +1173,7 @@ export class SketchEditor implements IDisposable {
         // over as typed: `datumReading` and the solver's own conversion are inverses.
         this.promptDatum(
             datumReading(constraint.kind, constraint.datum, radiusDisplayOf(constraint)),
-            (value) => this.solver.setDatumSource(constraintId, value),
+            (value) => this.writeDatum(constraintId, value),
             unit,
             undefined,
             {
@@ -1305,6 +1321,15 @@ export class SketchEditor implements IDisposable {
         const dofs = this.sketchDiagnostics.dofs;
         if (outcome.result === "Conflicting") {
             PubSub.default.pub("statusBarTip", "sketch.conflicting");
+        } else if (outcome.result === "Stalled" || outcome.result === "Diverged") {
+            // garlic gave up on a solve it could not finish — an iteration cap, a collapsed
+            // trust region, or too little progress. It hands back the last point it accepted,
+            // so the sketch keeps the geometry it had and the edit the user just made is
+            // nowhere to be seen. Nothing about the constraints is inconsistent, so no
+            // conflict and no redundancy is reported either, and without saying so here the
+            // status bar would go on reading out degrees of freedom — which is exactly what
+            // makes a value that did not take look like a value that was ignored.
+            PubSub.default.pub("statusBarTip", "sketch.solveFailed");
         } else if (dofs === 0) {
             PubSub.default.pub("statusBarTip", "sketch.fullyConstrained");
         } else {

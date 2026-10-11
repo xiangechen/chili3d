@@ -46,6 +46,18 @@ const CONSTRAINT_LABELS: Record<ConstraintKind, I18nKeys> = {
     [ConstraintKind.TangentCircleArc]: "command.constraint.tangent",
     [ConstraintKind.PointOnEllipse]: "command.constraint.pointOn",
     [ConstraintKind.TangentLineEllipse]: "command.constraint.tangent",
+    // The kernel's own additions (garlic's G2 / equal-offset / ellipse-normal families):
+    // chili3d has no command for any of them, so the row falls back to the constraint's
+    // own name rather than a command's. The tool added one
+    // step after the revision this app was pinned to, and the exhaustive map is what
+    // says so — a kind the panel cannot name must not reach a row.
+    [ConstraintKind.EllipseNormal]: "command.constraint.ellipseNormal",
+    [ConstraintKind.EqualOffsetC]: "command.constraint.equalOffset",
+    [ConstraintKind.EqualOffsetA]: "command.constraint.equalOffset",
+    [ConstraintKind.EqualOffsetL]: "command.constraint.equalOffset",
+    [ConstraintKind.CurvatureBB]: "command.constraint.curvature",
+    [ConstraintKind.CurvatureBL]: "command.constraint.curvature",
+    [ConstraintKind.CurvatureBA]: "command.constraint.curvature",
     [ConstraintKind.ConicRho]: "sketch.conicRho",
     [ConstraintKind.PointOnConic]: "command.constraint.pointOn",
     [ConstraintKind.TangentLineConic]: "command.constraint.tangent",

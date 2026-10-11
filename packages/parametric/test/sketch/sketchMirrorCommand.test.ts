@@ -3,11 +3,27 @@
 
 import { CommandStore, type I18nKeys, type ICommand, Plane, PubSub } from "@chili3d/core";
 import { rs } from "@rstest/core";
+import { liveInstanceIds } from "../../src/sketch/arrayOps";
 import { SketchMirrorCommand } from "../../src/sketch/commands/sketchMirror";
 import { SketchEditor, type SketchEntityPreview } from "../../src/sketch/editor/sketchEditor";
-import { SKETCH_X_AXIS_ID, type SketchEntityData } from "../../src/sketch/sketchModel";
+import {
+    ConstraintKind,
+    type ExternalRefData,
+    SKETCH_X_AXIS_ID,
+    type SketchEntityData,
+} from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
+
+/** A projected edge lying along the u axis, for the mirrors that take one as their line. */
+const EXTERNAL_AXIS: ExternalRefData = {
+    entityId: -100,
+    nodeId: "src",
+    edge: { kind: "line", start: { x: -5, y: 0, z: 0 }, end: { x: 5, y: 0, z: 0 } },
+    role: "reference",
+    snapshot: [-5, 0, 5, 0],
+    type: "line",
+};
 
 interface PickOptions {
     datum?: boolean;
@@ -204,19 +220,62 @@ describe("SketchMirrorCommand", () => {
         }
     });
 
-    test("refuses an external reference as the mirror line", async () => {
+    test("mirrors across a projected edge", async () => {
         const editor = fakeEditor();
         try {
             const source = editor.solver.addLine(1, 2, 4, 3);
             editor.selected.push(source);
-            // an external ref id is ≤ -100; Symmetric cannot target one
-            editor.axes.push(-100);
+            // a projected edge is frozen geometry: the copies this makes are the sketch's
+            // own, so the Symmetric constraints always have a side left to move
+            editor.solver.addExternalEntity(EXTERNAL_AXIS);
+            editor.axes.push(EXTERNAL_AXIS.entityId);
 
             const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
             try {
                 await runCommand(new SketchMirrorCommand(), editor);
 
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.externalRefAssociativeOnly");
+                expect(editor.commit).toHaveBeenCalledTimes(1);
+                expect(pub).not.toHaveBeenCalledWith("statusBarTip", "sketch.externalRefFrozen");
+                const symmetric = editor.solver
+                    .toData()
+                    .constraints.filter((c) => c.kind === ConstraintKind.Symmetric);
+                // one per mirrored point pair — the line's two endpoints
+                expect(symmetric.length).toBe(2);
+                // the axis is the projected edge, and the two points are the copy's and
+                // the source's — the external is the fixed side of the reflection
+                editor.solver.solve(true);
+                const [u1, v1] = editor.solver.pointOf(symmetric[0].refs[0]);
+                const [u2, v2] = editor.solver.pointOf(symmetric[0].refs[1]);
+                // the projected edge lies along u and the source is above it
+                expect(u1).toBeCloseTo(u2, 6);
+                expect(v1 + v2).toBeCloseTo(0, 6);
+                expect(v1).not.toBeCloseTo(0, 6);
+            } finally {
+                pub.mockRestore();
+            }
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses an array's instance as the mirror line", async () => {
+        const editor = fakeEditor();
+        try {
+            const source = editor.solver.addLine(1, 2, 4, 3);
+            const axis = editor.solver.addLine(-5, 0, 5, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 2, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [axis],
+            );
+            const instanceId = liveInstanceIds(editor.solver.arrays()[0])[0];
+            editor.selected.push(source);
+            editor.axes.push(instanceId);
+
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                await runCommand(new SketchMirrorCommand(), editor);
+
+                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.arrayInstanceReadOnly");
                 expect(editor.commit).not.toHaveBeenCalled();
             } finally {
                 pub.mockRestore();

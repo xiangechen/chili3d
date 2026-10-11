@@ -4,8 +4,7 @@
 import { AsyncController, command, PubSub } from "@chili3d/core";
 import type { SketchEditor } from "../editor/sketchEditor";
 import { mirrorEntities, mirrorPreview } from "../mirrorOps";
-import { ConstraintKind } from "../sketchModel";
-import { allowsConstraintOnEntity } from "../solverEntities";
+import { isConstraintTarget } from "../solverEntities";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /**
@@ -41,9 +40,11 @@ export class SketchMirrorCommand extends SketchConstraintCommand {
         );
         this.controller.dispose();
         if (axisId === undefined) return;
-        // mirrors by a Symmetric constraint, so an external edge is no more usable here
-        // than it is for `constraint.symmetric` (it reports why itself)
-        if (!allowsConstraintOnEntity(editor.solver, ConstraintKind.Symmetric, axisId)) return;
+        // A projected edge serves as a mirror line: the copies this makes are real
+        // geometry, so the Symmetric constraints that tie them to their sources always
+        // name a side the solver may move (`allowsConstraintOnRefs`). What is left to
+        // refuse is an axis no constraint may name at all — an array's instance.
+        if (!isConstraintTarget(editor.solver, axisId)) return;
 
         if (selected.length > 0) {
             this.applyMirror(editor, selected, axisId);

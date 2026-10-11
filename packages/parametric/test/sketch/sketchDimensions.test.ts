@@ -20,6 +20,7 @@ import {
 import { rs } from "@rstest/core";
 import {
     AngleDimensionCommand,
+    DimensionCommand,
     DistanceDimensionCommand,
     HorizontalDistanceCommand,
     PointLineDistanceCommand,
@@ -28,7 +29,7 @@ import {
 } from "../../src/sketch/commands/sketchDimensions";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
-import { ConstraintKind, SKETCH_X_AXIS_ID } from "../../src/sketch/sketchModel";
+import { ConstraintKind, SKETCH_ORIGIN_ID, SKETCH_X_AXIS_ID } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "./setup";
 
@@ -845,6 +846,212 @@ describe("dimension commands", () => {
 
             expect(editor.solver.toData().constraints.length).toBe(0);
             expect(dialog.content).toBeUndefined();
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+});
+
+describe("a sketch on a body's face", () => {
+    /** A sketch plane sitting on the top face of a body: same axes, an origin in the air. */
+    function facePlane(): Plane {
+        return new Plane({
+            origin: new XYZ({ x: 0, y: 0, z: 30 }),
+            normal: XYZ.unitZ,
+            xvec: XYZ.unitX,
+        });
+    }
+
+    test("a dimension from a sketch line to the origin drives the sketch", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: facePlane() });
+            const editor = SketchEditor.enter(node);
+            editor.solver.addLine(20, 0, 120, 0);
+            editor.solve(true);
+            const free = editor.solver.dofs();
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const command = new DimensionCommand();
+            const run = command.execute(app);
+            handler.pointerDown(view, pointerEvent(470, 300)); // the line
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 300)); // the sketch origin
+            await tick();
+            handler.pointerDown(view, pointerEvent(440, 250)); // place the label
+            await tick();
+
+            // the reading is the user's to set, so it asks for one instead of measuring
+            expect(dialog.title).toBeDefined();
+            expect(confirmDialog(dialog, "40")).toBe(true);
+            await tick();
+            // the tool stays up for the next dimension; the test is done with it
+            command.cancel();
+            await run;
+
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.map((c) => c.kind)).toEqual([ConstraintKind.P2LDistance]);
+            expect(constraints[0].refs[0]).toEqual({ entityId: SKETCH_ORIGIN_ID, pointIndex: 0 });
+            expect(constraints[0].driven).toBeUndefined();
+            expect(constraints[0].datum).toBeCloseTo(40);
+            expect(editor.solver.dofs()).toBe(free - 1);
+            editor.solver.solve(true);
+            // the line sits 40 off the origin now, which is what driving it means
+            const [x1, y1] = editor.solver.pointOf(constraints[0].refs[1]);
+            const [x2, y2] = editor.solver.pointOf(constraints[0].refs[2]);
+            expect(Math.abs(x1 * y2 - x2 * y1) / Math.hypot(x2 - x1, y2 - y1)).toBeCloseTo(40, 2);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("a line the face's boundary has already pinned to the origin's reading", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: facePlane() });
+            const editor = SketchEditor.enter(node);
+            // two projected centres, and a line drawn between them: the auto-constraints a
+            // snapped pick adds pin it at both ends, so nothing about it can move
+            for (const [id, cy] of [
+                [-100, 0],
+                [-101, 40],
+            ] as const) {
+                editor.solver.addExternalEntity({
+                    entityId: id,
+                    nodeId: "body",
+                    edge: {
+                        kind: "circle",
+                        center: { x: -60, y: cy, z: 30 },
+                        radius: 5,
+                        axis: { x: 0, y: 0, z: 1 },
+                    },
+                    role: "reference",
+                    snapshot: [-60, cy, 5],
+                    type: "circle",
+                });
+            }
+            const line = editor.solver.addLine(-60, 0, -60, 40);
+            for (const index of [0, 1]) {
+                editor.solver.addConstraint({
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [
+                        { entityId: line, pointIndex: index },
+                        { entityId: index === 0 ? -100 : -101, pointIndex: 0 },
+                    ],
+                });
+            }
+            editor.solve(true);
+            const free = editor.solver.dofs();
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const command = new DimensionCommand();
+            const run = command.execute(app);
+            handler.pointerDown(view, pointerEvent(340, 280)); // the line, clear of both circles
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 300)); // the sketch origin
+            await tick();
+            handler.pointerDown(view, pointerEvent(370, 250)); // place the label
+            await tick();
+            command.cancel();
+            await run;
+
+            const constraints = editor.solver
+                .toData()
+                .constraints.filter((c) => c.kind === ConstraintKind.P2LDistance);
+            expect(constraints.length).toBe(1);
+            // the sketch already holds this reading, so garlic calls it redundant and the
+            // dimension is placed as a reference without a word
+            expect(constraints[0].driven).toBe(true);
+            expect(dialog.title).toBeUndefined();
+            expect(editor.solver.dofs()).toBe(free);
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+
+    test("a dimension from a projected boundary edge to the origin", async () => {
+        const { app, doc, view, dialog, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: facePlane() });
+            const editor = SketchEditor.enter(node);
+            // a boundary edge of the picked face, captured as a reference-role external
+            editor.solver.addExternalEntity({
+                entityId: -100,
+                nodeId: "body",
+                edge: {
+                    kind: "line",
+                    start: { x: -60, y: -40, z: 30 },
+                    end: { x: -60, y: 40, z: 30 },
+                },
+                role: "reference",
+                snapshot: [-60, -40, -60, 40],
+                type: "line",
+            });
+            editor.solve(true);
+            const free = editor.solver.dofs();
+            const handler = doc.visual.eventHandler as SketchEventHandler;
+
+            const command = new DimensionCommand();
+            const run = command.execute(app);
+            handler.pointerDown(view, pointerEvent(340, 300)); // the projected edge
+            await tick();
+            handler.pointerDown(view, pointerEvent(400, 300)); // the sketch origin
+            await tick();
+            handler.pointerDown(view, pointerEvent(370, 250)); // place the label
+            await tick();
+            command.cancel();
+            await run;
+
+            const constraints = editor.solver.toData().constraints;
+            expect(constraints.map((c) => c.kind)).toEqual([ConstraintKind.P2LDistance]);
+            expect({
+                driven: constraints[0].driven,
+                dialogOpened: dialog.title !== undefined,
+                dofs: editor.solver.dofs(),
+            }).toEqual({ driven: true, dialogOpened: false, dofs: free });
+            editor.exit();
+        } finally {
+            restorePub();
+            restoreFactory();
+        }
+    });
+});
+
+describe("the datum write", () => {
+    test("a write the solver refuses is reported rather than dropped", async () => {
+        const { doc, restorePub, restoreFactory } = setup();
+        try {
+            const node = new SketchNode({ document: doc, plane: Plane.XY });
+            const editor = SketchEditor.enter(node);
+            const line = editor.solver.addLine(0, 0, 100, 0);
+            const id = editor.solver.addConstraint({
+                kind: ConstraintKind.P2PDistance,
+                refs: [
+                    { entityId: line, pointIndex: 0 },
+                    { entityId: line, pointIndex: 1 },
+                ],
+                datum: 100,
+            });
+            editor.solve(true);
+
+            // The constraint turned into a reference, so there is nowhere to put a value.
+            // Without the report this is the state a dialog that closed on a typed number
+            // leaves behind when nothing moved: no error, no conflict, nothing on screen.
+            expect(editor.solver.setDriven(id, true)).toBe(true);
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                editor.writeDatum(id, 40);
+
+                expect(pub).toHaveBeenCalledWith("displayError", expect.stringContaining("driven"));
+            } finally {
+                pub.mockRestore();
+            }
             editor.exit();
         } finally {
             restorePub();

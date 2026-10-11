@@ -359,6 +359,31 @@ export function datumIsReading(kind: ConstraintKind): boolean {
 }
 
 /**
+ * The dimensions: the kinds whose datum is a *reading* of the geometry rather than a
+ * geometric relation between two entities. Every one of them goes through a datum param,
+ * and they are the kinds that may be driven (`SketchConstraintData.driven`) — the solver
+ * measures a driven one instead of asserting it.
+ *
+ * It is a list rather than a structural test because what makes a kind a dimension is not
+ * written on it anywhere: `DATUM_CONSTRAINTS` in the solver is this plus Fix, and a
+ * dimension's datum is otherwise indistinguishable from a Fix's two coordinates (see
+ * `datumIsReading`).
+ */
+export const DIMENSION_KINDS: ReadonlySet<ConstraintKind> = new Set([
+    ConstraintKind.P2PDistance,
+    ConstraintKind.Radius,
+    ConstraintKind.P2LDistance,
+    ConstraintKind.Angle,
+    ConstraintKind.HorizontalDistance,
+    ConstraintKind.VerticalDistance,
+    ConstraintKind.ConicRho,
+]);
+
+export function isDimensionKind(kind: ConstraintKind): boolean {
+    return DIMENSION_KINDS.has(kind);
+}
+
+/**
  * Datum value shown in the UI: angles store the signed sweep (the sign picks the
  * side of the first line) and display its magnitude in degrees, a side-carrying
  * distance displays its magnitude too — the sign is which side, and the drawing
@@ -653,16 +678,23 @@ export function emptySketchData(): SketchData {
 
 /**
  * Derives unpinned external-ref roles from the constraints referencing them: a ref
- * any constraint (of any kind, dimensions included) points at is "profile", one no
- * constraint references is "reference". Refs with `pinned` keep their stored role —
- * an explicit user choice. Mutates in place; returns whether any role changed.
- * Applied when SketchData is finalized (solver `toData`, `loadData`), never on the
- * resolution/generateShape path.
+ * an asserted constraint (of any kind, driving dimensions included) points at is
+ * "profile", one nothing asserts against is "reference". Refs with `pinned` keep
+ * their stored role — an explicit user choice. Mutates in place; returns whether any
+ * role changed. Applied when SketchData is finalized (solver `toData`, `loadData`),
+ * never on the resolution/generateShape path.
+ *
+ * A *reference* dimension is not an assertion: it measures the geometry without
+ * holding anything to it, so an edge projected only so that its length could be read
+ * back must not be promoted into the profile by the reading — the promotion is what
+ * makes an edge join the loops `generateShape` closes into faces.
  */
 export function syncExternalRoles(data: Pick<SketchData, "constraints" | "externalRefs">): boolean {
     const refs = data.externalRefs;
     if (refs === undefined || refs.length === 0) return false;
-    const referenced = new Set(data.constraints.flatMap((c) => c.refs.map((r) => r.entityId)));
+    const referenced = new Set(
+        data.constraints.filter((c) => c.driven !== true).flatMap((c) => c.refs.map((r) => r.entityId)),
+    );
     let changed = false;
     for (const ref of refs) {
         if (ref.pinned === true) continue;

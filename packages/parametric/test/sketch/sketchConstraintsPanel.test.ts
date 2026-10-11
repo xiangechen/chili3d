@@ -12,7 +12,7 @@ import { rs } from "@rstest/core";
 import annotationsStyle from "../../src/sketch/editor/sketchAnnotations.module.css";
 import style from "../../src/sketch/editor/sketchConstraintsPanel.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
-import { ConstraintKind, type SketchPointRef } from "../../src/sketch/sketchModel";
+import { ConstraintKind, SKETCH_ORIGIN_ID, type SketchPointRef } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "./setup";
 
@@ -129,6 +129,105 @@ describe("SketchEditor constraint diagnostics", () => {
             editor.solver.addConstraint({ kind: ConstraintKind.P2PDistance, refs, datum: 50 });
             editor.solve(true);
             expect(ctx.tips.at(-1)?.key).toBe("sketch.conflicting");
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("a dimension far from the current geometry solves instead of stalling", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            // The rectangle of the report `undefined 1-98.cd`: a closed loop held by four
+            // coincidences plus a horizontal/vertical per side, so only its position is
+            // free — and a point-line distance from its right edge to the origin, asked
+            // for 600 where the rectangle sits 328.36 away.
+            //
+            // This used to stall: the solve started with a trust region of 1 mm, so the
+            // first steps were truncated Cauchy steps that deformed the rectangle, and the
+            // deformed shape let the iteration slide into the degenerate family (collapse
+            // the edge and the distance can be anything). It now takes the whole
+            // Gauss-Newton step first — for this system that is the translation — and
+            // lands on the healthy rectangle in one iteration.
+            const corners: [number, number][] = [
+                [-653.602315985253, 297.13584628315317],
+                [-328.35774303451177, 297.13584628315317],
+                [-328.35774303451177, 403.7605472373171],
+                [-653.602315985253, 403.7605472373171],
+            ];
+            const lines = corners.map((corner, index) => {
+                const next = corners[(index + 1) % corners.length];
+                return editor.solver.addLine(corner[0], corner[1], next[0], next[1]);
+            });
+            for (let index = 0; index < lines.length; index++) {
+                editor.solver.addConstraint({
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [
+                        { entityId: lines[index], pointIndex: 1 },
+                        { entityId: lines[(index + 1) % lines.length], pointIndex: 0 },
+                    ],
+                });
+            }
+            for (const [index, kind] of [
+                [0, ConstraintKind.Horizontal],
+                [1, ConstraintKind.Vertical],
+                [2, ConstraintKind.Horizontal],
+                [3, ConstraintKind.Vertical],
+            ] as const) {
+                editor.solver.addConstraint({ kind, refs: lineRefs(lines[index]) });
+            }
+            editor.solve(true);
+
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2LDistance,
+                refs: [
+                    { entityId: SKETCH_ORIGIN_ID, pointIndex: 0 },
+                    { entityId: lines[1], pointIndex: 0 },
+                    { entityId: lines[1], pointIndex: 1 },
+                ],
+                datum: 600,
+            });
+
+            ctx.tips.length = 0;
+            editor.solve(true);
+
+            expect((editor as unknown as { lastOutcome: { result: string } }).lastOutcome.result).toBe(
+                "OkUnderconstrained",
+            );
+            // the right edge is now 600 from the origin — and still an edge, not a sliver
+            const [x, y] = editor.solver.pointOf({ entityId: lines[1], pointIndex: 0 });
+            expect(x).toBeCloseTo(-600, 6);
+            expect(y).toBeCloseTo(297.13584628315317, 6);
+            expect(ctx.tips.at(-1)?.key).not.toBe("sketch.solveFailed");
+        } finally {
+            ctx.cleanup();
+        }
+    });
+
+    test("a solve that stalls or diverges says so instead of reading out freedoms", () => {
+        const ctx = setup();
+        try {
+            const editor = enterSketch(ctx.doc);
+            editor.solver.addLine(0, 0, 100, 0);
+            editor.solve(true);
+            // Driven directly: garlic now takes the whole Gauss-Newton step first, so the
+            // far-target fixtures that used to stall are solved and no sketch reachable
+            // from here stalls any more. What this covers is the reporting, which is the
+            // part the app must not lose — a rollback with a healthy-looking "degrees of
+            // freedom: n" beside it is exactly what makes a value that did not take look
+            // like a value that was ignored.
+            const internals = editor as unknown as {
+                lastOutcome: { result: string; dofs: number };
+                publishSolveStatus(): void;
+            };
+            for (const result of ["Stalled", "Diverged"]) {
+                internals.lastOutcome = { result, dofs: 3 };
+
+                ctx.tips.length = 0;
+                internals.publishSolveStatus();
+
+                expect(ctx.tips.at(-1)).toEqual({ key: "sketch.solveFailed", args: [] });
+            }
         } finally {
             ctx.cleanup();
         }

@@ -49,6 +49,7 @@ import { newGarlicSystem } from "./garlic";
 import { offsetFolds } from "./offsetOps";
 import {
     ConstraintKind,
+    DIMENSION_KINDS,
     datumEntityData,
     datumIsReading,
     datumPoint,
@@ -250,17 +251,12 @@ function copyOffsetRef(ref: OffsetCurveRef): OffsetCurveRef {
     };
 }
 
-/** The kinds whose value arrives through a datum param rather than from the geometry. */
-const DATUM_CONSTRAINTS: ReadonlySet<ConstraintKind> = new Set([
-    ConstraintKind.P2PDistance,
-    ConstraintKind.Radius,
-    ConstraintKind.P2LDistance,
-    ConstraintKind.Angle,
-    ConstraintKind.HorizontalDistance,
-    ConstraintKind.VerticalDistance,
-    ConstraintKind.Fix,
-    ConstraintKind.ConicRho,
-]);
+/**
+ * The kinds whose value arrives through a datum param rather than from the geometry: the
+ * dimensions (`isDimensionKind`), plus the one kind whose datum is a pair of pinned
+ * coordinates instead of a reading.
+ */
+const DATUM_CONSTRAINTS: ReadonlySet<ConstraintKind> = new Set([ConstraintKind.Fix, ...DIMENSION_KINDS]);
 
 /**
  * The kinds carrying auxiliary contact parameters (the t of a PointOn/Tangent against
