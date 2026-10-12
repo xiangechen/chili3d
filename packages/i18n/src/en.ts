@@ -581,6 +581,22 @@ export default {
         "sketch.fullyConstrained": "Fully constrained",
         "sketch.issue.conflicting": "Conflict",
         "sketch.issue.redundant": "Redundant",
+        "sketch.midpointHoldsPoint":
+            "A midpoint constraint already holds that point on the line — it needs no point-on constraint",
+        "sketch.midpointOnOwnEnd":
+            "That point is an end of the line itself — a midpoint needs a point off the line",
+        "sketch.pointOnOwnCenter":
+            "That point is the center that defines the entity's size — holding it onto the entity would collapse it to nothing",
+        "sketch.pointOnOwnCurve":
+            "That point is already on the entity — the constraint would say nothing new",
+        "sketch.pointOnSubsumed":
+            "The midpoint holds that point on the line, so the point-on constraint it restated is gone",
+        "sketch.coincidentSubsumed":
+            "The two points are one place, so the point-on constraint the coincidence restated is gone",
+        "sketch.coincidentOffCurve":
+            "That point is one the entity's own curve does not pass through — a point held on that entity can only be fused there with the entity collapsed",
+        "sketch.midpointBlocksCoincident":
+            "A midpoint already holds that point on that line — the two points can only be one with the line collapsed",
         "sketch.arrayAngle": "Total angle",
         "sketch.arrayAngleBadge{0}": "{0} over the whole pattern — double-click to change it",
         "sketch.arrayCountBadge{0}": "{0} instances — double-click to change the count",
@@ -605,6 +621,8 @@ export default {
         "sketch.offsetDistanceBadge{0}": "Offset {0} — double-click to change it",
         "sketch.offsetDistance": "Distance",
         "sketch.offsetNoJoin{0}": "{0} corners could not be joined: their offset curves stay apart",
+        "sketch.offsetBranchedNoJoin{0}{1}":
+            "The picked edges meet at {0} corners that cannot be joined — they offset on their own — and {1} more could not be joined: their offset curves stay apart",
         "sketch.noConstraints": "No constraints",
         "sketch.noProjectableEdges": "No coplanar edges could be projected",
         "sketch.recovery.conflict{0}": "Delete any one of {0} to clear the conflict",

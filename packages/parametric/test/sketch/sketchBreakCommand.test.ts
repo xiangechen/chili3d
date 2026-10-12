@@ -167,7 +167,7 @@ describe("SketchBreakCommand", () => {
                 await runCommand(new SketchBreakCommand(), editor);
 
                 expect(editor.forgetConstraints).toHaveBeenCalledWith([equal]);
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.breakRemovedConstraints{0}", 1);
+                expect(pub).toHaveBeenCalledWith("showToast", "sketch.breakRemovedConstraints{0}", 1);
                 expect(editor.commit).toHaveBeenCalledTimes(1);
             } finally {
                 pub.mockRestore();

@@ -31,23 +31,15 @@ import type { SketchSolver } from "./solver";
 import {
     arcStartRef,
     centerRef,
+    coincidenceRefusal,
+    INCIDENCE_KINDS,
     snapTargetEntities,
+    subsumedIncidenceIds,
     tangentConstraintFor,
     tangentKindFor,
 } from "./solverEntities";
 
 const DEFAULT_ANGLE_TOLERANCE_DEG = 5;
-
-/** Incidence constraints pinning a point onto a curve. */
-const INCIDENCE_KINDS: readonly ConstraintKind[] = [
-    ConstraintKind.PointOnLine,
-    ConstraintKind.PointOnCircle,
-    ConstraintKind.PointOnArc,
-    ConstraintKind.PointOnEllipse,
-    ConstraintKind.PointOnConic,
-    ConstraintKind.PointOnBezier,
-    ConstraintKind.PointOnNurbs,
-];
 
 export interface AutoConstraintOptions {
     /** Snap distance (sketch-plane units) for endpoint-on-endpoint coincidence. */
@@ -358,6 +350,12 @@ export function applyPointAutoConstraints(
         if (snap.kind === "point" && solver.hasConstraint(ConstraintKind.P2PCoincident, [ref, snap.point])) {
             continue;
         }
+        // The fuse this sketch cannot take is not made either: the row the point already carries
+        // says where it stands, and fusing it onto a point the entity's own curve misses — or
+        // onto one a midpoint holds it away from — leaves the two contradicting each other, which
+        // the solve reads as a guard conflict (`coincidenceRefusal`). The point is left to that
+        // row, so the drag springs back instead of landing on a sketch that cannot hold.
+        if (snap.kind === "point" && coincidenceRefusal(solver, ref, snap.point) !== undefined) continue;
         // The shape is rigid, so landing one of its points where another of them sits
         // folds it onto itself. `excludeEntityIds` cannot catch every such target: the
         // datum origin is not an entity, and it lies exactly under a polygon drawn at
@@ -366,43 +364,18 @@ export function applyPointAutoConstraints(
 
         const constraint = snapConstraint(ref, snap);
         solver.setPointPosition(ref, snap.position[0], snap.position[1]);
-        // fusing the point onto a point of the entity its incidence already pins
-        // it to makes that incidence redundant — the coincidence replaces it
+        // fusing the point onto a point the entity it stands on owns makes that row
+        // redundant — the coincidence replaces it. Partners count as much as the point
+        // itself: the snap fuses whoever stands at `ref` onto the entity's own point, so a
+        // partner standing there is pinned onto that entity too whatever holds it there —
+        // a projected edge's end included, which the drag-reading group drops.
         if (snap.kind === "point") {
-            const subsumed = subsumedIncidence(solver, ref, snap.point);
-            if (subsumed !== undefined) solver.removeConstraint(subsumed);
+            for (const id of subsumedIncidenceIds(solver, ref, snap.point)) solver.removeConstraint(id);
         }
         solver.addConstraint(constraint);
         added.push(constraint);
     }
     return added;
-}
-
-/**
- * The incidence a point snap onto `target` makes redundant: the constraint pinning
- * the point — directly or through a coincident-linked partner — onto the very
- * entity the target belongs to (fusing to the entity's own point pins it there
- * absolutely). The datum origin counts as a point of both axes. Returns the
- * redundant constraint's id.
- */
-function subsumedIncidence(
-    solver: SketchSolver,
-    ref: SketchPointRef,
-    target: SketchPointRef,
-): number | undefined {
-    for (const member of solver.coincidentGroup(ref)) {
-        const incidence = solver.incidenceConstraintOn(member, INCIDENCE_KINDS);
-        if (incidence === undefined) continue;
-        const incidenceTarget = incidence.refs[1].entityId;
-        if (incidenceTarget === target.entityId) return incidence.id;
-        if (
-            target.entityId === SKETCH_ORIGIN_ID &&
-            (incidenceTarget === SKETCH_X_AXIS_ID || incidenceTarget === SKETCH_Y_AXIS_ID)
-        ) {
-            return incidence.id;
-        }
-    }
-    return undefined;
 }
 
 /**

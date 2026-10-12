@@ -1729,7 +1729,7 @@ export class SketchTransformCommand extends SketchConstraintCommand {
         if (removedConstraintIds.length > 0) {
             editor.forgetConstraints(removedConstraintIds);
             PubSub.default.pub(
-                "statusBarTip",
+                "showToast",
                 "sketch.transformRemovedConstraints{0}",
                 removedConstraintIds.length,
             );

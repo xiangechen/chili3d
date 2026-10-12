@@ -42,12 +42,11 @@ export class ToggleSketchConstruction extends SketchConstraintCommand {
             if (editor.solver.isFixed(id)) {
                 // an instance takes its flag from the seed it copies, so there is nothing
                 // here to flip — and the next solve would put it back either way
-                PubSub.default.pub(
-                    "statusBarTip",
-                    editor.solver.isDerived(id)
-                        ? "sketch.arrayInstanceReadOnly"
-                        : "prompt.pickConstructionEntity",
-                );
+                if (editor.solver.isDerived(id)) {
+                    PubSub.default.pub("showToast", "sketch.arrayInstanceReadOnly");
+                } else {
+                    PubSub.default.pub("statusBarTip", "prompt.pickConstructionEntity");
+                }
                 continue;
             }
             // geometry is untouched — the flag only steers shape building and rendering;

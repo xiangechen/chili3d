@@ -347,12 +347,12 @@ describe("SketchEditor constraint diagnostics", () => {
             // dialog: the value belongs to the geometry, so there is nothing to type into
             const tips: string[] = [];
             const onTip = (key: string) => tips.push(key);
-            PubSub.default.sub("statusBarTip", onTip);
+            PubSub.default.sub("showToast", onTip);
             try {
                 row?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
                 expect(tips).toEqual(["sketch.drivenNotEditable"]);
             } finally {
-                PubSub.default.remove("statusBarTip", onTip);
+                PubSub.default.remove("showToast", onTip);
             }
             expect(content.querySelector("input")).toBeNull();
         } finally {

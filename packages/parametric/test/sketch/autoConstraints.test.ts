@@ -13,12 +13,24 @@ import { mirrorEntities } from "../../src/sketch/mirrorOps";
 import {
     axisLineRefs,
     ConstraintKind,
+    type ExternalRefData,
+    entityRadius,
     originRef,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
 } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
+
+/** A projected edge running up the x = 20 line, pinned where the model put it. */
+const PROJECTED_EDGE: ExternalRefData = {
+    entityId: -100,
+    nodeId: "src",
+    edge: { kind: "line", start: { x: 20, y: -5, z: 0 }, end: { x: 20, y: 5, z: 0 } },
+    role: "reference",
+    snapshot: [20, -5, 20, 5],
+    type: "line",
+};
 
 /** The solver's constraints without ids — which relations exist, not their numbering. */
 function constraintsOf(solver: SketchSolver) {
@@ -1217,6 +1229,54 @@ describe("applyDragAutoConstraints", () => {
         solver.dispose();
     });
 
+    test("leaves a fuse onto a size center alone", () => {
+        const solver = new SketchSolver(Plane.XY);
+        // off the datum: a circle drawn on the origin would put its center under the origin
+        // itself, and the snap would take the datum instead of the point this is about
+        const circle = solver.addCircle(20, 0, 5);
+        const m = solver.addLine(25, 0, 25, 8);
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnCircle,
+            refs: [
+                { entityId: m, pointIndex: 0 },
+                { entityId: circle, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: m, pointIndex: 0 };
+        // a real drag stops within tolerance of the centre; putting the point ON it is what the
+        // snap would do, and the fuse is the part being declined here
+        solver.setPointPosition(ref, 20.05, 0);
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        // A circle's center is a point OF the circle that is not ON it: fusing there would leave
+        // the point-on and the coincidence both standing, and no sketch satisfies the pair. The
+        // fuse is not made, so the row the point carries wins — where deleting that row instead
+        // would have lost it without a word.
+        expect(added).toEqual([]);
+        expect(constraintsOf(solver)).toEqual([
+            {
+                kind: ConstraintKind.PointOnCircle,
+                refs: [
+                    { entityId: m, pointIndex: 0 },
+                    { entityId: circle, pointIndex: 0 },
+                ],
+            },
+        ]);
+        expect(solver.diagnose().conflicting).toEqual([]);
+        const circleData = solver.entity(circle);
+        if (circleData === undefined) throw new Error("the circle is gone");
+        const center = solver.pointOf({ entityId: circle, pointIndex: 0 });
+        const point = solver.pointOf(ref);
+        expect(Math.hypot(point[0] - center[0], point[1] - center[1])).toBeCloseTo(
+            entityRadius(circleData),
+            6,
+        );
+        solver.dispose();
+    });
+
     test("snapping an on-axis point onto the origin replaces the incidence", () => {
         const solver = new SketchSolver(Plane.XY);
         const a = solver.addLine(5, 0, 5, 8);
@@ -1296,6 +1356,47 @@ describe("applyDragAutoConstraints", () => {
                 refs: [ref, { entityId: b, pointIndex: 1 }],
             },
         ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("a fixed partner's incidence goes with the snap too", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addExternalEntity({ ...PROJECTED_EDGE });
+        // b starts at the projected corner, so the corner is held on it
+        const b = solver.addLine(20, -5, 30, -5);
+        const a = solver.addLine(20, -5, 25, 3);
+        // the dragged point is tied to that corner
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: a, pointIndex: 0 },
+                { entityId: PROJECTED_EDGE.entityId, pointIndex: 0 },
+            ],
+        });
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnLine,
+            refs: [
+                { entityId: PROJECTED_EDGE.entityId, pointIndex: 0 },
+                { entityId: b, pointIndex: 0 },
+                { entityId: b, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: a, pointIndex: 0 };
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.5, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        // the snap fuses the point onto b's own end, which puts the projected corner standing
+        // with it there as well — so the incidence that held the corner on b is restated
+        expect(added).toEqual([
+            {
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref, { entityId: b, pointIndex: 0 }],
+            },
+        ]);
+        expect(constraintsOf(solver).filter((c) => c.kind === ConstraintKind.PointOnLine)).toEqual([]);
         expect(solver.diagnose().redundant).toEqual([]);
         solver.dispose();
     });

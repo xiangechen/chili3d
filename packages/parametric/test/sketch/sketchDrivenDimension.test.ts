@@ -377,6 +377,7 @@ describe("ToggleDrivenConstraintCommand", () => {
         tips.length = 0;
         const ctx = setupDimension();
         PubSub.default.sub("statusBarTip", onTip);
+        PubSub.default.sub("showToast", onTip);
         return ctx;
     }
 
@@ -396,6 +397,7 @@ describe("ToggleDrivenConstraintCommand", () => {
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);
+            PubSub.default.remove("showToast", onTip);
             restoreFactory();
         }
     });
@@ -418,6 +420,7 @@ describe("ToggleDrivenConstraintCommand", () => {
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);
+            PubSub.default.remove("showToast", onTip);
             restoreFactory();
         }
     });
@@ -449,6 +452,7 @@ describe("ToggleDrivenConstraintCommand", () => {
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);
+            PubSub.default.remove("showToast", onTip);
             restoreFactory();
         }
     });
@@ -464,6 +468,7 @@ describe("ToggleDrivenConstraintCommand", () => {
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);
+            PubSub.default.remove("showToast", onTip);
             restoreFactory();
         }
     });
@@ -481,6 +486,7 @@ describe("ToggleDrivenConstraintCommand", () => {
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);
+            PubSub.default.remove("showToast", onTip);
             restoreFactory();
         }
     });
@@ -510,6 +516,7 @@ describe("ToggleDrivenConstraintCommand", () => {
             editor.exit();
         } finally {
             PubSub.default.remove("statusBarTip", onTip);
+            PubSub.default.remove("showToast", onTip);
             restoreFactory();
         }
     });

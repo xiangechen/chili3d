@@ -1,12 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { PubSub } from "@chili3d/core";
+import { type I18nKeys, PubSub } from "@chili3d/core";
 import {
     ConstraintKind,
+    entityPointCount,
     isDimensionKind,
     isExternalEntityId,
     pointRefKey,
+    SKETCH_ORIGIN_ID,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
@@ -99,13 +103,14 @@ export function isAssociativeConstraintKind(kind: ConstraintKind): boolean {
  */
 export function isConstraintTarget(solver: SketchSolver, entityId: number): boolean {
     if (!solver.isDerived(entityId)) return true;
-    PubSub.default.pub("statusBarTip", "sketch.arrayInstanceReadOnly");
+    PubSub.default.pub("showToast", "sketch.arrayInstanceReadOnly");
     return false;
 }
 
 /**
- * Whether a constraint of `kind` over `refs` may be asserted. A rejected pick pubs a
- * status-bar tip and returns false.
+ * Whether a constraint of `kind` over `refs` may be asserted. A rejected pick pubs a toast —
+ * a one-shot refusal, not one of the standing readouts the status bar carries — and returns
+ * false.
  *
  * An external (projected) entity is frozen geometry: it never moves, so what a constraint
  * naming one says is satisfied by the *other* entities it names. That is why the
@@ -130,7 +135,7 @@ export function allowsConstraintOnRefs(
     // geometry, and the caller places it as a reference instead of driving anything
     if (isDimensionKind(kind)) return true;
     if (refs.some((ref) => !isExternalEntityId(ref.entityId))) return true;
-    PubSub.default.pub("statusBarTip", "sketch.externalRefFrozen");
+    PubSub.default.pub("showToast", "sketch.externalRefFrozen");
     return false;
 }
 
@@ -205,6 +210,238 @@ export function pointOnConstraintFor(
         default:
             return undefined;
     }
+}
+
+/** Incidence constraints pinning a point onto a curve. */
+export const INCIDENCE_KINDS: readonly ConstraintKind[] = [
+    ConstraintKind.PointOnLine,
+    ConstraintKind.PointOnCircle,
+    ConstraintKind.PointOnArc,
+    ConstraintKind.PointOnEllipse,
+    ConstraintKind.PointOnConic,
+    ConstraintKind.PointOnBezier,
+    ConstraintKind.PointOnNurbs,
+];
+
+/**
+ * Ids of the constraints of `kinds` that pin `ref` — or a partner coincident with it — onto
+ * `entityId`. The coincidence is walked because a partner stands wherever `ref` does: a
+ * midpoint holding the one holds the other just as surely (the same walk `subsumedIncidenceIds`
+ * makes for a coincidence).
+ *
+ * Partners come from `coincidentPeers`, not the drag-reading group: a point snapped onto a
+ * projected edge's end *is* on that edge, and the fixed partner is exactly the one that has
+ * to be seen for that to read. A partner is only a partner as a *subject*: the rows counted
+ * are those whose own point it is.
+ */
+export function incidenceIdsOn(
+    solver: SketchSolver,
+    ref: SketchPointRef,
+    entityId: number,
+    kinds: readonly ConstraintKind[],
+): number[] {
+    const ids = new Set<number>();
+    for (const member of solver.coincidentPeers(ref)) {
+        for (const constraint of solver.constraintsOnPoint(member, kinds)) {
+            // The member has to be the constraint's *subject*, and it has to be pinned onto
+            // something other than its own entity (`incidenceConstraintOn` reads the pair the
+            // same way): a midpoint's line may end at the picked point, and a point of the
+            // entity is not held *onto* it — neither says anything about the point.
+            if (pointRefKey(constraint.refs[0]) !== pointRefKey(member)) continue;
+            if (member.entityId === entityId) continue;
+            if (constraint.refs.some((r) => r.entityId === entityId)) ids.add(constraint.id);
+        }
+    }
+    return [...ids];
+}
+
+/**
+ * Whether the entity's own point at `pointIndex` is one its curve passes through. A size center
+ * and an off-curve control point are points OF the entity without being points ON it — the two
+ * the same reading tells apart in `allowsPointOnOwnEntity`.
+ */
+function curvePassesThrough(entity: SketchEntityData, pointIndex: number): boolean {
+    return !isSizeCenter(entity, pointIndex) && !isControlHandle(entity, pointIndex);
+}
+
+/**
+ * The entities a point of `target` is on by construction: the one it belongs to, and both axes
+ * for the datum origin — the origin is a point of each of them the way a line's end is a point
+ * of the line.
+ *
+ * A point the entity's own curve misses — a circle's center, a spline's inner pole — answers
+ * with nothing: standing where it does puts a point of the entity nowhere near the entity. Both
+ * readings of that emptiness matter, and this is the only place it is decided:
+ * `subsumedIncidenceIds` then reads no row onto the entity as restated by a fuse onto such a
+ * point, which nothing about the fuse makes true, and a fuse onto one is a pick the sketch
+ * cannot take at all (`coincidenceRefusal`).
+ */
+function entitiesThePointStandsOn(solver: SketchSolver, target: SketchPointRef): number[] {
+    if (target.entityId === SKETCH_ORIGIN_ID) return [SKETCH_X_AXIS_ID, SKETCH_Y_AXIS_ID];
+    const entity = solver.entity(target.entityId);
+    if (entity !== undefined && !curvePassesThrough(entity, target.pointIndex)) return [];
+    return [target.entityId];
+}
+
+/** Whether `target` is a point standing on no entity of its own — off its own entity's curve. */
+function standsOffItsOwnCurve(solver: SketchSolver, target: SketchPointRef): boolean {
+    return entitiesThePointStandsOn(solver, target).length === 0;
+}
+
+/**
+ * Ids of the incidences a coincidence of `first` onto `second` restates: the rows holding
+ * either point — or a partner standing where it does — onto an entity the other is a point
+ * of. Fusing the two puts each where the other stands, so such a row says nothing the
+ * coincidence does not.
+ *
+ * Both ends are asked because the two picks are one statement the user may give in either
+ * order, and the row may hang off either one of them: `incidenceIdsOn` walks one side, and
+ * which side of the pair the user named first is not a difference between the two ways of
+ * saying "these are the same point".
+ */
+export function subsumedIncidenceIds(
+    solver: SketchSolver,
+    first: SketchPointRef,
+    second: SketchPointRef,
+): number[] {
+    const ids = new Set<number>();
+    for (const [ref, target] of [
+        [first, second],
+        [second, first],
+    ] as const) {
+        for (const entityId of entitiesThePointStandsOn(solver, target)) {
+            for (const id of incidenceIdsOn(solver, ref, entityId, INCIDENCE_KINDS)) ids.add(id);
+        }
+    }
+    return [...ids];
+}
+
+/**
+ * Why a coincidence of the two points may not be asserted, as the key that says so, or
+ * `undefined` when it may. Both fuses it refuses hold only with one of the entities collapsed
+ * to nothing, and the solve reports those as a GUARD conflict — which the panel answers with
+ * "no single deletion helps", of a state where deleting either row does.
+ *
+ * - A midpoint already holds one point at a place of its own on the entity the other belongs
+ *   to. The mirror of the pick the midpoint command refuses (`standsAtEntityPoint`), read from
+ *   the other end: there a coincidence had already put the point at the entity's own point,
+ *   here the midpoint has already put it somewhere else on that entity.
+ * - The other point is one its own entity's curve misses — a size center, an off-curve control
+ *   point — while a row holds the first on that entity. Fusing there CONTRADICTS that row
+ *   rather than restating it (`entitiesThePointStandsOn` answers with no entity at all), and no
+ *   reading of the sketch makes both hold: the point is on the curve and standing where the
+ *   curve is not. A conic's shoulder cannot be the exception, so the pick has no answer the
+ *   user could want.
+ *
+ * Both ends are asked: which of the two the user named first is not a difference between the
+ * two ways of saying "these are the same point".
+ */
+export function coincidenceRefusal(
+    solver: SketchSolver,
+    first: SketchPointRef,
+    second: SketchPointRef,
+): I18nKeys | undefined {
+    for (const [ref, target] of [
+        [first, second],
+        [second, first],
+    ] as const) {
+        const midpoint = entitiesThePointStandsOn(solver, target).some(
+            (entityId) => incidenceIdsOn(solver, ref, entityId, [ConstraintKind.Midpoint]).length > 0,
+        );
+        if (midpoint) return "sketch.midpointBlocksCoincident";
+        if (
+            standsOffItsOwnCurve(solver, target) &&
+            incidenceIdsOn(solver, ref, target.entityId, INCIDENCE_KINDS).length > 0
+        ) {
+            return "sketch.coincidentOffCurve";
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Whether `ref` stands at a point of `entityId` itself: the picked point *is* one of the
+ * line's ends, or is tied to one by a coincidence.
+ *
+ * A midpoint asked of such a pair has nowhere to put the point but the line's own end — the
+ * constraint holds only with the line collapsed to nothing, and the solve reports that as a
+ * conflict rather than a midpoint.
+ */
+export function standsAtEntityPoint(solver: SketchSolver, ref: SketchPointRef, entityId: number): boolean {
+    return solver.coincidentPeers(ref).some((peer) => peer.entityId === entityId);
+}
+
+/**
+ * Whether `ref` is a control handle of its own curve — a point the curve is pulled towards
+ * rather than one it passes through: a conic's shoulder, a free curve's inner poles. The one
+ * kind of self-referential point-on that constrains anything: measured, holding one onto its
+ * own curve deforms the curve.
+ */
+function isControlHandle(entity: SketchEntityData, pointIndex: number): boolean {
+    switch (entity.type) {
+        case "conic":
+            return pointIndex === 1;
+        case "bezier":
+        case "nurbs": {
+            const poles = entityPointCount(entity);
+            return pointIndex > 0 && pointIndex < poles - 1;
+        }
+        default:
+            return false;
+    }
+}
+
+/** Whether an entity's own point at `pointIndex` is the center its size is measured from. */
+function isSizeCenter(entity: SketchEntityData, pointIndex: number): boolean {
+    if (pointIndex !== 0) return false;
+    return (
+        entity.type === "circle" ||
+        entity.type === "arc" ||
+        entity.type === "ellipse" ||
+        entity.type === "ellipseArc"
+    );
+}
+
+/**
+ * Whether a point-on of `ref` onto `entityId` says anything, when `ref` — or a partner
+ * standing where it does — is one of the entity's own points. Refuses the pick (a toast) and
+ * answers false for every such pick but the control handles — measured, they are the two dead
+ * ends a self-referential incidence can be:
+ *
+ * - a point the entity's curve already passes through — a line's end, an arc's own rim, the
+ *   ellipse family's axis points, a free curve's start — is on it by construction, so the
+ *   constraint is a row the entity already carries. Garlic reads that as redundant, or takes
+ *   dofs off the sketch without moving a thing (the ellipse family's axis points, an arc's
+ *   own end), which is the worse of the two: the panel then under-reports what is left to
+ *   place.
+ * - the *center* of a circle, an arc or an ellipse defines its size. Held onto its own entity
+ *   that size solves to nothing and the sketch comes back "Conflicting" — a circle whose
+ *   center lies on its own rim is one of radius zero.
+ *
+ * FreeCAD arrives at the same place from the other side: it lets these through and then offers
+ * `Sketcher ValidateSketch` to find the "degenerated geometry" — a zero length line, a zero
+ * radius circle — they leave behind.
+ */
+export function allowsPointOnOwnEntity(solver: SketchSolver, ref: SketchPointRef, entityId: number): boolean {
+    const entity = solver.entity(entityId);
+    const standing = solver.coincidentPeers(ref);
+    const own = standing.filter((peer) => peer.entityId === entityId);
+    // any of the points standing there being a control handle is enough to make this that pick:
+    // a shoulder recorded as coincident with the start of its own curve is still the shoulder,
+    // and reading only the first one would answer by the order the records happen to be in
+    if (entity === undefined || own.some((peer) => isControlHandle(entity, peer.pointIndex))) return true;
+    if (own.length > 0) {
+        const center = own.some((peer) => isSizeCenter(entity, peer.pointIndex));
+        PubSub.default.pub("showToast", center ? "sketch.pointOnOwnCenter" : "sketch.pointOnOwnCurve");
+        return false;
+    }
+    // the datum origin is a point of both axes by construction — the pairing `subsumedIncidenceIds`
+    // reads — so holding anything standing there onto one of them restates where the sketch
+    // already starts
+    if (entityId !== SKETCH_X_AXIS_ID && entityId !== SKETCH_Y_AXIS_ID) return true;
+    if (!standing.some((peer) => peer.entityId === SKETCH_ORIGIN_ID)) return true;
+    PubSub.default.pub("showToast", "sketch.pointOnOwnCurve");
+    return false;
 }
 
 /**

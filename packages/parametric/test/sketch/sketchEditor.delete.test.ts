@@ -117,7 +117,7 @@ describe("SketchEditor entity deletion", () => {
                 expect(arrayInstanceTotal(array.pattern)).toBe(3);
                 expect(array.instanceEntityIds).toEqual([null, second]);
                 expect(node.data.entities.map((entity) => entity.id)).toEqual([source, second]);
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.arrayInstanceRemoved{0}", 1);
+                expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceRemoved{0}", 1);
             } finally {
                 pub.mockRestore();
             }

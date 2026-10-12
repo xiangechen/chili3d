@@ -5,6 +5,7 @@ import {
     AsyncController,
     Combobox,
     command,
+    I18n,
     type I18nKeys,
     type IEdge,
     type INode,
@@ -133,7 +134,7 @@ export class ProjectSketchEdges extends SketchConstraintCommand {
             if (projectEdge(editor, plane, x, role, existing)) added++;
         }
         if (added === 0) {
-            PubSub.default.pub("displayError", "sketch.noProjectableEdges");
+            PubSub.default.pub("displayError", I18n.translate("sketch.noProjectableEdges"));
             return;
         }
         editor.refreshExternalDisplay();

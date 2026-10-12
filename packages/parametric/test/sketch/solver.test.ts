@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
+import { rs } from "@rstest/core";
 import { applyCornerOps, findCorners } from "../../src/sketch/cornerOps";
 import {
     axisLineRefs,
@@ -83,6 +84,39 @@ describe("SketchSolver", () => {
             const p2 = solver.pointOf({ entityId: l2, pointIndex: 0 });
             expect(p1[0]).toBeCloseTo(p2[0], 6);
             expect(p1[1]).toBeCloseTo(p2[1], 6);
+        });
+
+        test("a solve that moves nothing leaves the coincidence reading standing", () => {
+            const solver = new SketchSolver(Plane.XY);
+            const l1 = solver.addLine(0, 0, 10, 0);
+            const l2 = solver.addLine(10, 0, 20, 5);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: l1, pointIndex: 1 },
+                    { entityId: l2, pointIndex: 0 },
+                ],
+            });
+            // the components `coincidentGroup` and `coincidentPeers` answer with are rebuilt
+            // only when the structure has moved, and every solve ends in that refresh
+            const bumped = rs.spyOn(solver as any, "markStructureChanged");
+            try {
+                bumped.mockClear();
+                solver.solve(true);
+                solver.solve(true);
+                expect(bumped).not.toHaveBeenCalled();
+
+                bumped.mockClear();
+                solver.addArray(
+                    { type: "linear", x: { count: 3, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                    [l1],
+                );
+                // the instances are new derived entities, so the reading has to be built again
+                expect(bumped.mock.calls.length).toBeGreaterThan(0);
+            } finally {
+                bumped.mockRestore();
+                solver.dispose();
+            }
         });
     });
 

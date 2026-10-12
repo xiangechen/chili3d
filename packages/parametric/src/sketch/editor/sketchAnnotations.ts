@@ -1148,7 +1148,10 @@ export class SketchAnnotationManager implements IDisposable {
     ): void {
         if (this.suppressSymbols) return;
         const group = this.solver.coincidentGroup(constraint.refs[0]);
-        const key = group.map(pointRefKey).sort().join("|");
+        // the key reads the *place* the point stands at (`coincidentPeers`), where the group
+        // above is the drag reading and drops a fixed partner: two real points fused onto one
+        // projected corner are one place, and the group sees two (one per point)
+        const key = this.solver.coincidentPeers(constraint.refs[0]).map(pointRefKey).sort().join("|");
         if (shownGroups.has(key)) return;
         shownGroups.add(key);
         const [u, v] = this.solver.pointOf(group[0]);

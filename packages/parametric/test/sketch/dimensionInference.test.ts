@@ -9,9 +9,19 @@ import {
     inferDimension,
     type ResolvedDimension,
 } from "../../src/sketch/dimensionInference";
-import { ConstraintKind, SKETCH_X_AXIS_ID } from "../../src/sketch/sketchModel";
+import { ConstraintKind, type ExternalRefData, SKETCH_X_AXIS_ID } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
+
+/** A projected edge running up the x = 20 line, pinned where the model put it. */
+const PROJECTED_EDGE: ExternalRefData = {
+    entityId: -100,
+    nodeId: "src",
+    edge: { kind: "line", start: { x: 20, y: -5, z: 0 }, end: { x: 20, y: 5, z: 0 } },
+    role: "reference",
+    snapshot: [20, -5, 20, 5],
+    type: "line",
+};
 
 const point = (entityId: number, pointIndex: number): DimensionElement => ({
     kind: "point",
@@ -190,6 +200,29 @@ describe("inferDimension", () => {
         const solver = new SketchSolver(Plane.XY);
         const line = solver.addLine(0, 0, 10, 0);
         expect(inferDimension([point(line, 0), entity(line)], solver)).toBeUndefined();
+    });
+
+    test.each([
+        false,
+        true,
+    ])("a point a coincidence holds on the line reads nothing either (projected: %s)", (projected) => {
+        const solver = new SketchSolver(Plane.XY);
+        if (projected) solver.addExternalEntity({ ...PROJECTED_EDGE });
+        const line = projected ? PROJECTED_EDGE.entityId : solver.addLine(20, -5, 20, 5);
+        const holder = solver.addLine(20, -5, 30, -5);
+        solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: holder, pointIndex: 0 },
+                { entityId: line, pointIndex: 0 },
+            ],
+        });
+        solver.solve(true);
+
+        // the point stands at the line's own end, so there is no distance to read — and
+        // that is the answer whether the end is the sketch's own or a projected edge's
+        expect(inferDimension([point(holder, 0), entity(line)], solver)).toBeUndefined();
+        solver.dispose();
     });
 
     test("a point and a circle infer nothing — the only reading is to a pickable center", () => {

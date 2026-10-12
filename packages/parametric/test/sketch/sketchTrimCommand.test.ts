@@ -126,7 +126,7 @@ describe("SketchTrimCommand", () => {
                 await runCommand(new SketchTrimCommand(), editor);
 
                 expect(editor.forgetConstraints).toHaveBeenCalledWith([length]);
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.trimRemovedConstraints{0}", 1);
+                expect(pub).toHaveBeenCalledWith("showToast", "sketch.trimRemovedConstraints{0}", 1);
                 expect(editor.commit).toHaveBeenCalledTimes(1);
             } finally {
                 pub.mockRestore();

@@ -370,7 +370,7 @@ describe("DimensionCommand", () => {
 
             const tips: string[] = [];
             const onTip = (key: I18nKeys) => tips.push(key);
-            PubSub.default.sub("statusBarTip", onTip);
+            PubSub.default.sub("showToast", onTip);
             try {
                 handler.pointerDown(view, pointerEvent(450, 300));
                 handler.pointerDown(view, shiftPointerEvent(400, 250));
@@ -390,7 +390,7 @@ describe("DimensionCommand", () => {
                 await run;
                 editor.exit();
             } finally {
-                PubSub.default.remove("statusBarTip", onTip);
+                PubSub.default.remove("showToast", onTip);
             }
         } finally {
             restore();
@@ -409,7 +409,7 @@ describe("DimensionCommand", () => {
 
             const tips: string[] = [];
             const onTip = (key: I18nKeys) => tips.push(key);
-            PubSub.default.sub("statusBarTip", onTip);
+            PubSub.default.sub("showToast", onTip);
             try {
                 // a line against a circle: the only distance a circle offers is to its
                 // center, which the user can pick directly — so there is no reading here
@@ -428,7 +428,7 @@ describe("DimensionCommand", () => {
                 await run;
                 editor.exit();
             } finally {
-                PubSub.default.remove("statusBarTip", onTip);
+                PubSub.default.remove("showToast", onTip);
             }
         } finally {
             restore();

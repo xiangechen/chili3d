@@ -28,7 +28,7 @@ import {
     toDisplayDatum,
 } from "./sketchModel";
 import type { SketchSolver } from "./solver";
-import { normalizeLineRefs } from "./solverEntities";
+import { normalizeLineRefs, standsAtEntityPoint } from "./solverEntities";
 
 /**
  * What the Dimension tool does with what it was handed: which dimension a selection
@@ -582,6 +582,5 @@ function normalize(v: [number, number]): [number, number] | undefined {
 
 /** Whether a point sits on a line — itself, or through a coincidence with one of its points. */
 function liesOnLine(solver: SketchSolver, point: SketchPointRef, lineId: number): boolean {
-    if (point.entityId === lineId) return true;
-    return solver.coincidentGroup(point).some((ref) => ref.entityId === lineId);
+    return standsAtEntityPoint(solver, point, lineId);
 }

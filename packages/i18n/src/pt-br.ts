@@ -220,6 +220,21 @@ export default {
         "sketch.fullyConstrained": "Totalmente restrito",
         "sketch.issue.conflicting": "Conflito",
         "sketch.issue.redundant": "Redundante",
+        "sketch.midpointHoldsPoint":
+            "Uma restrição de ponto médio já mantém esse ponto na linha — não é preciso ponto sobre",
+        "sketch.midpointOnOwnEnd":
+            "Esse ponto é uma extremidade da própria linha — o ponto médio pede um ponto fora dela",
+        "sketch.pointOnOwnCenter":
+            "Esse ponto é o centro que define o tamanho do elemento — prendê-lo no próprio elemento o reduz a nada",
+        "sketch.pointOnOwnCurve": "Esse ponto já está no elemento — a restrição não diria nada de novo",
+        "sketch.pointOnSubsumed":
+            "O ponto médio mantém esse ponto na linha, então a restrição de ponto sobre a linha que ela repetia foi removida",
+        "sketch.coincidentSubsumed":
+            "Os dois pontos ocupam o mesmo lugar, então a restrição de ponto sobre a linha que a coincidência repetia foi removida",
+        "sketch.coincidentOffCurve":
+            "Esse ponto é um pelo qual a própria curva do elemento não passa — um ponto preso nesse elemento só pode coincidir ali com o elemento colapsado",
+        "sketch.midpointBlocksCoincident":
+            "Um ponto médio já mantém esse ponto nessa linha — os dois pontos só coincidem se a linha colapsar",
         "sketch.arrayAngle": "Ângulo total",
         "sketch.arrayAngleBadge{0}": "{0} na matriz toda — clique duplo para alterar",
         "sketch.arrayCountBadge{0}": "{0} instâncias — clique duplo para alterar a contagem",
@@ -243,6 +258,8 @@ export default {
         "sketch.offsetDistanceBadge{0}": "Deslocamento {0} — clique duplo para alterar",
         "sketch.offsetDistance": "Distância",
         "sketch.offsetNoJoin{0}": "{0} cantos não puderam ser unidos: as curvas deslocadas ficam separadas",
+        "sketch.offsetBranchedNoJoin{0}{1}":
+            "As arestas escolhidas se encontram em {0} cantos que não podem ser unidos — cada uma se desloca por conta própria — e mais {1} cantos não puderam ser unidos: as curvas deslocadas ficam separadas",
         "sketch.noConstraints": "Sem restrições",
         "sketch.noProjectableEdges": "Nenhuma aresta coplanar pôde ser projetada",
         "sketch.redundant": "Restrições redundantes",

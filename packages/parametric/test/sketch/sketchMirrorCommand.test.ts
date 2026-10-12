@@ -192,7 +192,7 @@ describe("SketchMirrorCommand", () => {
             try {
                 await runCommand(new SketchMirrorCommand(), editor);
 
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.mirrorSkippedSelfMirror{0}", 1);
+                expect(pub).toHaveBeenCalledWith("showToast", "sketch.mirrorSkippedSelfMirror{0}", 1);
                 expect(editor.solver.toData().entities).toHaveLength(3);
             } finally {
                 pub.mockRestore();
@@ -235,7 +235,7 @@ describe("SketchMirrorCommand", () => {
                 await runCommand(new SketchMirrorCommand(), editor);
 
                 expect(editor.commit).toHaveBeenCalledTimes(1);
-                expect(pub).not.toHaveBeenCalledWith("statusBarTip", "sketch.externalRefFrozen");
+                expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.externalRefFrozen");
                 const symmetric = editor.solver
                     .toData()
                     .constraints.filter((c) => c.kind === ConstraintKind.Symmetric);
@@ -275,7 +275,7 @@ describe("SketchMirrorCommand", () => {
             try {
                 await runCommand(new SketchMirrorCommand(), editor);
 
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.arrayInstanceReadOnly");
+                expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
                 expect(editor.commit).not.toHaveBeenCalled();
             } finally {
                 pub.mockRestore();

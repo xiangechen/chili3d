@@ -213,7 +213,7 @@ describe("SketchExtendCommand", () => {
                 await runCommand(new SketchExtendCommand(), editor);
 
                 expect(editor.forgetConstraints).toHaveBeenCalledWith([joint]);
-                expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.extendRemovedConstraints{0}", 1);
+                expect(pub).toHaveBeenCalledWith("showToast", "sketch.extendRemovedConstraints{0}", 1);
                 expect(editor.commit).toHaveBeenCalledTimes(1);
             } finally {
                 pub.mockRestore();

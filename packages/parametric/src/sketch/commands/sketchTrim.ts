@@ -54,7 +54,7 @@ export class SketchTrimCommand extends SketchConstraintCommand {
             editor.forgetConstraints(result.value.removedConstraints);
             if (result.value.removedConstraints.length > 0) {
                 PubSub.default.pub(
-                    "statusBarTip",
+                    "showToast",
                     "sketch.trimRemovedConstraints{0}",
                     result.value.removedConstraints.length,
                 );

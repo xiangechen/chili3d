@@ -1119,7 +1119,7 @@ export class SketchArrayCommand extends SketchConstraintCommand {
         if (id === undefined) return undefined;
         // an instance is the record's own geometry, not a curve the pattern may follow
         if (editor.solver.isDerived(id)) {
-            PubSub.default.pub("statusBarTip", "sketch.arrayInstanceReadOnly");
+            PubSub.default.pub("showToast", "sketch.arrayInstanceReadOnly");
             return undefined;
         }
         return { type: "curve", curveId: id, count: this.count, spacing: this.spacing };

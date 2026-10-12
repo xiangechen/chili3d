@@ -1115,7 +1115,7 @@ describe("SketchTransformCommand", () => {
             expect(editor.forgetConstraints).toHaveBeenCalledTimes(1);
             const reported = editor.forgetConstraints.mock.calls[0][0] as number[];
             expect(reported).toContain(pin);
-            expect(tip).toHaveBeenCalledWith("statusBarTip", "sketch.transformRemovedConstraints{0}", 1);
+            expect(tip).toHaveBeenCalledWith("showToast", "sketch.transformRemovedConstraints{0}", 1);
             expect(editor.commit).toHaveBeenCalledTimes(1);
         } finally {
             tip.mockRestore();

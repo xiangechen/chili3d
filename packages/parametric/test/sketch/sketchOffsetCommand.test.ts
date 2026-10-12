@@ -9,6 +9,7 @@ import {
     type IEventHandler,
     Plane,
     Precision,
+    PubSub,
     XYZ,
 } from "@chili3d/core";
 import { createMockDocument, setupShapeFactoryMock } from "@chili3d/core/test-utils";
@@ -309,6 +310,47 @@ describe("SketchOffsetCommand", () => {
                 [2, 8, 2, 2],
             ]);
         } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("says both corner counts in one note", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            // a T junction: three edges on one point, so no pair is "the" corner
+            const first = editor.solver.addLine(-10, 0, 0, 0);
+            const second = editor.solver.addLine(0, 0, 10, 0);
+            const third = editor.solver.addLine(0, 0, 0, 10);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: first, pointIndex: 1 },
+                    { entityId: second, pointIndex: 0 },
+                ],
+            });
+            // and a line meeting a bezier, whose copies cannot be stitched to each other
+            const line = editor.solver.addLine(0, -20, 6, -20);
+            const bezier = editor.solver.addBezier([6, -20, 8, -16, 10, -16, 12, -20]);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: line, pointIndex: 1 },
+                    { entityId: bezier, pointIndex: 0 },
+                ],
+            });
+            editor.scripts.push(pickAndDrag([first, second, third, line, bezier], 1));
+
+            await runCommand(new SketchOffsetCommand(), editor);
+
+            // a toast replaces the one before it, so two runs of this would leave the user
+            // reading only the second count — one note carries both
+            expect(pub.mock.calls.filter((call) => call[0] === "showToast")).toEqual([
+                ["showToast", "sketch.offsetBranchedNoJoin{0}{1}", 1, 1],
+            ]);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
             editor.solver.dispose();
         }
     });

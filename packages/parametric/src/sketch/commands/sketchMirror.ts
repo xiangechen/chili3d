@@ -93,7 +93,7 @@ export class SketchMirrorCommand extends SketchConstraintCommand {
         }
         const { createdEntityIds, skippedSelfMirror } = result.value;
         if (skippedSelfMirror.length > 0) {
-            PubSub.default.pub("statusBarTip", "sketch.mirrorSkippedSelfMirror{0}", skippedSelfMirror.length);
+            PubSub.default.pub("showToast", "sketch.mirrorSkippedSelfMirror{0}", skippedSelfMirror.length);
         }
         // the op left the sketch alone — committing would only add an empty undo step
         if (createdEntityIds.length === 0) return;

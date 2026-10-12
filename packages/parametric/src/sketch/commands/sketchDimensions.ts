@@ -136,13 +136,13 @@ export class DimensionCommand extends DrivenDimensionCommand {
         const ids = editor.selectedEntityIds();
         if (ids.length === 0) return;
         if (ids.length > MAX_ELEMENTS) {
-            PubSub.default.pub("statusBarTip", "sketch.dimensionSelectionTooMany");
+            PubSub.default.pub("showToast", "sketch.dimensionSelectionTooMany");
             return;
         }
 
         const elements: DimensionElement[] = ids.map((entityId) => ({ kind: "entity", entityId }));
         if (inferDimension(elements, editor.solver) === undefined) {
-            PubSub.default.pub("statusBarTip", "sketch.dimensionSelectionUnsupported");
+            PubSub.default.pub("showToast", "sketch.dimensionSelectionUnsupported");
             return;
         }
         // The tool can use it, so it takes it: leaving these highlighted would read as a

@@ -6,6 +6,7 @@ import {
     type AsyncController,
     CAMERA_FLY_DURATION,
     type CameraType,
+    I18n,
     type I18nKeys,
     type IDisposable,
     type IDocument,
@@ -405,9 +406,12 @@ export class SketchEditor implements IDisposable {
             }
         }
         if (failed.length > 0) {
-            // PubSub.pub isolates subscriber exceptions, so this tip cannot escape
-            // and skip the rollback-map handoff to startSession.
-            PubSub.default.pub("statusBarTip", "sketch.rollbackFailed");
+            // A hard failure: the bodies that would not roll back are left where they are, so
+            // this is an error and not one of the notices that fade. `displayError` shows what
+            // it is handed — `Toast.error` does not translate, only `Toast.info` does — so the
+            // reading is taken here. Like `Toast.info` it cannot escape as an exception, which
+            // is what the rollback-map handoff below needs.
+            PubSub.default.pub("displayError", I18n.translate("sketch.rollbackFailed"));
         }
         return rollback;
     }
@@ -667,7 +671,7 @@ export class SketchEditor implements IDisposable {
             if (removed.length > 0) {
                 for (const id of removed) this.dimensionAnchors.delete(id);
                 this.annotations.deselectConstraints(removed);
-                PubSub.default.pub("statusBarTip", "sketch.externalRefTypeChanged");
+                PubSub.default.pub("showToast", "sketch.externalRefTypeChanged");
             }
             this.refreshExternalDisplay();
             this.solve(true);
@@ -1045,7 +1049,7 @@ export class SketchEditor implements IDisposable {
             this.solver.skipInstance(id);
         }
         if (instances.size > 0) {
-            PubSub.default.pub("statusBarTip", "sketch.arrayInstanceRemoved{0}", instances.size);
+            PubSub.default.pub("showToast", "sketch.arrayInstanceRemoved{0}", instances.size);
         }
         return { ids, instances: instances.size };
     }
@@ -1153,7 +1157,7 @@ export class SketchEditor implements IDisposable {
         const constraint = this.solver.toData().constraints.find((x) => x.id === constraintId);
         if (constraint === undefined) return;
         if (constraint.driven === true) {
-            PubSub.default.pub("statusBarTip", "sketch.drivenNotEditable");
+            PubSub.default.pub("showToast", "sketch.drivenNotEditable");
             return;
         }
         const unit = datumUnitSpec(constraint.kind);

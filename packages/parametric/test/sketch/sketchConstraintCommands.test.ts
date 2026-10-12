@@ -3,6 +3,7 @@
 
 import { type I18nKeys, type ICommand, Plane, PubSub } from "@chili3d/core";
 import { rs } from "@rstest/core";
+import { liveInstanceIds } from "../../src/sketch/arrayOps";
 import {
     CoincidentConstraintCommand,
     EqualConstraintCommand,
@@ -21,13 +22,25 @@ import { SketchEditor, type SketchEntityTypeFilter } from "../../src/sketch/edit
 import {
     axisLineRefs,
     ConstraintKind,
+    type ExternalRefData,
     originRef,
+    pointRefKey,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
     type SketchPointRef,
 } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
+
+/** A projected edge running up the x = 20 line, pinned where the model put it. */
+const PROJECTED_EDGE: ExternalRefData = {
+    entityId: -100,
+    nodeId: "src",
+    edge: { kind: "line", start: { x: 20, y: -5, z: 0 }, end: { x: 20, y: 5, z: 0 } },
+    role: "reference",
+    snapshot: [20, -5, 20, 5],
+    type: "line",
+};
 
 function fakeEditor() {
     const solver = new SketchSolver(Plane.XY);
@@ -40,6 +53,8 @@ function fakeEditor() {
         solver,
         solve: rs.fn((_fine: boolean) => {}),
         commit: rs.fn(() => {}),
+        // the session state of constraints an op dropped behind the editor's back
+        forgetConstraints: rs.fn((_ids: Iterable<number>) => {}),
         pickPoint: rs.fn((_prompt: I18nKeys) => Promise.resolve(pointQueue.shift())),
         pickEntity: rs.fn((_prompt: I18nKeys, _type?: SketchEntityTypeFilter) =>
             Promise.resolve(entityQueue.shift()),
@@ -128,6 +143,30 @@ describe("Parallel/PerpendicularConstraintCommand", () => {
 });
 
 describe("EqualConstraintCommand", () => {
+    test("refuses an array's instance as one of the two entities", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const axis = editor.solver.addLine(-5, 0, 5, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 2, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [axis],
+            );
+            const instanceId = liveInstanceIds(editor.solver.arrays()[0])[0];
+            const other = editor.solver.addLine(0, 5, 10, 5);
+            editor.entityQueue.push(instanceId, other);
+
+            await runCommand(new EqualConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
+            expect(constraintsOf(editor, ConstraintKind.EqualLength)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
     test("two lines produce an EqualLength constraint", async () => {
         const editor = fakeEditor();
         try {
@@ -313,6 +352,30 @@ describe("TangentConstraintCommand", () => {
         }
     });
 
+    test("refuses an array's instance as one of the two entities", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const source = editor.solver.addCircle(0, 0, 5);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 2, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [source],
+            );
+            const instanceId = liveInstanceIds(editor.solver.arrays()[0])[0];
+            const other = editor.solver.addCircle(30, 0, 8);
+            editor.entityQueue.push(instanceId, other);
+
+            await runCommand(new TangentConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
+            expect(constraintsOf(editor, ConstraintKind.TangentCircleCircle)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
     test("two lines pub an error without a constraint", async () => {
         const editor = fakeEditor();
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
@@ -372,6 +435,827 @@ describe("PointOnConstraintCommand", () => {
             editor.solver.dispose();
         }
     });
+
+    test("refuses an incidence a midpoint of that line already holds", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.midpointHoldsPoint");
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses an incidence a midpoint holds on a coincident partner", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const partner = editor.solver.addLine(-20, 20, -10, 20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(partner, 0)],
+            });
+            // the midpoint holds the partner, and the picked point stands where it does
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [ref(partner, 0), ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.midpointHoldsPoint");
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        {
+            name: "a line's own end",
+            add: (s: SketchSolver) => s.addLine(0, 0, 10, 0),
+            index: 0,
+            tip: "sketch.pointOnOwnCurve",
+        },
+        {
+            name: "a circle's center",
+            add: (s: SketchSolver) => s.addCircle(0, 0, 5),
+            index: 0,
+            tip: "sketch.pointOnOwnCenter",
+        },
+        {
+            name: "an arc's center",
+            add: (s: SketchSolver) => s.addArc(0, 0, 5, 0, 0, 5),
+            index: 0,
+            tip: "sketch.pointOnOwnCenter",
+        },
+        {
+            name: "an arc's own rim point",
+            add: (s: SketchSolver) => s.addArc(0, 0, 5, 0, 0, 5),
+            index: 2,
+            tip: "sketch.pointOnOwnCurve",
+        },
+        {
+            name: "an ellipse's center",
+            add: (s: SketchSolver) => s.addEllipse(0, 0, 5, 0, 0, 3),
+            index: 0,
+            tip: "sketch.pointOnOwnCenter",
+        },
+        {
+            name: "an ellipse's axis point",
+            add: (s: SketchSolver) => s.addEllipse(0, 0, 5, 0, 0, 3),
+            index: 1,
+            tip: "sketch.pointOnOwnCurve",
+        },
+        {
+            name: "an ellipseArc's rim point",
+            add: (s: SketchSolver) => s.addEllipseArc(0, 0, 5, 0, 0, 3, 5, 0, 0, 3),
+            index: 3,
+            tip: "sketch.pointOnOwnCurve",
+        },
+        {
+            name: "a conic's start",
+            add: (s: SketchSolver) => s.addConic(0, 0, 5, 8, 10, 0, 0.5),
+            index: 0,
+            tip: "sketch.pointOnOwnCurve",
+        },
+        {
+            name: "a bezier's end pole",
+            add: (s: SketchSolver) => s.addBezier([0, 0, 3, 8, 7, 8, 10, 0]),
+            index: 3,
+            tip: "sketch.pointOnOwnCurve",
+        },
+    ])("refuses $name", async ({ add, index, tip }) => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const entity = add(editor.solver);
+            const before = editor.solver.toData().constraints.length;
+            editor.pointQueue.push(ref(entity, index));
+            editor.entityQueue.push(entity);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", tip);
+            // the arc and the ellipse family carry structural constraints of the same kinds
+            expect(editor.solver.toData().constraints.length).toBe(before);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses the datum origin onto an axis it already lies on", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            editor.pointQueue.push(originRef());
+            editor.entityQueue.push(SKETCH_X_AXIS_ID);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnOwnCurve");
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        {
+            name: "a conic's shoulder control",
+            add: (s: SketchSolver) => s.addConic(0, 0, 5, 8, 10, 0, 0.5),
+            kind: ConstraintKind.PointOnConic,
+            index: 1,
+        },
+        {
+            name: "a bezier's inner pole",
+            add: (s: SketchSolver) => s.addBezier([0, 0, 3, 8, 7, 8, 10, 0]),
+            kind: ConstraintKind.PointOnBezier,
+            index: 1,
+        },
+    ])("still constrains $name onto its own curve: the curve is not through it", async ({
+        add,
+        kind,
+        index,
+    }) => {
+        const editor = fakeEditor();
+        try {
+            const entity = add(editor.solver);
+            editor.pointQueue.push(ref(entity, index));
+            editor.entityQueue.push(entity);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, kind).length).toBe(1);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses an array's instance as the target", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const axis = editor.solver.addLine(-5, 0, 5, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 2, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [axis],
+            );
+            const instanceId = liveInstanceIds(editor.solver.arrays()[0])[0];
+            editor.pointQueue.push(ref(anchor, 0));
+            editor.entityQueue.push(instanceId);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            // the instance is placed by its array, so a constraint on it would be overwritten
+            // by the next solve — the pick layer cannot tell, this gate is what does
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses a projected edge whose own end the point stands on", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            editor.solver.addExternalEntity({ ...PROJECTED_EDGE });
+            const holder = editor.solver.addLine(20, -5, 30, -5);
+            const point = ref(holder, 0);
+            // the drag that landed the point on the projected corner
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(PROJECTED_EDGE.entityId, 0)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(PROJECTED_EDGE.entityId);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            // the fixed partner is not in the drag-reading group, but the point does stand on
+            // the edge's own end: the incidence says nothing
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnOwnCurve");
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses a datum axis the picked point is coincident with the origin on", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const holder = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(holder, 0);
+            editor.solver.addConstraint({ kind: ConstraintKind.P2PCoincident, refs: [point, originRef()] });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(SKETCH_X_AXIS_ID);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnOwnCurve");
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("settles a pair an older document carries", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            const pointOn = editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            // the midpoint already says this, so the row still sitting there from an older
+            // document is the one this run settles — the mirror of what the midpoint tool does
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.forgetConstraints).toHaveBeenCalledWith([pointOn]);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnSubsumed");
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.midpointHoldsPoint");
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("settles a pair whose rows hang off a coincident partner", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const partner = editor.solver.addLine(-20, 20, -10, 20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            const peer = ref(partner, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, peer],
+            });
+            // the midpoint holds the partner, which is what holds the picked point there too
+            const pointOn = editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [peer, ref(line, 0), ref(line, 1)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [peer, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            // the incidence the midpoint restates goes, and no second one takes its place —
+            // a fresh row on the picked point would only be the same statement moved over
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.forgetConstraints).toHaveBeenCalledWith([pointOn]);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnSubsumed");
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.midpointHoldsPoint");
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("a row that merely ends at the picked point is not the picked point's row", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const holder = editor.solver.addLine(-20, 20, -10, 20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const anchor = editor.solver.addLine(0, 0, 0, -8);
+            const point = ref(anchor, 0); // the picked point, standing at the line's own end
+            const subject = ref(holder, 0); // a point of the holder, unrelated to the pick
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(line, 0)],
+            });
+            // a midpoint and an incidence of the *holder's* point, whose line merely ends where
+            // the picked point stands — neither says anything about the picked point
+            for (const kind of [ConstraintKind.Midpoint, ConstraintKind.PointOnLine]) {
+                editor.solver.addConstraint({
+                    kind,
+                    refs: [subject, ref(line, 0), ref(line, 1)],
+                });
+            }
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(holder);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            // the pick is a statement of its own: it goes in, and neither the midpoint that
+            // holds someone else nor the "already there" tip has anything to say about it
+            expect(
+                constraintsOf(editor, ConstraintKind.PointOnLine).some(
+                    (c) => pointRefKey(c.refs[0]) === pointRefKey(point),
+                ),
+            ).toBe(true);
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.midpointHoldsPoint");
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        [1, 0],
+        [0, 1],
+    ])("a conic's shoulder coincident with its own start is read as the shoulder (%s)", async (...order) => {
+        const editor = fakeEditor();
+        try {
+            const conic = editor.solver.addConic(0, 0, 5, 8, 10, 0, 0.5);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: order.map((pointIndex) => ref(conic, pointIndex)),
+            });
+            const shoulder = ref(conic, 1);
+            editor.pointQueue.push(shoulder);
+            editor.entityQueue.push(conic);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            // the shoulder is a handle the curve does not pass through, whichever end of the
+            // coincidence it was recorded on — the answer must not be a matter of that order
+            expect(
+                constraintsOf(editor, ConstraintKind.PointOnConic).some(
+                    (c) => pointRefKey(c.refs[0]) === pointRefKey(shoulder),
+                ),
+            ).toBe(true);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("still constrains a point a midpoint holds on another line", async () => {
+        const editor = fakeEditor();
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const other = editor.solver.addLine(0, 30, 10, 30);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(other);
+
+            await runCommand(new PointOnConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine).length).toBe(1);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+});
+
+describe("CoincidentConstraintCommand", () => {
+    test("fuses the two picked points", async () => {
+        const editor = fakeEditor();
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const other = editor.solver.addLine(0, 5, 10, 5);
+            editor.pointQueue.push(ref(anchor, 0), ref(other, 0));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            const found = constraintsOf(editor, ConstraintKind.P2PCoincident);
+            expect(found.length).toBe(1);
+            expect(found[0].refs).toEqual([ref(anchor, 0), ref(other, 0)]);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the point-on the coincidence restates, and says so", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const other = editor.solver.addLine(5, 3, 5, 8);
+            const point = ref(other, 0);
+            const pointOn = editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point, ref(line, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // fusing onto the line's own end holds the point on the line by construction
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(editor.solver.toData().constraints.map((c) => c.id)).not.toContain(pointOn);
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.coincidentSubsumed");
+            // one edit: the row is gone and the coincidence is there together
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+            expect(editor.solve).toHaveBeenCalledWith(true);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops it whichever of the two points is picked first", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const other = editor.solver.addLine(5, 3, 5, 8);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(ref(line, 1), point);
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the incidence of a partner standing where the point does", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const other = editor.solver.addLine(5, 3, 5, 8);
+            const point = ref(anchor, 0);
+            // the partner stands where the picked point does and is pinned onto the line
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(other, 0)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [ref(other, 0), ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point, ref(line, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(2);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the axis incidence a coincidence with the origin restates", async () => {
+        const editor = fakeEditor();
+        try {
+            const other = editor.solver.addLine(5, 3, 5, 8);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ...axisLineRefs(SKETCH_X_AXIS_ID)],
+            });
+            editor.pointQueue.push(point, originRef());
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // the origin is a point of both axes, so the row is the coincidence's own
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the point-on the arc's own end restates, and leaves the arc's structural row", async () => {
+        const editor = fakeEditor();
+        try {
+            const arc = editor.solver.addArc(20, 20, 25, 20, 20, 25);
+            const other = editor.solver.addLine(24, 21, 30, 28);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnArc,
+                refs: [point, ref(arc, 0), ref(arc, 1)],
+            });
+            editor.pointQueue.push(point, ref(arc, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            const pointOnArc = constraintsOf(editor, ConstraintKind.PointOnArc);
+            expect(pointOnArc.length).toBe(1);
+            expect(pointOnArc[0].refs).toEqual([ref(arc, 2), ref(arc, 0), ref(arc, 1)]);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("keeps a point-on onto another line", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const other = editor.solver.addLine(5, 3, 5, 8);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point, ref(other, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // a coincidence of the line's two ends says nothing about where the point is
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine).length).toBe(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("settles a pair an older document carries", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const other = editor.solver.addLine(5, 3, 5, 8);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(line, 1)],
+            });
+            editor.pointQueue.push(point, ref(line, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // the coincidence is already there, and the row it restates goes anyway
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.coincidentSubsumed");
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("re-picking the same pair adds nothing and says the constraint exists", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const other = editor.solver.addLine(0, 5, 10, 5);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(anchor, 0), ref(other, 0)],
+            });
+            editor.pointQueue.push(ref(anchor, 0), ref(other, 0));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // a second identical row is a redundancy the solve would report, not a statement
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.constraintExists");
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("leaves a row the picked points only carry alone", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const bystander = editor.solver.addLine(5, 0, 5, 8);
+            // the row is the bystander's own, and it happens to carry both of the line's ends
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [ref(bystander, 0), ref(line, 0), ref(line, 1)],
+            });
+            // the degenerate pick is the guard: fusing a line's two ends is the one pair whose
+            // reads would otherwise take a third point's row with them
+            editor.pointQueue.push(ref(line, 0), ref(line, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            const pointOn = constraintsOf(editor, ConstraintKind.PointOnLine);
+            expect(pointOn.length).toBe(1);
+            expect(pointOn[0].refs).toEqual([ref(bystander, 0), ref(line, 0), ref(line, 1)]);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses an array's instance as one of the two points", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const axis = editor.solver.addLine(-5, 0, 5, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 2, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [axis],
+            );
+            const instanceId = liveInstanceIds(editor.solver.arrays()[0])[0];
+            const other = editor.solver.addLine(0, 5, 10, 5);
+            editor.pointQueue.push(ref(instanceId, 0), ref(other, 0));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([false, true])("refuses a fuse a midpoint holds away (reversed: %s)", async (reversed) => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const other = editor.solver.addLine(5, 0, 5, 8);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            const end = ref(line, 1);
+            editor.pointQueue.push(...(reversed ? [end, point] : [point, end]));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // the midpoint pins the point at (5,0); fusing it to the line's own end holds only
+            // with the line collapsed, so the pick is refused rather than left to the solve
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.midpointBlocksCoincident");
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        false,
+        true,
+    ])("refuses a fuse onto a point the entity's own curve misses (reversed: %s)", async (reversed) => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const circle = editor.solver.addCircle(0, 0, 5);
+            const other = editor.solver.addLine(5, 0, 5, 8);
+            const point = ref(other, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnCircle,
+                refs: [point, ref(circle, 0)],
+            });
+            const center = ref(circle, 0);
+            editor.pointQueue.push(...(reversed ? [center, point] : [point, center]));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // a circle's center is a point OF the circle that is not ON it: fusing there
+            // contradicts the point-on rather than restating it, so the pick is refused and
+            // the row the user placed stays put
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.coincidentOffCurve");
+            expect(constraintsOf(editor, ConstraintKind.PointOnCircle).length).toBe(1);
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("fuses onto a size center nothing is held on", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const circle = editor.solver.addCircle(0, 0, 5);
+            const other = editor.solver.addLine(5, 0, 5, 8);
+            editor.pointQueue.push(ref(other, 0), ref(circle, 0));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // nothing holds the point on the circle, so the fuse is just a move to its center
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.coincidentOffCurve");
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses a pair the chain of coincidences already holds", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const a = editor.solver.addLine(0, 0, 5, 0);
+            const b = editor.solver.addLine(5, 0, 5, 8);
+            const c = editor.solver.addLine(5, 8, 10, 8);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(a, 1), ref(b, 0)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(b, 0), ref(c, 0)],
+            });
+            editor.pointQueue.push(ref(a, 1), ref(c, 0));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // the third row over one place is a redundancy the solve would report, and it says
+            // nothing the chain does not
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(2);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.constraintExists");
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("fuses a point a midpoint holds on another line", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const other = editor.solver.addLine(0, 30, 10, 30);
+            const point = editor.solver.addLine(5, 0, 5, 8);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [ref(point, 0), ref(other, 0), ref(other, 1)],
+            });
+            editor.pointQueue.push(ref(point, 0), ref(line, 1));
+
+            await runCommand(new CoincidentConstraintCommand(), editor);
+
+            // the midpoint is of the far line, so it says nothing about where the point may
+            // stand on this one
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.midpointBlocksCoincident");
+            expect(constraintsOf(editor, ConstraintKind.P2PCoincident).length).toBe(1);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
 });
 
 describe("MidpointConstraintCommand", () => {
@@ -391,6 +1275,334 @@ describe("MidpointConstraintCommand", () => {
             expect(found[0].refs).toEqual([point, ref(line, 0), ref(line, 1)]);
             expect(editor.commit).toHaveBeenCalledTimes(1);
         } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the point-on constraint the midpoint restates, and says so", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnSubsumed");
+            // the swap is one edit: the point-on is gone and the midpoint is there together
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("says nothing when there was nothing to restate", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            editor.pointQueue.push(ref(anchor, 0));
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.pointOnSubsumed");
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("settles a pair an older document carries", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            const pointOn = editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            // the tool is asked again for something it already holds, and the redundant row it
+            // restates goes with it rather than sitting there for the panel to puzzle over
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+            expect(editor.forgetConstraints).toHaveBeenCalledWith([pointOn]);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnSubsumed");
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.constraintExists");
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("settles a pair whose rows hang off a coincident partner", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const partner = editor.solver.addLine(-20, 20, -10, 20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            const peer = ref(partner, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, peer],
+            });
+            // the older document's pair sits on the partner; the user picks the other end of
+            // the same coincidence
+            const pointOn = editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [peer, ref(line, 0), ref(line, 1)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.Midpoint,
+                refs: [peer, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            // a second midpoint would be the same statement written on the neighbour point,
+            // which is exactly the redundant pair the tool is here to settle
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+            expect(editor.forgetConstraints).toHaveBeenCalledWith([pointOn]);
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.pointOnSubsumed");
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.constraintExists");
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the incidence of a projected partner standing where the point does", async () => {
+        const editor = fakeEditor();
+        try {
+            editor.solver.addExternalEntity({ ...PROJECTED_EDGE });
+            const anchor = editor.solver.addLine(20, -5, 30, -5);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(PROJECTED_EDGE.entityId, 0)],
+            });
+            // the projected corner is held on the line; the midpoint holds the point there,
+            // so it holds the corner there too
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [ref(PROJECTED_EDGE.entityId, 0), ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses a line the picked point stands at the end of, through a projected snap", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            editor.solver.addExternalEntity({ ...PROJECTED_EDGE });
+            const holder = editor.solver.addLine(20, -5, 30, -5);
+            const point = ref(holder, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(PROJECTED_EDGE.entityId, 0)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(PROJECTED_EDGE.entityId);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            // the guard would otherwise let this through and the solve would answer
+            // "Conflicting" — the midpoint holds only with the line collapsed
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.midpointOnOwnEnd");
+            expect(constraintsOf(editor, ConstraintKind.Midpoint)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("leaves no redundant group behind", async () => {
+        const editor = fakeEditor();
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            // pin the line: with its ends held, garlic's verdict on the pair is decisive
+            for (const pointIndex of [0, 1]) {
+                editor.solver.addConstraint({ kind: ConstraintKind.Fix, refs: [ref(line, pointIndex)] });
+            }
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+            // the fake editor's solve is a no-op mock — solve for real
+            editor.solver.solve(true);
+
+            // keeping both would read as a redundant group of two, which the panel then
+            // offers to resolve by deleting either
+            expect(editor.solver.diagnose().redundant).toEqual([]);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("drops the point-on constraint reached through a coincidence", async () => {
+        const editor = fakeEditor();
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const partner = editor.solver.addLine(-20, 20, -10, 20);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            // the partner stands where the picked point does and is pinned onto the line
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(partner, 0)],
+            });
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [ref(partner, 0), ref(line, 0), ref(line, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine)).toEqual([]);
+            expect(constraintsOf(editor, ConstraintKind.Midpoint).length).toBe(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("keeps a point-on constraint onto another line", async () => {
+        const editor = fakeEditor();
+        try {
+            const anchor = editor.solver.addLine(-20, -20, -10, -20);
+            const other = editor.solver.addLine(0, 30, 10, 30);
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const point = ref(anchor, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.PointOnLine,
+                refs: [point, ref(other, 0), ref(other, 1)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            // the midpoint says nothing about the other line, so its incidence stays
+            expect(constraintsOf(editor, ConstraintKind.PointOnLine).length).toBe(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([0, 1])("refuses the line's own end at pointIndex %i", async (pointIndex) => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            editor.pointQueue.push(ref(line, pointIndex));
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.midpointOnOwnEnd");
+            expect(constraintsOf(editor, ConstraintKind.Midpoint)).toEqual([]);
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("reports an array's instance rather than the own-end rule it also trips", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const axis = editor.solver.addLine(-5, 0, 5, 0);
+            editor.solver.addArray(
+                { type: "linear", x: { count: 2, spacing: 20 }, y: { count: 1, spacing: 0 } },
+                [axis],
+            );
+            const instanceId = liveInstanceIds(editor.solver.arrays()[0])[0];
+            // an instance's own end trips both rules; the one that says what to do about it
+            // is the gate, so the gate is asked first
+            editor.pointQueue.push(ref(instanceId, 0));
+            editor.entityQueue.push(instanceId);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.midpointOnOwnEnd");
+            expect(editor.commit).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("refuses an end the picked point is coincident with", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const line = editor.solver.addLine(0, 0, 10, 0);
+            const holder = editor.solver.addLine(-20, -20, -10, -20);
+            const point = ref(holder, 0);
+            editor.solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [point, ref(line, 0)],
+            });
+            editor.pointQueue.push(point);
+            editor.entityQueue.push(line);
+
+            await runCommand(new MidpointConstraintCommand(), editor);
+
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.midpointOnOwnEnd");
+            expect(constraintsOf(editor, ConstraintKind.Midpoint)).toEqual([]);
+        } finally {
+            pub.mockRestore();
             editor.solver.dispose();
         }
     });
@@ -483,8 +1695,44 @@ describe("duplicate suppression", () => {
             await runCommand(new ParallelConstraintCommand(), editor);
             await runCommand(new ParallelConstraintCommand(), editor);
 
-            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.constraintExists");
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.constraintExists");
             expect(constraintsOf(editor, ConstraintKind.Parallel).length).toBe(1);
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            pub.mockRestore();
+            editor.solver.dispose();
+        }
+    });
+
+    test("two different statements on one ring of coincident corners are both taken", async () => {
+        const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            // a closed quad: every corner is a coincidence of two line ends
+            const quad = [
+                editor.solver.addLine(0, 0, 10, 0),
+                editor.solver.addLine(10, 0, 10, 8),
+                editor.solver.addLine(10, 8, 0, 8),
+                editor.solver.addLine(0, 8, 0, 0),
+            ];
+            for (let i = 0; i < quad.length; i++) {
+                editor.solver.addConstraint({
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [ref(quad[i], 1), ref(quad[(i + 1) % quad.length], 0)],
+                });
+            }
+            // one pair of opposite sides is already equal; the other pair is a statement of its
+            // own — the corners being fused says nothing about which sides were named
+            editor.solver.addConstraint({
+                kind: ConstraintKind.EqualLength,
+                refs: [ref(quad[0], 0), ref(quad[0], 1), ref(quad[2], 0), ref(quad[2], 1)],
+            });
+            editor.entityQueue.push(quad[1], quad[3]);
+
+            await runCommand(new EqualConstraintCommand(), editor);
+
+            expect(constraintsOf(editor, ConstraintKind.EqualLength).length).toBe(2);
+            expect(pub).not.toHaveBeenCalledWith("showToast", "sketch.constraintExists");
             expect(editor.commit).toHaveBeenCalledTimes(1);
         } finally {
             pub.mockRestore();

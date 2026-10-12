@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    I18n,
     type IApplication,
     type ICameraController,
     type IDocument,
@@ -373,7 +374,7 @@ describe("SketchEditor session statics", () => {
 
             expect(editor.solver.toData().constraints).toEqual([]);
             expect(editor.dimensionAnchors.size).toBe(0);
-            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.externalRefTypeChanged");
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.externalRefTypeChanged");
             editor.exit();
         } finally {
             SketchEditor.exit();
@@ -403,7 +404,7 @@ describe("SketchEditor session statics", () => {
             const editor = SketchEditor.enter(node);
 
             expect(body.rollbackIndex).toBeUndefined();
-            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.rollbackFailed");
+            expect(pub).toHaveBeenCalledWith("displayError", I18n.translate("sketch.rollbackFailed"));
             editor.exit();
             expect(body.rollbackIndex).toBeUndefined();
         } finally {
@@ -446,7 +447,7 @@ describe("SketchEditor session statics", () => {
 
             expect(goodCalls).toEqual([0]);
             expect(badCalls).toEqual([0, undefined]);
-            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.rollbackFailed");
+            expect(pub).toHaveBeenCalledWith("displayError", I18n.translate("sketch.rollbackFailed"));
             expect(node.editingSession).toBe(true);
 
             editor.exit();
@@ -457,17 +458,17 @@ describe("SketchEditor session statics", () => {
         }
     });
 
-    test("a throwing statusBarTip subscriber does not strand the rollback handoff", () => {
+    test("a throwing displayError subscriber does not strand the rollback handoff", () => {
         const { doc, restoreFactory } = setup();
         // PubSub.pub isolates subscriber exceptions globally: the rollbackFailed
-        // tip's subscriber throws here; pub must log the error, keep the other
-        // tips flowing, and return normally so the rollback map still reaches
+        // error's subscriber throws here; pub must log the error, keep the other
+        // toasts flowing, and return normally so the rollback map still reaches
         // startSession.
         const consoleError = rs.spyOn(console, "error").mockImplementation(() => {});
         const subscriber = (tip: string) => {
             if (tip === "sketch.rollbackFailed") throw new Error("subscriber exploded");
         };
-        PubSub.default.sub("statusBarTip", subscriber);
+        PubSub.default.sub("displayError", subscriber);
         try {
             const node = new SketchNode({ document: doc, plane: Plane.XY, data: DATA });
             doc.modelManager.addNode(node);
@@ -491,7 +492,7 @@ describe("SketchEditor session statics", () => {
                 return true;
             };
 
-            // The failing body triggers the rollbackFailed tip; its subscriber throwing
+            // The failing body triggers the rollbackFailed error; its subscriber throwing
             // must not escape applyTimelineRollback — otherwise startSession's catch
             // would see no rollback map and strand `good` in its truncated state.
             const editor = SketchEditor.enter(node);
@@ -499,7 +500,7 @@ describe("SketchEditor session statics", () => {
             expect(goodCalls).toEqual([0]);
             expect(node.editingSession).toBe(true);
             expect(consoleError).toHaveBeenCalledWith(
-                'PubSub: a subscriber of "statusBarTip" threw',
+                'PubSub: a subscriber of "displayError" threw',
                 expect.any(Error),
             );
 
@@ -507,7 +508,7 @@ describe("SketchEditor session statics", () => {
             expect(goodCalls).toEqual([0, undefined]);
         } finally {
             SketchEditor.exit();
-            PubSub.default.remove("statusBarTip", subscriber);
+            PubSub.default.remove("displayError", subscriber);
             restoreFactory();
         }
     });

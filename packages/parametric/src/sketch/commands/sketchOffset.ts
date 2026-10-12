@@ -459,8 +459,7 @@ export class SketchOffsetCommand extends SketchConstraintCommand {
         for (const dimension of dimensions) {
             editor.dimensionAnchors.set(dimension.constraintId, offsetLabel(editor, dimension));
         }
-        if (branched > 0) PubSub.default.pub("statusBarTip", "sketch.offsetBranched{0}", branched);
-        if (noJoin > 0) PubSub.default.pub("statusBarTip", "sketch.offsetNoJoin{0}", noJoin);
+        offsetNote(branched, noJoin);
         editor.solve(true);
         editor.commit();
         return true;
@@ -470,6 +469,21 @@ export class SketchOffsetCommand extends SketchConstraintCommand {
     private appliedDistance(): number {
         const resolved = this.resolveParameter(this.distance, LENGTH_UNITS);
         return resolved.isOk ? resolved.value : 0;
+    }
+}
+
+/**
+ * The one note the run gets about the corners it could not carry across. A toast replaces the
+ * one before it (`Toast.display`), so two runs of this would leave the user reading only the
+ * second — the counts are one finding about one offset, and say so together when both came up.
+ */
+function offsetNote(branched: number, noJoin: number): void {
+    if (branched > 0 && noJoin > 0) {
+        PubSub.default.pub("showToast", "sketch.offsetBranchedNoJoin{0}{1}", branched, noJoin);
+    } else if (branched > 0) {
+        PubSub.default.pub("showToast", "sketch.offsetBranched{0}", branched);
+    } else if (noJoin > 0) {
+        PubSub.default.pub("showToast", "sketch.offsetNoJoin{0}", noJoin);
     }
 }
 

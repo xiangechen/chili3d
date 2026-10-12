@@ -1446,7 +1446,7 @@ describe("SketchEditor driven dimension display", () => {
             const dialogs: unknown[] = [];
             const onTip = (key: string) => tips.push(key);
             const onDialog = () => dialogs.push(undefined);
-            PubSub.default.sub("statusBarTip", onTip);
+            PubSub.default.sub("showToast", onTip);
             PubSub.default.sub("showDialog", onDialog);
             try {
                 editor.editDatum(dimension);
@@ -1455,7 +1455,7 @@ describe("SketchEditor driven dimension display", () => {
                 expect(tips).toEqual(["sketch.drivenNotEditable"]);
                 expect(dialogs).toEqual([]);
             } finally {
-                PubSub.default.remove("statusBarTip", onTip);
+                PubSub.default.remove("showToast", onTip);
                 PubSub.default.remove("showDialog", onDialog);
             }
             editor.exit();

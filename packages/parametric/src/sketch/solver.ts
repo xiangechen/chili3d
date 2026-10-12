@@ -139,6 +139,14 @@ function sameNurbsSpec(first: NurbsSpec | undefined, second: NurbsSpec | undefin
 }
 
 /**
+ * Whether two id sets hold the same ids. Membership is the whole question the callers here ask
+ * of one, so the order the ids went in is not part of it.
+ */
+function sameIdSet(first: ReadonlySet<number>, second: ReadonlySet<number>): boolean {
+    return first.size === second.size && [...first].every((id) => second.has(id));
+}
+
+/**
  * What the solver can say about the constraint set beyond the solve result: the
  * degrees of freedom left and the constraints (sketch ids, not garlic ids) it
  * flags as conflicting or redundant. Structural constraints the user never sees
@@ -291,6 +299,18 @@ const AUX_CURVE_CONSTRAINTS: ReadonlySet<ConstraintKind> = new Set([
     ConstraintKind.TangentNurbsNurbs,
 ]);
 
+/** One coincidence reading: the union-find parents, and the member list each root stands for. */
+interface CoincidenceReading {
+    parent: Map<string, string>;
+    components: Map<string, SketchPointRef[]>;
+}
+
+/** The two readings `coincidentGroup` and `coincidentPeers` answer with, built together. */
+interface CoincidenceComponents {
+    draggable: CoincidenceReading;
+    every: CoincidenceReading;
+}
+
 interface ConstraintRecord {
     id: number;
     kind: ConstraintKind;
@@ -351,6 +371,14 @@ export class SketchSolver implements ExternalEntityHost {
      */
     private readonly weightPins = new Map<number, { datumParamIds: number[]; constraintIds: number[] }>();
     private readonly constraints = new Map<number, ConstraintRecord>();
+
+    /**
+     * Bumped by every write the coincidence components are built from — the constraint table,
+     * and which entities are fixed or derived (`isFixed`, which decides whether a coincidence
+     * joins the drag reading at all). See `coincidenceComponents`.
+     */
+    private structureGeneration = 0;
+    private coincidenceCache?: { generation: number; components: CoincidenceComponents } | undefined;
     /** garlic param ids of the datum entities (origin, X/Y axes), keyed by reserved id. */
     private readonly datumParams = new Map<number, number[]>();
     /** Internal constraints pinning the datum (never serialized, shown or removable). */
@@ -359,6 +387,7 @@ export class SketchSolver implements ExternalEntityHost {
      * Entities that can be constraint targets but never dragged, deleted or
      * param-edited: the datum (origin, X/Y axes) and every seeded external entity.
      */
+    /** Written only where `markStructureChanged` is called beside it (see that method). */
     private readonly fixedEntities = new Set<number>();
     /**
      * Real entities flagged as construction geometry (SketchEntityData.construction).
@@ -382,6 +411,7 @@ export class SketchSolver implements ExternalEntityHost {
      * `isFixed` names them, and the setters and the ops refuse them the way they refuse the
      * datum and the external refs.
      */
+    /** Written only where `markStructureChanged` is called beside it (see that method). */
     private readonly derivedEntities = new Set<number>();
     /** The pinned external entities and the refs they came from — see `externalEntities.ts`. */
     private readonly external = new ExternalEntityRegistry(this);
@@ -747,6 +777,7 @@ export class SketchSolver implements ExternalEntityHost {
             this.system.remove_param(auxParamId);
         }
         this.constraints.delete(id);
+        this.markStructureChanged();
     }
 
     /**
@@ -1245,11 +1276,27 @@ export class SketchSolver implements ExternalEntityHost {
             .map((c) => c.kind);
     }
 
+    /** Every constraint record whose refs carry `ref`, whatever it is to it. */
+    private recordsOnPoint(ref: SketchPointRef): ConstraintRecord[] {
+        const key = pointRefKey(ref);
+        return [...this.constraints.values()].filter((c) => c.refs.some((r) => pointRefKey(r) === key));
+    }
+
     /** Kinds of constraints currently applied to a specific point ref. */
     constraintKindsOnPoint(ref: SketchPointRef): ConstraintKind[] {
-        return [...this.constraints.values()]
-            .filter((c) => c.refs.some((r) => pointRefKey(r) === pointRefKey(ref)))
-            .map((c) => c.kind);
+        return this.recordsOnPoint(ref).map((c) => c.kind);
+    }
+
+    /**
+     * The constraints of one of `kinds` whose refs carry `ref` — the record form of what
+     * `constraintKindsOnPoint` reads the kinds of. Carrying counts the ref wherever it sits
+     * in the constraint rather than the subject alone: a midpoint carries its point through
+     * one ref and the line it names through two others.
+     */
+    constraintsOnPoint(ref: SketchPointRef, kinds: readonly ConstraintKind[]): SketchConstraintData[] {
+        return this.recordsOnPoint(ref)
+            .filter((c) => kinds.includes(c.kind))
+            .map((c) => ({ id: c.id, kind: c.kind, refs: c.refs.map((r) => ({ ...r })) }));
     }
 
     /**
@@ -1270,12 +1317,8 @@ export class SketchSolver implements ExternalEntityHost {
         ref: SketchPointRef,
         kinds: readonly ConstraintKind[],
     ): SketchConstraintData | undefined {
-        const key = pointRefKey(ref);
-        const record = [...this.constraints.values()].find(
-            (c) =>
-                kinds.includes(c.kind) &&
-                c.refs.some((r) => pointRefKey(r) === key) &&
-                c.refs.some((r) => r.entityId !== ref.entityId),
+        const record = this.recordsOnPoint(ref).find(
+            (c) => kinds.includes(c.kind) && c.refs.some((r) => r.entityId !== ref.entityId),
         );
         if (record === undefined) return undefined;
         return { id: record.id, kind: record.kind, refs: record.refs.map((r) => ({ ...r })) };
@@ -1643,7 +1686,15 @@ export class SketchSolver implements ExternalEntityHost {
         data.instanceEntityIds = [];
     }
 
+    /**
+     * Rebuilds the derived set, and says the structure moved only when it actually did. The
+     * reading is what the coincidence components are built from (`isFixed` reads it too), so a
+     * set that came back the same says nothing about them — and this runs at the end of every
+     * solve, which would otherwise throw that cache away once per frame of a drag and leave it
+     * paying for itself only within the frame.
+     */
     private refreshDerivedEntities(): void {
+        const previous = new Set(this.derivedEntities);
         this.derivedEntities.clear();
         for (const id of this.entityOffsets.keys()) {
             if (this.entityTypes.has(id)) this.derivedEntities.add(id);
@@ -1653,6 +1704,7 @@ export class SketchSolver implements ExternalEntityHost {
                 if (this.entityTypes.has(id)) this.derivedEntities.add(id);
             }
         }
+        if (!sameIdSet(previous, this.derivedEntities)) this.markStructureChanged();
     }
 
     /**
@@ -2143,34 +2195,94 @@ export class SketchSolver implements ExternalEntityHost {
      * never join a group — fixed entities must not be dragged.
      */
     coincidentGroup(ref: SketchPointRef): SketchPointRef[] {
-        const parent = this.coincidentParentMap();
-        const key = pointRefKey(ref);
-        if (!parent.has(key)) {
-            return [ref];
-        }
-        const root = findRoot(parent, key);
-        const group: SketchPointRef[] = [];
-        for (const record of this.constraints.values()) {
-            if (record.kind !== ConstraintKind.P2PCoincident) continue;
-            for (const r of record.refs) {
-                if (this.isFixed(r.entityId)) continue;
-                if (
-                    findRoot(parent, pointRefKey(r)) === root &&
-                    !group.some((g) => pointRefKey(g) === pointRefKey(r))
-                ) {
-                    group.push(r);
-                }
-            }
-        }
-        return group;
+        return this.coincidentRefs(ref, false);
     }
 
-    /** Union-find parent map over all coincident-linked point refs (fixed refs excluded). */
-    private coincidentParentMap(): Map<string, string> {
+    /**
+     * All point refs coincident-linked to `ref`, through any chain and `ref` itself included —
+     * the identity reading, where `coincidentGroup` is the drag reading.
+     *
+     * A fixed end is what separates them: the group drops a coincidence onto a fixed entity,
+     * because a fixed point must never be dragged. For *where a point stands* that is the
+     * partner that matters most — a point snapped onto a projected edge's end is on that edge,
+     * and a caller that cannot see it reads the point as standing on nothing.
+     */
+    coincidentPeers(ref: SketchPointRef): SketchPointRef[] {
+        return this.coincidentRefs(ref, true);
+    }
+
+    /** The one walk behind `coincidentGroup` and `coincidentPeers`; see them for the flag. */
+    private coincidentRefs(ref: SketchPointRef, withFixed: boolean): SketchPointRef[] {
+        const reading = withFixed
+            ? this.coincidenceComponents().every
+            : this.coincidenceComponents().draggable;
+        const key = pointRefKey(ref);
+        if (!reading.parent.has(key)) {
+            return [ref];
+        }
+        return reading.components.get(findRoot(reading.parent, key)) ?? [ref];
+    }
+
+    /**
+     * Says the constraint table or the set of fixed/derived entities has moved, which is what
+     * the coincidence components are built from (`coincidenceComponents`). Every write to either
+     * has to say so: a stale component here is a drag that moves the wrong points.
+     */
+    private markStructureChanged(): void {
+        this.structureGeneration++;
+    }
+
+    /** `coincidenceComponentsOf()`, rebuilt only when the structure has moved since. */
+    private coincidenceComponents(): CoincidenceComponents {
+        if (this.coincidenceCache?.generation !== this.structureGeneration) {
+            this.coincidenceCache = {
+                generation: this.structureGeneration,
+                components: this.coincidenceComponentsOf(),
+            };
+        }
+        return this.coincidenceCache.components;
+    }
+
+    /**
+     * The coincidence components by the place they stand at, both readings — what
+     * `coincidentRefs` answers with, built once per structure change instead of once per walk,
+     * which is what the per-frame callers (the badges, the drag previews) were paying for.
+     *
+     * The two readings are not one filter apart: `coincidentGroup`'s parents drop every record
+     * onto a fixed entity, so a chain through one is not that reading's component at all. Each
+     * keeps its own parents beside the components, since a member is looked up by its own key.
+     */
+    private coincidenceComponentsOf(): CoincidenceComponents {
+        return { draggable: this.componentsOf(false), every: this.componentsOf(true) };
+    }
+
+    /** One reading: the union-find `withFixed` decides, and the component of every ref it holds. */
+    private componentsOf(withFixed: boolean): CoincidenceReading {
+        const parent = this.coincidentParentMap(withFixed);
+        const components = new Map<string, SketchPointRef[]>();
+        for (const record of this.constraints.values()) {
+            if (record.kind !== ConstraintKind.P2PCoincident) continue;
+            for (const ref of record.refs) {
+                if (!withFixed && this.isFixed(ref.entityId)) continue;
+                const key = pointRefKey(ref);
+                // a ref of no record this reading sees is in no component: `coincidentRefs`
+                // answers `[ref]` for it, and the place it stands at is nobody else's
+                if (!parent.has(key)) continue;
+                const root = findRoot(parent, key);
+                const members = components.get(root) ?? [];
+                if (!members.some((member) => pointRefKey(member) === key)) members.push(ref);
+                components.set(root, members);
+            }
+        }
+        return { parent, components };
+    }
+
+    /** Union-find parent map over all coincident-linked point refs (fixed refs excluded by default). */
+    private coincidentParentMap(withFixed = false): Map<string, string> {
         const parent = new Map<string, string>();
         for (const record of this.constraints.values()) {
             if (record.kind !== ConstraintKind.P2PCoincident || record.refs.length !== 2) continue;
-            if (record.refs.some((r) => this.isFixed(r.entityId))) continue;
+            if (!withFixed && record.refs.some((r) => this.isFixed(r.entityId))) continue;
             const a = pointRefKey(record.refs[0]);
             const b = pointRefKey(record.refs[1]);
             if (!parent.has(a)) parent.set(a, a);
@@ -2371,6 +2483,7 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityOffsets.clear();
         this.weightPins.clear();
         this.constraints.clear();
+        this.markStructureChanged();
         this.fixedEntities.clear();
         this.constructionEntities.clear();
         this.arrayRecords.clear();
@@ -2403,6 +2516,7 @@ export class SketchSolver implements ExternalEntityHost {
             const ids = Array.from(this.system.add_params(kinds, new Float64Array(coords)));
             this.datumParams.set(entityId, ids);
             this.fixedEntities.add(entityId);
+            this.markStructureChanged();
             const { constraintIds } = this.pinPoints(ids, coords);
             this.structuralConstraintIds.push(...constraintIds);
         };
@@ -2448,6 +2562,7 @@ export class SketchSolver implements ExternalEntityHost {
     setFixed(id: number, fixed: boolean): void {
         if (fixed) this.fixedEntities.add(id);
         else this.fixedEntities.delete(id);
+        this.markStructureChanged();
     }
 
     /** `ExternalEntityHost`: the serialization gate — see `idAllocatedSinceLoad`. */
@@ -2573,6 +2688,7 @@ export class SketchSolver implements ExternalEntityHost {
             // derived, like an array's instances: the user's to constrain and to delete, but
             // not to edit — its geometry is the entity it came from
             this.derivedEntities.add(entityId);
+            this.markStructureChanged();
         }
         return entityId;
     }
@@ -2597,6 +2713,7 @@ export class SketchSolver implements ExternalEntityHost {
             null,
             nurbs ?? null,
         );
+        this.markStructureChanged();
         this.constraints.set(id, {
             id,
             kind: constraint.kind,

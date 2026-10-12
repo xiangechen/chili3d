@@ -231,10 +231,10 @@ export class SketchPolygonCommand extends SketchMultistepCommand {
         // Every entity the polygon just made is excluded, the carrier included: it is the
         // one the two snapped points are defined against. A vertex under snap distance of
         // the circumradius sits that close to the carrier's centre, and snapping it there
-        // both moved the vertex onto the centre and had `subsumedIncidence` delete the
-        // PointOnCircle holding the vertex out — collapsing the polygon into a fan. The
-        // centre snapping onto its own circle would collapse it just as well, by pinning
-        // the radius to zero.
+        // would land the vertex on that centre with the PointOnCircle holding it out still
+        // in the sketch — the two hold together only with the circle collapsed, and the
+        // polygon with it. The centre snapping onto its own circle would collapse it just as
+        // well, by pinning the radius to zero.
         const options = { pointTolerance: this.editor.screenTolerance() };
         const snapped = [centerRef(circleId)];
         // inscribed: the pick IS the first vertex. Circumscribed's pick is an edge

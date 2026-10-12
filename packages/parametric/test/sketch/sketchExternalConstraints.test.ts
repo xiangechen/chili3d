@@ -91,6 +91,7 @@ function fakeEditor() {
         diagnostics: { redundant: [] as number[] },
         solve: rs.fn((_fine: boolean) => {}),
         commit: rs.fn(() => {}),
+        forgetConstraints: rs.fn((_ids: Iterable<number>) => {}),
         // the editor's own datum write, which the dialog's apply callback goes through
         writeDatum: rs.fn((constraintId: number, value: ParameterValue, index = 0) => {
             solver.setDatumSource(constraintId, value, index);
@@ -142,7 +143,7 @@ function seedExternals(editor: FakeEditor): void {
     editor.solver.addExternalEntity({ ...EXT_CIRCLE });
 }
 
-const REJECTION_TIP: [string, string] = ["statusBarTip", "sketch.externalRefFrozen"];
+const REJECTION_TIP: [string, string] = ["showToast", "sketch.externalRefFrozen"];
 
 /** Runs `command` expecting an external pick to be rejected with the tip and no side effects. */
 async function expectRejection(command: ICommand, editor: FakeEditor, kind: ConstraintKind): Promise<void> {
@@ -256,7 +257,7 @@ describe("allowsConstraintOnEntity", () => {
             for (const kind of [ConstraintKind.Horizontal, ConstraintKind.Parallel, ConstraintKind.Fix]) {
                 expect(allowsConstraintOnEntity(solver, kind, instanceId)).toBe(false);
             }
-            expect(pub).toHaveBeenCalledWith("statusBarTip", "sketch.arrayInstanceReadOnly");
+            expect(pub).toHaveBeenCalledWith("showToast", "sketch.arrayInstanceReadOnly");
         } finally {
             pub.mockRestore();
         }
