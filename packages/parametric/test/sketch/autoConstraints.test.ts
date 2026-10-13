@@ -1003,6 +1003,32 @@ describe("applyDragAutoConstraints", () => {
         solver.dispose();
     });
 
+    test("does not add point-on-line to a point a midpoint already holds on the line", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const line = solver.addLine(0, 10, 10, 10);
+        const other = solver.addLine(5, 10, 5, 13);
+        solver.addConstraint({
+            kind: ConstraintKind.Midpoint,
+            refs: [
+                { entityId: other, pointIndex: 0 },
+                { entityId: line, pointIndex: 0 },
+                { entityId: line, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+
+        const ref = { entityId: other, pointIndex: 0 };
+        const added = applyDragAutoConstraints(solver, ref, { pointTolerance: 0.1, lineTolerance: 0.5 });
+        solver.solve(true);
+
+        // the midpoint already holds the point on that line, so the settle has nothing to add:
+        // a point-on-line here would be a second row saying what the midpoint says, and no one
+        // else refuses it — `diagnose` flags neither a conflict nor a redundancy for the pair
+        expect(added).toEqual([]);
+        expect(constraintsOf(solver).map((c) => c.kind)).toEqual([ConstraintKind.Midpoint]);
+        solver.dispose();
+    });
+
     test("does not re-add a coincident constraint to a point pinned to the origin", () => {
         const solver = new SketchSolver(Plane.XY);
         const circle = solver.addCircle(0.1, 0.1, 1);

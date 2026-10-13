@@ -386,8 +386,9 @@ export class SketchSolver implements ExternalEntityHost {
     /**
      * Entities that can be constraint targets but never dragged, deleted or
      * param-edited: the datum (origin, X/Y axes) and every seeded external entity.
+     *
+     * Written only where `markStructureChanged` is called beside it (see that method).
      */
-    /** Written only where `markStructureChanged` is called beside it (see that method). */
     private readonly fixedEntities = new Set<number>();
     /**
      * Real entities flagged as construction geometry (SketchEntityData.construction).
@@ -410,8 +411,9 @@ export class SketchSolver implements ExternalEntityHost {
      * parameters from the record on every solve, so nothing the user does to one survives:
      * `isFixed` names them, and the setters and the ops refuse them the way they refuse the
      * datum and the external refs.
+     *
+     * Written only where `markStructureChanged` is called beside it (see that method).
      */
-    /** Written only where `markStructureChanged` is called beside it (see that method). */
     private readonly derivedEntities = new Set<number>();
     /** The pinned external entities and the refs they came from — see `externalEntities.ts`. */
     private readonly external = new ExternalEntityRegistry(this);

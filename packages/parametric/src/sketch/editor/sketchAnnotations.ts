@@ -228,6 +228,12 @@ const LABEL_DOUBLE_CLICK_MS = 500;
 
 /** Badge center offset from its geometry, in screen pixels. */
 const BADGE_OFFSET_PX = 18;
+/**
+ * How far a pattern's numbers stand off the run they read, in screen pixels. Wider than
+ * `BADGE_OFFSET_PX` because what they have to clear is not a hairline: a run is also where
+ * the tool's own handle arrow is drawn, and its head is a cone a dozen pixels across.
+ */
+const ARRAY_NUMBER_STANDOFF_PX = 26;
 /** How close the cursor must stay to a visible badge for the entity hover to survive. */
 const BADGE_REACH_PX = 30;
 /**
@@ -2465,27 +2471,72 @@ interface ArrayNumberFace {
 
 /**
  * A number of an array run, as its badge draws it. A spacing reads as the measurement it is
- * and sits on the line it measures; a count reads as a bare multiplier and stands clear of
- * the geometry it names.
+ * and a count as a bare multiplier — and both stand off the run rather than on it, because the
+ * line they are read against is also where the tool's own handle arrow is drawn: the run and
+ * the arrow leave the seed along one line, so a number centered on it would sit on the very
+ * arrow that drags it. The spacing takes one side of the run and the count the other, which is
+ * what keeps a short run's pair from landing on each other: the spacing reads half a step along
+ * the run and the count at its end, so a two-instance pattern's two numbers are half a step
+ * apart — and once that half step is shorter on screen than a chip is wide, two numbers on one
+ * side of the line would draw over one another.
  */
 function arrayNumberFace(kind: "spacing" | "count", run: ArrayRun, px: number): ArrayNumberFace {
     const number = run[kind];
+    const side = kind === "count" ? 1 : -1;
+    const at = offsetFromRun(run.path, number.at, side * ARRAY_NUMBER_STANDOFF_PX * px);
     if (kind === "count") {
         return {
             text: `×${number.value}`,
-            at: [number.at[0], number.at[1] + BADGE_OFFSET_PX * px],
+            at,
             title: I18n.translate("sketch.arrayCountBadge{0}", number.value),
         };
     }
     const text = formatMeasurement(run.spacing.measure, run.spacing.value);
     return {
         text,
-        at: [number.at[0], number.at[1]],
+        at,
         title: I18n.translate(
             run.spacing.measure === "angle" ? "sketch.arrayAngleBadge{0}" : "sketch.arraySpacingBadge{0}",
             text,
         ),
     };
+}
+
+/**
+ * `at` pushed `distance` off the run's path, along the normal of the path segment it sits on:
+ * a straight run is the one segment it is drawn as, a turn an arc, a curve the stretch the
+ * instances are laid on. The normal is the path's own — taken where the number reads, not
+ * from some fixed axis — so a number stands off a vertical run the way it stands off a
+ * horizontal one.
+ *
+ * A run with no segment to read one from — every instance on one spot, which is what a turn
+ * about its own seed's center comes to — falls back to the sketch's V axis. There both of its
+ * numbers are pushed along the same line, and the opposite sides they take are the whole of
+ * what keeps them apart.
+ */
+function offsetFromRun(
+    path: readonly (readonly [number, number])[],
+    at: readonly [number, number],
+    distance: number,
+): [number, number] {
+    let normal: [number, number] = [0, 1];
+    let nearest = Number.POSITIVE_INFINITY;
+    for (let index = 0; index + 1 < path.length; index++) {
+        const [u1, v1] = path[index];
+        const [u2, v2] = path[index + 1];
+        const du = u2 - u1;
+        const dv = v2 - v1;
+        const length = Math.hypot(du, dv);
+        if (length < 1e-9) continue;
+        const along = ((at[0] - u1) * du + (at[1] - v1) * dv) / (length * length);
+        const t = Math.min(Math.max(along, 0), 1);
+        const gap = Math.hypot(at[0] - u1 - t * du, at[1] - v1 - t * dv);
+        if (gap < nearest) {
+            nearest = gap;
+            normal = [-dv / length, du / length];
+        }
+    }
+    return [at[0] + normal[0] * distance, at[1] + normal[1] * distance];
 }
 
 /** The box the drawn segments of one dimension fit in, for the pointer's broad phase. */

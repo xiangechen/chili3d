@@ -105,12 +105,27 @@ function snappablePointIndices(entity: Pick<SketchEntityData, "type" | "params">
 }
 
 /**
- * Whether `ref` is already pinned to a curve by an incidence constraint. The arc's
- * own structural PointOnArc does not count — it pins the point to nothing but the
- * arc it already belongs to.
+ * The rows that already hold a point where it is on geometry outside its own entity.
+ * `INCIDENCE_KINDS` is the incidence family, and the midpoint is one of these for this
+ * purpose even though the solver files it elsewhere: garlic measures it along the segment
+ * between the two ends rather than as a point against a curve (which is why
+ * `coincidenceRefusal` asks after it on its own), but a point at a line's middle *is* on that
+ * line, so a point-on-line onto the same line says nothing the midpoint does not. Left out, a
+ * dragged point the midpoint holds within reach of its own line picks a second row up on every
+ * settle — and a silent one: `diagnose` calls that pair neither a conflict nor a redundancy.
+ *
+ * One such row is as good as another: the guard is per point, not per entity, which is the
+ * reading the incidence family already gets — a point already held by an incidence takes no
+ * further curve snap either, whichever curve that incidence is on.
+ */
+const HELD_ON_GEOMETRY_KINDS: readonly ConstraintKind[] = [...INCIDENCE_KINDS, ConstraintKind.Midpoint];
+
+/**
+ * Whether `ref` is already pinned to a curve by such a row. The arc's own structural
+ * PointOnArc does not count — it pins the point to nothing but the arc it already belongs to.
  */
 function hasIncidence(solver: SketchSolver, ref: SketchPointRef): boolean {
-    return solver.hasIncidenceOn(ref, INCIDENCE_KINDS);
+    return solver.hasIncidenceOn(ref, HELD_ON_GEOMETRY_KINDS);
 }
 
 /**

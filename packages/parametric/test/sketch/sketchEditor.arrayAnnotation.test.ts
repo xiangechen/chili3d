@@ -15,16 +15,11 @@
 
 import { type I18nKeys, Plane, PubSub } from "@chili3d/core";
 import { rs } from "@rstest/core";
-import {
-    type ArrayDraft,
-    arrayInstanceTotal,
-    DRAFT_ARRAY_ID,
-    liveInstanceIds,
-} from "../../src/sketch/arrayOps";
+import { arrayInstanceTotal, DRAFT_ARRAY_ID, liveInstanceIds } from "../../src/sketch/arrayOps";
 import style from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { offsetEntities } from "../../src/sketch/offsetOps";
-import { originRef, type SketchArrayPattern } from "../../src/sketch/sketchModel";
+import { originRef, type SketchArrayPattern, viewPixelSize } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import { badgeView, type MockBadge } from "./_helpers/sketchBadges";
 import "./setup";
@@ -106,14 +101,19 @@ describe("an array's numbers on the canvas", () => {
         try {
             const spacing = badgeFaced(ctx.badges, "20.00");
             expect(spacing.position.x).toBeCloseTo(15, 6);
-            expect(spacing.position.y).toBeCloseTo(0, 6);
+            // neither number is drawn on the run: that line is where the tool's handle arrow
+            // lies, so both stand off it — the spacing to one side, the count to the other. The
+            // distance is a *screen* one, so here it is asserted in the world units it comes to:
+            // 26 px of the view's own scale, which is the number this behavior is about
+            const px = viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
+            expect(px).toBeGreaterThan(0);
+            expect(spacing.position.y).toBeCloseTo(-26 * px, 6);
             expect(spacing.element.title).toContain("20.00");
 
             const count = badgeFaced(ctx.badges, "×3");
             // the count names the whole run, so it sits where the last instance landed
             expect(count.position.x).toBeCloseTo(45, 6);
-            // the count stands clear of the geometry, the spacing sits on its line
-            expect(count.position.y).toBeGreaterThan(0);
+            expect(count.position.y).toBeCloseTo(26 * px, 6);
             // no badge says "array" any more: the numbers are the whole of what it shows
             expect(ctx.badges.some((b) => b.element.querySelector("svg") !== null)).toBe(false);
         } finally {
@@ -138,6 +138,61 @@ describe("an array's numbers on the canvas", () => {
             expect(runs).toHaveLength(1);
             expect(runs[0][0]).toBeCloseTo(5, 6);
             expect(runs[0][runs[0].length - 3]).toBeCloseTo(45, 6);
+        } finally {
+            ctx.restorePub();
+            ctx.restoreFactory();
+        }
+    });
+
+    test("stands a number off the run it reads, whichever way the run marches", () => {
+        // the seed spans x 0..10 again, and the pattern marches up the sketch instead of
+        // across it: the spacing reads at (5, 10) and the count where (5, 40) is. The standoff
+        // is the run's own normal, so a number moves *across* the run — a fixed nudge upwards
+        // would move it along this one and leave it sitting on the line it reads
+        const ctx = setupPattern({
+            type: "linear",
+            x: { count: 1, spacing: 0 },
+            y: { count: 3, spacing: 20 },
+        });
+        try {
+            const px = viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
+            expect(px).toBeGreaterThan(0);
+
+            const spacing = badgeFaced(ctx.badges, "20.00");
+            expect(spacing.position.y).toBeCloseTo(10, 6);
+            expect(spacing.position.x).toBeCloseTo(5 + 26 * px, 6);
+
+            const count = badgeFaced(ctx.badges, "×3");
+            expect(count.position.y).toBeCloseTo(40, 6);
+            expect(count.position.x).toBeCloseTo(5 - 26 * px, 6);
+        } finally {
+            ctx.restorePub();
+            ctx.restoreFactory();
+        }
+    });
+
+    test("keeps a run's pair apart where the run has no line to stand off", () => {
+        // A turn about the seed's own centre: every instance lands back on the seed, so the run
+        // has no segment long enough to take a normal from and both numbers fall back to the
+        // same spot. That fallback is the sketch's V axis, which pushes them along one line —
+        // the opposite sides they take are then the whole of what keeps them off each other.
+        const ctx = setupPattern({
+            type: "circular",
+            center: { type: "at", u: 5, v: 0 },
+            count: 3,
+            twist: 90,
+            equalSpacing: false,
+        });
+        try {
+            const px = viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
+            expect(px).toBeGreaterThan(0);
+
+            const spacing = badgeFaced(ctx.badges, "90.0°");
+            const count = badgeFaced(ctx.badges, "×3");
+            expect(spacing.position.x).toBeCloseTo(5, 6);
+            expect(count.position.x).toBeCloseTo(5, 6);
+            expect(spacing.position.y).toBeCloseTo(-26 * px, 6);
+            expect(count.position.y).toBeCloseTo(26 * px, 6);
         } finally {
             ctx.restorePub();
             ctx.restoreFactory();
