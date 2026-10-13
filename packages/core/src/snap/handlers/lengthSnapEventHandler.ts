@@ -96,14 +96,10 @@ export class SnapLengthAtPlaneHandler extends SnapEventHandler<SnapLengthAtPlane
     }
 
     private calculatePointFromCoordinates(coords: number[], plane: Plane): XYZ {
-        const dx = this.followSnapedSign(coords[0], plane.xvec);
-        const dy = this.followSnapedSign(coords[1], plane.yvec);
-        return this.data.point().add(plane.xvec.multiply(dx)).add(plane.yvec.multiply(dy));
-    }
-
-    private followSnapedSign(value: number, axis: XYZ): number {
-        const offset = this._snaped?.point?.sub(this.data.point()).dot(axis);
-        return offset !== undefined && offset < -Precision.Distance ? -value : value;
+        const refPoint = this.data.point();
+        const dx = this.followSnapedSign(refPoint, plane.xvec, coords[0]);
+        const dy = this.followSnapedSign(refPoint, plane.yvec, coords[1]);
+        return refPoint.add(plane.xvec.multiply(dx)).add(plane.yvec.multiply(dy));
     }
 
     protected inputError(text: string): I18nKeys | undefined {

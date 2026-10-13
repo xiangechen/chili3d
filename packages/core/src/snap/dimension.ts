@@ -33,3 +33,25 @@ export class DimensionUtils {
         return mapping[value] || Dimensions.None;
     }
 }
+
+/**
+ * What the user typed into the point input box: the numbers as typed and in order, and
+ * whether they were written as absolute coordinates (`#x,y,z`) rather than as offsets from
+ * the step's reference point.
+ *
+ * Read by the handlers that accept such input and carried on the result they hand back, so
+ * that the two cannot disagree about what was typed. What the numbers *mean* is neither's
+ * business: the step's own `PointSnapData.dimension` is what allowed the form in the first
+ * place, and it is what says whether the single number was a distance, a radius or an angle.
+ */
+export interface SnapInput {
+    /** The numbers as typed, in order. */
+    values: number[];
+    /** `#x,y,z`: absolute coordinates rather than an offset from the reference point. */
+    absolute: boolean;
+}
+
+export function parseDimensionInput(text: string): SnapInput {
+    const absolute = text.startsWith("#");
+    return { values: (absolute ? text.slice(1) : text).split(",").map(Number), absolute };
+}

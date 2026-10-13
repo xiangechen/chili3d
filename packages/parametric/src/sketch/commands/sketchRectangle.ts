@@ -4,16 +4,19 @@
 import {
     command,
     Dimensions,
+    formatMeasurement,
     type IStep,
     type PointSnapData,
     Precision,
     PubSub,
+    type SnapResult,
     type XYZ,
 } from "@chili3d/core";
 import { applyPointAutoConstraints } from "../autoConstraints";
-import { ConstraintKind, toUV, toWorld } from "../sketchModel";
+import { ConstraintKind, type SketchPointRef, toUV, toWorld } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import { joinLoop } from "../solverEntities";
+import { typedOffsetDimensions } from "../typedDimension";
 import { SketchMultistepCommand } from "./sketchMultistepCommand";
 import { SketchPointStep } from "./sketchPointStep";
 
@@ -23,7 +26,7 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
     getSteps(): IStep[] {
         return [
             new SketchPointStep("prompt.pickFistPoint"),
-            new SketchPointStep("prompt.pickNextPoint", this.getCornerData),
+            new SketchPointStep("prompt.pickOppositeCorner", this.getCornerData),
         ];
     }
 
@@ -41,26 +44,50 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
         if (this.construction) {
             for (const id of [top, right, bottom, left]) solver.setConstruction(id, true);
         }
+        // the two picked corners, and with them the rectangle's diagonal
+        const corners: [SketchPointRef, SketchPointRef] = [
+            { entityId: left, pointIndex: 0 },
+            { entityId: top, pointIndex: 1 },
+        ];
         // Snap the two picked corners onto the origin/points/lines/axes; the shape's
         // own four edges are excluded so the corners never snap onto each other.
-        applyPointAutoConstraints(
-            solver,
-            [
-                { entityId: left, pointIndex: 0 },
-                { entityId: top, pointIndex: 1 },
-            ],
-            [top, right, bottom, left],
-            { pointTolerance: this.editor.screenTolerance() },
+        applyPointAutoConstraints(solver, corners, [top, right, bottom, left], {
+            pointTolerance: this.editor.screenTolerance(),
+        });
+
+        // The pick that sets the size takes a pair of offsets rather than a lone number, and
+        // here the pair IS the size: the width and the height are the gaps across, between each
+        // pair of opposite edges. Nothing to suppress either — a rectangle is axis-aligned by
+        // construction, so no hinted H/V can disagree with the numbers typed at it.
+        this.solveAndCommit(
+            this.hasTypedOffsets(1) ? typedOffsetDimensions([left, right], [top, bottom]) : [],
         );
-        this.editor.solve(true);
-        this.editor.commit();
     }
 
     private readonly getCornerData = (): PointSnapData => ({
         refPoint: () => this.stepDatas[0].point!,
         dimension: Dimensions.D2,
         preview: this.rectanglePreview,
+        prompt: this.cornerPrompt,
     });
+
+    /**
+     * The rectangle's size under the cursor: the two offsets this pick is about to state, which
+     * for an axis-aligned rectangle are its width and its height. The generic readout would give
+     * the distance to the first corner instead — the diagonal, which is no side of anything and
+     * says nothing about the shape being drawn.
+     */
+    private readonly cornerPrompt = (snaped: SnapResult): string => {
+        const point = snaped.point;
+        if (point === undefined) return "";
+
+        const plane = this.editor.node.plane;
+        const [u1, v1] = toUV(plane, this.stepDatas[0].point!);
+        const [u2, v2] = toUV(plane, point);
+        const width = formatMeasurement("length", Math.abs(u2 - u1));
+        const height = formatMeasurement("length", Math.abs(v2 - v1));
+        return `${width}, ${height}`;
+    };
 
     private readonly rectanglePreview = (point: XYZ | undefined) => {
         const plane = this.editor.node.plane;

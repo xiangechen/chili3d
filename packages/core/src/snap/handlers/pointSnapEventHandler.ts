@@ -8,7 +8,7 @@ import type { I18nKeys } from "../../i18n";
 import { type Line, type Plane, XYZ } from "../../math";
 import type { ICurve, ShapeType } from "../../shape";
 import type { IView } from "../../visual";
-import { type Dimension, DimensionUtils } from "../dimension";
+import { type Dimension, DimensionUtils, parseDimensionInput } from "../dimension";
 import type { ISnap, SnapData, SnapResult } from "../snap";
 import { AxisSnap, ObjectSnap, PlaneSnap, PointOnCurveSnap, SurfaceSnap, WorkplaneSnap } from "../snaps";
 import { TrackingSnap } from "../tracking";
@@ -45,27 +45,19 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
     }
 
     protected getPointFromInput(view: IView, text: string): SnapResult {
-        const [dims, isAbsolute] = this.parseInputDimensions(text);
+        const { values, absolute } = parseDimensionInput(text);
         const refPoint = this.getRefPoint() ?? XYZ.zero;
         const result: SnapResult = { point: refPoint, view, shapes: [], type: "input" };
 
-        if (isAbsolute) {
-            result.point = new XYZ({ x: dims[0], y: dims[1], z: dims[2] });
-        } else if (dims.length === 1 && this._snaped?.point) {
-            result.point = this.calculatePointFromDistance(refPoint, dims[0]);
-        } else if (dims.length > 1) {
-            result.point = this.calculatePointFromCoordinates(refPoint, dims);
+        if (absolute) {
+            result.point = new XYZ({ x: values[0], y: values[1], z: values[2] });
+        } else if (values.length === 1 && this._snaped?.point) {
+            result.point = this.calculatePointFromDistance(refPoint, values[0]);
+        } else if (values.length > 1) {
+            result.point = this.calculatePointFromCoordinates(refPoint, values);
         }
 
         return result;
-    }
-
-    private parseInputDimensions(text: string): [number[], boolean] {
-        const isAbsolute = text.startsWith("#");
-        if (isAbsolute) {
-            text = text.slice(1);
-        }
-        return [text.split(",").map(Number), isAbsolute];
     }
 
     private calculatePointFromDistance(refPoint: XYZ, distance: number): XYZ {
@@ -75,22 +67,24 @@ export class PointSnapEventHandler extends SnapEventHandler<PointSnapData> {
 
     private calculatePointFromCoordinates(refPoint: XYZ, dims: number[]): XYZ {
         const plane = this.data.plane?.() ?? this.snaped!.view.workplane;
-        let point = refPoint.add(plane.xvec.multiply(dims[0])).add(plane.yvec.multiply(dims[1]));
-        if (dims.length === 3) {
-            point = point.add(plane.normal.multiply(dims[2]));
-        }
-        return point;
+        // one offset per axis there is: the plane has three, and a number with no axis to go on
+        // is dropped rather than thrown on, as it was before the offsets began carrying a side
+        const axes = [plane.xvec, plane.yvec, plane.normal].slice(0, dims.length);
+        return axes.reduce((point, axis, index) => {
+            const value = this.followSnapedSign(refPoint, axis, dims[index]);
+            return point.add(axis.multiply(value));
+        }, refPoint);
     }
 
     protected inputError(text: string): I18nKeys | undefined {
-        const [dims, isAbsolute] = this.parseInputDimensions(text);
-        const dimension = DimensionUtils.from(dims.length);
+        const { values, absolute } = parseDimensionInput(text);
+        const dimension = DimensionUtils.from(values.length);
 
-        if (isAbsolute && dims.length !== 3) return "error.input.threeNumberCanBeInput";
+        if (absolute && values.length !== 3) return "error.input.threeNumberCanBeInput";
         if (!this.isValidDimension(dimension)) return "error.input.unsupportedInputs";
-        if (this.hasInvalidNumbers(dims)) return "error.input.invalidNumber";
-        if (this.requiresThreeNumbers(dims)) return "error.input.threeNumberCanBeInput";
-        if (this.isInvalidSingleNumber(dims)) return "error.input.cannotInputANumber";
+        if (this.hasInvalidNumbers(values)) return "error.input.invalidNumber";
+        if (this.requiresThreeNumbers(values)) return "error.input.threeNumberCanBeInput";
+        if (this.isInvalidSingleNumber(values)) return "error.input.cannotInputANumber";
 
         return undefined;
     }

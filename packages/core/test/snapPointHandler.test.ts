@@ -175,16 +175,37 @@ describe("PointSnapEventHandler", () => {
     });
 
     test("should handle numeric input keyDown", () => {
-        const pointData: PointSnapData = {
-            dimension: 0b111,
-            refPoint: () => XYZ.zero,
+        let submit: ((text: string) => unknown) | undefined;
+        const capture = (_text: string, handler: (text: string) => unknown): void => {
+            submit = handler;
         };
-        const view = createHandlerMockView();
+        PubSub.default.sub("showInput", capture);
 
-        const handler = new PointSnapEventHandler(document, controller, pointData);
-        handler.keyDown(view, { key: "5" } as KeyboardEvent);
+        try {
+            const pointData: PointSnapData = {
+                dimension: 0b111,
+                refPoint: () => XYZ.zero,
+            };
+            const view = createHandlerMockView();
+            const handler = new PointSnapEventHandler(document, controller, pointData);
+            // a lone number is measured from the reference point along the direction the
+            // pointer last snapped to, so there has to be a snap for the number to go out on
+            (handler as unknown as { _snaped: { point: XYZ } })._snaped = {
+                point: new XYZ({ x: 10, y: 0, z: 0 }),
+            };
 
-        expect(handler.state).toBe("inputing");
+            handler.keyDown(view, { key: "5" } as KeyboardEvent);
+            expect(handler.state).toBe("inputing");
+            expect(submit).toBeDefined();
+
+            submit!("20");
+
+            expect(handler.snaped!.point!.x).toBeCloseTo(20, 5);
+            expect(handler.snaped!.input).toStrictEqual({ values: [20], absolute: false });
+            expect(handler.state).toBe("completed");
+        } finally {
+            PubSub.default.remove("showInput", capture);
+        }
     });
 });
 
@@ -409,6 +430,32 @@ describe("PointSnapEventHandler — getPointFromInput", () => {
         const view = createHandlerMockView({ workplane: Plane.XY });
         const result = handler["getPointFromInput"](view, "10,5,20");
         expect(result.point!.z).toBe(20);
+    });
+
+    // the offsets the pointer itself stands at, typed back in: each number is a magnitude, so
+    // each one goes the way that axis of the pointer went — which is what makes the pair a
+    // readout shows (a rectangle's two sides) a pair the user can type back
+    const typedPairCases: [label: string, snaped: XYZ, expected: XYZ][] = [
+        ["both axes ahead", new XYZ({ x: 10, y: 5, z: 0 }), new XYZ({ x: 10, y: 5, z: 0 })],
+        ["both axes behind", new XYZ({ x: -10, y: -5, z: 0 }), new XYZ({ x: -10, y: -5, z: 0 })],
+        ["one axis behind", new XYZ({ x: -10, y: 5, z: 0 }), new XYZ({ x: -10, y: 5, z: 0 })],
+    ];
+
+    test.each(
+        typedPairCases,
+    )("should read a typed pair the way the pointer stands, %s", (_pointer, snaped, expected) => {
+        const handler = new PointSnapEventHandler(document, controller, {
+            dimension: 0b011,
+            refPoint: () => XYZ.zero,
+            plane: () => Plane.XY,
+        });
+        const view = createHandlerMockView({ workplane: Plane.XY });
+        (handler as unknown as { _snaped: { point: XYZ } })._snaped = { point: snaped };
+
+        const result = handler["getPointFromInput"](view, "10,5");
+
+        expect(result.point!.x).toBeCloseTo(expected.x, 5);
+        expect(result.point!.y).toBeCloseTo(expected.y, 5);
     });
 
     test("should calculate point from single distance along snapped direction", () => {

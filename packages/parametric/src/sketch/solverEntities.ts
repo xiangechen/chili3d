@@ -167,7 +167,7 @@ export function lineRefs(entityId: number): SketchPointRef[] {
     ];
 }
 
-/** Point ref of an entity's center (pointIndex 0 of a circle or an arc). */
+/** Point ref of an entity's center (pointIndex 0 of a circle, an arc or an ellipse). */
 export function centerRef(entityId: number): SketchPointRef {
     return { entityId, pointIndex: 0 };
 }
@@ -748,4 +748,38 @@ function curveTangentRefs(kind: ConstraintKind, pair: TangentPair): TangentRefs 
                 ],
             };
     }
+}
+
+/** ≈0.057° — the same scale-free flavour of tolerance the solver's own degeneracy checks use. */
+const PARALLEL_SINE_TOLERANCE = 1e-3;
+
+function normalize(v: [number, number]): [number, number] | undefined {
+    const length = Math.hypot(v[0], v[1]);
+    return length < 1e-12 ? undefined : [v[0] / length, v[1] / length];
+}
+
+/**
+ * Whether two lines run parallel — the sine of their angle, so it is scale free. Reading the
+ * same direction from either line, a pair running the same way and a pair running opposite
+ * ways both count.
+ *
+ * Anything that is not a line is no answerable pair, and neither is a line of no direction:
+ * both read as not parallel, so a caller need not know what it is holding.
+ */
+export function areParallel(solver: SketchSolver, firstId: number, secondId: number): boolean {
+    if (solver.entity(firstId)?.type !== "line" || solver.entity(secondId)?.type !== "line") {
+        return false;
+    }
+    const [a1, a2] = [
+        solver.pointOf({ entityId: firstId, pointIndex: 0 }),
+        solver.pointOf({ entityId: firstId, pointIndex: 1 }),
+    ];
+    const [b1, b2] = [
+        solver.pointOf({ entityId: secondId, pointIndex: 0 }),
+        solver.pointOf({ entityId: secondId, pointIndex: 1 }),
+    ];
+    const da = normalize([a2[0] - a1[0], a2[1] - a1[1]]);
+    const db = normalize([b2[0] - b1[0], b2[1] - b1[1]]);
+    if (da === undefined || db === undefined) return false;
+    return Math.abs(da[0] * db[1] - da[1] * db[0]) < PARALLEL_SINE_TOLERANCE;
 }

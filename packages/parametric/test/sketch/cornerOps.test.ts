@@ -2,7 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import { type EvaluatedValue, LENGTH_UNITS, Plane, type Scope } from "@chili3d/core";
-import { applyCornerOps, findCorners, type SketchCorner } from "../../src/sketch/cornerOps";
+import {
+    applyCornerOps,
+    type CornerOptions,
+    findCorners,
+    type SketchCorner,
+} from "../../src/sketch/cornerOps";
 import {
     arcAngles,
     ConstraintKind,
@@ -644,6 +649,95 @@ describe("applyCornerOps chamfer", () => {
             expect(found.isOk).toBe(false);
             // the formula is untouched, not replaced by the 8 the cut would leave
             expect(solver.toData().constraints.find((c) => c.id === dim)?.datum).toBe("w / 2");
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
+/**
+ * A rectangle dimensioned the way both the draw command and the Dimension tool dimension one:
+ * the width and the height as the gap between each pair of opposite edges, read as a
+ * point-to-line distance because garlic has no line-to-line one (`buildLineGap` in
+ * `dimensionInference`). In a rectangle every endpoint is a corner, so both anchors are corner
+ * points — which is why a fillet used to be refused outright.
+ */
+function dimensionedRectangleSolver() {
+    const { solver, lines } = rectangleSolver();
+    const [bottom, right, top, left] = lines;
+    for (const [from, across] of [
+        [left, right],
+        [top, bottom],
+    ]) {
+        solver.addConstraint({
+            kind: ConstraintKind.P2LDistance,
+            refs: [ref(from, 0), ref(across, 0), ref(across, 1)],
+        });
+    }
+    return { solver, lines };
+}
+
+/** The perpendicular gap from one edge's start across to another edge. */
+function gapAcross(solver: SketchSolver, fromId: number, acrossId: number): number {
+    return distanceToLine(solver.pointOf(ref(fromId, 0)), solver.entity(acrossId)!.params);
+}
+
+/** A trim of either kind, at the smallest size the 10×10 rectangle can take four of. */
+function smallTrim(method: "fillet" | "chamfer"): CornerOptions {
+    return method === "fillet" ? { method, radius: 1 } : { method, distance: 1 };
+}
+
+describe("a rectangle carrying the gaps between its edges", () => {
+    test.each(["fillet", "chamfer"] as const)("is trimmed at every corner (%s)", (method) => {
+        const { solver, lines } = dimensionedRectangleSolver();
+        try {
+            const found = findCorners(solver, lines, TOLERANCE, method);
+            expect(found.isOk).toBe(true);
+            expect(found.value.length).toBe(4);
+            expect(applyCornerOps(solver, found.value, smallTrim(method)).isOk).toBe(true);
+
+            expect(solver.solve(true).result).not.toBe("Conflicting");
+            expect(solver.diagnose().conflicting).toEqual([]);
+            expect(solver.diagnose().redundant).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("keeps both gaps, because the trim slides each endpoint along its own edge", () => {
+        const { solver, lines } = dimensionedRectangleSolver();
+        const [bottom, right, top, left] = lines;
+        try {
+            const found = findCorners(solver, lines, TOLERANCE, "fillet");
+            expect(found.isOk).toBe(true);
+            expect(applyCornerOps(solver, found.value, smallTrim("fillet")).isOk).toBe(true);
+            solver.solve(true);
+
+            // rounding every corner of the 10×10 rectangle moved both anchors up their own
+            // edges, and the gaps across are the same from anywhere along either one
+            expect(gapAcross(solver, left, right)).toBeCloseTo(10, 6);
+            expect(gapAcross(solver, top, bottom)).toBeCloseTo(10, 6);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    // The allowance is the parallelism, not the kind: sliding a point along its own edge does
+    // bring it nearer a line that does not run alongside that edge.
+    test("still refuses a point-to-line distance to a line that is not parallel", () => {
+        const { solver, lines } = rectangleSolver();
+        const [bottom, , top, left] = lines;
+        try {
+            solver.addConstraint({
+                kind: ConstraintKind.P2LDistance,
+                refs: [ref(left, 0), ref(bottom, 0), ref(bottom, 1)],
+            });
+
+            const found = findCorners(solver, [left, top], TOLERANCE, "fillet");
+            expect(found.isOk).toBe(false);
+            expect(found.isOk ? "" : found.error).toBe(
+                "The corner carries a P2LDistance constraint that the trim would break",
+            );
         } finally {
             solver.dispose();
         }

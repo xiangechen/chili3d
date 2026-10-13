@@ -3,11 +3,12 @@
 
 import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
-import { type AsyncController, type MessageType, PubSub, Result } from "../../foundation";
+import { type AsyncController, type MessageType, Precision, PubSub, Result } from "../../foundation";
 import type { I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
 import { MeshDataUtils, type ShapeType, ShapeTypes } from "../../shape";
 import { type IEventHandler, type IView, type MeshOption, screenDistance } from "../../visual";
+import { parseDimensionInput } from "../dimension";
 import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
 
 type SnapState = "idle" | "snapping" | "inputing" | "cancelled" | "completed";
@@ -281,6 +282,20 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
         }
     }
 
+    /**
+     * A typed offset on one axis, read the way the pointer last stood along it: the number is a
+     * magnitude, and which way it goes is the pointer's — so a pair of offsets a readout shows
+     * is a pair the user can type back in, and a lone number does not always land on the
+     * positive side of the point it is measured from.
+     *
+     * `refPoint` is what the number is read as an offset from: `_snaped` is where the pointer
+     * is, which is not necessarily the same point a handler draws its offsets from.
+     */
+    protected followSnapedSign(refPoint: XYZ, axis: XYZ, value: number): number {
+        const offset = this._snaped?.point?.sub(refPoint).dot(axis);
+        return offset !== undefined && offset < -Precision.Distance ? -value : value;
+    }
+
     private handleNumericInput(view: IView, event: KeyboardEvent) {
         if (!["#", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
 
@@ -289,7 +304,10 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
             const error = this.inputError(text);
             if (error) return Result.err(error);
 
-            this._snaped = this.getPointFromInput(view, text);
+            // Annotated here, the one place the typed text is ever in hand, so that a handler's
+            // own `getPointFromInput` need not carry the record through — and so that what the
+            // result says was typed cannot drift from what this read.
+            this._snaped = { ...this.getPointFromInput(view, text), input: parseDimensionInput(text) };
             this.handleSuccess();
             return Result.ok(text);
         });

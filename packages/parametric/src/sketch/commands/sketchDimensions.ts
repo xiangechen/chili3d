@@ -365,7 +365,7 @@ export async function commitDimension(
  * that as redundant too, so one rule covers the repeat, the implied distance and the
  * angle the other two already fix.
  */
-function autoReference(editor: SketchEditor, id: number): boolean {
+export function autoReference(editor: SketchEditor, id: number): boolean {
     if (!editor.diagnostics.redundant.includes(id)) return false;
     if (!editor.solver.setDriven(id, true)) return false;
     editor.solve(true);

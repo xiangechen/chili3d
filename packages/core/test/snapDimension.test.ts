@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane, XYZ } from "../src";
-import { type Dimension, Dimensions, DimensionUtils } from "../src/snap/dimension";
+import { Dimensions, DimensionUtils, parseDimensionInput } from "../src/snap/dimension";
 import { Axis } from "../src/snap/tracking/axis";
 
 // ============================================================================
@@ -50,6 +50,27 @@ describe("DimensionUtils", () => {
             expect(DimensionUtils.from(999)).toBe(Dimensions.None);
             expect(DimensionUtils.from(-1)).toBe(Dimensions.None);
         });
+    });
+});
+
+// ============================================================================
+// parseDimensionInput
+// ============================================================================
+
+describe("parseDimensionInput", () => {
+    test.each([
+        ["10", [10], false],
+        ["-10", [-10], false],
+        ["10,5", [10, 5], false],
+        ["1,2,3", [1, 2, 3], false],
+        ["#1,2,3", [1, 2, 3], true],
+        ["#-1,-2,-3", [-1, -2, -3], true],
+    ] as [string, number[], boolean][])("should read %s as typed", (text, values, absolute) => {
+        expect(parseDimensionInput(text)).toStrictEqual({ values, absolute });
+    });
+
+    test("should read an empty box the way Number does, as a single zero", () => {
+        expect(parseDimensionInput("")).toStrictEqual({ values: [0], absolute: false });
     });
 });
 

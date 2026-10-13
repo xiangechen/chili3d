@@ -2,12 +2,12 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
-import { I18nKeys } from "../i18n";
 import type { Plane, XYZ } from "../math";
 import type { VisualNode } from "../model";
 import type { IShapeFilter } from "../selectionFilter";
 import type { ShapeMeshData } from "../shape";
 import type { IView, VisualShapeData } from "../visual";
+import type { SnapInput } from "./dimension";
 
 export interface SnapData {
     preview?: (point: XYZ | undefined) => ShapeMeshData[];
@@ -68,6 +68,12 @@ export interface SnapResult {
     shapes: VisualShapeData[];
     nodes?: VisualNode[];
     plane?: Plane;
+    /**
+     * Set when the user typed this point instead of picking it, and left off otherwise —
+     * which is the signal, rather than `type`: `"input"` is also what a drag or a plane
+     * pick writes when it fabricates a result of its own.
+     */
+    input?: SnapInput;
 }
 
 export interface MouseAndDetected {

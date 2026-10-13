@@ -5,7 +5,9 @@ import { type EdgeMeshData, MultistepCommand, PubSub, property, VisualConfig } f
 import { applyAutoConstraints } from "../autoConstraints";
 import { curveChainMesh } from "../curveMesh";
 import { SketchEditor } from "../editor/sketchEditor";
-import { toUV } from "../sketchModel";
+import { type SketchConstraintData, toUV } from "../sketchModel";
+import { typedDimension } from "../typedDimension";
+import { autoReference } from "./sketchDimensions";
 
 /**
  * Base class for in-sketch step commands: requires an active sketch editing session.
@@ -70,7 +72,58 @@ export abstract class SketchMultistepCommand extends MultistepCommand {
                 this.autoConstraintPoints(),
             );
         }
+        this.solveAndCommit(this.typedDimensions(entityId));
+    }
+
+    /**
+     * The dimensions a typed lone number asked for on the entity just built. Empty when the
+     * pick was a click — the hints' inference is the whole of what an untyped entity gets —
+     * and when the number was not one a dimension can hold (see `typedDimension`).
+     *
+     * Read at the step that carries the entity's size, not at the last one: an arc's and the
+     * ellipse family's last pick fixes a direction and takes no number at all, and a chain's
+     * later segments would otherwise read the pick before them.
+     */
+    protected typedDimensions(entityId: number): Omit<SketchConstraintData, "id">[] {
+        if (!this.hasTypedNumber(1)) return [];
+
+        const dimension = typedDimension(this.editor.solver, entityId);
+        return dimension === undefined ? [] : [dimension];
+    }
+
+    /**
+     * Whether the pick at `index` was a single typed number — the one form of input that
+     * states a reading of the entity. A click states none, a pair of numbers states where the
+     * point goes, and absolute `#x,y,z` coordinates state that too; what any of them states is
+     * not a measurement, which is the whole of what that number itself would be read for.
+     */
+    protected hasTypedNumber(index: number): boolean {
+        const input = this.stepDatas[index]?.input;
+        return input !== undefined && !input.absolute && input.values.length === 1;
+    }
+
+    /**
+     * Whether the pick at `index` was a typed pair — the offsets, in the sketch's own (u, v),
+     * of where the point was to go from the step's reference point. A lone number is not one,
+     * and neither is a click.
+     */
+    protected hasTypedOffsets(index: number): boolean {
+        const input = this.stepDatas[index]?.input;
+        return input !== undefined && !input.absolute && input.values.length === 2;
+    }
+
+    /**
+     * Adds the constraints a typed pick asked for, solves, drops to a reference whatever the
+     * sketch turned out to already hold, then commits.
+     *
+     * Adding them here rather than in the caller is what keeps a drawn entity one undo step:
+     * `commit` is the only transaction boundary, and everything put into the solver before it —
+     * the entity, the hints' auto-constraints, these — lands inside that one.
+     */
+    protected solveAndCommit(constraints: readonly Omit<SketchConstraintData, "id">[] = []): void {
+        const added = constraints.map((constraint) => this.editor.solver.addConstraint(constraint));
         this.editor.solve(true);
+        for (const id of added) autoReference(this.editor, id);
         this.editor.commit();
     }
 

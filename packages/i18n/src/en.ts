@@ -490,6 +490,7 @@ export default {
             "Pick the entities to offset (click or box them), drag the arrow to set the distance",
         "prompt.pickNextPoint": "pick next point, ESC key to cancel",
         "prompt.pickNextPointOrFinish": "pick the next point, ESC or Enter to finish the chain",
+        "prompt.pickOppositeCorner": "pick the opposite corner, or type width,height, ESC key to cancel",
         "prompt.pickPoint": "Pick point, ESC key to cancel",
         "prompt.pickRadius": "input radius, ESC key to cancel",
         "prompt.pickSketchEntity": "pick a sketch entity, ESC key to cancel",

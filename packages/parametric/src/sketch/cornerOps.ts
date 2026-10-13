@@ -11,7 +11,7 @@ import {
     type SketchPointRef,
 } from "./sketchModel";
 import type { SketchSolver } from "./solver";
-import { centerRef, lineRefs, tangentConstraintFor } from "./solverEntities";
+import { areParallel, centerRef, lineRefs, tangentConstraintFor } from "./solverEntities";
 
 /**
  * A corner of two sketch lines — the endpoints the two lines share, plus the
@@ -134,6 +134,26 @@ function isEdgeLengthDimension(constraint: SketchConstraintData, corner: SketchC
 }
 
 /**
+ * Whether the constraint is the gap between two parallel lines, read as a point-to-line
+ * distance — the shape `dimensionInference` makes of a parallel pair (`buildLineGap`), because
+ * garlic has no line-to-line distance of its own.
+ *
+ * A trim leaves it alone for the same reason `DIRECTION_KINDS` are left alone: it reads only
+ * the two lines' infinite extents. The trim slides each endpoint along the line it belongs to,
+ * and across two lines that stay parallel the gap is the same from anywhere along either one.
+ *
+ * Unlike those, this cannot be answered by the kind alone. A `P2LDistance` to a line that is
+ * *not* parallel is exactly the constraint a trim does break — sliding the point along its own
+ * line moves it nearer the other one — so the parallelism is the whole of the test.
+ */
+function isLineGapDistance(solver: SketchSolver, constraint: SketchConstraintData): boolean {
+    if (constraint.kind !== ConstraintKind.P2LDistance || constraint.refs.length !== 3) return false;
+    const [point, first, second] = constraint.refs;
+    if (first.entityId !== second.entityId) return false;
+    return areParallel(solver, point.entityId, first.entityId);
+}
+
+/**
  * The corner two lines share, or `undefined` when they share none. The coincidence
  * constraint is read first — it names the two endpoints exactly — with a positional
  * comparison as the fallback for lines that were never constrained together.
@@ -209,6 +229,11 @@ function cornerFrom(
  * it trims (it re-dimensions that edge), so such a dimension is not a blocker for
  * it — which is what lets a profile be chamfered corner by corner over several
  * commands, exactly as one batch already did.
+ *
+ * A gap between two parallel lines is no blocker for either op, since neither can
+ * change it (see `isLineGapDistance`). That is what a rectangle's width and height
+ * are dimensioned as, by hand and by the draw command alike, so it is what lets a
+ * dimensioned rectangle be rounded at all.
  */
 function confirmCorner(
     solver: SketchSolver,
@@ -230,6 +255,7 @@ function confirmCorner(
         if (constraint.kind === ConstraintKind.P2PCoincident || DIRECTION_KINDS.has(constraint.kind)) {
             continue;
         }
+        if (isLineGapDistance(solver, constraint)) continue;
         if (method === "chamfer" && isEdgeLengthDimension(constraint, corner)) continue;
         return Result.err(
             `The corner carries a ${ConstraintKind[constraint.kind]} constraint that the trim would break`,

@@ -24,8 +24,8 @@ import { type SketchPointSnapData, SketchPointStep } from "./sketchPointStep";
  * distance is the circumradius. Circumscribed: the pick is an edge midpoint and its
  * distance is the apothem — the same split Fusion's polygon tool makes.
  */
-const POLYGON_INSCRIBED: I18nKeys = "option.command.polygonMode.inscribed";
-const POLYGON_CIRCUMSCRIBED: I18nKeys = "option.command.polygonMode.circumscribed";
+export const POLYGON_INSCRIBED: I18nKeys = "option.command.polygonMode.inscribed";
+export const POLYGON_CIRCUMSCRIBED: I18nKeys = "option.command.polygonMode.circumscribed";
 
 /** A regular polygon in sketch (u, v), before it becomes solver entities. */
 export interface RegularPolygonLayout {
@@ -247,8 +247,18 @@ export class SketchPolygonCommand extends SketchMultistepCommand {
             options,
         );
 
-        this.editor.solve(true);
-        this.editor.commit();
+        // The pick's number is a reading of whichever circle it measured: inscribed, the pick
+        // is a vertex and its distance the circumradius, which is the carrier's own radius;
+        // circumscribed, the pick is an edge midpoint and its distance the apothem, which is
+        // the incircle's radius. So the circle the number lands on is the picked incircle where
+        // the mode made one, and the carrier otherwise.
+        //
+        // The incircle holds one as well as the carrier does: its three tangencies tie it to the
+        // edges, not to a size, since the polygon they belong to is still free to scale around
+        // it — a radius on it takes that one degree of freedom exactly as the carrier's does in
+        // inscribed mode, and garlic reports it redundant in neither.
+        const sizedCircle = incircleId ?? circleId;
+        this.solveAndCommit(this.typedDimensions(sizedCircle));
     }
 
     private readonly getRadiusData = (): SketchPointSnapData => ({
