@@ -1,8 +1,14 @@
 .panel {
     position: absolute;
     top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
+    /* `left: 50%` used to centre it, but an absolutely positioned box's shrink-to-fit
+       width then counts only the half of the viewport to the right of that line — the
+       panel could never grow past 50% and wrapped far earlier than it needed to. Pinning
+       both edges and centring with auto margins gives the shrink-to-fit the whole width. */
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    width: fit-content;
     border-radius: 16px;
     min-width: 100px;
     max-width: 90%;
@@ -21,14 +27,44 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    overflow-x: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* A panel with more rows than this scrolls vertically rather than growing over the
+       viewport; the parameters themselves never scroll sideways. */
+    max-height: 40vh;
     padding: 6px 20px;
     gap: 20px;
 
-    div {
+    /* The panel's own columns (the command badge, the parameters, the confirm/cancel
+       buttons). A descendant selector here would also lay out the parameter units inside
+       the group, which the grid below owns. */
+    & > * {
         display: flex;
         align-items: center;
     }
+}
+
+/* The groups wrap as whole units, in a column of their own: a second row starts under the
+   first group rather than under the command icon. */
+.groups {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* While the pitch is being measured, the columns report their natural widths instead of
+   the `1fr` they will share once the count is known. */
+.groups[data-measuring] > * {
+    grid-template-columns: repeat(var(--columns, 10), max-content);
+}
+
+/* A text input reports its designed width instead of a flex-grown one, so every tile
+   contributes a stable natural width. */
+.groups[data-measuring] > * > div:has(> label) > input[type="text"] {
+    flex: 0 0 64px;
 }
 
 /* The font row names a font, and a name can be long: in the strip, which is one line, the
@@ -111,11 +147,70 @@
     }
 }
 
+/* A group often holds every parameter of the command. Each label-and-control pair gets the
+   same minimum width, so wrapping happens on a fixed column pitch: a second row starts at
+   the same x as the first instead of trailing off. A pair is never split. */
 .group {
-    display: flex;
-    flex-direction: row;
+    /* A fixed column count whose widths share the space available: widening the viewport
+       widens the controls instead of leaving the extra room at the end of the row. The
+       count comes from `balanceColumns`. */
+    display: grid;
+    grid-template-columns: repeat(var(--columns, 3), minmax(var(--column-width, 170px), 1fr));
     align-items: center;
-    gap: 12px;
+    gap: 6px 10px;
+    flex: 1 1 auto;
+    /* It may shrink to the panel, but not below its widest label-and-control pair. */
+    min-width: min-content;
+
+    & > * {
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        padding: 3px 6px;
+        border-radius: 6px;
+        /* Each pair reads as one tile, so the empty part of a wide column belongs to it
+           rather than floating between the parameters. */
+        background-color: color-mix(in srgb, var(--foreground-color) 6%, transparent);
+
+        /* Buttons already carry their own surface. */
+        &:is(button) {
+            background-color: var(--control-background-color);
+        }
+    }
+
+    /* The label sits in a fixed column and the control takes whatever the tile has left,
+       so every control in a column starts at the same x and a tile never ends in a blank
+       strip. Flex, not grid: a `1fr`/`100%` pair makes the tile's own width depend on the
+       tile, and the wrap and the column measurement both read that width. */
+    & > div:has(> label) {
+        gap: 8px;
+    }
+
+    & > div:has(> label) > label {
+        flex: 0 0 4.5em;
+    }
+
+    /* `flex-basis: 0`, not `auto`: a text input's intrinsic width (the browser's default
+       twenty characters) would otherwise widen its tile past the column pitch. */
+    & > div:has(> label) > input,
+    & > div:has(> label) > select {
+        flex: 1 1 0;
+        min-width: 0;
+        margin-left: 0;
+    }
+
+    /* A control keeps a usable width even when its label steals most of the tile; the
+       column pitch is measured from this same 64px, so it never pushes a tile wider. */
+    & > div:has(> label) > input[type="text"],
+    & > div:has(> label) > select {
+        min-width: 64px;
+    }
+
+    /* A checkbox cannot stretch, so it ends the row instead. */
+    & > div:has(> label) > input[type="checkbox"] {
+        flex: 0 0 auto;
+        margin-left: auto;
+    }
 }
 
 .button {
@@ -133,6 +228,8 @@
 .input {
     margin-left: 8px;
     width: 64px;
+    text-align: left;
+    border-radius: 6px;
     background-color: var(--input-background-color);
     border: 1px solid var(--input-border-color);
     color: var(--input-text-color);

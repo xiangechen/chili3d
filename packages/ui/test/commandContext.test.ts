@@ -26,6 +26,7 @@ import { afterEach, beforeEach, describe, expect, rs, test } from "@rstest/core"
 rs.mock("../src/ribbon/commandContext.module.css", () => ({
     panel: "cc-panel",
     container: "cc-container",
+    groups: "cc-groups",
     command: "cc-command",
     icon: "cc-icon",
     title: "cc-title",
@@ -475,7 +476,7 @@ describe("CommandContext", () => {
             expect(detailControl.style.display).toBe("none");
 
             command.mode = "b";
-            expect(detailControl.style.display).toBe("inherit");
+            expect(detailControl.style.display).toBe("");
 
             command.mode = "a";
             expect(detailControl.style.display).toBe("none");
@@ -493,7 +494,7 @@ describe("CommandContext", () => {
             expect(button.style.display).toBe("none");
 
             command.editing = true;
-            expect(button.style.display).toBe("inherit");
+            expect(button.style.display).toBe("");
 
             (button as unknown as { _onclick: () => void })._onclick();
             expect(command.removed).toBe(1);

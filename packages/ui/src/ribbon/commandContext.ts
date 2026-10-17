@@ -48,9 +48,14 @@ import style from "./commandContext.module.css";
 export class CommandContext extends HTMLElement implements IDisposable {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement][]> = new Map();
     private readonly container = div({ className: style.container });
+    /** The parameter groups, in their own column so a second row wraps under the first one
+     *  rather than under the command icon. */
+    private readonly groupsContainer = div({ className: style.groups });
     private selectionControlContainer?: HTMLDivElement;
     private closeIcon?: HTMLElement;
     private selectionCountCleanups: Array<() => void> = [];
+    private resizeObserver?: ResizeObserver;
+    private fitPending = false;
 
     constructor(readonly command: ICommand) {
         super();
@@ -69,6 +74,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 icon,
                 label({ className: style.title, textContent: new Localize(`command.${data!.key}`) }),
             ),
+            this.groupsContainer,
         );
         this.initContext();
         if (isCancelableCommand(this.command)) {
@@ -116,6 +122,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
             ),
         );
         this.container.append(this.selectionControlContainer);
+        this.scheduleFit();
     }
 
     private selectionInfoDom() {
@@ -154,6 +161,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         if (this.closeIcon) this.closeIcon.style.display = "";
         this.selectionCountCleanups.forEach((fn) => fn());
         this.selectionCountCleanups = [];
+        this.scheduleFit();
     };
 
     /** The one bar, however it was opened. */
@@ -167,9 +175,12 @@ export class CommandContext extends HTMLElement implements IDisposable {
         if (this.command instanceof Observable) {
             this.command.onPropertyChanged(this.onPropertyChanged);
         }
+        this.observeWidth();
     }
 
     disconnectedCallback(): void {
+        this.resizeObserver?.disconnect();
+        this.resizeObserver = undefined;
         this.clearSelectionControl();
         PubSub.default.remove("showConfirmControl", this.showConfirmControl);
         PubSub.default.remove("clearConfirmControl", this.clearConfirmControl);
@@ -185,6 +196,136 @@ export class CommandContext extends HTMLElement implements IDisposable {
         this.disconnectedCallback();
     }
 
+    private observeWidth() {
+        if (typeof ResizeObserver === "undefined" || !this.parentElement) return;
+        this.resizeObserver = new ResizeObserver(() => this.scheduleFit());
+        this.resizeObserver.observe(this.parentElement);
+        this.scheduleFit();
+    }
+
+    private scheduleFit() {
+        if (this.fitPending) return;
+        this.fitPending = true;
+        const run = () => {
+            this.fitPending = false;
+            this.fitWidth();
+        };
+        if (typeof requestAnimationFrame === "function") requestAnimationFrame(run);
+        else run();
+    }
+
+    /**
+     * The panel's width sits between what the parameters need and the 90% ceiling — half of
+     * the room the viewport leaves. That way a narrow viewport keeps the panel compact, and
+     * a wide one widens the controls instead of parking the extra room after the last
+     * column.
+     */
+    private fitWidth() {
+        if (!this.isConnected || !this.parentElement) return;
+        this.style.width = "";
+        this.measureColumnWidth();
+        // The grid's natural width depends on the column count it was last given, so the
+        // panel would shrink to that count's width and then measure the available width
+        // against itself — one column forever. Lay every parameter on one row first.
+        this.groupsContainer.style.setProperty("--columns", `${Math.max(this.visibleItems().length, 1)}`);
+        const columns = this.balanceColumns();
+        const content = this.contentWidth(columns);
+        const ceiling = this.parentElement.getBoundingClientRect().width * 0.9;
+        // Only a command with a real grid of parameters spends the extra room: one (or no)
+        // parameter would just become a long empty bar.
+        const grow = columns > 1 ? (ceiling - content) / 2 : 0;
+        this.style.width = `${Math.ceil(content + Math.max(0, grow))}px`;
+    }
+
+    /**
+     * The column pitch is the width of this command's widest pair, not a fixed 170px: a
+     * command with three short options would otherwise leave a blank cell under each of
+     * them. Letting go of the minimum first is what makes the pairs report their natural
+     * widths.
+     */
+    private measureColumnWidth() {
+        const items = this.visibleItems();
+        if (items.length === 0) return;
+        this.groupsContainer.setAttribute("data-measuring", "");
+        this.groupsContainer.style.setProperty("--column-width", "0px");
+        const widest = Math.max(...items.map((item) => item.getBoundingClientRect().width));
+        this.groupsContainer.removeAttribute("data-measuring");
+        // A hidden panel reports every box as 0 — keep the fallback rather than pinning
+        // the columns to nothing and letting each pair size itself. The 150 floor is the
+        // smallest pitch that still holds a 4.5em label, a 64px control and the padding;
+        // below it a control would spill out of its tile and into the next one.
+        const width = widest > 0 ? Math.max(Math.ceil(widest), 150) : 170;
+        this.groupsContainer.style.setProperty("--column-width", `${width}px`);
+    }
+
+    /**
+     * The widest column count the panel can hold is not always the best one: four options
+     * at three columns become 3 + 1, while two columns give 2 + 2. Pick the count with the
+     * fewest rows and, among equals, the fullest last row.
+     */
+    private balanceColumns(): number {
+        const count = this.visibleItems().length;
+        const group = this.groupsContainer.firstElementChild as HTMLElement | null;
+        if (count === 0 || !group) {
+            this.groupsContainer.style.removeProperty("--columns");
+            return 1;
+        }
+        const column =
+            Number.parseFloat(this.groupsContainer.style.getPropertyValue("--column-width")) || 170;
+        const gap = Number.parseFloat(getComputedStyle(group).columnGap) || 0;
+        const available = this.groupsContainer.getBoundingClientRect().width;
+        const maxColumns = Math.max(1, Math.floor((available + gap) / (column + gap)));
+        let best = 1;
+        let bestRows = count + 1;
+        let bestLast = 0;
+        for (let columns = 1; columns <= maxColumns; columns++) {
+            const rows = Math.ceil(count / columns);
+            const last = count % columns === 0 ? columns : count % columns;
+            if (rows < bestRows || (rows === bestRows && last > bestLast)) {
+                best = columns;
+                bestRows = rows;
+                bestLast = last;
+            }
+        }
+        this.groupsContainer.style.setProperty("--columns", `${best}`);
+        return best;
+    }
+
+    private visibleItems(): HTMLElement[] {
+        const items: HTMLElement[] = [];
+        for (const group of this.groupsContainer.children) {
+            for (const item of group.children) {
+                if ((item as HTMLElement).style.display !== "none") items.push(item as HTMLElement);
+            }
+        }
+        return items;
+    }
+
+    /** The narrowest the panel can be with `columns` columns of the measured pitch. */
+    private contentWidth(columns: number) {
+        const column =
+            Number.parseFloat(this.groupsContainer.style.getPropertyValue("--column-width")) || 170;
+        const group = this.groupsContainer.firstElementChild as HTMLElement | null;
+        const columnGap = group ? Number.parseFloat(getComputedStyle(group).columnGap) || 0 : 0;
+        const groups = this.hasVisibleParameters() ? columns * column + (columns - 1) * columnGap : 0;
+        const style = getComputedStyle(this.container);
+        const gap = Number.parseFloat(style.columnGap) || 0;
+        const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+        const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+        const badge = this.container.firstElementChild as HTMLElement | null;
+        const badgeWidth = badge?.getBoundingClientRect().width ?? 0;
+        const controls = this.selectionControlContainer ?? this.closeIcon;
+        const controlsWidth = controls?.getBoundingClientRect().width ?? 0;
+        // An empty parameter group still sits between the badge and the buttons and still
+        // carries both gaps, so a command that only picks objects needs one more of them.
+        const gaps = this.hasVisibleParameters() ? 1 : 2;
+        return groups + badgeWidth + controlsWidth + gap * gaps + paddingLeft + paddingRight + 2;
+    }
+
+    private hasVisibleParameters() {
+        return this.visibleItems().length > 0;
+    }
+
     private readonly onPropertyChanged = (property: string | number | symbol) => {
         if (this.propMap.has(property)) {
             const items = this.propMap.get(property)!;
@@ -192,6 +333,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 this.setVisible(control, prop);
             }
         }
+        this.scheduleFit();
     };
 
     private initContext() {
@@ -229,7 +371,9 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 }
             }
         }
-        control.style.display = visible ? "inherit" : "none";
+        // Back to the stylesheet's own display, not `inherit`: the group is a grid container
+        // now, and inheriting that would turn the tile into a grid too.
+        control.style.display = visible ? "" : "none";
     }
 
     private findGroup(groupMap: Map<I18nKeys, HTMLDivElement>, prop: Property) {
@@ -237,7 +381,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
         if (group === undefined) {
             group = div({ className: style.group });
             groupMap.set(prop.group!, group);
-            this.container.append(group);
+            this.groupsContainer.append(group);
         }
         return group;
     }
