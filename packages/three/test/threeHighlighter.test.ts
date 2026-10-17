@@ -3,15 +3,17 @@
 
 import type { EdgeMeshData, FaceMeshData } from "@chili3d/core";
 import { ShapeTypes, VisualStates, VisualStateUtils } from "@chili3d/core";
-import type { Mesh } from "three";
+import { type Mesh, Points } from "three";
 import type { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import type { IHighlightable } from "../src/highlightable";
 import {
     defaultEdgeMaterial,
     faceTransparentMaterial,
     highlightFaceMaterial,
+    highlightVertexMaterial,
     hilightEdgeMaterial,
     selectedEdgeMaterial,
+    selectedVertexMaterial,
 } from "../src/materials";
 import { ThreeGeometry } from "../src/threeGeometry";
 import { ThreeHighlighter } from "../src/threeHighlighter";
@@ -565,6 +567,55 @@ describe("GeometryState with ThreeGeometry", () => {
 
         expect(highlighter.container.children.length).toBe(beforeCount + 1);
         expect(highlighter.getState(geo, ShapeTypes.edge, 0)).toBe(VisualStates.edgeHighlight);
+    });
+
+    // A vertex pick names one point of the body — the point itself is what gets drawn,
+    // not the whole Points object the body carries for picking.
+    test("a vertex sub-state draws the picked point", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, VisualStates.edgeHighlight, ShapeTypes.vertex, 1);
+
+        const drawn = highlighter.container.children.slice(beforeCount);
+        expect(drawn).toHaveLength(1);
+        expect(drawn[0]).toBeInstanceOf(Points);
+        expect((drawn[0] as Points).material).toBe(highlightVertexMaterial);
+        const position = (drawn[0] as Points).geometry.getAttribute("position");
+        expect(position.getX(0)).toBeCloseTo(1);
+        expect(position.getY(0)).toBeCloseTo(0);
+        expect(position.getZ(0)).toBeCloseTo(0);
+        expect(highlighter.getState(geo, ShapeTypes.vertex, 1)).toBe(VisualStates.edgeHighlight);
+    });
+
+    test("a vertex state draws the point its range starts at", () => {
+        const node = createTestGeometryNode();
+        const mesh = node.mesh as any;
+        mesh.vertexs.position = new Float32Array([0, 0, 0, 5, 5, 5, 9, 9, 9]);
+        // A range may cover several points and start anywhere in the buffer; the state's
+        // index addresses the range, not the point.
+        mesh.vertexs.range = [{ start: 2, count: 1, shape: mesh.vertexs.range[0].shape }];
+        const scoped = new ThreeGeometry(node, context);
+
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(scoped, VisualStates.edgeHighlight, ShapeTypes.vertex, 0);
+
+        const drawn = highlighter.container.children.slice(beforeCount);
+        expect(drawn).toHaveLength(1);
+        const position = (drawn[0] as Points).geometry.getAttribute("position");
+        expect(position.getX(0)).toBeCloseTo(9);
+        expect(position.getY(0)).toBeCloseTo(9);
+
+        highlighter.removeState(scoped, VisualStates.edgeHighlight, ShapeTypes.vertex, 0);
+    });
+
+    test("removing a vertex state takes its point away", () => {
+        const beforeCount = highlighter.container.children.length;
+        highlighter.addState(geo, VisualStates.edgeSelected, ShapeTypes.vertex, 0);
+        expect((highlighter.container.children.at(-1) as Points).material).toBe(selectedVertexMaterial);
+
+        highlighter.removeState(geo, VisualStates.edgeSelected, ShapeTypes.vertex, 0);
+
+        expect(highlighter.container.children.length).toBe(beforeCount);
+        expect(highlighter.getState(geo, ShapeTypes.vertex, 0)).toBeUndefined();
     });
 
     // A pick over edges and faces passes one face-shaped state down to both, and an edge

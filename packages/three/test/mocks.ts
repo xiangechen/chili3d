@@ -218,7 +218,13 @@ export function createTestGeometryNode(
                       position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
                       size: 3,
                       color: 0x0000ff,
-                      range: [{ start: 0, count: 3, shape: vertexShape }],
+                      // One range per point, the way `Mesher.buildVertexMesh` reports
+                      // them: a pick's index is a range index, so the ranges must be dense.
+                      range: [
+                          { start: 0, count: 1, shape: vertexShape },
+                          { start: 1, count: 1, shape: vertexShape },
+                          { start: 2, count: 1, shape: vertexShape },
+                      ],
                   } as any)
                 : null,
         },

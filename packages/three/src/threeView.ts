@@ -97,7 +97,10 @@ function wantedContainers(shapeType: ShapeType, subType: ShapeType): ShapeType[]
 function keepsSubShape(shapeType: ShapeType, subType: ShapeType): boolean {
     if (subType === ShapeTypes.face) return ShapeTypeUtils.hasFace(shapeType);
     if (subType === ShapeTypes.edge) return ShapeTypeUtils.hasEdge(shapeType);
-    // A range group that is neither a face nor an edge (a solid, a vertex) passes through.
+    // Every shape now carries pickable vertices, so a pick that did not ask for one (a
+    // solid for measurement, say) must not land on the corner its ray happened to graze.
+    if (subType === ShapeTypes.vertex) return ShapeTypeUtils.hasVertex(shapeType);
+    // A range group that is neither a face nor an edge (a solid) passes through.
     return true;
 }
 
@@ -705,7 +708,10 @@ export class ThreeView extends Observable implements IView {
 
         const visuals = this.detectVisualsInRect(minX, minY, maxX, maxY, nodeFilter);
 
-        if (ShapeTypeUtils.isWhole(shapeType)) {
+        // A vertex pick is "whole" everywhere else (a point node picked as one shape), but
+        // a rect pick that asked for vertices must return the vertices — the point path
+        // does the same (see `detectShapes`).
+        if (ShapeTypeUtils.isWhole(shapeType) && shapeType !== ShapeTypes.vertex) {
             return this.detectWholeShapesInRect(visuals, shapeFilter);
         }
 
@@ -827,17 +833,22 @@ export class ThreeView extends Observable implements IView {
             ShapeTypeUtils.hasSolid(shapeType) ||
             ShapeTypeUtils.hasShell(shapeType);
         const iterateEdges = ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType);
+        const iterateVertices = ShapeTypeUtils.hasVertex(shapeType);
 
         // The ranges to walk and the shape the ancestors are resolved against: a geometry
         // node's own mesh, or a component instance's merged one (no root shape of its own).
         let faceRanges: ShapeMeshRange[] | undefined;
         let edgeRanges: ShapeMeshRange[] | undefined;
+        let vertexRanges: ShapeMeshRange[] | undefined;
         let rootShape: IShape | undefined;
         if (visual instanceof ThreeGeometry) {
             const node = visual.geometryNode;
             rootShape = node instanceof ShapeNode ? node.shape.unchecked() : undefined;
             faceRanges = node.mesh.faces?.range;
             edgeRanges = node.mesh.edges?.range;
+            // Reading `vertexs` builds the whole point mesh; a face/edge rect pick must not
+            // pay for it.
+            vertexRanges = iterateVertices ? node.mesh.vertexs?.range : undefined;
         } else if (visual instanceof ThreeComponentObject) {
             const mesh = visual.componentNode.component.mesh;
             faceRanges = mesh.face.range;
@@ -849,6 +860,9 @@ export class ThreeView extends Observable implements IView {
         }
         if (iterateEdges && edgeRanges?.length) {
             this.resolveRangeGroups(shapeType, edgeRanges, rootShape, added, entries);
+        }
+        if (iterateVertices && vertexRanges?.length) {
+            this.resolveRangeGroups(shapeType, vertexRanges, rootShape, added, entries);
         }
         return entries;
     }
@@ -948,7 +962,9 @@ export class ThreeView extends Observable implements IView {
         nodeFilter?: INodeFilter,
     ): VisualShapeData[] {
         const intersections = this.findIntersectedShapes(shapeType, mx, my);
-        if (ShapeTypeUtils.isWhole(shapeType)) {
+        // A vertex pick asks for the vertex ITSELF, wherever it lives: vertex is otherwise
+        // "whole" (a point node picked as one shape), but here the sub-shape is the answer.
+        if (ShapeTypeUtils.isWhole(shapeType) && shapeType !== ShapeTypes.vertex) {
             return this.detectThreeShapes(intersections, shapeFilter, nodeFilter);
         }
         const subs = this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);

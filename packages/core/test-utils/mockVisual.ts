@@ -13,6 +13,7 @@ import type {
     IVisualContext,
     IVisualObject,
 } from "../src";
+import { Signal } from "../src";
 
 /**
  * Lightweight mock of IVisual + IVisualContext for unit tests that don't need a real viewport.
@@ -156,8 +157,10 @@ export function createMockSelection(): ISelection {
         getSelectedShapes: () => [],
         getSelectedVisualNodes: () => [],
         clearSelection: () => {},
-        onNodeChanged: { on: () => {}, off: () => {} } as any,
-        onShapeChanged: { on: () => {}, off: () => {} } as any,
+        // Real signals: commands subscribe to these (`sub`/`remove`) and a test that
+        // publishes a selection change through one expects its listener to hear it.
+        onNodeChanged: new Signal(),
+        onShapeChanged: new Signal(),
         dispose: () => {},
     };
 }

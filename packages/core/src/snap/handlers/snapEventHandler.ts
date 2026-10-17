@@ -7,6 +7,7 @@ import { type AsyncController, type MessageType, Precision, PubSub, Result } fro
 import type { I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
 import { MeshDataUtils, type ShapeType, ShapeTypes } from "../../shape";
+import { ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IEventHandler, type IView, type MeshOption, screenDistance } from "../../visual";
 import { parseDimensionInput } from "../dimension";
 import type { ISnap, MouseAndDetected, SnapData, SnapResult } from "../snap";
@@ -98,9 +99,21 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     protected setSnaped(view: IView, event: PointerEvent) {
-        this.findSnapPoint((ShapeTypes.edge | ShapeTypes.vertex | ShapeTypes.face) as ShapeType, view, event);
+        this.findSnapPoint(SnapEventHandler.detectShapeType(), view, event);
 
         this.snaps.forEach((snap) => snap.handleSnaped?.(view.document.visual.document, this._snaped));
+    }
+
+    /**
+     * The shapes a snap round detects. Vertices are requested only when vertex snapping
+     * is on: reading a body's points builds its whole point mesh and one wrapper per
+     * topological vertex, which a session that cannot snap to a vertex has no use for.
+     */
+    private static detectShapeType(): ShapeType {
+        const base = (ShapeTypes.edge | ShapeTypes.face) as ShapeType;
+        return ObjectSnapTypeUtils.hasType(Config.instance.snapType, ObjectSnapTypes.vertex)
+            ? ((base | ShapeTypes.vertex) as ShapeType)
+            : base;
     }
 
     private findNearestFeaturePoint(view: IView, event: PointerEvent) {

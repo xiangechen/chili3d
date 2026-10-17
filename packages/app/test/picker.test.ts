@@ -368,6 +368,19 @@ describe("Picker", () => {
             expect(pickAsyncArgs[3]).toBe("confirm");
         });
 
+        test("a pick that does not finish on click shows the confirm bar and wires the flag", async () => {
+            let pickAsyncArgs: any[] = [];
+            picker.pickAsync = async (...args: any[]) => {
+                pickAsyncArgs = args;
+            };
+
+            const controller = new AsyncController();
+            await picker.pickShape("common.ok" as I18nKeys, controller, { finishOnClick: false });
+
+            expect(pickAsyncArgs[3]).toBe("confirm");
+            expect(pickAsyncArgs[0].finishOnClick).toBe(false);
+        });
+
         test("should keep the count bar for a multi pick even when the confirm bar is asked for", async () => {
             let pickAsyncArgs: any[] = [];
             picker.pickAsync = async (...args: any[]) => {
@@ -394,6 +407,19 @@ describe("Picker", () => {
             await picker.pickShape("common.ok" as I18nKeys, controller, { canFinish });
 
             expect(handler.canFinish).toBe(canFinish);
+        });
+
+        test("should wire onDetect onto the selection handler", async () => {
+            let handler: any;
+            picker.pickAsync = async (...args: any[]) => {
+                handler = args[0];
+            };
+
+            const controller = new AsyncController();
+            const onDetect = () => {};
+            await picker.pickShape("common.ok" as I18nKeys, controller, { onDetect });
+
+            expect(handler.onDetect).toBe(onDetect);
         });
 
         test("should wire sortDetected onto the selection handler", async () => {

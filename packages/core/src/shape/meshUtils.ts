@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { MathUtils, type Matrix4 } from "../math";
-import type { EdgeMeshData, FaceMeshData, Mesh, ShapeMeshData } from "./meshData";
+import type { EdgeMeshData, FaceMeshData, Mesh, ShapeMeshData, VertexMeshData } from "./meshData";
 import { concatTypedArrays, MeshDataUtils } from "./meshData";
 
 export class MeshUtils {
@@ -140,6 +140,30 @@ export class MeshUtils {
     }
 
     static combineEdgeMeshData(data: EdgeMeshData, other: EdgeMeshData | undefined, matrix: Matrix4) {
+        if (!other) {
+            return;
+        }
+
+        const start = data.position.length / 3;
+        data.position = MeshUtils.concatFloat32Array(data.position, matrix.ofPoints(other.position));
+        data.range = data.range.concat(
+            other.range.map((g) => {
+                return {
+                    start: g.start + start,
+                    shape: g.shape,
+                    count: g.count,
+                    transform: matrix,
+                };
+            }),
+        );
+    }
+
+    /**
+     * Merges one shape's pickable points into an accumulator. Vertices carry no width of
+     * their own — the points are drawn with the shared material — so only the positions and
+     * the range offsets move here.
+     */
+    static combineVertexMeshData(data: VertexMeshData, other: VertexMeshData | undefined, matrix: Matrix4) {
         if (!other) {
             return;
         }

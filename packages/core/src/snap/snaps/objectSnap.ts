@@ -87,9 +87,15 @@ export class ObjectSnap extends BaseSnap {
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {
-        const featurePoints = this.getFeaturePoints(view, shapes[0]);
-        const perpendiculars = this.findPerpendicular(view, shapes[0]);
-        const intersections = this.getIntersections(view, shapes[0], shapes);
+        // A vertex lying nearer along the ray than the edge it sits on must not shadow the
+        // edge: feature points are collected from the shapes that have them, but the
+        // edge-only queries (perpendicular, edge intersections, nearest-on-curve) run on
+        // the first EDGE. Before, a vertex in `shapes[0]` silently disabled all three.
+        const edge = shapes.find((s) => s.shape.shapeType === ShapeTypes.edge);
+        const featureSources = edge !== undefined && edge !== shapes[0] ? [shapes[0], edge] : [shapes[0]];
+        const featurePoints = featureSources.flatMap((s) => this.getFeaturePoints(view, s));
+        const perpendiculars = edge !== undefined ? this.findPerpendicular(view, edge) : [];
+        const intersections = edge !== undefined ? this.getIntersections(view, edge, shapes) : [];
         const ordered = [...featurePoints, ...perpendiculars, ...intersections].sort((a, b) =>
             this.sortSnaps(view, x, y, a, b),
         );
@@ -103,7 +109,8 @@ export class ObjectSnap extends BaseSnap {
             return ordered[0];
         }
 
-        const nearest = this.findNearestPointAtEdgeCurve(view, shapes[0], view.rayAt(x, y));
+        const nearest =
+            edge !== undefined ? this.findNearestPointAtEdgeCurve(view, edge, view.rayAt(x, y)) : undefined;
         if (nearest && screenDistance(view, x, y, nearest.point!) < Config.instance.SnapDistance) {
             this.highlight(nearest.shapes);
             return nearest;

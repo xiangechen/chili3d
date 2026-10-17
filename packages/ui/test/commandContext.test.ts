@@ -57,6 +57,7 @@ const LENGTH_CMD_KEY = "test.context.length";
 const FONT_CMD_KEY = "test.context.font";
 const TARGETS_CMD_KEY = "test.context.targets";
 const GUARDED_CMD_KEY = "test.context.guarded";
+const GROUPED_CMD_KEY = "test.context.grouped";
 
 class TestCommand extends Observable {
     async execute() {}
@@ -95,6 +96,16 @@ class TestCommand extends Observable {
     }
     set mode(value: string) {
         this.setProperty("mode", value);
+    }
+
+    private _count = 0;
+    /** A value with no dependents — changing it must not re-measure the panel. */
+    @property("test.count" as I18nKeys)
+    get count() {
+        return this._count;
+    }
+    set count(value: number) {
+        this.setProperty("count", value);
     }
 
     private _detail = 1;
@@ -146,6 +157,47 @@ class CancelableTestCommand extends Observable {
 }
 
 /** A command whose field is a dimensional one, so expressions are accepted there. */
+/** Two parameter groups, each of two options — the panel must lay them out separately. */
+class GroupedCommand extends Observable {
+    async execute() {}
+
+    private _a = 1;
+    @property("test.grouped.a" as I18nKeys, { group: "test.grouped.left" as I18nKeys })
+    get a() {
+        return this._a;
+    }
+    set a(value: number) {
+        this.setProperty("a", value);
+    }
+
+    private _b = 2;
+    @property("test.grouped.b" as I18nKeys, { group: "test.grouped.left" as I18nKeys })
+    get b() {
+        return this._b;
+    }
+    set b(value: number) {
+        this.setProperty("b", value);
+    }
+
+    private _c = 3;
+    @property("test.grouped.c" as I18nKeys, { group: "test.grouped.right" as I18nKeys })
+    get c() {
+        return this._c;
+    }
+    set c(value: number) {
+        this.setProperty("c", value);
+    }
+
+    private _d = 4;
+    @property("test.grouped.d" as I18nKeys, { group: "test.grouped.right" as I18nKeys })
+    get d() {
+        return this._d;
+    }
+    set d(value: number) {
+        this.setProperty("d", value);
+    }
+}
+
 class LengthCommand extends Observable {
     readonly document = new TestDocument();
 
@@ -243,6 +295,7 @@ describe("CommandContext", () => {
         CommandStore.registerCommand(LengthCommand, { key: LENGTH_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(TargetsCommand, { key: TARGETS_CMD_KEY, icon: "icon-ctx" });
         CommandStore.registerCommand(GuardedActionCommand, { key: GUARDED_CMD_KEY, icon: "icon-ctx" });
+        CommandStore.registerCommand(GroupedCommand, { key: GROUPED_CMD_KEY, icon: "icon-ctx" });
         // I18n.isI18nKey (used by the combobox editor) reads the zh-CN translation table
         I18n.addLanguage({ display: "zh", language: "zh-CN", translation: {} as Locale["translation"] });
     });
@@ -259,6 +312,7 @@ describe("CommandContext", () => {
         CommandStore.unregisterCommand(LENGTH_CMD_KEY);
         CommandStore.unregisterCommand(TARGETS_CMD_KEY);
         CommandStore.unregisterCommand(GUARDED_CMD_KEY);
+        CommandStore.unregisterCommand(GROUPED_CMD_KEY);
         I18n.removeLanguage("zh-CN");
     });
 
@@ -658,6 +712,95 @@ describe("CommandContext", () => {
             // The row follows what the command holds: a panel built before the font was
             // chosen would go on naming the font it was built with.
             expect(button.textContent).toBe("Roboto");
+        });
+    });
+
+    describe("column layout", () => {
+        test("each parameter group gets its own column count", () => {
+            const ctx = track(new CommandContext(new GroupedCommand()));
+            // `fitWidth` needs a parent; the widths are stubbed so the layout is real.
+            document.body.appendChild(ctx);
+            const rect = rs
+                .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+                .mockImplementation(function (this: HTMLElement) {
+                    // A wide container, one-column-pitch items: five columns fit per group.
+                    const width = this.classList.contains("cc-groups") ? 1000 : 170;
+                    return {
+                        width,
+                        height: 10,
+                        top: 0,
+                        left: 0,
+                        right: width,
+                        bottom: 10,
+                        x: 0,
+                        y: 0,
+                        toJSON: () => ({}),
+                    } as DOMRect;
+                });
+            try {
+                (ctx as any).fitWidth();
+
+                const groups = Array.from(ctx.querySelectorAll(".cc-group")) as HTMLElement[];
+                expect(groups).toHaveLength(2);
+                // Four items over two groups: each group takes its own two columns, not
+                // the total count (which would spread two items over four columns).
+                expect(groups.map((group) => group.style.getPropertyValue("--columns"))).toEqual(["2", "2"]);
+            } finally {
+                rect.mockRestore();
+            }
+        });
+    });
+
+    describe("fit scheduling", () => {
+        test("a plain value change does not re-measure the panel", () => {
+            // Hold the frame so `fitPending` survives the assertion.
+            rs.stubGlobal("requestAnimationFrame", () => 0);
+            try {
+                const command = new TestCommand();
+                const ctx = track(new CommandContext(command));
+                document.body.appendChild(ctx);
+                (ctx as any).fitPending = false;
+
+                command.count = 1;
+
+                expect((ctx as any).fitPending).toBe(false);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("a dependency flipping visibility re-measures the panel", () => {
+            rs.stubGlobal("requestAnimationFrame", () => 0);
+            try {
+                const command = new TestCommand();
+                const ctx = track(new CommandContext(command));
+                document.body.appendChild(ctx);
+                (ctx as any).fitPending = false;
+
+                // `detail` depends on `mode`: its row appears.
+                command.mode = "b";
+
+                expect((ctx as any).fitPending).toBe(true);
+            } finally {
+                rs.unstubAllGlobals();
+            }
+        });
+
+        test("a font name change still re-measures the panel", () => {
+            rs.stubGlobal("requestAnimationFrame", () => 0);
+            try {
+                const command = new FontCommand();
+                const ctx = track(new CommandContext(command));
+                document.body.appendChild(ctx);
+                (ctx as any).fitPending = false;
+
+                // The label's own text follows the value, so the column pitch may move.
+                command.fontName = "Roboto";
+
+                expect((ctx as any).fitPending).toBe(true);
+            } finally {
+                rs.unstubAllGlobals();
+            }
         });
     });
 

@@ -405,7 +405,15 @@ describe("ParametricBodyNode", () => {
         expect(items[0].icon).toBe("icon-prism");
         expect(items[0].error).toBeUndefined();
         expect(items[0].parameters).toEqual([
-            { key: "depth", display: "option.command.depth", value: 7, unit: LENGTH_UNITS },
+            {
+                key: "depth",
+                display: "option.command.depth",
+                value: 7,
+                unit: LENGTH_UNITS,
+                // Blind is the only condition whose depth is the reach; the row is hidden
+                // for the measured ones.
+                visibleWhen: [{ key: "endCondition", value: "blind" }],
+            },
             {
                 key: "endCondition",
                 display: "feature.extrude.endCondition",

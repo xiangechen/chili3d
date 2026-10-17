@@ -893,6 +893,9 @@ export class Mesher implements IShapeMeshData, IDisposable {
     private _lines?: EdgeMeshData;
     private _faces?: FaceMeshData;
     private _points?: VertexMeshData;
+    private _isVertexsBuilt = false;
+    /** Vertex wrappers the point ranges borrow their handles from (see `buildVertexMesh`). */
+    private _vertexShapes?: OccVertex[];
 
     get edges(): EdgeMeshData | undefined {
         if (this._lines === undefined) {
@@ -915,9 +918,26 @@ export class Mesher implements IShapeMeshData, IDisposable {
     }
 
     get vertexs(): VertexMeshData | undefined {
-        if (this._points === undefined && this.shape instanceof OccVertex) {
+        if (!this._isVertexsBuilt) {
+            this._isVertexsBuilt = true;
+            this._points = this.buildVertexMesh();
+        }
+        return this._points;
+    }
+    set vertexs(value: VertexMeshData | undefined) {
+        this._isVertexsBuilt = true;
+        this._points = value;
+    }
+
+    /**
+     * The pickable points of the shape: every vertex, not just a lone one. The wrappers are
+     * kept because the range shapes borrow their handles — let the wrapper go and the
+     * finalizer frees the handle under the sub-shape (see ownedHandles.ts).
+     */
+    private buildVertexMesh(): VertexMeshData | undefined {
+        if (this.shape instanceof OccVertex) {
             const point = this.shape.point();
-            this._points = {
+            return {
                 position: new Float32Array(point.toArray()),
                 color: VisualConfig.defaultEdgeColor,
                 range: [
@@ -934,10 +954,24 @@ export class Mesher implements IShapeMeshData, IDisposable {
                 size: 3,
             };
         }
-        return this._points;
-    }
-    set vertexs(value: VertexMeshData | undefined) {
-        this._points = value;
+        const vertices = this.shape.findSubShapes(ShapeTypes.vertex) as OccVertex[];
+        if (vertices.length === 0) return undefined;
+        this._vertexShapes = vertices;
+        const position = new Float32Array(vertices.length * 3);
+        const range: ShapeMeshRange[] = [];
+        for (const [index, vertex] of vertices.entries()) {
+            position.set(vertex.point().toArray(), index * 3);
+            range.push({
+                start: index,
+                count: 1,
+                shape: new OccSubVertexShape({
+                    parent: this.shape,
+                    shape: vertex.vertex,
+                    index,
+                }),
+            });
+        }
+        return { position, color: VisualConfig.defaultEdgeColor, range, size: 3 };
     }
 
     constructor(private shape: OccShape) {}
@@ -983,10 +1017,18 @@ export class Mesher implements IShapeMeshData, IDisposable {
     dispose(): void {
         this._faces?.range.forEach((g) => g.shape.dispose());
         this._lines?.range.forEach((g) => g.shape.dispose());
+        // The point ranges only borrow their handles (see `buildVertexMesh`), so the
+        // wrappers go last — they are what actually frees the vertex handles.
+        this._points?.range.forEach((g) => g.shape.dispose());
+        this._vertexShapes?.forEach((vertex) => vertex.dispose());
 
         this.shape = null as any;
         this._faces = null as any;
         this._lines = null as any;
+        this._points = null as any;
+        this._vertexShapes = undefined;
+        // A getter reached after dispose must answer null, not read the shape it nulled.
+        this._isVertexsBuilt = true;
     }
 
     private getEdgeRanges(data: OccEdgeMeshData): ShapeMeshRange[] {

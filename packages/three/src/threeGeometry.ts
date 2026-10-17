@@ -114,11 +114,17 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     box() {
-        return this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
+        // A lone-vertex shape (a point node) has no faces or edges; its points are the
+        // geometry, and a rect pick needs a box to admit it as a candidate at all.
+        return (
+            this._faces?.geometry.boundingBox ??
+            this._edges?.geometry.boundingBox ??
+            this._vertexs?.geometry.boundingBox
+        );
     }
 
     override boundingBox(): BoundingBox | undefined {
-        const box = this._faces?.geometry.boundingBox ?? this._edges?.geometry.boundingBox;
+        const box = this.box();
         if (!box) return undefined;
 
         return {
@@ -138,9 +144,34 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     private generateShape() {
         const mesh = this.geometryNode.mesh;
-        if (mesh?.vertexs?.position.length) this.initVertexs(mesh.vertexs);
-        if (mesh?.faces?.position.length) this.initFaces(mesh.faces);
-        if (mesh?.edges?.position.length) this.initEdges(mesh.edges);
+        const faces = mesh?.faces;
+        const edges = mesh?.edges;
+        const hasFaces = (faces?.position.length ?? 0) > 0;
+        const hasEdges = (edges?.position.length ?? 0) > 0;
+        // A shape that also draws faces or edges gets its points on demand
+        // (`ensureVertexs`): building them here would allocate a wrapper and a kernel
+        // handle per topological vertex for every body, and put every point of every body
+        // into every hover raycast. A lone-vertex shape has nothing else to draw, so its
+        // points are built here and stay visible.
+        const vertexs = !hasFaces && !hasEdges ? mesh?.vertexs : undefined;
+        if (vertexs !== undefined && vertexs.position.length > 0) this.initVertexs(vertexs);
+        if (hasFaces && faces) this.initFaces(faces);
+        if (hasEdges && edges) this.initEdges(edges);
+    }
+
+    /**
+     * The pickable points, built on first use for a shape that also draws faces/edges.
+     * They stay invisible — raycasting ignores `visible` — so they never litter every
+     * body with dots. Only a pick that asks for vertices pays for them: a vertex pick,
+     * or a snap session whose snap type includes vertex. Face/edge picks and ordinary
+     * rendering never build them.
+     */
+    private ensureVertexs(): Points | undefined {
+        if (this._vertexs) return this._vertexs;
+        const data = this.geometryNode.mesh.vertexs;
+        if (!data || data.position.length === 0) return undefined;
+        this.initVertexs(data, true);
+        return this._vertexs;
     }
 
     override dispose() {
@@ -176,10 +207,11 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         }
     }
 
-    private initVertexs(data: VertexMeshData) {
+    private initVertexs(data: VertexMeshData, pickOnly = false) {
         const buff = ThreeGeometryFactory.createVertexBufferGeometry(data);
         this._vertexs = new Points(buff, defaultVertexMaterial);
         this._vertexs.layers.set(Constants.Layers.Wireframe);
+        this._vertexs.visible = !pickOnly;
         if (this._renderOnTop) this.applyOnTopMaterial(this._vertexs, defaultVertexMaterial);
         this.add(this._vertexs);
     }
@@ -317,22 +349,35 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
             ShapeTypeUtils.hasCompoundSolid(shapeType) ||
             ShapeTypeUtils.hasSolid(shapeType);
 
-        if (isWhole || ShapeTypeUtils.hasVertex(shapeType)) {
-            shapes.push(this.vertexs());
+        // Points join the raycast set only when the pick asks for a vertex, or when a
+        // lone-vertex shape has no other geometry to be picked by. Adding every solid's
+        // vertices to every whole pick made each hover raycast walk every point in the
+        // scene (three's `Points.raycast` is a per-point loop).
+        const picksVertex = ShapeTypeUtils.hasVertex(shapeType);
+        // `removeMeshes` nulls the meshes rather than deleting them, so test truthiness:
+        // a lone-vertex shape swapped in place must still answer a whole pick with points.
+        const vertexOnly = isWhole && !this._faces && !this._edges;
+        if (picksVertex || vertexOnly) {
+            shapes.push(this.ensureVertexs());
         }
 
-        if (isWhole || ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType)) {
+        // `isWhole` is also true for a vertex pick, but a vertex is not answered by the
+        // faces or edges its ray happens to graze (they are filtered out later): leave
+        // them out of the raycast set so the pick stays a points-only walk.
+        const wholeGeometry = isWhole && !picksVertex;
+        if (wholeGeometry || ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType)) {
             shapes.push(this.edges());
         }
 
-        if (isWhole || ShapeTypeUtils.hasFace(shapeType) || ShapeTypeUtils.hasShell(shapeType)) {
+        if (wholeGeometry || ShapeTypeUtils.hasFace(shapeType) || ShapeTypeUtils.hasShell(shapeType)) {
             shapes.push(this.faces());
         }
 
-        return shapes.filter((x) => x !== undefined);
+        // A mesh removed by `removeMeshes` is null rather than undefined — drop both.
+        return shapes.filter((x) => x !== undefined && x !== null);
     }
 
     override wholeVisual(): (Mesh | LineSegments2 | Points)[] {
-        return [this.edges(), this.faces(), this.vertexs()].filter((x) => x !== undefined);
+        return [this.edges(), this.faces(), this.vertexs()].filter((x) => x !== undefined && x !== null);
     }
 }

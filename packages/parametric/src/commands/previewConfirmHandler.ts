@@ -21,6 +21,13 @@ export interface DragPreview {
      * ghost over the geometry it replaces instead of as the geometry itself.
      */
     hide?: INode[];
+    /**
+     * Extra meshes drawn OVER the preview, translucent and on top. What a cut will
+     * REMOVE is empty space in the result, so the tool volume has to be drawn beside it
+     * (a red ghost) to be seen at all. The meshes carry their own colour; the handler
+     * supplies the transparency.
+     */
+    overlays?: ShapeMeshData[];
 }
 
 /**
@@ -182,6 +189,13 @@ export abstract class PreviewConfirmHandler implements IEventHandler {
                     onTop: this.previewOnTop(),
                     unlit: this.previewUnlit(),
                 }),
+            );
+        }
+        // Overlays are always a see-through ghost above everything: what they mark is inside
+        // (or hidden behind) the geometry the preview otherwise shows.
+        for (const mesh of preview.overlays ?? []) {
+            this._previewIds.push(
+                this.document.visual.context.displayMesh([mesh], { meshOpacity: 0.45, onTop: true }),
             );
         }
         for (const node of preview.hide ?? []) {

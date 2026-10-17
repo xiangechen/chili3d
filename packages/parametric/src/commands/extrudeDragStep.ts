@@ -57,6 +57,12 @@ export interface ExtrudeDragData {
     depth?: number;
     /** The command's current start offset, so the arrow starts at the extruded end face. */
     startOffset?: number;
+    /**
+     * Whether the gesture must settle on a non-zero distance before it may commit. A
+     * depth-driven extrude needs one; a condition that measures its own reach
+     * (through-all) does not, and can confirm at once with the arrows merely showing.
+     */
+    requiresDepth?: () => boolean;
     buildPreview(state: ExtrudeDragState): ExtrudePreview;
     /** The handler registers itself so the command can push option/depth changes back. */
     onReady?(handler: ExtrudeDragHandler): void;
@@ -217,11 +223,15 @@ export class ExtrudeDragHandler extends AxisDragHandler {
     }
 
     protected override canConfirm(): boolean {
-        return Math.abs(this.state.dist) >= Precision.Float;
+        return Math.abs(this.state.dist) >= Precision.Float || this.data.requiresDepth?.() === false;
     }
 
     protected override buildPreview(): ExtrudePreview {
-        if (Math.abs(this.state.dist) < Precision.Float) return { meshes: [] };
+        // A zero distance draws nothing when the depth is what the gesture edits; a
+        // condition that measures its own reach still has a preview to show at zero.
+        if (Math.abs(this.state.dist) < Precision.Float && this.data.requiresDepth?.() !== false) {
+            return { meshes: [] };
+        }
         return this.data.buildPreview(this.state);
     }
 

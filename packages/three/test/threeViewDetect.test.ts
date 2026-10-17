@@ -147,13 +147,46 @@ class TestPanelFace implements ISubShape {
     }
 }
 
+/** A corner of {@link TestPanel}, as the point range of its mesh reports it. */
+class TestPanelVertex {
+    readonly shapeType = ShapeTypes.vertex;
+    matrix: Matrix4 = Matrix4.identity();
+
+    constructor(
+        readonly id: string,
+        readonly parent: IShape,
+        readonly position: XYZLike,
+    ) {}
+
+    point(): XYZ {
+        return new XYZ(this.position);
+    }
+    boundingBox(): BoundingBox {
+        return new BoundingBox(this.position, this.position);
+    }
+    isEqual(): boolean {
+        return false;
+    }
+    findAncestor(): IShape[] {
+        return [];
+    }
+    findSubShapes(): IShape[] {
+        return [];
+    }
+    dispose(): void {}
+}
+
 /**
  * A solid-like root shape whose face mesh is a single triangle, so each
- * raycast produces exactly one intersection per node.
+ * raycast produces exactly one intersection per node. Its three corners are
+ * pickable points, the way a real solid's vertices are.
  */
 class TestPanel implements IShape {
     readonly shapeType = ShapeTypes.solid;
     readonly face: TestPanelFace;
+    readonly vertices: TestPanelVertex[];
+    /** How often the point mesh was asked for — a rect pick of faces/edges must not. */
+    readonly meshReads = { vertexs: 0 };
     matrix: Matrix4 = Matrix4.identity();
     volume(): number {
         return 0;
@@ -164,13 +197,26 @@ class TestPanel implements IShape {
         readonly points: [XYZLike, XYZLike, XYZLike],
     ) {
         this.face = new TestPanelFace(`${id}-face`, this, points);
+        this.vertices = points.map(
+            (position, index) => new TestPanelVertex(`${id}-v${index}`, this, position),
+        );
     }
 
     get mesh(): IShapeMeshData {
         const [a, b, c] = this.points;
+        const self = this;
         return {
             edges: undefined,
-            vertexs: undefined,
+            // A real `Mesher` builds its point mesh on first read; count the reads here.
+            get vertexs() {
+                self.meshReads.vertexs++;
+                return {
+                    position: new Float32Array([a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z]),
+                    range: self.vertices.map((shape, index) => ({ start: index, count: 1, shape }) as any),
+                    size: 3,
+                    color: 0x0000ff,
+                };
+            },
             faces: {
                 position: new Float32Array([a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z]),
                 normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
@@ -371,6 +417,51 @@ describe("ThreeView detect — positive hits with real geometry", () => {
 
         expect(shapes.length).toBe(1);
         expect(shapes[0].shape).toBe(side.panel);
+    });
+
+    test("a vertex pick returns the vertex sub-shape, not the body it belongs to", () => {
+        const { view, near } = createSceneWithPanels();
+        const corner = view.worldToScreen(new XYZ(NEAR_POINTS[0]));
+
+        const shapes = view.detectShapes(ShapeTypes.vertex, corner.x, corner.y);
+
+        // An orthographic view lines the near and far corners up on one pixel; the
+        // nearest one is what a pick reports.
+        expect(shapes.length).toBeGreaterThan(0);
+        expect(shapes[0].shape).toBe(near.panel.vertices[0]);
+        expect(shapes[0].shape.shapeType).toBe(ShapeTypes.vertex);
+        expect(shapes[0].owner.node).toBe(near);
+        // The index is the vertex's own place in the point range.
+        expect(shapes[0].indexes).toEqual([0]);
+    });
+
+    test("a pick that did not ask for vertices does not land on one", () => {
+        const { view } = createSceneWithPanels();
+        const corner = view.worldToScreen(new XYZ(NEAR_POINTS[0]));
+
+        // The corner is right there, but an edge pick may not keep it.
+        expect(view.detectShapes(ShapeTypes.edge, corner.x, corner.y).length).toBe(0);
+    });
+
+    test("the points of a body are built on first vertex pick and stay undrawn", () => {
+        const { view, visual, near } = createSceneWithPanels();
+        const geometry = visual.context.getVisual(near) as unknown as {
+            vertexs(): Object3D | undefined;
+            subShapeVisual(type: ShapeType): Object3D[];
+        };
+
+        // Not built with every body: the wrappers and kernel handles would grow with the
+        // topology whether or not anyone ever picks a vertex.
+        expect(geometry.vertexs()).toBeUndefined();
+        expect(geometry.subShapeVisual(ShapeTypes.vertex)).toContain(geometry.vertexs());
+
+        const points = geometry.vertexs();
+        expect(points).toBeDefined();
+        expect(points!.visible).toBe(false);
+        // Hidden only from the eye: a whole-shape pick still reports the body it hit,
+        // whether the ray grazed a corner or the face.
+        const center = view.worldToScreen(new XYZ({ x: 0, y: 0, z: 10 }));
+        expect(view.detectShapes(ShapeTypes.shape, center.x, center.y)[0].shape).toBe(near.panel);
     });
 });
 
@@ -652,5 +743,32 @@ describe("ThreeView detect — rectangle selection", () => {
             empty.y + 5,
         );
         expect(atEmpty.length).toBe(0);
+    });
+
+    test("a rect vertex pick returns the vertices it covers, not whole bodies", () => {
+        const { view, near } = createSceneWithPanels();
+        const corner = view.worldToScreen(new XYZ(NEAR_POINTS[0]));
+
+        const shapes = view.detectShapesRect(
+            ShapeTypes.vertex,
+            corner.x - 4,
+            corner.y - 4,
+            corner.x + 4,
+            corner.y + 4,
+        );
+
+        const picked = shapes.map((x) => x.shape);
+        expect(picked).toContain(near.panel.vertices[0]);
+        expect(picked).not.toContain(near.panel);
+    });
+
+    test("a face rect pick never builds a body's point mesh", () => {
+        const { view, near, far, center } = createSceneWithPanels();
+
+        view.detectShapesRect(ShapeTypes.face, center.x - 10, center.y - 10, center.x + 10, center.y + 10);
+
+        // Reading `mesh.vertexs` builds every vertex wrapper; a face pick has no use for it.
+        expect(near.panel.meshReads.vertexs).toBe(0);
+        expect(far.panel.meshReads.vertexs).toBe(0);
     });
 });

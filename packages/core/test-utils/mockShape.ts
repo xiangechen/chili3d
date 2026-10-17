@@ -62,9 +62,9 @@ export class MockShape implements IShape {
                 color: VisualConfig.defaultEdgeColor,
             },
             vertexs: {
-                position: new Float32Array([0, 0, 0, 1, 0, 0, 1, 0]),
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]),
                 color: VisualConfig.defaultFaceColor,
-                range: [],
+                range: [{ start: 0, count: 3, shape: {} as any }],
                 size: 3,
             },
         };

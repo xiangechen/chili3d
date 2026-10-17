@@ -86,7 +86,15 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
 
     parameters: (feature) => {
         const params: FeatureParameter[] = [
-            { key: "depth", display: "option.command.depth", value: feature.depth, unit: LENGTH_UNITS },
+            {
+                key: "depth",
+                display: "option.command.depth",
+                value: feature.depth,
+                unit: LENGTH_UNITS,
+                // Only blind's depth is the reach. A measured condition hides the row (the
+                // value stays on the feature as the fallback), as the create panel does.
+                visibleWhen: [{ key: "endCondition", value: "blind" }],
+            },
             {
                 key: "endCondition",
                 display: "feature.extrude.endCondition",

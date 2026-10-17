@@ -178,6 +178,22 @@ describe("extrude end conditions", () => {
         expect(rows[2].value).toBe(2);
     });
 
+    test("parameters: the depth row is gated on the listed endCondition value", () => {
+        const handler = featureHandler("extrude")!;
+        for (const [feature, visible] of [
+            [extrude(), true],
+            [extrude({ endCondition: "throughAll" }), false],
+            [extrude({ endCondition: "upToFace" }), false],
+            [extrude({ endCondition: "upToVertex" }), false],
+        ] as const) {
+            const rows = handler.parameters(feature);
+            const condition = rows.find((x) => x.key === "endCondition")?.value;
+            const gate = rows.find((x) => x.key === "depth")?.visibleWhen;
+            // The panel compares the gate against the endCondition row's listed value.
+            expect(gate?.every((c) => c.value === condition)).toBe(visible);
+        }
+    });
+
     test("parameters: symmetric drops the depth2 row", () => {
         const rows = featureHandler("extrude")!.parameters(extrude({ symmetric: true }));
 

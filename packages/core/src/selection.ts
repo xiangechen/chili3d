@@ -31,6 +31,20 @@ export interface PickShapeOptions {
      * shows the count bar.
      */
     showConfirmControl?: boolean;
+    /**
+     * Whether a click that selected something finishes a single pick (default true). False
+     * turns the pick into "select, then confirm": the click only selects, the confirm bar
+     * (shown automatically) or Enter settles it — what a target the user may still adjust
+     * other parameters against needs, and how Fusion/Onshape end an up-to pick. Ignored in
+     * multi mode, which is settled by its own bar.
+     */
+    finishOnClick?: boolean;
+    /**
+     * Called with the shape the pointer is aiming at as that changes (undefined when it
+     * aims at nothing), so a step can show what picking it would mean — a live preview.
+     * The hover's shape only: a selection already made keeps its own state.
+     */
+    onDetect?: (detected: VisualShapeData | undefined) => void;
 }
 
 /**

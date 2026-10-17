@@ -51,6 +51,8 @@ export class Picker implements IPicker {
             options?.highlightState ?? (isFacePick ? VisualStates.faceHighlight : VisualStates.edgeHighlight);
         handler.canFinish = options?.canFinish;
         handler.sortDetected = options?.sortDetected;
+        handler.finishOnClick = options?.finishOnClick ?? true;
+        handler.onDetect = options?.onDetect;
         await this.pickAsync(handler, prompt, controller, pickControl(multi, options));
         return this.document.selection.getSelectedShapes();
     }
@@ -112,8 +114,11 @@ const bars = {
     selection: "showSelectionControl",
 } as const;
 
-/** A multi pick always reports its count; a single pick shows a bar only when asked. */
+/**
+ * A multi pick always reports its count; a single pick shows a bar only when asked — or
+ * when it does not finish on click, since then the bar's confirm is the only way to settle.
+ */
 function pickControl(multi: boolean, options: PickShapeOptions | undefined): PickControl {
     if (multi) return "selection";
-    return options?.showConfirmControl === true ? "confirm" : "none";
+    return options?.showConfirmControl === true || options?.finishOnClick === false ? "confirm" : "none";
 }

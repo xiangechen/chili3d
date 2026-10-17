@@ -18,6 +18,7 @@ import {
     type TargetSelection,
     VisualStates,
     XYZ,
+    type XYZLike,
 } from "@chili3d/core";
 import {
     createHandlerMockView,
@@ -54,6 +55,115 @@ function mockShapeFactory(methods: Record<string, (...args: any[]) => any>) {
             delete (globalThis as any).shapeFactory;
         }
     };
+}
+
+/**
+ * The sketch-profile shapes the preview/detection tests need: real line/wire/face geometry
+ * whose boxes follow their coordinates, and a prism that records the vector it swept. The
+ * prism carries a face mesh so the no-operation preview can draw it.
+ */
+function mockProfileFactory(prismVecs: XYZ[]) {
+    return mockShapeFactory({
+        line: (start: XYZ, end: XYZ) =>
+            Result.ok({
+                shapeType: ShapeTypes.edge,
+                curve: { nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point) },
+                startPoint: () => start,
+                endPoint: () => end,
+                firstParameter: () => 0,
+                lastParameter: () => 1,
+                pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
+                intersect: () => [],
+                boundingBox: () =>
+                    new BoundingBox(
+                        {
+                            x: Math.min(start.x, end.x),
+                            y: Math.min(start.y, end.y),
+                            z: Math.min(start.z, end.z),
+                        },
+                        {
+                            x: Math.max(start.x, end.x),
+                            y: Math.max(start.y, end.y),
+                            z: Math.max(start.z, end.z),
+                        },
+                    ),
+                isEqual: () => false,
+            }),
+        combine: (edges: any[]) =>
+            Result.ok({
+                shapeType: ShapeTypes.compound,
+                isEqual: () => false,
+                dispose: () => {},
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+            }),
+        wire: (edges: any[]) => Result.ok({ isClosed: () => edges.length > 1, edges }),
+        face: (wires: any[]) => {
+            const edges = wires.flatMap((w: any) => w.edges);
+            const zs = edges.flatMap((e: any) => [e.startPoint().z, e.endPoint().z]);
+            return Result.ok({
+                shapeType: ShapeTypes.face,
+                isEqual: () => false,
+                dispose: () => {},
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
+                area: () => 1,
+                boundingBox: () =>
+                    new BoundingBox({ x: 0, y: 0, z: Math.min(...zs) }, { x: 1, y: 1, z: Math.max(...zs) }),
+            });
+        },
+        prism: (face: any, vec: XYZ) => {
+            prismVecs.push(vec);
+            const fb = face.boundingBox();
+            return Result.ok({
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                dispose: () => {},
+                findSubShapes: () => [],
+                boundingBox: () =>
+                    new BoundingBox(
+                        { x: fb.min.x, y: fb.min.y, z: Math.min(fb.min.z, fb.min.z + vec.z) },
+                        { x: fb.max.x, y: fb.max.y, z: Math.max(fb.max.z, fb.max.z + vec.z) },
+                    ),
+                mesh: { faces: { range: [] }, edges: undefined },
+            });
+        },
+        booleanCut: () =>
+            Result.ok({
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                dispose: () => {},
+                findSubShapes: () => [],
+                boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 19 }, { x: 1, y: 1, z: 21 }),
+            }),
+    });
+}
+
+/** A world face the extrude sweeps, as the drag step's placeholder carries it. */
+function sweptProfile(sketch: SketchNode) {
+    return {
+        shape: {
+            shapeType: ShapeTypes.face,
+            boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }),
+        },
+        owner: { node: sketch },
+        transform: Matrix4.identity(),
+        indexes: [0],
+    } as any;
+}
+
+/** The aimed up-to target: a planar face parallel to the profile plane at `z`. */
+function targetFaceAt(sketch: SketchNode, z: number) {
+    return {
+        shape: {
+            shapeType: ShapeTypes.face,
+            normal: () => [new XYZ({ x: 0, y: 0, z }), XYZ.unitZ],
+            surface: () => ({ isPlanar: () => true }),
+            findSubShapes: () => [],
+            boundingBox: () => new BoundingBox({ x: 0, y: 0, z }, { x: 1, y: 1, z }),
+        },
+        owner: { node: sketch },
+        transform: Matrix4.identity(),
+        indexes: [0],
+    } as any;
 }
 
 describe("ExtrudeFeatureCommand profile step", () => {
@@ -372,6 +482,91 @@ describe("ExtrudeFeatureCommand consumption", () => {
         }
     });
 
+    test("a draft angle tapers the preview's side faces", () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const profile = {
+            shapeType: ShapeTypes.face,
+            normal: () => [new XYZ({ x: 0, y: 0, z: 0 }), XYZ.unitZ],
+            dispose: () => {},
+        };
+        // A side spans both end planes; a cap would have all its vertices on one.
+        const side = {
+            shapeType: ShapeTypes.face,
+            findSubShapes: () => [
+                { point: () => new XYZ({ x: 0, y: 0, z: 0 }) },
+                { point: () => new XYZ({ x: 0, y: 0, z: 5 }) },
+            ],
+        };
+        const prism = {
+            dispose: rs.fn(),
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.face ? [side] : []),
+        };
+        const tapered = { dispose: rs.fn(), mesh: { faces: faceMesh, edges: undefined } };
+        const draftFn = rs.fn(() => Result.ok(tapered));
+        const restoreFactory = mockShapeFactory({
+            prism: () => Result.ok(prism),
+            draft: draftFn,
+        });
+        try {
+            const cmd = new ExtrudeFeatureCommand();
+            cmd.draftAngle = 5;
+
+            const preview = (cmd as any).buildPreview({
+                dist: 5,
+                normal: XYZ.unitZ,
+                faces: [{ shape: profile, transform: Matrix4.identity() }],
+                node: previewSketch(),
+            });
+
+            expect(draftFn).toHaveBeenCalledTimes(1);
+            const [shape, sides, pull, angle] = draftFn.mock.calls[0] as any[];
+            expect(shape).toBe(prism);
+            expect(sides).toEqual([side]);
+            expect((pull as XYZ).isEqualTo(XYZ.unitZ)).toBe(true);
+            expect(angle).toBe(5);
+            expect(prism.dispose).toHaveBeenCalled();
+            expect(preview.meshes).toEqual([faceMesh]);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("an out-of-range draft previews straight sides instead of throwing", () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const prism = { dispose: rs.fn(), mesh: { faces: faceMesh, edges: undefined } };
+        // The feature rejects |angle| ≥ 90 with a report; the kernel would raise instead.
+        const draftFn = rs.fn(() => Result.err("kernel refuses the angle"));
+        const restoreFactory = mockShapeFactory({ prism: () => Result.ok(prism), draft: draftFn });
+        try {
+            const cmd = new ExtrudeFeatureCommand();
+            cmd.draftAngle = 95;
+
+            const preview = (cmd as any).buildPreview({
+                dist: 5,
+                normal: XYZ.unitZ,
+                faces: [{ shape: { shapeType: ShapeTypes.face }, transform: Matrix4.identity() }],
+                node: previewSketch(),
+            });
+
+            expect(draftFn).not.toHaveBeenCalled();
+            expect(preview.meshes).toEqual([faceMesh]);
+        } finally {
+            restoreFactory();
+        }
+    });
+
     test("the drag preview fuses touching profiles into one solid", () => {
         const fusedMesh = {
             range: [],
@@ -506,6 +701,69 @@ describe("ExtrudeFeatureCommand consumption", () => {
             expect(preview.meshes).toEqual([faceMesh]);
             expect(prism.dispose).toHaveBeenCalled();
             expect(booleanResult.dispose).toHaveBeenCalled();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a cut previews the result and ghosts the removed tool in red", () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const toolFaces = { range: [], color: 0 };
+        const toolEdges = { range: [], lineType: "solid", position: new Float32Array(), color: 0 };
+        const touchingBox = () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 2, y: 2, z: 2 });
+        const prism = {
+            dispose: rs.fn(),
+            boundingBox: touchingBox,
+            mesh: { faces: toolFaces, edges: toolEdges },
+        };
+        const booleanResult = { dispose: rs.fn(), mesh: { faces: faceMesh, edges: undefined } };
+        const cutFn = rs.fn(() => Result.ok(booleanResult));
+        const restoreFactory = mockShapeFactory({
+            prism: rs.fn(() => Result.ok(prism)),
+            booleanCut: cutFn,
+        });
+        try {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            const target = new ParametricBodyNode({ document: doc, features: [] });
+            (target as any)._shape = Result.ok({
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                boundingBox: touchingBox,
+            });
+            doc.modelManager.addNode(target);
+
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.operation = "option.command.operation.cut";
+            const state = {
+                dist: 5,
+                normal: XYZ.unitZ,
+                faces: [{ shape: { shapeType: ShapeTypes.face }, transform: Matrix4.identity() }],
+                node: new SketchNode({
+                    document: doc,
+                    plane: Plane.XY,
+                    data: { entities: [], constraints: [] },
+                }),
+            };
+
+            const preview = (cmd as any).buildPreview(state);
+
+            expect(cutFn).toHaveBeenCalledTimes(1);
+            expect(preview.meshes).toEqual([faceMesh]);
+            expect(preview.hide).toEqual([target]);
+            // The removed volume is empty space in the result, so the tool is ghosted
+            // over it — red, the "this goes away" colour.
+            expect(preview.overlays).toEqual([toolFaces, toolEdges]);
+            expect(toolFaces.color).toBe(0xff4d4d);
+            expect(toolEdges.color).toBe(0xff4d4d);
         } finally {
             restoreFactory();
         }
@@ -1051,18 +1309,18 @@ describe("ExtrudeFeatureCommand end condition", () => {
         expect(cmd.endOffset).toBe(0);
     });
 
-    test("throughAll hides the depth; the up-to conditions show the end offset", () => {
+    test("only blind shows the depth; the up-to conditions show the end offset", () => {
         const cmd = new ExtrudeFeatureCommand();
         cmd.endCondition = "feature.extrude.endCondition.throughAll";
         expect(cmd.showDepth).toBe(false);
         expect(cmd.showEndOffset).toBe(false);
 
         cmd.endCondition = "feature.extrude.endCondition.upToFace";
-        expect(cmd.showDepth).toBe(true);
+        expect(cmd.showDepth).toBe(false);
         expect(cmd.showEndOffset).toBe(true);
 
         cmd.endCondition = "feature.extrude.endCondition.upToVertex";
-        expect(cmd.showDepth).toBe(true);
+        expect(cmd.showDepth).toBe(false);
         expect(cmd.showEndOffset).toBe(true);
 
         cmd.endCondition = "feature.extrude.endCondition.blind";
@@ -1195,6 +1453,8 @@ describe("ExtrudeEndTargetStep", () => {
         expect(prompt).toBe("prompt.select.faces");
         expect(options.shapeType).toBe(ShapeTypes.face);
         expect(options.multi).toBe(false);
+        // The click only aims the target; the bar's confirm ends the command.
+        expect(options.finishOnClick).toBe(false);
         expect(result?.shapes).toBe(picked);
         expect(result?.nodes?.[0]).toBe(node);
     });
@@ -1216,7 +1476,202 @@ describe("ExtrudeEndTargetStep", () => {
         const [prompt, , options] = pickShape.mock.calls[0] as any[];
         expect(prompt).toBe("prompt.select.vertexes");
         expect(options.shapeType).toBe(ShapeTypes.vertex);
+        expect(options.finishOnClick).toBe(false);
         expect(result?.shapes).toBe(picked);
+    });
+
+    test("the target pick previews the aimed face and keeps the profiles highlighted", async () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            doc.visual = createMockVisualWithDocument(doc);
+            const displayMesh = rs.fn((_meshes: any[], _options?: any) => 7);
+            const removeMesh = rs.fn((_id?: number) => {});
+            (doc.visual.context as any).displayMesh = displayMesh;
+            (doc.visual.context as any).removeMesh = removeMesh;
+            doc.selection = createMockSelection();
+            const addState = rs.fn();
+            const removeState = rs.fn();
+            (doc.visual.highlighter as any).addState = addState;
+            (doc.visual.highlighter as any).removeState = removeState;
+
+            const sketch = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [], constraints: [] },
+            });
+            doc.modelManager.addNode(sketch);
+            const profile = sweptProfile(sketch);
+            const target = targetFaceAt(sketch, 20);
+
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.endCondition = "feature.extrude.endCondition.upToFace";
+            // A cut: the prism is what the commit takes away, so the ghost is red.
+            cmd.operation = "option.command.operation.cut";
+            cmd.depth = 0;
+            (cmd as any).stepDatas = [
+                { shapes: [profile], nodes: [sketch], type: "shape" },
+                { shapes: [profile], nodes: [sketch], point: XYZ.zero, plane: Plane.XY, type: "input" },
+            ];
+            const step = (cmd as any).getSteps()[2] as ExtrudeEndTargetStep;
+
+            let resolvePick: ((shapes: any[]) => void) | undefined;
+            doc.picker = {
+                pickShape: rs.fn(() => new Promise<any[]>((resolve) => (resolvePick = resolve))),
+            } as any;
+
+            expect((cmd as any).upToTargetPreview(target)).toBeDefined();
+
+            const running = step.execute(doc, new AsyncController());
+            expect((step as any)._document).toBeDefined();
+
+            // The click's selection — what the preview follows while the pick is open.
+            doc.selection.onShapeChanged.emit([target]);
+
+            expect(displayMesh).toHaveBeenCalledTimes(1);
+            expect(prismVecs.at(-1)!.z).toBeCloseTo(20, 5);
+            // The ghost drawn for a cut is the removed volume: red.
+            expect((displayMesh.mock.calls[0][0] as any[])[0].color).toBe(0xff4d4d);
+            expect(addState).toHaveBeenCalledWith(profile.owner, SELECTED_FACE_STATE, ShapeTypes.face, 0);
+
+            resolvePick!([target]);
+            const result = await running;
+
+            expect(result?.shapes).toEqual([target]);
+            // Both the preview mesh and the profiles' highlight come down with the round.
+            expect(removeMesh).toHaveBeenCalledWith(7);
+            expect(removeState).toHaveBeenCalledWith(profile.owner, SELECTED_FACE_STATE, ShapeTypes.face, 0);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a hovered target wins over a selection the pointer moved away from", async () => {
+        const { doc, step, cmd } = stepScenario("feature.extrude.endCondition.upToFace");
+        const clicked = {
+            owner: { node: { id: "clicked" } },
+            shape: { shapeType: ShapeTypes.face },
+            indexes: [0],
+        };
+        const hovered = {
+            owner: { node: { id: "hovered" } },
+            shape: { shapeType: ShapeTypes.face },
+            indexes: [1],
+        };
+        let settlePick!: () => void;
+        let options: any;
+        doc.picker = {
+            pickShape: rs.fn((_prompt: any, controller: AsyncController, opts?: any) => {
+                options = opts;
+                // The real picker resolves only after the controller settles.
+                return new Promise<any[]>((resolve) => {
+                    settlePick = () => {
+                        controller.success();
+                        resolve([clicked]);
+                    };
+                });
+            }),
+        } as any;
+        // The preview itself is not what is under test; keep the pick round headless.
+        (cmd as any).upToTargetPreview = () => undefined;
+
+        const running = step.execute(doc, new AsyncController());
+        // The pointer settles on another face after the click: the preview follows it, so
+        // the confirm must take it too.
+        options.onDetect(hovered);
+        settlePick();
+
+        const result = await running;
+        expect(result?.shapes).toEqual([hovered]);
+    });
+
+    test("an up-to target preview starts from the drag's final plane and faces", () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            const initial = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [], constraints: [] },
+            });
+            const movedPlane = new Plane({
+                origin: new XYZ({ x: 0, y: 0, z: 10 }),
+                normal: XYZ.unitZ,
+                xvec: XYZ.unitX,
+            });
+            const moved = new SketchNode({
+                document: doc,
+                plane: movedPlane,
+                data: { entities: [], constraints: [] },
+            });
+            doc.modelManager.addNode(initial);
+            doc.modelManager.addNode(moved);
+
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.endCondition = "feature.extrude.endCondition.upToFace";
+            cmd.depth = 0;
+            (cmd as any).stepDatas = [
+                { shapes: [sweptProfile(initial)], nodes: [initial], type: "shape" },
+                // The drag switched target: these are its final faces and plane, and the
+                // commit reads them — so the preview must too.
+                {
+                    shapes: [sweptProfile(moved)],
+                    nodes: [moved],
+                    point: new XYZ({ x: 0, y: 0, z: 10 }),
+                    plane: movedPlane,
+                    type: "input",
+                },
+            ];
+
+            expect((cmd as any).upToTargetPreview(targetFaceAt(moved, 20))).toBeDefined();
+
+            // 20 - 10: the preview runs from the moved plane, not the original one.
+            expect(prismVecs.at(-1)!.z).toBeCloseTo(10, 5);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("an opposite-direction target preview sweeps the picked side", () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            const sketch = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [], constraints: [] },
+            });
+            doc.modelManager.addNode(sketch);
+            const profile = sweptProfile(sketch);
+
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.endCondition = "feature.extrude.endCondition.upToFace";
+            cmd.depth = 0;
+            cmd.oppositeDirection = true;
+            (cmd as any).stepDatas = [
+                { shapes: [profile], nodes: [sketch], type: "shape" },
+                { shapes: [profile], nodes: [sketch], point: XYZ.zero, plane: Plane.XY, type: "input" },
+            ];
+
+            expect((cmd as any).upToTargetPreview(targetFaceAt(sketch, -20))).toBeDefined();
+
+            // The checkbox flips the sweep: the prism runs to the target below the plane.
+            expect(prismVecs.at(-1)!.z).toBeCloseTo(-20, 5);
+        } finally {
+            restoreFactory();
+        }
     });
 
     test("an empty pick cancels the command", async () => {
@@ -1351,6 +1806,96 @@ describe("ExtrudeEndTargetStep", () => {
         expect(result?.nodes?.[0]).toBe(node);
     });
 
+    test("a flip to blind with a depth already in the panel still asks for the gesture", async () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const restoreFactory = mockShapeFactory({
+            cylinder: arrowShape,
+            cone: arrowShape,
+            prism: () => Result.ok({ dispose: () => {}, mesh: { faces: faceMesh, edges: undefined } }),
+        });
+        try {
+            const { doc, cmd, step } = skippedDragScenario();
+            // What the option cache restores at `beforeExecute` (`setPrivateValue`): a
+            // depth from the command's last run, never given in this one. The old flow
+            // committed with it the moment the dropdown flipped, without ever asking.
+            (cmd as any).setPrivateValue("depth", 5);
+            const pickShape = rs.fn((_prompt: any, _controller: any, _options?: any) => {
+                cmd.endCondition = "feature.extrude.endCondition.blind";
+                return Promise.resolve([]);
+            });
+            let dragged = false;
+            const pickAsync = driveDrag((handler) => {
+                dragged = true;
+                handler.setValue(7);
+                (handler as any).confirm();
+            });
+            doc.picker = { pickShape, pickAsync } as any;
+
+            const controller = new AsyncController();
+            const result = await step.execute(doc, controller);
+
+            expect(controller.result?.status).toBe("success");
+            expect(result?.shapes).toEqual([]);
+            expect(dragged).toBe(true);
+            expect(cmd.depth).toBe(7);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test.each([
+        {
+            from: "feature.extrude.endCondition.upToFace",
+            to: "feature.extrude.endCondition.upToVertex",
+            first: ShapeTypes.face,
+            second: ShapeTypes.vertex,
+        },
+        {
+            from: "feature.extrude.endCondition.upToVertex",
+            to: "feature.extrude.endCondition.upToFace",
+            first: ShapeTypes.vertex,
+            second: ShapeTypes.face,
+        },
+    ] as const)("a flip from $from to $to drops the old target instead of committing it", async (c) => {
+        const node = { id: "target" };
+        const pickOf = (shapeType: ShapeType) => [
+            {
+                shape: { shapeType },
+                owner: { node },
+                transform: Matrix4.identity(),
+                indexes: [0],
+            },
+        ];
+        const oldPick = pickOf(c.first);
+        const newPick = pickOf(c.second);
+        const { doc, pickShape, step, cmd } = stepScenario(c.from);
+
+        pickShape.mockImplementation((_prompt: any, _controller: any, options?: any) => {
+            if (options?.shapeType === c.first) {
+                cmd.endCondition = c.to;
+                // The already-aimed target resolves the settled round — the very case the
+                // click-to-select pick makes possible. It belongs to the OLD condition and
+                // must not be handed over as the new one's answer (a face is no vertex).
+                return Promise.resolve(oldPick);
+            }
+            return Promise.resolve(newPick);
+        });
+
+        const controller = new AsyncController();
+        const result = await step.execute(doc, controller);
+
+        expect(controller.result?.status).toBe("success");
+        expect(pickShape).toHaveBeenCalledTimes(2);
+        expect((pickShape.mock.calls[1][2] as any).shapeType).toBe(c.second);
+        expect(result?.shapes).toEqual(newPick);
+    });
+
     test("flipping back to blind mid-pick ends the step with an empty pick", async () => {
         const { doc, pickShape, step, cmd } = stepScenario("feature.extrude.endCondition.upToFace");
         cmd.depth = 5; // the drag already ran in step 2 and settled on 5 — nothing to redo
@@ -1456,10 +2001,7 @@ describe("ExtrudeEndTargetStep", () => {
         value: { mesh: { faces: { range: [], position: new Float32Array() } }, dispose: () => {} },
     });
 
-    test.each([
-        ["feature.extrude.endCondition.blind"],
-        ["feature.extrude.endCondition.throughAll"],
-    ] as const)("a flip to %s re-runs the skipped drag in place, and the commit uses its depth", async (condition) => {
+    test("a flip to blind re-runs the skipped drag in place, and the commit uses its depth", async () => {
         const faceMesh = {
             range: [],
             index: new Uint32Array(),
@@ -1477,7 +2019,7 @@ describe("ExtrudeEndTargetStep", () => {
             const pickShape = rs.fn((_prompt: any, _controller: any, _options?: any) => {
                 // The dropdown flips while the target pick is up: the round settles
                 // empty and the loop re-reads the condition.
-                cmd.endCondition = condition;
+                cmd.endCondition = "feature.extrude.endCondition.blind";
                 return Promise.resolve([]);
             });
             let captured: ExtrudeDragHandler | undefined;
@@ -1516,9 +2058,60 @@ describe("ExtrudeEndTargetStep", () => {
             expect(body).toBeInstanceOf(ParametricBodyNode);
             const feature = body.features[0] as ExtrudeFeatureData;
             expect(feature.depth).toBe(12);
-            expect(feature.endCondition).toBe(
-                condition === "feature.extrude.endCondition.blind" ? undefined : "throughAll",
-            );
+            expect(feature.endCondition).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a flip to throughAll asks for the gesture — no depth needed, but no silent commit", async () => {
+        const faceMesh = {
+            range: [],
+            index: new Uint32Array(),
+            position: new Float32Array(),
+            normal: new Float32Array(),
+            uv: new Float32Array(),
+        };
+        const restoreFactory = mockShapeFactory({
+            cylinder: arrowShape,
+            cone: arrowShape,
+            prism: () => Result.ok({ dispose: () => {}, mesh: { faces: faceMesh, edges: undefined } }),
+        });
+        try {
+            const { doc, cmd, step } = skippedDragScenario();
+            const pickShape = rs.fn((_prompt: any, _controller: any, _options?: any) => {
+                cmd.endCondition = "feature.extrude.endCondition.throughAll";
+                return Promise.resolve([]);
+            });
+            let captured: ExtrudeDragHandler | undefined;
+            const pickAsync = driveDrag((handler) => {
+                captured = handler;
+                // no depth to set: the arrows are the affordance, the confirm is the OK
+                (handler as any).confirm();
+            });
+            doc.picker = { pickShape, pickAsync } as any;
+
+            const controller = new AsyncController();
+            const result = await step.execute(doc, controller);
+
+            expect(controller.result?.status).toBe("success");
+            expect(result?.shapes).toEqual([]);
+            expect(pickShape).toHaveBeenCalledTimes(1);
+            expect(pickAsync).toHaveBeenCalledTimes(1);
+            expect(captured).toBeInstanceOf(ExtrudeDragHandler);
+            expect(cmd.depth).toBe(0);
+            // The skipped drag's placeholder is what the commit reads: it still carries
+            // the plane and the profile faces.
+            expect((cmd as any).stepDatas[1].type).toBe("input");
+
+            (cmd as any).executeMainTask();
+            const body = doc.modelManager.findNode(
+                (node) => node instanceof ParametricBodyNode,
+            ) as ParametricBodyNode;
+            expect(body).toBeInstanceOf(ParametricBodyNode);
+            const feature = body.features[0] as ExtrudeFeatureData;
+            expect(feature.endCondition).toBe("throughAll");
+            expect(feature.depth).toBe(0);
         } finally {
             restoreFactory();
         }
@@ -1834,6 +2427,40 @@ describe("ExtrudeFeatureCommand end condition commit", () => {
         return body.features[0] as ExtrudeFeatureData;
     }
 
+    /** A body standing off the sketch plane, its own box spanning `z` to `z + depth`. */
+    function bodyAbove(doc: TestDocument, z: number, depth: number): ParametricBodyNode {
+        const sketch = new SketchNode({
+            document: doc,
+            plane: new Plane({
+                origin: new XYZ({ x: 0, y: 0, z }),
+                normal: XYZ.unitZ,
+                xvec: XYZ.unitX,
+            }),
+            data: squareData,
+        });
+        doc.modelManager.addNode(sketch);
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [{ id: "t1", type: "extrude", sketchId: sketch.id, depth }],
+        });
+        doc.modelManager.addNode(body);
+        return body;
+    }
+
+    /** A body whose shape is already fixed, so measuring it never builds its chain. */
+    function bodyWithBox(doc: TestDocument, min: XYZLike, max: XYZLike): ParametricBodyNode {
+        const body = new ParametricBodyNode({ document: doc, features: [] });
+        doc.modelManager.addNode(body);
+        body.shape = Result.ok({
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            dispose: () => {},
+            findSubShapes: () => [],
+            boundingBox: () => new BoundingBox(min, max),
+        } as any);
+        return body;
+    }
+
     test("a blind commit stores none of the end-condition fields", () => {
         const { doc, cmd } = commitScenario("feature.extrude.endCondition.blind");
 
@@ -1845,6 +2472,18 @@ describe("ExtrudeFeatureCommand end condition commit", () => {
         expect(feature.endFace).toBeUndefined();
         expect(feature.endVertex).toBeUndefined();
         expect(feature.endOffset).toBeUndefined();
+    });
+
+    test("a draft angle is a panel parameter and is stored on the committed feature", () => {
+        const straight = commitScenario("feature.extrude.endCondition.blind");
+        expect(straight.cmd.draftAngle).toBe(0);
+        (straight.cmd as any).executeMainTask();
+        expect(committedFeature(straight.doc).draftAngle).toBeUndefined();
+
+        const drafted = commitScenario("feature.extrude.endCondition.blind");
+        drafted.cmd.draftAngle = 5;
+        (drafted.cmd as any).executeMainTask();
+        expect(committedFeature(drafted.doc).draftAngle).toBe(5);
     });
 
     test("a blind commit with a ~zero depth toasts and lands no body", () => {
@@ -2091,6 +2730,203 @@ describe("ExtrudeFeatureCommand end condition commit", () => {
         }
     });
 
+    test("a through-all commit measures its tool box from the bodies in its path", () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.throughAll");
+            // No gesture: through-all measures its own reach, so the depth stays 0.
+            scenario.cmd.depth = 0;
+            scenario.cmd.operation = "option.command.operation.cut";
+            const target = bodyAbove(scenario.doc, 19, 2);
+
+            (scenario.cmd as any).executeMainTask();
+
+            // The tool box reaches past the target's far side (z = 21) with the margin.
+            // (The target's own 2-high prism answers too, when its shape is first built.)
+            expect(Math.max(...prismVecs.map((vec) => vec.z))).toBeCloseTo(21.001, 3);
+            // ...so the cut grows onto the target instead of standing alone.
+            expect(target.features.length).toBe(2);
+            expect(target.features[1]).toMatchObject({
+                type: "extrude",
+                operation: "cut",
+                endCondition: "throughAll",
+                depth: 0,
+            });
+            expect(target.shape.isOk).toBe(true);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a through-all preview sweeps past the bodies in its path", () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.throughAll");
+            scenario.cmd.depth = 0;
+            bodyAbove(scenario.doc, 19, 2);
+
+            const preview = (scenario.cmd as any).buildPreview({
+                node: scenario.sketch,
+                faces: [],
+                origin: XYZ.zero,
+                normal: XYZ.unitZ,
+                anchor: XYZ.zero,
+                dist: 0,
+                startOffset: 0,
+            });
+
+            // A zero drag distance would preview nothing; the measured reach previews
+            // the same prism the commit builds.
+            expect(Math.max(...prismVecs.map((vec) => vec.z))).toBeCloseTo(21.001, 3);
+            expect(preview.meshes).toHaveLength(1);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a through-all preview ignores a body outside the sweep's column", () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.throughAll");
+            scenario.cmd.depth = 0;
+            // In the path: far side at z = 21. Off to the side: a much taller body whose
+            // far side is z = 300 — it must not stretch the preview.
+            bodyWithBox(scenario.doc, { x: 0, y: 0, z: 19 }, { x: 1, y: 1, z: 21 });
+            bodyWithBox(scenario.doc, { x: 1000, y: 0, z: 0 }, { x: 1001, y: 1, z: 300 });
+
+            const preview = (scenario.cmd as any).buildPreview({
+                node: scenario.sketch,
+                faces: [],
+                origin: XYZ.zero,
+                normal: XYZ.unitZ,
+                anchor: XYZ.zero,
+                dist: 0,
+                startOffset: 0,
+            });
+
+            expect(Math.max(...prismVecs.map((vec) => vec.z))).toBeCloseTo(21.001, 3);
+            expect(preview.meshes).toHaveLength(1);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a through-all preview subtracts the start offset from its reach", () => {
+        const prismVecs: XYZ[] = [];
+        const restoreFactory = mockProfileFactory(prismVecs);
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.throughAll");
+            scenario.cmd.depth = 0;
+            scenario.cmd.startOffset = 5;
+            bodyWithBox(scenario.doc, { x: 0, y: 0, z: 19 }, { x: 1, y: 1, z: 21 });
+            const profile = {
+                shapeType: ShapeTypes.face,
+                boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 0 }),
+                transformedMul: () => profile,
+                dispose: () => {},
+            };
+
+            (scenario.cmd as any).buildPreview({
+                node: scenario.sketch,
+                faces: [{ shape: profile, transform: Matrix4.identity() }],
+                origin: XYZ.zero,
+                normal: XYZ.unitZ,
+                anchor: XYZ.zero,
+                dist: 0,
+                startOffset: 5,
+            });
+
+            // The sweep starts 5 above the plane, so it only needs 21 - 5 (plus the
+            // through-all margin) to clear the body — the same reach the feature measures.
+            expect(prismVecs.at(-1)!.z).toBeCloseTo(16.001, 3);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("a through-all preview measures each body face from its own plane", () => {
+        // An empty feature list still evaluates to `combine([])` when the body is added.
+        const restore = mockShapeFactory({
+            combine: () =>
+                Result.ok({
+                    shapeType: ShapeTypes.compound,
+                    isEqual: () => false,
+                    dispose: () => {},
+                }),
+        });
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.throughAll");
+            scenario.cmd.depth = 0;
+            // The body being pushed: 100 long in x, 10 in z. Two perpendicular faces.
+            const body = bodyWithBox(scenario.doc, { x: 0, y: 0, z: 0 }, { x: 100, y: 10, z: 10 });
+            const faceAt = (normal: XYZ) => {
+                const shape: any = {
+                    shapeType: ShapeTypes.face,
+                    normal: () => [XYZ.zero, normal],
+                    boundingBox: () => new BoundingBox(XYZ.zero, XYZ.zero),
+                    dispose: () => {},
+                };
+                return shape;
+            };
+            const zFace = faceAt(XYZ.unitZ);
+            const xFace = faceAt(XYZ.unitX);
+
+            const vecsOf = (scenario.cmd as any).previewSweepVectors(
+                { node: body, origin: XYZ.zero, normal: XYZ.unitZ, dist: 0 },
+                [zFace, xFace],
+            );
+
+            // +z face: 10 deep; +x face: 100 deep. The first plane's reach must not be
+            // reused for the second face.
+            const zVec = vecsOf(zFace)[0] as XYZ;
+            expect(zVec.z).toBeCloseTo(10.001, 3);
+            expect(zVec.x).toBeCloseTo(0);
+            const xVec = vecsOf(xFace)[0] as XYZ;
+            expect(xVec.x).toBeCloseTo(100.001, 3);
+            expect(xVec.z).toBeCloseTo(0);
+        } finally {
+            restore();
+        }
+    });
+
+    test("a zero gesture with the opposite direction previews the flipped side", () => {
+        const restore = mockShapeFactory({
+            combine: () =>
+                Result.ok({
+                    shapeType: ShapeTypes.compound,
+                    isEqual: () => false,
+                    dispose: () => {},
+                }),
+        });
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.throughAll");
+            scenario.cmd.depth = 0;
+            scenario.cmd.oppositeDirection = true;
+            // The body straddles the face plane, so both directions have a reach to find.
+            const body = bodyWithBox(scenario.doc, { x: 0, y: 0, z: -10 }, { x: 10, y: 10, z: 10 });
+            const face: any = {
+                shapeType: ShapeTypes.face,
+                normal: () => [XYZ.zero, XYZ.unitZ],
+                boundingBox: () => new BoundingBox(XYZ.zero, XYZ.zero),
+                dispose: () => {},
+            };
+
+            const vecsOf = (scenario.cmd as any).previewSweepVectors(
+                { node: body, origin: XYZ.zero, normal: XYZ.unitZ, dist: 0 },
+                [face],
+            );
+
+            // `-0 < 0` is false: the old sign test swallowed the checkbox at zero.
+            const vec = vecsOf(face)[0] as XYZ;
+            expect(vec.z).toBeCloseTo(-10.001, 3);
+        } finally {
+            restore();
+        }
+    });
+
     test("a checked opposite direction stores the net flip", () => {
         const { doc, cmd } = commitScenario("feature.extrude.endCondition.blind");
         cmd.oppositeDirection = true;
@@ -2100,6 +2936,32 @@ describe("ExtrudeFeatureCommand end condition commit", () => {
         const feature = committedFeature(doc);
         expect(feature.reverse).toBe(true);
         expect(feature.depth).toBe(5);
+    });
+
+    test("a checked opposite direction reaches the feature on an up-to commit too", () => {
+        const scenario = commitScenario("feature.extrude.endCondition.upToFace");
+        pushEndFace(scenario);
+        scenario.cmd.oppositeDirection = true;
+
+        (scenario.cmd as any).executeMainTask();
+
+        const feature = committedFeature(scenario.doc);
+        expect(feature.reverse).toBe(true);
+        // The depth is the panel's (hidden for an up-to condition) fallback, untouched.
+        expect(feature.depth).toBe(5);
+        expect(feature.endCondition).toBe("upToFace");
+    });
+
+    test("a leftover negative depth does not flip an up-to commit", () => {
+        // The depth row is hidden for an up-to condition; a value left over from an
+        // earlier run must not silently decide the direction the checkbox owns.
+        const scenario = commitScenario("feature.extrude.endCondition.upToFace");
+        pushEndFace(scenario);
+        scenario.cmd.depth = -5;
+
+        (scenario.cmd as any).executeMainTask();
+
+        expect(committedFeature(scenario.doc).reverse).toBeUndefined();
     });
 
     test("a negative depth folds its sign into the same flip", () => {
@@ -2165,6 +3027,16 @@ describe("ExtrudeFeatureCommand opposite direction", () => {
         cmd.oppositeDirection = true;
 
         expect(refresh).toHaveBeenCalled();
+    });
+
+    test("changing the operation repaints an open target preview", () => {
+        const cmd = new ExtrudeFeatureCommand();
+        const refreshPreview = rs.fn();
+        (cmd as any)._endTargetStep = { refreshPreview };
+
+        cmd.operation = "option.command.operation.cut";
+
+        expect(refreshPreview).toHaveBeenCalled();
     });
 
     test("the preview sweeps the prism along the flipped normal", () => {

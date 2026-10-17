@@ -122,6 +122,24 @@ describe("ExtrudeDragHandler", () => {
         pub.mockRestore();
     });
 
+    test("overlays are drawn translucent and on top of the preview", () => {
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const overlay = fakeMesh();
+        const data = dragData();
+        // At zero distance the handler would skip the preview; a measured condition still
+        // draws one, which is the path the overlay rides on.
+        data.requiresDepth = () => false;
+        data.buildPreview = rs.fn(() => ({ meshes: [], overlays: [overlay] }));
+        const display = rs.fn(() => 5);
+        (doc.visual.context as any).displayMesh = display;
+
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+
+        expect(display).toHaveBeenCalledWith([overlay], { meshOpacity: 0.45, onTop: true });
+        pub.mockRestore();
+        handler.dispose();
+    });
+
     test("confirming at zero depth is a no-op", () => {
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         const handler = new ExtrudeDragHandler(doc, controller, dragData());
@@ -129,6 +147,26 @@ describe("ExtrudeDragHandler", () => {
 
         confirmControl.success();
         expect(controller.result).toBeUndefined(); // zero depth: confirm does nothing
+        pub.mockRestore();
+        handler.dispose();
+    });
+
+    test("a condition that measures its own reach confirms at zero depth", () => {
+        const view = createHandlerMockView({ document: doc });
+        doc.application.activeView = view;
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const data = dragData();
+        data.requiresDepth = () => false;
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+        const confirmControl = pub.mock.calls.find((x) => x[0] === "showConfirmControl")?.[1] as any;
+
+        // Through-all: the arrows are the affordance, not the measurement.
+        expect(handler.state.dist).toBe(0);
+        expect(data.buildPreview).toHaveBeenCalled();
+
+        confirmControl.success();
+        expect(controller.result?.status).toBe("success");
+        expect(handler.commitView).toBe(view);
         pub.mockRestore();
         handler.dispose();
     });

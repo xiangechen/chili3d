@@ -88,8 +88,24 @@ export class MultiShapeMesh implements IShapeMeshData {
     private readonly _vertexs: VertexMeshData;
     private readonly _edges: EdgeMeshData;
     private readonly _faces: FaceMeshData;
+    /**
+     * The shapes whose points have not been merged yet. Reading `shape.mesh.vertexs`
+     * builds that shape's whole point mesh (see `Mesher.buildVertexMesh`), so `addShape`
+     * only records the shape and `vertexs` merges on first use — a panel that never does
+     * a vertex pick never pays for it.
+     */
+    private readonly _pendingVertexShapes: { shape: IShape; matrix: Matrix4 }[] = [];
+    private _vertexsBuilt = false;
 
     get vertexs() {
+        if (!this._vertexsBuilt) {
+            this._vertexsBuilt = true;
+            for (const { shape, matrix } of this._pendingVertexShapes) {
+                const vertexs = shape.mesh.vertexs;
+                if (vertexs) MeshUtils.combineVertexMeshData(this._vertexs, vertexs, matrix);
+            }
+            this._pendingVertexShapes.length = 0;
+        }
         return this._vertexs.position.length > 0 ? this._vertexs : undefined;
     }
 
@@ -105,7 +121,7 @@ export class MultiShapeMesh implements IShapeMeshData {
         this._vertexs = {
             position: new Float32Array(),
             range: [],
-            size: 0,
+            size: 3,
         };
         this._edges = {
             lineType: "solid",
@@ -133,6 +149,12 @@ export class MultiShapeMesh implements IShapeMeshData {
         }
         if (mesh.edges) {
             MeshUtils.combineEdgeMeshData(this._edges, mesh.edges, totleMatrix);
+        }
+        if (this._vertexsBuilt) {
+            const vertexs = mesh.vertexs;
+            if (vertexs) MeshUtils.combineVertexMeshData(this._vertexs, vertexs, totleMatrix);
+        } else {
+            this._pendingVertexShapes.push({ shape, matrix: totleMatrix });
         }
     }
 }

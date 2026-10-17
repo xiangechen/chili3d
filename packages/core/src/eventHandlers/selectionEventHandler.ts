@@ -32,6 +32,11 @@ export abstract class SelectionHandler implements IEventHandler {
     protected readonly pointerEventMap: Map<number, PointerEvent> = new Map();
 
     isEnabled = true;
+    /**
+     * Whether a click that selected something settles a single pick on the spot. False
+     * leaves the pick open for the confirm bar / Enter (see `PickShapeOptions.finishOnClick`).
+     */
+    finishOnClick = true;
 
     constructor(
         readonly document: IDocument,
@@ -130,7 +135,9 @@ export abstract class SelectionHandler implements IEventHandler {
             const count = this.select(view, event);
             this.cleanHighlights();
             view.update();
-            if (count > 0 && (!this.multiMode || this.canFinishSelection())) this.controller?.success();
+            if (count > 0 && (this.canFinishSelection() || (!this.multiMode && this.finishOnClick))) {
+                this.controller?.success();
+            }
         }
         this.pointerEventMap.delete(event.pointerId);
     }

@@ -8,12 +8,13 @@ import {
     MeshUtils,
     type ShapeMeshData,
     type ShapeType,
+    ShapeTypes,
     ShapeTypeUtils,
     type VisualState,
     VisualStates,
     VisualStateUtils,
 } from "@chili3d/core";
-import { Group, Mesh, Points } from "three";
+import { BufferAttribute, BufferGeometry, Group, Mesh, Points } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -42,6 +43,7 @@ interface SubGeometryState {
     state: VisualState;
     face?: Mesh;
     edge?: LineSegments2;
+    vertex?: Points;
 }
 
 export class GeometryState {
@@ -70,7 +72,9 @@ export class GeometryState {
     }
 
     private updateState(method: "add" | "remove", state: VisualState, type: ShapeType, index: number[]) {
-        if (index.length === 0 || ShapeTypeUtils.isWhole(type)) {
+        // A vertex is "whole" so a point node picks as one shape, but a vertex pick on a
+        // body names ONE point with its index — that one is drawn, not the whole node.
+        if (index.length === 0 || (ShapeTypeUtils.isWhole(type) && type !== ShapeTypes.vertex)) {
             this.setWholeState(method, state, type);
         } else {
             this.setSubGeometryState(method, state, type, index);
@@ -162,6 +166,7 @@ export class GeometryState {
             if (item !== undefined) {
                 this.removeSubObject(item.face);
                 this.removeSubObject(item.edge);
+                this.removeSubObject(item.vertex);
                 this._states.delete(key);
             }
         });
@@ -177,13 +182,14 @@ export class GeometryState {
         const previous = this._states.get(key);
         const face = this.subFacePart(previous?.face, type, key, index, newState);
         const edge = this.subEdgePart(previous?.edge, type, key, index, newState);
+        const vertex = this.subVertexPart(previous?.vertex, type, index, newState);
         // a state nothing could be drawn for — a visual with no sub-shape geometry, or an
         // index naming none — is not recorded
-        if (face === undefined && edge === undefined) {
+        if (face === undefined && edge === undefined && vertex === undefined) {
             this._states.delete(key);
             return;
         }
-        this._states.set(key, { state: newState, face, edge });
+        this._states.set(key, { state: newState, face, edge, vertex });
     }
 
     /** The fill object of the state: the one already there re-materialed, a new one, or none. */
@@ -222,6 +228,51 @@ export class GeometryState {
         if (edge === undefined) return undefined;
         edge.material = material;
         return edge;
+    }
+
+    /**
+     * The point of a vertex sub-state: a vertex has no fill and no outline, so the state
+     * is drawn as a larger point where the picked one sits. Hover and selection use the
+     * same states every other sub-shape does.
+     */
+    private subVertexPart(
+        existing: Points | undefined,
+        type: ShapeType,
+        index: number,
+        state: VisualState,
+    ): Points | undefined {
+        const material = vertexMaterialOf(state);
+        if (!ShapeTypeUtils.hasVertex(type) || material === undefined) {
+            this.removeSubObject(existing);
+            return undefined;
+        }
+        const vertex = existing ?? this.createSubVertex(index);
+        if (vertex === undefined) return undefined;
+        vertex.material = material;
+        vertex.renderOrder = 999;
+        return vertex;
+    }
+
+    private createSubVertex(index: number) {
+        if (!(this.visual instanceof ThreeGeometry)) return undefined;
+
+        const data = this.visual.geometryNode.mesh.vertexs;
+        // `index` is the range index the pick reported, not a point offset: a range may
+        // cover several points, so the point starts where the range does.
+        const start = data?.range?.[index]?.start;
+        if (data === undefined || start === undefined || start < 0 || start * 3 + 3 > data.position.length) {
+            return undefined;
+        }
+
+        const geometry = new BufferGeometry();
+        geometry.setAttribute(
+            "position",
+            new BufferAttribute(data.position.slice(start * 3, start * 3 + 3), 3),
+        );
+        const vertex = new Points(geometry, highlightVertexMaterial);
+        this.highlighter.container.add(vertex);
+        vertex.applyMatrix4(this.visual.matrixWorld);
+        return vertex;
     }
 
     /**
@@ -282,7 +333,7 @@ export class GeometryState {
         return face;
     }
 
-    private removeSubObject(object: Mesh | LineSegments2 | undefined) {
+    private removeSubObject(object: Mesh | LineSegments2 | Points | undefined) {
         if (object === undefined) return;
         this.highlighter.container.remove(object);
         object.geometry?.dispose();
@@ -308,6 +359,27 @@ function faceStateMaterial(state: VisualState) {
     if (VisualStateUtils.hasState(state, VisualStates.faceTransparent)) return faceTransparentMaterial;
     if (VisualStateUtils.hasState(state, VisualStates.faceSelected)) return selectedFaceColoredMaterial;
     return highlightFaceMaterial;
+}
+
+/**
+ * Point material of a vertex state, or none. A vertex has no fill to ghost, so only the
+ * hover and selection states draw it — either bit, since a pick accepting vertices beside
+ * faces is handed the face states (`isFacePick` in the picker).
+ */
+function vertexMaterialOf(state: VisualState) {
+    if (
+        VisualStateUtils.hasState(state, VisualStates.edgeHighlight) ||
+        VisualStateUtils.hasState(state, VisualStates.faceHighlight)
+    ) {
+        return highlightVertexMaterial;
+    }
+    if (
+        VisualStateUtils.hasState(state, VisualStates.edgeSelected) ||
+        VisualStateUtils.hasState(state, VisualStates.faceSelected)
+    ) {
+        return selectedVertexMaterial;
+    }
+    return undefined;
 }
 
 export class ThreeHighlighter implements IHighlighter {

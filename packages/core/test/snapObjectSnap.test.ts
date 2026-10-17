@@ -548,6 +548,51 @@ describe("ObjectSnap", () => {
             expect(result!.type).toBe("nearCurve");
         });
 
+        test("a nearer vertex does not disable on-curve snapping on the edge", () => {
+            const nearestPoint = new XYZ({ x: 2, y: 0, z: 0 }); // screen (402, 300)
+            const edgeShape = createEdgeShapeData({
+                shape: {
+                    id: "edge-shadowed",
+                    shapeType: ShapeTypes.edge,
+                    curve: createMockEdgeCurve({
+                        start: new XYZ({ x: 100, y: 0, z: 0 }),
+                        end: new XYZ({ x: 200, y: 0, z: 0 }),
+                        nearestPoint: { p1: nearestPoint },
+                    }),
+                    point: () => XYZ.zero,
+                    transformedMul: () => ({
+                        curve: createMockEdgeCurve({
+                            nearestPoint: { p1: nearestPoint },
+                        }),
+                        intersect: () => [],
+                        dispose: () => {},
+                    }),
+                    intersect: () => [],
+                    dispose: () => {},
+                } as never,
+            });
+            // The vertex is nearest along the ray but 98px from the mouse: the old code
+            // treated it as the "current" shape and never asked the edge.
+            const vertexShape = createVertexShapeData(new XYZ({ x: 100, y: 0, z: 0 }));
+
+            const view = createMockView({
+                detectShapes: () => [vertexShape, edgeShape],
+            });
+            Config.instance.snapType = (ObjectSnapTypes.vertex | ObjectSnapTypes.onCurve) as ObjectSnapType;
+            const snap = new ObjectSnap((ObjectSnapTypes.vertex | ObjectSnapTypes.onCurve) as ObjectSnapType);
+            const data = createMouseAndDetected(view, {
+                mx: 402,
+                my: 300,
+                shapes: [vertexShape, edgeShape],
+            });
+
+            const result = snap.snap(data);
+
+            expect(result).not.toBeNull();
+            expect(result!.type).toBe("nearCurve");
+            expect(result!.point).toEqual(nearestPoint);
+        });
+
         test("should NOT find nearest curve point when onCurve is disabled", () => {
             Config.instance.snapType = ObjectSnapTypes.endPoint as ObjectSnapType;
 

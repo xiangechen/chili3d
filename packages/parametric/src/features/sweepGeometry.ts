@@ -85,7 +85,11 @@ export function sweepFaces(
     } finally {
         owned.forEach((x) => x.dispose());
     }
-    return fuseProfiles(shapes);
+    const merged = fuseProfiles(shapes);
+    // A failed fuse/combine hands nothing back, so the prisms are still ours to free —
+    // on success the compound borrows their handles and they must stay alive.
+    if (!merged.isOk) shapes.forEach((x) => x.dispose());
+    return merged;
 }
 
 /**

@@ -40,6 +40,29 @@ describe("Mesher — box", () => {
         expect(faces!.range.length).toBe(6); // box has 6 faces
     });
 
+    test("vertex mesh data covers every vertex of a solid", () => {
+        const box = createBox(factory, 10, 10, 10);
+        const mesh = box.mesh;
+        expect(mesh.faces).toBeDefined();
+
+        // The solid's own points, not just a lone vertex's: this is what makes a body's
+        // vertices raycast-pickable (the up-to-vertex end condition).
+        const vertexs = mesh.vertexs;
+        expect(vertexs).toBeDefined();
+        expect(vertexs!.position.length).toBe(8 * 3);
+        expect(vertexs!.range.length).toBe(8);
+        expect(vertexs!.range.every((g) => g.count === 1)).toBe(true);
+
+        for (const [index, group] of vertexs!.range.entries()) {
+            expect(group.start).toBe(index);
+            expect(group.shape).toBeInstanceOf(OccSubVertexShape);
+            const point = (group.shape as OccSubVertexShape).point();
+            expect(point.x).toBeCloseTo(vertexs!.position[index * 3], 5);
+            expect(point.y).toBeCloseTo(vertexs!.position[index * 3 + 1], 5);
+            expect(point.z).toBeCloseTo(vertexs!.position[index * 3 + 2], 5);
+        }
+    });
+
     test("edges mesh data is populated", () => {
         const box = createBox(factory, 10, 10, 10);
         const edges = box.mesh.edges;
@@ -218,14 +241,25 @@ describe("Mesher — dispose", () => {
         const faces = mesher.faces;
         expect(faces).toBeDefined();
         expect(faces!.range.length).toBeGreaterThan(0);
+        expect(mesher.vertexs).toBeDefined();
 
         // After shape dispose, the mesher's cached data is cleaned up
         box.dispose();
         expect(mesher.faces).toBeNull();
         expect(mesher.edges).toBeNull();
+        expect(mesher.vertexs).toBeNull();
 
         // Double dispose is safe
         expect(() => box.dispose()).not.toThrow();
+    });
+
+    test("vertexs answers null when the points were never built before the dispose", () => {
+        const box = createBox(factory);
+        const mesher = box.mesh;
+
+        box.dispose();
+
+        expect(mesher.vertexs).toBeNull();
     });
 });
 

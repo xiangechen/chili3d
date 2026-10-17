@@ -1,7 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, Config, Observable, PubSub, XYZ } from "../src";
+import { rs } from "@rstest/core";
+import {
+    AsyncController,
+    Config,
+    type ObjectSnapType,
+    ObjectSnapTypes,
+    Observable,
+    PubSub,
+    ShapeTypes,
+    XYZ,
+} from "../src";
 import { Plane } from "../src/math";
 import type { PointSnapData } from "../src/snap";
 import { PointSnapEventHandler } from "../src/snap";
@@ -39,6 +49,36 @@ describe("SnapEventHandler — base class behaviour", () => {
             const view = createHandlerMockView();
             handler.pointerMove(view, createPointerEvent());
             expect(handler.state).toBe("snapping");
+        });
+
+        test("requests vertices only when vertex snapping is enabled", () => {
+            const previous = Config.instance.snapType;
+            try {
+                Config.instance.snapType = ObjectSnapTypes.endPoint;
+                const withoutVertex = rs.fn((_shapeType: number) => []);
+                new PointSnapEventHandler(document, controller, {}).pointerMove(
+                    createHandlerMockView({ detectShapes: withoutVertex } as any),
+                    createPointerEvent(),
+                );
+
+                Config.instance.snapType = (ObjectSnapTypes.endPoint |
+                    ObjectSnapTypes.vertex) as ObjectSnapType;
+                const withVertex = rs.fn((_shapeType: number) => []);
+                new PointSnapEventHandler(document, controller, {}).pointerMove(
+                    createHandlerMockView({ detectShapes: withVertex } as any),
+                    createPointerEvent(),
+                );
+
+                // Reading a body's points builds its whole point mesh; a session that
+                // cannot snap to a vertex must not pay for that.
+                const withoutMask = withoutVertex.mock.calls[0][0] as number;
+                expect(withoutMask & ShapeTypes.vertex).toBe(0);
+                expect(withoutMask & ShapeTypes.edge).not.toBe(0);
+                const withMask = withVertex.mock.calls[0][0] as number;
+                expect(withMask & ShapeTypes.vertex).not.toBe(0);
+            } finally {
+                Config.instance.snapType = previous;
+            }
         });
 
         test("should transition to completed on pointerDown with snapped point", () => {

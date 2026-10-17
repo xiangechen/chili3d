@@ -226,10 +226,10 @@ export class CommandContext extends HTMLElement implements IDisposable {
         this.measureColumnWidth();
         // The grid's natural width depends on the column count it was last given, so the
         // panel would shrink to that count's width and then measure the available width
-        // against itself — one column forever. Lay every parameter on one row first.
-        this.groupsContainer.style.setProperty("--columns", `${Math.max(this.visibleItems().length, 1)}`);
+        // against itself — one column forever. Lay every group on one row first.
+        this.layGroupsOnOneRow();
         const columns = this.balanceColumns();
-        const content = this.contentWidth(columns);
+        const content = this.contentWidth();
         const ceiling = this.parentElement.getBoundingClientRect().width * 0.9;
         // Only a command with a real grid of parameters spends the extra room: one (or no)
         // parameter would just become a long empty bar.
@@ -258,27 +258,48 @@ export class CommandContext extends HTMLElement implements IDisposable {
         this.groupsContainer.style.setProperty("--column-width", `${width}px`);
     }
 
+    /** Every group's own natural one-row layout — the width `balanceColumns` measures against. */
+    private layGroupsOnOneRow() {
+        for (const child of this.groupsContainer.children) {
+            const count = CommandContext.visibleChildCount(child);
+            (child as HTMLElement).style.setProperty("--columns", `${Math.max(count, 1)}`);
+        }
+    }
+
     /**
-     * The widest column count the panel can hold is not always the best one: four options
+     * The widest column count a group can hold is not always the best one: four options
      * at three columns become 3 + 1, while two columns give 2 + 2. Pick the count with the
-     * fewest rows and, among equals, the fullest last row.
+     * fewest rows and, among equals, the fullest last row. Each group is its own grid
+     * (`.group`), so the count is chosen and stored per group; the widest one is returned
+     * for the panel's grow decision.
      */
     private balanceColumns(): number {
-        const count = this.visibleItems().length;
-        const group = this.groupsContainer.firstElementChild as HTMLElement | null;
-        if (count === 0 || !group) {
-            this.groupsContainer.style.removeProperty("--columns");
-            return 1;
-        }
+        const groups = Array.from(this.groupsContainer.children).filter(
+            (group) => CommandContext.visibleChildCount(group) > 0,
+        );
+        if (groups.length === 0) return 1;
         const column =
             Number.parseFloat(this.groupsContainer.style.getPropertyValue("--column-width")) || 170;
-        const gap = Number.parseFloat(getComputedStyle(group).columnGap) || 0;
+        const gap = Number.parseFloat(getComputedStyle(groups[0]).columnGap) || 0;
         const available = this.groupsContainer.getBoundingClientRect().width;
         const maxColumns = Math.max(1, Math.floor((available + gap) / (column + gap)));
+        let widest = 1;
+        for (const group of groups) {
+            const count = CommandContext.visibleChildCount(group);
+            const best = CommandContext.bestColumnCount(count, maxColumns);
+            (group as HTMLElement).style.setProperty("--columns", `${best}`);
+            widest = Math.max(widest, best);
+        }
+        return widest;
+    }
+
+    /** The fewest rows for `count` items, and the fullest last row among equals. */
+    private static bestColumnCount(count: number, maxColumns: number): number {
         let best = 1;
         let bestRows = count + 1;
         let bestLast = 0;
-        for (let columns = 1; columns <= maxColumns; columns++) {
+        const limit = Math.min(count, maxColumns);
+        for (let columns = 1; columns <= limit; columns++) {
             const rows = Math.ceil(count / columns);
             const last = count % columns === 0 ? columns : count % columns;
             if (rows < bestRows || (rows === bestRows && last > bestLast)) {
@@ -287,8 +308,15 @@ export class CommandContext extends HTMLElement implements IDisposable {
                 bestLast = last;
             }
         }
-        this.groupsContainer.style.setProperty("--columns", `${best}`);
         return best;
+    }
+
+    private static visibleChildCount(group: Element): number {
+        let count = 0;
+        for (const item of group.children) {
+            if ((item as HTMLElement).style.display !== "none") count++;
+        }
+        return count;
     }
 
     private visibleItems(): HTMLElement[] {
@@ -301,13 +329,24 @@ export class CommandContext extends HTMLElement implements IDisposable {
         return items;
     }
 
-    /** The narrowest the panel can be with `columns` columns of the measured pitch. */
-    private contentWidth(columns: number) {
+    /**
+     * The narrowest the panel can be with the column counts `balanceColumns` stored:
+     * each `.group` is its own grid, so their widths add up (the groups sit side by side
+     * in a flex row with no gap of its own).
+     */
+    private contentWidth() {
         const column =
             Number.parseFloat(this.groupsContainer.style.getPropertyValue("--column-width")) || 170;
         const group = this.groupsContainer.firstElementChild as HTMLElement | null;
         const columnGap = group ? Number.parseFloat(getComputedStyle(group).columnGap) || 0 : 0;
-        const groups = this.hasVisibleParameters() ? columns * column + (columns - 1) * columnGap : 0;
+        let groups = 0;
+        for (const child of this.groupsContainer.children) {
+            const count = CommandContext.visibleChildCount(child);
+            if (count === 0) continue;
+            const columns =
+                Number.parseFloat((child as HTMLElement).style.getPropertyValue("--columns")) || count;
+            groups += columns * column + (columns - 1) * columnGap;
+        }
         const style = getComputedStyle(this.container);
         const gap = Number.parseFloat(style.columnGap) || 0;
         const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
@@ -316,25 +355,41 @@ export class CommandContext extends HTMLElement implements IDisposable {
         const badgeWidth = badge?.getBoundingClientRect().width ?? 0;
         const controls = this.selectionControlContainer ?? this.closeIcon;
         const controlsWidth = controls?.getBoundingClientRect().width ?? 0;
-        // An empty parameter group still sits between the badge and the buttons and still
-        // carries both gaps, so a command that only picks objects needs one more of them.
-        const gaps = this.hasVisibleParameters() ? 1 : 2;
+        // The container's gaps are its laid-out children minus one: the badge, the group
+        // column, and whichever control bar is up (the close icon hides while the
+        // selection/confirm bar stands in for it).
+        const gaps = Math.max(0, this.visibleContainerChildren().length - 1);
         return groups + badgeWidth + controlsWidth + gap * gaps + paddingLeft + paddingRight + 2;
     }
 
-    private hasVisibleParameters() {
-        return this.visibleItems().length > 0;
+    private visibleContainerChildren(): Element[] {
+        return Array.from(this.container.children).filter(
+            (child) => (child as HTMLElement).style.display !== "none",
+        );
     }
 
     private readonly onPropertyChanged = (property: string | number | symbol) => {
-        if (this.propMap.has(property)) {
-            const items = this.propMap.get(property)!;
+        let visibilityChanged = false;
+        const items = this.propMap.get(property);
+        if (items !== undefined) {
             for (const [prop, control] of items) {
+                const wasVisible = control.style.display !== "none";
                 this.setVisible(control, prop);
+                if ((control.style.display !== "none") !== wasVisible) visibilityChanged = true;
             }
         }
-        this.scheduleFit();
+        // A dragged depth changes a value on every tick, but not the layout: only a row
+        // appearing/disappearing (dependencies) or a control whose own text follows the
+        // value (a font name, a target list) needs the panel re-measured.
+        if (visibilityChanged || CommandContext.widthFollowsValue(property, this.command)) {
+            this.scheduleFit();
+        }
     };
+
+    private static widthFollowsValue(property: string | number | symbol, command: ICommand): boolean {
+        const type = PropertyUtils.getProperty(command, property as never)?.type;
+        return type === "font" || type === "targets" || type === "materialId";
+    }
 
     private initContext() {
         const groupMap = new Map<I18nKeys, HTMLDivElement>();

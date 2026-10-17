@@ -478,6 +478,59 @@ describe("SubshapeSelectionHandler", () => {
             expect(successCalled).toBe(true);
         });
 
+        test("reports the aimed shape through onDetect as the pointer moves", () => {
+            const { handler, view } = setupSubshapeSelectionHandler();
+            const first = createVisualShapeData();
+            const second = createVisualShapeData();
+            const seen: (VisualShapeData | undefined)[] = [];
+            handler.onDetect = (detected) => seen.push(detected);
+
+            view.detectShapes = () => [first];
+            handler.pointerMove(view, createPointerEvent({ pointerId: 1 }));
+            view.detectShapes = () => [second];
+            handler.pointerMove(view, createPointerEvent({ pointerId: 2 }));
+            view.detectShapes = () => [];
+            handler.pointerMove(view, createPointerEvent({ pointerId: 3 }));
+
+            expect(seen).toEqual([first, second, undefined]);
+        });
+
+        test("reports nothing when the pointer leaves the viewport", () => {
+            const { handler, view } = setupSubshapeSelectionHandler();
+            const seen: (VisualShapeData | undefined)[] = [];
+            view.detectShapes = () => [createVisualShapeData()];
+            handler.onDetect = (detected) => seen.push(detected);
+
+            handler.pointerMove(view, createPointerEvent({ pointerId: 1 }));
+            handler.pointerOut(view, createPointerEvent({ pointerId: 1 }));
+
+            expect(seen).toHaveLength(2);
+            expect(seen[1]).toBeUndefined();
+        });
+
+        test("a pick that does not finish on click stays open until the confirm bar settles it", () => {
+            const controller = new AsyncController();
+            let successCalled = false;
+            controller.onCompleted(() => {
+                successCalled = true;
+            });
+
+            const { handler, view, selection } = setupSubshapeSelectionHandler({ controller });
+            handler.finishOnClick = false;
+            view.detectShapes = () => [createVisualShapeData()];
+            selection.setSelectedShapes = () => 1;
+
+            handler.pointerDown(view, createPointerEvent({ pointerId: 1 }));
+            handler.pointerMove(view, createPointerEvent({ pointerId: 1, buttons: 1 }));
+            handler.pointerUp(view, createPointerEvent({ pointerId: 1 }));
+
+            expect(successCalled).toBe(false);
+
+            // What the bar's confirm (and Enter) does: settle the controller the pick holds.
+            controller.success();
+            expect(successCalled).toBe(true);
+        });
+
         test("should call controller.success in multi mode when canFinish returns true", () => {
             const controller = new AsyncController();
             let successCalled = false;

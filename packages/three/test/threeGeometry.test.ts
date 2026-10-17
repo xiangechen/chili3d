@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { ShapeTypes } from "@chili3d/core";
+import { ShapeTypes, XYZ } from "@chili3d/core";
 import { Box3, Mesh, MeshBasicMaterial, Points } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
@@ -63,9 +63,38 @@ describe("ThreeGeometry", () => {
             expect(geo.edges()).toBeInstanceOf(LineSegments2);
         });
 
-        test("vertexs returns the vertex points", () => {
+        test("a lone-vertex shape takes its boundingBox from the points", () => {
+            const node = createTestGeometryNode({ hasFaces: false, hasEdges: false });
+            const geo = new ThreeGeometry(node, context);
+
+            // A rect pick drops visuals without a box, so a point node needs one.
+            const box = geo.boundingBox();
+            expect(box?.min).toEqual(new XYZ({ x: 0, y: 0, z: 0 }));
+            expect(box?.max).toEqual(new XYZ({ x: 1, y: 1, z: 0 }));
+        });
+
+        test("a shape swapped to a lone vertex still answers a whole pick with points", () => {
             const node = createTestGeometryNode();
             const geo = new ThreeGeometry(node, context);
+            // A swap removes the old meshes (they become null, not undefined)...
+            const mesh = (node as any).mesh;
+            mesh.faces = null;
+            mesh.edges = null;
+            (node as any)._notify("shape");
+
+            // ...and the points are all the shape has left to be picked by.
+            const shapes = geo.subShapeVisual(ShapeTypes.shape);
+            expect(shapes).toHaveLength(1);
+            expect(shapes[0]).toBeInstanceOf(Points);
+        });
+
+        test("vertexs are built on demand, not with every body", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            // A body with faces/edges pays for its points only when a vertex pick asks.
+            expect(geo.vertexs()).toBeUndefined();
+
+            geo.subShapeVisual(ShapeTypes.vertex);
             expect(geo.vertexs()).toBeInstanceOf(Points);
         });
 
@@ -171,11 +200,13 @@ describe("ThreeGeometry", () => {
     });
 
     describe("subShapeVisual / wholeVisual", () => {
-        test("wholeVisual returns array with faces, edges, vertexs", () => {
+        test("wholeVisual returns faces and edges; vertexs join once built", () => {
             const node = createTestGeometryNode();
             const geo = new ThreeGeometry(node, context);
-            const visuals = geo.wholeVisual();
-            expect(visuals.length).toBe(3); // faces + edges + vertexs
+            expect(geo.wholeVisual().length).toBe(2); // faces + edges
+
+            geo.subShapeVisual(ShapeTypes.vertex);
+            expect(geo.wholeVisual().length).toBe(3); // faces + edges + vertexs
         });
 
         test("wholeVisual filters out undefined parts", () => {
@@ -185,11 +216,21 @@ describe("ThreeGeometry", () => {
             expect(visuals.length).toBe(2); // faces + edges
         });
 
-        test("subShapeVisual with whole shape type returns all parts", () => {
+        test("subShapeVisual with whole shape type returns faces and edges only", () => {
             const node = createTestGeometryNode();
             const geo = new ThreeGeometry(node, context);
             const shapes = geo.subShapeVisual(ShapeTypes.shape);
-            expect(shapes.length).toBe(3);
+            // Points are not part of a whole pick: the ray must not walk every vertex of
+            // the body just to report the solid it hit.
+            expect(shapes.length).toBe(2);
+        });
+
+        test("subShapeVisual with vertex type returns the points only", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            const shapes = geo.subShapeVisual(ShapeTypes.vertex);
+            expect(shapes).toHaveLength(1);
+            expect(shapes[0]).toBeInstanceOf(Points);
         });
 
         test("subShapeVisual with face type returns faces", () => {
@@ -300,6 +341,8 @@ describe("ThreeGeometry", () => {
         test("swaps to depth-test-free transparent clones with top render order", () => {
             const node = createTestGeometryNode();
             const geo = new ThreeGeometry(node, context);
+            // Points are built on demand; build them first so the on-top state reaches them.
+            geo.subShapeVisual(ShapeTypes.vertex);
             geo.setRenderOnTop(true);
 
             const edgeMaterial = geo.edges()!.material;
@@ -447,9 +490,11 @@ describe("ThreeGeometry", () => {
     });
 
     describe("dispose", () => {
-        test("dispose removes all sub-meshes", () => {
+        test("dispose removes all sub-meshes, including on-demand points", () => {
             const node = createTestGeometryNode();
             const geo = new ThreeGeometry(node, context);
+            expect(geo.children.length).toBe(2); // faces + edges
+            geo.subShapeVisual(ShapeTypes.vertex);
             expect(geo.children.length).toBe(3);
 
             geo.dispose();

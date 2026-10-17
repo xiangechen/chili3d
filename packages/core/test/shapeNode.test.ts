@@ -151,6 +151,19 @@ describe("shapeNode", () => {
             multiShapeMesh.addShape(mockShape, Matrix4.identity());
             expect(multiShapeMesh.faces).not.toBeNull();
         });
+
+        test("should merge the pickable points of every shape", () => {
+            multiShapeMesh.addShape(mockShape, Matrix4.identity());
+            expect(multiShapeMesh.vertexs.position.length).toBe(9);
+            expect(multiShapeMesh.vertexs.range).toHaveLength(1);
+
+            multiShapeMesh.addShape(mockShape, Matrix4.identity());
+
+            const merged = multiShapeMesh.vertexs;
+            expect(merged.position.length).toBe(18);
+            expect(merged.range.map((g: { start: number }) => g.start)).toEqual([0, 3]);
+            expect(merged.size).toBe(3);
+        });
     });
 
     describe("MultiShapeNode", () => {
@@ -334,6 +347,55 @@ describe("shapeNode", () => {
 
         test("should return correct display key", () => {
             expect(node.display()).toBe("body.editableShape");
+        });
+    });
+
+    describe("MultiShapeMesh", () => {
+        /** A shape whose point mesh reports when it is asked for. */
+        function countingShape(reads: { count: number }): IShape {
+            return {
+                matrix: Matrix4.identity(),
+                mesh: {
+                    edges: undefined,
+                    faces: undefined,
+                    get vertexs() {
+                        reads.count++;
+                        return {
+                            position: new Float32Array([0, 0, 0]),
+                            range: [],
+                            size: 3,
+                            color: 0,
+                        };
+                    },
+                },
+            } as unknown as IShape;
+        }
+
+        test("addShape does not build the point mesh until the points are read", () => {
+            const reads = { count: 0 };
+            const mesh = new ShapeNodeClasses.MultiShapeMesh();
+
+            mesh.addShape(countingShape(reads), Matrix4.identity());
+
+            // Reading `mesh.vertexs` on the shape would build every vertex wrapper.
+            expect(reads.count).toBe(0);
+            expect(mesh.vertexs?.position.length).toBe(3);
+            expect(reads.count).toBe(1);
+            // Cached once built.
+            expect(mesh.vertexs?.position.length).toBe(3);
+            expect(reads.count).toBe(1);
+        });
+
+        test("a shape added after the points were built is merged immediately", () => {
+            const reads = { count: 0 };
+            const mesh = new ShapeNodeClasses.MultiShapeMesh();
+            mesh.addShape(countingShape(reads), Matrix4.identity());
+            expect(mesh.vertexs?.position.length).toBe(3);
+
+            mesh.addShape(countingShape(reads), Matrix4.identity());
+
+            expect(mesh.vertexs?.position.length).toBe(6);
+            expect(reads.count).toBe(2);
         });
     });
 });

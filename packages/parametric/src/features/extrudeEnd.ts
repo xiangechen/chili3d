@@ -289,6 +289,28 @@ function upToDepth(
     return Result.ok(depth);
 }
 
+/**
+ * The reach to a picked up-to target, measured exactly as the rebuild will measure it —
+ * the extrude command's live target preview reads it, so what the preview draws and what
+ * the commit builds agree. `target` is in WORLD coordinates, beside `point`/`normal`.
+ * `dir` is the sweep direction (flipped by the direction checkbox) and
+ * `sweepStartOffset` is signed along it (see `upToDepth`).
+ */
+export function upToTargetDepth(
+    target: IShape,
+    point: XYZ,
+    normal: XYZ,
+    dir: XYZ,
+    sweepStartOffset: number,
+    endOffset: number,
+): Result<number> {
+    const endTarget: Exclude<EndTarget, { readonly kind: "none" }> =
+        target.shapeType === ShapeTypes.vertex
+            ? { kind: "vertex", point: (target as IVertex).point() }
+            : faceTarget(target as IFace);
+    return upToDepth(endTarget, point, normal, dir, sweepStartOffset, endOffset);
+}
+
 /** What an up-to condition terminates at, resolved once per rebuild (world coordinates). */
 type EndTarget =
     | { readonly kind: "none" }

@@ -21,6 +21,9 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
     /** Reorders what the pointer detects; index 0 is what gets highlighted and picked. */
     sortDetected?: (detected: VisualShapeData[]) => VisualShapeData[];
 
+    /** Reports the shape the pointer aims at as it changes (see `PickShapeOptions.onDetect`). */
+    onDetect?: (detected: VisualShapeData | undefined) => void;
+
     constructor(
         document: IDocument,
         readonly shapeType: ShapeType,
@@ -65,6 +68,12 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
         this._lockDetected = undefined;
     }
 
+    /** The pointer left the viewport: nothing is aimed at any more. */
+    override pointerOut(view: IView, event: PointerEvent): void {
+        super.pointerOut(view, event);
+        this.onDetect?.(undefined);
+    }
+
     protected override setHighlight(view: IView, event: PointerEvent) {
         const detecteds = this.getDetecteds(view, event);
         this.highlightDetecteds(view, detecteds);
@@ -81,6 +90,9 @@ export abstract class ShapeSelectionHandler extends SelectionHandler {
             );
         });
         this._highlights = detecteds;
+        // Detection re-runs on every pointer move, so the callback reports the new aim
+        // even when it has not changed; a preview built off it should compare identities.
+        this.onDetect?.(detecteds[0]);
         view.update();
     }
 
