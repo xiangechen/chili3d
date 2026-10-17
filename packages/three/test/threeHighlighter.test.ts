@@ -532,6 +532,20 @@ describe("GeometryState with ThreeGeometry", () => {
         expect(geo.edges()?.material).not.toBe(originalEdgeMat);
     });
 
+    test("addState faceTransparent ghosts the faces and leaves the edges alone", () => {
+        const originalFaceMat = geo.faces()?.material;
+        const originalEdgeMat = geo.edges()?.material;
+
+        highlighter.addState(geo, VisualStates.faceTransparent, ShapeTypes.shape);
+
+        expect(geo.faces()?.material).toBe(faceTransparentMaterial);
+        expect(geo.faces()?.material).not.toBe(originalFaceMat);
+        expect(geo.edges()?.material).toBe(originalEdgeMat);
+
+        highlighter.removeState(geo, VisualStates.faceTransparent, ShapeTypes.shape);
+        expect(geo.faces()?.material).toBe(originalFaceMat);
+    });
+
     test("removeState after edgeHighlight restores default materials", () => {
         const originalEdgeMat = geo.edges()?.material;
         highlighter.addState(geo, VisualStates.edgeHighlight, ShapeTypes.shape);

@@ -4,28 +4,36 @@
 import {
     AsyncController,
     BoundingBox,
+    CancelableCommand,
     type IApplication,
+    type IView,
+    type IVisualObject,
     Matrix4,
     PubSub,
+    Ray,
     Result,
     type ShapeType,
     ShapeTypes,
+    VisualStates,
+    XY,
     XYZ,
 } from "@chili3d/core";
 import {
     createHandlerMockView,
     createMockApplication,
+    createMockHighlighter,
     createMockSelection,
     createMockVisualWithDocument,
+    createPointerEvent,
     nearestOnSegment,
     setupShapeFactoryMock,
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { ARROW_COLOR, ARROW_HOVER_COLOR } from "../../src/commands/arrowHandle";
 import "../../src/features"; // registers all feature handlers
 import {
     CircularPatternFeatureCommand,
-    Direction2Step,
     LinearPatternFeatureCommand,
 } from "../../src/commands/patternCommand";
 import type {
@@ -181,39 +189,59 @@ function setup() {
         cylinder,
         cone,
     });
-    const displayMesh = rs.fn(() => 0);
+    // ids are unique so a re-colour can be told apart from a re-draw: the arrows are drawn
+    // once and then only recoloured (`setMeshColor`), and both land in `paintLog`
+    let meshId = 0;
+    const paintLog: { id: number; color: number | undefined }[] = [];
+    const displayMesh = rs.fn((datas: any[], options: any) => {
+        const id = ++meshId;
+        if (options?.meshOpacity === 1) paintLog.push({ id, color: datas[0]?.color });
+        return id;
+    });
     (doc.visual.context as any).displayMesh = displayMesh;
+    const setMeshColor = rs.fn((id: number, color: number) => paintLog.push({ id, color }));
+    (doc.visual.context as any).setMeshColor = setMeshColor;
     const removeMesh = rs.fn();
     (doc.visual.context as any).removeMesh = removeMesh;
-    return { app, doc, view, body, booleanFuse, displayMesh, removeMesh, cylinder, cone, badges };
+    return {
+        app,
+        doc,
+        view,
+        body,
+        booleanFuse,
+        displayMesh,
+        setMeshColor,
+        paintLog,
+        removeMesh,
+        cylinder,
+        cone,
+        badges,
+    };
 }
 
 type AnyPatternCommand = LinearPatternFeatureCommand | CircularPatternFeatureCommand;
 
-function seedPicks(
-    cmd: AnyPatternCommand,
-    app: IApplication,
-    body: ParametricBodyNode,
-    picked: any,
-    picked2?: any,
-) {
+function seedPicks(cmd: AnyPatternCommand, app: IApplication, body: ParametricBodyNode, picked: any) {
     (cmd as any)._application = app;
     (cmd as any).stepDatas = [
         { nodes: [body], shapes: [], type: "pick" },
         { shapes: [picked], nodes: [], type: "pick" },
-        // Direction 2's slot: empty reads as the pick being skipped (a circular keeps none).
-        { shapes: picked2 === undefined ? [] : [picked2], nodes: [], type: "pick" },
         {},
     ];
 }
 
+/** The second-direction pick's stub: what the nested `pickShape` reports and how it settles. */
+type Direction2PickStub = (controller: AsyncController) => Promise<any[]>;
+
 /**
  * Runs the last step with a picker that captures the live handler and settles when the
  * controller does — the test then drives the handler (or the panel) and confirms or cancels.
+ * `pickShape` is the nested second-direction pick, only reachable once the preview is up.
  */
-function openSession(doc: TestDocument, cmd: AnyPatternCommand) {
+function openSession(doc: TestDocument, cmd: AnyPatternCommand, pickShape?: Direction2PickStub) {
     let captured: PatternPreviewHandler | PatternDragHandler | undefined;
     doc.picker = {
+        ...(pickShape === undefined ? {} : { pickShape: rs.fn((_p: any, c: any) => pickShape(c)) }),
         pickAsync: rs.fn(
             (
                 handler: PatternPreviewHandler | PatternDragHandler,
@@ -221,15 +249,28 @@ function openSession(doc: TestDocument, cmd: AnyPatternCommand) {
                 controller: AsyncController,
             ) => {
                 captured = handler;
-                return new Promise<void>((resolve) => {
-                    controller.onCompleted(() => resolve());
-                    controller.onCancelled(() => resolve());
-                    controller.onFailed(() => resolve());
-                });
+                // The real picker installs the handler before its first await and puts the
+                // previous one back when the session settles — emulate both, so a nested pick
+                // started at the wrong moment is visible to the tests (it would run while
+                // this handler is NOT the event target, and the outer install would cover it).
+                const previous = (doc.visual as any).eventHandler;
+                (doc.visual as any).eventHandler = handler;
+                let resolve!: () => void;
+                const done = new Promise<void>((r) => (resolve = r));
+                const settle = () => {
+                    if ((doc.visual as any).eventHandler === handler) {
+                        (doc.visual as any).eventHandler = previous;
+                    }
+                    resolve();
+                };
+                controller.onCompleted(settle);
+                controller.onCancelled(settle);
+                controller.onFailed(settle);
+                return done;
             },
         ),
     } as any;
-    // The session step is always the last — a linear run grows the Direction-2 pick before it.
+    // The session step is always the last: body → edge → session.
     const steps = (cmd as any).getSteps();
     const step = steps[steps.length - 1] as PatternSessionStep;
     const controller = new AsyncController();
@@ -241,6 +282,38 @@ function openSession(doc: TestDocument, cmd: AnyPatternCommand) {
 /** displayMesh calls drawing ghosts — the previews are the only half-opacity meshes. */
 function ghostCalls(displayMesh: ReturnType<typeof rs.fn>) {
     return displayMesh.mock.calls.filter((call) => call[1]?.meshOpacity === 0.5).length;
+}
+
+/** The colour the arrows were last drawn OR recoloured with — both land in the paint log. */
+function lastArrowColor(paintLog: { color: number | undefined }[]) {
+    return paintLog.at(-1)?.color;
+}
+
+/** A view whose camera controller can be fired, for the zoom/pan path. */
+function cameraDrivenView(doc: TestDocument) {
+    const listeners = new Set<() => void>();
+    const view = createHandlerMockView({
+        document: doc,
+        cameraController: {
+            onPropertyChanged: (cb: () => void) => listeners.add(cb),
+            removePropertyChanged: (cb: () => void) => listeners.delete(cb),
+        } as any,
+    });
+    return { view, fire: () => listeners.forEach((cb) => cb()) };
+}
+
+/** Captures the numeric box a typed digit publishes (through `showInput`). */
+function captureInput() {
+    let apply: ((text: string) => Result<string, any>) | undefined;
+    const pub = rs.spyOn(PubSub.default, "pub").mockImplementation((channel: string, ...args: any[]) => {
+        if (channel === "showInput") apply = args[1];
+    });
+    return {
+        get apply() {
+            return apply;
+        },
+        restore: () => pub.mockRestore(),
+    };
 }
 
 /** Captures the datum dialog a badge's double-click publishes (through `showDialog`). */
@@ -266,6 +339,18 @@ function expectPoint(point: { x: number; y: number; z: number }, x: number, y: n
     expect(point.z).toBeCloseTo(z);
 }
 
+/**
+ * Aim the view's rays along -Z through the body's centre plane (z = 2.5, y = 5): a ray at
+ * screen `x` meets the +X arrow's own line, so its projection reads `x - 405`.
+ */
+function raysAlongX(view: IView) {
+    (view as any).rayAt = (mx: number) =>
+        new Ray({ point: new XYZ({ x: mx - 400, y: 5, z: 2.5 }), direction: XYZ.unitZ.reverse() });
+}
+
+const escapeKey = () =>
+    ({ key: "Escape", preventDefault: () => {}, stopImmediatePropagation: () => {} }) as KeyboardEvent;
+
 /** The fused tools' recorded matrices match the preview's placements, probed at two points. */
 function expectSamePlacements(preview: Matrix4[], tools: any[]) {
     expect(tools).toHaveLength(preview.length);
@@ -279,7 +364,41 @@ function expectSamePlacements(preview: Matrix4[], tools: any[]) {
 }
 
 describe("linear pattern preview", () => {
-    test("opens on ghosts alone — no arrow, no badges — with the auto spacing converged onto the panel", () => {
+    test("this command ghosts its target for the edge pick, and puts it back when the run ends", () => {
+        const { app, doc, body } = setup();
+        const { highlighter, addCalls, removeCalls } = createMockHighlighter();
+        const visual = {} as IVisualObject;
+        (doc.visual as any).highlighter = highlighter;
+        (doc.visual.context as any).getVisual = () => visual;
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+
+        // the edge step's own hook: the node selection's whole outline becomes a ghost tint
+        (cmd as any).getSteps()[1].options.beforeSelection();
+        expect(removeCalls.map((call) => call.state)).toContain(VisualStates.edgeSelected);
+        expect(addCalls).toContainEqual({
+            shape: visual,
+            state: VisualStates.faceTransparent,
+            type: ShapeTypes.shape,
+            indexes: [],
+        });
+
+        // `afterExecute` saves the command's options into the process-wide cache; whatever
+        // this test adds goes with it, or the next test reads a stale spacing/count.
+        const cache = (CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> })
+            ._propertiesCache;
+        const before = new Set(cache.keys());
+        try {
+            (cmd as any).afterExecute();
+            expect(removeCalls.at(-1)?.state).toBe(VisualStates.faceTransparent);
+        } finally {
+            for (const key of cache.keys()) {
+                if (!before.has(key)) cache.delete(key);
+            }
+        }
+    });
+
+    test("opens on the ghosts plus one spacing arrow, the auto spacing converged onto the panel", () => {
         const { app, doc, body, displayMesh, removeMesh, cylinder, cone, badges } = setup();
         const cmd = new LinearPatternFeatureCommand();
         seedPicks(cmd, app, body, directionPick(body));
@@ -289,12 +408,242 @@ describe("linear pattern preview", () => {
 
         // The box spreads 10 along +X; auto is the extent plus a fifth, converged onto the panel.
         expect(cmd.spacing).toBe(12);
-        // Count 3: two ghost copies, faces + edges each — and nothing else on the canvas.
+        // Count 3: two ghost copies, faces + edges each.
         expect(ghostCalls(displayMesh)).toBe(4);
-        expect(cylinder).not.toHaveBeenCalled();
-        expect(cone).not.toHaveBeenCalled();
+        // One arrow — a shaft and a head — for the one direction the run has.
+        expect(cylinder).toHaveBeenCalledTimes(1);
+        expect(cone).toHaveBeenCalledTimes(1);
         expect(badges).toHaveLength(0);
         expect(removeMesh).not.toHaveBeenCalled();
+    });
+
+    test("dragging the spacing arrow edits the spacing, and the panel follows", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        expect(cmd.spacing).toBe(12);
+        raysAlongX(view);
+
+        // the arrow runs from the body's centre (screen 405,305) 80px along +X
+        handler.pointerDown(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        // crossing the drag threshold grabs the projection: the first frame does not jump
+        handler.pointerMove(view, createPointerEvent({ offsetX: 470, offsetY: 305 }));
+        expect(cmd.spacing).toBe(12);
+        handler.pointerMove(view, createPointerEvent({ offsetX: 490, offsetY: 305 }));
+        expect(cmd.spacing).toBe(32);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a press away from the arrow is not a drag", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        raysAlongX(view);
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 100, offsetY: 100 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 300, offsetY: 100 }));
+
+        expect(cmd.spacing).toBe(12);
+        controller.cancel();
+        await promise;
+    });
+
+    test("a click-move drag is left back at the spacing it started from", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        expect(cmd.spacing).toBe(12);
+        raysAlongX(view);
+
+        // a click on the arrow opens the click-move gesture; the next move drags it
+        handler.pointerDown(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 490, offsetY: 305 }));
+        expect(cmd.spacing).toBe(62);
+
+        handler.keyDown(view, escapeKey());
+
+        expect(cmd.spacing).toBe(12);
+        controller.cancel();
+        await promise;
+    });
+
+    test("leaving a click-move gesture with Escape takes the arrow's highlight with it", async () => {
+        const { app, doc, body, view, paintLog } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        raysAlongX(view);
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 490, offsetY: 305 }));
+        expect(lastArrowColor(paintLog)).toBe(ARROW_HOVER_COLOR);
+
+        handler.keyDown(view, escapeKey());
+        expect(cmd.spacing).toBe(12);
+        expect(lastArrowColor(paintLog)).toBe(ARROW_COLOR);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a press on empty canvas takes the arrow's highlight with it", async () => {
+        const { app, doc, body, view, paintLog } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+
+        handler.pointerMove(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        expect(lastArrowColor(paintLog)).toBe(ARROW_HOVER_COLOR);
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 100, offsetY: 100 }));
+
+        expect(lastArrowColor(paintLog)).toBe(ARROW_COLOR);
+        controller.cancel();
+        await promise;
+    });
+
+    test("a second press inside a click-move gesture does not re-stamp its starting value", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        expect(cmd.spacing).toBe(12);
+        raysAlongX(view);
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 490, offsetY: 305 }));
+        expect(cmd.spacing).toBe(62);
+
+        // the press that settles the gesture is not a new grab: Escape still returns to 12
+        handler.pointerDown(view, createPointerEvent({ offsetX: 490, offsetY: 305 }));
+        handler.keyDown(view, escapeKey());
+
+        expect(cmd.spacing).toBe(12);
+        controller.cancel();
+        await promise;
+    });
+
+    test("hovering an arrow repaints the arrows only, never the ghosts", async () => {
+        const { app, doc, body, view, displayMesh, setMeshColor } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        expect(ghostCalls(displayMesh)).toBe(4);
+        const arrowDraws = () => displayMesh.mock.calls.filter((call) => call[1]?.meshOpacity === 1).length;
+        const drawnOnce = arrowDraws();
+
+        handler.pointerMove(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        expect((handler as any)._hoveredHandle).toBe("spacing");
+        expect(ghostCalls(displayMesh)).toBe(4);
+        // the arrows are recoloured in place, not re-uploaded
+        expect(arrowDraws()).toBe(drawnOnce);
+        expect(setMeshColor).toHaveBeenCalled();
+
+        handler.pointerMove(view, createPointerEvent({ offsetX: 100, offsetY: 100 }));
+        expect((handler as any)._hoveredHandle).toBeUndefined();
+        expect(ghostCalls(displayMesh)).toBe(4);
+        expect(arrowDraws()).toBe(drawnOnce);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a zoom resizes the arrows once, through the camera listener", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        const camera = cameraDrivenView(doc);
+        // a move subscribes the session to this view's camera
+        handler.pointerMove(camera.view, createPointerEvent({ offsetX: 100, offsetY: 100 }));
+
+        // the production chain is handleCameraChanged → refreshArrow → onCameraChanged, so a
+        // second rescale inside the hook would show up as a second call here
+        const refresh = rs.spyOn(handler as any, "refreshArrow");
+        try {
+            camera.fire();
+            expect(refresh).toHaveBeenCalledTimes(1);
+        } finally {
+            refresh.mockRestore();
+        }
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a right-button press does not retarget the arrow under a gesture", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        raysAlongX(view);
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        expect((handler as any)._activeHandle).toBe("spacing");
+
+        // the base rejects it; the gesture must not be retargeted before that rejection
+        handler.pointerDown(
+            view,
+            createPointerEvent({ offsetX: 440, offsetY: 305, button: 2, isPrimary: true }),
+        );
+        expect((handler as any)._activeHandle).toBe("spacing");
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a typed number with no arrow under the pointer still edits the first spacing", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+        const typed = captureInput();
+        try {
+            handler.keyDown(view, {
+                key: "2",
+                preventDefault: () => {},
+                stopImmediatePropagation: () => {},
+            } as KeyboardEvent);
+            expect(typed.apply).toBeDefined();
+            expect(typed.apply!("25").isOk).toBe(true);
+            expect(cmd.spacing).toBe(25);
+        } finally {
+            typed.restore();
+        }
+        controller.cancel();
+        await promise;
+    });
+
+    test("the arrow keeps its pixel size instead of being floored at a world length", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+
+        // 10 world units per screen pixel squeezes the 80 px arrow into 8 world units; a
+        // floor of ARROW_LENGTH (40) would draw it 400 px wide and aim the hit test at it.
+        const zoomed = createHandlerMockView({
+            document: doc,
+            // looking down -Z, so the arrow's perpendicular measures along screen y
+            direction: () => XYZ.unitZ.reverse(),
+            worldToScreen: (point: XYZ) => new XY({ x: point.x * 10 + 400, y: point.y * 10 + 300 }),
+        });
+        (handler as any).refreshHandle(zoomed);
+
+        expect((handler as any).arrowLength).toBeCloseTo(8);
+        expect((handler as any).handleLength).toBeCloseTo(8);
+
+        controller.cancel();
+        await promise;
     });
 
     test("the preview's placements are the ones the committed feature rebuilds", async () => {
@@ -404,8 +753,9 @@ describe("linear pattern preview", () => {
         expect(result).toBeUndefined();
         expect(body.features).toHaveLength(1);
         expect(booleanFuse).not.toHaveBeenCalled();
-        expect((cmd as any).session).toBeUndefined();
-        expect(removeMesh).toHaveBeenCalledTimes(4);
+        expect((cmd as any)._session).toBeUndefined();
+        // the four ghosts and the arrow's two meshes
+        expect(removeMesh).toHaveBeenCalledTimes(6);
     });
 });
 
@@ -649,46 +999,81 @@ describe("linear pattern direction 2", () => {
     const direction2Pick = (body: ParametricBodyNode) =>
         edgePick(body, edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 0, y: 10, z: 0 })));
 
-    const openGridSession = (
+    /** Lets a promise continuation run — the nested pick reports through promises. */
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    /** A pick that answers with `shapes` and settles as a success (a click on an edge). */
+    const pickOf =
+        (shapes: any[]): Direction2PickStub =>
+        (controller) => {
+            controller.success();
+            return Promise.resolve(shapes);
+        };
+
+    /** Opens the single-direction preview, then ticks the switch against a stubbed pick. */
+    const openGridSession = async (
         doc: TestDocument,
         cmd: LinearPatternFeatureCommand,
         app: IApplication,
         body: ParametricBodyNode,
+        pick: Direction2PickStub = pickOf([direction2Pick(body)]),
     ) => {
-        seedPicks(cmd, app, body, directionPick(body), direction2Pick(body));
-        return openSession(doc, cmd);
+        seedPicks(cmd, app, body, directionPick(body));
+        const session = openSession(doc, cmd, pick);
+        cmd.direction2Enabled = true;
+        await flush();
+        return session;
     };
 
-    test("the direction-2 pick: Enter skips with an empty selection, Escape aborts the run", async () => {
-        const { doc } = setup();
-        const step = new Direction2Step();
-        const clearSelection = rs.fn();
-        (doc.selection as any).clearSelection = clearSelection;
-        const pickShape = rs.fn((_prompt: any, _controller: any, _options: any) => Promise.resolve([]));
-        doc.picker = { pickShape } as any;
-
-        const skipped = await step.execute(doc, { result: { status: "success" } } as any);
-        expect(skipped).toBeDefined();
-        expect(skipped!.shapes).toHaveLength(0);
-        expect(pickShape.mock.calls[0][0]).toBe("prompt.select.direction2Edge");
-
-        const aborted = await step.execute(doc, { result: { status: "cancel" } } as any);
-        expect(aborted).toBeUndefined();
-        // the leftover selection of direction 1's keeping step is cleared on every entry
-        expect(clearSelection).toHaveBeenCalledTimes(2);
+    test("the switch starts off on every run, however the last run left it", () => {
+        // The options cache is process-wide; a remembered "on" would open the next preview
+        // straight into a second-direction edge pick.
+        const cache = (CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> })
+            ._propertiesCache;
+        cache.set("feature.patternLinear:direction2Enabled", true);
+        try {
+            const cmd = new LinearPatternFeatureCommand();
+            (cmd as any)._application = createMockApplication();
+            (cmd as any).beforeExecute();
+            expect(cmd.direction2Enabled).toBe(false);
+        } finally {
+            cache.delete("feature.patternLinear:direction2Enabled");
+        }
     });
 
-    test("the grid previews both directions and commits the trio", async () => {
+    test("the switch is off by default: the preview is one row and no pick is asked", async () => {
+        const { app, doc, body, displayMesh } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const { controller, promise, handler } = openSession(doc, cmd);
+
+        expect(cmd.direction2Enabled).toBe(false);
+        expect(cmd.hasDirection2).toBe(false);
+        expect(ghostCalls(displayMesh)).toBe(4);
+        expect(handler.placements(3, 12)).toHaveLength(2);
+        expect((doc.picker as any).pickShape).toBeUndefined();
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("ticking the switch asks for the second edge and grows the grid", async () => {
         const { app, doc, body, booleanFuse, displayMesh, cylinder, badges } = setup();
         const cmd = new LinearPatternFeatureCommand();
-        const { promise, handler } = openGridSession(doc, cmd, app, body);
+        const { promise, handler } = await openGridSession(doc, cmd, app, body);
 
+        expect(cmd.hasDirection2).toBe(true);
         // both directions converge their auto spacing: the box spreads 10 along each
         expect(cmd.spacing).toBe(12);
         expect(cmd.spacing2).toBe(12);
-        // a 3×2 grid: five ghost copies, faces + edges each — and still no arrow, no badges
-        expect(ghostCalls(displayMesh)).toBe(10);
-        expect(cylinder).not.toHaveBeenCalled();
+        // the pick is the second direction's, asked through the nested pick
+        const pickShape = (doc.picker as any).pickShape as ReturnType<typeof rs.fn>;
+        expect(pickShape.mock.calls[0][0]).toBe("prompt.select.direction2Edge");
+        // a 3×2 grid: five ghost copies on top of the row the preview already drew
+        expect(ghostCalls(displayMesh)).toBe(4 + 10);
+        // and an arrow for each direction: the first was meshed at the open and re-placed
+        // from the cache when the pair was redrawn, so only the second's is a new one
+        expect(cylinder).toHaveBeenCalledTimes(2);
         expect(badges).toHaveLength(0);
 
         const preview = handler.placements(3, 12);
@@ -704,18 +1089,328 @@ describe("linear pattern direction 2", () => {
         expect(feature.spacing2).toBe(12);
     });
 
-    test("the panel drives both directions' ghosts, and the commit carries them", async () => {
+    test("the second direction's arrow drags its own spacing, not the first's", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { controller, promise, handler } = await openGridSession(doc, cmd, app, body);
+        // rays along +X meet the +Y arrow's own line, so a screen y reads the world y on it
+        (view as any).rayAt = (_mx: number, my: number) =>
+            new Ray({ point: new XYZ({ x: 5, y: my - 300, z: 2.5 }), direction: XYZ.unitX });
+
+        // the second arrow runs from the same centre (405,305) down to (405,385)
+        handler.pointerDown(view, createPointerEvent({ offsetX: 405, offsetY: 340 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 360 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 380 }));
+
+        expect(cmd.spacing2).toBe(32);
+        expect(cmd.spacing).toBe(12);
+        controller.cancel();
+        await promise;
+    });
+
+    test("Enter under the second-direction pick skips it and keeps the preview open", async () => {
         const { app, doc, body, displayMesh } = setup();
         const cmd = new LinearPatternFeatureCommand();
-        const { promise, handler } = openGridSession(doc, cmd, app, body);
-        expect(ghostCalls(displayMesh)).toBe(10);
+        seedPicks(cmd, app, body, directionPick(body));
+        // the edge picker answers Enter/Space with an empty SUCCESS, not a cancel
+        const { controller, promise } = openSession(doc, cmd, pickOf([]));
+
+        cmd.direction2Enabled = true;
+        await flush();
+
+        expect(cmd.direction2Enabled).toBe(false);
+        expect(cmd.hasDirection2).toBe(false);
+        // the run is NOT committed: the preview is still open for its own Enter
+        expect(controller.result).toBeUndefined();
+        expect(ghostCalls(displayMesh)).toBe(4);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a cancelled second-direction pick puts the target's node selection back", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const reference = directionPick(body);
+        let nodes: any[] = [body];
+        let shapes: any[] = [reference];
+        (doc.selection as any).getSelectedNodes = () => nodes;
+        (doc.selection as any).getSelectedShapes = () => shapes;
+        const setNodes = rs.fn((selected: any[]) => {
+            nodes = selected;
+            return selected.length;
+        });
+        (doc.selection as any).setSelectedNodes = setNodes;
+        (doc.selection as any).setSelectedShapes = rs.fn((selected: any[]) => {
+            shapes = selected;
+            return selected.length;
+        });
+        // what SubshapeSelectionHandler does on cancel: everything goes
+        (doc.selection as any).clearSelection = () => {
+            nodes = [];
+            shapes = [];
+        };
+        const cancelPick: Direction2PickStub = (controller) => {
+            controller.cancel();
+            (doc.selection as any).clearSelection();
+            return Promise.resolve([]);
+        };
+
+        const { controller, promise } = openSession(doc, cmd, cancelPick);
+        cmd.direction2Enabled = true;
+        await flush();
+
+        expect(setNodes).toHaveBeenCalledWith([body], false);
+        expect(nodes).toEqual([body]);
+        expect(shapes).toEqual([reference]);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("unticking keeps the reference edge when direction 2 picked the same edge", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const reference = directionPick(body);
+        let current: any[] = [reference];
+        (doc.selection as any).getSelectedShapes = () => current;
+        (doc.selection as any).setSelectedShapes = rs.fn((selected: any[]) => {
+            current = selected;
+            return selected.length;
+        });
+        // the second pick answers with the first direction's own edge
+        const pick: Direction2PickStub = (controller) => {
+            controller.success();
+            current = [reference];
+            return Promise.resolve([reference]);
+        };
+
+        const { controller, promise } = openSession(doc, cmd, pick);
+        cmd.direction2Enabled = true;
+        await flush();
+        expect(current).toEqual([reference]);
+
+        cmd.direction2Enabled = false;
+
+        expect(current).toEqual([reference]);
+        controller.cancel();
+        await promise;
+    });
+
+    test("the nested pick restores the target tint, reference edge and cursor", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const reference = [directionPick(body)];
+        const picked = direction2Pick(body);
+        let current: any[] = reference;
+        (doc.selection as any).getSelectedShapes = () => current;
+        const setShapes = rs.fn((shapes: any[]) => {
+            current = shapes;
+            return shapes.length;
+        });
+        (doc.selection as any).setSelectedShapes = setShapes;
+        const cursors: string[] = [];
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation((channel: string, ...args: any[]) => {
+            if (channel === "viewCursor") cursors.push(args[0]);
+        });
+        try {
+            const pick: Direction2PickStub = (controller) => {
+                controller.success();
+                current = [picked];
+                return Promise.resolve([picked]);
+            };
+            const { controller, promise } = openSession(doc, cmd, pick);
+            cmd.direction2Enabled = true;
+            await flush();
+
+            // first the shapes are cleared (the pick must not read the old edge), then the
+            // old edge and the newly picked one come back together
+            expect(setShapes.mock.calls[0][0]).toEqual([]);
+            expect(setShapes.mock.calls[1][0]).toEqual([reference[0], picked]);
+            expect(cursors).toContain("draw");
+
+            controller.cancel();
+            await promise;
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("a number typed right after dragging the second arrow edits that arrow", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { controller, promise, handler } = await openGridSession(doc, cmd, app, body);
+        (view as any).rayAt = (_mx: number, my: number) =>
+            new Ray({ point: new XYZ({ x: 5, y: my - 300, z: 2.5 }), direction: XYZ.unitX });
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 405, offsetY: 340 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 360 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 380 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 405, offsetY: 380 }));
+        expect(cmd.spacing2).toBe(32);
+
+        // the pointer is still on the second arrow; the release cleared the drag's hover
+        const typed = captureInput();
+        try {
+            handler.keyDown(view, {
+                key: "5",
+                preventDefault: () => {},
+                stopImmediatePropagation: () => {},
+            } as KeyboardEvent);
+            expect(typed.apply!("5").isOk).toBe(true);
+            expect(cmd.spacing2).toBe(5);
+            expect(cmd.spacing).toBe(12);
+        } finally {
+            typed.restore();
+        }
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a right-button release does not drop the arrow the drag is still holding", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { controller, promise, handler } = await openGridSession(doc, cmd, app, body);
+        (view as any).rayAt = (_mx: number, my: number) =>
+            new Ray({ point: new XYZ({ x: 5, y: my - 300, z: 2.5 }), direction: XYZ.unitX });
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 405, offsetY: 340 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 360 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 380 }));
+        expect(cmd.spacing2).toBe(32);
+
+        // the base ignores this release; the gesture must ignore it just the same
+        handler.pointerUp(view, createPointerEvent({ offsetX: 405, offsetY: 380, button: 2 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 385 }));
+
+        expect(cmd.spacing2).toBe(37);
+        expect(cmd.spacing).toBe(12);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("unticking the switch mid-drag stops writing instead of pouring into direction 1", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { controller, promise, handler } = await openGridSession(doc, cmd, app, body);
+        (view as any).rayAt = (_mx: number, my: number) =>
+            new Ray({ point: new XYZ({ x: 5, y: my - 300, z: 2.5 }), direction: XYZ.unitX });
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 405, offsetY: 340 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 360 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 380 }));
+        expect(cmd.spacing2).toBe(32);
+
+        // the arrow under the gesture is gone; the remaining motion has no number to write
+        cmd.direction2Enabled = false;
+        handler.pointerMove(view, createPointerEvent({ offsetX: 405, offsetY: 390 }));
+
+        expect(cmd.spacing).toBe(12);
+        expect(cmd.spacing2).toBe(32);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("dropping the second direction under a click-move gives the pointer back", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { controller, promise, handler } = await openGridSession(doc, cmd, app, body);
+        raysAlongX(view);
+
+        // a click on the second arrow opens its click-move gesture
+        handler.pointerDown(view, createPointerEvent({ offsetX: 405, offsetY: 340 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 405, offsetY: 340 }));
+        expect((handler as any).awaitingClick).toBe(true);
+
+        cmd.direction2Enabled = false;
+        // the gesture's arrow is gone: the base must not keep waiting for its settling click
+        expect((handler as any).awaitingClick).toBe(false);
+
+        // the very next press has to start a fresh drag on the first arrow
+        handler.pointerDown(view, createPointerEvent({ offsetX: 440, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 470, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 490, offsetY: 305 }));
+
+        expect(cmd.spacing).toBe(32);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("unticking the switch drops the second edge from the selection", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const reference = directionPick(body);
+        const picked = direction2Pick(body);
+        let current: any[] = [reference];
+        (doc.selection as any).getSelectedShapes = () => current;
+        const setShapes = rs.fn((shapes: any[]) => {
+            current = shapes;
+            return shapes.length;
+        });
+        (doc.selection as any).setSelectedShapes = setShapes;
+        const pick: Direction2PickStub = (controller) => {
+            controller.success();
+            current = [reference, picked];
+            return Promise.resolve([picked]);
+        };
+
+        const { controller, promise } = openSession(doc, cmd, pick);
+        cmd.direction2Enabled = true;
+        await flush();
+        expect(current).toEqual([reference, picked]);
+
+        cmd.direction2Enabled = false;
+
+        expect(current).toEqual([reference]);
+        controller.cancel();
+        await promise;
+    });
+
+    test("the arrows' shared root belongs to the first direction", async () => {
+        const { app, doc, body, view } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { controller, promise, handler } = await openGridSession(doc, cmd, app, body);
+        raysAlongX(view);
+
+        // both shafts start at the body's centre (405,305), where both distances are zero
+        expect((handler as any).handleAt(view, createPointerEvent({ offsetX: 405, offsetY: 305 }))).toBe(
+            "spacing",
+        );
+
+        handler.pointerDown(view, createPointerEvent({ offsetX: 405, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 445, offsetY: 305 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 455, offsetY: 305 }));
+
+        expect(cmd.spacing).toBe(22);
+        expect(cmd.spacing2).toBe(12);
+        controller.cancel();
+        await promise;
+    });
+
+    test("the panel drives both directions' ghosts, and the commit carries them", async () => {
+        const { app, doc, body, displayMesh, cylinder } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        const { promise, handler } = await openGridSession(doc, cmd, app, body);
+        expect(ghostCalls(displayMesh)).toBe(14);
+        // the first arrow was meshed at the open; the second direction's is the only other
+        expect(cylinder).toHaveBeenCalledTimes(2);
 
         cmd.spacing = 20;
-        expect(ghostCalls(displayMesh)).toBe(20); // the same five copies reghosted
+        expect(ghostCalls(displayMesh)).toBe(24); // the same five copies reghosted
         cmd.spacing2 = 30;
-        expect(ghostCalls(displayMesh)).toBe(30);
+        expect(ghostCalls(displayMesh)).toBe(34);
         cmd.count2 = 4;
-        expect(ghostCalls(displayMesh)).toBe(52); // a 3×4 grid: eleven copies, faces + edges each
+        expect(ghostCalls(displayMesh)).toBe(56); // a 3×4 grid: eleven copies, faces + edges each
+        // every one of those refreshes re-placed the cached arrows: no kernel meshing again
+        expect(cylinder).toHaveBeenCalledTimes(2);
 
         (handler as any).confirm();
         await promise;
@@ -727,11 +1422,16 @@ describe("linear pattern direction 2", () => {
         expect(feature.count2).toBe(4);
     });
 
-    test("a skipped direction 2 commits a feature without the direction2 trio", async () => {
-        const { app, doc, body } = setup();
+    test("unticking the switch drops the grid and commits without the trio", async () => {
+        const { app, doc, body, displayMesh } = setup();
         const cmd = new LinearPatternFeatureCommand();
-        seedPicks(cmd, app, body, directionPick(body));
-        const { promise, handler } = openSession(doc, cmd);
+        const { promise, handler } = await openGridSession(doc, cmd, app, body);
+        expect(ghostCalls(displayMesh)).toBe(14);
+
+        cmd.direction2Enabled = false;
+        expect(cmd.hasDirection2).toBe(false);
+        // the ghosts fall back to the row: two copies, faces + edges each
+        expect(ghostCalls(displayMesh)).toBe(18);
 
         (handler as any).confirm();
         await promise;
@@ -743,17 +1443,87 @@ describe("linear pattern direction 2", () => {
         expect("spacing2" in feature).toBe(false);
     });
 
+    test("a cancelled second-direction pick leaves the switch off and the preview single", async () => {
+        const { app, doc, body, displayMesh } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        const cancelPick: Direction2PickStub = (controller) => {
+            controller.cancel();
+            return Promise.resolve([]);
+        };
+        const { controller, promise } = openSession(doc, cmd, cancelPick);
+
+        cmd.direction2Enabled = true;
+        await flush();
+
+        expect(cmd.direction2Enabled).toBe(false);
+        expect(cmd.hasDirection2).toBe(false);
+        expect(ghostCalls(displayMesh)).toBe(4);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("the pair shows only once the pick comes back — the switch alone is not the cue", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        let settle!: (shapes: any[]) => void;
+        const deferred: Direction2PickStub = (controller) => {
+            controller.success();
+            return new Promise<any[]>((resolve) => (settle = resolve));
+        };
+        const { controller, promise } = openSession(doc, cmd, deferred);
+
+        cmd.direction2Enabled = true;
+        await flush();
+        expect(cmd.hasDirection2).toBe(false);
+
+        settle([direction2Pick(body)]);
+        await flush();
+        expect(cmd.hasDirection2).toBe(true);
+
+        controller.cancel();
+        await promise;
+    });
+
+    test("a switch ticked before the preview picks once the preview owns the viewport", async () => {
+        const { app, doc, body, displayMesh } = setup();
+        const cmd = new LinearPatternFeatureCommand();
+        seedPicks(cmd, app, body, directionPick(body));
+        // No session yet: the tick is remembered rather than picked against nothing.
+        cmd.direction2Enabled = true;
+        expect(cmd.hasDirection2).toBe(false);
+
+        // The pick records WHO the viewport was dispatching to when it started. Started from
+        // `createSession`, that would be the pre-session handler: the session's own pick then
+        // installs over it, never lets it see a click, and the second direction is lost.
+        const targetAtPick: unknown[] = [];
+        const recordingPick: Direction2PickStub = (controller) => {
+            targetAtPick.push((doc.visual as any).eventHandler);
+            controller.success();
+            return Promise.resolve([direction2Pick(body)]);
+        };
+        const before = (doc.visual as any).eventHandler;
+        const { controller, promise, handler } = openSession(doc, cmd, recordingPick);
+        await flush();
+
+        expect(targetAtPick).toHaveLength(1);
+        expect(targetAtPick[0]).toBe(handler);
+        expect(cmd.hasDirection2).toBe(true);
+        expect(ghostCalls(displayMesh)).toBe(14);
+
+        controller.cancel();
+        await promise;
+        // and the viewport goes back to what it had before the session, not to either picker
+        expect((doc.visual as any).eventHandler).toBe(before);
+    });
+
     test("a direction 2 parallel to direction 1 is refused at the commit", async () => {
         const { app, doc, body } = setup();
         const cmd = new LinearPatternFeatureCommand();
-        seedPicks(
-            cmd,
-            app,
-            body,
-            directionPick(body),
-            edgePick(body, edge(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 0, z: 5 }))),
-        );
-        const { promise, handler } = openSession(doc, cmd);
+        const parallel = edgePick(body, edge(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 0, z: 5 })));
+        const { promise, handler } = await openGridSession(doc, cmd, app, body, pickOf([parallel]));
 
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         try {
@@ -767,23 +1537,11 @@ describe("linear pattern direction 2", () => {
         }
     });
 
-    test("the preview opens hasDirection2 with the pick, so the panel shows the pair only then", () => {
-        const { app, doc, body } = setup();
-        const single = new LinearPatternFeatureCommand();
-        seedPicks(single, app, body, directionPick(body));
-        openSession(doc, single);
-        expect((single as any).hasDirection2).toBe(false);
-
-        const grid = new LinearPatternFeatureCommand();
-        openGridSession(doc, grid, app, body);
-        expect((grid as any).hasDirection2).toBe(true);
-    });
-
     test("ESC cancels the grid preview: no feature lands, the ghosts come down", async () => {
         const { app, doc, body, booleanFuse, displayMesh, removeMesh } = setup();
         const cmd = new LinearPatternFeatureCommand();
-        const { controller, promise } = openGridSession(doc, cmd, app, body);
-        expect(ghostCalls(displayMesh)).toBe(10);
+        const { controller, promise } = await openGridSession(doc, cmd, app, body);
+        expect(ghostCalls(displayMesh)).toBe(14);
 
         controller.cancel();
         const result = await promise;
@@ -791,7 +1549,9 @@ describe("linear pattern direction 2", () => {
         expect(result).toBeUndefined();
         expect(body.features).toHaveLength(1);
         expect(booleanFuse).not.toHaveBeenCalled();
-        expect((cmd as any).session).toBeUndefined();
-        expect(removeMesh).toHaveBeenCalledTimes(10);
+        expect((cmd as any)._session).toBeUndefined();
+        // the ten ghosts and the two arrows (shaft + head each), plus what the redraw of the
+        // first arrow cost when the second direction joined
+        expect(removeMesh).toHaveBeenCalledTimes(14 + 2 + 4);
     });
 });

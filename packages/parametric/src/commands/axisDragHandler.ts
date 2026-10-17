@@ -101,9 +101,37 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     protected get gestureActive(): boolean {
         return this._dragging || this._awaitingClick;
     }
+
+    /** Whether the click-move gesture is waiting for the click that settles it. */
+    protected get awaitingClick(): boolean {
+        return this._awaitingClick;
+    }
+
+    /**
+     * Drops every bit of gesture state the base owns. A subclass can lose the handle a
+     * gesture was editing (the value's direction was removed, the arrow went away) — its own
+     * bookkeeping is not enough: the base would keep waiting for a settling click or a
+     * release that will never come, and swallow the next press.
+     */
+    protected abandonGesture(): void {
+        this._awaitingClick = false;
+        this._downX = undefined;
+        this._downY = undefined;
+        this._dragging = false;
+    }
     /** The point the arrow is measured at when sizing it in pixels; must not move with the value. */
     protected scaleAnchor(): XYZ {
         return this.axis().origin;
+    }
+
+    /**
+     * The world length the arrow is drawn at: exactly the pixel-sized length the view
+     * measured. A floor of `ARROW_LENGTH` here would be a floor in WORLD units — at 10 px/mm
+     * an 80 px arrow is 8 mm, and a 40 mm minimum would draw it 400 px wide (with the hit
+     * test aimed at the same wrong length).
+     */
+    protected get handleLength(): number {
+        return this.arrowLength ?? ARROW_LENGTH;
     }
     /** Called on hover while not dragging, when the pointer is off the arrow. */
     protected onHover(_view: IView, _event: PointerEvent): void {}
@@ -397,14 +425,24 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
         const { start, end } = this.arrowSegment();
         const direction = end.sub(start).normalize();
         if (direction === undefined) return [];
-        const color = this.arrowHovered ? ARROW_HOVER_COLOR : ARROW_COLOR;
+        return this.arrowMeshesAt(start, direction, this.arrowHovered ? ARROW_HOVER_COLOR : ARROW_COLOR);
+    }
+
+    /**
+     * An arrow of `length` starting at `start`, pointing along `direction`. The canonical
+     * geometry is cached by direction and colour, so a hover, a drag frame or a panel edit
+     * re-places the same buffers rather than asking the kernel to build a cylinder and a
+     * cone again — a subclass that draws more than one arrow (the pattern preview's per
+     * direction) shares the cache through this method.
+     */
+    protected arrowMeshesAt(start: XYZ, direction: XYZ, color: number): ShapeMeshData[] {
         const key = `${direction.x},${direction.y},${direction.z},${color}`;
         let arrow = this._arrowCache.get(key);
         if (arrow === undefined) {
             arrow = arrowMeshes(XYZ.zero, direction, ARROW_LENGTH, color);
             this._arrowCache.set(key, arrow);
         }
-        const scale = (this.arrowLength ?? ARROW_LENGTH) / ARROW_LENGTH;
+        const scale = this.handleLength / ARROW_LENGTH;
         return arrow.map((mesh) => ({
             ...mesh,
             position: scaleAndTranslate(mesh.position, start, scale),

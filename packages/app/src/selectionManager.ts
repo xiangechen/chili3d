@@ -6,6 +6,7 @@ import {
     type IDocument,
     type INode,
     type ISelection,
+    isSameShapeData,
     ShapeTypes,
     Signal,
     VisualNode,
@@ -52,11 +53,9 @@ export class SelectionManager implements ISelection, IDisposable {
     setSelectedShapes(shapes: VisualShapeData[], selectedState: VisualState, toggle: boolean): number {
         if (toggle) {
             const toRemove = this.selectedShapeSet.filter((x) =>
-                shapes.some((s) => SelectionManager.isSameShapeData(s, x[0])),
+                shapes.some((s) => isSameShapeData(s, x[0])),
             );
-            const toAdd = shapes.filter(
-                (s) => !toRemove.some((x) => SelectionManager.isSameShapeData(s, x[0])),
-            );
+            const toAdd = shapes.filter((s) => !toRemove.some((x) => isSameShapeData(s, x[0])));
             this.removeSelectedShapes(toRemove, false);
             this.addSelectedShapes(toAdd, selectedState, true);
         } else {
@@ -69,19 +68,6 @@ export class SelectionManager implements ISelection, IDisposable {
 
     getSelectedShapes(): VisualShapeData[] {
         return Array.from(this.selectedShapeSet).map((x) => x[0]);
-    }
-
-    /**
-     * Cloned nodes share the same shape id (serialization preserves it), so identity
-     * must include the owner visual and sub-shape indexes, not just the shape id.
-     */
-    private static isSameShapeData(a: VisualShapeData, b: VisualShapeData): boolean {
-        return (
-            a.owner === b.owner &&
-            a.shape.id === b.shape.id &&
-            a.indexes.length === b.indexes.length &&
-            a.indexes.every((v, i) => v === b.indexes[i])
-        );
     }
 
     clearSelection(): void {

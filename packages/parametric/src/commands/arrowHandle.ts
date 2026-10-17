@@ -49,6 +49,27 @@ export function arrowMeshes(start: XYZ, direction: XYZ, length: number, color: n
     });
 }
 
+/**
+ * The handle nearest the pointer, within the hover tolerance. Ties go to the FIRST one in
+ * the list: handles that share an anchor (a triad's root, a pattern's two directions) must
+ * resolve to a stable one, and the first is the one the tool draws first.
+ */
+export function nearestHandle<Role extends string, Handle extends { readonly role: Role }>(
+    handles: readonly Handle[],
+    distanceOf: (handle: Handle) => number,
+): Role | undefined {
+    let nearest: Role | undefined;
+    let best = Number.POSITIVE_INFINITY;
+    for (const handle of handles) {
+        const distance = distanceOf(handle);
+        if (distance <= ARROW_HOVER_TOLERANCE && distance < best) {
+            best = distance;
+            nearest = handle.role;
+        }
+    }
+    return nearest;
+}
+
 /** Screen-space distance from point (`x`, `y`) to the segment `a`–`b`. */
 export function distanceToSegment(x: number, y: number, a: XY, b: XY): number {
     const abx = b.x - a.x;

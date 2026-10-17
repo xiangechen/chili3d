@@ -20,14 +20,7 @@ import {
     VisualConfig,
     XYZ,
 } from "@chili3d/core";
-import {
-    ARROW_COLOR,
-    ARROW_HOVER_COLOR,
-    ARROW_HOVER_TOLERANCE,
-    ARROW_LENGTH,
-    arrowMeshes,
-    distanceToSegment,
-} from "../../commands/arrowHandle";
+import { ARROW_COLOR, ARROW_HOVER_COLOR, distanceToSegment, nearestHandle } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import {
     type ArrayDraft,
@@ -609,16 +602,7 @@ export class SketchArraySession extends AxisDragHandler {
      * about one arrow, so the session's are tested here and the nearest wins.
      */
     private handleAt(view: IView, event: PointerEvent): ArrayHandle | undefined {
-        let nearest: ArrayHandle | undefined;
-        let best = ARROW_HOVER_TOLERANCE;
-        for (const handle of this.handles()) {
-            const distance = this.handleDistance(view, handle, event);
-            if (distance <= best) {
-                best = distance;
-                nearest = handle.role;
-            }
-        }
-        return nearest;
+        return nearestHandle(this.handles(), (handle) => this.handleDistance(view, handle, event));
     }
 
     private handleDistance(view: IView, handle: ArrayHandleGeometry, event: PointerEvent): number {
@@ -754,19 +738,12 @@ export class SketchArraySession extends AxisDragHandler {
             }
             const direction = handle.end.sub(handle.start).normalize();
             if (direction !== undefined) {
-                meshes.push(...arrowMeshes(handle.start, direction, this.handleLength, color));
+                // The base caches the canonical geometry: a refresh re-places buffers
+                // rather than meshing a cylinder and a cone again.
+                meshes.push(...this.arrowMeshesAt(handle.start, direction, color));
             }
         }
         return meshes;
-    }
-
-    /**
-     * A handle's drawn length: the base's own arrow length, which is a constant number of
-     * pixels. Handles are aimed at rather than measured, and this is what keeps them the same
-     * size on screen wherever the pattern is.
-     */
-    private get handleLength(): number {
-        return Math.max(this.arrowLength ?? ARROW_LENGTH, ARROW_LENGTH);
     }
 
     // ------------------------------------------------------------------ Placing the pattern

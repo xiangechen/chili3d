@@ -582,14 +582,16 @@ export default {
             "Drag the arrow to set the draft angle, click a face to add or remove it, ESC key to cancel",
         "prompt.dragToOffset": "Drag the arrow to set the plane offset, ESC key to cancel",
         "prompt.dragToPatternAngle": "Drag the arrow to set the pattern angle, ESC key to cancel",
-        "prompt.patternPreview": "Adjust the pattern options, Enter to confirm, ESC key to cancel",
+        "prompt.patternPreview":
+            "Drag the arrows or adjust the pattern options, Enter to confirm, ESC key to cancel",
         "prompt.saveDocument{0}": "Do you want to save the changes to {0}?",
         "prompt.select.axis": "Please select a axis",
         "prompt.select.boundary": "Please select the boundary edge",
         "prompt.select.circleEdge": "Please select a circle or arc edge",
         "prompt.select.cornerFaces": "Please select the face of a fillet or chamfer",
         "prompt.select.curve": "Please select a curve",
-        "prompt.select.direction2Edge": "Please select the second direction edge, or press Enter to skip",
+        "prompt.select.direction2Edge":
+            "Please select the edge for the second direction, or press Enter to skip",
         "prompt.select.edges": "Please select edges",
         "prompt.select.extendTarget": "Please select the edge to extend",
         "prompt.select.faces": "Please select faces",

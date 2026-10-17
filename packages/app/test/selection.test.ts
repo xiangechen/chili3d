@@ -138,7 +138,7 @@ describe("SelectionManager", () => {
         });
 
         test("should not toggle off a shape with the same id owned by another visual", () => {
-            // cloned nodes share the same shape id (see SelectionManager.isSameShapeData)
+            // cloned nodes share the same shape id (see isSameShapeData in @chili3d/core)
             const first = createShapeData("shape-1", {});
             const second = createShapeData("shape-1", {});
             selection.setSelectedShapes([first], 0, false);

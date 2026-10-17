@@ -18,7 +18,7 @@ import {
     UNITLESS,
     XYZ,
 } from "@chili3d/core";
-import { ARROW_HOVER_TOLERANCE, ARROW_LENGTH, distanceToSegment } from "../../commands/arrowHandle";
+import { ARROW_LENGTH, distanceToSegment, nearestHandle } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import { type DragSnap, snapConstraintKind, snapPosition } from "../autoConstraints";
 import { applyConstraintIcon, badgeSymbol } from "../editor/sketchAnnotations";
@@ -1029,16 +1029,6 @@ export class SketchTransformSession extends AxisDragHandler {
         return base === undefined ? undefined : toWorld(this.data.editor.node.plane, ...base);
     }
 
-    /**
-     * The world length the arrows are drawn at: the pixel-constant one the base sizes its own
-     * arrow to. Never below `ARROW_LENGTH`, because a meshed arrow shorter than that comes out
-     * with a head longer than its own shaft — which only ever bites when the view is so close
-     * that the whole triad would be unusable anyway.
-     */
-    private get handleLength(): number {
-        return Math.max(this.arrowLength ?? ARROW_LENGTH, ARROW_LENGTH);
-    }
-
     /** The turn the frame is drawn at, in radians. */
     private get turned(): number {
         return toStorageDatum(ConstraintKind.Angle, this._degrees);
@@ -1089,16 +1079,7 @@ export class SketchTransformSession extends AxisDragHandler {
      * only ever knows about one arrow, so the four are tested here and the nearest wins.
      */
     private handleAt(view: IView, event: PointerEvent): TransformHandle | undefined {
-        let nearest: TransformHandle | undefined;
-        let best = ARROW_HOVER_TOLERANCE;
-        for (const handle of this.handles()) {
-            const distance = this.handleDistance(view, handle, event);
-            if (distance <= best) {
-                best = distance;
-                nearest = handle.role;
-            }
-        }
-        return nearest;
+        return nearestHandle(this.handles(), (handle) => this.handleDistance(view, handle, event));
     }
 
     private handleDistance(view: IView, handle: HandleGeometry, event: PointerEvent): number {

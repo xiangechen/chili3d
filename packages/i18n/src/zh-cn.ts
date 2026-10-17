@@ -570,7 +570,7 @@ export default {
         "prompt.dragToDraft": "拖拽箭头设置拔模角度，单击面可加入或移出，按 ESC 键取消",
         "prompt.dragToOffset": "拖拽箭头设置草图平面偏移，按 ESC 键取消",
         "prompt.dragToPatternAngle": "拖拽箭头设置阵列角度，按 ESC 键取消",
-        "prompt.patternPreview": "在面板中调整阵列参数，按 Enter 键确认，按 ESC 键取消",
+        "prompt.patternPreview": "拖拽箭头或在面板中调整阵列参数，按 Enter 键确认，按 ESC 键取消",
         "prompt.saveDocument{0}": "是否保存对 {0} 的更改？",
         "prompt.select.axis": "请选择轴",
         "prompt.select.boundary": "请选择边界边",
