@@ -34,6 +34,9 @@ export class Editor extends HTMLElement {
     private _chatWidth: number = 320;
     private _isResizingSidebar: boolean = false;
     private _sidebarEl: HTMLDivElement | null = null;
+    private _projectView?: ProjectView;
+    private _propertyView?: PropertyView;
+    private _sidebarSplit: number = 0.5;
 
     constructor(
         readonly app: IApplication,
@@ -48,18 +51,25 @@ export class Editor extends HTMLElement {
     }
 
     private render() {
+        this._projectView = new ProjectView({ className: style.sidebarItem });
+        this._propertyView = new PropertyView({ className: style.sidebarItem });
         this._sidebarEl = div(
             {
                 className: style.sidebar,
                 style: `width: ${this._sidebarWidth}px;`,
             },
-            new ProjectView({ className: style.sidebarItem }),
-            new PropertyView({ className: style.sidebarItem }),
+            this._projectView,
+            div({
+                className: style.sidebarItemResizer,
+                onpointerdown: (e: PointerEvent) => this._startSidebarItemResize(e),
+            }),
+            this._propertyView,
             div({
                 className: style.sidebarResizer,
                 onpointerdown: (e: PointerEvent) => this._startSidebarResize(e),
             }),
         );
+        this.applySidebarSplit();
         this._contentEl = div({ className: style.content }, this._sidebarEl, this._viewportContainer);
         this.append(
             div(
@@ -184,6 +194,40 @@ export class Editor extends HTMLElement {
                 const maxWidth = Math.floor(window.innerWidth * 0.6);
                 this._chatWidth = Math.max(minWidth, Math.min(maxWidth, rect.right - ev.clientX));
                 dock.style.width = `${this._chatWidth}px`;
+            },
+            () => {
+                if (this.app.mainWindow) this.app.mainWindow.style.cursor = "";
+            },
+        );
+    }
+
+    private applySidebarSplit() {
+        if (!this._projectView || !this._propertyView) return;
+        this._projectView.style.flexGrow = `${this._sidebarSplit}`;
+        this._propertyView.style.flexGrow = `${1 - this._sidebarSplit}`;
+    }
+
+    /**
+     * Both panes keep their share of the sidebar's height as a ratio rather than a pixel
+     * height, so the split survives a window resize instead of leaving one pane clamped.
+     */
+    private _startSidebarItemResize(e: PointerEvent) {
+        e.preventDefault();
+        const project = this._projectView;
+        const property = this._propertyView;
+        if (!project || !property) return;
+
+        const top = project.getBoundingClientRect().top;
+        const total = project.getBoundingClientRect().height + property.getBoundingClientRect().height;
+        if (total <= 0) return;
+
+        const minRatio = Math.min(0.5, 60 / total);
+        if (this.app.mainWindow) this.app.mainWindow.style.cursor = "ns-resize";
+        this.trackPointerDrag(
+            (ev) => {
+                const ratio = (ev.clientY - top) / total;
+                this._sidebarSplit = Math.min(1 - minRatio, Math.max(minRatio, ratio));
+                this.applySidebarSplit();
             },
             () => {
                 if (this.app.mainWindow) this.app.mainWindow.style.cursor = "";

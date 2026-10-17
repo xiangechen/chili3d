@@ -25,7 +25,7 @@
         & .sidebarItem {
             margin-top: 10px;
             overflow: hidden;
-            flex: 1 1 auto;
+            flex: 1 1 0;
             height: 0;
         }
     }
@@ -70,6 +70,33 @@
 }
 
 .chatResizer:hover {
+    background: var(--resizer-gradient-hover);
+}
+
+.sidebarItemResizer {
+    flex: 0 0 8px;
+    height: 8px;
+    margin: -4px 0;
+    position: relative;
+    cursor: ns-resize;
+    touch-action: none;
+    z-index: 5;
+}
+
+.sidebarItemResizer::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    transform: translateY(-50%);
+    border-radius: 2px;
+    background: var(--resizer-gradient);
+    transition: background 0.2s;
+}
+
+.sidebarItemResizer:hover::after {
     background: var(--resizer-gradient-hover);
 }
 
