@@ -16,6 +16,7 @@ import { SketchArcCommand } from "../../src/sketch/commands/sketchArc";
 import { SketchCircleCommand } from "../../src/sketch/commands/sketchCircle";
 import { SketchEllipseCommand } from "../../src/sketch/commands/sketchEllipse";
 import { SketchLineCommand } from "../../src/sketch/commands/sketchLine";
+import { SketchPointCommand } from "../../src/sketch/commands/sketchPoint";
 import type { SketchPointSnapData } from "../../src/sketch/commands/sketchPointStep";
 import {
     POLYGON_CIRCUMSCRIBED,
@@ -866,6 +867,62 @@ describe("SketchLineCommand chain", () => {
             { id: 2, type: "line", params: [10, 2, 10, 10] },
             { id: 3, type: "line", params: [10, 10, 4, 2] },
         ]);
+        editor.solver.dispose();
+    });
+});
+
+describe("SketchPointCommand", () => {
+    /** The point tool loops on its single step, so the harness hands out that one. */
+    async function runPoints(command: SketchPointCommand, editor: FakeEditor, step: QueuedStep) {
+        const getActive = rs.spyOn(SketchEditor, "getActive").mockReturnValue(editor as any);
+        try {
+            (command as any)._application = { activeView: { document: {} } };
+            (command as any).getSteps = () => [step];
+            await (command as any).executeAsync();
+        } finally {
+            getActive.mockRestore();
+        }
+    }
+
+    test("places one point per pick until a pick is cancelled", async () => {
+        const editor = fakeEditor();
+        const step = queuedStep([uv(3, 4), uv(-1, 2), undefined]);
+        await runPoints(new SketchPointCommand(), editor, step);
+
+        expect(editor.solver.entities()).toEqual([
+            { id: 1, type: "point", params: [3, 4] },
+            { id: 2, type: "point", params: [-1, 2] },
+        ]);
+        expect(editor.commit).toHaveBeenCalledTimes(2);
+        expect(step.execute).toHaveBeenCalledTimes(3);
+        editor.solver.dispose();
+    });
+
+    test("a cancelled first pick places nothing", async () => {
+        const editor = fakeEditor();
+        await runPoints(new SketchPointCommand(), editor, queuedStep([undefined]));
+
+        expect(editor.solver.entities()).toEqual([]);
+        expect(editor.commit).not.toHaveBeenCalled();
+        editor.solver.dispose();
+    });
+
+    test("a pick near a line's endpoint snaps onto it and coincides", async () => {
+        const editor = fakeEditor();
+        const lineId = editor.solver.addLine(0, 0, 10, 0);
+        editor.screenTolerance = () => 0.5;
+        await runPoints(new SketchPointCommand(), editor, queuedStep([uv(10.2, 0.1), undefined]));
+
+        const point = editor.solver.entities().find((entity) => entity.type === "point");
+        expect(point).toBeDefined();
+        expect(editor.solver.toData().constraints).toContainEqual({
+            id: expect.any(Number),
+            kind: ConstraintKind.P2PCoincident,
+            refs: [
+                { entityId: point!.id, pointIndex: 0 },
+                { entityId: lineId, pointIndex: 1 },
+            ],
+        });
         editor.solver.dispose();
     });
 });

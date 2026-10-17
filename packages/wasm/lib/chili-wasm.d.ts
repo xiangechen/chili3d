@@ -66,6 +66,7 @@ export interface TrackedShapeResult extends ClassHandle {
   capFaces: IntVector;
   offsetFaceMap: IntVector;
   offsetEdgeMap: IntVector;
+  offsetReport: IntVector;
 }
 
 export interface ShapeFactory extends ClassHandle {
@@ -669,11 +670,16 @@ interface EmbindModule {
     bspline(_0: Array<Vector3>, _1: Array<number>, _2: Array<number>, _3: number): ShapeResult;
     fillet(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
     chamfer(_0: TopoDS_Shape, _1: Array<number>, _2: number): ShapeResult;
+    filletVariable(_0: TopoDS_Shape, _1: Array<number>, _2: Array<number>): ShapeResult;
+    chamferTwoDist(_0: TopoDS_Shape, _1: Array<number>, _2: number, _3: number, _4: Array<number>): ShapeResult;
     filletTracked(_0: TopoDS_Shape, _1: Array<number>, _2: number): TrackedShapeResult;
     chamferTracked(_0: TopoDS_Shape, _1: Array<number>, _2: number): TrackedShapeResult;
+    filletVariableTracked(_0: TopoDS_Shape, _1: Array<number>, _2: Array<number>): TrackedShapeResult;
+    chamferTwoDistTracked(_0: TopoDS_Shape, _1: Array<number>, _2: number, _3: number, _4: Array<number>): TrackedShapeResult;
     sweep(_0: Array<TopoDS_Shape>, _1: TopoDS_Wire, _2: boolean, _3: boolean): ShapeResult;
     makeThickSolidByJoin(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: GeomAbs_JoinType, _4: BRepOffset_Mode, _5: boolean): ShapeResult;
     makeThickSolidByJoinTracked(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: GeomAbs_JoinType, _4: BRepOffset_Mode, _5: boolean): TrackedShapeResult;
+    offsetFacesTracked(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: Array<TopoDS_Shape>): TrackedShapeResult;
     simplifyShape(_0: TopoDS_Shape, _1: boolean, _2: boolean, _3: Array<TopoDS_Shape>, _4: number, _5: number): ShapeResult;
     booleanCommon(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     booleanCut(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
@@ -699,6 +705,8 @@ interface EmbindModule {
     ellipsoid(_0: Vector3, _1: Vector3, _2: Vector3, _3: number, _4: number, _5: number): ShapeResult;
     ellipse(_0: Vector3, _1: Vector3, _2: Vector3, _3: number, _4: number): ShapeResult;
     cylinder(_0: Vector3, _1: Vector3, _2: number, _3: number): ShapeResult;
+    sweepMode(_0: Array<TopoDS_Shape>, _1: TopoDS_Wire, _2: number, _3: boolean, _4: Vector3): ShapeResult;
+    sweepModeTracked(_0: TopoDS_Shape, _1: TopoDS_Wire, _2: number, _3: boolean, _4: Vector3): TrackedShapeResult;
     prism(_0: TopoDS_Shape, _1: Vector3): ShapeResult;
     pushPull(_0: TopoDS_Shape, _1: TopoDS_Shape, _2: Vector3): ShapeResult;
     circle(_0: Vector3, _1: Vector3, _2: number): ShapeResult;

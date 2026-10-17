@@ -587,6 +587,114 @@ describe("ExtrudeDragHandler", () => {
         handler.keyDown(dragView(), { key: "Escape" } as KeyboardEvent);
         expect(controller.result?.status).toBe("cancel");
     });
+
+    test("finishEarly commits at zero depth against the active view", () => {
+        const view = createHandlerMockView({ document: doc });
+        doc.application.activeView = view;
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+
+        // The plain confirm refuses a zero depth ("confirming at zero depth is a no-op"
+        // above); the early finish is what an end-condition switch uses, and the depth
+        // genuinely no longer matters there.
+        handler.finishEarly();
+
+        expect(controller.result?.status).toBe("success");
+        expect(handler.commitView).toBe(view);
+        handler.dispose();
+    });
+
+    test("finishEarly keeps the view a completed drag recorded", () => {
+        const view = dragView();
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+        handler.pointerDown(view, createPointerEvent({ offsetX: 100, offsetY: 200 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 113, offsetY: 200 }));
+        handler.pointerMove(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
+        handler.pointerUp(view, createPointerEvent({ offsetX: 120, offsetY: 200 }));
+
+        handler.finishEarly();
+
+        expect(controller.result?.status).toBe("success");
+        expect(handler.state.dist).toBeCloseTo(7);
+        expect(handler.commitView).toBe(view);
+        handler.dispose();
+    });
+
+    test("cleanup runs every side effect exactly once even when a clearInput subscriber re-enters dispose", () => {
+        const removeCameraListener = rs.fn();
+        const view = createHandlerMockView({
+            document: doc,
+            cameraController: {
+                onPropertyChanged: () => {},
+                removePropertyChanged: removeCameraListener,
+            } as any,
+        });
+        doc.application.activeView = view;
+        const data = dragData();
+        const onDone = rs.fn();
+        data.onDone = onDone;
+        const handler = new ExtrudeDragHandler(doc, controller, data);
+
+        const events: string[] = [];
+        let reentered = false;
+        const onClearInput = () => {
+            events.push("clearInput");
+            if (reentered) return;
+            reentered = true;
+            // A subscriber settling the controller (or disposing the handler) re-enters
+            // cleanup synchronously; the flag is already up, so it must be a no-op.
+            handler.dispose();
+        };
+        const onClearConfirm = () => events.push("clearConfirmControl");
+        PubSub.default.sub("clearInput", onClearInput);
+        PubSub.default.sub("clearConfirmControl", onClearConfirm);
+        try {
+            handler.dispose();
+
+            expect(reentered).toBe(true);
+            expect(events).toEqual(["clearInput", "clearConfirmControl"]);
+            expect(removeCameraListener).toHaveBeenCalledTimes(1);
+            expect(onDone).toHaveBeenCalledTimes(1);
+        } finally {
+            PubSub.default.remove("clearInput", onClearInput);
+            PubSub.default.remove("clearConfirmControl", onClearConfirm);
+        }
+    });
+
+    test("dispose drops the hover highlight, unhooks the camera, and clears the input", () => {
+        const removeCameraListener = rs.fn();
+        const { highlighter, addCalls, removeCalls } = createMockHighlighter();
+        doc.visual = createMockVisualWithDocument(doc, { highlighter });
+        const face = faceData(sketch, [2]);
+        const view = createHandlerMockView({
+            document: doc,
+            cameraController: {
+                onPropertyChanged: () => {},
+                removePropertyChanged: removeCameraListener,
+            } as any,
+            detectShapes: () => [face],
+        });
+        doc.application.activeView = view;
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+        const events: string[] = [];
+        const onClearInput = () => events.push("clearInput");
+        PubSub.default.sub("clearInput", onClearInput);
+        try {
+            handler.pointerMove(view, createPointerEvent());
+            expect(addCalls).toEqual([
+                { shape: face.owner, state: VisualStates.faceHighlight, type: ShapeTypes.face, indexes: [2] },
+            ]);
+
+            handler.dispose();
+
+            expect(removeCalls).toEqual([
+                { shape: face.owner, state: VisualStates.faceHighlight, type: ShapeTypes.face, indexes: [2] },
+            ]);
+            expect(removeCameraListener).toHaveBeenCalledTimes(1);
+            expect(events).toEqual(["clearInput"]);
+        } finally {
+            PubSub.default.remove("clearInput", onClearInput);
+        }
+    });
 });
 
 describe("ExtrudeDragStep", () => {
@@ -679,6 +787,92 @@ describe("ExtrudeDragStep", () => {
 
         const controller = new AsyncController();
         const promise = step.execute(doc, controller);
+        captured!.keyDown(createHandlerMockView({ document: doc }), { key: "Escape" } as KeyboardEvent);
+
+        expect(await promise).toBeUndefined();
+    });
+
+    test("skips the drag with a zero-depth placeholder when shouldSkip holds", async () => {
+        const doc = new TestDocument();
+        doc.visual = createMockVisualWithDocument(doc);
+        const view = createHandlerMockView({ document: doc });
+        doc.application.activeView = view;
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        const face = faceData(sketch, [0]);
+        const pickAsync = rs.fn();
+        doc.picker = { pickAsync } as any;
+
+        // The predicate is read at execution time: it flips after construction.
+        let skip = false;
+        const step = new ExtrudeDragStep(
+            "prompt.dragToExtrude",
+            () => ({
+                node: sketch,
+                faces: [face],
+                origin: XYZ.zero,
+                normal: XYZ.unitZ,
+                anchor: XYZ.zero,
+                buildPreview: () => ({ meshes: [] }),
+            }),
+            () => skip,
+        );
+        skip = true;
+
+        const controller = new AsyncController();
+        const result = await step.execute(doc, controller);
+
+        expect(controller.result?.status).toBe("success");
+        expect(pickAsync).not.toHaveBeenCalled();
+        expect(result?.type).toBe("input");
+        expect(result?.view).toBe(view);
+        expect(result?.distance).toBe(0);
+        expect(result?.point!.isEqualTo(XYZ.zero)).toBe(true);
+        expect(result?.plane!.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+        expect(result?.shapes).toEqual([face]);
+        expect(result?.nodes![0]).toBe(sketch);
+    });
+
+    test("runs the drag when shouldSkip does not hold", async () => {
+        const doc = new TestDocument();
+        doc.visual = createMockVisualWithDocument(doc);
+        stubArrowGeometry();
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+
+        let captured: ExtrudeDragHandler | undefined;
+        const pickAsync = rs.fn((handler: ExtrudeDragHandler, _prompt: any, controller: AsyncController) => {
+            captured = handler;
+            return new Promise<void>((resolve) => {
+                controller.onCompleted(() => resolve());
+                controller.onCancelled(() => resolve());
+                controller.onFailed(() => resolve());
+            });
+        });
+        doc.picker = { pickAsync } as any;
+
+        const step = new ExtrudeDragStep(
+            "prompt.dragToExtrude",
+            () => ({
+                node: sketch,
+                faces: [],
+                origin: XYZ.zero,
+                normal: XYZ.unitZ,
+                anchor: XYZ.zero,
+                buildPreview: () => ({ meshes: [] }),
+            }),
+            () => false,
+        );
+
+        const controller = new AsyncController();
+        const promise = step.execute(doc, controller);
+        expect(pickAsync).toHaveBeenCalledTimes(1);
         captured!.keyDown(createHandlerMockView({ document: doc }), { key: "Escape" } as KeyboardEvent);
 
         expect(await promise).toBeUndefined();

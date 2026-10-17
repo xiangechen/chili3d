@@ -314,10 +314,10 @@ function select(session: SketchTransformSession, editor: FakeEditor, ids: readon
 
 describe("SketchTransformCommand", () => {
     beforeEach(() => {
-        // A command's options are cached statically, keyed by property name
-        // (`CancelableCommand._propertiesCache`), and restored in `beforeExecute`. Left
-        // alone, a value one case typed would reach the next command instance and turn
-        // that case's transform into this one's — so the cache starts empty every time.
+        // A command's options are cached statically (`CancelableCommand._propertiesCache`)
+        // and restored in `beforeExecute`. Left alone, a value one case typed would reach
+        // the next command instance and turn that case's transform into this one's — so
+        // the cache starts empty every time.
         (CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> })._propertiesCache.clear();
     });
 

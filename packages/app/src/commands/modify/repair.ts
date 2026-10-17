@@ -13,12 +13,15 @@ import {
 } from "@chili3d/core";
 
 export function repairShape(shape: IShape, tolerance: number) {
-    const getShapeIfNotNull = (testShape: IShape, defaultShape: IShape) => {
-        return testShape.isNull() ? defaultShape : testShape;
+    // `shape` is owned by the caller (a node's shape); only replaced intermediates are disposed.
+    const replaceIfNotNull = (next: IShape, current: IShape) => {
+        if (next.isNull()) return current;
+        if (current !== shape) current.dispose();
+        return next;
     };
-    let repairedShape = getShapeIfNotNull(shape.shellSewing(tolerance), shape);
-    repairedShape = getShapeIfNotNull(repairedShape.fixShape(tolerance), repairedShape);
-    repairedShape = getShapeIfNotNull(repairedShape.fixSmallFace(tolerance), repairedShape);
+    let repairedShape = replaceIfNotNull(shape.shellSewing(tolerance), shape);
+    repairedShape = replaceIfNotNull(repairedShape.fixShape(tolerance), repairedShape);
+    repairedShape = replaceIfNotNull(repairedShape.fixSmallFace(tolerance), repairedShape);
     return repairedShape;
 }
 

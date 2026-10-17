@@ -1,14 +1,26 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, type IShape, LENGTH_UNITS, Result, resolveUnitSpec, type XYZ } from "@chili3d/core";
+import {
+    ANGLE_UNITS,
+    type FeatureParameter,
+    type IDocument,
+    type IShape,
+    LENGTH_UNITS,
+    Result,
+    type XYZ,
+} from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
 import { trackedBoolean } from "./boolean";
+import { resolveExtrudeDraft } from "./extrudeDraft";
+import { type ExtrudePlan, resolveExtrudePlan } from "./extrudeEnd";
 import {
     completeTrackedHistory,
+    type ExtrudeEndCondition,
     type ExtrudeFeatureData,
     type FeatureContext,
     type FeatureHandler,
+    type FeatureNodeRef,
     registerFeature,
     type ShapeTracking,
 } from "./feature";
@@ -25,82 +37,187 @@ export function findSketch(document: IDocument, id: string): SketchNode | undefi
     return node instanceof SketchNode ? node : undefined;
 }
 
+const END_CONDITIONS: readonly ExtrudeEndCondition[] = ["blind", "throughAll", "upToFace", "upToVertex"];
+
 const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
     display: "command.feature.extrude",
     icon: "icon-prism",
     reselectable: true,
 
-    nodeIds: (feature) =>
-        [feature.sketchId, feature.source?.nodeId].filter((x): x is string => x !== undefined),
-
-    // Only the sketch: `source` is the body being press-pulled, which the tree
-    // already shows and the feature row does not need a second door to.
-    references: (feature) =>
-        feature.sketchId === undefined
-            ? []
-            : [{ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId }],
-
-    parameters: (feature) => [
-        { key: "depth", display: "option.command.depth", value: feature.depth, unit: LENGTH_UNITS },
-        {
-            key: "startOffset",
-            display: "option.command.startOffset",
-            value: feature.startOffset ?? 0,
-            unit: LENGTH_UNITS,
-        },
-        { key: "symmetric", display: "option.command.symmetric", value: feature.symmetric ?? false },
+    nodeIds: (feature) => [
+        ...new Set(
+            [
+                feature.sketchId,
+                feature.source?.nodeId,
+                feature.endFace?.nodeId,
+                feature.endVertex?.nodeId,
+                feature.direction?.nodeId,
+            ].filter((x): x is string => x !== undefined),
+        ),
     ],
 
-    setParameter: (feature, key, value) =>
-        key === "symmetric"
-            ? { ...feature, symmetric: value === true || value === "true" }
-            : { ...feature, [key]: value },
+    // `source` stays unlisted — the body being press-pulled is already in the tree, and the
+    // feature row needs no second door to it. The end-condition targets and the direction
+    // are doors to nodes the user picked on, exactly like the sketch.
+    references: (feature) => {
+        const refs: FeatureNodeRef[] = [];
+        if (feature.sketchId !== undefined) {
+            refs.push({ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId });
+        }
+        if (feature.endFace !== undefined) {
+            refs.push({ key: "endFace", display: "feature.extrude.endFace", nodeId: feature.endFace.nodeId });
+        }
+        if (feature.endVertex !== undefined) {
+            refs.push({
+                key: "endVertex",
+                display: "feature.extrude.endVertex",
+                nodeId: feature.endVertex.nodeId,
+            });
+        }
+        if (feature.direction !== undefined) {
+            refs.push({
+                key: "direction",
+                display: "feature.extrude.direction",
+                nodeId: feature.direction.nodeId,
+            });
+        }
+        return refs;
+    },
 
-    applyResolvedRefs: (feature, { resolvedProfiles }) =>
-        resolvedProfiles === undefined
-            ? feature
-            : feature.source === undefined
-              ? { ...feature, profiles: resolvedProfiles }
-              : { ...feature, source: { ...feature.source, profiles: resolvedProfiles } },
+    parameters: (feature) => {
+        const params: FeatureParameter[] = [
+            { key: "depth", display: "option.command.depth", value: feature.depth, unit: LENGTH_UNITS },
+            {
+                key: "endCondition",
+                display: "feature.extrude.endCondition",
+                value: feature.endCondition ?? "blind",
+                choices: END_CONDITIONS.map((value) => ({
+                    value,
+                    display: `feature.extrude.endCondition.${value}` as const,
+                })),
+            },
+        ];
+        const condition = feature.endCondition ?? "blind";
+        if (condition === "upToFace" || condition === "upToVertex") {
+            params.push({
+                key: "endOffset",
+                display: "feature.extrude.endOffset",
+                value: feature.endOffset ?? 0,
+                unit: LENGTH_UNITS,
+            });
+        }
+        if (feature.symmetric !== true) {
+            params.push({
+                key: "depth2",
+                display: "feature.extrude.depth2",
+                value: feature.depth2 ?? 0,
+                unit: LENGTH_UNITS,
+            });
+        }
+        params.push(
+            {
+                key: "startOffset",
+                display: "option.command.startOffset",
+                value: feature.startOffset ?? 0,
+                unit: LENGTH_UNITS,
+            },
+            { key: "symmetric", display: "option.command.symmetric", value: feature.symmetric ?? false },
+            { key: "reverse", display: "option.command.oppositeDirection", value: feature.reverse ?? false },
+            // Zero means straight sides — the draft row doubles as the switch.
+            {
+                key: "draftAngle",
+                display: "feature.extrude.draftAngle",
+                value: feature.draftAngle ?? 0,
+                unit: ANGLE_UNITS,
+            },
+        );
+        return params;
+    },
+
+    setParameter: (feature, key, value) => {
+        if (key === "symmetric" || key === "reverse") {
+            const checked = value === true || value === "true";
+            // A symmetric sweep has no second side — drop the stale depth2 instead of
+            // tripping the "cannot be both" guard on the next rebuild.
+            if (key === "symmetric" && checked) {
+                const { depth2: _, ...rest } = feature;
+                return { ...rest, symmetric: true };
+            }
+            return { ...feature, [key]: checked };
+        }
+        if (key === "endCondition") {
+            return typeof value === "string" && END_CONDITIONS.includes(value as ExtrudeEndCondition)
+                ? { ...feature, endCondition: value as ExtrudeEndCondition }
+                : feature;
+        }
+        return { ...feature, [key]: value };
+    },
+
+    applyResolvedRefs: (feature, { resolvedProfiles, resolvedEdges, resolvedTargets }) => {
+        let next = feature;
+        if (resolvedProfiles !== undefined) {
+            next =
+                next.source === undefined
+                    ? { ...next, profiles: resolvedProfiles }
+                    : { ...next, source: { ...next.source, profiles: resolvedProfiles } };
+        }
+        const directionAnchor = resolvedEdges?.[0];
+        if (directionAnchor !== undefined && next.direction !== undefined) {
+            next = { ...next, direction: { ...next.direction, edge: directionAnchor } };
+        }
+        if (resolvedTargets?.endFace !== undefined && next.endFace !== undefined) {
+            next = { ...next, endFace: { ...next.endFace, profile: resolvedTargets.endFace } };
+        }
+        if (resolvedTargets?.endVertex !== undefined && next.endVertex !== undefined) {
+            next = { ...next, endVertex: { ...next.endVertex, vertex: resolvedTargets.endVertex } };
+        }
+        return next;
+    },
 
     evaluate(feature, context): Result<IShape> {
-        const params = resolveExtrudeParams(feature, context);
-        if (!params.isOk) return Result.err(params.error);
-        const { depth, startOffset } = params.value;
-
-        const tracked = evaluateOperationTracked(feature, context, depth, startOffset);
-        if (tracked !== undefined) return tracked;
-
-        const source = feature.source;
-        if (source === undefined) {
-            return combineWithInput(
-                extrudeFromSketch(feature, context, depth, startOffset),
-                feature,
-                context,
-            );
+        // The angle's own validity reports before the plan's: a bad parameter is more
+        // fundamental than a lost end target.
+        const draft = resolveExtrudeDraft(feature, context.scope);
+        if (!draft.isOk) return Result.err(draft.error);
+        const plan = resolveExtrudePlan(feature, context);
+        if (!plan.isOk) return Result.err(plan.error);
+        const result = evaluateWithPlan(feature, context, plan.value, draft.value);
+        // A lost end target or direction reports only when nothing louder did — a lost
+        // profile keeps precedence in the one-slot report.
+        if (
+            result.isOk &&
+            plan.value.unresolved !== undefined &&
+            context.tracking !== undefined &&
+            context.tracking.unresolved === undefined
+        ) {
+            context.tracking.unresolved = plan.value.unresolved;
         }
-        const built = extrudeFromSourceFaces({ ...feature, source }, context, depth, startOffset);
-        if (!built.isOk) return Result.err(built.error);
-        // The sweep's ids are the body's ids — without this a standalone press-pull (the default:
-        // no `operation`) named nothing (see `extrudeTracked`, the sketch path's counterpart).
-        if (context.tracking !== undefined) {
-            context.tracking.outputFaceIds = built.value.faceIds;
-            context.tracking.outputEdgeIds = built.value.edgeIds;
-        }
-        return combineWithInput(Result.ok(built.value.shape), feature, context);
+        return result;
     },
 };
 
-/** Resolves the numeric parameters first, so a bad expression fails before any geometry runs. */
-function resolveExtrudeParams(
+function evaluateWithPlan(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
-): Result<{ depth: number; startOffset: number }> {
-    const depth = resolveUnitSpec(feature.depth, context.scope, LENGTH_UNITS);
-    if (!depth.isOk) return Result.err(depth.error);
-    const startOffset = resolveUnitSpec(feature.startOffset ?? 0, context.scope, LENGTH_UNITS);
-    if (!startOffset.isOk) return Result.err(startOffset.error);
-    return Result.ok({ depth: depth.value, startOffset: startOffset.value });
+    plan: ExtrudePlan,
+    draftAngle: number | undefined,
+): Result<IShape> {
+    const tracked = evaluateOperationTracked(feature, context, plan, draftAngle);
+    if (tracked !== undefined) return tracked;
+
+    const source = feature.source;
+    if (source === undefined) {
+        return combineWithInput(extrudeFromSketch(feature, context, plan, draftAngle), feature, context);
+    }
+    const built = extrudeFromSourceFaces({ ...feature, source }, context, plan, draftAngle);
+    if (!built.isOk) return Result.err(built.error);
+    // The sweep's ids are the body's ids — without this a standalone press-pull (the default:
+    // no `operation`) named nothing (see `extrudeTracked`, the sketch path's counterpart).
+    if (context.tracking !== undefined) {
+        context.tracking.outputFaceIds = built.value.faceIds;
+        context.tracking.outputEdgeIds = built.value.edgeIds;
+    }
+    return combineWithInput(Result.ok(built.value.shape), feature, context);
 }
 
 /**
@@ -113,14 +230,14 @@ function resolveExtrudeParams(
 function evaluateOperationTracked(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
-    depth: number,
-    startOffset: number,
+    plan: ExtrudePlan,
+    draftAngle: number | undefined,
 ): Result<IShape> | undefined {
     if (feature.operation === undefined) return undefined;
     const source = feature.source;
     return source === undefined
-        ? extrudeOperationTracked(feature, context, depth, startOffset)
-        : pressPullOperationTracked({ ...feature, source }, context, depth, startOffset);
+        ? extrudeOperationTracked(feature, context, plan, draftAngle)
+        : pressPullOperationTracked({ ...feature, source }, context, plan, draftAngle);
 }
 
 /** Combines the freshly built prism with the chain input, when an operation was asked for. */
@@ -158,15 +275,15 @@ function combineWithInput(
 function extrudeFromSketch(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
-    depth: number,
-    startOffset: number,
+    plan: ExtrudePlan,
+    draftAngle: number | undefined,
 ): Result<IShape> {
     const resolved = resolveSketchProfiles(feature, context);
     if (!resolved.isOk) return Result.err(resolved.error);
     const { sketch, profiles } = resolved.value;
-    const vec = sketch.plane.normal.multiply(depth);
-    const vecs = feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
-    const offsetVec = sketch.plane.normal.multiply(startOffset);
+    const vecs = plan.vecsOf(sketch.plane.origin, sketch.plane.normal);
+    if (!vecs.isOk) return Result.err(vecs.error);
+    const offsetVec = plan.offsetOf(sketch.plane.normal);
 
     // An operation with unavailable tracking falls back to the plain path — downstream
     // edge fingerprints then re-match geometrically after a rebuild.
@@ -175,8 +292,8 @@ function extrudeFromSketch(
         context.tracking === undefined ||
         shapeFactory.prismTracked === undefined;
     return plain
-        ? extrudePlain(profiles, vecs, offsetVec)
-        : extrudeTracked(sketch, vecs, profiles, context.tracking!, offsetVec);
+        ? extrudePlain(profiles, vecs.value, offsetVec, draftAngle)
+        : extrudeTracked(sketch, vecs.value, profiles, context.tracking!, offsetVec, draftAngle);
 }
 
 /**
@@ -216,8 +333,9 @@ function extrudeTracked(
     profiles: ResolvedProfile[],
     tracking: ShapeTracking,
     offsetVec: XYZ,
+    draftAngle: number | undefined,
 ): Result<IShape> {
-    const swept = sweepProfiles(sketch, vecs, profiles, offsetVec);
+    const swept = sweepProfiles(sketch, vecs, profiles, offsetVec, draftAngle);
     if (!swept.isOk) return Result.err(swept.error);
     tracking.outputFaceIds = swept.value.faceIds;
     tracking.outputEdgeIds = swept.value.edgeIds;
@@ -227,13 +345,16 @@ function extrudeTracked(
 /**
  * Sweeps every profile along each direction with kernel history (sketch-scoped ids)
  * and merges touching prisms, returning the shape with its tracked ids in
- * findSubShapes order.
+ * findSubShapes order. A non-zero `draftAngle` tapers each prism's sides about its
+ * start plane before the merge (`sweepFaceTracked`), so the ids it reports already
+ * carry the taper's history.
  */
 function sweepProfiles(
     sketch: SketchNode,
     vecs: XYZ[],
     profiles: ResolvedProfile[],
     offsetVec: XYZ,
+    draftAngle: number | undefined,
 ): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
     const shapes: IShape[] = [];
     const faceIds: (string | undefined)[][] = [];
@@ -246,6 +367,8 @@ function sweepProfiles(
                 vec,
                 offsetVec,
                 direction === 0 ? "" : ":neg",
+                undefined,
+                draftAngle,
             );
             if (!swept.isOk) return Result.err(swept.error);
             shapes.push(swept.value.shape);
@@ -271,8 +394,8 @@ function sweepProfiles(
 function pressPullOperationTracked(
     feature: ExtrudeFeatureData & { source: NonNullable<ExtrudeFeatureData["source"]> },
     context: FeatureContext,
-    depth: number,
-    startOffset: number,
+    plan: ExtrudePlan,
+    draftAngle: number | undefined,
 ): Result<IShape> | undefined {
     const tracking = context.tracking;
     const tracked = feature.operation === undefined ? undefined : trackedBoolean(feature.operation);
@@ -280,7 +403,7 @@ function pressPullOperationTracked(
     if (context.input === undefined) {
         return Result.err("Extrude join/cut/intersect requires a preceding feature");
     }
-    const built = extrudeFromSourceFaces(feature, context, depth, startOffset);
+    const built = extrudeFromSourceFaces(feature, context, plan, draftAngle);
     if (!built.isOk) return Result.err(built.error);
     const owned: IShape[] = [];
     try {
@@ -316,8 +439,8 @@ function pressPullOperationTracked(
 function extrudeOperationTracked(
     feature: ExtrudeFeatureData,
     context: FeatureContext,
-    depth: number,
-    startOffset: number,
+    plan: ExtrudePlan,
+    draftAngle: number | undefined,
 ): Result<IShape> | undefined {
     const tracking = context.tracking;
     const tracked = trackedBoolean(feature.operation!);
@@ -331,10 +454,16 @@ function extrudeOperationTracked(
     const resolved = resolveSketchProfiles(feature, context);
     if (!resolved.isOk) return Result.err(resolved.error);
 
-    const vec = resolved.value.sketch.plane.normal.multiply(depth);
-    const vecs = feature.symmetric === true ? [vec, vec.multiply(-1)] : [vec];
-    const offsetVec = resolved.value.sketch.plane.normal.multiply(startOffset);
-    const tool = sweepProfiles(resolved.value.sketch, vecs, resolved.value.profiles, offsetVec);
+    const vecs = plan.vecsOf(resolved.value.sketch.plane.origin, resolved.value.sketch.plane.normal);
+    if (!vecs.isOk) return Result.err(vecs.error);
+    const offsetVec = plan.offsetOf(resolved.value.sketch.plane.normal);
+    const tool = sweepProfiles(
+        resolved.value.sketch,
+        vecs.value,
+        resolved.value.profiles,
+        offsetVec,
+        draftAngle,
+    );
     if (!tool.isOk) return Result.err(tool.error);
     const owned: IShape[] = [];
     try {

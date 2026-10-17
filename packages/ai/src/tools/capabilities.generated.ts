@@ -343,6 +343,26 @@ export const shapeCapabilities: ShapeCapability[] = [
         ],
     },
     {
+        method: "chamferTwoDist",
+        returnKind: "shape",
+        params: [
+            { name: "shape", kind: "ref" },
+            { name: "edges", kind: "numberArray" },
+            { name: "d1", kind: "number" },
+            { name: "d2", kind: "number" },
+            { name: "faces", kind: "numberArray" },
+        ],
+    },
+    {
+        method: "filletVariable",
+        returnKind: "shape",
+        params: [
+            { name: "shape", kind: "ref" },
+            { name: "edges", kind: "numberArray" },
+            { name: "radii", kind: "numberArray" },
+        ],
+    },
+    {
         method: "draft",
         returnKind: "shape",
         params: [
@@ -351,6 +371,17 @@ export const shapeCapabilities: ShapeCapability[] = [
             { name: "pullDirection", kind: "xyz" },
             { name: "angle", kind: "number" },
             { name: "neutralPlane", kind: "plane" },
+        ],
+    },
+    {
+        method: "sweepWithMode",
+        returnKind: "shape",
+        params: [
+            { name: "profiles", kind: "refArray" },
+            { name: "path", kind: "ref" },
+            { name: "mode", kind: "enum", enum: ["frenet", "correctedFrenet", "fixed"] },
+            { name: "isRoundCorner", kind: "boolean" },
+            { name: "fixedDirection", kind: "xyz", required: false },
         ],
     },
     {
@@ -1985,7 +2016,10 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   makeThickSolidByJoin(shape: ref, openFaces: refArray, thickness: number, joinType: arc|tangent|intersection, mode: skin|pipe|rectoVerso?, intersection: boolean?) -> shape
   fillet(shape: ref, edges: numberArray, radius: number) -> shape
   chamfer(shape: ref, edges: numberArray, distance: number) -> shape
+  chamferTwoDist(shape: ref, edges: numberArray, d1: number, d2: number, faces: numberArray) -> shape
+  filletVariable(shape: ref, edges: numberArray, radii: numberArray) -> shape
   draft(shape: ref, faces: refArray, pullDirection: xyz, angle: number, neutralPlane: plane) -> shape
+  sweepWithMode(profiles: refArray, path: ref, mode: frenet|correctedFrenet|fixed, isRoundCorner: boolean, fixedDirection: xyz?) -> shape
   fillet2d(face: ref, edge1: ref, edge2: ref, radius: number) -> face
   chamfer2d(face: ref, edge1: ref, edge2: ref, distance: number) -> face
   loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: c0|g1|c1|g2|c2|c3|cn) -> shape

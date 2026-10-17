@@ -49,6 +49,7 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                         type: "split",
                         items: ["sketch.rectangle", "sketch.polygon"],
                     },
+                    "sketch.point",
                 ],
             },
             {

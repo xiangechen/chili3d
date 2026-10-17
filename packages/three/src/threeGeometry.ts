@@ -11,7 +11,6 @@ import {
     type IVisualGeometry,
     type Matrix4,
     MeshUtils,
-    type ShapeMeshRange,
     ShapeNode,
     type ShapeType,
     ShapeTypes,
@@ -283,31 +282,23 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     override getSubShapeAndIndex(shapeType: "face" | "edge" | "vertex", subVisualIndex: number) {
+        const groups =
+            shapeType === "vertex"
+                ? this.geometryNode.mesh.vertexs?.range
+                : shapeType === "edge"
+                  ? this.geometryNode.mesh.edges?.range
+                  : this.geometryNode.mesh.faces?.range;
         let subShape: ISubShape | undefined;
         let transform: Matrix4 | undefined;
-        let index: number = -1;
-        let groups: ShapeMeshRange[] | undefined;
-        if (shapeType === "vertex") {
-            groups = this.geometryNode.mesh.vertexs?.range;
-            if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
-                subShape = groups[index].shape;
-                transform = groups[index].transform;
-            }
-        } else if (shapeType === "edge") {
-            groups = this.geometryNode.mesh.edges?.range;
-            if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
-                subShape = groups[index].shape;
-                transform = groups[index].transform;
-            }
-        } else {
-            groups = this.geometryNode.mesh.faces?.range;
-            if (groups) {
-                index = ThreeHelper.findGroupIndex(groups, subVisualIndex)!;
-                subShape = groups[index].shape;
-                transform = groups[index].transform;
-            }
+        // A raycast can land on geometry no range covers — e.g. the cross-hair segments a sketch
+        // appends for its points — so a miss means "no sub-shape here", not a crash.
+        const groupIndex =
+            groups === undefined ? undefined : ThreeHelper.findGroupIndex(groups, subVisualIndex);
+        let index = -1;
+        if (groupIndex !== undefined) {
+            index = groupIndex;
+            subShape = groups![groupIndex].shape;
+            transform = groups![groupIndex].transform;
         }
 
         let shape: IShape | undefined = subShape;

@@ -172,6 +172,9 @@ function planTrim(
 ): Result<TrimPlan> {
     const entity = solver.entity(entityId);
     if (entity === undefined) return Result.err("Unknown sketch entity");
+    // a point has no curve, so there is no piece of it to remove: it answers a delete
+    // key, not the trim tool
+    if (entity.type === "point") return Result.err("A point cannot be trimmed");
     // The datum, the external references and an array's instances are reference geometry:
     // they cut, but they are never cut up. An offset copy is the exception — the solver does
     // place it, but it is the user's own curve, and the copy's window is exactly what a trim

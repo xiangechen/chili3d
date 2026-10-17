@@ -41,12 +41,34 @@ describe("FeatureHandler.applyResolvedRefs", () => {
     });
 
     describe("fillet/chamfer", () => {
+        // The ref as it was stored, and the anchor this run matched for it.
+        const stale: EdgeRef = {
+            kind: "line",
+            start: { x: 9, y: 9, z: 9 },
+            end: { x: 8, y: 8, z: 8 },
+            edgeId: "old",
+        };
+
         test.each([
-            { feature: { id: "f1", type: "fillet", radius: 1, edges: [] as EdgeRef[] } },
-            { feature: { id: "c1", type: "chamfer", distance: 1, edges: [] as EdgeRef[] } },
+            { feature: { id: "f1", type: "fillet", radius: 1, edges: [stale] } },
+            { feature: { id: "c1", type: "chamfer", distance: 1, edges: [stale] } },
         ])("$feature.type writes resolved edges", ({ feature }) => {
             const next = featureHandler(feature.type)!.applyResolvedRefs!(feature, { resolvedEdges: EDGES });
-            expect(next.edges).toBe(EDGES);
+            expect(next.edges).toEqual(EDGES);
+        });
+
+        test.each([
+            { feature: { id: "f1", type: "fillet", radius: 1, edges: [stale] } },
+            { feature: { id: "c1", type: "chamfer", distance: 1, edges: [stale] } },
+        ])("$feature.type drops a slot the channel left empty", ({ feature }) => {
+            // `resolvedEdges` is positional across ALL features and `pattern` writes holes in it; an
+            // edge feature's `edges` is a set, so a slot with no anchor does not belong in it. (The
+            // matcher this feature itself uses never leaves one — it fails the whole match instead.)
+            const next = featureHandler(feature.type)!.applyResolvedRefs!(feature, {
+                resolvedEdges: [undefined, EDGES[0]],
+            });
+
+            expect(next.edges).toEqual(EDGES);
         });
 
         test.each([

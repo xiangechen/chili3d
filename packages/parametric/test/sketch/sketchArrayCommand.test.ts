@@ -12,7 +12,7 @@ import {
     PubSub,
     XYZ,
 } from "@chili3d/core";
-import { createMockDocument, setupShapeFactoryMock } from "@chili3d/core/test-utils";
+import { cachedOptionKey, createMockDocument, setupShapeFactoryMock } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { type ArrayDraft, arrayInstanceTotal, liveInstanceIds } from "../../src/sketch/arrayOps";
 import { SketchArrayCommand, type SketchArraySession } from "../../src/sketch/commands/sketchArray";
@@ -295,10 +295,10 @@ function arraySummary(solver: SketchSolver): unknown[] {
 
 describe("SketchArrayCommand", () => {
     beforeEach(() => {
-        // A command's options are cached statically, keyed by property name
-        // (`CancelableCommand._propertiesCache`), and restored in `beforeExecute`. Left
-        // alone, the count or the pattern type one case set would reach the next command
-        // instance and lay that case's pattern out — so the cache starts empty every time.
+        // A command's options are cached statically (`CancelableCommand._propertiesCache`)
+        // and restored in `beforeExecute`. Left alone, the count or the pattern type one
+        // case set would reach the next command instance and lay that case's pattern out —
+        // so the cache starts empty every time.
         (CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> })._propertiesCache.clear();
     });
 
@@ -620,13 +620,13 @@ describe("SketchArrayCommand", () => {
         // into the private value — the `patternType` setter never runs. Kept only by that
         // setter, a group's visibility would be left at its default: a turn's own fields
         // hidden and the grid's shown, which is what the bar did.
+        const command = new SketchArrayCommand();
         (CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> })._propertiesCache.set(
-            "patternType",
+            cachedOptionKey(command, "patternType"),
             "option.command.patternType.circular",
         );
         const editor = fakeEditor();
         try {
-            const command = new SketchArrayCommand();
             editor.scripts.push(() => {});
 
             await runCommand(command, editor);

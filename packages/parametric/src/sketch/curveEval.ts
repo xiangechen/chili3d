@@ -814,6 +814,26 @@ function lineAdapter(params: readonly number[]): CurveAdapter {
     };
 }
 
+/**
+ * A point as the degenerate curve it is: the constant curve at its position. Every read
+ * collapses onto the point itself — a projection lands on it, a length is zero, a tangent
+ * is the zero vector — which is what keeps the generic curve reads (sampling, projecting)
+ * total over the entity set. What a point is *for* (a constraint and drag target, a drawn
+ * marker) lives with the solver and the editor, not here; the ops that cut or offset a
+ * curve refuse a point before any of this runs.
+ */
+function pointAdapter(params: readonly number[]): CurveAdapter {
+    const p: [number, number] = [params[0], params[1]];
+    const zero: [number, number] = [0, 0];
+    return {
+        evaluate: () => p,
+        derivative: () => zero,
+        domain: [0, 0],
+        support: [0, 0],
+        period: 0,
+    };
+}
+
 function circleAdapter(center: [number, number], radius: number, domain: [number, number]): CurveAdapter {
     return {
         evaluate: (t) => [center[0] + radius * Math.cos(t), center[1] + radius * Math.sin(t)],
@@ -914,6 +934,8 @@ function adapterOf(entity: CurveEntity): CurveAdapter {
             return bezierAdapter(entity);
         case "nurbs":
             return nurbsAdapter(entity);
+        case "point":
+            return pointAdapter(entity.params);
         case "offsetCurve":
             return offsetAdapter(entity);
     }
@@ -1100,6 +1122,7 @@ export function isFreeCurveType(type: SketchEntityType): boolean {
 function defaultSegments(entity: CurveEntity): number {
     switch (entity.type) {
         case "line":
+        case "point":
             return 1;
         case "offsetCurve": {
             // the density of the curve underneath: an offset is its source, moved

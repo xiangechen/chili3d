@@ -74,6 +74,15 @@ export function planeOfPickedFace(face: VisualShapeData): Plane {
     return plane;
 }
 
+/** The plane the drag measures along, reported back to the command (any xvec perpendicular to the normal). */
+function dragPlaneOf(origin: XYZ, normal: XYZ): Plane {
+    return new Plane({
+        origin,
+        normal,
+        xvec: normal.isParallelTo(XYZ.unitZ) ? XYZ.unitX : XYZ.unitZ.cross(normal).normalize()!,
+    });
+}
+
 /**
  * Push-pull step: shows a draggable arrow plus the confirm/cancel buttons from the
  * start. Two gestures set the depth: drag the arrow with the left button held, or
@@ -87,10 +96,29 @@ export class ExtrudeDragStep implements IStep {
     constructor(
         readonly tip: I18nKeys,
         private readonly handleStepData: () => ExtrudeDragData,
+        /**
+         * Read at execution time: when it holds, the depth comes from a picked target
+         * rather than from the drag, so the drag is skipped and the step succeeds with
+         * a zero-depth placeholder that still carries the plane and the faces.
+         */
+        private readonly shouldSkip?: () => boolean,
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const data = this.handleStepData();
+        if (this.shouldSkip?.() === true) {
+            controller.success();
+            return {
+                view: document.application.activeView!,
+                point: data.origin,
+                distance: 0,
+                shapes: data.faces,
+                nodes: [data.node as any],
+                type: "input",
+                plane: dragPlaneOf(data.origin, data.normal),
+            };
+        }
+
         const handler = new ExtrudeDragHandler(document, controller, data);
         try {
             await document.picker.pickAsync(handler, this.tip, controller, "none", "draw");
@@ -114,13 +142,7 @@ export class ExtrudeDragStep implements IStep {
             type: "input",
             // The live drag plane (it changes when the user switches faces mid-drag),
             // so the command can recover the signed length and direction.
-            plane: new Plane({
-                origin: state.origin,
-                normal: state.normal,
-                xvec: state.normal.isParallelTo(XYZ.unitZ)
-                    ? XYZ.unitX
-                    : XYZ.unitZ.cross(state.normal).normalize()!,
-            }),
+            plane: dragPlaneOf(state.origin, state.normal),
         };
     }
 }
@@ -231,6 +253,21 @@ export class ExtrudeDragHandler extends AxisDragHandler {
         if (Math.abs(this.state.startOffset - value) < Precision.Float) return;
         this.state.startOffset = value;
         this.refresh();
+    }
+
+    /**
+     * Ends the drag from outside — the end condition flipped to an up-to target mid-drag,
+     * so the depth this gesture edits no longer decides anything. The normal confirm path
+     * (`confirm`) is gated on a non-zero depth, which is exactly the state a drag that was
+     * skipped from the start is in, so this bypasses `canConfirm` and only borrows its
+     * active-view fallback: without a view the step would return undefined and the command
+     * would close as if cancelled.
+     */
+    finishEarly(): void {
+        if (this.commitView === undefined) {
+            this.commitView = this.document.application.activeView;
+        }
+        this.controller.success();
     }
 
     private updateHover(view: IView, event: PointerEvent) {

@@ -31,7 +31,7 @@ import {
     sampleEntity,
 } from "../curveEval";
 import type { CurvePiece } from "../curveGeometry";
-import { curveChainMesh } from "../curveMesh";
+import { curveChainMesh, pointCrossMesh } from "../curveMesh";
 import { windowParameterAt } from "../offsetOps";
 import type { SketchCurvePreview } from "../previewTypes";
 import {
@@ -96,6 +96,17 @@ const MIRROR_PREVIEW_COLOR = 0xff6b6b;
 const MIRROR_PREVIEW_LINE_WIDTH = 3;
 /** A drag shorter than this in both axes reads as a click, not a box. */
 const BOX_MIN_PX = 4;
+
+/**
+ * The sketch point marker's arm half-length, in the sketch units `screenTolerance` measures:
+ * that one is 8 pixels at the plane origin, so an eighth of it is one pixel. A point entity
+ * has no curve to draw — the cross the mesh carries is all of it (`pointCrossMesh`), sized
+ * like the vertex markers beside it. 0 when there is no view to measure against, which
+ * collapses the cross onto the point: nothing to see, but still a mesh to hit-test.
+ */
+export function pointMarkerHalf(editor: SketchEditor): number {
+    return (editor.screenTolerance() / PICK_TOLERANCE_PX) * (VisualConfig.editVertexSize / 2);
+}
 
 /**
  * What hover should light up: the shape(s) to draw, and the key that says they are already
@@ -1492,11 +1503,15 @@ function entityPointMeshes(editor: SketchEditor): ShapeMeshData[] {
     const meshes: ShapeMeshData[] = [];
     for (const entity of constraintTargetEntities(editor.solver)) {
         const color = sketchConstraintColor(pinned, entity.id);
-        for (let pointIndex = 0; pointIndex < entityPointCount(entity); pointIndex++) {
-            const [u, v] = editor.solver.pointOf({ entityId: entity.id, pointIndex });
-            meshes.push(
-                MeshDataUtils.createVertexMesh(toWorld(plane, u, v), VisualConfig.editVertexSize, color),
-            );
+        // a point entity's own cross (its mesh, `sketchEntityMesh`) is its one marker —
+        // a vertex dot on top of it would only redraw the same handle
+        if (entity.type !== "point") {
+            for (let pointIndex = 0; pointIndex < entityPointCount(entity); pointIndex++) {
+                const [u, v] = editor.solver.pointOf({ entityId: entity.id, pointIndex });
+                meshes.push(
+                    MeshDataUtils.createVertexMesh(toWorld(plane, u, v), VisualConfig.editVertexSize, color),
+                );
+            }
         }
         meshes.push(...controlNetMeshes(editor, entity, color));
         for (const end of copyEndPositions(entity)) {
@@ -1662,7 +1677,9 @@ export function sketchEntityMesh(
     const plane = editor.node.plane;
     const [x1, y1, x2, y2] = entity.params;
     let mesh: EdgeMeshData;
-    if (entity.type === "line") {
+    if (entity.type === "point") {
+        mesh = pointCrossMesh(plane, [x1, y1], pointMarkerHalf(editor), color, lineType);
+    } else if (entity.type === "line") {
         mesh = MeshDataUtils.createEdgeMesh(toWorld(plane, x1, y1), toWorld(plane, x2, y2), color, lineType);
     } else if (entity.type === "arc") {
         const [cx, cy, r, a0, sweep] = arcGeometry(entity.params);

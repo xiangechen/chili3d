@@ -24,6 +24,7 @@ import {
     XYZ,
 } from "@chili3d/core";
 import {
+    cachedOptionKey,
     createMockApplication,
     createMockView,
     createMockVisualWithDocument,
@@ -2499,20 +2500,22 @@ describe("ProjectSketchEdges command", () => {
 
     async function runProject(editor: FakeProjectEditor, role?: I18nKeys): Promise<void> {
         const { ProjectSketchEdges } = await import("../../src/sketch/commands/sketchProjectEdges");
+        const command = new ProjectSketchEdges();
         // the app supplies command options through the static property cache
         // (readProperties in beforeExecute) — prime it, then restore isolation
         const cache: Map<string, any> = (CancelableCommand as any)._propertiesCache;
-        const hadRole = cache.has("role");
-        const previousRole = cache.get("role");
+        const roleKey = cachedOptionKey(command, "role");
+        const hadRole = cache.has(roleKey);
+        const previousRole = cache.get(roleKey);
         const getActive = rs.spyOn(SketchEditor, "getActive").mockReturnValue(editor as any);
         try {
-            if (role === undefined) cache.delete("role");
-            else cache.set("role", role);
-            await (new ProjectSketchEdges() as ICommand).execute({ activeView: { document: {} } } as any);
+            if (role === undefined) cache.delete(roleKey);
+            else cache.set(roleKey, role);
+            await (command as ICommand).execute({ activeView: { document: {} } } as any);
         } finally {
             getActive.mockRestore();
-            if (hadRole) cache.set("role", previousRole);
-            else cache.delete("role");
+            if (hadRole) cache.set(roleKey, previousRole);
+            else cache.delete(roleKey);
         }
     }
 

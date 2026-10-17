@@ -1,0 +1,244 @@
+// Part of the Chili3d Project, under the AGPL-3.0 License.
+// See LICENSE file in the project root for full license information.
+
+import {
+    AsyncController,
+    BoundingBox,
+    Matrix4,
+    Plane,
+    Result,
+    type ShapeType,
+    ShapeTypes,
+    VisualStates,
+    XYZ,
+} from "@chili3d/core";
+import {
+    createMockApplication,
+    createMockVisualWithDocument,
+    setupShapeFactoryMock,
+    TestDocument,
+} from "@chili3d/core/test-utils";
+import { rs } from "@rstest/core";
+import { gripOf, PressPullHandler } from "../../src/commands/pressPullStep";
+import { ParametricBodyNode } from "../../src/parametricBodyNode";
+import { SketchNode } from "../../src/sketch/sketchNode";
+
+/** Enough of a shape for `gripOf`: a normal, an identity transform, and an edge's parameter span. */
+const shapeOf = (shapeType: ShapeType, normal: XYZ, overrides: Record<string, unknown> = {}) => {
+    const shape: any = {
+        shapeType,
+        isSame: () => true,
+        outerWire: () => ({ findSubShapes: () => [] }),
+        findSubShapes: () => [],
+        boundingBox: () => BoundingBox.zero,
+        area: () => 0,
+        normal: () => [XYZ.zero, normal],
+        surface: () => ({ parameter: () => undefined }),
+        firstParameter: () => 0,
+        lastParameter: () => 1,
+        pointAt: () => XYZ.zero,
+        dispose: () => {},
+        ...overrides,
+    };
+    shape.transformedMul = () => shape;
+    return shape;
+};
+
+const picked = (node: unknown, shape: any, point = XYZ.zero) =>
+    ({ shape, owner: { node }, transform: Matrix4.identity(), indexes: [0], point }) as any;
+
+describe("gripOf", () => {
+    const doc = new TestDocument({ application: createMockApplication() });
+    const body = new ParametricBodyNode({ document: doc, features: [] });
+
+    test("a face drags out along its own normal, from where the pointer landed", () => {
+        const at = new XYZ({ x: 1, y: 2, z: 3 });
+
+        const grip = gripOf(picked(body, shapeOf(ShapeTypes.face, XYZ.unitZ), at));
+
+        expect(grip!.origin).toBe(at);
+        expect(grip!.direction.dot(XYZ.unitZ)).toBeCloseTo(1, 6);
+    });
+
+    test("an edge drags out of the material: its two faces' outward normals summed", () => {
+        // An edge has no normal of its own; what it has is the two faces meeting along it.
+        const edge = shapeOf(ShapeTypes.edge, XYZ.unitZ);
+        const first = shapeOf(ShapeTypes.face, XYZ.unitX, { findSubShapes: () => [edge] });
+        const second = shapeOf(ShapeTypes.face, XYZ.unitY, { findSubShapes: () => [edge] });
+        const node = new ParametricBodyNode({ document: doc, features: [] });
+        Object.defineProperty(node, "shape", {
+            value: Result.ok({ findSubShapes: () => [first, second] }),
+            configurable: true,
+        });
+
+        const grip = gripOf(picked(node, edge));
+
+        const expected = XYZ.unitX.add(XYZ.unitY).normalize()!;
+        expect(grip!.direction.x).toBeCloseTo(expected.x, 6);
+        expect(grip!.direction.y).toBeCloseTo(expected.y, 6);
+        expect(grip!.direction.z).toBeCloseTo(expected.z, 6);
+    });
+
+    test("an edge with no two faces to sum, and anything that is neither, has no arrow", () => {
+        const node = new ParametricBodyNode({ document: doc, features: [] });
+        Object.defineProperty(node, "shape", {
+            value: Result.ok({ findSubShapes: () => [] }),
+            configurable: true,
+        });
+
+        expect(gripOf(picked(node, shapeOf(ShapeTypes.edge, XYZ.unitZ)))).toBeUndefined();
+        expect(gripOf(picked(node, shapeOf(ShapeTypes.solid, XYZ.unitZ)))).toBeUndefined();
+        expect(gripOf(undefined)).toBeUndefined();
+    });
+});
+
+describe("PressPullHandler", () => {
+    const doc = new TestDocument({ application: createMockApplication() });
+    const body = new ParametricBodyNode({ document: doc, features: [] });
+    const other = new ParametricBodyNode({ document: doc, features: [] });
+
+    /** The arrow is meshed through the shape factory, whose global is a getter off the registered
+     * application — which a unit test has none of. */
+    beforeEach(() => {
+        const noValue = () => ({
+            mesh: { faces: { position: new Float32Array(), range: [] } },
+            findSubShapes: () => [],
+            dispose: () => {},
+        });
+        const shape = () => ({ isOk: true, value: noValue() });
+        setupShapeFactoryMock({
+            cylinder: shape,
+            cone: shape,
+            combine: () => ({ isOk: true, value: noValue() }),
+        });
+    });
+
+    function handler(value = 2) {
+        const settled: number[] = [];
+        const face = shapeOf(ShapeTypes.face, XYZ.unitZ);
+        const node = new ParametricBodyNode({ document: doc, features: [] });
+        Object.defineProperty(node, "shape", {
+            value: Result.ok({ findSubShapes: () => [face], dispose: () => {} }),
+            configurable: true,
+        });
+        const target: any = {
+            shape: face,
+            owner: { node },
+            transform: Matrix4.identity(),
+            indexes: [0],
+            point: XYZ.zero,
+        };
+        const made = new PressPullHandler(doc, new AsyncController(), value, (v: number) => settled.push(v));
+        return { made, settled, target };
+    }
+
+    test("a gesture with nothing picked cannot be confirmed — there is nothing to open", () => {
+        const { made } = handler(5);
+
+        expect((made as any).canConfirm()).toBe(false);
+        expect((made as any).arrowSegment().start.z).toBe(0);
+        expect((made as any).arrowSegment().end.z).toBe(0);
+    });
+
+    test("what the hand moves is reported out, so the panel follows the arrow", () => {
+        const { made, settled } = handler(2);
+
+        (made as any).setCurrentValue(-3.5);
+
+        expect(settled).toEqual([-3.5]);
+        expect(made.value).toBe(-3.5);
+    });
+
+    test("the shaft leaves the grip point by the value, and turns around past zero", () => {
+        const { made } = handler(4);
+        (made as any).picked.push({ shape: shapeOf(ShapeTypes.face, XYZ.unitZ), owner: { node: body } });
+        (made as any).grip = { origin: XYZ.zero, direction: XYZ.unitZ };
+        (made as any).arrowLength = 10;
+
+        const out = (made as any).arrowSegment();
+        expect(out.start.z).toBeCloseTo(4, 6);
+        expect(out.end.z).toBeCloseTo(14, 6);
+
+        (made as any).setCurrentValue(-4);
+        const back = (made as any).arrowSegment();
+        expect(back.start.z).toBeCloseTo(-4, 6);
+        // Past zero the arrow points the way the drag is going, not the way the normal does.
+        expect(back.end.z).toBeCloseTo(-14, 6);
+        expect((made as any).canConfirm()).toBe(true);
+    });
+
+    test("a pick of another kind, or on another body, is refused", () => {
+        // One distance has one meaning: on a face it is how far it moves, on an edge whether it is
+        // rounded or chamfered. A body is one, too — the command that opens works on one.
+        const { made, target } = handler(2);
+        const mine = { shape: target.shape, owner: target.owner };
+        (made as any).picked.push(mine);
+
+        expect((made as any).admit(mine)).toBe(true);
+        expect((made as any).admit({ shape: shapeOf(ShapeTypes.edge, XYZ.unitZ), owner: target.owner })).toBe(
+            false,
+        );
+        expect(
+            (made as any).admit({ shape: shapeOf(ShapeTypes.face, XYZ.unitZ), owner: { node: other } }),
+        ).toBe(false);
+    });
+
+    test("the body being changed is ghosted while the preview is up, and put back after", () => {
+        // The preview IS that body moved: drawn together over the very faces the user is looking
+        // at, the two overlap and it reads as a ghost over the geometry it replaces.
+        const previous = doc.visual;
+        const highlighter = { addState: rs.fn(), removeState: rs.fn() };
+        doc.visual = createMockVisualWithDocument(doc, { highlighter: highlighter as any });
+        try {
+            const { made, target } = handler(2);
+            (made as any).picked.push({ shape: target.shape, owner: target.owner });
+
+            (made as any).syncGhost();
+            expect(highlighter.addState).toHaveBeenCalledWith(
+                target.owner,
+                VisualStates.faceTransparent,
+                ShapeTypes.shape,
+            );
+
+            (made as any).onCleanup();
+            expect(highlighter.removeState).toHaveBeenCalledWith(
+                target.owner,
+                VisualStates.faceTransparent,
+                ShapeTypes.shape,
+            );
+        } finally {
+            doc.visual = previous;
+        }
+    });
+
+    test("only a sketch's profiles are detectable, never its edges", () => {
+        // A sketch's edges are the lines the profile is drawn with. Pushing one has no meaning —
+        // the edge branch would open a Fillet on a sketch line — so the pointer never takes one.
+        const { made } = handler(2);
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        const picked = (shape: unknown) => ({
+            shape,
+            owner: { node: sketch },
+            transform: Matrix4.identity(),
+            indexes: [0],
+            point: XYZ.zero,
+        });
+        const line = picked(shapeOf(ShapeTypes.edge, XYZ.unitZ));
+        const profile = picked(shapeOf(ShapeTypes.face, XYZ.unitZ));
+        const view = { detectShapes: () => [line, profile] } as any;
+
+        expect((made as any).detect(view, { offsetX: 0, offsetY: 0 })).toBe(profile);
+    });
+
+    test("an empty pick admits anything", () => {
+        const { made } = handler(2);
+
+        expect(
+            (made as any).admit({ shape: shapeOf(ShapeTypes.edge, XYZ.unitZ), owner: { node: body } }),
+        ).toBe(true);
+    });
+});

@@ -26,6 +26,14 @@
     &.suppressed {
         opacity: 0.5;
     }
+
+    &.variableSuppressed {
+        opacity: 0.65;
+
+        .name {
+            font-style: italic;
+        }
+    }
 }
 
 .item + .item::before {
@@ -119,6 +127,35 @@
     margin-top: 6px;
 }
 
+/* A parameter group's members share the row (see FeatureParameter.group): each member
+   gets an equal slice with a small label before its control, and the inputs shrink
+   below their intrinsic width so three of them fit the space one control had. */
+.groupMembers {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.groupMember {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+
+    input {
+        min-width: 0;
+    }
+}
+
+.groupMemberLabel {
+    flex-shrink: 0;
+    font-size: 12px;
+    opacity: 0.6;
+}
+
 /* A pick the feature could not re-resolve: the slot it used to fill stays on the row. */
 .missingInput {
     font-size: 12px;
@@ -189,4 +226,63 @@
 
 .dropAfter {
     box-shadow: inset 0 -2px 0 var(--primary-color);
+}
+
+/* The rollback-bar slots double as the rows' separators: a hairline at rest, a
+   primary bar where the bar sits (rollbackActive) or may land (hover, rollbackDrop). */
+.rollbackSlot {
+    display: flex;
+    align-items: center;
+    height: 8px;
+    margin: 0 6px;
+    cursor: pointer;
+
+    &::after {
+        content: "";
+        display: block;
+        width: 100%;
+        height: 1px;
+        border-radius: 1px;
+        background-color: var(--border-color);
+        transition:
+            height 0.15s ease,
+            background-color 0.15s ease;
+    }
+
+    &:hover::after {
+        height: 4px;
+        background-color: var(--primary-color);
+    }
+}
+
+/* While a row is being drag-reordered the slots take no pointer events — they are
+   drop targets for nothing then, and their hover zone would swallow the row drag. */
+.rowsDragging .rollbackSlot {
+    pointer-events: none;
+}
+
+.rollbackActive {
+    cursor: grab;
+}
+
+.rollbackSlot.rollbackActive::after,
+.rollbackSlot.rollbackActive:hover::after {
+    height: 4px;
+    background-color: var(--primary-color);
+}
+
+.rollbackSlot.rollbackDrop::after,
+.rollbackSlot.rollbackDrop:hover::after {
+    height: 4px;
+    background-color: var(--primary-color);
+    opacity: 0.65;
+}
+
+.suppressInvert {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    cursor: pointer;
 }

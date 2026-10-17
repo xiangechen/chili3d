@@ -18,6 +18,7 @@ import "./sketchLine";
 import "./sketchMirror";
 import "./sketchNurbs";
 import "./sketchOffset";
+import "./sketchPoint";
 import "./sketchPolygon";
 import "./sketchProjectEdges";
 import "./sketchRectangle";

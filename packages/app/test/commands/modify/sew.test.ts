@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { EditableShapeNode, type IShape, PubSub, Result } from "@chili3d/core";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@rstest/core";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, rs, test } from "@rstest/core";
 import { Sew } from "../../../src/commands/modify/sew";
 import {
     ensureGlobalStubApp,
@@ -132,6 +132,51 @@ describe("Sew", () => {
                 expect(calls).toHaveLength(1);
                 // First arg is the transformed first shape of step 0.
                 expect(shape1.calls.get("transformedMul")).toHaveLength(1);
+            } finally {
+                restore();
+            }
+        });
+
+        test("should not dispose the sewn shape when repair returns it unchanged", () => {
+            const nullShape = { isNull: () => true } as any;
+            const sewn = mockShape({
+                shellSewing: () => nullShape,
+                fixShape: () => nullShape,
+                fixSmallFace: () => nullShape,
+                dispose: rs.fn(),
+            });
+            const restore = overrideSewing(() => Result.ok(sewn));
+            try {
+                const { cmd, rootNode } = buildSewCommand();
+                (cmd as any).executeMainTask();
+
+                // The repair pass aliases the sewn shape — disposing it would kill the result.
+                expect(rootNode.added).toHaveLength(1);
+                expect((rootNode.added[0] as any).shape.value).toBe(sewn);
+                expect(sewn.dispose).not.toHaveBeenCalled();
+            } finally {
+                restore();
+            }
+        });
+
+        test("should dispose the sewn shape and replaced intermediates when repair produces new shapes", () => {
+            const nullShape = { isNull: () => true } as any;
+            const finalShape = mockShape({ dispose: rs.fn() });
+            const sewnOnce = mockShape({
+                fixShape: () => nullShape,
+                fixSmallFace: () => finalShape,
+                dispose: rs.fn(),
+            });
+            const sewn = mockShape({ shellSewing: () => sewnOnce, dispose: rs.fn() });
+            const restore = overrideSewing(() => Result.ok(sewn));
+            try {
+                const { cmd, rootNode } = buildSewCommand();
+                (cmd as any).executeMainTask();
+
+                expect((rootNode.added[0] as any).shape.value).toBe(finalShape);
+                expect(sewn.dispose).toHaveBeenCalledTimes(1);
+                expect(sewnOnce.dispose).toHaveBeenCalledTimes(1);
+                expect(finalShape.dispose).not.toHaveBeenCalled();
             } finally {
                 restore();
             }

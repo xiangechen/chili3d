@@ -15,6 +15,7 @@ import {
     type PickShapeOptions,
     PubSub,
     ShapeTypes,
+    ShapeTypeUtils,
     SubshapeSelectionHandler,
     type VisualNode,
     type VisualShapeData,
@@ -40,7 +41,10 @@ export class Picker implements IPicker {
             options?.nodeFilter,
         );
         // Face picks default to a filled-face tint; edge/vertex picks keep the outline states.
-        const isFacePick = shapeType === ShapeTypes.face;
+        // Tested as a MASK rather than for equality, so a pick that accepts both (a face or an
+        // edge, as Press Pull reads one) tints what it highlights the way a face does — the larger
+        // and more visible of the two.
+        const isFacePick = ShapeTypeUtils.hasFace(shapeType);
         handler.selectedState =
             options?.selectedState ?? (isFacePick ? VisualStates.faceSelected : VisualStates.edgeSelected);
         handler.highlightState =

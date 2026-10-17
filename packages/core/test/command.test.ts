@@ -9,6 +9,7 @@ import {
     type ICommand,
     type IDisposable,
     isCancelableCommand,
+    property,
 } from "../src";
 import { CommandStore } from "../src/command/commandStore";
 import {
@@ -377,6 +378,75 @@ describe("Command System", () => {
             command["controller"] = mockController;
 
             expect(disposeCallCount).toBe(0);
+        });
+    });
+
+    describe("property cache", () => {
+        const cache = () =>
+            (CancelableCommand as unknown as { _propertiesCache: Map<string, unknown> })._propertiesCache;
+
+        class CacheProbeCommand extends CancelableCommand {
+            @property("common.name")
+            get depth(): number {
+                return this.getPrivateValue("depth", 0);
+            }
+            set depth(value: number) {
+                this.setProperty("depth", value);
+            }
+            protected override async executeAsync(): Promise<void> {}
+        }
+        class CacheProbeA extends CacheProbeCommand {}
+        class CacheProbeB extends CacheProbeCommand {}
+
+        beforeEach(() => {
+            CommandStore.registerCommand(CacheProbeA, { key: "test.cache.a", icon: "icon" });
+            CommandStore.registerCommand(CacheProbeB, { key: "test.cache.b", icon: "icon" });
+        });
+
+        afterEach(() => {
+            CommandStore.unregisterCommand("test.cache.a");
+            CommandStore.unregisterCommand("test.cache.b");
+            cache().delete("test.cache.a:depth");
+            cache().delete("test.cache.b:depth");
+            cache().delete("depth");
+        });
+
+        test("same-named properties of different commands do not share values", async () => {
+            const a = new CacheProbeA();
+            a.depth = 42;
+            await a.execute(mockApplication);
+
+            const b = new CacheProbeB();
+            await b.execute(mockApplication);
+
+            // A's 42 never reached B — each command caches under its own command key.
+            expect(b.depth).toBe(0);
+            expect(cache().get("test.cache.a:depth")).toBe(42);
+            expect(cache().get("test.cache.b:depth")).toBe(0);
+            expect(cache().has("depth")).toBe(false);
+        });
+
+        test("a command remembers its own last value across instances", async () => {
+            const first = new CacheProbeA();
+            first.depth = 7;
+            await first.execute(mockApplication);
+
+            const second = new CacheProbeA();
+            await second.execute(mockApplication);
+
+            expect(second.depth).toBe(7);
+        });
+
+        test("an unregistered command falls back to the bare property name", async () => {
+            const first = new CacheProbeCommand(); // never registered — the test-double path
+            first.depth = 9;
+            await first.execute(mockApplication);
+
+            expect(cache().get("depth")).toBe(9);
+
+            const second = new CacheProbeCommand();
+            await second.execute(mockApplication);
+            expect(second.depth).toBe(9);
         });
     });
 

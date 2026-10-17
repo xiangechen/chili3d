@@ -203,7 +203,9 @@ function chunkPoints(params: readonly number[], count: number): [number, number]
 function isMirrorable(entity: SketchEntityData | undefined): entity is SketchEntityData {
     return (
         entity !== undefined &&
-        ["line", "circle", "arc", "ellipse", "ellipseArc", "conic", "bezier", "nurbs"].includes(entity.type)
+        ["line", "circle", "arc", "ellipse", "ellipseArc", "conic", "bezier", "nurbs", "point"].includes(
+            entity.type,
+        )
     );
 }
 

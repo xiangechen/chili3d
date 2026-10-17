@@ -6,6 +6,7 @@ import { type AsyncController, type IDisposable, Observable, PubSub, type Result
 import { EMPTY_SCOPE, type ParameterValue, resolveUnitSpec, type Scope } from "../parameters/expression";
 import type { UnitSpec } from "../parameters/unitSpec";
 import { type Property, PropertyUtils, property } from "../property";
+import { CommandStore } from "./commandStore";
 
 export interface ICommand {
     execute(application: IApplication): Promise<void>;
@@ -154,23 +155,48 @@ export abstract class CancelableCommand extends Observable implements ICancelabl
 
     private readProperties() {
         PropertyUtils.getProperties(this).forEach((x) => {
-            const key = this.cacheKeyOfProperty(x);
-            if (CancelableCommand._propertiesCache.has(key)) {
-                this.setPrivateValue(key as keyof this, CancelableCommand._propertiesCache.get(key));
+            const cacheKey = this.cacheKeyOfProperty(x);
+            if (CancelableCommand._propertiesCache.has(cacheKey)) {
+                this.setPrivateValue(x.name as keyof this, CancelableCommand._propertiesCache.get(cacheKey));
             }
         });
     }
 
     private saveProperties() {
         PropertyUtils.getProperties(this).forEach((x) => {
-            const key = this.cacheKeyOfProperty(x);
-            const prop = (this as any)[key];
+            // The member name reads the getter; only the cache lookup uses the composite key.
+            const prop = (this as any)[x.name];
             if (typeof prop === "function") return;
-            CancelableCommand._propertiesCache.set(key, prop);
+            CancelableCommand._propertiesCache.set(this.cacheKeyOfProperty(x), prop);
         });
     }
 
-    private cacheKeyOfProperty(property: Property) {
-        return property.name;
+    /**
+     * The cache is process-wide and shared by every command, so a bare property name leaks
+     * values across commands that happen to declare the same one (`depth` on hole vs.
+     * extrude, `merge` on mirror vs. pattern, `angle` on draft vs. circular pattern, ...).
+     * The command's own key prefixes it; a command without a registration (a test double)
+     * falls back to the bare name. A base class can keep an intentionally shared option on
+     * the bare name by overriding this (see `SketchMultistepCommand`'s `construction`).
+     */
+    protected cacheKeyOfProperty(property: Property): string {
+        const commandKey = CommandStore.getComandData(this)?.key;
+        return commandKey === undefined ? property.name : `${commandKey}:${property.name}`;
+    }
+
+    /**
+     * Hands `commandKey`'s fields the values a command that OPENS it was given, as if they had
+     * been left over from its own last run (which is the only other thing this cache means).
+     *
+     * Seeding the cache rather than setting the field on a constructed instance is the point:
+     * `beforeExecute` reads this cache over whatever the instance already holds, so a value put
+     * on the instance first would be overwritten the moment the command starts. A key with no
+     * registration is stored under its bare name, matching `cacheKeyOfProperty`.
+     */
+    static seedOptions(commandKey: string | undefined, values: Record<string, unknown>): void {
+        const prefix = commandKey === undefined ? "" : `${commandKey}:`;
+        for (const [name, value] of Object.entries(values)) {
+            CancelableCommand._propertiesCache.set(`${prefix}${name}`, value);
+        }
     }
 }

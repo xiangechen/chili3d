@@ -106,6 +106,15 @@ export type JoinType = (typeof JoinTypes)[number];
 
 export type OffsetMode = "skin" | "pipe" | "rectoVerso";
 
+/**
+ * How a sweep orients its profile along the path: `frenet` rotates the profile with the
+ * path's Frenet frame, `correctedFrenet` additionally smooths frame discontinuities,
+ * `fixed` keeps the profile plane's normal fixed as the binormal (no twist).
+ */
+export const SweepProfileModes = ["frenet", "correctedFrenet", "fixed"] as const;
+
+export type SweepProfileMode = (typeof SweepProfileModes)[number];
+
 export interface IWire extends IShape {
     toFace(): Result<IFace>;
     edgeLoop(): IEdge[];

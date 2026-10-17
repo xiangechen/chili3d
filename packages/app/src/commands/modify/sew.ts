@@ -29,7 +29,7 @@ export class Sew extends MultistepCommand {
                 return;
             }
             const repaired = repairShape(result.value, 1e-7);
-            result.value.dispose();
+            if (repaired !== result.value) result.value.dispose();
 
             const node = new EditableShapeNode({
                 document: this.document,

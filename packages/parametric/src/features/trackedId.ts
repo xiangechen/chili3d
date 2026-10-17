@@ -45,6 +45,21 @@ export function prefixedId(prefix: string, id: string): string {
 }
 
 /**
+ * Whether `id` carries `prefix` — the reader of what `prefixedId` writes, and the only way to ask
+ * WHO built a sub-shape from an id alone. Answers for EVERY leaf, so a face since merged with a
+ * neighbour still answers for the operation that first named it.
+ *
+ * The separator is part of the test, not a convenience: without it a prefix that happens to be a
+ * partial leaf (`f1` against `f10:x`) would claim a stranger. A later operation that derived ITS
+ * name from this one gets its own prefix in front (`f2:f1:x`), so that id answers for `f2` and not
+ * for `f1` — which is right: the sub-shape the user can see is the later one's.
+ */
+export function idHasPrefix(id: string, prefix: string): boolean {
+    const scoped = `${prefix}:`;
+    return id.split(ID_COMPONENT_SEPARATOR).some((leaf) => leaf.startsWith(scoped));
+}
+
+/**
  * `id` flattened into ONE component, for embedding inside another id.
  *
  * An embedded id keeps its identity only as a whole: leaving it compound would leak its

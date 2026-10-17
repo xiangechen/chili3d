@@ -294,7 +294,8 @@ function offsetCurveGeometry(entity: SketchEntityData, d: number): Result<Offset
         ...(entity.nurbs === undefined ? {} : { nurbs: { ...entity.nurbs, knots: [...entity.nurbs.knots] } }),
         offset: {
             sourceId: entity.id,
-            sourceType: entity.type as Exclude<SketchEntityType, "offsetCurve">,
+            // `isOffsettable` has already refused a point — a copy cannot run parallel to one
+            sourceType: entity.type as Exclude<SketchEntityType, "offsetCurve" | "point">,
             distance: d,
         },
     });
@@ -783,9 +784,13 @@ function copyPointKey(point: CopyPoint): string {
     return `${point.copyIndex}:${point.pointIndex}`;
 }
 
-/** A picked entity the offset can copy: any real geometry — every kind has an offset now. */
+/**
+ * A picked entity the offset can copy: any real curve geometry — every curve kind has an
+ * offset. A point has no curve to run parallel to, so it is silently not a source, the way
+ * a datum or external id is not.
+ */
 function isOffsettable(entity: SketchEntityData | undefined): entity is SketchEntityData {
-    return entity !== undefined;
+    return entity !== undefined && entity.type !== "point";
 }
 
 /**

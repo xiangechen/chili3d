@@ -14,7 +14,11 @@ import {
     VisualStates,
     type XYZ,
 } from "@chili3d/core";
+import { isBodyTrackingNode } from "../../features/bodyTracking";
+import type { NeutralPlaneRef } from "../../features/feature";
+import { reportSilentIdLoss } from "../../features/idDiagnostics";
 import {
+    captureFaceRef,
     DATUM_PLANE_NAMES,
     type DatumPlaneName,
     datumDisplayPlane,
@@ -51,6 +55,47 @@ export type PlanePickResult =
     | { kind: "face"; data: VisualShapeData; point: XYZ }
     /** A datum quad is a stand-in, not geometry: there is no clicked point to carry. */
     | { kind: "datum"; plane: Plane; name: DatumPlaneName };
+
+/** What a plane pick captured: the stored reference, plus the plane it resolved to. */
+export interface PickedNeutralPlane {
+    readonly ref: NeutralPlaneRef;
+    /** The plane in WORLD coordinates — what has to be mapped into the body before the kernel sees it. */
+    readonly plane: Plane;
+}
+
+/**
+ * The picked plane as a feature stores it and as the kernel consumes it. A datum needs nothing
+ * more than its name — the three never move — while a face is captured in world coordinates as
+ * `PlaneFaceRef`, with the owner's tracked face id when it has one so a rebuild re-matches it
+ * exactly instead of geometrically.
+ */
+export function captureNeutralPlane(
+    document: IDocument,
+    result: PlanePickResult,
+): PickedNeutralPlane | undefined {
+    if (result.kind === "datum") {
+        return { ref: { kind: "datum", name: result.name }, plane: datumPlaneOf(result.name) };
+    }
+    const owner = document.visual.context.getNode(result.data.owner);
+    if (owner === undefined) return undefined;
+    const worldFace = result.data.shape.transformedMul(result.data.transform) as IFace;
+    try {
+        const ref = captureFaceRef(owner.id, worldFace);
+        if (isBodyTrackingNode(owner)) {
+            const faceId = owner.faceIdAt(result.data.indexes[0]);
+            if (faceId === undefined) {
+                // Not fatal: the ref keeps its geometric fingerprint and re-matches on that. The
+                // report is what turns a silently weaker reference into a visible one.
+                reportSilentIdLoss(owner, "face", "a picked plane face has no tracked id");
+            } else {
+                ref.faceId = faceId;
+            }
+        }
+        return { ref: { kind: "face", ref }, plane: planeOfFace(worldFace) };
+    } finally {
+        worldFace.dispose();
+    }
+}
 
 /**
  * Where the ray meets the picked face's plane. A planar face lies in that plane, so this

@@ -220,3 +220,23 @@ export function refScore(ref: EdgeRef, edge: IEdge): number {
         return Infinity;
     }
 }
+
+/**
+ * `edges` with the holes dropped — and ITSELF when it has none.
+ *
+ * The holes come from `ShapeTracking.resolvedEdges`, which is positional and may hold an empty slot:
+ * `pattern` writes one for a direction whose line could not be re-matched (it keeps the ref and
+ * reports the loss through `unresolved`). An edge feature's `edges` is a SET, not a positional list,
+ * so a slot with no anchor there simply does not belong — the same read `resolveById` gives it.
+ *
+ * Identity is a fast path, not the correctness gate: `refreshAnchoredRefs` returns early on
+ * `next === feature` BEFORE its `JSON.stringify` pair, which would still drop an equal array —
+ * rebuilding one would just make every feature pay two serializations per rebuild.
+ */
+export function withoutHoles(edges: readonly (EdgeRef | undefined)[]): EdgeRef[] {
+    return edges.every((x) => x !== undefined) ? (edges as EdgeRef[]) : edges.filter(isPresent);
+}
+
+function isPresent(edge: EdgeRef | undefined): edge is EdgeRef {
+    return edge !== undefined;
+}

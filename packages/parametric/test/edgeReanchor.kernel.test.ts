@@ -7,8 +7,9 @@ import { fileURLToPath } from "node:url";
 import { type IEdge, Plane, ShapeTypes } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
+import { matchCornerEdges } from "../src/features/edgeCorner";
 import { captureEdgeRef, type EdgeRef } from "../src/features/edgeRef";
-import type { FilletFeatureData } from "../src/features/feature";
+import type { FilletFeatureData, ShapeTracking } from "../src/features/feature";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { type SketchData, SketchNode } from "../src/sketch";
 
@@ -49,6 +50,21 @@ function setup() {
     expect(body.shape.isOk).toBe(true);
     const edge = (body.shape.unchecked()?.findSubShapes(ShapeTypes.edge) as IEdge[])[0];
     return { doc, sketch, body, extrude, edge };
+}
+
+/** A body of the size given, so its edges match nothing on a differently-sized one. */
+function box(size: number) {
+    const doc = new TestDocument({ application: createMockApplication() });
+    doc.visual = createMockVisualWithDocument(doc) as any;
+    const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: square(size) });
+    doc.modelManager.addNode(sketch);
+    const body = new ParametricBodyNode({
+        document: doc,
+        features: [{ id: "f1", type: "extrude", sketchId: sketch.id, depth: size } as never],
+    });
+    doc.modelManager.addNode(body);
+    expect(body.shape.isOk).toBe(true);
+    return body;
 }
 
 function appendFillet(body: ParametricBodyNode, extrude: unknown, edges: EdgeRef[]): void {
@@ -97,5 +113,37 @@ describe("edge-ref re-anchoring (real kernel)", () => {
         sketch.setDataEmitShapeChanged(square(20));
         expect(body.shape.isOk).toBe(true);
         expect(body.featureItems()[1].error).toBeUndefined();
+    });
+});
+
+describe("a corner edge the rebuild cannot find", () => {
+    test("fails the match, rather than quietly rounding one edge fewer", () => {
+        // The ref names an edge of a DIFFERENT body, so neither its id nor its fingerprint (a box
+        // of another size) can match — and a matcher that cannot place a ref FAILS rather than
+        // leaving its slot empty (`matchCapturedRefs`), so the feature errors. That is also why the
+        // edge features need no `unresolved` channel: there is no partial outcome to report.
+        // the same channel sweep, revolve and pattern report through.
+        const body = box(10);
+        const foreign = box(20);
+        const stray = captureEdgeRef(
+            (foreign.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[])[0],
+            foreign.edgeIdAt(0),
+        );
+        const edges = body.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[];
+        const tracking: ShapeTracking = {
+            inputFaceIds: [],
+            outputFaceIds: [],
+            inputEdgeIds: edges.map((_, index) => body.edgeIdAt(index)),
+            outputEdgeIds: [],
+        };
+
+        const matched = matchCornerEdges(
+            body.shape.unchecked()!,
+            { id: "f2", type: "fillet", radius: 1, edges: [stray] },
+            tracking,
+        );
+
+        expect(matched.isOk).toBe(false);
+        expect(matched.isOk ? "" : matched.error).toBe("Edge not found after rebuild");
     });
 });

@@ -15,6 +15,7 @@ import type {
     IWire,
     JoinType,
     OffsetMode,
+    SweepProfileMode,
 } from "./shape";
 
 export interface TrackedShape {
@@ -88,6 +89,26 @@ export function primaryAncestors(ancestors: readonly number[] | undefined, count
         if (output >= 0 && output < count && map[output] < 0) map[output] = ancestors[i + 1];
     }
     return map;
+}
+
+/**
+ * Why an offset of faces failed. The kernel CLASSIFIES the failure rather than wording it —
+ * the wording is per locale and belongs to the feature — and for the common failure it also
+ * reports how far the body would have taken, which it only knows by searching for it.
+ */
+export interface OffsetFaceProblem {
+    /**
+     * `1` the distance is too far (read `maxDistance`), `2` no distance works on these faces,
+     * `3` the body is not a solid, `4` the body has a sealed void inside, `5` OCCT raised,
+     * `6` rounded edges meet at a sharp corner inside one smooth chain. `0` when the kernel
+     * gave no classification at all.
+     */
+    readonly status: number;
+    /**
+     * With status 1, the largest distance OF THE SAME SIGN that does work, in millimetres —
+     * the "max ≈ this" of the message. 0 with every other status.
+     */
+    readonly maxDistance: number;
 }
 
 export interface IShapeFactory {
@@ -178,6 +199,28 @@ export interface IShapeFactory {
     fillet(shape: IShape, edges: number[], radius: number): Result<IShape>;
     chamfer(shape: IShape, edges: number[], distance: number): Result<IShape>;
     /**
+     * Two-distance chamfer: `faces[i]` is the reference face of `edges[i]` (both indexes in the
+     * shape's own findSubShapes enumeration, as with `chamfer`) — d1 is measured ON that face,
+     * d2 on the edge's other face.
+     */
+    chamferTwoDist?(shape: IShape, edges: number[], d1: number, d2: number, faces: number[]): Result<IShape>;
+    /** Tracked two-distance chamfer, for stable sub-shape ids. */
+    chamferTwoDistTracked?(
+        shape: IShape,
+        edges: number[],
+        d1: number,
+        d2: number,
+        faces: number[],
+    ): Result<TrackedShape>;
+    /**
+     * Variable-radius fillet: `radii` carries one (R1, R2) pair per edge, flat — R1 at the
+     * edge's start point, R2 at its end point, interpolated linearly along the edge by the
+     * kernel. Equal pairs are a constant-radius fillet by another name.
+     */
+    filletVariable?(shape: IShape, edges: number[], radii: number[]): Result<IShape>;
+    /** Tracked variable-radius fillet, for stable sub-shape ids. */
+    filletVariableTracked?(shape: IShape, edges: number[], radii: number[]): Result<TrackedShape>;
+    /**
      * Draft: taper each of `faces` about its intersection line with `neutralPlane`, rotating it
      * by `angle` (in degrees, converted at this boundary — as `revolve` does). `pullDirection` is
      * the side of the plane a POSITIVE angle removes material from, so the UI's opposite-direction
@@ -201,6 +244,35 @@ export interface IShapeFactory {
         angle: number,
         neutralPlane: Plane,
     ): Result<TrackedShape>;
+    /**
+     * Offset Face: move each of `faces` by `distance` along its own outward normal, the faces
+     * that run smoothly into it following. Positive moves a face OUT (the body grows there, a
+     * hole's wall closes in), negative moves it in; a curved wall's radius changes with the
+     * move, which is how a cylinder or a hole is resized. A distance of 0 is an error, not a
+     * no-op: there is no other reading of it.
+     *
+     * `faces` must be sub-shapes of `shape` (same TShape) — the kernel matches them by
+     * IDENTITY, so a transformed copy is a different shape and would not be found. The body is
+     * refused rather than attempted when it is not a solid, has a sealed void, or has a smooth
+     * chain with a sharp edge inside it (OCCT corrupts the wasm heap on the last, whichever
+     * face is picked — the floor included).
+     *
+     * A failure carries more than a message: `OffsetFaceProblem` says which kind it was and,
+     * for the common one, how far the body would have taken.
+     *
+     * `rounds` names the ROUND faces of a fillet whose radius must be kept. They are taken off
+     * the body before the move and made again at their own radius between the faces they ran
+     * between, so moving a wall does not re-radius the rounds beside it — Fusion's behavior.
+     * Omit them for OCCT's own, where a round is a smooth neighbour like any other and travels
+     * with the face, growing or shrinking by the distance. Only a cylinder or a torus among the
+     * faces given counts as a round; the rest are ignored.
+     */
+    offsetFacesTracked?(
+        shape: IShape,
+        faces: IFace[],
+        distance: number,
+        rounds?: IFace[],
+    ): Result<TrackedShape, OffsetFaceProblem>;
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
     revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;
     /**
@@ -210,6 +282,28 @@ export interface IShapeFactory {
      * LastShape) travel through `capFaces`, empty for a closed path.
      */
     sweepTracked?(profile: IShape, path: IWire, isRoundCorner: boolean): Result<TrackedShape>;
+    /**
+     * Sweep with an explicit profile-orientation mode (`SweepProfileMode`): `frenet` is what
+     * `sweep`/`sweepTracked` run today; `fixed` carries the profile untwisted, holding
+     * `fixedDirection` as a constant binormal — required for `fixed`, ignored otherwise, and
+     * refused by the kernel when it runs parallel to the path's tangent (the frame collapses
+     * there; measured: a graceful "Failed to sweep profile", not a raise).
+     */
+    sweepWithMode?(
+        profiles: IShape[],
+        path: IWire,
+        mode: SweepProfileMode,
+        isRoundCorner: boolean,
+        fixedDirection?: XYZLike,
+    ): Result<IShape>;
+    /** Tracked counterpart of `sweepWithMode` — one profile per call, as `sweepTracked`. */
+    sweepWithModeTracked?(
+        profile: IShape,
+        path: IWire,
+        mode: SweepProfileMode,
+        isRoundCorner: boolean,
+        fixedDirection?: XYZLike,
+    ): Result<TrackedShape>;
     /**
      * Tracked loft: the history input enumerates the sections' edges in section order
      * (section 0's edges first), faces of the input are always empty (loft inputs are

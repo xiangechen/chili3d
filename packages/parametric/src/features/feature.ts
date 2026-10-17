@@ -16,6 +16,7 @@ import {
     Result,
     type Scope,
     ShapeTypes,
+    type SweepProfileMode,
     type TrackedShape,
     type XYZLike,
 } from "@chili3d/core";
@@ -35,6 +36,15 @@ export interface FeatureBase {
     readonly type: string;
     /** Suppressed features are skipped during evaluation and shown dimmed in the panel. */
     readonly suppressed?: boolean;
+    /**
+     * Variable-driven suppression: the feature is skipped whenever the named document
+     * variable resolves to 0 (or, with `invert`, whenever it resolves to anything but 0).
+     * Either this or `suppressed` being active suppresses the feature (logical OR). A
+     * variable that is missing or does not resolve to a number suppresses NOTHING and
+     * raises a feature-level warning instead — a typo'd name must never silently hide
+     * geometry.
+     */
+    readonly suppressBy?: { readonly variable: string; readonly invert?: boolean };
     /** User-assigned display name, overriding the kind's default in the feature panel. */
     readonly name?: string;
 }
@@ -43,6 +53,7 @@ export interface FeatureBase {
 export type FeatureData =
     | ExtrudeFeatureData
     | RevolveFeatureData
+    | PrimitiveFeatureData
     | FilletFeatureData
     | ChamferFeatureData
     | BooleanFeatureData
@@ -51,7 +62,15 @@ export type FeatureData =
     | ThickenFeatureData
     | ShellFeatureData
     | DraftFeatureData
-    | RibFeatureData;
+    | RibFeatureData
+    | MirrorFeatureData
+    | PatternFeatureData
+    | HoleFeatureData
+    | RemoveFeatureFeatureData
+    | SplitFeatureData
+    | SewFeatureData
+    | OffsetFaceFeatureData
+    | HelixFeatureData;
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";
@@ -64,14 +83,99 @@ export interface ExtrudeFeatureData extends FeatureBase {
      */
     readonly source?: { readonly nodeId: string; readonly profiles: ProfileRef[] };
     readonly depth: ParameterValue;
-    /** When true, the profiles are extruded by `depth` in both directions of the sketch normal. */
+    /**
+     * When true, the profiles are extruded by the forward depth in both directions of the
+     * sweep direction. Mutually exclusive with `depth2`: setting BOTH is a rebuild error
+     * rather than a silent winner — the user sees the conflict and clears one.
+     */
     readonly symmetric?: boolean;
     /**
-     * Distance the extrusion starts away from the profile plane, along the extrude
-     * normal (positive moves the start in the normal direction). Zero keeps the start
-     * on the profile plane.
+     * Flips the sweep direction (Onshape's Opposite Direction): a blind `depth` reaches
+     * to the other side of the profile plane, an up-to/`throughAll` condition measures
+     * along the flipped direction (a target on the natural side then lies behind the
+     * start plane and is a rebuild error), and a press-pull sweeps AGAINST the face's
+     * outward normal. The flip negates the sweep vectors, never their order: `depth2`
+     * still lands on the side opposite the main sweep (so with `reverse` that is the
+     * natural side), a `:neg` half keeps its ids, and a draft's narrow end moves with
+     * the flip, since the taper's pull direction is the sweep vector itself. A
+     * `direction` override's sense flips too; `startOffset` is NOT flipped — it keeps
+     * the unflipped direction's sense. The extrude command composes this with the
+     * drag's own sign: a backward drag already sweeps the other way, so the stored
+     * value is drag-sign XOR the checkbox (both set is no flip at all).
+     */
+    readonly reverse?: boolean;
+    /**
+     * How the forward reach is determined (default `blind` — the prism stands `depth`
+     * tall). `throughAll` infers a depth that carries the prism past the chain input's
+     * far side (a preceding feature is required: standalone geometry has nothing to go
+     * through); `upToFace`/`upToVertex` measure the depth from the profile plane to the
+     * named target along the sweep direction. The stored `depth` stays the fallback the
+     * feature builds with while an up-to target is missing or lost — the row reports the
+     * lost pick (`ShapeTracking.unresolved`) instead of the feature failing.
+     */
+    readonly endCondition?: ExtrudeEndCondition;
+    /**
+     * `upToFace` target: a face of a node, as a profile fingerprint captured in WORLD
+     * coordinates (`profileRef.ts`, the press-pull `source` contract — a world capture
+     * doubles as the frozen fallback when the node is gone, its frame having gone with
+     * it). The host's own id names a face of the chain input, matched on
+     * `context.input`. A planar target parallel to the profile plane resolves exactly
+     * (the end plane coincides with the target's plane); any other face — curved, or
+     * planar but tilted — terminates at the face's FARTHEST point along the direction,
+     * sampled from its wire vertices and bounding-box corners: the prism end clears the
+     * whole face, which keeps cuts separating. An exact curved-surface termination needs
+     * kernel `BRepFeat` support and is out of scope here.
+     */
+    readonly endFace?: { readonly nodeId: string; readonly profile: ProfileRef };
+    /**
+     * `upToVertex` target: a vertex of a node, captured in WORLD coordinates
+     * (`vertexRef.ts` — a bare position, re-matched to the nearest vertex). Exact: the
+     * end plane passes through the point.
+     */
+    readonly endVertex?: { readonly nodeId: string; readonly vertex: VertexRef };
+    /**
+     * Offset applied to the depth an up-to condition computed (default 0): positive
+     * overshoots the target along the sweep direction, negative stops short of it.
+     * Ignored by `blind` and `throughAll`.
+     */
+    readonly endOffset?: ParameterValue;
+    /**
+     * A second, independent depth for the direction OPPOSITE the sweep direction
+     * (Onshape's second direction). Must be positive. Mutually exclusive with
+     * `symmetric` — see there.
+     */
+    readonly depth2?: ParameterValue;
+    /**
+     * Sweep direction override: a line edge of a node, fingerprinted in that node's
+     * LOCAL frame (the pattern `PatternLineSource` contract — start→end is the forward
+     * sense). The host's own id names an edge of the chain input. Absent, the direction
+     * is the profile plane's normal. A direction parallel to the profile plane is a
+     * rebuild error (the prism would be degenerate). A lost ref builds from the frozen
+     * fingerprint and reports through `ShapeTracking.unresolved`.
+     */
+    readonly direction?: { readonly nodeId: string; readonly edge: EdgeRef };
+    /**
+     * Distance the extrusion starts away from the profile plane, along the sweep
+     * direction (positive moves the start in the direction's sense). Zero keeps the
+     * start on the profile plane. The start offset is applied FIRST; an up-to/through
+     * depth then measures from the profile plane to the target and subtracts the offset,
+     * so the end lands on the target whatever the start offset is.
      */
     readonly startOffset?: ParameterValue;
+    /**
+     * Mould draft on the swept side faces, in degrees (undefined or 0 keeps the sides
+     * straight — the plain prism path, unchanged). Positive narrows the prism toward its
+     * end, negative flares it: each side face rotates about its intersection with the
+     * sweep's START plane (the profile plane shifted by `startOffset`), so a symmetric or
+     * `depth2` sweep tapers both halves off their shared start, parting-line style, and a
+     * `throughAll` cut leaves a drafted through-hole. The magnitude must stay strictly
+     * below 90°. Caveat: an up-to end sizes the prism's END to its target while the taper
+     * rotates about the START, so a tapered up-to cut can stop short of spanning the
+     * target face — the boolean stays valid; the opening it leaves is the tapered end.
+     * The taper runs on each freshly swept prism before any fuse/boolean, so the tracked
+     * ids compose (`extrudeDraft.ts`) instead of being re-matched geometrically afterwards.
+     */
+    readonly draftAngle?: ParameterValue;
     /**
      * How the prism combines with the preceding feature's shape on the host body —
      * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone
@@ -83,6 +187,66 @@ export interface ExtrudeFeatureData extends FeatureBase {
      * empty extrudes every closed profile of the sketch.
      */
     readonly profiles?: ProfileRef[];
+}
+
+/** The forward end conditions of an extrude — see `ExtrudeFeatureData.endCondition`. */
+export type ExtrudeEndCondition = "blind" | "throughAll" | "upToFace" | "upToVertex";
+
+/** The placed primitives — what each kind builds is `primitive.ts`'s. */
+export type PrimitiveKind = "box" | "cylinder" | "sphere" | "cone";
+
+/**
+ * Primitive: a box, cylinder, sphere or cone stood up at an explicit origin — no sketch,
+ * no pick, the chain's usual starter geometry.
+ *
+ * Everything about the placement is a parameter (expressions included), so the feature carries
+ * no fingerprints of its own except the optional direction override. Every size field is
+ * optional: a field the user never typed falls back to the kind's default, so switching
+ * `primitive` in the panel never strands the feature on sizes meant for another kind.
+ */
+export interface PrimitiveFeatureData extends FeatureBase {
+    readonly type: "primitive";
+    readonly primitive: PrimitiveKind;
+    /**
+     * Where the primitive stands, in world coordinates: a box's CORNER (the base rectangle
+     * grows to the construction frame's +x/+y from it, and the box rises along the frame's
+     * normal), a cylinder's and cone's BASE CENTER, a sphere's center. Components default to 0.
+     */
+    readonly origin?: { readonly x: ParameterValue; readonly y: ParameterValue; readonly z: ParameterValue };
+    /** Box side lengths along the construction frame's x / y / normal; each defaults to 10. */
+    readonly dx?: ParameterValue;
+    readonly dy?: ParameterValue;
+    readonly dz?: ParameterValue;
+    /**
+     * Cylinder and sphere radius; a cone's BASE radius (its top radius is `radius2`,
+     * default 2 — 0 makes a pointed cone). Defaults to 5.
+     */
+    readonly radius?: ParameterValue;
+    readonly radius2?: ParameterValue;
+    /** Cylinder and cone height along the axis; defaults to 10. */
+    readonly height?: ParameterValue;
+    /**
+     * Axis direction override: a line edge of a node, fingerprinted in that node's LOCAL
+     * frame (the `PatternLineSource` contract — start→end is the sense, resolved like the
+     * extrude's `direction`). Wins over `axis` when both are set. Meaningless for a sphere
+     * and ignored there. A lost ref builds from the frozen fingerprint and reports through
+     * `ShapeTracking.unresolved`.
+     */
+    readonly direction?: PatternLineSource;
+    /**
+     * The axis as a plain direction vector — what an interactive placement stores (the pick
+     * plane's normal), where a live `direction` reference is more than the drag meant.
+     * Normalized at resolve time; a degenerate vector is treated as absent. The axis falls
+     * back to +Z only when BOTH this and `direction` are absent, and a sphere reads neither.
+     */
+    readonly axis?: XYZLike;
+    /**
+     * How the primitive combines with the preceding feature's shape on the host body —
+     * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone
+     * geometry; a primitive that opens a chain carries none, and one asked to combine with
+     * nothing is a rebuild error rather than a silent standalone.
+     */
+    readonly operation?: BooleanOperation;
 }
 
 export interface RevolveFeatureData extends FeatureBase {
@@ -100,8 +264,19 @@ export interface RevolveFeatureData extends FeatureBase {
      * axis line moves the revolve, like the axis reference in mainstream parametric CAD.
      */
     readonly axisSource?: { readonly nodeId: string; readonly edge: EdgeRef };
-    /** In degrees. */
+    /** In degrees. The forward angle when `angle2` is also set. */
     readonly angle: ParameterValue;
+    /**
+     * When true, `angle` is the TOTAL angle, swept half to each side of the profile
+     * plane. Mutually exclusive with `angle2`: setting BOTH is a rebuild error rather
+     * than a silent winner — the user sees the conflict and clears one.
+     */
+    readonly symmetric?: boolean;
+    /**
+     * A second, independent angle in degrees for the direction OPPOSITE the axis's
+     * right-hand sense (Onshape's second direction). Must be positive.
+     */
+    readonly angle2?: ParameterValue;
     /**
      * Fingerprints of the sketch profiles to revolve (`profileRef.ts`); undefined or
      * empty revolves every closed profile of the sketch.
@@ -120,12 +295,37 @@ export interface FilletFeatureData extends FeatureBase {
     readonly type: "fillet";
     readonly radius: ParameterValue;
     readonly edges: EdgeRef[];
+    /**
+     * The radius at every edge's END vertex when set — `radius` is the start vertex's, and
+     * the kernel interpolates linearly along each edge (OCCT's two-radius fillet). Absent,
+     * or equal to `radius`, is a constant-radius fillet and takes the plain kernel path.
+     */
+    readonly radius2?: ParameterValue;
 }
+
+/** The chamfer's distance convention — see `distance2`/`angle` for the asymmetric modes. */
+export type ChamferMode = "equal" | "twoDistance" | "distanceAngle";
 
 export interface ChamferFeatureData extends FeatureBase {
     readonly type: "chamfer";
     readonly distance: ParameterValue;
     readonly edges: EdgeRef[];
+    /**
+     * How the chamfer's two offsets are set: `equal` (default) puts `distance` on both
+     * faces; `twoDistance` puts `distance` on the reference face and `distance2` on the
+     * edge's other face; `distanceAngle` puts `distance` on the reference face and
+     * `distance · tan(angle)` on the other (`angle` in degrees, 0 < angle < 90).
+     */
+    readonly mode?: ChamferMode;
+    /** Second offset of a `twoDistance` chamfer — required by that mode, ignored otherwise. */
+    readonly distance2?: ParameterValue;
+    /** Slope angle of a `distanceAngle` chamfer, degrees — required by that mode. */
+    readonly angle?: ParameterValue;
+    /**
+     * Swaps the face `distance` is measured on in the asymmetric modes: the reference face
+     * defaults to the edge's first adjacent face, `flip` takes the second. Ignored by `equal`.
+     */
+    readonly flip?: boolean;
 }
 
 export type BooleanOperation = "fuse" | "cut" | "common";
@@ -202,6 +402,14 @@ export interface SweepFeatureData extends FeatureBase {
      * `RightCorner` otherwise).
      */
     readonly isRoundCorner?: boolean;
+    /**
+     * How the profile is oriented along the path (`SweepProfileMode`): `frenet` (default)
+     * rotates it with the path's Frenet frame — what every sweep before this field ran;
+     * `correctedFrenet` smooths frame discontinuities; `fixed` keeps the profile upright,
+     * holding its in-plane up direction (world +Z projected into the profile plane) as a
+     * constant binormal.
+     */
+    readonly profileControl?: SweepProfileMode;
     /**
      * How the swept shape combines with the preceding feature's shape on the host body —
      * Fusion-style join (fuse) / cut / intersect (common). Undefined creates standalone
@@ -280,6 +488,40 @@ export interface ShellFeatureData extends FeatureBase {
 }
 
 /**
+ * Offset Face (Fusion's and Onshape's Move Face › Offset): move the named faces along their own
+ * outward normals, the faces that run smoothly into them following — a flat face grows or sinks
+ * like a pad, a curved wall changes its radius, which is how a cylinder or a hole is resized.
+ *
+ * Named and resolved exactly as a shell's faces are: `ProfileRef` fingerprints matched against
+ * `context.input` itself, never through a world-space transform, because the kernel matches a
+ * face by identity and a transformed copy is a new TShape.
+ *
+ * A distance of 0 is an error rather than a no-op — there is no other reading of it. The sign is
+ * the DIRECTION, and negative is not a lesser case: positive moves a face OUT (the body grows
+ * there, a hole's wall closes in), so pulling a wall in is the same feature as pushing it out by
+ * a negative distance.
+ */
+export interface OffsetFaceFeatureData extends FeatureBase {
+    readonly type: "offsetFace";
+    /** Faces of the body's chain input to move, as face fingerprints in that input's LOCAL space. */
+    readonly faces: ProfileRef[];
+    /** How far to move them along each face's own outward normal. A curved face's radius changes
+     * by this much. 0 is rejected; the sign says which way. */
+    readonly distance: ParameterValue;
+    /**
+     * Keep the radius of the rounds of a fillet that run into a moved face: they are taken off and
+     * made again at their own radius, so moving a wall neither re-radiuses them nor drags the
+     * faces past them along (Fusion's behavior, and what an imported `.f3d` expects).
+     *
+     * ABSENT MEANS OFF, and that is deliberate rather than a defaulted-on convenience: an offset
+     * saved before this option existed has no field, and reading it as ON would recompute it into a
+     * different shape than the one it was saved as. A new offset written by the command sets it to
+     * whatever the panel shows (on, unless turned off).
+     */
+    readonly keepRounds?: boolean;
+}
+
+/**
  * The plane a draft rotates its faces about: one of the three global datums, or a planar face
  * of a node. Deliberately the SKETCH's plane reference (`PlaneFaceRef`, `planeRef.ts`) rather
  * than a re-invention — it is what the viewport plane picker produces, and it already carries
@@ -323,6 +565,168 @@ export interface DraftFeatureData extends FeatureBase {
      * only thing that changes: the taper's magnitude is the same either way.
      */
     readonly reverse?: boolean;
+}
+
+/**
+ * Mirror (Onshape's Mirror part): the body's chain input mirrored about a plane — one of the
+ * three global datums, or a planar face of a node, named exactly as a draft's neutral plane is
+ * (`NeutralPlaneRef`, captured in world coordinates and mapped into the host's frame at
+ * evaluation).
+ *
+ * The mirrored copy is not a referenced body: it is DERIVED from the chain input, so its identity
+ * is the input's own. Its sub-shapes are named from the input's tracked ids under the feature's
+ * scope (`mirror:<featureId>` — see `mirror.ts`), which is what a reference onto the mirrored
+ * half re-matches against after an upstream edit.
+ */
+export interface MirrorFeatureData extends FeatureBase {
+    readonly type: "mirror";
+    /** The plane the chain input is mirrored about. */
+    readonly plane: NeutralPlaneRef;
+    /**
+     * Fuse the mirrored copy with the input into one body (the default — Onshape's Merge scope).
+     * False keeps the two halves side by side in one compound instead.
+     */
+    readonly merge?: boolean;
+}
+
+/**
+ * A direction/axis reference a pattern runs along: a line edge of a node, fingerprinted in that
+ * node's LOCAL frame (`edgeRef.ts`) — the revolve `axisSource` contract. The host's own id names
+ * an edge of the chain input instead (resolved against `context.input`, the same self-reference
+ * rule the revolve documents). When the ref cannot re-match — the node is gone, the edge no
+ * longer exists — the stored fingerprint doubles as the frozen fallback geometry (a line ref
+ * carries its endpoints), the loss is reported through `ShapeTracking.unresolved`, and the copies
+ * keep building from the frozen line until the user re-picks.
+ */
+export interface PatternLineSource {
+    readonly nodeId: string;
+    readonly edge: EdgeRef;
+}
+
+interface PatternBase extends FeatureBase {
+    readonly type: "pattern";
+    /**
+     * Total instance count INCLUDING the original (Onshape's Instance count): 3 places the
+     * original plus two copies. Resolved from the document scope as a unitless whole number.
+     */
+    readonly count: ParameterValue;
+    /**
+     * Flattened indexes of the copies to skip — 0 is the FIRST COPY, the original has no index
+     * and cannot be skipped. The flattening runs direction-1 first, then direction-2 (a grid's
+     * first row, then the next), and around the axis in rotation order; the index a copy carries
+     * never depends on which OTHER copies are skipped, so editing the list does not rename the
+     * survivors. Out-of-range entries skip nothing.
+     */
+    readonly skip?: number[];
+    /**
+     * Fuse every copy with the input into one body (the default — Onshape's Merge scope). False
+     * keeps the original and the copies side by side in one compound instead.
+     */
+    readonly merge?: boolean;
+}
+
+/** Linear pattern (Onshape's): copies translated along an edge's direction — a grid when a second direction is set. */
+export interface LinearPatternFeatureData extends PatternBase {
+    readonly mode: "linear";
+    /** The edge giving the copies' direction; the spacing runs along it. */
+    readonly direction: PatternLineSource;
+    /** Distance between consecutive instances along `direction`, in length units. */
+    readonly spacing: ParameterValue;
+    /**
+     * Onshape's Direction 2: a second edge direction the grid grows along. When set, `count2` and
+     * `spacing2` are required alongside it — the panel exposes the pair only then.
+     */
+    readonly direction2?: PatternLineSource;
+    readonly count2?: ParameterValue;
+    readonly spacing2?: ParameterValue;
+}
+
+/** Circular pattern (Onshape's): copies rotated about a line edge's axis. */
+export interface CircularPatternFeatureData extends PatternBase {
+    readonly mode: "circular";
+    /** The edge giving the rotation axis (right-hand rule about its start→end direction). */
+    readonly axis: PatternLineSource;
+    /**
+     * Total angle in degrees (default 360). With `equalSpacing` it is the arc the instances are
+     * spread across; without it, the angle between the first and last instance.
+     */
+    readonly angle?: ParameterValue;
+    /**
+     * Even distribution within `angle` (the default): the step is `angle / count`, so a full
+     * turn does not land the last copy on the original. False makes `angle` the first-to-last
+     * span instead: the step is `angle / (count - 1)`.
+     */
+    readonly equalSpacing?: boolean;
+}
+
+export type PatternFeatureData = LinearPatternFeatureData | CircularPatternFeatureData;
+
+/** What a hole cuts with: a plain drilled hole, a socket-head's counterbore, or a flat-head's countersink. */
+export type HoleStyle = "simple" | "counterbore" | "countersink";
+
+/**
+ * Hole centers bound to standalone point entities of ONE sketch, by the sketch's own entity
+ * ids. A bound center resolves on every rebuild: the entity's world position is projected
+ * along the hole plane's normal onto it (the sketch need not lie on the hole face), so moving
+ * or constraining the point moves the hole. A point picked near another sketch's entity once
+ * a sketch is pinned degrades to a plain (u, v) center — one sketch keeps the binding's
+ * "move the sketch, the pattern follows" reading unambiguous.
+ */
+export interface HoleSketchPoints {
+    readonly sketchId: string;
+    readonly entityIds: readonly number[];
+}
+
+/**
+ * Hole (Onshape's Hole): drilled holes at points picked on a planar face — a material-removal
+ * feature, so it always consumes the chain input (there is no standalone hole).
+ *
+ * The placement is the contract that makes holes FOLLOW the face: the face is a `PlaneFaceRef`
+ * (world capture, re-matched on every rebuild — the draft/mirror neutral-plane system), and each
+ * center is stored as (u, v) in the face plane's OWN frame rather than as a frozen world point, so
+ * an upstream edit that moves the face carries the holes along. The frame is the sketch plane's
+ * stable-origin frame (`sketchPlaneOfFace`) computed on the SOURCE-LOCAL face — an origin derived
+ * from the world origin would drift when the body is merely moved.
+ *
+ * Depth convention: a blind `depth` measures from the plane to the drill POINT (the tip apex),
+ * the way Fusion's "include drill tip" callout reads; the full-diameter part is therefore
+ * `depth − r/tan(φ/2)`. `throughAll` (no `depth`) instead extends the hole solid so the
+ * FULL-DIAMETER part clears the input's far side — the tip pokes out like a real drilled
+ * through hole, and the removed material is a clean cylinder.
+ *
+ * Threads are deliberately out of scope: a tapped hole is a modeling-annotation concern (a
+ * cosmetic thread plus a drawing callout), not a solid this feature cuts.
+ */
+export interface HoleFeatureData extends FeatureBase {
+    readonly type: "hole";
+    /**
+     * The planar face the holes start from, captured in world coordinates (`planeRef.ts`).
+     * Usually a face of the host's chain input; a face of another node resolves the same way a
+     * mirror's plane does. A lost face builds from the frozen normal+offset fingerprint and
+     * reports through `ShapeTracking.unresolved`.
+     */
+    readonly face: PlaneFaceRef;
+    /**
+     * Hole centers as (u, v) coordinates in the face plane's frame — see the type doc.
+     * Picked directly on the face; `sketchPoints` carries the bound ones. The two lists
+     * union at evaluation: raw centers keep slots 0..n−1 and bound ones
+     * n..n+m−1, so a lost bound point leaves its slot EMPTY (reported through
+     * `ShapeTracking.unresolved`) instead of shifting the survivors' sub-shape ids.
+     */
+    readonly points: [number, number][];
+    /** Centers bound to sketch point entities — resolved and projected per rebuild. */
+    readonly sketchPoints?: HoleSketchPoints;
+    readonly style: HoleStyle;
+    /** Drill diameter. */
+    readonly diameter: ParameterValue;
+    /** Blind depth INCLUDING the drill tip; absent drills through all (see the type doc). */
+    readonly depth?: ParameterValue;
+    /** Drill tip included angle in degrees (default 118, the general-purpose point). */
+    readonly drillAngle?: ParameterValue;
+    /** Socket-head recess; required when `style` is `counterbore`. */
+    readonly counterbore?: { readonly diameter: ParameterValue; readonly depth: ParameterValue };
+    /** Flat-head recess; required when `style` is `countersink` (angle defaults to 90°). */
+    readonly countersink?: { readonly diameter: ParameterValue; readonly angle: ParameterValue };
 }
 
 /**
@@ -373,6 +777,107 @@ export interface RibFeatureData extends FeatureBase {
 }
 
 /**
+ * Remove feature (Fusion's Delete Face with heal, Onshape's Delete face): delete the named
+ * faces of the chain input and let the kernel close the wound — removing a fillet's face
+ * un-fillets the corner, removing a hole's wall faces plugs the hole.
+ *
+ * The faces are named and resolved exactly as a shell's are (`ProfileRef` fingerprints matched
+ * against `context.input` itself, never through a world-space transform — the kernel matches
+ * them by identity). The kernel offers no tracked variant of the operation, so the result's
+ * sub-shape ids fall back to geometric matching (`trackedIds`): a reference anchored across a
+ * removeFeature re-matches by fingerprint.
+ */
+export interface RemoveFeatureFeatureData extends FeatureBase {
+    readonly type: "removeFeature";
+    /** Faces of the body's chain input to delete, as face fingerprints in that input's LOCAL space. */
+    readonly faces: ProfileRef[];
+}
+
+/**
+ * Split: cut the chain input with a plane, keeping both halves (one compound) or only the
+ * piece on one side of it.
+ *
+ * The tool is a NEUTRAL PLANE (`NeutralPlaneRef` — a global datum or a planar face of a node),
+ * resolved exactly as a draft's is. A planar tool only, deliberately: the kernel entry used
+ * here (`IShape.split`, a BOPAlgo splitter) has no tracked variant, so the pieces' ids fall
+ * back to geometric matching (`trackedIds`), and a planar cut's pieces re-match stably under
+ * that fallback in a way a curved tool's would not. A non-planar face is rejected at pick
+ * time; one hand-written into a file is a rebuild error.
+ */
+export interface SplitFeatureData extends FeatureBase {
+    readonly type: "split";
+    /** The plane to cut with. */
+    readonly tool: NeutralPlaneRef;
+    /**
+     * Which side of the tool to keep: `both` (the default) keeps every piece as one compound;
+     * `positive` keeps the piece(s) on the side the plane's normal points to, `negative` the
+     * opposite ones. A side whose pieces vanished (the plane misses the input) is an error,
+     * never a silent empty.
+     */
+    readonly keepSide?: "both" | "positive" | "negative";
+}
+
+/**
+ * Sew (minimal): stitch the chain input — loose faces, shells, or a compound of those — into
+ * one shell, the way the app's Sew command does (a `repairShape` pass follows the kernel sew).
+ *
+ * The semantic boundary is deliberately narrow: the input must contain only faces and shells.
+ * A SOLID is rejected outright — there is nothing to sew, and the kernel returning it
+ * unchanged would pretend one happened. Cross-node sewing is NOT supported; the feature
+ * consumes the chain input only.
+ */
+export interface SewFeatureData extends FeatureBase {
+    readonly type: "sew";
+    /**
+     * Sewing tolerance in length units; undefined uses the kernel's own default. Pairs of
+     * edges further apart than this stay unsewn.
+     */
+    readonly tolerance?: ParameterValue;
+}
+
+/**
+ * Helix: a helix WIRE (a spring's centreline) standing alone as the body's whole chain —
+ * no preceding feature, consumed as the path of a later sweep (its `path` edge reference
+ * points at this body).
+ *
+ * The coil is defined by `radius` plus TWO of {`length`, `pitch`, `turns`} — the third is
+ * derived (`length = pitch·turns`, `pitch = length/turns`, `turns = length/pitch`). When all
+ * three are stored, `length` and `pitch` are authoritative and `turns` is re-derived (the
+ * app's Helix command takes height and pitch, so they win the tie). Fewer than two is a
+ * rebuild error. The kernel call gets `pitch` and the swept angle (`turns·360°`).
+ */
+export interface HelixFeatureData extends FeatureBase {
+    readonly type: "helix";
+    /**
+     * Where the coil starts (its base centre), in world coordinates; components default to
+     * 0 — the primitive feature's `origin` contract.
+     */
+    readonly origin?: { readonly x: ParameterValue; readonly y: ParameterValue; readonly z: ParameterValue };
+    readonly radius: ParameterValue;
+    /** Total height climbed along the axis, in length units. */
+    readonly length?: ParameterValue;
+    /** Height climbed per full turn, in length units. */
+    readonly pitch?: ParameterValue;
+    /** Full turns swept. */
+    readonly turns?: ParameterValue;
+    /**
+     * Axis direction override: a line edge of a node, fingerprinted in that node's LOCAL frame
+     * (the `PatternLineSource` contract a primitive's `direction` keeps). Wins over `axis` when
+     * both are set. A lost ref builds from the frozen fingerprint and reports through
+     * `ShapeTracking.unresolved`.
+     */
+    readonly direction?: PatternLineSource;
+    /**
+     * The axis as a plain direction vector — what an interactive placement stores (the pick
+     * plane's normal, reversed when the height drag went against it), where a live `direction`
+     * reference is more than the drag meant. Normalized at resolve time; a degenerate vector is
+     * treated as absent. The axis falls back to +Z only when BOTH this and `direction` are
+     * absent.
+     */
+    readonly axis?: XYZLike;
+}
+
+/**
  * What a feature may ask of the body replaying it: its identity (to recognise a
  * self-reference, e.g. an extrude sourced on the host's own face) and its world
  * transform (boolean tools are mapped into the body's local space). Deliberately
@@ -413,6 +918,12 @@ export interface UnresolvedInputs {
     readonly refIndexes: readonly number[];
 }
 
+/** Freshly matched anchors of an extrude's end-condition targets, for write-back. */
+export interface ResolvedEndTargets {
+    readonly endFace?: ProfileRef;
+    readonly endVertex?: VertexRef;
+}
+
 export interface ShapeTracking {
     readonly inputFaceIds: readonly (string | undefined)[];
     outputFaceIds: (string | undefined)[];
@@ -430,7 +941,21 @@ export interface ShapeTracking {
      * untracked path): fillet/chamfer edges and revolve's axis edge. The body writes
      * them back into the feature, same re-anchoring contract as `resolvedProfiles`.
      */
-    resolvedEdges?: EdgeRef[];
+    /**
+     * POSITIONAL, one slot per stored ref — and a slot MAY be a hole, because `pattern`'s own
+     * anchors are: a direction whose line could not be re-matched keeps its place empty (the ref is
+     * kept, and the panel is told through `unresolved`) so its neighbour does not shift. A handler
+     * writing a matcher's anchors (`matchEdgesAnchored`) has none to leave — that one fails the
+     * whole match instead — so a reader that knows which it holds may index freely.
+     */
+    resolvedEdges?: (EdgeRef | undefined)[];
+    /**
+     * Set by a handler holding an extrude's end-condition targets to the anchors it
+     * actually matched this run — the same re-anchoring contract as the profile/edge
+     * channels, kept separate because those channels are already positional lists of
+     * the feature's OWN profiles and edges.
+     */
+    resolvedTargets?: ResolvedEndTargets;
     /**
      * Picked inputs that no longer resolve this run (see `UnresolvedInputs`). Set by a
      * handler that built from the surviving picks; left undefined when everything
@@ -617,7 +1142,14 @@ export interface FeatureHandler<F extends FeatureData = any> {
      * handler knows where its refs live; a feature whose entry is absent is
      * returned unchanged.
      */
-    applyResolvedRefs?(feature: F, refs: { resolvedProfiles?: ProfileRef[]; resolvedEdges?: EdgeRef[] }): F;
+    applyResolvedRefs?(
+        feature: F,
+        refs: {
+            resolvedProfiles?: ProfileRef[];
+            resolvedEdges?: (EdgeRef | undefined)[];
+            resolvedTargets?: ResolvedEndTargets;
+        },
+    ): F;
 }
 
 const handlers = new Map<string, FeatureHandler>();
@@ -634,4 +1166,26 @@ export function evaluateFeature(feature: FeatureData, context: FeatureContext): 
     const handler = handlers.get(feature.type);
     if (handler === undefined) return Result.err(`Unknown feature type: ${feature.type}`);
     return handler.evaluate(feature, context);
+}
+
+/**
+ * Whether `feature.suppressBy` suppresses the feature under `scope` right now — the whole test, with
+ * none of the bookkeeping a rebuild does around it (warning about a variable that will not resolve,
+ * remembering which features a variable took out).
+ *
+ * `undefined` means the named variable is missing or not a finite number, and that suppresses
+ * NOTHING: a typo'd name must never silently hide geometry, and the caller is the one that says so
+ * (a rebuild warns, a preview has nothing to warn into).
+ *
+ * The distinction matters because a snapshot preview has to ask the SAME question the real run asks
+ * (`evaluateChainSnapshot`) without writing the real run's records: reading only `feature.suppressed`
+ * there left variable-suppressed features in the preview's chain, so the faces it offered to pick
+ * were not the ones the chain would have.
+ */
+export function suppressionOf(feature: FeatureData, scope: Scope): boolean | undefined {
+    const suppressBy = feature.suppressBy;
+    if (suppressBy === undefined) return false;
+    const value = scope.get(suppressBy.variable)?.value;
+    if (value === undefined || !Number.isFinite(value)) return undefined;
+    return suppressBy.invert === true ? value !== 0 : value === 0;
 }

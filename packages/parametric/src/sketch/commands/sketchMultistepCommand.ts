@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type EdgeMeshData, MultistepCommand, PubSub, property, VisualConfig } from "@chili3d/core";
+import {
+    type EdgeMeshData,
+    MultistepCommand,
+    type Property,
+    PubSub,
+    property,
+    VisualConfig,
+} from "@chili3d/core";
 import { applyAutoConstraints } from "../autoConstraints";
 import { curveChainMesh } from "../curveMesh";
 import { SketchEditor } from "../editor/sketchEditor";
@@ -15,9 +22,9 @@ import { autoReference } from "./sketchDimensions";
 export abstract class SketchMultistepCommand extends MultistepCommand {
     /**
      * Construction mode: the committed entity becomes reference geometry (dashed,
-     * excluded from profiles). Shared by every draw command — the command property
-     * cache is keyed by property name, so the checkbox set on one of them applies
-     * to the others and sticks until unticked.
+     * excluded from profiles). Shared by every draw command — the checkbox set on one of
+     * them applies to the others and sticks until unticked, which `cacheKeyOfProperty`
+     * below keeps on the process-wide bare-name key.
      */
     @property("option.command.construction")
     get construction(): boolean {
@@ -25,6 +32,16 @@ export abstract class SketchMultistepCommand extends MultistepCommand {
     }
     set construction(value: boolean) {
         this.setProperty("construction", value);
+    }
+
+    /**
+     * `construction` is the one option the draw commands share (see its doc): the base
+     * class scopes every cached option to its own command, so the shared one keeps the
+     * bare-name key here.
+     */
+    protected override cacheKeyOfProperty(property: Property): string {
+        if (property.name === "construction") return property.name;
+        return super.cacheKeyOfProperty(property);
     }
 
     protected override canExcute(): Promise<boolean> {

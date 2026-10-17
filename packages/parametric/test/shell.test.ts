@@ -56,14 +56,16 @@ describe("shell feature", () => {
         expect(parameters.find((x) => x.key === "joinType")?.value).toBe("arc");
     });
 
-    test("a join type the dropdown does not offer still evaluates", () => {
-        // `tangent` is outside the row but inside the field's type, and the kernel builds it — so
-        // the guard is the kernel's set, not the dropdown's, and a file carrying one is not
-        // rejected. The error here is the missing chain link, i.e. the guard did NOT fire.
+    test("a hand-edited tangent join type fails loudly instead of building nothing", () => {
+        // `tangent` passes the legal-token guard (it IS a JoinType) but the kernel no-ops on
+        // it, so `evaluate` rejects it itself — before the missing chain link is even looked
+        // at, exactly like the invalid-token guard.
         const body = bodyWith([shellFeature({ joinType: "tangent" as JoinType })]);
 
         expect(body.shape.isOk).toBe(false);
-        expect(body.featureItems()[0].error).toBe("Shell requires a preceding feature");
+        expect(body.featureItems()[0].error).toBe(
+            'Shell join type "tangent" is not supported — the kernel returns the shape unchanged',
+        );
     });
 
     test("an invalid join type surfaces as a feature error without reaching the kernel", () => {

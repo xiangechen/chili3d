@@ -174,7 +174,7 @@ function boundsCorners(entity: SketchEntityData): [number, number][] {
             [cx + r, cy + r],
         ];
     }
-    if (entity.type === "line") return entityPoints(entity);
+    if (entity.type === "line" || entity.type === "point") return entityPoints(entity);
     if (entity.type !== "arc") {
         // the free curves and the ellipse family: no closed form handy, so bound by a sampled
         // polyline — near enough for where the triad sits
@@ -272,7 +272,9 @@ function entityExtent(entity: SketchEntityData): number {
 
 /** Why the entity cannot come through the transform, or `undefined` when it can. */
 function scalingProblem(entity: SketchEntityData, transform: SketchTransform): string | undefined {
-    if (entity.type === "line") return undefined;
+    // a line has no extent of its own the scale could collapse, and a point is one position —
+    // there is nothing in either to shrink
+    if (entity.type === "line" || entity.type === "point") return undefined;
     if (entityExtent(entity) * transform.scale <= Precision.Distance) {
         return "The scale would collapse the sketch geometry";
     }

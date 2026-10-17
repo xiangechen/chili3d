@@ -2,7 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    type AsyncController,
+    AsyncController,
+    Config,
+    Dimensions,
     debounce,
     type I18nKeys,
     type IDocument,
@@ -11,14 +13,19 @@ import {
     type INode,
     type INodeVisual,
     type IShape,
+    type IVertex,
     Matrix4,
+    type Plane,
+    PointOnPlaneStep,
+    type PointSnapData,
     PubSub,
     Result,
-    type ShapeNode,
+    ShapeNode,
     type ShapeType,
     ShapeTypes,
     type VisualShapeData,
     VisualStates,
+    type XYZ,
 } from "@chili3d/core";
 import { type IBodyTrackingNode, isBodyTrackingNode } from "../features/bodyTracking";
 import { matchEdgeIndexes, matchEdgesAnchored } from "../features/edgeMatcher";
@@ -28,17 +35,28 @@ import {
     evaluateFeature,
     type FeatureData,
     type FilletFeatureData,
+    type HoleFeatureData,
+    type HoleSketchPoints,
+    type NeutralPlaneRef,
+    type PatternLineSource,
     type RibFeatureData,
+    type ShapeTracking,
     type SweepFeatureData,
+    suppressionOf,
 } from "../features/feature";
+import { findSketchPointAt, holePointUV, resolveHolePlane, type SketchPointSnap } from "../features/hole";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, profileEntitiesOf, sketchProfiles } from "../features/profileBuilder";
 import { matchProfileIndexes } from "../features/profileMatcher";
 import { captureProfileRef, type ProfileRef } from "../features/profileRef";
+import { plainVec } from "../features/refGeometry";
 import { matchSourceFaceIndexes } from "../features/sourceFaceMatcher";
 import { idIsShared } from "../features/trackedId";
-import { shapeEntityIds } from "../sketch/sketchModel";
+import type { VertexRef } from "../features/vertexRef";
+import { captureNeutralPlane, PlanePickHandler } from "../sketch/commands/planePickHandler";
+import { shapeEntityIds, viewPixelSize } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
+import { LineEdgeFilter } from "./shapeFilters";
 
 /**
  * The re-pick sessions behind `ParametricBodyNode.reselectShapes`: a feature row's
@@ -47,7 +65,7 @@ import type { SketchNode } from "../sketch/sketchNode";
  * Why they live outside the body node: they are interaction, not model. They own the
  * picker, the selection, the highlighter and a temporary preview mesh — the body node
  * is a document-model class and must not reach into any of those. Keeping the sessions
- * here also mirrors the package's other interactive picks (`EdgeCornerPickHandler`).
+ * here also mirrors the package's other interactive picks (`ValueArrowPickHandler`).
  */
 
 /**
@@ -738,6 +756,203 @@ export class PathReselectSession {
 }
 
 /**
+ * Re-picks a mirror feature's plane — the datum quads or a planar face, the same pick the mirror
+ * command ran — and returns the replacement ref, or undefined when the user cancels.
+ *
+ * The body is rolled back to just before the mirror for the whole pick, as with the face
+ * sessions: a plane picked on the host itself is re-matched against the mirror's INPUT on every
+ * rebuild, and only the rolled-back shape offers exactly that geometry (the final shape also
+ * shows the mirrored half, whose faces carry the mirror's scoped ids — capturing one of those
+ * would store a ref that never resolves).
+ *
+ * No live preview and no selection bookkeeping: the pick is a single click on a plane, so the
+ * shared `runReselectSession` scaffold (built around `pickShape`) does not apply — the sketch
+ * module's own `PlanePickHandler` drives it instead.
+ */
+export class PlaneReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(featureIndex: number, controller: AsyncController): Promise<NeutralPlaneRef | undefined> {
+        const document = this.host.document;
+        // Deliberately ignores the boolean, as the edge session does: a failed rollback replay
+        // keeps the full chain displayed, so the pick simply proceeds against it.
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            document.selection.clearSelection();
+            const handler = new PlanePickHandler(document, controller);
+            await document.picker.pickAsync(
+                handler,
+                "prompt.select.plane",
+                controller,
+                "none",
+                "select.default",
+            );
+            const result = handler.result;
+            handler.dispose();
+            document.selection.clearSelection();
+            return result === undefined ? undefined : captureNeutralPlane(document, result)?.ref;
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+}
+
+/**
+ * Re-picks a pattern's direction/axis edge — a single line edge on any body, the same pick the
+ * pattern commands run — and returns the replacement source, or undefined when the user cancels.
+ *
+ * The body is rolled back to just before the pattern for the whole pick, as with the edge
+ * session: a direction picked on the host itself is re-matched against the pattern's INPUT on
+ * every rebuild, and only the rolled-back shape offers exactly that geometry (the final shape
+ * also shows the copies, whose edges carry the pattern's scoped ids — capturing one of those
+ * would store a ref that never resolves).
+ *
+ * No live preview and no count bar: the pick is a single click on an edge, so the shared
+ * `runReselectSession` scaffold (built around a multi-pick) does not apply.
+ */
+export class DirectionReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(featureIndex: number, controller: AsyncController): Promise<PatternLineSource | undefined> {
+        const document = this.host.document;
+        // Deliberately ignores the boolean, as the edge session does: a failed rollback replay
+        // keeps the full chain displayed, so the pick simply proceeds against it.
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            document.selection.clearSelection();
+            // A per-pick controller: `reselectPatternLines` picks direction and direction2 in
+            // sequence, and a settled controller replays its result to every listener
+            // registered later (see `AsyncController.addListener`) — a second pick on the
+            // caller's controller would resolve instantly with the selection the first pick's
+            // teardown left (the host node), returning nothing. No off() exists: the bridge
+            // lives as long as the caller's controller and fires into the settled round,
+            // doing nothing (the extrude command's stale-bridge arrangement, see `pickRound`).
+            const round = new AsyncController();
+            controller.onCancelled(() => round.cancel());
+            const picked = await document.picker.pickShape("prompt.select.lineEdge", round, {
+                shapeType: ShapeTypes.edge,
+                shapeFilter: new LineEdgeFilter(),
+                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+            });
+            const data = picked[0];
+            if (data === undefined) return undefined;
+            const node = data.owner.node;
+            if (!(node instanceof ShapeNode)) return undefined;
+            const edge = data.shape as unknown as IEdge;
+            if (!isBodyTrackingNode(node)) return { nodeId: node.id, edge: captureEdgeRef(edge) };
+            const edgeId = node.edgeIdAt(data.indexes[0]);
+            if (edgeId === undefined) {
+                reportSilentIdLoss(node, "edge", "a re-picked pattern direction edge has no tracked id");
+            }
+            return {
+                nodeId: node.id,
+                edge: captureEdgeRef(edge, edgeId, idIsShared(allEdgeIds(node), edgeId)),
+            };
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+}
+
+/**
+ * Re-picks an extrude's up-to-face target — a single face on any body — and returns the
+ * replacement reference, or undefined when the user cancels.
+ *
+ * The body is rolled back to just before the extrude for the whole pick, as with the edge
+ * session: a target on the host itself names a face of the extrude's INPUT on every rebuild,
+ * and only the rolled-back shape offers exactly that geometry (the final shape also shows the
+ * prism the extrude raised, whose faces carry this feature's scoped ids — capturing one of
+ * those would store a ref that never resolves).
+ *
+ * No live preview and no selection bookkeeping, the `DirectionReselectSession` pattern: the
+ * pick is a single click on a face.
+ */
+export class EndFaceReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<{ nodeId: string; profile: ProfileRef } | undefined> {
+        const document = this.host.document;
+        // Deliberately ignores the boolean, as the edge session does: a failed rollback replay
+        // keeps the full chain displayed, so the pick simply proceeds against it.
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            document.selection.clearSelection();
+            const picked = await document.picker.pickShape("prompt.select.faces", controller, {
+                shapeType: ShapeTypes.face,
+                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+            });
+            const data = picked[0];
+            if (data === undefined) return undefined;
+            const node = data.owner.node;
+            if (!(node instanceof ShapeNode)) return undefined;
+            // The press-pull `source` contract: a WORLD-space fingerprint (its normal captured —
+            // the parallel-plane exactness check reads it), with the tracked face id when the
+            // picked body tracks ids.
+            const world = data.shape.transformedMul(data.transform) as IFace;
+            try {
+                if (!isBodyTrackingNode(node)) {
+                    return { nodeId: node.id, profile: captureProfileRef(world, undefined, undefined, true) };
+                }
+                const faceId = node.faceIdAt(data.indexes[0]);
+                if (faceId === undefined) {
+                    reportSilentIdLoss(node, "face", "a re-picked extrude end face has no tracked id");
+                }
+                return {
+                    nodeId: node.id,
+                    profile: captureProfileRef(world, faceId, idIsShared(allFaceIds(node), faceId), true),
+                };
+            } finally {
+                world.dispose();
+            }
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+}
+
+/**
+ * Re-picks an extrude's up-to-vertex target — a single vertex on any body — and returns the
+ * replacement reference, or undefined when the user cancels.
+ *
+ * Rolled back like `EndFaceReselectSession`, and the same single-click shape: vertices carry
+ * no tracked ids, so the ref is the bare WORLD position (`vertexRef.ts`), re-matched to the
+ * nearest vertex on every rebuild.
+ */
+export class EndVertexReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<{ nodeId: string; vertex: VertexRef } | undefined> {
+        const document = this.host.document;
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            document.selection.clearSelection();
+            const picked = await document.picker.pickShape("prompt.select.vertexes", controller, {
+                shapeType: ShapeTypes.vertex,
+                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+            });
+            const data = picked[0];
+            if (data === undefined) return undefined;
+            const node = data.owner.node;
+            if (!(node instanceof ShapeNode)) return undefined;
+            const point = data.transform.ofPoint((data.shape as unknown as IVertex).point());
+            return { nodeId: node.id, vertex: { point: plainVec(point) } };
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+}
+
+/**
  * Re-picks the chain edges of a rib and returns the replacement entity ids, or undefined when the
  * user cancels or picks nothing (a rib cannot have an empty chain, so an empty confirmation
  * cancels with a toast).
@@ -819,30 +1034,216 @@ export class RibChainReselectSession {
     }
 }
 
-/** The path node's per-edge tracked ids (findSubShapes order); empty when it does not track. */
-function allEdgeIds(pathNode: ShapeNode): (string | undefined)[] {
+/**
+ * Re-picks a hole feature's center points on its stored face and returns the replacement
+ * centers, or undefined when the user cancels (or the face no longer resolves).
+ *
+ * Rolled back to just before the feature like the other input-facing sessions: the face the
+ * centers were captured on belongs to the hole's INPUT, and the final shape's copy of it is
+ * already pierced by the holes themselves. The face ref is NOT re-picked — only the points are
+ * — so the plane is resolved once (against the rolled-back input, the same frame `evaluate`
+ * rebuilds) and the pick loops on it exactly as the hole command's point step does, sketch-point
+ * binding included: the answer replaces BOTH the raw centers and the bound ones, so a binding
+ * that should not survive the re-pick does not.
+ *
+ * No live preview and no count bar of its own: the pick is a point loop, so the shared
+ * `runReselectSession` scaffold (built around `pickShape`) does not apply.
+ */
+
+/** What a hole-center (re-)pick answers with — the center set whole, both kinds. */
+export interface HoleCentersPick {
+    readonly points: [number, number][];
+    readonly sketchPoints?: HoleSketchPoints;
+}
+
+export class HolePointsReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        feature: HoleFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<HoleCentersPick | undefined> {
+        const document = this.host.document;
+        // Deliberately ignores the boolean, as the edge session does: a failed rollback replay
+        // keeps the full chain displayed, so the pick simply proceeds against it.
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            const shape = this.host.shape;
+            if (!shape.isOk) return undefined;
+            const scope = document.variables.evaluate().scope;
+            const resolved = resolveHolePlane(feature.face, {
+                document,
+                host: this.host,
+                input: shape.value,
+                scope,
+            });
+            if (!resolved.isOk || resolved.value.face === undefined) {
+                // The frozen-fingerprint fallback has no face to validate points against — a
+                // lost face is re-picked by re-creating the feature, not by this session.
+                PubSub.default.pub(
+                    "showToast",
+                    "error.default:{0}",
+                    resolved.isOk ? "Hole face not found" : resolved.error,
+                );
+                return undefined;
+            }
+            const transform = this.host.worldTransform();
+            const worldFrame = resolved.value.plane.transformed(transform);
+            // The thunk's host-local copy is OURS to dispose (see `ResolvedHolePlane.face`);
+            // the world copy made from it is the pick's, disposed below as before.
+            const hostFace = resolved.value.face();
+            try {
+                const worldFace = hostFace.transformedMul(transform) as IFace;
+                try {
+                    return await this.pickPoints(document, worldFrame, worldFace, controller);
+                } finally {
+                    worldFace.dispose();
+                }
+            } finally {
+                hostFace.dispose();
+            }
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+
+    /** The hole command's point loop: a click drops a center, Enter or the confirm bar ends it. */
+    private async pickPoints(
+        document: IDocument,
+        worldFrame: Plane,
+        worldFace: IFace,
+        controller: AsyncController,
+    ): Promise<HoleCentersPick | undefined> {
+        document.selection.clearSelection();
+        const points: [number, number][] = [];
+        const bound: SketchPointSnap[] = [];
+        let isConfirm = false;
+        let cancelled = false;
+        controller.onCancelled(() => (cancelled = true));
+        while (true) {
+            const stepController = new AsyncController();
+            controller.onCancelled(() => stepController.cancel());
+            const step = new PointOnPlaneStep(
+                "prompt.select.holeCenters",
+                (): PointSnapData => ({
+                    dimension: Dimensions.D1D2D3,
+                    plane: () => worldFrame,
+                    // A center counts only where it lands on the face itself.
+                    validator: (point: XYZ) =>
+                        worldFace.intersectLine(worldFrame.project(point), worldFrame.normal, 1e-6) !==
+                        undefined,
+                    onKeyDown: (e) => {
+                        isConfirm = e.code === "Space" || e.code === "Enter";
+                    },
+                }),
+                false,
+                true,
+            );
+            const data = await step.execute(document, stepController);
+            if (data === undefined || stepController.result?.status !== "success") {
+                if (cancelled) return undefined;
+                const done = isConfirm || stepController.result?.status === "success";
+                if (!done || (points.length === 0 && bound.length === 0)) return undefined;
+                return {
+                    points,
+                    ...(bound.length === 0
+                        ? {}
+                        : {
+                              sketchPoints: {
+                                  sketchId: bound[0].sketchId,
+                                  entityIds: bound.map((x) => x.entityId),
+                              },
+                          }),
+                };
+            }
+            if (data.point === undefined) continue;
+            // A pick snapped to a sketch point binds to it rather than adding a raw center —
+            // the command's own contract, pinned to the first bound sketch. Re-picking an
+            // already bound entity is a no-op pick: the loop asks again.
+            const pixel = viewPixelSize(data.view, data.point);
+            const snap =
+                pixel === undefined
+                    ? undefined
+                    : findSketchPointAt(
+                          document,
+                          worldFrame,
+                          data.point,
+                          pixel * Config.instance.SnapDistance,
+                          bound[0]?.sketchId,
+                      );
+            if (snap !== undefined) {
+                if (!bound.some((x) => x.entityId === snap.entityId)) bound.push(snap);
+                continue;
+            }
+            points.push(holePointUV(worldFrame, data.point));
+        }
+    }
+}
+
+/** The path node's per-edge tracked ids (findSubShapes order); empty when it does not track. */ function allEdgeIds(
+    pathNode: ShapeNode,
+): (string | undefined)[] {
     if (!isBodyTrackingNode(pathNode) || !pathNode.shape.isOk) return [];
     const edges = pathNode.shape.value.findSubShapes(ShapeTypes.edge);
     return edges.map((_, index) => pathNode.edgeIdAt(index));
 }
 
+/** The node's per-face tracked ids (findSubShapes order); empty when it does not track. */
+function allFaceIds(node: ShapeNode): (string | undefined)[] {
+    if (!isBodyTrackingNode(node) || !node.shape.isOk) return [];
+    const faces = node.shape.value.findSubShapes(ShapeTypes.face);
+    return faces.map((_, index) => node.faceIdAt(index));
+}
+
 /**
- * Evaluates a feature list without touching the host's state (cache, errors, shape) and
- * without id tracking — edge refs fall back to fingerprint matching. Shapes superseded
- * by a later feature are disposed; the caller owns the returned shape.
+ * Evaluates a feature list without touching the host's state (cache, errors, shape). Shapes
+ * superseded by a later feature are disposed; the caller owns the returned shape.
+ *
+ * The tracked ids are threaded through the replay exactly as the body's own run threads them, so a
+ * feature's stored refs resolve by IDENTITY here too. Without that they fall back to their
+ * fingerprints, and an upstream edit can invalidate one: after a fillet's radius changes, the
+ * tangent wall an Offset Face names no longer matches the fingerprint captured for it, and the
+ * offset lands on whatever face scores nearest — measured, on a box, on the ROUND beside it, which
+ * is a preview showing a shape the confirm would never build.
  */
-function evaluateChainSnapshot(host: ReselectHost, features: FeatureData[]): Result<IShape> {
+export function evaluateChainSnapshot(host: ReselectHost, features: FeatureData[]): Result<IShape> {
     let input: IShape | undefined;
+    let faceIds: (string | undefined)[] | undefined;
+    let edgeIds: (string | undefined)[] | undefined;
     const scope = host.document.variables.evaluate().scope;
     for (const feature of features) {
-        if (feature.suppressed) continue;
-        const result = evaluateFeature(feature, { document: host.document, host, input, scope });
+        // The same question the real rebuild asks (`isSuppressedByVariable`), minus its bookkeeping:
+        // reading only `suppressed` left variable-suppressed features in this chain, so the faces
+        // the gesture offered to pick were not the ones the chain would have built.
+        //
+        // Deliberately NOT the session's own rollback: the session opens one (`setRollbackIndex`)
+        // so the feature being edited is visible here at all — honouring it would empty the preview.
+        if (feature.suppressed || suppressionOf(feature, scope) === true) continue;
+        const tracking: ShapeTracking = {
+            inputFaceIds: faceIds ?? [],
+            outputFaceIds: [],
+            inputEdgeIds: edgeIds ?? [],
+            outputEdgeIds: [],
+        };
+        const result = evaluateFeature(feature, {
+            document: host.document,
+            host,
+            input,
+            scope,
+            tracking,
+        });
         if (!result.isOk) {
             input?.dispose();
             return Result.err(result.error);
         }
         if (result.value !== input) input?.dispose();
         input = result.value;
+        // A handler that cannot track leaves the output empty — ids stay undefined from there on
+        // rather than being guessed (the same rule `evaluateAndCache` keeps).
+        faceIds = tracking.outputFaceIds.length > 0 ? tracking.outputFaceIds : undefined;
+        edgeIds = tracking.outputEdgeIds.length > 0 ? tracking.outputEdgeIds : undefined;
     }
     return input === undefined ? shapeFactory.combine([]) : Result.ok(input);
 }

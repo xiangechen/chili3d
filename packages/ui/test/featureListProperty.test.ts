@@ -19,6 +19,8 @@ rs.mock("../src/property/featureListProperty.module.css", () => ({
     error: "fl-error",
     warning: "fl-warning",
     suppressed: "fl-suppressed",
+    variableSuppressed: "fl-variable-suppressed",
+    suppressInvert: "fl-suppress-invert",
     header: "fl-header",
     expander: "fl-expander",
     icon: "fl-icon",
@@ -30,12 +32,19 @@ rs.mock("../src/property/featureListProperty.module.css", () => ({
     missingInput: "fl-missing-input",
     missingInputAction: "fl-missing-input-action",
     param: "fl-param",
+    groupMembers: "fl-group-members",
+    groupMember: "fl-group-member",
+    groupMemberLabel: "fl-group-member-label",
     reference: "fl-reference",
     menu: "fl-menu",
     menuItem: "fl-menu-item",
     menuIcon: "fl-menu-icon",
     dropBefore: "fl-drop-before",
     dropAfter: "fl-drop-after",
+    rowsDragging: "fl-rows-dragging",
+    rollbackSlot: "fl-rollback-slot",
+    rollbackActive: "fl-rollback-active",
+    rollbackDrop: "fl-rollback-drop",
 }));
 
 const { showDialogMock } = rs.hoisted(() => {
@@ -251,6 +260,128 @@ describe("FeatureListProperty", () => {
         expect((options[1] as unknown as { _selected: boolean })._selected).toBe(true);
     });
 
+    describe("parameter groups", () => {
+        const ORIGIN = { id: "origin", display: "common.origin" } as const;
+        const coord = (
+            key: "origin.x" | "origin.y" | "origin.z",
+            value: number,
+            extra?: Partial<FeatureItem["parameters"][number]>,
+        ): FeatureItem["parameters"][number] => ({
+            key,
+            display:
+                key === "origin.x" ? "common.coordX" : key === "origin.y" ? "common.coordY" : "common.coordZ",
+            value,
+            group: ORIGIN,
+            ...extra,
+        });
+
+        test("adjacent members of a group render as ONE row with a labelled input each", () => {
+            const doc = createMockDocument();
+            const node = featureNode([
+                coord("origin.x", 1),
+                coord("origin.y", 2),
+                coord("origin.z", 3),
+                { key: "radius", display: "circle.radius", value: 5 },
+            ]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+
+            // The three coordinates merge into one row; the radius keeps its own.
+            const rows = prop.querySelectorAll(".fl-param");
+            expect(rows.length).toBe(2);
+            // The row label is the group's; each member demotes to a small in-row label.
+            expect(mustQuery(rows[0], ".cm-property-name")).not.toBeNull();
+            expect(rows[0].querySelectorAll(".fl-group-member-label").length).toBe(3);
+            const members = rows[0].querySelectorAll(".fl-group-member");
+            expect(members.length).toBe(3);
+            const boxes = Array.from(rows[0].querySelectorAll<HTMLInputElement>("input.ip-box"));
+            expect(boxes.map((x) => x.value)).toEqual(["1", "2", "3"]);
+            // The standalone row is untouched: no group wrapper, one full-width box.
+            expect(rows[1].querySelector(".fl-group-members")).toBeNull();
+            expect(rows[1].querySelectorAll("input.ip-box").length).toBe(1);
+        });
+
+        test("editing a member commits under the member's own key", () => {
+            const doc = createMockDocument();
+            let visualUpdated = false;
+            doc.visual.update = () => {
+                visualUpdated = true;
+            };
+            const node = featureNode([coord("origin.x", 1), coord("origin.y", 2), coord("origin.z", 3)]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+
+            const boxes = Array.from(prop.querySelectorAll<HTMLInputElement>("input.ip-box"));
+            boxes[1].value = "20";
+            (boxes[1] as any)._onkeydown({ key: "Enter", stopPropagation: () => {}, target: boxes[1] });
+
+            expect(node.setFeatureParameter).toHaveBeenCalledWith("b1", "origin.y", 20);
+            expect(visualUpdated).toBe(true);
+        });
+
+        test("a member hidden by visibleWhen drops out of the row; the rest stay grouped", () => {
+            const doc = createMockDocument();
+            const node = featureNode([
+                coord("origin.x", 1),
+                coord("origin.y", 2, { visibleWhen: [{ key: "gone", value: true }] }),
+                coord("origin.z", 3),
+            ]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+
+            const rows = prop.querySelectorAll(".fl-param");
+            expect(rows.length).toBe(1);
+            const boxes = Array.from(rows[0].querySelectorAll<HTMLInputElement>("input.ip-box"));
+            expect(boxes.map((x) => x.value)).toEqual(["1", "3"]);
+        });
+
+        test("a group whose members are all hidden renders no row", () => {
+            const doc = createMockDocument();
+            const hidden = { visibleWhen: [{ key: "gone", value: true }] };
+            const node = featureNode([
+                coord("origin.x", 1, hidden),
+                coord("origin.y", 2, hidden),
+                coord("origin.z", 3, hidden),
+            ]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+
+            expect(prop.querySelector(".fl-param")).toBeNull();
+        });
+
+        test("a group id split by another parameter starts a second row", () => {
+            const doc = createMockDocument();
+            const node = featureNode([
+                coord("origin.x", 1),
+                { key: "radius", display: "circle.radius", value: 5 },
+                coord("origin.z", 3),
+            ]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+
+            const rows = prop.querySelectorAll(".fl-param");
+            expect(rows.length).toBe(3);
+            expect(rows[0].querySelectorAll(".fl-group-member").length).toBe(1);
+            expect(rows[1].querySelector(".fl-group-members")).toBeNull();
+            expect(rows[2].querySelectorAll(".fl-group-member").length).toBe(1);
+        });
+
+        test("a boolean member keeps its checkbox inside the group row", () => {
+            const doc = createMockDocument();
+            const node = featureNode([
+                coord("origin.x", 1),
+                { key: "flag", display: "common.coordY", value: true, group: ORIGIN },
+            ]);
+            const prop = new FeatureListProperty(doc, node);
+            expandFirstRow(prop);
+
+            const rows = prop.querySelectorAll(".fl-param");
+            expect(rows.length).toBe(1);
+            expect(rows[0].querySelectorAll("input.ip-box").length).toBe(1);
+            expect(rows[0].querySelector("input[type='checkbox']")).not.toBeNull();
+        });
+    });
+
     test("shows the custom name instead of the localized display when renamed", () => {
         const doc = createMockDocument();
         const node = featureNode([], { name: "My fillet" });
@@ -457,6 +588,38 @@ describe("FeatureListProperty", () => {
         expect(rows[2].classList.contains("fl-drop-after")).toBe(false);
     });
 
+    test("a row drag marks the list so rollback slots go inert until the drag clears", () => {
+        const doc = createMockDocument();
+        const items: FeatureItem[] = [
+            { id: "f1", display: "command.feature.fuse", parameters: [] },
+            { id: "f2", display: "command.feature.fuse", parameters: [] },
+        ];
+        const node = {
+            featureItems: () => items,
+            setFeatureParameter: rs.fn(),
+            setFeatureSuppressed: rs.fn(),
+            moveFeature: rs.fn(),
+            moveFeatureTo: rs.fn(),
+            removeFeature: rs.fn(),
+        } as unknown as INode & IFeatureListNode;
+        const prop = new FeatureListProperty(doc, node);
+        const rows = prop.querySelectorAll(".fl-item");
+        const headers = prop.querySelectorAll(".fl-header");
+
+        headers[0].dispatchEvent(new Event("dragstart"));
+        expect(prop.classList.contains("fl-rows-dragging")).toBe(true);
+
+        // The drop path clears it…
+        rows[1].dispatchEvent(new Event("drop", { bubbles: true, cancelable: true }));
+        expect(prop.classList.contains("fl-rows-dragging")).toBe(false);
+
+        // …and so does a drag that ends without a drop.
+        headers[0].dispatchEvent(new Event("dragstart"));
+        expect(prop.classList.contains("fl-rows-dragging")).toBe(true);
+        headers[0].dispatchEvent(new Event("dragend"));
+        expect(prop.classList.contains("fl-rows-dragging")).toBe(false);
+    });
+
     describe("menu positioning", () => {
         /** Overrides the anchor rect, menu size and viewport, then opens the menu. */
         function openMenuWithGeometry(
@@ -530,6 +693,320 @@ describe("FeatureListProperty", () => {
 
             // max(950, 970-140) = 950 → clamp to 1024 - 140 - 4
             expect(menu.style.left).toBe("880px");
+        });
+    });
+
+    describe("rollback bar", () => {
+        /** A node with the rollback-bar contract: `bar` holds the position the panel last set. */
+        function rollbackNode(
+            itemCount: number,
+            options?: { bar?: number; dependents?: Record<string, string[]>; suppressed?: string[] },
+        ) {
+            const items: FeatureItem[] = Array.from({ length: itemCount }, (_, i) => ({
+                id: `f${i}`,
+                display: "command.feature.fuse" as const,
+                name: `Feature ${i}`,
+                suppressed: options?.suppressed?.includes(`f${i}`) ? true : undefined,
+                parameters: [],
+            }));
+            let bar = options?.bar;
+            const node = {
+                featureItems: () => items,
+                setFeatureParameter: rs.fn(),
+                setFeatureSuppressed: rs.fn(),
+                moveFeature: rs.fn(),
+                removeFeature: rs.fn(),
+                setRollbackBar: rs.fn((index: number | undefined) => {
+                    bar = index;
+                }),
+                featureDependents: rs.fn((id: string) => options?.dependents?.[id]),
+            };
+            Object.defineProperty(node, "rollbackBarIndex", { get: () => bar });
+            return node as unknown as INode & IFeatureListNode;
+        }
+
+        function slots(prop: FeatureListProperty) {
+            return prop.querySelectorAll<HTMLElement>(".fl-rollback-slot");
+        }
+
+        test("renders a slot between every two rows and past the ends", () => {
+            const prop = new FeatureListProperty(createMockDocument(), rollbackNode(3));
+
+            expect(slots(prop)).toHaveLength(4);
+            expect(prop.querySelector(".fl-rollback-active")).toBeNull();
+        });
+
+        test("a node without the rollback contract renders no slots", () => {
+            const prop = new FeatureListProperty(createMockDocument(), featureNode([]));
+
+            expect(prop.querySelector(".fl-rollback-slot")).toBeNull();
+        });
+
+        test("the active slot renders the bar, and rows at and after it dim like suppressed ones", () => {
+            const prop = new FeatureListProperty(createMockDocument(), rollbackNode(3, { bar: 1 }));
+
+            const rows = prop.querySelectorAll(".fl-item");
+            expect(rows[0].classList.contains("fl-suppressed")).toBe(false);
+            expect(rows[1].classList.contains("fl-suppressed")).toBe(true);
+            expect(rows[2].classList.contains("fl-suppressed")).toBe(true);
+            expect(slots(prop)[1].classList.contains("fl-rollback-active")).toBe(true);
+        });
+
+        test("clicking a slot moves the bar there", () => {
+            const node = rollbackNode(3);
+            const prop = new FeatureListProperty(createMockDocument(), node);
+
+            (slots(prop)[1] as unknown as { _onclick: (e: MouseEvent) => void })._onclick({
+                stopPropagation: () => {},
+            } as MouseEvent);
+
+            expect(node.setRollbackBar).toHaveBeenCalledWith(1);
+        });
+
+        test("clicking the active slot releases the bar", () => {
+            const node = rollbackNode(3, { bar: 1 });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+
+            (slots(prop)[1] as unknown as { _onclick: (e: MouseEvent) => void })._onclick({
+                stopPropagation: () => {},
+            } as MouseEvent);
+
+            expect(node.setRollbackBar).toHaveBeenCalledWith(undefined);
+        });
+
+        test("dropping the dragged bar on a slot moves it; past the last feature releases it", () => {
+            const node = rollbackNode(3, { bar: 1 });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+
+            slots(prop)[1].dispatchEvent(new Event("dragstart"));
+            slots(prop)[2].dispatchEvent(new MouseEvent("dragover", { bubbles: true, cancelable: true }));
+            expect(slots(prop)[2].classList.contains("fl-rollback-drop")).toBe(true);
+            slots(prop)[2].dispatchEvent(new Event("drop", { bubbles: true, cancelable: true }));
+            expect(node.setRollbackBar).toHaveBeenCalledWith(2);
+            expect(slots(prop)[2].classList.contains("fl-rollback-drop")).toBe(false);
+
+            slots(prop)[1].dispatchEvent(new Event("dragstart"));
+            slots(prop)[3].dispatchEvent(new Event("drop", { bubbles: true, cancelable: true }));
+            expect(node.setRollbackBar).toHaveBeenCalledWith(undefined);
+        });
+
+        test("dragging the bar itself does not mark the list as a row drag", () => {
+            const prop = new FeatureListProperty(createMockDocument(), rollbackNode(3, { bar: 1 }));
+
+            slots(prop)[1].dispatchEvent(new Event("dragstart"));
+            expect(prop.classList.contains("fl-rows-dragging")).toBe(false);
+
+            slots(prop)[1].dispatchEvent(new Event("dragend"));
+            expect(prop.classList.contains("fl-rows-dragging")).toBe(false);
+        });
+    });
+
+    describe("suppress by variable", () => {
+        function variableNode(item?: Partial<FeatureItem>) {
+            return {
+                featureItems: () => [{ id: "b1", display: "command.feature.fuse", parameters: [], ...item }],
+                setFeatureParameter: rs.fn(),
+                setFeatureSuppressed: rs.fn(),
+                setFeatureSuppressVariable: rs.fn(),
+                moveFeature: rs.fn(),
+                removeFeature: rs.fn(),
+            } as unknown as INode & IFeatureListNode;
+        }
+
+        test("the menu offers the entry only when the node supports it", () => {
+            const withSupport = new FeatureListProperty(createMockDocument(), variableNode());
+            const menu = openMenu(withSupport);
+            // rename, suppress, suppress-by-variable, delete
+            expect(menu.querySelectorAll(".fl-menu-item").length).toBe(4);
+            document.body.querySelectorAll(".fl-menu").forEach((x) => x.remove());
+
+            const withoutSupport = new FeatureListProperty(createMockDocument(), featureNode([]));
+            expect(openMenu(withoutSupport).querySelectorAll(".fl-menu-item").length).toBe(3);
+        });
+
+        test("confirming the dialog sets the variable and invert flag; an empty name clears", () => {
+            const node = variableNode({ suppressVariable: "sup", suppressVariableInvert: true });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const menu = openMenu(prop);
+
+            clickMenuItem(menu, 2);
+            expect(showDialogMock.calls.length).toBe(1);
+            const content = showDialogMock.calls[0][1];
+            const name = mustQuery<HTMLInputElement>(content, "input.ip-box");
+            const invert = mustQuery<HTMLInputElement>(content, "input[type='checkbox']");
+            expect(name.value).toBe("sup");
+            expect(invert.checked).toBe(true);
+
+            name.value = " gap ";
+            invert.checked = false;
+            showDialogMock.lastConfirm!();
+            expect(node.setFeatureSuppressVariable).toHaveBeenCalledWith("b1", {
+                variable: "gap",
+                invert: undefined,
+            });
+
+            name.value = "   ";
+            showDialogMock.lastConfirm!();
+            expect(node.setFeatureSuppressVariable).toHaveBeenCalledWith("b1", undefined);
+        });
+
+        test("a variable-suppressed row gets the distinct style and a tooltip naming the variable", () => {
+            const node = variableNode({ suppressVariable: "sup", suppressedByVariable: true });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const row = mustQuery<HTMLElement>(prop, ".fl-item");
+
+            expect(row.classList.contains("fl-variable-suppressed")).toBe(true);
+            expect(row.classList.contains("fl-suppressed")).toBe(false);
+            // The I18n stub returns the key with placeholders filled by the argument.
+            expect(row.title).toBe("features.suppressedByVariablesup");
+        });
+
+        test("manual suppression wins the row style when both hold", () => {
+            const node = variableNode({
+                suppressVariable: "sup",
+                suppressedByVariable: true,
+                suppressed: true,
+            });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const row = mustQuery<HTMLElement>(prop, ".fl-item");
+
+            expect(row.classList.contains("fl-suppressed")).toBe(true);
+            expect(row.classList.contains("fl-variable-suppressed")).toBe(false);
+            // The tooltip names the same source the style shows.
+            expect(row.title).toBe("features.suppressedManually");
+        });
+    });
+
+    describe("suppress cascade hint", () => {
+        function cascadeNode(dependents?: Record<string, string[]>, suppressed?: string[]) {
+            const items: FeatureItem[] = [
+                {
+                    id: "f0",
+                    display: "command.feature.fuse",
+                    name: "Boss",
+                    suppressed: suppressed?.includes("f0") ? true : undefined,
+                    parameters: [],
+                },
+                { id: "f1", display: "command.feature.fuse", name: "Cut", parameters: [] },
+            ];
+            return {
+                featureItems: () => items,
+                setFeatureParameter: rs.fn(),
+                setFeatureSuppressed: rs.fn(),
+                moveFeature: rs.fn(),
+                removeFeature: rs.fn(),
+                featureDependents: rs.fn((id: string) => dependents?.[id]),
+            } as unknown as INode & IFeatureListNode;
+        }
+
+        test("suppressing a feature with dependents asks first, naming them", () => {
+            const node = cascadeNode({ f0: ["f1"] });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const menu = openMenu(prop);
+
+            clickMenuItem(menu, 1);
+            expect(showDialogMock.calls.length).toBe(1);
+            expect(node.setFeatureSuppressed).not.toHaveBeenCalled();
+            expect(showDialogMock.calls[0][1].textContent).toContain("Cut");
+
+            showDialogMock.lastConfirm!();
+            expect(node.setFeatureSuppressed).toHaveBeenCalledWith("f0", true);
+        });
+
+        test("suppressing without dependents applies immediately", () => {
+            const node = cascadeNode({ f0: [] });
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const menu = openMenu(prop);
+
+            clickMenuItem(menu, 1);
+
+            expect(showDialogMock.calls.length).toBe(0);
+            expect(node.setFeatureSuppressed).toHaveBeenCalledWith("f0", true);
+        });
+
+        test("unsuppressing never asks, even with dependents", () => {
+            const node = cascadeNode({ f0: ["f1"] }, ["f0"]);
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const menu = openMenu(prop);
+
+            clickMenuItem(menu, 1);
+
+            expect(showDialogMock.calls.length).toBe(0);
+            expect(node.setFeatureSuppressed).toHaveBeenCalledWith("f0", false);
+        });
+    });
+
+    describe("dependency display", () => {
+        function graphNode() {
+            const items: FeatureItem[] = [
+                { id: "f0", display: "command.feature.fuse", name: "Boss", parameters: [] },
+                { id: "f1", display: "command.feature.fuse", name: "Cut", parameters: [] },
+            ];
+            return {
+                featureItems: rs.fn((): FeatureItem[] => items),
+                setFeatureParameter: rs.fn(),
+                setFeatureSuppressed: rs.fn(),
+                moveFeature: rs.fn(),
+                removeFeature: rs.fn(),
+                featureDependencies: rs.fn((id: string) => (id === "f1" ? ["f0"] : [])),
+                featureDependents: rs.fn((id: string) => (id === "f0" ? ["f1"] : [])),
+            } as unknown as INode & IFeatureListNode;
+        }
+
+        test("an expanded row lists depends-on and used-by names", () => {
+            const prop = new FeatureListProperty(createMockDocument(), graphNode());
+            const rows = prop.querySelectorAll(".fl-item");
+
+            // f0 collapsed: nothing yet. Expand it — its body names the user ("Cut").
+            (rows[0].querySelector(".fl-header") as unknown as { _onclick: () => void })._onclick();
+            // The Localize labels render empty under the element mock; the dependency
+            // row is identified by its clickable name spans.
+            const body0 = prop.querySelectorAll(".fl-body")[0];
+            const names0 = [...body0.querySelectorAll(".fl-reference")].map((x) => x.textContent);
+            expect(names0).toEqual(["Cut"]);
+
+            const rows1 = prop.querySelectorAll(".fl-item");
+            (rows1[1].querySelector(".fl-header") as unknown as { _onclick: () => void })._onclick();
+            const body1 = prop.querySelectorAll(".fl-body")[1];
+            const names1 = [...body1.querySelectorAll(".fl-reference")].map((x) => x.textContent);
+            expect(names1).toEqual(["Boss"]);
+        });
+
+        test("clicking a dependency name expands the target row", () => {
+            const prop = new FeatureListProperty(createMockDocument(), graphNode());
+            (prop.querySelector(".fl-header") as unknown as { _onclick: () => void })._onclick();
+            const link = mustQuery<HTMLElement>(prop, ".fl-body .fl-reference");
+            (link as unknown as { _onclick: () => void })._onclick();
+
+            // The jump expanded "Cut" (f1): both rows now show a body.
+            expect(prop.querySelectorAll(".fl-body").length).toBe(2);
+        });
+
+        test("no dependency lines when the lists are empty", () => {
+            const node = graphNode();
+            (node as { featureDependencies: (id: string) => string[] }).featureDependencies = () => [];
+            (node as { featureDependents: (id: string) => string[] }).featureDependents = () => [];
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            (prop.querySelector(".fl-header") as unknown as { _onclick: () => void })._onclick();
+
+            const body = mustQuery<HTMLElement>(prop, ".fl-body");
+            expect(body.querySelectorAll(".fl-reference").length).toBe(0);
+        });
+
+        test("dependency rows reuse the render's item list instead of re-reading it per row", () => {
+            const node = graphNode();
+            const prop = new FeatureListProperty(createMockDocument(), node);
+            const rows = prop.querySelectorAll(".fl-item");
+            (rows[0].querySelector(".fl-header") as unknown as { _onclick: () => void })._onclick();
+            (
+                prop.querySelectorAll(".fl-item")[1].querySelector(".fl-header") as unknown as {
+                    _onclick: () => void;
+                }
+            )._onclick();
+
+            // Three renders ran (initial + one per expansion), each fetching the items
+            // once; the dependency rows read the render's own list.
+            expect(node.featureItems).toHaveBeenCalledTimes(3);
         });
     });
 });

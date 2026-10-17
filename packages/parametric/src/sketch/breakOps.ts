@@ -59,6 +59,8 @@ export function breakEntity(
     const tol = Math.max(tolerance, 1e-6);
     const entity = solver.entity(entityId);
     if (entity === undefined) return Result.err("Unknown sketch entity");
+    // a point has no curve, so there is no span of it to cut pieces out of
+    if (entity.type === "point") return Result.err("A point cannot be broken");
     // the datum and the external references are reference geometry: they cut, but they
     // are never cut up
     // An offset copy is `derived` too, and it *is* cut up — but only by the trim and the
@@ -98,7 +100,7 @@ export function breakPreview(
     tolerance: number,
 ): [number, number][] {
     const entity = solver.entity(entityId);
-    if (entity === undefined || solver.isFixed(entityId)) return [];
+    if (entity === undefined || solver.isFixed(entityId) || entity.type === "point") return [];
     const tol = Math.max(tolerance, 1e-6);
     if (isClosedCurveType(entity.type)) return uvs.slice(0, 2).map((uv) => projected(entity, uv));
     if (uvs.length === 0) return [];

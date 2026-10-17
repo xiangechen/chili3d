@@ -28,18 +28,26 @@ import {
 } from "@chili3d/core";
 import { ReselectFeatureCommand } from "./commands/reselectCommand";
 import {
+    DirectionReselectSession,
     EdgeReselectSession,
+    EndFaceReselectSession,
+    EndVertexReselectSession,
     type FaceCaptureNode,
     type FacePickTarget,
     FaceReselectSession,
+    HolePointsReselectSession,
     PathReselectSession,
+    PlaneReselectSession,
     ProfileReselectSession,
     RibChainReselectSession,
 } from "./commands/reselectSession";
 import {
+    dependencyFeatures,
+    dependentFeatures,
     evaluateFeature,
     type FeatureData,
     featureHandler,
+    type ResolvedEndTargets,
     type ShapeTracking,
     type UnresolvedInputs,
 } from "./features";
@@ -56,11 +64,17 @@ import {
 } from "./features/bodyTracking";
 import type { EdgeRef } from "./features/edgeRef";
 import { findSketch } from "./features/extrude";
-import type {
-    BooleanFeatureData,
-    ExtrudeFeatureData,
-    RibFeatureData,
-    SweepFeatureData,
+import {
+    type BooleanFeatureData,
+    type ExtrudeFeatureData,
+    type HoleFeatureData,
+    type MirrorFeatureData,
+    type PatternFeatureData,
+    type PatternLineSource,
+    type PrimitiveFeatureData,
+    type RibFeatureData,
+    type SweepFeatureData,
+    suppressionOf,
 } from "./features/feature";
 import type { ProfileRef } from "./features/profileRef";
 import { syncNodeWatches } from "./nodeWatch";
@@ -70,7 +84,8 @@ import { ensureVariableSync } from "./variableSync";
 /**
  * The parametric body: a node whose geometry is DERIVED by replaying an ordered feature list.
  *
- * `featuresJson` is the only serialized state — an array of `FeatureData`. No shape is ever
+ * The serialized state is `featuresJson` — an array of `FeatureData` — plus
+ * `rollbackBarIndex`, the persisted rollback-bar position. No shape is ever
  * stored; every rebuild re-runs the list from the top, which is what makes an upstream edit (move
  * a line in a sketch) propagate: the chain re-evaluates and everything downstream follows.
  *
@@ -108,7 +123,9 @@ interface FeatureStepOutput {
     /** Fingerprints the feature actually matched this run — re-anchored into the feature. */
     readonly resolvedProfiles?: ProfileRef[];
     /** Edge anchors the feature actually matched this run — re-anchored into the feature. */
-    readonly resolvedEdges?: EdgeRef[];
+    readonly resolvedEdges?: (EdgeRef | undefined)[];
+    /** End-condition target anchors the feature actually matched — re-anchored like the rest. */
+    readonly resolvedTargets?: ResolvedEndTargets;
     /** Picks that no longer resolved this run; the feature built from the rest. */
     readonly unresolved?: UnresolvedInputs;
 }
@@ -118,7 +135,30 @@ export interface ParametricBodyNodeOptions {
     features?: FeatureData[];
     /** Serialized form produced by the Serializer; takes precedence over `features`. */
     featuresJson?: string;
+    /** Persisted rollback-bar position — see `rollbackBarIndex`. */
+    rollbackBarIndex?: number;
     id?: string;
+}
+
+/** What a chain run resolved per feature, keyed by feature id — what `refreshAnchoredRefs` reads. */
+interface ResolvedByFeature {
+    readonly profiles: Map<string, ProfileRef[]>;
+    /** Positional, holes and all — `pattern`'s anchors carry them (see `ShapeTracking`). */
+    readonly edges: Map<string, (EdgeRef | undefined)[]>;
+    readonly targets: Map<string, ResolvedEndTargets>;
+    readonly unresolved: Map<string, UnresolvedInputs>;
+}
+
+/**
+ * Files one step's resolutions under its feature, so a later feature's re-anchor reads them
+ * without re-deriving them (see `refreshAnchoredRefs`). A step that resolved none of a kind
+ * leaves the map's earlier entry for that feature alone.
+ */
+function recordResolutions(resolved: ResolvedByFeature, featureId: string, step: FeatureStepOutput): void {
+    if (step.resolvedProfiles !== undefined) resolved.profiles.set(featureId, step.resolvedProfiles);
+    if (step.resolvedEdges !== undefined) resolved.edges.set(featureId, step.resolvedEdges);
+    if (step.resolvedTargets !== undefined) resolved.targets.set(featureId, step.resolvedTargets);
+    if (step.unresolved !== undefined) resolved.unresolved.set(featureId, step.unresolved);
 }
 
 /** A body whose shape is replayed from its feature list — see the module header above. */
@@ -185,6 +225,8 @@ export class ParametricBodyNode
     private readonly _featureErrors = new Map<string, string>();
     /** Non-fatal conditions surfaced on the feature row (e.g. a sketch's dangling external refs). */
     private readonly _featureWarnings = new Map<string, string>();
+    /** Features whose `suppressBy` variable suppression was ACTIVE on the last run. */
+    private readonly _variableSuppressed = new Set<string>();
     /** Picks each feature could not re-resolve on the last run, by feature id. */
     private readonly _featureUnresolved = new Map<string, UnresolvedInputs>();
     /** What the last successful run produced — cache entries and per-index chain states. */
@@ -199,7 +241,8 @@ export class ParametricBodyNode
      * rolls the body back to the edited sketch's timeline position for the session
      * (see `computeSketchRollback`), and `pickFeatureEdges` uses the same mechanism
      * for its pre-feature pick preview — both leave the feature list and the undo
-     * history untouched.
+     * history untouched. When the persisted rollback bar (`rollbackBarIndex`) is also
+     * set, the stricter of the two truncations wins (`evaluationStop`).
      */
     private _rollbackIndex: number | undefined;
 
@@ -228,11 +271,75 @@ export class ParametricBodyNode
         return true;
     }
 
+    // ------------------------------------------------------------------ Persisted rollback bar
+
+    /**
+     * `IFeatureListNode.rollbackBarIndex`: the feature-list index the user's rollback
+     * bar sits at — features at and after it are excluded from EVERY rebuild, saved
+     * with the document and undoable like any feature edit. Unlike the session
+     * rollback above, the bar-truncated chain IS the body's real shape, so references
+     * resolve against it normally and no consumer needs to know the bar exists.
+     * A stored value at or past the feature count is inert (the full chain builds).
+     */
+    @serialize()
+    get rollbackBarIndex(): number | undefined {
+        return this.getPrivateValue("rollbackBarIndex");
+    }
+
+    /** Undo/redo assigns through the property (PropertyHistoryRecord), so a setter is required. */
+    set rollbackBarIndex(value: number | undefined) {
+        this.setRollbackBar(value);
+    }
+
+    /**
+     * Moves the rollback bar and rebuilds through the property, so the move is one
+     * recorded edit. `undefined` — or any position at or past the feature count —
+     * restores the full chain; a no-op position changes nothing.
+     */
+    setRollbackBar(index: number | undefined): void {
+        const clamped =
+            index === undefined || index >= this.features.length ? undefined : Math.max(0, Math.floor(index));
+        if (this.rollbackBarIndex === clamped) return;
+        this.setPropertyEmitShapeChanged("rollbackBarIndex", clamped);
+    }
+
+    /**
+     * The effective replay stop: the stricter of the session rollback (a transient
+     * preview) and the persisted rollback bar (the user's truncation). Suppressed
+     * features still count toward the index — the truncation is by list position.
+     */
+    private evaluationStop(featureCount: number): number {
+        return Math.min(this._rollbackIndex ?? featureCount, this.rollbackBarIndex ?? featureCount);
+    }
+
+    /**
+     * `IFeatureListNode.featureDependents` — the panel's suppression-cascade hint.
+     * Delegates the id algebra to `dependentFeatures` over the committed timeline.
+     */
+    featureDependents(featureId: string): string[] | undefined {
+        const features = this.features;
+        const index = features.findIndex((feature) => feature.id === featureId);
+        if (index < 0) return undefined;
+        return dependentFeatures(this._timeline, features, index, this.id);
+    }
+
+    /**
+     * `IFeatureListNode.featureDependencies` — the panel's "depends on" line, the
+     * inverse of `featureDependents` over the same committed timeline.
+     */
+    featureDependencies(featureId: string): string[] | undefined {
+        const features = this.features;
+        const index = features.findIndex((feature) => feature.id === featureId);
+        if (index < 0) return undefined;
+        return dependencyFeatures(this._timeline, features, index, this.id);
+    }
+
     // ------------------------------------------------------------------ Construction, shape invalidation and consumed tools
 
     constructor(options: ParametricBodyNodeOptions) {
         super({ document: options.document, id: options.id });
         this.setPrivateValue("featuresJson", options.featuresJson ?? JSON.stringify(options.features ?? []));
+        this.setPrivateValue("rollbackBarIndex", options.rollbackBarIndex);
         this.document.modelManager.addNodeObserver(this.handleReferencedNodeChanged);
         ensureVariableSync(options.document);
     }
@@ -312,6 +419,9 @@ export class ParametricBodyNode
                         : (display ?? ("common.name" as I18nKeys)),
                 icon: typeof icon === "function" ? icon(feature) : icon,
                 suppressed: feature.suppressed === true,
+                suppressVariable: feature.suppressBy?.variable,
+                suppressVariableInvert: feature.suppressBy?.invert === true,
+                suppressedByVariable: this._variableSuppressed.has(feature.id),
                 error: this._featureErrors.get(feature.id),
                 warning: this._featureWarnings.get(feature.id),
                 missingInputs: this.missingInputs(feature),
@@ -384,6 +494,16 @@ export class ParametricBodyNode
         this.setFeaturesEmitShapeChanged(features);
     }
 
+    setFeatureSuppressVariable(
+        featureId: string,
+        value: { variable: string; invert?: boolean } | undefined,
+    ): void {
+        const features = this.features.map((feature) =>
+            feature.id === featureId ? { ...feature, suppressBy: value } : feature,
+        );
+        this.setFeaturesEmitShapeChanged(features);
+    }
+
     moveFeature(featureId: string, offset: -1 | 1): void {
         const features = [...this.features];
         const index = features.findIndex((feature) => feature.id === featureId);
@@ -441,17 +561,34 @@ export class ParametricBodyNode
         const featureIndex = this.features.findIndex((x) => x.id === featureId);
         const feature = this.features[featureIndex];
         if (feature === undefined) return;
-        // An extrude is either sketch-sourced or face-sourced, never both, so the sketch path is
-        // only for the former — the latter has faces to re-pick, which is what `facePickTarget`
-        // offers below (it was a dead action before, since `reselectProfiles` needs a sketchId).
-        // A sweep keeps its own path: it has a spine to re-pick as well as faces.
-        if (feature.type === "extrude" && feature.source === undefined) {
-            return this.reselectProfiles(feature, controller);
+        // An extrude with an end-condition target or a direction override re-picks THAT — the
+        // lost pick its unresolved row reports. A plain blind extrude keeps the profile pick;
+        // a face-sourced one (`source`) falls through to the face pick below (the sketch path
+        // was a dead action there, since `reselectProfiles` needs a sketchId).
+        if (feature.type === "extrude") {
+            const condition = feature.endCondition ?? "blind";
+            if (condition === "upToFace" || condition === "upToVertex" || feature.direction !== undefined) {
+                return this.reselectExtrudeEnd(feature, featureIndex, controller);
+            }
+            if (feature.source === undefined) return this.reselectProfiles(feature, controller);
         }
         if (feature.type === "sweep") return this.reselectSweepRefs(feature, controller);
         // A rib keeps its chain the way the sweep keeps its path: a run of sketch edges named by
         // entity, which an edit to the sketch can leave dangling.
         if (feature.type === "rib") return this.reselectRibChain(feature, controller);
+        // A mirror's one reference is its plane — re-picked with the command's own plane pick.
+        if (feature.type === "mirror") return this.reselectMirrorPlane(feature, featureIndex, controller);
+        // A pattern's references are its direction/axis line edges — one pick, two when a
+        // linear pattern carries a second direction.
+        if (feature.type === "pattern") return this.reselectPatternLines(feature, featureIndex, controller);
+        // A hole keeps its face and re-picks its center points — the same loop the command ran.
+        if (feature.type === "hole") return this.reselectHolePoints(feature, featureIndex, controller);
+        // A primitive's one reference is its direction override — the same line-edge pick a
+        // pattern's direction makes. A primitive without one (every sphere) has nothing to
+        // re-pick and falls through to a no-op.
+        if (feature.type === "primitive" && feature.direction !== undefined) {
+            return this.reselectPrimitiveDirection(feature, featureIndex, controller);
+        }
         const faceTarget = this.facePickTarget(feature);
         if (faceTarget !== undefined) {
             return this.reselectFaces(feature.id, featureIndex, faceTarget, controller);
@@ -470,26 +607,180 @@ export class ParametricBodyNode
     }
 
     /**
+     * Re-picks a mirror's plane and stores it, one undo step. The session rolls the body back to
+     * just before the mirror for the pick (see `PlaneReselectSession`).
+     */
+    private async reselectMirrorPlane(
+        feature: MirrorFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const plane = await new PlaneReselectSession(this).pick(featureIndex, controller);
+        if (plane === undefined) return;
+
+        Transaction.execute(this.document, "reselect plane", () => {
+            const features = this.features.map((x) =>
+                x.id === feature.id && x.type === "mirror" ? { ...x, plane } : x,
+            );
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a pattern's direction (and second direction, when set) or axis and stores the
+     * replacement sources, one undo step. Two sequential picks run like the sweep's pair:
+     * cancelling either discards BOTH, so the feature never keeps a half-updated pair.
+     */
+    private async reselectPatternLines(
+        feature: PatternFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const session = new DirectionReselectSession(this);
+        const first = await session.pick(featureIndex, controller);
+        if (first === undefined) return;
+        let second: PatternLineSource | undefined;
+        if (feature.mode === "linear" && feature.direction2 !== undefined) {
+            second = await session.pick(featureIndex, controller);
+            if (second === undefined) return;
+        }
+
+        Transaction.execute(this.document, "reselect pattern direction", () => {
+            const features = this.features.map((x): FeatureData => {
+                if (x.id !== feature.id || x.type !== "pattern") return x;
+                if (x.mode === "circular") return { ...x, axis: first };
+                return second === undefined
+                    ? { ...x, direction: first }
+                    : { ...x, direction: first, direction2: second };
+            });
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a hole's center points on its stored face and stores the replacement center set
+     * — raw (u, v) picks and sketch-point bindings both, one undo step. The session rolls the
+     * body back to just before the hole for the pick (see `HolePointsReselectSession`). The
+     * set is replaced WHOLE: a re-pick that bound nothing drops the old binding with it.
+     */
+    private async reselectHolePoints(
+        feature: HoleFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const picked = await new HolePointsReselectSession(this).pick(feature, featureIndex, controller);
+        if (picked === undefined) return;
+
+        Transaction.execute(this.document, "reselect hole centers", () => {
+            const features = this.features.map((x): FeatureData => {
+                if (x.id !== feature.id || x.type !== "hole") return x;
+                const { sketchPoints: _, ...rest } = x;
+                return {
+                    ...rest,
+                    points: picked.points,
+                    ...(picked.sketchPoints === undefined ? {} : { sketchPoints: picked.sketchPoints }),
+                };
+            });
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks an extrude's end-condition target (up-to-face / up-to-vertex) or, when it has
+     * one, its direction override — the picks the unresolved row can point at — and stores the
+     * replacement, one undo step. The sessions roll the body back to just before the feature,
+     * as the edge session does: a target on the host itself names geometry of the extrude's
+     * INPUT, which only the rolled-back shape offers.
+     */
+    private async reselectExtrudeEnd(
+        feature: ExtrudeFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const condition = feature.endCondition ?? "blind";
+        if (condition === "upToFace") {
+            const endFace = await new EndFaceReselectSession(this).pick(featureIndex, controller);
+            if (endFace === undefined) return;
+            Transaction.execute(this.document, "reselect end face", () => {
+                const features = this.features.map((x) =>
+                    x.id === feature.id && x.type === "extrude" ? { ...x, endFace } : x,
+                );
+                this.setFeaturesEmitShapeChanged(features);
+                this.document.selection.clearSelection();
+                this.document.visual.update();
+            });
+            return;
+        }
+        if (condition === "upToVertex") {
+            const endVertex = await new EndVertexReselectSession(this).pick(featureIndex, controller);
+            if (endVertex === undefined) return;
+            Transaction.execute(this.document, "reselect end vertex", () => {
+                const features = this.features.map((x) =>
+                    x.id === feature.id && x.type === "extrude" ? { ...x, endVertex } : x,
+                );
+                this.setFeaturesEmitShapeChanged(features);
+                this.document.selection.clearSelection();
+                this.document.visual.update();
+            });
+            return;
+        }
+        const direction = await new DirectionReselectSession(this).pick(featureIndex, controller);
+        if (direction === undefined) return;
+        Transaction.execute(this.document, "reselect direction", () => {
+            const features = this.features.map((x) =>
+                x.id === feature.id && x.type === "extrude" ? { ...x, direction } : x,
+            );
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a primitive's direction override and stores it, one undo step — the extrude
+     * direction's routing (see `reselectExtrudeEnd`) for the feature's only pick.
+     */
+    private async reselectPrimitiveDirection(
+        feature: PrimitiveFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const direction = await new DirectionReselectSession(this).pick(featureIndex, controller);
+        if (direction === undefined) return;
+        Transaction.execute(this.document, "reselect direction", () => {
+            const features = this.features.map((x) =>
+                x.id === feature.id && x.type === "primitive" ? { ...x, direction } : x,
+            );
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
      * Where a feature keeps the faces it names, and the frame those refs live in — undefined for a
      * feature whose refs are edges or sketch profiles. The re-pick session needs both the current
      * refs and a way to write replacements back (it rebuilds the chain with them as a live
      * preview), and only the feature's own shape knows where they go.
      */
     private facePickTarget(feature: FeatureData): FacePickTarget | undefined {
-        // Own-chain faces: a shell's openings, a draft's faces. Both name sub-shapes of the shape
-        // the chain has built, so they are matched against `context.input` in its own frame.
-        if (feature.type === "shell") {
+        // Own-chain faces: a shell's openings, a draft's or an offset's faces. All name sub-shapes
+        // of the shape the chain has built, so they are matched against `context.input` in its own
+        // frame — and none captures an outward normal, because all three accept curved faces, which
+        // the planar normal gate would reject on a legitimate re-match.
+        if (feature.type === "shell" || feature.type === "draft" || feature.type === "offsetFace") {
             return {
                 refs: feature.faces,
-                withRefs: (f, refs) => (f.type === "shell" ? { ...f, faces: refs } : f),
-                captureNormal: false,
-                refFrame: "local",
-            };
-        }
-        if (feature.type === "draft") {
-            return {
-                refs: feature.faces,
-                withRefs: (f, refs) => (f.type === "draft" ? { ...f, faces: refs } : f),
+                withRefs: (f, refs) =>
+                    f.type === "shell" || f.type === "draft" || f.type === "offsetFace"
+                        ? { ...f, faces: refs }
+                        : f,
                 captureNormal: false,
                 refFrame: "local",
             };
@@ -689,6 +980,7 @@ export class ParametricBodyNode
         this._featureErrors.clear();
         this._featureWarnings.clear();
         this._featureUnresolved.clear();
+        this._variableSuppressed.clear();
         this._evaluating = true;
         try {
             return this.evaluateChain();
@@ -772,7 +1064,8 @@ export class ParametricBodyNode
      * data, the document's variable scope, its input shape, and its referenced node
      * shapes are all unchanged — so editing one feature only re-evaluates from that
      * feature on.
-     * A session rollback (`_rollbackIndex`) stops the replay early; the truncation
+     * A session rollback (`_rollbackIndex`) or the persisted rollback bar
+     * (`rollbackBarIndex`) stops the replay early (`evaluationStop`); the truncation
      * is by feature-list index, so user-suppressed features still count.
      */
     private evaluateChain(): Result<IShape> {
@@ -784,11 +1077,14 @@ export class ParametricBodyNode
         // body's cache through `cacheKey` below.
         const scope = this.document.variables.evaluate().scope;
         const nextCache: FeatureCacheEntry[] = [];
-        const resolvedProfiles = new Map<string, ProfileRef[]>();
-        const resolvedEdges = new Map<string, EdgeRef[]>();
-        const unresolved = new Map<string, UnresolvedInputs>();
+        const resolved: ResolvedByFeature = {
+            profiles: new Map(),
+            edges: new Map(),
+            targets: new Map(),
+            unresolved: new Map(),
+        };
         const features = this.features;
-        const stop = this._rollbackIndex ?? features.length;
+        const stop = this.evaluationStop(features.length);
         // Sketches already re-resolved this run (see followReferencedSketches): a
         // sketch referenced by N features was followed — re-parsed, re-scanned —
         // N times per run, while one resolution already writes fresh snapshots
@@ -802,32 +1098,24 @@ export class ParametricBodyNode
             for (let index = 0; index < features.length && index < stop; index++) {
                 timeline.push({ shape: input, faceIds, edgeIds });
                 const feature = features[index];
-                if (feature.suppressed) continue;
+                if (feature.suppressed || this.isSuppressedByVariable(feature, scope)) continue;
                 this.followReferencedSketches(feature, followedSketches);
                 this.refreshConsumedTools(feature);
                 const step = this.evaluateFeatureStep(feature, scope, input, faceIds, edgeIds, nextCache);
                 if (!step.isOk) {
-                    return this.abandonChain(feature, step.error, nextCache, features, unresolved);
+                    return this.abandonChain(feature, step.error, nextCache, features, resolved.unresolved);
                 }
                 input = step.value.shape;
                 faceIds = step.value.faceIds;
                 edgeIds = step.value.edgeIds;
-                if (step.value.resolvedProfiles !== undefined) {
-                    resolvedProfiles.set(feature.id, step.value.resolvedProfiles);
-                }
-                if (step.value.resolvedEdges !== undefined) {
-                    resolvedEdges.set(feature.id, step.value.resolvedEdges);
-                }
-                if (step.value.unresolved !== undefined) {
-                    unresolved.set(feature.id, step.value.unresolved);
-                }
+                recordResolutions(resolved, feature.id, step.value);
             }
         } finally {
             this._timeline.endRun();
         }
         this._timeline.commit(nextCache, timeline, this.currentShape());
-        this.refreshAnchoredRefs(resolvedProfiles, resolvedEdges);
-        this.markUnresolvedInputs(unresolved);
+        this.refreshAnchoredRefs(resolved.profiles, resolved.edges, resolved.targets);
+        this.markUnresolvedInputs(resolved.unresolved);
         this.markUnresolvedExternalRefs(features);
         // An empty feature list (user removed every feature) is an empty compound, so
         // the view drops the stale solid instead of keeping a ghost (same as SketchNode).
@@ -993,6 +1281,25 @@ export class ParametricBodyNode
     }
 
     /**
+     * Whether `feature.suppressBy` suppresses the feature under `scope` right now:
+     * the variable resolving to 0 suppresses (`invert` flips the test). A variable that
+     * is missing or not a finite number suppresses NOTHING and raises a feature warning
+     * instead — a typo'd name must never silently hide geometry.
+     */
+    private isSuppressedByVariable(feature: FeatureData, scope: Scope): boolean {
+        const active = suppressionOf(feature, scope);
+        if (active === undefined) {
+            this._featureWarnings.set(
+                feature.id,
+                I18n.translate("body.suppressVariableMissing{0}", feature.suppressBy!.variable),
+            );
+            return false;
+        }
+        if (active) this._variableSuppressed.add(feature.id);
+        return active;
+    }
+
+    /**
      * Surfaces dangling profile-role external refs of consumed sketches as a feature-level
      * warning.
      *
@@ -1005,8 +1312,9 @@ export class ParametricBodyNode
      *   source body itself (a cut into it) still exists at the anchor, resolves there, and never
      *   dangles — Onshape-style silence for the feature system working as intended.
      * - **Scope.** Runs only after a fully successful chain, with sketch lookups memoized per
-     *   rebuild, and is truncated at the session rollback index so hidden features don't report
-     *   warnings for geometry the user cannot see.
+     *   rebuild, and is truncated at the evaluation stop (session rollback or persisted
+     *   rollback bar) so hidden features don't report warnings for geometry the user
+     *   cannot see.
      * - **Revolve's `axisSource.nodeId` is deliberately not checked.** The axis edge re-matches
      *   through its own `EdgeRef` on the source's shape, and if the axis sketch itself is degraded
      *   that match can silently fall back to the world-space snapshot axis — an accepted, narrower
@@ -1015,10 +1323,11 @@ export class ParametricBodyNode
      */
     private markUnresolvedExternalRefs(features: FeatureData[]): void {
         const checked = new Map<string, boolean>();
-        const stop = this._rollbackIndex ?? features.length;
+        const stop = this.evaluationStop(features.length);
         for (let index = 0; index < features.length && index < stop; index++) {
             const feature = features[index];
-            if (feature.suppressed || !("sketchId" in feature) || feature.sketchId === undefined) continue;
+            if (feature.suppressed || this._variableSuppressed.has(feature.id)) continue;
+            if (!("sketchId" in feature) || feature.sketchId === undefined) continue;
             let dangling = checked.get(feature.sketchId);
             if (dangling === undefined) {
                 const sketch = findSketch(this.document, feature.sketchId);
@@ -1106,6 +1415,7 @@ export class ParametricBodyNode
             edgeIds: tracking.outputEdgeIds.length > 0 ? tracking.outputEdgeIds : undefined,
             resolvedProfiles: tracking.resolvedProfiles,
             resolvedEdges: tracking.resolvedEdges,
+            resolvedTargets: tracking.resolvedTargets,
             unresolved: tracking.unresolved,
         };
         nextCache.push({
@@ -1182,14 +1492,16 @@ export class ParametricBodyNode
      */
     private refreshAnchoredRefs(
         profiles: ReadonlyMap<string, ProfileRef[]>,
-        edges: ReadonlyMap<string, EdgeRef[]>,
+        edges: ReadonlyMap<string, (EdgeRef | undefined)[]>,
+        targets: ReadonlyMap<string, ResolvedEndTargets>,
     ): void {
-        if (profiles.size === 0 && edges.size === 0) return;
+        if (profiles.size === 0 && edges.size === 0 && targets.size === 0) return;
         let changed = false;
         const features = this.features.map((feature) => {
             const next = featureHandler(feature.type)?.applyResolvedRefs?.(feature, {
                 resolvedProfiles: profiles.get(feature.id),
                 resolvedEdges: edges.get(feature.id),
+                resolvedTargets: targets.get(feature.id),
             });
             // Untouched features skip the stringify pair — the common case.
             if (next === undefined || next === feature) return feature;

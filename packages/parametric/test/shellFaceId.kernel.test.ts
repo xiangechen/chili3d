@@ -139,6 +139,21 @@ describe("shell sub-shape ids", () => {
         expect(faceIdsOf(body)).toContain(`shell&${built.top.id}`);
     });
 
+    test("the tangent join is deliberately not offered — the kernel no-ops on it", () => {
+        // Measured on OCCT 8.0.0: `MakeThickSolidByJoin` with `GeomAbs_Tangent` reports IsDone
+        // and hands the INPUT back unchanged — the plate is not shelled at all (a box with one
+        // or two opened faces, a filleted box, with or without the intersection flag; build123d
+        // refuses the same value outright with "Kind.TANGENT not supported"). Offering it would
+        // show a shell that never happened, so the dropdown stays at arc/intersection. If an
+        // OCCT upgrade ever makes tangent real, this test fails and the exposure is revisited.
+        const shape = shapeFactory.box(Plane.XY, 40, 40, 20).unchecked()!;
+        const faces = shape.findSubShapes(ShapeTypes.face) as IFace[];
+        const tangent = shapeFactory
+            .makeThickSolidByJoin(shape, [faces[topIndex(faces)]], -2, "tangent")
+            .unchecked()!;
+        expect(round(tangent.volume())).toBe(40 * 40 * 20);
+    });
+
     test("the ids do not depend on the join type, a styling choice", () => {
         // One scene, so the two bodies' ids share a sketch and are comparable verbatim.
         const shared = scene();

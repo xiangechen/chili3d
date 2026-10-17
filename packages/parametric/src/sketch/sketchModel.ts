@@ -34,6 +34,7 @@ export type SketchEntityType =
     | "conic"
     | "bezier"
     | "nurbs"
+    | "point"
     | "offsetCurve";
 
 /**
@@ -52,6 +53,8 @@ export type SketchEntityType =
  * nurbs: params = [cp0x, cp0y, …, cp_{n−1}x, cp_{n−1}y, w0, …, w_{n−1}] (n control
  * poles followed by their rational weights, with the degree and knot vector in
  * `nurbs`);
+ * point: params = [x, y] (a standalone point — a constraint/drag target like the datum
+ * origin, never profile geometry);
  * offsetCurve: params are its *source's*, verbatim, and `offset` says which entity they
  * came from and how far off it this curve runs — the entity has no geometry of its own to
  * lay out, so nothing of it is a solver parameter at all — all in sketch (u, v) coordinates.
@@ -108,7 +111,7 @@ export interface OffsetCurveRef {
     /** The entity whose geometry this curve carries, and which it follows as it changes. */
     sourceId: number;
     /** How that entity's params lay out — the array of positions this curve sits off. */
-    sourceType: Exclude<SketchEntityType, "offsetCurve">;
+    sourceType: Exclude<SketchEntityType, "offsetCurve" | "point">;
     distance: number;
     /**
      * The stretch of the source this copy runs over, when it has been trimmed — absent is the
@@ -184,7 +187,8 @@ export function defaultNurbsSpec(poleCount: number): NurbsSpec {
  * conic: pointIndex 0 = start, 1 = control, 2 = end (rho is a scalar, not a point);
  * bezier: pointIndex i = the i-th control pole (all four are points);
  * nurbs: pointIndex i = the i-th control pole — its weights are params too, but they are
- * not addressed as points and have no index here.
+ * not addressed as points and have no index here;
+ * point: pointIndex 0 = the point itself.
  */
 export interface SketchPointRef {
     entityId: number;
@@ -196,6 +200,7 @@ const ENTITY_POINT_COUNTS: Record<Exclude<SketchEntityType, "nurbs">, number> = 
     // an offset curve has no point of its own: it is its source's geometry, moved
     offsetCurve: 0,
     circle: 1,
+    point: 1,
     line: 2,
     arc: 3,
     ellipse: 3,
@@ -752,12 +757,15 @@ export function profileExternalRefs(data: SketchData): ExternalRefData[] {
 
 /**
  * The sketch's own entities that participate in profile building: every
- * non-construction entity. Construction entities stay constraint/snap targets in
- * the solver but never enter `generateShape`, so a region they help bound does
- * not close into a profile — the same rule reference-role external refs follow.
+ * non-construction entity except a standalone point. Construction entities stay
+ * constraint/snap targets in the solver but never enter `generateShape`, so a
+ * region they help bound does not close into a profile — the same rule
+ * reference-role external refs follow. A point is not construction geometry — it
+ * constrains and is constrained like anything drawn — but it has no curve, so it
+ * builds no edge and bounds no region either.
  */
 export function profileEntities(data: SketchData): SketchEntityData[] {
-    return data.entities.filter((entity) => entity.construction !== true);
+    return data.entities.filter((entity) => entity.construction !== true && entity.type !== "point");
 }
 
 /**

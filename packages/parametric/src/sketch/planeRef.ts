@@ -85,6 +85,15 @@ export function planeOfFace(face: IFace): Plane {
  */
 export function sketchPlaneOfFace(face: IFace): Plane {
     const [point, normal] = face.normal(0, 0);
+    return stablePlaneFrame(point, normal);
+}
+
+/**
+ * The sketch-plane frame of a plane known by a point and its normal — the live-face half of
+ * `sketchPlaneOfFace`, exported for callers whose plane is a stored normal+offset fingerprint
+ * (the hole feature's frozen fallback) rather than a face.
+ */
+export function stablePlaneFrame(point: XYZ, normal: XYZ): Plane {
     const n = normal.normalize()!;
     return new Plane({ origin: n.multiply(n.dot(point)), normal: n, xvec: worldAxisXVec(n) });
 }

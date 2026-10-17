@@ -141,21 +141,49 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
             {
                 groupName: "ribbon.group.create",
                 items: [
+                    {
+                        type: "split",
+                        items: [
+                            "feature.primitiveBox",
+                            "feature.primitiveCylinder",
+                            "feature.primitiveSphere",
+                            "feature.primitiveCone",
+                        ],
+                    },
                     "feature.extrude",
-                    "feature.revolve",
-                    "feature.loft",
-                    "feature.sweep",
-                    "feature.rib",
-                    "feature.thicken",
+                    ["feature.revolve", "feature.loft", "feature.sweep"],
+                    ["feature.thicken", "feature.rib", "feature.helix"],
                 ],
             },
             {
-                groupName: "ribbon.group.modify",
-                items: ["feature.fillet", "feature.chamfer", "feature.draft", "feature.shell"],
+                groupName: "ribbon.group.feature",
+                items: [
+                    "feature.pressPull",
+                    {
+                        type: "split",
+                        items: [
+                            "feature.fillet",
+                            "feature.chamfer",
+                            "feature.modifyFillet",
+                            "feature.modifyChamfer",
+                        ],
+                    },
+                    "feature.shell",
+                    ["feature.draft", "feature.offsetFace", "feature.hole"],
+                    ["feature.removeFeature", "feature.split", "feature.sew"],
+                    ["feature.mirror", "feature.patternLinear", "feature.patternCircular"],
+                ],
             },
             {
                 groupName: "ribbon.group.boolean",
                 items: [["feature.fuse", "feature.cut", "feature.common"]],
+            },
+            {
+                groupName: "ribbon.group.node",
+                items: [
+                    ["modify.move", "modify.rotate", "modify.mirror"],
+                    ["modify.deleteNode", "modify.paintBucket", "modify.array"],
+                ],
             },
             {
                 groupName: "ribbon.group.other",

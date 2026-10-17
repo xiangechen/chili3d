@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IView, ShapeMeshData, XY, XYZ } from "@chili3d/core";
+import type { IFace, IView, ShapeMeshData, XY, XYZ } from "@chili3d/core";
 
 /**
  * The pixel-sized drag arrow both value handles draw: the extrude drag and the
@@ -70,4 +70,25 @@ export function pxSizedArrowLength(view: IView, anchor: XYZ, axis: XYZ): number 
     const b = view.worldToScreen(anchor.add(side.multiply(SCALE_MEASURE_BASELINE)));
     const pxPerUnit = a.distanceTo(b) / SCALE_MEASURE_BASELINE;
     return pxPerUnit > 1e-6 ? ARROW_LENGTH_PX / pxPerUnit : undefined;
+}
+
+/**
+ * `face`'s outward normal at the parameter point nearest `point`, as a UNIT vector — undefined for
+ * a face that will not answer either query (a degenerate surface has no direction to offer, and no
+ * arrow beats an arrow in the wrong place).
+ *
+ * Asked at the point the arrow stands on, not at the face's own (0, 0): `planeOfFace` answers with
+ * the normal at that parameter, which on a cylinder is its seam and on a sphere is arbitrary — an
+ * arrow anchored at the pick and drawn along that sticks out sideways from the pointer.
+ *
+ * Normalized here rather than by each caller because the kernel hands back the raw `D1U × D1V`
+ * (`BRepGProp_Face::Normal`), whose LENGTH follows the surface's parametrization: a cylinder of
+ * radius r answers a vector of length r, a sphere r², a plane 1. An arrow is drawn along its
+ * direction and its handle travels one unit per unit of value, so a fillet's would outrun the
+ * pointer by the radius — which is exactly what a planar face, at length 1, hides.
+ */
+export function outwardNormalAt(face: IFace, point: XYZ): XYZ | undefined {
+    const uv = face.surface().parameter(point, 1e-3);
+    const normal = uv === undefined ? face.normal(0, 0)[1] : face.normal(uv.u, uv.v)[1];
+    return normal.normalize();
 }

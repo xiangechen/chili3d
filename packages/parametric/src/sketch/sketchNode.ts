@@ -12,6 +12,7 @@ import {
     isPropertyChanged,
     LENGTH_UNITS,
     Matrix4,
+    MeshDataUtils,
     MultiShapeMesh,
     ParameterShapeNode,
     type Plane,
@@ -41,6 +42,7 @@ import {
     offsetDrawnWindow,
     offsetSideSign,
 } from "./curveEval";
+import { pointCrossMesh } from "./curveMesh";
 import { normalizeSnapshot } from "./entityLayout";
 import { type ExternalResolveResult, resolveExternalRefs } from "./externalRef";
 import { type DatumPlaneName, datumPlaneOf, type PlaneFaceRef, resolveFacePlane } from "./planeRef";
@@ -57,6 +59,7 @@ import {
     shapeEntityIds,
     sketchConstraintColor,
     toWorld,
+    viewPixelSize,
 } from "./sketchModel";
 import { SketchSolver } from "./solver";
 
@@ -275,18 +278,59 @@ export class SketchNode extends ParameterShapeNode {
 
     protected override createMesh(): IShapeMeshData {
         const mesh = this.sketchMesh();
-        const edges = mesh.edges;
-        if (edges === undefined) return mesh;
-        // A fresh mesh with a fresh edges object, never the ones handed in: `sketchMesh`
+        const crosses = this.pointCrosses();
+        const baseEdges = mesh.edges;
+        if (baseEdges === undefined && crosses === undefined) return mesh;
+        // A fresh mesh with fresh edge/vertex objects, never the ones handed in: `sketchMesh`
         // may be returning the shape's own mesh, and writing this session's width or
         // colours into that would outlive the session — the colouring would stick after
         // the editor closed. Built field by field because `sketchMesh` may hand back a
         // `MultiShapeMesh`, whose accessors a spread would not carry over.
+        const edges =
+            baseEdges === undefined
+                ? crosses
+                : crosses === undefined
+                  ? baseEdges
+                  : MeshDataUtils.mergeEdgeMesh(baseEdges, crosses);
         return {
-            edges: { ...edges, lineWidth: SKETCH_EDGE_LINE_WIDTH, color: this.edgeColors(edges) },
+            edges:
+                edges === undefined
+                    ? undefined
+                    : { ...edges, lineWidth: SKETCH_EDGE_LINE_WIDTH, color: this.edgeColors(edges) },
             faces: mesh.faces,
             vertexs: mesh.vertexs,
         };
+    }
+
+    /**
+     * The standalone points' markers, merged into one mesh: a sketch point builds no edge
+     * (`profileEntities`), so its cross — all of what is drawn of it — rides the edges mesh
+     * here rather than the shape. Excluded when flagged construction, the way construction
+     * lines are: outside the editor they are the user's own reference geometry, not part of
+     * what the sketch says (the editor's own overlay draws them dashed).
+     */
+    private pointCrosses(): EdgeMeshData | undefined {
+        const points = this.data.entities.filter(
+            (entity) => entity.type === "point" && entity.construction !== true,
+        );
+        if (points.length === 0) return undefined;
+        const view = this.document.application.activeView;
+        let merged: EdgeMeshData | undefined;
+        for (const entity of points) {
+            const center = toWorld(this.plane, entity.params[0], entity.params[1]);
+            const px = view === undefined ? undefined : viewPixelSize(view, center);
+            // no view to measure against → collapse the cross onto the point itself: nothing
+            // to see, still a mesh in the layout the colouring below counts on
+            const half = (px ?? 0) * (VisualConfig.editVertexSize / 2);
+            const cross = pointCrossMesh(
+                this.plane,
+                [entity.params[0], entity.params[1]],
+                half,
+                VisualConfig.defaultEdgeColor,
+            );
+            merged = merged === undefined ? cross : MeshDataUtils.mergeEdgeMesh(merged, cross);
+        }
+        return merged;
     }
 
     /**
@@ -294,12 +338,20 @@ export class SketchNode extends ParameterShapeNode {
      * kernel reported when no session is colouring. The compound's edges are in
      * `buildEdges` order — the sketch's own entities, then the profile-role externals —
      * which is exactly what `shapeEntityIds` lists, and `range[i]` is edge i's vertex
-     * span, so the colours line up without a second mapping.
+     * span, so the colours line up without a second mapping. The point crosses ride past
+     * the ranged span (`pointCrosses` merges them in last), four vertices each in
+     * `data.entities` order, so theirs are appended the same way.
      */
     private edgeColors(edges: EdgeMeshData): number | number[] {
         const pinned = this._fullyConstrained;
         if (pinned === undefined) return edges.color ?? VisualConfig.defaultEdgeColor;
-        return constraintEdgeColors(edges.range, shapeEntityIds(this.data), pinned);
+        const colors = constraintEdgeColors(edges.range, shapeEntityIds(this.data), pinned);
+        for (const entity of this.data.entities) {
+            if (entity.type !== "point" || entity.construction === true) continue;
+            const [r, g, b] = linearRgb(sketchConstraintColor(pinned, entity.id));
+            for (let vertex = 0; vertex < 4; vertex++) colors.push(r, g, b);
+        }
+        return colors;
     }
 
     private sketchMesh(): IShapeMeshData {
@@ -388,6 +440,10 @@ export class SketchNode extends ParameterShapeNode {
                 return this.bezierEdge(p);
             case "nurbs":
                 return this.nurbsEdge(entity);
+            case "point":
+                // unreachable through `buildEdges` — `profileEntities` keeps points out —
+                // but the switch must still answer for one
+                return Result.err("A sketch point has no curve to build an edge from");
             case "offsetCurve":
                 return this.offsetCurveEdge(entity);
         }

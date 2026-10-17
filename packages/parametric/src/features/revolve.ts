@@ -4,6 +4,7 @@
 import {
     ANGLE_UNITS,
     CurveUtils,
+    type FeatureParameter,
     type IEdge,
     type IFace,
     type IShape,
@@ -37,7 +38,9 @@ import { type ResolvedProfile, resolveProfiles } from "./profileBuilder";
 import { captureProfileRef } from "./profileRef";
 import { attributeSweepEdges, profileEdgeSeeds } from "./profileSeeds";
 import { MATCH_TOLERANCE } from "./refGeometry";
-import { combineIds } from "./trackedId";
+import { combineShapes, fuseProfiles } from "./sweepGeometry";
+import { fuseOrCombinePieces } from "./sweepTracked";
+import { combineIds, derivedId } from "./trackedId";
 
 const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     display: "command.feature.revolve",
@@ -52,11 +55,36 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     // shows, and the revolve's own door is the section sketch.
     references: (feature) => [{ key: "sketchId", display: "body.sketch", nodeId: feature.sketchId }],
 
-    parameters: (feature) => [
-        { key: "angle", display: "common.angle", value: feature.angle, unit: ANGLE_UNITS },
-    ],
+    parameters: (feature) => {
+        const params: FeatureParameter[] = [
+            { key: "angle", display: "common.angle", value: feature.angle, unit: ANGLE_UNITS },
+        ];
+        if (feature.symmetric !== true) {
+            params.push({
+                key: "angle2",
+                display: "feature.revolve.angle2",
+                value: feature.angle2 ?? 0,
+                unit: ANGLE_UNITS,
+            });
+        }
+        params.push({
+            key: "symmetric",
+            display: "option.command.symmetric",
+            value: feature.symmetric ?? false,
+        });
+        return params;
+    },
 
-    setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
+    setParameter: (feature, key, value) => {
+        const checked = value === true || value === "true";
+        // A symmetric revolve has no second side — drop the stale angle2 instead of
+        // tripping the "cannot be both" guard on the next rebuild.
+        if (key === "symmetric" && checked) {
+            const { angle2: _, ...rest } = feature;
+            return { ...rest, symmetric: true };
+        }
+        return key === "symmetric" ? { ...feature, symmetric: checked } : { ...feature, [key]: value };
+    },
 
     applyResolvedRefs: (feature, { resolvedProfiles, resolvedEdges }) => {
         let next = feature;
@@ -81,11 +109,21 @@ const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     },
 };
 
+/** One sweep direction of a revolve: the axis as swept and the (positive) angle around it. */
+interface RevolveSide {
+    readonly axis: Line;
+    readonly angle: number;
+}
+
 /** A revolve's inputs resolved against the document, plus the axis's re-anchored ref. */
 interface ResolvedRevolve {
     readonly sketch: SketchNode;
-    readonly axis: Line;
-    readonly angle: number;
+    /**
+     * One entry for a single-sided revolve, two for `symmetric`/`angle2` — the backward half
+     * sweeps the FLIPPED axis by a positive angle (a negative-angle revolve is not a kernel
+     * case the rest of the pipeline guards, and the flip says the same geometry positively).
+     */
+    readonly sides: readonly RevolveSide[];
     readonly profiles: ResolvedProfile[];
 }
 
@@ -107,6 +145,15 @@ function resolveRevolve(feature: RevolveFeatureData, context: FeatureContext): R
 
     const angle = resolveUnitSpec(feature.angle, context.scope, ANGLE_UNITS);
     if (!angle.isOk) return Result.err(angle.error);
+    const angle2 =
+        feature.angle2 === undefined
+            ? undefined
+            : resolveUnitSpec(feature.angle2, context.scope, ANGLE_UNITS);
+    if (angle2 !== undefined && !angle2.isOk) return Result.err(angle2.error);
+    if (feature.symmetric === true && angle2 !== undefined) {
+        return Result.err("Revolve cannot be both symmetric and have a second angle");
+    }
+    if (angle2 !== undefined && angle2.value <= 0) return Result.err("Revolve angle2 must be positive");
     const { axis, anchor } = resolveAxis(feature, context);
     const resolved = resolveProfiles(sketch, feature.profiles);
     if (!resolved.isOk) return Result.err(resolved.error);
@@ -125,7 +172,32 @@ function resolveRevolve(feature: RevolveFeatureData, context: FeatureContext): R
             if (missing.length > 0) tracking.unresolved = { key: "profiles", refIndexes: missing };
         }
     }
-    return Result.ok({ sketch, axis, angle: angle.value, profiles });
+    return Result.ok({
+        sketch,
+        sides: revolveSides(axis, angle.value, feature.symmetric === true, angle2?.value),
+        profiles,
+    });
+}
+
+/** The directions the profiles sweep: forward first, the flipped-axis backward half second. */
+function revolveSides(
+    axis: Line,
+    angle: number,
+    symmetric: boolean,
+    angle2: number | undefined,
+): RevolveSide[] {
+    const flip = () => new Line({ point: axis.point, direction: axis.direction.multiply(-1) });
+    if (angle2 !== undefined)
+        return [
+            { axis, angle },
+            { axis: flip(), angle: angle2 },
+        ];
+    if (symmetric)
+        return [
+            { axis, angle: angle / 2 },
+            { axis: flip(), angle: angle / 2 },
+        ];
+    return [{ axis, angle }];
 }
 
 /**
@@ -303,8 +375,11 @@ function matchAxis(
     if (ids !== undefined) {
         const anchored = matchEdgesAnchored(shape, [ref], ids);
         if (!anchored.isOk) return fallback;
+        // One ref in, one slot out: a hole in `anchors` means the ref did not match at all.
+        const matchedAnchor = anchored.value.anchors[0];
+        if (matchedAnchor === undefined) return fallback;
         index = anchored.value.indexes[0];
-        anchor = anchored.value.anchors[0];
+        anchor = matchedAnchor;
     } else {
         const matched = matchEdgeIndexes(shape, [ref]);
         if (!matched.isOk) return fallback;
@@ -333,13 +408,23 @@ function revolveTool(resolved: ResolvedRevolve): Result<RevolveTool> {
     const faceIds: (string | undefined)[] = [];
     const edgeIds: (string | undefined)[] = [];
     for (const profile of resolved.profiles) {
-        const revolved = revolveProfileTracked(resolved.sketch, resolved.axis, resolved.angle, profile);
-        if (!revolved.isOk) return Result.err(revolved.error);
-        shapes.push(revolved.value.shape);
-        faceIds.push(...revolved.value.faceIds);
-        edgeIds.push(...revolved.value.edgeIds);
+        const halves: { shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }[] =
+            [];
+        for (const [index, side] of resolved.sides.entries()) {
+            const revolved = revolveProfileTracked(resolved.sketch, side, profile, index === 0 ? "" : ":neg");
+            if (!revolved.isOk) return Result.err(revolved.error);
+            halves.push(revolved.value);
+        }
+        // The two halves of one profile share the cap on the profile plane: they fuse, so a
+        // downstream reference names ONE face there, not two coincident ones (the extrude's
+        // symmetric-sweep convention, through the same `fuseOrCombinePieces`).
+        const piece = fuseOrCombinePieces(halves);
+        if (!piece.isOk) return Result.err(piece.error);
+        shapes.push(piece.value.shape);
+        faceIds.push(...piece.value.faceIds);
+        edgeIds.push(...piece.value.edgeIds);
     }
-    const combined = combineAll(shapes);
+    const combined = combineShapes(shapes);
     if (!combined.isOk) return Result.err(combined.error);
     return Result.ok({ shape: combined.value, faceIds, edgeIds });
 }
@@ -348,21 +433,23 @@ function revolveTool(resolved: ResolvedRevolve): Result<RevolveTool> {
 function revolvePlain(resolved: ResolvedRevolve): Result<IShape> {
     const shapes: IShape[] = [];
     for (const { face } of resolved.profiles) {
-        const shape = shapeFactory.revolve(face, resolved.axis, resolved.angle);
-        if (!shape.isOk) return Result.err(shape.error);
-        shapes.push(shape.value);
+        const halves: IShape[] = [];
+        for (const side of resolved.sides) {
+            const shape = shapeFactory.revolve(face, side.axis, side.angle);
+            if (!shape.isOk) return Result.err(shape.error);
+            halves.push(shape.value);
+        }
+        // One profile's two halves share the cap on the profile plane — fuse them into one
+        // solid (fuseProfiles falls back to a compound when the fuse does not apply).
+        const fused = halves.length === 1 ? Result.ok(halves[0]) : fuseProfiles(halves);
+        if (!fused.isOk) return Result.err(fused.error);
+        shapes.push(fused.value);
     }
-    return combineAll(shapes);
-}
-
-/**
- * One profile revolves to itself; several combine into one compound. A combined shape's
- * ids stay the profiles' concatenation — the same approximation `sweepProfiles` makes for
- * the extrude tool (the compound's own sub-shape order is not the concatenation order for
- * every kernel build).
- */
-function combineAll(shapes: IShape[]): Result<IShape> {
-    return shapes.length === 1 ? Result.ok(shapes[0]) : shapeFactory.combine(shapes);
+    // One profile revolves to itself; several combine into one compound. A combined shape's ids
+    // stay the profiles' concatenation — the same approximation `sweepProfiles` makes for the
+    // extrude tool (the compound's own sub-shape order is not the concatenation order for every
+    // kernel build).
+    return combineShapes(shapes);
 }
 
 /**
@@ -377,15 +464,17 @@ function combineAll(shapes: IShape[]): Result<IShape> {
  */
 function revolveProfileTracked(
     sketch: SketchNode,
-    axis: Line,
-    angle: number,
+    side: RevolveSide,
     profile: ResolvedProfile,
+    seedSuffix: string,
 ): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
     // Guaranteed by the caller's guard — the type just cannot see it.
     if (shapeFactory.revolveTracked === undefined) return Result.err("Revolve tracking is unavailable");
-    const result = shapeFactory.revolveTracked(profile.face, axis, angle);
+    const result = shapeFactory.revolveTracked(profile.face, side.axis, side.angle);
     if (!result.isOk) return Result.err(result.error);
-    const seed = `sketch:${sketch.id}:${profile.seed}`;
+    // The backward half of a two-sided revolve derives its seed (`:neg`) so its names cannot
+    // duplicate the forward half's (the symmetric-extrude convention, see sweepFaceTracked).
+    const seed = derivedId(`sketch:${sketch.id}:${profile.seed}`, seedSuffix);
     const faceEdges = profile.face.findSubShapes(ShapeTypes.edge) as IEdge[];
     // Entity-derived edge seeds survive wire re-enumeration (see profileEdgeSeeds).
     const edgeSeeds = profileEdgeSeeds(profile.face, seed, faceEdges);
@@ -421,7 +510,7 @@ function revolveProfileTracked(
         profile.face,
         seed,
         edgeSeeds,
-        Matrix4.fromAxisRad(axis.point, axis.direction, MathUtils.degToRad(angle)),
+        Matrix4.fromAxisRad(side.axis.point, side.axis.direction, MathUtils.degToRad(side.angle)),
         ":cap",
     );
     return Result.ok({ shape: result.value.shape, faceIds, edgeIds });

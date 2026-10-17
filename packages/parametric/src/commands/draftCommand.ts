@@ -20,23 +20,19 @@ import {
     Transaction,
     type VisualShapeData,
 } from "@chili3d/core";
-import { neutralPlaneInHost } from "../features/draft";
 import type { DraftFeatureData, NeutralPlaneRef } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
+import { neutralPlaneInHost } from "../features/neutralPlane";
 import { captureProfileRef } from "../features/profileRef";
 import { matchSourceFaceIndexes } from "../features/sourceFaceMatcher";
 import { ParametricBodyNode } from "../parametricBodyNode";
-import { PlanePickHandler, type PlanePickResult } from "../sketch/commands/planePickHandler";
-import { captureFaceRef, datumPlaneOf, planeOfFace } from "../sketch/planeRef";
+import {
+    captureNeutralPlane,
+    type PickedNeutralPlane,
+    PlanePickHandler,
+} from "../sketch/commands/planePickHandler";
 import type { DragPreview } from "./axisDragHandler";
 import { type DraftDragData, type DraftDragHandler, type DraftDragState, DraftDragStep } from "./draftDrag";
-
-/** What the neutral-plane pick captured: the stored reference, plus the plane it resolved to. */
-export interface PickedNeutralPlane {
-    readonly ref: NeutralPlaneRef;
-    /** The plane in WORLD coordinates — what has to be mapped into the body before the kernel sees it. */
-    readonly plane: Plane;
-}
 
 /**
  * The neutral plane, picked as a datum or a planar face — the sketch module's own plane picker
@@ -61,37 +57,6 @@ export class SelectNeutralPlaneStep implements IStep {
         if (picked === undefined) return undefined;
         this.onPicked(picked);
         return { view: document.application.activeView!, shapes: [], type: "input", plane: picked.plane };
-    }
-}
-
-/**
- * The picked plane as the feature stores and the handle reads it. A datum needs nothing more than
- * its name — the three never move — while a face is captured in world coordinates as
- * `PlaneFaceRef`, with the owner's tracked face id when it has one so a rebuild re-matches it
- * exactly instead of geometrically.
- */
-function captureNeutralPlane(document: IDocument, result: PlanePickResult): PickedNeutralPlane | undefined {
-    if (result.kind === "datum") {
-        return { ref: { kind: "datum", name: result.name }, plane: datumPlaneOf(result.name) };
-    }
-    const owner = document.visual.context.getNode(result.data.owner);
-    if (owner === undefined) return undefined;
-    const worldFace = result.data.shape.transformedMul(result.data.transform) as IFace;
-    try {
-        const ref = captureFaceRef(owner.id, worldFace);
-        if (owner instanceof ParametricBodyNode) {
-            const faceId = owner.faceIdAt(result.data.indexes[0]);
-            if (faceId === undefined) {
-                // Not fatal: the ref keeps its geometric fingerprint and re-matches on that. The
-                // report is what turns a silently weaker reference into a visible one.
-                reportSilentIdLoss(owner, "face", "the draft neutral-plane face has no tracked id");
-            } else {
-                ref.faceId = faceId;
-            }
-        }
-        return { ref: { kind: "face", ref }, plane: planeOfFace(worldFace) };
-    } finally {
-        worldFace.dispose();
     }
 }
 
@@ -231,7 +196,7 @@ export class DraftFeatureCommand extends MultistepCommand {
         const faces = node.shape.value.findSubShapes(ShapeTypes.face) as IFace[];
         const indexes = this.matchTaperFaces(node, faces, state.faces);
         if (indexes === undefined || indexes.length === 0) return undefined;
-        const plane = neutralPlaneInHost(neutral.plane, node);
+        const plane = neutralPlaneInHost(neutral.plane, node, "Draft");
         if (!plane.isOk) return undefined;
         const result = shapeFactory.draft(
             node.shape.value,

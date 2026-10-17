@@ -176,6 +176,8 @@ function extendPair(
     // the datum and the external references are reference geometry: they cut, but they
     // are never cut up
     if (solver.isFixed(target.id)) return Result.err("The datum and external references cannot be extended");
+    // a point *is* its one position: no end of it to move along its own curve
+    if (target.type === "point") return Result.err("A point has no end to extend");
     if (isClosedCurveType(target.type)) {
         return Result.err(
             target.type === "circle" ? "A circle has no end to extend" : "An ellipse has no end to extend",
@@ -184,6 +186,8 @@ function extendPair(
     const boundary = solver.entity(options.boundaryId);
     if (boundary === undefined) return Result.err("Unknown sketch entity");
     if (boundary.id === target.id) return Result.err("Pick a different entity for the boundary");
+    // a point is no boundary either: there is no corner of two curves where one is a position
+    if (boundary.type === "point") return Result.err("A point is no boundary to extend to");
     return Result.ok({ target, boundary });
 }
 

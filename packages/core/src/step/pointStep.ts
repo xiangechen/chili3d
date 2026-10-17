@@ -78,8 +78,13 @@ export class PointOnAxisStep extends SnapStep<SnapPointOnAxisData> {
 }
 
 export class PointOnPlaneStep extends SnapStep<PointSnapData> {
-    constructor(tip: I18nKeys, handleData: () => PointSnapData, keepSelected = false) {
-        super(tip, handleData, keepSelected);
+    constructor(
+        tip: I18nKeys,
+        handleData: () => PointSnapData,
+        keepSelected = false,
+        showConfirmControl = false,
+    ) {
+        super(tip, handleData, keepSelected, showConfirmControl);
     }
 
     protected override validator(data: PointSnapData, point: XYZ): boolean {

@@ -398,3 +398,76 @@ describe("RevolveFeatureCommand operation", () => {
         }
     });
 });
+
+describe("RevolveFeatureCommand symmetric and angle2", () => {
+    test("defaults to a single-sided, asymmetric revolve", () => {
+        const cmd = new RevolveFeatureCommand();
+        expect(cmd.symmetric).toBe(false);
+        expect(cmd.angle2).toBe("");
+    });
+
+    test("symmetric and angle2 clear each other", () => {
+        const cmd = new RevolveFeatureCommand();
+        cmd.angle2 = 30;
+        expect(cmd.symmetric).toBe(false);
+
+        cmd.symmetric = true;
+        expect(cmd.angle2).toBe("");
+
+        cmd.angle2 = "45";
+        expect(cmd.symmetric).toBe(false);
+
+        // Clearing angle2 does not turn symmetric back on.
+        cmd.angle2 = "";
+        expect(cmd.symmetric).toBe(false);
+    });
+
+    function committedFeature(doc: TestDocument): RevolveFeatureData {
+        const body = doc.modelManager.findNode(
+            (node) => node instanceof ParametricBodyNode,
+        ) as ParametricBodyNode;
+        expect(body).toBeInstanceOf(ParametricBodyNode);
+        return body.features[0] as RevolveFeatureData;
+    }
+
+    test("a default commit stores neither symmetric nor angle2", () => {
+        const { restoreFactory, doc, cmd } = scenario(90);
+        try {
+            (cmd as any).executeMainTask();
+
+            const feature = committedFeature(doc);
+            expect(feature.symmetric).toBeUndefined();
+            expect(feature.angle2).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("symmetric commits as the total angle swept half to each side", () => {
+        const { restoreFactory, doc, cmd } = scenario(90);
+        cmd.symmetric = true;
+        try {
+            (cmd as any).executeMainTask();
+
+            const feature = committedFeature(doc);
+            expect(feature.symmetric).toBe(true);
+            expect(feature.angle2).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("angle2 commits as the second direction's angle", () => {
+        const { restoreFactory, doc, cmd } = scenario(90);
+        cmd.angle2 = 45;
+        try {
+            (cmd as any).executeMainTask();
+
+            const feature = committedFeature(doc);
+            expect(feature.angle2).toBe(45);
+            expect(feature.symmetric).toBeUndefined();
+        } finally {
+            restoreFactory();
+        }
+    });
+});

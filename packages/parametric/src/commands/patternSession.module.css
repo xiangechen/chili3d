@@ -1,0 +1,33 @@
+/*
+ * The pattern session's canvas badges — the spacing/angle and the count, drawn at the
+ * copies they place. The look is the sketch annotations' badge look (same accent, same
+ * chrome), so a number on the canvas reads the same wherever it appears.
+ */
+.badge {
+    font-family: monospace;
+    font-size: 12px;
+    line-height: 1.4;
+    padding: 1px 6px;
+    color: var(--primary-color);
+    background-color: color-mix(in srgb, var(--panel-background-color) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color) 45%, transparent);
+    border-radius: 8px;
+    box-shadow: var(--panel-shadow);
+    white-space: nowrap;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+/*
+ * Drawn as always, but transparent to the pointer: the drag arrow is a mesh, so a badge
+ * lying over it would take the press meant for it (the sketch's `inertConstraintSymbols`
+ * rule). Set while the handle is hovered or a gesture is in flight.
+ */
+.badge.inert {
+    pointer-events: none;
+}
+
+.badge:hover {
+    background-color: color-mix(in srgb, var(--primary-color) 16%, var(--panel-background-color));
+    border-color: var(--primary-color);
+}

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { CancelableCommand, CommandStore, type I18nKeys, type ICommand, Plane, PubSub } from "@chili3d/core";
+import { cachedOptionKey } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { SketchExtendCommand } from "../../src/sketch/commands/sketchExtend";
 import { SketchEditor, type SketchEntityPick } from "../../src/sketch/editor/sketchEditor";
@@ -40,8 +41,8 @@ type FakeEditor = ReturnType<typeof fakeEditor>;
  * (`CancelableCommand.beforeExecute`), so a test that sets one has to clear it first or
  * the earlier value wins.
  */
-function forgetCachedOption(name: string): void {
-    (CancelableCommand as any)._propertiesCache.delete(name);
+function forgetCachedOption(command: ICommand, name: string): void {
+    (CancelableCommand as any)._propertiesCache.delete(cachedOptionKey(command, name));
 }
 
 async function runCommand(command: ICommand, editor: FakeEditor): Promise<void> {
@@ -117,7 +118,7 @@ describe("SketchExtendCommand", () => {
             try {
                 const { target, boundary } = scene(editor);
                 const command = new SketchExtendCommand();
-                forgetCachedOption("modifyBoundary");
+                forgetCachedOption(command, "modifyBoundary");
                 command.modifyBoundary = modifyBoundary;
                 editor.queue.push(...picks(target, boundary, [20, -8]));
 

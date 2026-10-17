@@ -21,13 +21,16 @@ export interface FeatureParameter {
      * is hidden unless every named parameter currently holds the listed value. A thicken's
      * second thickness beside its midplane toggle, say — the value stays on the feature (the
      * handler still returns it, and it survives as the user typed it), only its row goes.
+     * A `value` may list several values; the row then shows when the parameter holds ANY of
+     * them (a chamfer's flip toggle beside both asymmetric modes).
      *
      * Hidden is not removed: `FeatureItem.parameters` still carries the entry, so the panel's
      * lookups by key keep working and nothing has to re-derive the list.
      */
     readonly visibleWhen?: readonly {
         readonly key: string;
-        readonly value: number | string | boolean;
+        /** The controlling value — or several: the row shows when the parameter holds ANY of them. */
+        readonly value: number | string | boolean | readonly (number | string | boolean)[];
     }[];
     /**
      * Present when the parameter holds one of a fixed set — the row then renders a dropdown
@@ -36,6 +39,32 @@ export interface FeatureParameter {
      * refuse (see `shell`'s join type and `loft`'s continuity).
      */
     readonly choices?: readonly FeatureParameterChoice[];
+    /**
+     * Present to share one row with the parameter's neighbours: the ADJACENT parameters
+     * carrying the same `group.id` render as a single row — labelled by the group's `display`,
+     * each member keeping its own control beside a small label with the member's `display`
+     * (an origin's x/y/z under one "Origin" row). Only adjacent members merge; the same id
+     * appearing again further down starts a second row.
+     *
+     * Grouping is display-only. `setFeatureParameter` still writes each member back by its
+     * own `key`, and `visibleWhen` keeps its per-member semantics — a hidden member simply
+     * drops out of the row (hidden is not removed), and a group whose members are all hidden
+     * shows no row at all.
+     */
+    readonly group?: FeatureParameterGroup;
+}
+
+/**
+ * A display grouping for adjacent parameters — see `FeatureParameter.group`. Purely a
+ * panel concern: the feature stores and resolves each member by its own `key`, so the
+ * same group declared on every member (id and display alike) is what keeps the row
+ * coherent whichever members happen to be visible.
+ */
+export interface FeatureParameterGroup {
+    /** Groups members: adjacent parameters sharing an id render as one row. */
+    readonly id: string;
+    /** The shared row's label; the members' own `display`s demote to the in-row labels. */
+    readonly display: I18nKeys;
 }
 
 /** One entry of a `choices` parameter's dropdown: the value stored on the feature, and its label. */
@@ -87,6 +116,20 @@ export interface FeatureItem {
     readonly icon?: string;
     /** Suppressed features are skipped on rebuild and shown dimmed. */
     readonly suppressed?: boolean;
+    /**
+     * The document variable driving this feature's suppression (`FeatureBase.suppressBy`),
+     * when one is configured — the panel shows the source so a row suppressed by a variable
+     * is distinguishable from a manually suppressed one.
+     */
+    readonly suppressVariable?: string;
+    /** The `invert` flag of the configured variable suppression (see `suppressVariable`). */
+    readonly suppressVariableInvert?: boolean;
+    /**
+     * True when the variable suppression was ACTIVE on the last rebuild (the variable
+     * resolved to a suppressing value). Distinct from `suppressed` (manual); both can
+     * hold at once.
+     */
+    readonly suppressedByVariable?: boolean;
     /** Set when this feature failed to rebuild — the panel highlights the row and keeps it expanded. */
     readonly error?: string;
     /**
@@ -118,6 +161,15 @@ export interface IFeatureListNode {
     featureItems(): readonly FeatureItem[];
     setFeatureParameter(featureId: string, key: string, value: number | string | boolean): void;
     setFeatureSuppressed(featureId: string, suppressed: boolean): void;
+    /**
+     * Sets (or, with undefined, clears) the variable-driven suppression of a feature —
+     * the feature is skipped whenever the named document variable resolves to 0 (`invert`
+     * flips the test). Panels call it inside a transaction like any other list edit.
+     */
+    setFeatureSuppressVariable?(
+        featureId: string,
+        value: { variable: string; invert?: boolean } | undefined,
+    ): void;
     moveFeature(featureId: string, offset: -1 | 1): void;
     /** Moves a feature to an absolute index in one step; panels fall back to `moveFeature`. */
     moveFeatureTo?(featureId: string, index: number): void;
@@ -132,6 +184,34 @@ export interface IFeatureListNode {
      * `FeatureItem.references`.
      */
     activateReference?(featureId: string, key: string): void;
+    /**
+     * The persisted rollback-bar position: features at and after this list index are
+     * excluded from every rebuild (and dimmed in the panel) until the bar moves on.
+     * Undefined — the default — builds the full list. Unlike a session rollback
+     * preview this is recorded with the document, so it survives save/load and undo.
+     */
+    readonly rollbackBarIndex?: number;
+    /**
+     * Moves the persisted rollback bar to `index` (undefined or past the end clears
+     * it) and re-evaluates. Panels call it inside a transaction so the move is one
+     * undo step, like every other feature-list edit.
+     */
+    setRollbackBar?(index: number | undefined): void;
+    /**
+     * Ids of the downstream features whose stored shape references name geometry that
+     * `featureId` contributes to the chain — the panel's cascade hint before a
+     * suppression strands them. Undefined when the node cannot tell (id tracking
+     * unavailable or the feature unevaluated); an empty array means nothing downstream
+     * references it.
+     */
+    featureDependents?(featureId: string): string[] | undefined;
+    /**
+     * Ids of the UPSTREAM features whose contributed geometry `featureId`'s stored
+     * references name — the inverse of `featureDependents`, for the panel's
+     * "depends on" line. Same availability contract: undefined when the node cannot
+     * tell, an empty array when nothing upstream is referenced.
+     */
+    featureDependencies?(featureId: string): string[] | undefined;
 }
 
 export function isFeatureListNode(node: unknown): node is IFeatureListNode {

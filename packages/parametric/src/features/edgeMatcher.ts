@@ -58,7 +58,13 @@ import { ID_COMPONENT_SEPARATOR, idIsShared, idsOverlap } from "./trackedId";
 export interface AnchoredEdgeMatch {
     /** Matched edge indexes (a set) for `shapeFactory.fillet`/`chamfer`. */
     readonly indexes: number[];
-    /** Per-ref anchors, parallel to the input refs. */
+    /**
+     * Per-ref anchors, POSITIONAL and parallel to the input refs — and, on a successful return, one
+     * per ref with NO holes: a ref that neither matched by id nor by fingerprint is an ERROR here
+     * (`recoverByFingerprint` fills every remaining slot or fails the whole match), so a reader
+     * indexes freely. The slots are built as holes INTERNALLY (`anchors` starts as `undefined` for
+     * the refs the id pass missed) and are all filled before this is handed out.
+     */
     readonly anchors: EdgeRef[];
 }
 
@@ -131,6 +137,8 @@ export function matchEdgesAnchored(
             anchors[refIndex] = anchor;
         }
     }
+    // The cast is the invariant above, stated where it holds: every slot the id pass missed has
+    // been filled by `recoverByFingerprint`, or this did not return at all.
     return Result.ok({ indexes: [...resolved], anchors: anchors as EdgeRef[] });
 }
 

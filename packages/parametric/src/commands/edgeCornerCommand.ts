@@ -9,6 +9,7 @@ import {
     type IEdge,
     type INode,
     type INodeVisual,
+    type IShape,
     type IStep,
     LENGTH_UNITS,
     MultistepCommand,
@@ -27,11 +28,7 @@ import { captureEdgeRef, type EdgeRef } from "../features/edgeRef";
 import type { ChamferFeatureData, FilletFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { ParametricBodyNode } from "../parametricBodyNode";
-import {
-    type EdgeCornerArrowData,
-    type EdgeCornerPickHandler,
-    EdgeCornerSelectStep,
-} from "./edgeCornerPickStep";
+import { type ValueArrowData, type ValueArrowPickHandler, ValueArrowSelectStep } from "./valueArrowPickStep";
 
 /** Shared flow for fillet/chamfer: pick edges of a parametric body, enter the value. */
 abstract class EdgeCornerFeatureCommand extends MultistepCommand {
@@ -56,7 +53,7 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
 
     private previewId: number | undefined;
     private previewOwner: INodeVisual | undefined;
-    private activeHandler: EdgeCornerPickHandler | undefined;
+    private activeHandler: ValueArrowPickHandler | undefined;
 
     protected override async executeAsync(): Promise<void> {
         const selection = this.document.selection;
@@ -117,17 +114,8 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     ): ShapeMeshData[] | undefined {
         const value = this.valueNumber;
         if (value === undefined) return undefined;
-        const shape = node.shape.value;
-        const indexes = matchEdgeIndexes(
-            shape,
-            edges.map((x) => captureEdgeRef(x.shape as unknown as IEdge)),
-        );
-        if (!indexes.isOk) return undefined;
-
-        const result = shapeFactory[this.featureType](shape, indexes.value, value);
-        if (!result.isOk) return undefined;
-        const world = result.value.transformedMul(edges[0].transform);
-        result.value.dispose();
+        const world = cornerPreview(node, edges, value, this.featureType);
+        if (world === undefined) return undefined;
         const { faces, edges: outlines } = world.mesh;
         world.dispose();
         if (faces === undefined) return undefined;
@@ -154,7 +142,7 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
      * pointing out of the body — radially for circular edges, otherwise along the
      * edge-midpoint-to-body-center direction projected perpendicular to the tangent.
      */
-    private readonly arrowData = (): EdgeCornerArrowData | undefined => {
+    private readonly arrowData = (): ValueArrowData | undefined => {
         const value = this.valueNumber;
         if (value === undefined) return undefined;
         const first = this.document.selection.getSelectedShapes().at(0);
@@ -197,7 +185,8 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new EdgeCornerSelectStep(
+            new ValueArrowSelectStep(
+                { shapeType: ShapeTypes.edge },
                 { allow: (node: INode) => this.allowNode(node) },
                 { arrowData: this.arrowData, setValue: this.setValueFromArrow },
                 (handler) => (this.activeHandler = handler),
@@ -267,4 +256,33 @@ export class ChamferFeatureCommand extends EdgeCornerFeatureCommand {
     set value(value: ParameterValue) {
         this.setProperty("value", value, () => this.updatePreview());
     }
+}
+
+/**
+ * The body the corner would leave, in the picked edges' world placement — the same kernel call the
+ * feature makes, so a preview equals the committed result. Undefined when the edges cannot be
+ * matched back or the kernel refuses the radius/length.
+ *
+ * Exported because Press Pull drags an edge and has to show what it is about to build WITHOUT
+ * building it: this is the one place that knows how, and both commands go through it.
+ */
+export function cornerPreview(
+    node: INode,
+    picked: readonly VisualShapeData[],
+    value: number,
+    method: "fillet" | "chamfer",
+): IShape | undefined {
+    if (picked.length === 0 || !(node instanceof ParametricBodyNode) || !node.shape.isOk) return undefined;
+    const shape = node.shape.value;
+    const indexes = matchEdgeIndexes(
+        shape,
+        picked.map((x) => captureEdgeRef(x.shape as unknown as IEdge)),
+    );
+    if (!indexes.isOk) return undefined;
+
+    const result = shapeFactory[method](shape, indexes.value, value);
+    if (!result.isOk) return undefined;
+    const world = result.value.transformedMul(picked[0].transform);
+    result.value.dispose();
+    return world;
 }

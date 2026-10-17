@@ -3,17 +3,20 @@
 
 import {
     type AsyncController,
+    type I18nKeys,
     type IDocument,
     type INodeFilter,
     type IStep,
     type IView,
     Line,
     PubSub,
-    ShapeTypes,
+    type ShapeType,
     ShapeTypeUtils,
     type SnapResult,
     SubshapeSelectionHandler,
     type VisualShapeData,
+    type VisualState,
+    VisualStates,
     type XYZ,
 } from "@chili3d/core";
 import {
@@ -30,27 +33,64 @@ import {
 const MIN_DRAG_VALUE = 0.1;
 
 /** Where the arrow sits and which value it edits, provided by the command. */
-export interface EdgeCornerArrowData {
-    /** Edge midpoint in world coordinates. */
+export interface ValueArrowData {
+    /** Anchor point in world coordinates — the origin the drag measures from. */
     anchor: XYZ;
     /** Outward drag direction in world coordinates. */
     direction: XYZ;
     value: number;
 }
 
-export interface EdgeCornerPickCallbacks {
-    /** Undefined while no edge is selected — no arrow is shown then. */
-    arrowData(): EdgeCornerArrowData | undefined;
+export interface ValueArrowPickCallbacks {
+    /** Undefined while nothing is selected — no arrow is shown then. */
+    arrowData(): ValueArrowData | undefined;
     setValue(value: number): void;
 }
 
 /**
- * Multi-edge picking with a draggable value arrow: behaves like the standard subshape
+ * What the gesture picks and how a click lands.
+ *
+ * `shapeType` is the sub-shape kind the arrow edits a value on: edges for a fillet/chamfer's
+ * radius, the corner's own surface for the command that EDITS one of those features.
+ */
+export interface ValueArrowPickOptions {
+    readonly shapeType: ShapeType;
+    /**
+     * Each click REPLACES the selection instead of toggling into it, so exactly one sub-shape
+     * is ever selected and the arrow always describes that one. Toggling (the default) is what
+     * a fillet's multi-edge pick wants: several edges, one radius.
+     */
+    readonly replaceSelection?: boolean;
+    /**
+     * Narrows what the pointer may detect at all — the entries dropped here cannot be
+     * highlighted and cannot be clicked. Node-aware on purpose: it is the only detection hook
+     * that sees the picked sub-shape's `owner` and `indexes` together (an `IShapeFilter` gets
+     * the shape alone, so it cannot look an id up on the body the shape came from).
+     */
+    readonly admitDetected?: (detected: VisualShapeData[]) => VisualShapeData[];
+    /** How a detected sub-shape is tinted. Defaults to the edge states the base class carries. */
+    readonly highlightState?: VisualState;
+    readonly selectedState?: VisualState;
+    /**
+     * Whether a selection that is already there ANSWERS the step. True (the default) for a pick
+     * whose value the command already holds — a fillet to append has its radius ready, and the
+     * preselected edges are the whole answer. False for a pick that still has to be dragged and
+     * confirmed: the selection is only what the gesture starts from, so the pick stays open.
+     */
+    readonly preselectionAnswers?: boolean;
+}
+
+/**
+ * Sub-shape picking with a draggable value arrow: behaves like the standard subshape
  * multi-pick, but a press on the arrow starts a drag that projects the mouse ray onto
  * the arrow axis and reports the distance as the new value (clamped to MIN_DRAG_VALUE).
  * The arrow renders on top at a fixed pixel size, anchored at `anchor + direction * value`.
+ *
+ * The pick itself stays multi wherever `replaceSelection` is unset: a single-shape pick
+ * would finish the step on the first click (`SelectionHandler.pointerUp`), leaving no
+ * chance to touch the arrow.
  */
-export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
+export class ValueArrowPickHandler extends SubshapeSelectionHandler {
     private _arrowIds: number[] = [];
     private _hovered = false;
     private _dragging = false;
@@ -62,13 +102,29 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
     constructor(
         document: IDocument,
         controller: AsyncController,
+        private readonly options: ValueArrowPickOptions,
         nodeFilter: INodeFilter,
-        private readonly callbacks: EdgeCornerPickCallbacks,
+        private readonly callbacks: ValueArrowPickCallbacks,
     ) {
-        super(document, ShapeTypes.edge, true, controller, undefined, nodeFilter);
+        super(document, options.shapeType, true, controller, undefined, nodeFilter);
+        if (options.admitDetected !== undefined) this.sortDetected = options.admitDetected;
+        if (options.highlightState !== undefined) this.highlightState = options.highlightState;
+        if (options.selectedState !== undefined) this.selectedState = options.selectedState;
+        // No box-select on a pick that can only ever hold one sub-shape.
+        if (options.replaceSelection === true) this.showRect = false;
         controller.onCancelled(() => this.dispose());
         controller.onCompleted(() => this.dispose());
         controller.onFailed(() => this.dispose());
+    }
+
+    /** A click lands on `_highlights` alone when the pick is one target at a time. */
+    protected override select(_view: IView, _event: PointerEvent): number {
+        if (!this._highlights?.length) return 0;
+        return this.document.selection.setSelectedShapes(
+            this._highlights,
+            this.selectedState,
+            this.multiMode && this.options.replaceSelection !== true,
+        );
     }
 
     override pointerDown(view: IView, event: PointerEvent): void {
@@ -110,7 +166,7 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
         super.pointerUp(view, event);
     }
 
-    /** Rebuilds the arrow from the live arrow data; no data (no edges picked) removes it. */
+    /** Rebuilds the arrow from the live arrow data; no data (nothing picked) removes it. */
     refreshArrow(view?: IView) {
         for (const id of this._arrowIds) {
             this.document.visual.context.removeMesh(id);
@@ -152,7 +208,7 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
     }
 
     /** Adapts the world-space arrow length so the arrow renders at a fixed pixel size. */
-    private updateArrowScale(view: IView, data: EdgeCornerArrowData) {
+    private updateArrowScale(view: IView, data: ValueArrowData) {
         const length = pxSizedArrowLength(view, data.anchor, data.direction);
         if (length !== undefined) this._arrowLength = length;
     }
@@ -187,36 +243,52 @@ export class EdgeCornerPickHandler extends SubshapeSelectionHandler {
 }
 
 /**
- * Edge pick step for fillet/chamfer: reuses a valid preselection (same rule as
- * GetOrSelectShapeStep), otherwise runs an EdgeCornerPickHandler so the value arrow
- * is available while picking. The active handler is reported through `onHandler` so
- * the command can refresh the arrow when the value changes outside the handler.
+ * Sub-shape pick step for a value arrow: what the selection already holds answers the step when
+ * the options say a preselection is an answer (same rule as GetOrSelectShapeStep), and otherwise
+ * seeds the gesture; either way a valid preselection is kept rather than cleared, because it is
+ * what the user pointed at before running the command. Without one the step runs a
+ * `ValueArrowPickHandler` so the value arrow is available while picking. The active handler is
+ * reported through `onHandler` so the command can refresh the arrow when the value changes
+ * outside the handler.
  */
-export class EdgeCornerSelectStep implements IStep {
+export class ValueArrowSelectStep implements IStep {
     constructor(
+        private readonly options: ValueArrowPickOptions,
         private readonly nodeFilter: INodeFilter,
-        private readonly callbacks: EdgeCornerPickCallbacks,
-        private readonly onHandler: (handler: EdgeCornerPickHandler | undefined) => void,
+        private readonly callbacks: ValueArrowPickCallbacks,
+        private readonly onHandler: (handler: ValueArrowPickHandler | undefined) => void,
+        private readonly prompt: I18nKeys = "prompt.select.edges",
     ) {}
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
-        const preselected = this.preselectedEdges(document);
-        if (preselected.length > 0) {
+        const preselected = this.preselected(document);
+        if (preselected.length > 0 && this.options.preselectionAnswers !== false) {
             controller.success();
             return toSnapResult(document, preselected);
         }
-
-        document.selection.clearSelection();
-        const handler = new EdgeCornerPickHandler(document, controller, this.nodeFilter, this.callbacks);
-        this.onHandler(handler);
-        try {
-            await document.picker.pickAsync(
-                handler,
-                "prompt.select.edges",
-                controller,
-                "selection",
-                "select.default",
+        if (preselected.length === 0) {
+            document.selection.clearSelection();
+        } else {
+            document.selection.setSelectedShapes(
+                preselected,
+                this.options.selectedState ?? VisualStates.edgeSelected,
+                false,
             );
+        }
+
+        const handler = new ValueArrowPickHandler(
+            document,
+            controller,
+            this.options,
+            this.nodeFilter,
+            this.callbacks,
+        );
+        this.onHandler(handler);
+        // Up before the first pointer move: a seeded pick would otherwise show its preview and its
+        // value row with nothing to drag.
+        handler.refreshArrow(document.application.activeView);
+        try {
+            await document.picker.pickAsync(handler, this.prompt, controller, "selection", "select.default");
         } finally {
             this.onHandler(undefined);
             handler.dispose();
@@ -227,14 +299,20 @@ export class EdgeCornerSelectStep implements IStep {
         return shapes.length === 0 ? undefined : toSnapResult(document, shapes);
     }
 
-    private preselectedEdges(document: IDocument): VisualShapeData[] {
-        return document.selection
+    /**
+     * What the selection already holds and this gesture would accept, put through the same
+     * admission rule the pointer runs against — a preselection the pick would not have allowed
+     * must not answer the step for the user.
+     */
+    private preselected(document: IDocument): VisualShapeData[] {
+        const candidates = document.selection
             .getSelectedShapes()
             .filter(
                 (x) =>
-                    ShapeTypeUtils.contains(ShapeTypes.edge, x.shape.shapeType) &&
+                    ShapeTypeUtils.contains(this.options.shapeType, x.shape.shapeType) &&
                     (this.nodeFilter.allow?.(x.owner.node) ?? true),
             );
+        return this.options.admitDetected?.(candidates) ?? candidates;
     }
 }
 

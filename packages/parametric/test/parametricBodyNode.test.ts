@@ -2,9 +2,11 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ANGLE_UNITS,
     type AsyncController,
     BoundingBox,
     type FeatureParameter,
+    I18n,
     type I18nKeys,
     type INode,
     isCancelableCommand,
@@ -404,8 +406,22 @@ describe("ParametricBodyNode", () => {
         expect(items[0].error).toBeUndefined();
         expect(items[0].parameters).toEqual([
             { key: "depth", display: "option.command.depth", value: 7, unit: LENGTH_UNITS },
+            {
+                key: "endCondition",
+                display: "feature.extrude.endCondition",
+                value: "blind",
+                choices: [
+                    { value: "blind", display: "feature.extrude.endCondition.blind" },
+                    { value: "throughAll", display: "feature.extrude.endCondition.throughAll" },
+                    { value: "upToFace", display: "feature.extrude.endCondition.upToFace" },
+                    { value: "upToVertex", display: "feature.extrude.endCondition.upToVertex" },
+                ],
+            },
+            { key: "depth2", display: "feature.extrude.depth2", value: 0, unit: LENGTH_UNITS },
             { key: "startOffset", display: "option.command.startOffset", value: 0, unit: LENGTH_UNITS },
             { key: "symmetric", display: "option.command.symmetric", value: false },
+            { key: "reverse", display: "option.command.oppositeDirection", value: false },
+            { key: "draftAngle", display: "feature.extrude.draftAngle", value: 0, unit: ANGLE_UNITS },
         ]);
     });
 
@@ -440,6 +456,87 @@ describe("ParametricBodyNode", () => {
         expect(restored.features).toEqual(body.features);
     });
 
+    test("Serializer round-trips the rollback bar", () => {
+        const body = bodyWith([
+            extrudeFeature(sketch.id, 9),
+            { id: "f2", type: "extrude", sketchId: sketch.id, depth: 3 },
+        ]);
+        body.setRollbackBar(1);
+
+        const serialized = Serializer.serializeObject(body);
+        const restored = Serializer.deserializeObject(doc, serialized) as ParametricBodyNode;
+
+        expect(restored.rollbackBarIndex).toBe(1);
+    });
+
+    test("the rollback bar truncates the rebuild; clearing it restores the full chain", () => {
+        const body = bodyWith([
+            extrudeFeature(sketch.id, 5),
+            { id: "f2", type: "extrude", sketchId: sketch.id, depth: 3 },
+        ]);
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[1]);
+        expect(body.timelineStateAt(1)?.shape).toBe(mocks.prismShapes[0]);
+
+        body.setRollbackBar(1);
+        expect(body.rollbackBarIndex).toBe(1);
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+        // The truncated run never enters feature 1, so no state is recorded there.
+        expect(body.timelineStateAt(1)).toBeUndefined();
+
+        body.setRollbackBar(undefined);
+        expect(body.rollbackBarIndex).toBeUndefined();
+        // Feature 2's cache entry was evicted by the truncated commit, so it re-evaluates.
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[2]);
+    });
+
+    test("session rollback and the rollback bar compose: the stricter wins", () => {
+        const body = bodyWith([
+            extrudeFeature(sketch.id, 5),
+            { id: "f2", type: "extrude", sketchId: sketch.id, depth: 3 },
+        ]);
+        body.setRollbackBar(1);
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+
+        // A session preview past the bar cannot extend the chain beyond it.
+        expect(body.setRollbackIndex(2)).toBe(true);
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+
+        // A stricter session rollback truncates further — an empty prefix is an empty compound.
+        expect(body.setRollbackIndex(0)).toBe(true);
+        expect(body.shape.unchecked()?.shapeType).toBe(ShapeTypes.compound);
+        body.setRollbackIndex(undefined);
+    });
+
+    test("setRollbackBar normalizes out-of-range positions", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+
+        // Past the last feature is the full chain: stored as no bar at all.
+        body.setRollbackBar(1);
+        expect(body.rollbackBarIndex).toBeUndefined();
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+
+        body.setRollbackBar(-2);
+        expect(body.rollbackBarIndex).toBe(0);
+        expect(body.shape.unchecked()?.shapeType).toBe(ShapeTypes.compound);
+    });
+
+    test("moving the rollback bar is one undo step", () => {
+        const body = bodyWith([
+            extrudeFeature(sketch.id, 5),
+            { id: "f2", type: "extrude", sketchId: sketch.id, depth: 3 },
+        ]);
+        // Evaluate the full chain first, as the user saw it before moving the bar.
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[1]);
+
+        Transaction.execute(doc, "rollback bar", () => body.setRollbackBar(1));
+        expect(body.rollbackBarIndex).toBe(1);
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+
+        doc.history.undo();
+        expect(body.rollbackBarIndex).toBeUndefined();
+        expect(body.shape.unchecked()).toBe(mocks.prismShapes[2]);
+    });
+
     test("suppressed features are skipped during evaluation", () => {
         const fillet: FilletFeatureData = {
             id: "f2",
@@ -472,6 +569,100 @@ describe("ParametricBodyNode", () => {
 
         expect(mocks.fillet).toHaveBeenCalledTimes(1);
         expect(body.shape.unchecked()).toBe(mocks.filletedShape);
+    });
+
+    describe("suppressBy variable", () => {
+        function filletWithVariable(variable: string, invert?: boolean): FilletFeatureData {
+            return {
+                id: "f2",
+                type: "fillet",
+                radius: 2,
+                edges: [EDGE_REF],
+                suppressBy: { variable, invert },
+            };
+        }
+
+        function setVariable(expression: string) {
+            doc.variables.setItems([{ id: "v1", name: "sup", type: "unitless", expression }]);
+        }
+
+        test("a variable resolving to 0 suppresses the feature, back to 1 restores it", () => {
+            setVariable("0");
+            const body = bodyWith([extrudeFeature(sketch.id), filletWithVariable("sup")]);
+
+            expect(mocks.fillet).not.toHaveBeenCalled();
+            expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+            const item = body.featureItems()[1];
+            expect(item.suppressedByVariable).toBe(true);
+            expect(item.suppressVariable).toBe("sup");
+            expect(item.suppressed).toBe(false);
+
+            setVariable("1");
+            expect(mocks.fillet).toHaveBeenCalledTimes(1);
+            expect(body.shape.unchecked()).toBe(mocks.filletedShape);
+            expect(body.featureItems()[1].suppressedByVariable).toBe(false);
+        });
+
+        test("invert suppresses when the variable is non-zero", () => {
+            setVariable("1");
+            const body = bodyWith([extrudeFeature(sketch.id), filletWithVariable("sup", true)]);
+            expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+            expect(mocks.fillet).not.toHaveBeenCalled();
+            expect(body.featureItems()[1].suppressedByVariable).toBe(true);
+
+            setVariable("0");
+            expect(mocks.fillet).toHaveBeenCalledTimes(1);
+            expect(body.featureItems()[1].suppressedByVariable).toBe(false);
+        });
+
+        test("a missing variable suppresses nothing and warns on the row", () => {
+            const body = bodyWith([extrudeFeature(sketch.id), filletWithVariable("nope")]);
+            expect(body.shape.unchecked()).toBe(mocks.filletedShape);
+
+            expect(mocks.fillet).toHaveBeenCalledTimes(1);
+            const item = body.featureItems()[1];
+            expect(item.suppressedByVariable).toBe(false);
+            expect(item.warning).toBe(I18n.translate("body.suppressVariableMissing{0}", "nope"));
+        });
+
+        test("manual suppression and variable suppression combine as OR", () => {
+            setVariable("1");
+            const body = bodyWith([
+                extrudeFeature(sketch.id),
+                { ...filletWithVariable("sup"), suppressed: true },
+            ]);
+            expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+            expect(mocks.fillet).not.toHaveBeenCalled();
+            const item = body.featureItems()[1];
+            expect(item.suppressed).toBe(true);
+            expect(item.suppressedByVariable).toBe(false);
+
+            // Clearing the manual flag while the variable says "build" runs the feature.
+            Transaction.execute(doc, "unsuppress", () => body.setFeatureSuppressed("f2", false));
+            expect(mocks.fillet).toHaveBeenCalledTimes(1);
+
+            // Either source alone still suppresses: now the variable turns off.
+            setVariable("0");
+            expect(body.featureItems()[1].suppressedByVariable).toBe(true);
+        });
+
+        test("setFeatureSuppressVariable sets and clears the binding", () => {
+            setVariable("0");
+            const body = bodyWith([extrudeFeature(sketch.id), filletWithVariable("sup")]);
+            expect(body.shape.unchecked()).toBe(mocks.prismShapes[0]);
+            expect(body.featureItems()[1].suppressedByVariable).toBe(true);
+
+            Transaction.execute(doc, "clear", () => body.setFeatureSuppressVariable("f2", undefined));
+            expect(mocks.fillet).toHaveBeenCalledTimes(1);
+            expect(body.featureItems()[1].suppressVariable).toBeUndefined();
+
+            Transaction.execute(doc, "set", () =>
+                body.setFeatureSuppressVariable("f2", { variable: "sup", invert: true }),
+            );
+            // invert with sup === 0 does not suppress.
+            expect(body.featureItems()[1].suppressVariableInvert).toBe(true);
+            expect(body.featureItems()[1].suppressedByVariable).toBe(false);
+        });
     });
 
     test("moveFeature swaps the feature order and rebuilds", () => {

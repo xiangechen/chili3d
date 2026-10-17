@@ -171,19 +171,52 @@ describe("ParametricRibbonProfiles", () => {
 
         // Thicken sits with the builders, not the modifiers — Fusion's CREATE panel holds it too.
         expect(itemsOf("ribbon.group.create")).toEqual([
+            "feature.primitiveBox",
+            "feature.primitiveCylinder",
+            "feature.primitiveSphere",
+            "feature.primitiveCone",
             "feature.extrude",
             "feature.revolve",
             "feature.loft",
             "feature.sweep",
-            "feature.rib",
             "feature.thicken",
+            "feature.rib",
+            "feature.helix",
         ]);
-        expect(itemsOf("ribbon.group.modify")).toEqual([
+        expect(itemsOf("ribbon.group.feature")).toEqual([
+            "feature.pressPull",
             "feature.fillet",
             "feature.chamfer",
-            "feature.draft",
+            "feature.modifyFillet",
+            "feature.modifyChamfer",
             "feature.shell",
+            "feature.draft",
+            "feature.offsetFace",
+            "feature.hole",
+            "feature.removeFeature",
+            "feature.split",
+            "feature.sew",
+            "feature.mirror",
+            "feature.patternLinear",
+            "feature.patternCircular",
         ]);
+    });
+
+    test("should keep the node operations in a group of their own", () => {
+        // These act on the document's nodes rather than on a body's geometry, so they carry their
+        // own label instead of borrowing the model tab's "modify".
+        const tab = ParametricRibbonProfiles.find((t) => t.tabName === "ribbon.tab.parametric");
+        const nodeGroup = tab!.groups.find((g) => g.groupName === "ribbon.group.node");
+        expect(nodeGroup).toBeDefined();
+        expect(flattenItems(nodeGroup!.items)).toEqual([
+            "modify.move",
+            "modify.rotate",
+            "modify.mirror",
+            "modify.deleteNode",
+            "modify.paintBucket",
+            "modify.array",
+        ]);
+        expect(tab!.groups.some((g) => g.groupName === "ribbon.group.modify")).toBe(false);
     });
 
     test("should merge into the sketch module's parametric tab without duplicating it", () => {
@@ -198,19 +231,41 @@ describe("ParametricRibbonProfiles", () => {
         expect(allItems).toEqual([
             "sketch.create",
             "sketch.enter",
+            "feature.primitiveBox",
+            "feature.primitiveCylinder",
+            "feature.primitiveSphere",
+            "feature.primitiveCone",
             "feature.extrude",
             "feature.revolve",
             "feature.loft",
             "feature.sweep",
-            "feature.rib",
             "feature.thicken",
+            "feature.rib",
+            "feature.helix",
+            "feature.pressPull",
             "feature.fillet",
             "feature.chamfer",
-            "feature.draft",
+            "feature.modifyFillet",
+            "feature.modifyChamfer",
             "feature.shell",
+            "feature.draft",
+            "feature.offsetFace",
+            "feature.hole",
+            "feature.removeFeature",
+            "feature.split",
+            "feature.sew",
+            "feature.mirror",
+            "feature.patternLinear",
+            "feature.patternCircular",
             "feature.fuse",
             "feature.cut",
             "feature.common",
+            "modify.move",
+            "modify.rotate",
+            "modify.mirror",
+            "modify.deleteNode",
+            "modify.paintBucket",
+            "modify.array",
             "feature.variable",
         ]);
     });

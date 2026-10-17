@@ -2,12 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ANGLE_UNITS,
     CurveUtils,
+    type FeatureParameter,
     type I18nKeys,
     type IEdge,
     type IFace,
     type IShape,
     LENGTH_UNITS,
+    MathUtils,
+    type ParameterValue,
     Result,
     resolveUnitSpec,
     ShapeTypes,
@@ -15,9 +19,10 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
-import { edgeMidPoint } from "./edgeRef";
+import { edgeMidPoint, withoutHoles } from "./edgeRef";
 import {
     type ChamferFeatureData,
+    type ChamferMode,
     type CompletedTrackedHistory,
     completeTrackedHistory,
     type FeatureContext,
@@ -38,6 +43,38 @@ interface EdgeCornerOptions<F extends FilletFeatureData | ChamferFeatureData> {
     readonly method: "fillet" | "chamfer";
     readonly parameterKey: keyof F & string;
     readonly parameterDisplay: I18nKeys;
+    /** Parameter rows after the main one (chamfer's mode/distance2/angle/flip, fillet's radius2). */
+    readonly extraParameters?: (feature: F) => FeatureParameter[];
+    /** Custom parameter writes (token validation for dropdowns); the default merges the key. */
+    readonly setParameter?: FeatureHandler<F>["setParameter"];
+    /**
+     * The kernel call this evaluation makes, given the resolved main parameter — the
+     * two-distance chamfer and the variable-radius fillet build theirs here. Absent: the
+     * plain single-parameter `fillet`/`chamfer` call.
+     */
+    readonly resolveCall?: (
+        feature: F,
+        input: IShape,
+        indexes: readonly number[],
+        parameter: number,
+        context: FeatureContext,
+    ) => Result<CornerCall>;
+}
+
+/**
+ * One corner evaluation's kernel invocation: the tracked variant is preferred (its history
+ * fills the body's output ids), the plain one is the fallback when the body or the kernel
+ * offers no tracking. `parameters` carries the corner's own measures for `builtFrom`'s
+ * distance discrimination — [radius] / [distance] for the constant corners, [d1, d2] for a
+ * two-distance chamfer, [R1, R2] for a variable fillet; `interpolated` marks the one case
+ * the distance VARIES along the edge (the variable fillet), whose edges are told apart by
+ * their endpoints instead (see `endpointBuiltFrom`).
+ */
+interface CornerCall {
+    readonly parameters: readonly number[];
+    readonly interpolated?: boolean;
+    readonly plain: (input: IShape, indexes: number[]) => Result<IShape>;
+    readonly tracked?: (input: IShape, indexes: number[]) => Result<TrackedShape>;
 }
 
 /**
@@ -63,12 +100,18 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
                 value: feature[options.parameterKey] as number | string,
                 unit: LENGTH_UNITS,
             },
+            ...(options.extraParameters?.(feature) ?? []),
         ],
 
-        setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
+        setParameter: (feature, key, value) =>
+            options.setParameter?.(feature, key, value) ?? { ...feature, [key]: value },
 
         applyResolvedRefs: (feature, { resolvedEdges }) =>
-            resolvedEdges === undefined ? feature : { ...feature, edges: resolvedEdges },
+            resolvedEdges === undefined
+                ? feature
+                : // `edges` is a set; a slot the shared channel left empty (see `withoutHoles`)
+                  // simply does not belong in it.
+                  { ...feature, edges: withoutHoles(resolvedEdges) },
 
         evaluate(feature, context: FeatureContext): Result<IShape> {
             const input = context.input;
@@ -84,9 +127,23 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
             const tracking = context.tracking;
             const indexes = matchCornerEdges(input, feature, tracking);
             if (!indexes.isOk) return Result.err(indexes.error);
-            return applyEdgeCorner(options, input, indexes.value, parameter.value, tracking, feature.id);
+            const call = options.resolveCall
+                ? options.resolveCall(feature, input, indexes.value, parameter.value, context)
+                : defaultCornerCall(options.method, parameter.value);
+            if (!call.isOk) return Result.err(call.error);
+            return applyEdgeCorner(input, indexes.value, call.value, tracking, feature.id);
         },
     };
+}
+
+/** The constant corner's kernel call — `fillet`/`chamfer` with their one parameter. */
+function defaultCornerCall(method: "fillet" | "chamfer", parameter: number): Result<CornerCall> {
+    const tracked = method === "fillet" ? shapeFactory.filletTracked : shapeFactory.chamferTracked;
+    return Result.ok({
+        parameters: [parameter],
+        plain: (input, indexes) => shapeFactory[method](input, indexes, parameter),
+        tracked: tracked === undefined ? undefined : (input, indexes) => tracked(input, indexes, parameter),
+    });
 }
 
 /**
@@ -95,7 +152,7 @@ function edgeCornerHandler<F extends FilletFeatureData | ChamferFeatureData>(
  * also reports the re-anchored refs on the tracking for the body's write-back (see
  * ShapeTracking.resolvedEdges).
  */
-function matchCornerEdges(
+export function matchCornerEdges(
     input: IShape,
     feature: FilletFeatureData | ChamferFeatureData,
     tracking: ShapeTracking | undefined,
@@ -105,13 +162,14 @@ function matchCornerEdges(
     }
     const matched = matchEdgesAnchored(input, feature.edges, tracking.inputEdgeIds);
     if (!matched.isOk) return Result.err(matched.error);
-    // Re-anchored refs for the body's write-back (see ShapeTracking.resolvedEdges).
+    // Re-anchored refs for the body's write-back (see ShapeTracking.resolvedEdges). Every slot is
+    // filled: a ref the matcher cannot find at all fails the match rather than leaving a hole.
     tracking.resolvedEdges = matched.value.anchors;
     return Result.ok(matched.value.indexes);
 }
 
 /**
- * Applies the corner to `indexes`, preferring the kernel's tracked variant so the result's
+ * Applies the corner to `indexes`, preferring the call's tracked variant so the result's
  * history can fill the body's output ids (see `trackEdgeCorner`). The plain variant is the
  * fallback whenever the body or the kernel offers no tracking.
  *
@@ -119,22 +177,20 @@ function matchCornerEdges(
  * the corner derives come from its input edge, and two corners on the two pieces of one split
  * input edge derive from the very same stem — the feature is what tells them apart.
  */
-function applyEdgeCorner<F extends FilletFeatureData | ChamferFeatureData>(
-    options: EdgeCornerOptions<F>,
+function applyEdgeCorner(
     input: IShape,
     indexes: number[],
-    parameter: number,
+    call: CornerCall,
     tracking: ShapeTracking | undefined,
     featureId: string,
 ): Result<IShape> {
     // A picked SEAM edge (one face on both sides) is refused by the factory itself — the only
     // layer that calls the kernel, and the only one that can refuse before OCCT raises (see
     // `seamError` in the wasm factory; the release build turns a raise into a module abort).
-    const tracked = options.method === "fillet" ? shapeFactory.filletTracked : shapeFactory.chamferTracked;
-    if (tracking === undefined || tracked === undefined) {
-        return shapeFactory[options.method](input, indexes, parameter);
+    if (tracking === undefined || call.tracked === undefined) {
+        return call.plain(input, indexes);
     }
-    const result = tracked(input, indexes, parameter);
+    const result = call.tracked(input, indexes);
     if (!result.isOk) return Result.err(result.error);
     const completed = completeTrackedHistory([input], result.value);
     tracking.outputFaceIds = trackedIds(tracking.inputFaceIds, completed.faceMap);
@@ -147,7 +203,7 @@ function applyEdgeCorner<F extends FilletFeatureData | ChamferFeatureData>(
         result.value,
         completed,
         indexes,
-        parameter,
+        call,
         featureId,
     );
     attributeCornerFaces(result.value.shape, completed, tracking, ownedEdges, featureId);
@@ -190,7 +246,7 @@ function attributeCornerEdges(
     result: TrackedShape,
     completed: CompletedTrackedHistory,
     indexes: readonly number[],
-    parameter: number,
+    call: CornerCall,
     featureId: string,
 ): Map<number, string> {
     const accepted = new Map<number, string>();
@@ -207,7 +263,7 @@ function attributeCornerEdges(
     completed.outputEdges.forEach((edge, outputIndex) => {
         if (completed.edgeMap[outputIndex] >= 0) return;
         try {
-            const matches = targets.filter((target) => builtFrom(edge, target.edge, parameter));
+            const matches = targets.filter((target) => builtFrom(edge, target.edge, call));
             const suffix =
                 matches.length === 1
                     ? inheritedFaceSuffix(edge, result.shape, completed.outputFaces, tracking.outputFaceIds)
@@ -331,23 +387,28 @@ function attributeCornerBornEdges(
  * True when `edge` is one of the edges the corner built on `inputEdge`.
  *
  * The discriminating measure is the corner's own parameter: the surface it builds stands
- * `parameter` away from the edge it was built on, so
- * - an end ARC is coaxial with that edge and its two tangent ends sit `parameter` away from it;
+ * `call.parameters` away from the edge it was built on, so
+ * - an end ARC is coaxial with that edge and its two tangent ends sit at one of those
+ *   distances from it;
  * - a seam LINE runs past it at that same distance.
+ *
+ * A two-distance chamfer passes BOTH distances (each seam keeps its own side's); a
+ * variable-radius fillet is measured by `endpointBuiltFrom` instead (see it).
  *
  * What it does NOT reach, both deliberately:
  * - a chamfer's slanted END edges — they cross the corner rather than running alongside it
  *   (`withinSpan` and the parallel test both fail);
- * - anything on a non-orthogonal dihedral — the distance a corner's surface keeps from the edge
- *   is `radius / tan(α/2)`, which equals the parameter only at 90°, and the test compares it to
- *   the parameter. This measure deliberately does not reach them; `attributeCornerBornEdges`
+ * - anything on a non-orthogonal dihedral — the distance a corner's surface keeps from the
+ *   edge is `radius / tan(α/2)`, which equals the parameter only at 90°, and the test compares
+ *   it to the parameter. This measure deliberately does not reach them; `attributeCornerBornEdges`
  *   names what is left, by the faces the edge borders instead.
  *
  * Distance — not "the projection lands on the line" — is what tells one corner's edges from
  * another's: every filleted edge of a box shares its endpoints' planes, so a looser test
  * matches all four (measured: an arc matched four input edges).
  */
-function builtFrom(edge: IEdge, inputEdge: IEdge, parameter: number): boolean {
+function builtFrom(edge: IEdge, inputEdge: IEdge, call: CornerCall): boolean {
+    if (call.interpolated === true) return endpointBuiltFrom(edge, inputEdge, call.parameters);
     const chord = inputEdge.endPoint().sub(inputEdge.startPoint());
     // A CLOSED input edge (a full circle — a boss's top rim, a bore's rim) has no chord to take a
     // direction from and no span to stay within, so every measure below is inapplicable there:
@@ -357,22 +418,19 @@ function builtFrom(edge: IEdge, inputEdge: IEdge, parameter: number): boolean {
     // edge from the edge it was built on": the round's boundaries both stay `parameter` from the
     // rounded edge's CURVE, radially (the side below is trimmed `parameter` short of the rim,
     // the face above shrinks by `parameter`).
-    if (chord.length() <= MATCH_TOLERANCE) return atCurveDistance(edge, inputEdge, parameter);
+    if (chord.length() <= MATCH_TOLERANCE) return atCurveDistance(edge, inputEdge, call);
 
     const direction = chord.normalize();
     const basis = edge.curve.basisCurve;
-    const atDistance = (point: XYZ) => Math.abs(distance(projectionOn(inputEdge, point), point) - parameter);
+    const hits = (point: XYZ) => parameterHit(distance(projectionOn(inputEdge, point), point), call);
     if (CurveUtils.isCircle(basis)) {
         if (!directionsParallel(basis.axis, direction)) return false;
-        return (
-            [edge.startPoint(), edge.endPoint()].every((end) => atDistance(end) <= MATCH_TOLERANCE) &&
-            withinSpan(edge, inputEdge)
-        );
+        return [edge.startPoint(), edge.endPoint()].every((end) => hits(end)) && withinSpan(edge, inputEdge);
     }
     if (CurveUtils.isLine(basis)) {
         return (
             directionsParallel(edge.endPoint().sub(edge.startPoint()), direction) &&
-            atDistance(edgeMidPoint(edge)) <= MATCH_TOLERANCE &&
+            hits(edgeMidPoint(edge)) &&
             withinSpan(edge, inputEdge)
         );
     }
@@ -380,21 +438,45 @@ function builtFrom(edge: IEdge, inputEdge: IEdge, parameter: number): boolean {
     return edgeLiesOn(edge, inputEdge);
 }
 
+/** True when `measured` hits one of the corner's parameters within tolerance. */
+function parameterHit(measured: number, call: CornerCall): boolean {
+    return call.parameters.some((p) => Math.abs(measured - p) <= MATCH_TOLERANCE);
+}
+
 /**
- * True when every probe of `edge` sits `parameter` from `inputEdge`'s own curve — the
- * closed-edge measure of `builtFrom` (see it).
+ * The interpolated corner's measure (a variable-radius fillet): BOTH endpoints sit exactly at
+ * one of the two end radii from the input edge's curve — a seam runs from the R1 station to
+ * the R2 one, an end trim closes one end at that end's own radius. Only the endpoints are
+ * probed: the kernel builds the corner's curves as B-splines whose midpoints dip far inside
+ * the [R1, R2] interval (measured: an end trim's midpoint at (√2−1)·R from the edge, and a
+ * seam's at the mid-radius), so neither the constant corner's exact-distance test nor any
+ * interval test reaches them. An open input edge's span still gates strays running alongside
+ * it, and the caller's ambiguity guard (`matches.length === 1`) disowns anything two corners
+ * both reach.
+ */
+function endpointBuiltFrom(edge: IEdge, inputEdge: IEdge, parameters: readonly number[]): boolean {
+    const atRadius = (point: XYZ) => {
+        const measured = inputEdge.curve.nearestFromPoint(point).distance;
+        return parameters.some((p) => Math.abs(measured - p) <= MATCH_TOLERANCE);
+    };
+    if (![edge.startPoint(), edge.endPoint()].every(atRadius)) return false;
+    const chord = inputEdge.endPoint().sub(inputEdge.startPoint());
+    return chord.length() <= MATCH_TOLERANCE || withinSpan(edge, inputEdge);
+}
+
+/**
+ * True when every probe of `edge` sits at the corner's parameter from `inputEdge`'s own
+ * curve — the closed-edge measure of `builtFrom` (see it).
  *
  * Probing the curve, not a supporting line, is what makes it work for a closed edge: there is no
  * infinite line to project onto, and the boundaries of the round around it are offset radially,
  * not along any one direction. Every probe is required — one point of a long edge could sit at
  * the right distance by accident, a whole edge of the round cannot.
  */
-function atCurveDistance(edge: IEdge, inputEdge: IEdge, parameter: number): boolean {
+function atCurveDistance(edge: IEdge, inputEdge: IEdge, call: CornerCall): boolean {
     const [first, last] = [edge.firstParameter(), edge.lastParameter()];
     const probes = [edge.pointAt(first), edge.pointAt((first + last) / 2), edge.pointAt(last)];
-    return probes.every(
-        (point) => Math.abs(inputEdge.curve.nearestFromPoint(point).distance - parameter) <= MATCH_TOLERANCE,
-    );
+    return probes.every((point) => parameterHit(inputEdge.curve.nearestFromPoint(point).distance, call));
 }
 
 /** The id of the inherited face(s) this edge borders — undefined when none carries a stable id. */
@@ -431,6 +513,145 @@ function withinSpan(edge: IEdge, inputEdge: IEdge): boolean {
     );
 }
 
+const CHAMFER_MODES: readonly ChamferMode[] = ["equal", "twoDistance", "distanceAngle"];
+
+const CHAMFER_MODE_DISPLAY: Record<ChamferMode, I18nKeys> = {
+    equal: "feature.chamfer.mode.equal",
+    twoDistance: "feature.chamfer.mode.twoDistance",
+    distanceAngle: "feature.chamfer.mode.distanceAngle",
+};
+
+/**
+ * The chamfer's kernel call for its mode: `equal` is the plain constant chamfer; the
+ * asymmetric modes go through `chamferTwoDist` with one reference face per edge — the
+ * edge's first adjacent face, or the second when `flip` is set (`distance` is measured on
+ * that face, the second offset on the other). `distanceAngle` derives the second offset as
+ * `distance · tan(angle)`.
+ */
+function resolveChamferCall(
+    feature: ChamferFeatureData,
+    input: IShape,
+    indexes: readonly number[],
+    d1: number,
+    context: FeatureContext,
+): Result<CornerCall> {
+    const mode = feature.mode ?? "equal";
+    // The dropdown keeps the panel from writing a bad token; this keeps a hand-edited file
+    // from reaching geometry that would read it wrong (the shell's join-type guard's twin).
+    if (!CHAMFER_MODES.includes(mode)) return Result.err(`Invalid chamfer mode: ${mode}`);
+    if (mode === "equal") return defaultCornerCall("chamfer", d1);
+
+    const d2 = resolveSecondDistance(feature, mode, d1, context);
+    if (!d2.isOk) return Result.err(d2.error);
+    const faces = referenceFaces(input, indexes, feature.flip === true);
+    if (!faces.isOk) return Result.err(faces.error);
+    const tracked = shapeFactory.chamferTwoDistTracked;
+    const plain = shapeFactory.chamferTwoDist;
+    const faceIndexes = faces.value;
+    const offset2 = d2.value;
+    return Result.ok({
+        parameters: [d1, offset2],
+        plain: (i, idx) =>
+            plain === undefined
+                ? Result.err("The kernel does not support two-distance chamfers")
+                : plain(i, idx, d1, offset2, faceIndexes),
+        tracked: tracked === undefined ? undefined : (i, idx) => tracked(i, idx, d1, offset2, faceIndexes),
+    });
+}
+
+/**
+ * The second offset of an asymmetric chamfer: `twoDistance` resolves `distance2`,
+ * `distanceAngle` computes `d1 · tan(angle)` from `angle` (degrees, 0 < angle < 90 —
+ * tan(90°) is unbounded, and a zero offset is no chamfer at all).
+ */
+function resolveSecondDistance(
+    feature: ChamferFeatureData,
+    mode: "twoDistance" | "distanceAngle",
+    d1: number,
+    context: FeatureContext,
+): Result<number> {
+    if (mode === "twoDistance") {
+        if (feature.distance2 === undefined || feature.distance2 === "") {
+            return Result.err("A two-distance chamfer requires distance2");
+        }
+        return resolveUnitSpec(feature.distance2, context.scope, LENGTH_UNITS);
+    }
+    if (feature.angle === undefined || feature.angle === "") {
+        return Result.err("A distance-angle chamfer requires an angle");
+    }
+    const angle = resolveUnitSpec(feature.angle, context.scope, ANGLE_UNITS);
+    if (!angle.isOk) return Result.err(angle.error);
+    if (angle.value <= 0 || angle.value >= 90) {
+        return Result.err("A distance-angle chamfer's angle must lie between 0° and 90°");
+    }
+    return Result.ok(d1 * Math.tan(MathUtils.degToRad(angle.value)));
+}
+
+/**
+ * The reference face of each edge, as indexes into the input's face enumeration: the
+ * edge's first adjacent face, or the second when flipped (OCCT's Add(d1, d2, edge, face)
+ * measures d1 ON that face). Adjacent faces are deduplicated — a seam edge (one face on
+ * both sides) is refused by the factory itself.
+ */
+function referenceFaces(input: IShape, indexes: readonly number[], flip: boolean): Result<number[]> {
+    const edges = input.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const faces = input.findSubShapes(ShapeTypes.face) as IFace[];
+    const result: number[] = [];
+    for (const index of indexes) {
+        const edge = edges[index];
+        if (edge === undefined) return Result.err(`Chamfer edge ${index} is out of range`);
+        let adjacent: IFace[];
+        try {
+            adjacent = (edge.findAncestor(ShapeTypes.face, input) as IFace[]).filter(
+                (face, position, all) => all.findIndex((candidate) => candidate.isSame(face)) === position,
+            );
+        } catch {
+            // A degenerate edge (its kernel queries throw, and the release build turns an
+            // OCCT failure into a JS-level throw): refuse here rather than in the kernel.
+            return Result.err(`Chamfer edge ${index} has no readable adjacent faces`);
+        }
+        const chosen = adjacent[flip && adjacent.length > 1 ? 1 : 0];
+        const faceIndex = chosen === undefined ? -1 : faces.findIndex((face) => face.isSame(chosen));
+        if (faceIndex < 0) return Result.err(`Chamfer edge ${index} has no adjacent face`);
+        result.push(faceIndex);
+    }
+    return Result.ok(result);
+}
+
+/**
+ * The fillet's kernel call: the plain constant-radius fillet when `radius2` is absent or
+ * equals `radius`, OCCT's two-radius fillet otherwise — `radius` at every edge's start
+ * vertex, `radius2` at its end, interpolated linearly along the edge (so `parameters`
+ * spans the interval for `builtFrom`'s probes, and `interpolated` marks it varies).
+ */
+function resolveFilletCall(
+    feature: FilletFeatureData,
+    _input: IShape,
+    indexes: readonly number[],
+    radius: number,
+    context: FeatureContext,
+): Result<CornerCall> {
+    if (feature.radius2 === undefined || feature.radius2 === "") {
+        return defaultCornerCall("fillet", radius);
+    }
+    const radius2 = resolveUnitSpec(feature.radius2, context.scope, LENGTH_UNITS);
+    if (!radius2.isOk) return Result.err(radius2.error);
+    if (radius2.value === radius) return defaultCornerCall("fillet", radius);
+
+    const radii = indexes.flatMap(() => [radius, radius2.value]);
+    const plain = shapeFactory.filletVariable;
+    const tracked = shapeFactory.filletVariableTracked;
+    return Result.ok({
+        parameters: [radius, radius2.value],
+        interpolated: true,
+        plain: (i, idx) =>
+            plain === undefined
+                ? Result.err("The kernel does not support variable-radius fillets")
+                : plain(i, idx, radii),
+        tracked: tracked === undefined ? undefined : (i, idx) => tracked(i, idx, radii),
+    });
+}
+
 registerFeature(
     "fillet",
     edgeCornerHandler<FilletFeatureData>({
@@ -439,6 +660,25 @@ registerFeature(
         method: "fillet",
         parameterKey: "radius",
         parameterDisplay: "circle.radius",
+        extraParameters: (feature) => [
+            // An empty field is the constant-radius fillet — the feature carries no
+            // `radius2` then at all (the hole's depth pattern).
+            {
+                key: "radius2",
+                display: "feature.fillet.radius2",
+                value: feature.radius2 ?? "",
+                unit: LENGTH_UNITS,
+            },
+        ],
+        setParameter: (feature, key, value) => {
+            if (typeof value === "boolean") return feature;
+            if (key === "radius2") {
+                const { radius2: _, ...rest } = feature;
+                return value === "" ? rest : { ...rest, radius2: value };
+            }
+            return { ...feature, [key]: value };
+        },
+        resolveCall: resolveFilletCall,
     }),
 );
 
@@ -450,5 +690,49 @@ registerFeature(
         method: "chamfer",
         parameterKey: "distance",
         parameterDisplay: "common.length",
+        extraParameters: (feature) => [
+            {
+                key: "mode",
+                display: "feature.chamfer.mode",
+                value: feature.mode ?? "equal",
+                choices: CHAMFER_MODES.map((value) => ({ value, display: CHAMFER_MODE_DISPLAY[value] })),
+            },
+            {
+                key: "distance2",
+                display: "feature.chamfer.distance2",
+                value: feature.distance2 ?? "",
+                unit: LENGTH_UNITS,
+                visibleWhen: [{ key: "mode", value: "twoDistance" }],
+            },
+            {
+                key: "angle",
+                display: "feature.chamfer.angle",
+                value: feature.angle ?? "",
+                unit: ANGLE_UNITS,
+                visibleWhen: [{ key: "mode", value: "distanceAngle" }],
+            },
+            {
+                key: "flip",
+                display: "feature.chamfer.flip",
+                value: feature.flip ?? false,
+                visibleWhen: [{ key: "mode", value: ["twoDistance", "distanceAngle"] }],
+            },
+        ],
+        setParameter: (feature, key, value) => {
+            if (key === "mode") {
+                return CHAMFER_MODES.includes(value as ChamferMode)
+                    ? { ...feature, mode: value as ChamferMode }
+                    : feature;
+            }
+            if (key === "flip") return typeof value === "boolean" ? { ...feature, flip: value } : feature;
+            if (typeof value === "boolean") return feature;
+            if (key === "distance2" || key === "angle") {
+                // A blank field clears the value — the evaluate then reports it missing.
+                const { [key]: _, ...rest } = feature;
+                return value === "" ? rest : { ...rest, [key]: value };
+            }
+            return { ...feature, [key]: value };
+        },
+        resolveCall: resolveChamferCall,
     }),
 );

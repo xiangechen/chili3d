@@ -255,9 +255,9 @@ export class SweepFeatureCommand extends MultistepCommand {
     protected override beforeExecute(): void {
         super.beforeExecute();
         // The panel is up by now (the base publishes it) and its list is subscribed, so this
-        // both starts the run on auto-detection and repaints the boxes. The option cache keys
-        // on the property name alone, so a set left over from an earlier run must not decide
-        // this one.
+        // both starts the run on auto-detection and repaints the boxes. The option cache
+        // restores this command's own last run too, so a set left over from it must not
+        // decide this one.
         this.targets = AUTO_TARGETS;
     }
 

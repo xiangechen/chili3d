@@ -17,11 +17,14 @@ import {
     type JoinType,
     type Line,
     MathUtils,
+    type OffsetFaceProblem,
     type OffsetMode,
     type Plane,
     Precision,
     Result,
     ShapeTypes,
+    type SweepProfileMode,
+    SweepProfileModes,
     type TrackedShape,
     type XYZ,
     type XYZLike,
@@ -127,19 +130,30 @@ function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
     if (!result.isOk) {
         res = Result.err(result.error);
     } else {
-        res = Result.ok({
-            shape: OccShape.wrap(result.shape),
-            faceEdgeMap: toIntArray(result.faceEdgeMap),
-            faceAncestors: toIntArray(result.faceAncestors),
-            edgeAncestors: toIntArray(result.edgeAncestors),
-            capFaces: toIntArray(result.capFaces),
-            offsetFaceMap: toIntArray(result.offsetFaceMap),
-            offsetEdgeMap: toIntArray(result.offsetEdgeMap),
-        });
+        res = Result.ok(trackedShapeOf(result));
     }
 
     result.delete();
     return res;
+}
+
+/** Every channel a tracked result carries, read off `result` while its vectors are alive. */
+function trackedShapeOf(result: TrackedShapeResult): TrackedShape {
+    return {
+        shape: OccShape.wrap(result.shape),
+        faceEdgeMap: toIntArray(result.faceEdgeMap),
+        faceAncestors: toIntArray(result.faceAncestors),
+        edgeAncestors: toIntArray(result.edgeAncestors),
+        capFaces: toIntArray(result.capFaces),
+        offsetFaceMap: toIntArray(result.offsetFaceMap),
+        offsetEdgeMap: toIntArray(result.offsetEdgeMap),
+    };
+}
+
+/** The kernel's `offsetReport` as the classified problem: [status, maxDistance × 1000]. */
+function offsetProblemOf(result: TrackedShapeResult): OffsetFaceProblem {
+    const report = toIntArray(result.offsetReport);
+    return { status: report[0] ?? 0, maxDistance: (report[1] ?? 0) / 1000 };
 }
 
 function toIntArray(vector: IntVector): number[] {
@@ -194,6 +208,35 @@ function seamError(shape: IShape, edges: readonly number[], operation: string): 
             // Unreadable adjacency — leave it to the kernel.
         }
     }
+    return undefined;
+}
+
+/**
+ * Guards the variable-radius fillet call: one (R1, R2) pair per edge, every radius positive.
+ * The kernel is compiled with exception catching disabled, so these are refused here rather
+ * than left to raise.
+ */
+function validateVariableRadii(edges: readonly number[], radii: readonly number[]): string | undefined {
+    if (edges.length === 0) return "The edges is empty.";
+    if (radii.length !== edges.length * 2) return "The radii must be one (start, end) pair per edge.";
+    if (radii.some((r) => r < Precision.Distance)) return "The radius is too small.";
+    return undefined;
+}
+
+/**
+ * Guards the two-distance chamfer call: both distances positive and one reference face per
+ * edge. The kernel is compiled with exception catching disabled, so these are refused here
+ * rather than left to raise.
+ */
+function validateTwoDistChamfer(
+    edges: readonly number[],
+    d1: number,
+    d2: number,
+    faces: readonly number[],
+): string | undefined {
+    if (d1 < Precision.Distance || d2 < Precision.Distance) return "The distance is too small.";
+    if (edges.length === 0) return "The edges is empty.";
+    if (faces.length !== edges.length) return "The faces must match the edges one-to-one.";
     return undefined;
 }
 
@@ -314,6 +357,76 @@ export class ShapeFactory implements IShapeFactory {
             return convertTrackedShapeResult(
                 wasm.ShapeFactory.chamferTracked,
                 [shape.shape, edges, distance],
+                "Chamfer Error",
+            );
+        }
+        return Result.err("Not OccShape");
+    }
+
+    filletVariable(shape: IShape, edges: number[], radii: number[]): Result<IShape> {
+        const invalid = validateVariableRadii(edges, radii);
+        if (invalid !== undefined) return Result.err(invalid);
+
+        if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "fillet");
+            if (seam !== undefined) return Result.err(seam);
+            return convertShapeResult(
+                wasm.ShapeFactory.filletVariable,
+                [shape.shape, edges, radii],
+                "Fillet Error",
+            );
+        }
+        return Result.err("Not OccShape");
+    }
+
+    filletVariableTracked(shape: IShape, edges: number[], radii: number[]): Result<TrackedShape> {
+        const invalid = validateVariableRadii(edges, radii);
+        if (invalid !== undefined) return Result.err(invalid);
+
+        if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "fillet");
+            if (seam !== undefined) return Result.err(seam);
+            return convertTrackedShapeResult(
+                wasm.ShapeFactory.filletVariableTracked,
+                [shape.shape, edges, radii],
+                "Fillet Error",
+            );
+        }
+        return Result.err("Not OccShape");
+    }
+
+    chamferTwoDist(shape: IShape, edges: number[], d1: number, d2: number, faces: number[]): Result<IShape> {
+        const invalid = validateTwoDistChamfer(edges, d1, d2, faces);
+        if (invalid !== undefined) return Result.err(invalid);
+
+        if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "chamfer");
+            if (seam !== undefined) return Result.err(seam);
+            return convertShapeResult(
+                wasm.ShapeFactory.chamferTwoDist,
+                [shape.shape, edges, d1, d2, faces],
+                "Chamfer Error",
+            );
+        }
+        return Result.err("Not OccShape");
+    }
+
+    chamferTwoDistTracked(
+        shape: IShape,
+        edges: number[],
+        d1: number,
+        d2: number,
+        faces: number[],
+    ): Result<TrackedShape> {
+        const invalid = validateTwoDistChamfer(edges, d1, d2, faces);
+        if (invalid !== undefined) return Result.err(invalid);
+
+        if (shape instanceof OccShape) {
+            const seam = seamError(shape, edges, "chamfer");
+            if (seam !== undefined) return Result.err(seam);
+            return convertTrackedShapeResult(
+                wasm.ShapeFactory.chamferTwoDistTracked,
+                [shape.shape, edges, d1, d2, faces],
                 "Chamfer Error",
             );
         }
@@ -701,6 +814,44 @@ export class ShapeFactory implements IShapeFactory {
             "Sweep Error",
         );
     }
+    sweepWithMode(
+        profiles: IShape[],
+        path: IWire,
+        mode: SweepProfileMode,
+        isRound: boolean,
+        fixedDirection?: XYZLike,
+    ): Result<IShape> {
+        return convertShapeResult(
+            wasm.ShapeFactory.sweepMode,
+            [
+                ensureOccShape(profiles),
+                ensureOccShape(path)[0],
+                SweepProfileModes.indexOf(mode),
+                isRound,
+                fixedDirection ?? { x: 0, y: 0, z: 0 },
+            ],
+            "Sweep Error",
+        );
+    }
+    sweepWithModeTracked(
+        profile: IShape,
+        path: IWire,
+        mode: SweepProfileMode,
+        isRound: boolean,
+        fixedDirection?: XYZLike,
+    ): Result<TrackedShape> {
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.sweepModeTracked,
+            [
+                ensureOccShape(profile)[0],
+                ensureOccShape(path)[0],
+                SweepProfileModes.indexOf(mode),
+                isRound,
+                fixedDirection ?? { x: 0, y: 0, z: 0 },
+            ],
+            "Sweep Error",
+        );
+    }
     revolve(profile: IShape, axis: Line, angle: number): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.revolve,
@@ -919,6 +1070,45 @@ export class ShapeFactory implements IShapeFactory {
             ],
             "Draft Error",
         );
+    }
+
+    /**
+     * Offset Face: the kernel's per-face offset, with its failure CLASSIFIED rather than only
+     * worded (see `OffsetFaceProblem`) — which is why this does not go through
+     * `convertTrackedShapeResult`, whose error is a bare string.
+     */
+    offsetFacesTracked(
+        shape: IShape,
+        faces: IFace[],
+        distance: number,
+        rounds: IFace[] = [],
+    ): Result<TrackedShape, OffsetFaceProblem> {
+        // The feature checks both before calling; guarded here so the kernel is never asked to
+        // move faces that are not there, or by nothing.
+        if (faces.length === 0 || distance === 0) {
+            return Result.err({ status: 0, maxDistance: 0 });
+        }
+        let result: TrackedShapeResult;
+        try {
+            result = wasm.ShapeFactory.offsetFacesTracked(
+                ensureOccShape(shape)[0],
+                ensureOccShape(faces),
+                distance,
+                ensureOccShape(rounds),
+            );
+        } catch {
+            return Result.err({ status: 5, maxDistance: 0 });
+        }
+
+        let res: Result<TrackedShape, OffsetFaceProblem>;
+        if (!result.isOk) {
+            res = Result.err(offsetProblemOf(result));
+        } else {
+            res = Result.ok(trackedShapeOf(result));
+        }
+
+        result.delete();
+        return res;
     }
 
     loft(

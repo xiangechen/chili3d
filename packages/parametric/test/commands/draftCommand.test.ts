@@ -33,8 +33,8 @@ import {
     draftArrowDirection,
     draftLean,
 } from "../../src/commands/draftDrag";
-import { neutralPlaneInHost } from "../../src/features/draft";
 import type { DraftFeatureData } from "../../src/features/feature";
+import { neutralPlaneInHost } from "../../src/features/neutralPlane";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { PlanePickHandler } from "../../src/sketch/commands/planePickHandler";
 
@@ -799,10 +799,14 @@ describe("DraftFeatureCommand commit", () => {
         const { restoreFactory, cmd } = scenario();
         try {
             expect(
-                neutralPlaneInHost(Plane.XY, {
-                    id: "b1",
-                    worldTransform: () => Matrix4.fromScale(0, 1, 1),
-                }).isOk,
+                neutralPlaneInHost(
+                    Plane.XY,
+                    {
+                        id: "b1",
+                        worldTransform: () => Matrix4.fromScale(0, 1, 1),
+                    },
+                    "Draft",
+                ).isOk,
             ).toBe(false);
         } finally {
             restoreFactory();
@@ -818,7 +822,7 @@ describe("neutralPlaneInHost", () => {
         const host = { id: "b1", worldTransform: () => Matrix4.fromTranslation(0, 0, 100) };
         const world = new Plane({ origin: new XYZ(0, 0, 120), normal: XYZ.unitZ, xvec: XYZ.unitX });
 
-        const local = neutralPlaneInHost(world, host);
+        const local = neutralPlaneInHost(world, host, "Draft");
 
         expect(local.isOk).toBe(true);
         expect(local.unchecked()!.origin.isEqualTo(new XYZ(0, 0, 20))).toBe(true);

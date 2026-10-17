@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { AsyncController, command, type ParameterValue, PubSub, property } from "@chili3d/core";
+import {
+    AsyncController,
+    command,
+    type ParameterValue,
+    type Property,
+    PubSub,
+    property,
+} from "@chili3d/core";
 import { type DimensionElement, inferDimension } from "../dimensionInference";
 import {
     angleVertex,
@@ -61,6 +68,9 @@ const MAX_ELEMENTS = 2;
  * running: it is declared the way every other command option is, so the command bar
  * renders it (`CommandContext` reads a command's `@property` fields) and the value the
  * user leaves behind is the one the tool starts with next time (`CancelableCommand`).
+ * The option is not private to one dimension tool — every one of these commands reads it,
+ * so the toggle set on one applies to the others; `cacheKeyOfProperty` below keeps it on
+ * the shared bare-name key now that options are otherwise cached per command.
  */
 abstract class DrivenDimensionCommand extends SketchConstraintCommand {
     @property("option.command.driven")
@@ -69,6 +79,12 @@ abstract class DrivenDimensionCommand extends SketchConstraintCommand {
     }
     set driven(value: boolean) {
         this.setProperty("driven", value);
+    }
+
+    /** `driven` is shared by every dimension tool (see above) — it keeps the bare-name key. */
+    protected override cacheKeyOfProperty(property: Property): string {
+        if (property.name === "driven") return property.name;
+        return super.cacheKeyOfProperty(property);
     }
 }
 

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { CancelableCommand, type I18nKeys, type ICommand, Plane, PubSub } from "@chili3d/core";
+import { cachedOptionKey } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { SketchChamferCommand, SketchFilletCommand } from "../../src/sketch/commands/sketchCornerCommands";
 import { SketchEditor, type SketchEntityTypeFilter } from "../../src/sketch/editor/sketchEditor";
@@ -53,16 +54,17 @@ interface CommandSpec {
  */
 async function runCommand(spec: CommandSpec, editor: FakeEditor): Promise<void> {
     const cache: Map<string, any> = (CancelableCommand as any)._propertiesCache;
-    const had = cache.has(spec.option.name);
-    const previous = cache.get(spec.option.name);
+    const key = cachedOptionKey(spec.command, spec.option.name);
+    const had = cache.has(key);
+    const previous = cache.get(key);
     const getActive = rs.spyOn(SketchEditor, "getActive").mockReturnValue(editor as any);
     try {
-        cache.set(spec.option.name, spec.option.value);
+        cache.set(key, spec.option.value);
         await spec.command.execute({ activeView: { document: {} } } as any);
     } finally {
         getActive.mockRestore();
-        if (had) cache.set(spec.option.name, previous);
-        else cache.delete(spec.option.name);
+        if (had) cache.set(key, previous);
+        else cache.delete(key);
     }
 }
 

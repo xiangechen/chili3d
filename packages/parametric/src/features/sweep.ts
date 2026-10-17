@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type I18nKeys,
     type IEdge,
     type IFace,
     type IShape,
@@ -9,12 +10,16 @@ import {
     Result,
     ShapeNode,
     ShapeTypes,
+    type SweepProfileMode,
+    SweepProfileModes,
+    XYZ,
+    type XYZLike,
 } from "@chili3d/core";
 import type { SketchNode } from "../sketch/sketchNode";
 import { isBodyTrackingNode } from "./bodyTracking";
 import { trackedBoolean } from "./boolean";
 import { matchEdgesAnchored } from "./edgeMatcher";
-import type { EdgeRef } from "./edgeRef";
+import { type EdgeRef, withoutHoles } from "./edgeRef";
 import { findSketch } from "./extrude";
 import {
     type BooleanOperation,
@@ -68,11 +73,23 @@ const sweepHandler: FeatureHandler<SweepFeatureData> = {
             display: "option.command.isRoundCorner",
             value: feature.isRoundCorner ?? false,
         },
+        {
+            key: "profileControl",
+            display: "feature.sweep.profileControl",
+            value: feature.profileControl ?? "frenet",
+            choices: SweepProfileModes.map((value) => ({ value, display: PROFILE_CONTROL_DISPLAY[value] })),
+        },
     ],
 
     setParameter: (feature, key, value) => {
         if (key === "isRoundCorner") {
             return { ...feature, [key]: value === true || value === "true" };
+        }
+        if (key === "profileControl") {
+            // The dropdown constrains the panel; a hand-edited file is refused here too.
+            return SweepProfileModes.includes(value as SweepProfileMode)
+                ? { ...feature, profileControl: value as SweepProfileMode }
+                : feature;
         }
         return { ...feature, [key]: value };
     },
@@ -85,7 +102,11 @@ const sweepHandler: FeatureHandler<SweepFeatureData> = {
                     ? { ...next, profiles: resolvedProfiles }
                     : { ...next, source: { ...feature.source, profiles: resolvedProfiles } };
         }
-        if (resolvedEdges !== undefined) next = { ...next, path: { ...next.path, edges: resolvedEdges } };
+        if (resolvedEdges !== undefined) {
+            // The path's edges are a set; a slot the shared channel left empty (see `withoutHoles`)
+            // simply does not belong in it.
+            next = { ...next, path: { ...next.path, edges: withoutHoles(resolvedEdges) } };
+        }
         return next;
     },
 
@@ -100,6 +121,8 @@ const sweepHandler: FeatureHandler<SweepFeatureData> = {
             // resolvedProfiles is reported by the profile resolution above.
             if (context.tracking !== undefined) context.tracking.resolvedEdges = path.value.anchors;
             const isRoundCorner = feature.isRoundCorner ?? false;
+            const mode = resolveProfileMode(feature, profiles.value);
+            if (!mode.isOk) return Result.err(mode.error);
             if (feature.operation !== undefined) {
                 return sweepWithOperation(
                     feature.operation,
@@ -107,21 +130,101 @@ const sweepHandler: FeatureHandler<SweepFeatureData> = {
                     profiles.value,
                     path.value.wire,
                     isRoundCorner,
+                    mode.value,
                 );
             }
-            if (context.tracking === undefined || shapeFactory.sweepTracked === undefined) {
-                return shapeFactory.sweep(
-                    profiles.value.map(({ face }) => face),
-                    path.value.wire,
-                    isRoundCorner,
-                );
+            if (context.tracking === undefined || !trackedSweepSupports(mode.value)) {
+                return sweepPlain(profiles.value, path.value.wire, isRoundCorner, mode.value);
             }
-            return sweepTracked(path.value.wire, isRoundCorner, profiles.value, context.tracking);
+            return sweepTracked(path.value.wire, isRoundCorner, mode.value, profiles.value, context.tracking);
         } finally {
             owned.forEach((x) => x.dispose());
         }
     },
 };
+
+/** How one evaluation orients the profile: the mode, plus the binormal a `fixed` mode holds. */
+interface SweepOrientation {
+    readonly mode: SweepProfileMode;
+    /** The first profile's plane normal — required by `fixed`, absent otherwise. */
+    readonly fixedDirection?: XYZLike;
+}
+
+/**
+ * Reads the feature's profile control, defaulting to `frenet` — what every sweep ran before
+ * the field existed, so an old document rebuilds bit-for-bit. For `fixed`, the binormal is
+ * the first profile's in-plane upright direction (see `fixedBinormal`; profiles of one
+ * sketch are coplanar, so one direction serves them all). The token is validated for
+ * hand-edited files, the normal for a degenerate profile face.
+ */
+function resolveProfileMode(
+    feature: SweepFeatureData,
+    profiles: readonly SweepProfile[],
+): Result<SweepOrientation> {
+    const mode = feature.profileControl ?? "frenet";
+    if (!SweepProfileModes.includes(mode)) return Result.err(`Invalid sweep profile control: ${mode}`);
+    if (mode !== "fixed") return Result.ok({ mode });
+    const face = profiles[0]?.face;
+    if (face === undefined) return Result.err("Sweep requires at least one profile");
+    try {
+        const binormal = fixedBinormal(face.normal(0, 0)[1]);
+        if (binormal === undefined) return Result.err("The sweep profile has no defined plane normal");
+        return Result.ok({ mode, fixedDirection: binormal });
+    } catch {
+        return Result.err("The sweep profile has no defined plane normal");
+    }
+}
+
+/**
+ * The binormal a `fixed` sweep holds: the profile's in-plane "upright" — world +Z projected
+ * into the profile plane (+Y when the plane is horizontal, its normal vertical). Always
+ * perpendicular to the profile normal, so never parallel to the start tangent of a
+ * perpendicular profile — which is exactly what the profile's own NORMAL would be, the one
+ * degenerate frame the kernel refuses (measured: a graceful "Failed to sweep profile").
+ * Mid-path degeneracy (a tangent aligning with this direction further along) fails the same
+ * way, as a feature error.
+ */
+function fixedBinormal(normal: XYZ): XYZ | undefined {
+    const reference = Math.abs(normal.z) > 0.99 ? XYZ.unitY : XYZ.unitZ;
+    return reference.sub(normal.multiply(normal.dot(reference))).normalize();
+}
+
+/**
+ * The untracked sweep: the legacy multi-profile call for `frenet` (bit-for-bit the old
+ * behavior), `sweepWithMode` otherwise.
+ */
+function sweepPlain(
+    profiles: readonly SweepProfile[],
+    path: IWire,
+    isRoundCorner: boolean,
+    orientation: SweepOrientation,
+): Result<IShape> {
+    if (orientation.mode === "frenet" || shapeFactory.sweepWithMode === undefined) {
+        if (orientation.mode !== "frenet") {
+            return Result.err(`The kernel does not support ${orientation.mode} sweep profile control`);
+        }
+        return shapeFactory.sweep(
+            profiles.map(({ face }) => face),
+            path,
+            isRoundCorner,
+        );
+    }
+    return shapeFactory.sweepWithMode(
+        profiles.map(({ face }) => face),
+        path,
+        orientation.mode,
+        isRoundCorner,
+        orientation.fixedDirection,
+    );
+}
+
+/** True when the kernel can run this mode with history (legacy tracked call or the mode-aware one). */
+function trackedSweepSupports(orientation: SweepOrientation): boolean {
+    return (
+        (orientation.mode === "frenet" && shapeFactory.sweepTracked !== undefined) ||
+        shapeFactory.sweepWithModeTracked !== undefined
+    );
+}
 
 /**
  * One profile to sweep: the face (in the host body's space), plus the naming that
@@ -147,6 +250,12 @@ interface SweepProfile {
  * `boundaryId` dedupes, so the sweep's names need a component of their own.
  */
 const SWEEP_MARKER = "sweep";
+
+const PROFILE_CONTROL_DISPLAY: Record<SweepProfileMode, I18nKeys> = {
+    frenet: "option.command.profileControl.frenet",
+    correctedFrenet: "option.command.profileControl.correctedFrenet",
+    fixed: "option.command.profileControl.fixed",
+};
 
 /** Resolves the profiles to sweep — the sketch's, or the `source` body faces. */
 function resolveSweepProfiles(
@@ -274,14 +383,15 @@ function sweepWithOperation(
     profiles: SweepProfile[],
     path: IWire,
     isRoundCorner: boolean,
+    orientation: SweepOrientation,
 ): Result<IShape> {
     if (context.input === undefined) {
         return Result.err("Sweep join/cut/intersect requires a preceding feature");
     }
     const tracking = context.tracking;
     const tracked = trackedBoolean(operation);
-    if (tracking !== undefined && tracked !== undefined && shapeFactory.sweepTracked !== undefined) {
-        const tool = sweepProfilesTracked(path, isRoundCorner, profiles);
+    if (tracking !== undefined && tracked !== undefined && trackedSweepSupports(orientation)) {
+        const tool = sweepProfilesTracked(path, isRoundCorner, orientation, profiles);
         if (!tool.isOk) return Result.err(tool.error);
         try {
             return applyTrackedOperation(context.input, tracking, tracked, tool.value);
@@ -290,11 +400,7 @@ function sweepWithOperation(
             tool.value.shape.dispose();
         }
     }
-    const built = shapeFactory.sweep(
-        profiles.map(({ face }) => face),
-        path,
-        isRoundCorner,
-    );
+    const built = sweepPlain(profiles, path, isRoundCorner, orientation);
     if (!built.isOk) return built;
     try {
         switch (operation) {
@@ -314,10 +420,11 @@ function sweepWithOperation(
 function sweepTracked(
     path: IWire,
     isRoundCorner: boolean,
+    orientation: SweepOrientation,
     profiles: SweepProfile[],
     tracking: ShapeTracking,
 ): Result<IShape> {
-    const swept = sweepProfilesTracked(path, isRoundCorner, profiles);
+    const swept = sweepProfilesTracked(path, isRoundCorner, orientation, profiles);
     if (!swept.isOk) return Result.err(swept.error);
     tracking.outputFaceIds = swept.value.faceIds;
     tracking.outputEdgeIds = swept.value.edgeIds;
@@ -328,13 +435,14 @@ function sweepTracked(
 function sweepProfilesTracked(
     path: IWire,
     isRoundCorner: boolean,
+    orientation: SweepOrientation,
     profiles: SweepProfile[],
 ): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
     const shapes: IShape[] = [];
     const outputFaceIds: (string | undefined)[] = [];
     const outputEdgeIds: (string | undefined)[] = [];
     for (const profile of profiles) {
-        const swept = sweepProfileTracked(path, isRoundCorner, profile);
+        const swept = sweepProfileTracked(path, isRoundCorner, orientation, profile);
         if (!swept.isOk) return Result.err(swept.error);
         shapes.push(swept.value.shape);
         outputFaceIds.push(...swept.value.faceIds);
@@ -361,11 +469,22 @@ function sweepProfilesTracked(
 function sweepProfileTracked(
     path: IWire,
     isRoundCorner: boolean,
+    orientation: SweepOrientation,
     profile: SweepProfile,
 ): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
-    // Guaranteed by the caller's guard — the type just cannot see it.
-    if (shapeFactory.sweepTracked === undefined) return Result.err("Sweep tracking is unavailable");
-    const result = shapeFactory.sweepTracked(profile.face, path, isRoundCorner);
+    // The legacy call for `frenet` (bit-for-bit the old behavior), the mode-aware one
+    // otherwise — both map to the same kernel entry with mode 0/1/2. Guaranteed live by the
+    // caller's `trackedSweepSupports` guard; the type just cannot see it.
+    const legacy = shapeFactory.sweepTracked;
+    const byMode = shapeFactory.sweepWithModeTracked;
+    const call =
+        orientation.mode === "frenet" && legacy !== undefined
+            ? () => legacy(profile.face, path, isRoundCorner)
+            : byMode === undefined
+              ? undefined
+              : () => byMode(profile.face, path, orientation.mode, isRoundCorner, orientation.fixedDirection);
+    if (call === undefined) return Result.err("Sweep tracking is unavailable");
+    const result = call();
     if (!result.isOk) return Result.err(result.error);
     const faceEdges = profile.face.findSubShapes(ShapeTypes.edge) as IEdge[];
     // Content-derived edge seeds survive wire re-enumeration (see profileEdgeSeeds).

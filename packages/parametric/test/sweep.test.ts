@@ -353,12 +353,24 @@ describe("sweep feature", () => {
         });
 
         test("parameters expose isRoundCorner, defaulting to false", () => {
+            const profileControlRow = (value: string) => ({
+                key: "profileControl",
+                display: "feature.sweep.profileControl",
+                value,
+                choices: [
+                    { value: "frenet", display: "option.command.profileControl.frenet" },
+                    { value: "correctedFrenet", display: "option.command.profileControl.correctedFrenet" },
+                    { value: "fixed", display: "option.command.profileControl.fixed" },
+                ],
+            });
             expect(featureHandler("sweep")!.parameters!(feature)).toEqual([
                 { key: "isRoundCorner", display: "option.command.isRoundCorner", value: false },
+                profileControlRow("frenet"),
             ]);
             const round = sweepFeature("b1", edges, { isRoundCorner: true });
             expect(featureHandler("sweep")!.parameters!(round)).toEqual([
                 { key: "isRoundCorner", display: "option.command.isRoundCorner", value: true },
+                profileControlRow("frenet"),
             ]);
         });
 
@@ -377,10 +389,19 @@ describe("sweep feature", () => {
             const anchored: EdgeRef[] = [
                 { kind: "line", start: { x: 2, y: 0, z: 0 }, end: { x: 3, y: 0, z: 0 } },
             ];
-            const next = featureHandler("sweep")!.applyResolvedRefs!(feature, {
-                resolvedProfiles: profiles,
-                resolvedEdges: anchored,
-            }) as SweepFeatureData;
+            // One stale ref in, one fresh anchor out — as a run that re-matched produces.
+            const stale: EdgeRef = {
+                kind: "line",
+                start: { x: 9, y: 9, z: 9 },
+                end: { x: 8, y: 8, z: 8 },
+            };
+            const next = featureHandler("sweep")!.applyResolvedRefs!(
+                { ...feature, path: { ...feature.path, edges: [stale] } },
+                {
+                    resolvedProfiles: profiles,
+                    resolvedEdges: anchored,
+                },
+            ) as SweepFeatureData;
 
             expect(next.profiles).toBe(profiles);
             expect(next.path).toEqual({ nodeId: "b1", edges: anchored });

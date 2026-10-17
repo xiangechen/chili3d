@@ -5,28 +5,23 @@ import {
     ANGLE_UNITS,
     type IFace,
     type IShape,
-    Matrix4,
     type Plane,
     Result,
     resolveUnitSpec,
-    ShapeNode,
     ShapeTypes,
     type XYZ,
 } from "@chili3d/core";
-import { datumPlaneOf, type IdLookup, type IdMultiLookup, matchFace, planeOfFace } from "../sketch/planeRef";
-import { isBodyTrackingNode } from "./bodyTracking";
 import { type DraftInput, draftTracked } from "./draftTracked";
 import {
     type DraftFeatureData,
     type FeatureContext,
     type FeatureHandler,
-    type IShapeHost,
     type NeutralPlaneRef,
     registerFeature,
 } from "./feature";
+import { resolveNeutralPlane } from "./neutralPlane";
 import { captureProfileRef } from "./profileRef";
 import { matchSourceFaceIndexes } from "./sourceFaceMatcher";
-import { indexesOfOverlappingId } from "./trackedId";
 
 /**
  * Draft: the body's chain input has the faces the feature names tapered about a neutral plane,
@@ -37,8 +32,9 @@ import { indexesOfOverlappingId } from "./trackedId";
  * each face about its intersection with a plane, rather than a hollow. What it does NOT share with
  * shell is where its OTHER reference lives: a shell's open faces must be sub-shapes of the input,
  * while a draft's neutral plane may be geometry of an entirely different body, or one of the three
- * datums. That one is therefore resolved in world coordinates and mapped back (see
- * `resolveNeutralPlane`).
+ * datums. That one is therefore resolved in world coordinates and mapped back — the shared
+ * `resolveNeutralPlane` in `neutralPlane.ts`, which the mirror feature resolves its own plane
+ * through as well.
  */
 
 const draftHandler: FeatureHandler<DraftFeatureData> = {
@@ -74,7 +70,7 @@ const draftHandler: FeatureHandler<DraftFeatureData> = {
         const faces = resolveDraftFaces(feature, context, input);
         if (!faces.isOk) return Result.err(faces.error);
         if (faces.value.length === 0) return Result.err("Draft requires at least one face to taper");
-        const neutral = resolveNeutralPlane(feature, context);
+        const neutral = resolveNeutralPlane(feature.neutralPlane, context, "Draft");
         if (!neutral.isOk) return Result.err(neutral.error);
 
         // The pull direction is the neutral plane's own normal — Fusion's and Onshape's default —
@@ -130,117 +126,6 @@ function resolveDraftFaces(
         }
     }
     return Result.ok(matched.value.indexes.map((index) => faces[index]));
-}
-
-/**
- * The neutral plane in the HOST'S OWN FRAME, which is the frame the kernel runs in.
- *
- * The one reference a draft has that may live outside the body it tapers, so it is resolved in
- * two halves: `neutralWorldPlane` finds it in world coordinates (where it was captured), and this
- * maps it back with the host's transform. The mapping is rigid in practice — a body's transform is
- * a placement — and the only transform that could make `Plane.transformed` throw is a singular
- * one, which `invert()` already reports as undefined.
- */
-function resolveNeutralPlane(feature: DraftFeatureData, context: FeatureContext): Result<Plane> {
-    const world = neutralWorldPlane(feature.neutralPlane, context);
-    if (!world.isOk) return Result.err(world.error);
-    return neutralPlaneInHost(world.value, context.host);
-}
-
-/**
- * A world-space plane expressed in the host body's own frame — the frame its feature chain and
- * the kernel live in. Exported because the command's live preview needs the same mapping: it
- * builds its shape with the same kernel call the feature will make, so a plane mapped any other
- * way would preview a taper the feature does not build.
- */
-export function neutralPlaneInHost(world: Plane, host: IShapeHost): Result<Plane> {
-    const inverse = host.worldTransform().invert();
-    if (inverse === undefined) return Result.err("Draft cannot place the neutral plane in the body");
-    return Result.ok(world.transformed(inverse));
-}
-
-/** The neutral plane as captured: a datum by name, or a face ref re-matched on its node. */
-function neutralWorldPlane(ref: NeutralPlaneRef, context: FeatureContext): Result<Plane> {
-    if (ref.kind === "datum") return Result.ok(datumPlaneOf(ref.name));
-    const source = planeFaceSource(ref.ref.nodeId, context);
-    if (!source.isOk) return Result.err(source.error);
-    const face = matchFace(
-        source.value.faces,
-        source.value.transform,
-        ref.ref,
-        idLookup(source.value.faceIds),
-        idMultiLookup(source.value.faceIds),
-    );
-    if (face === undefined) return Result.err("Draft neutral plane not found after rebuild");
-    // `planeOfFace` rather than the sketch path's `sketchPlaneOfFace`: a draft wants the face's
-    // own outward plane (its normal is the default pull direction), not a sketch's re-origined
-    // frame. Both lie on the same plane, so only the orientation of the frame differs.
-    const worldFace = source.value.transform.equals(Matrix4.identity())
-        ? face
-        : (face.transformedMul(source.value.transform) as IFace);
-    try {
-        return Result.ok(planeOfFace(worldFace));
-    } finally {
-        if (worldFace !== face) worldFace.dispose();
-    }
-}
-
-/** A face set a plane ref is matched against, with the frame it lives in and its tracked ids. */
-interface PlaneFaceSource {
-    readonly faces: IFace[];
-    readonly faceIds: readonly (string | undefined)[] | undefined;
-    readonly transform: Matrix4;
-}
-
-/**
- * The faces `nodeId`'s plane ref was captured on.
- *
- * The host's OWN id is the interesting case and is deliberately not routed through
- * `resolveFacePlane(document, ref)` (the sketch path): that reads the referenced node's final
- * shape, and this feature is being replayed INTO that node — its final shape is the previous
- * rebuild's, and on the very first one there is none at all. `context.input` is by definition the
- * chain state at this feature's position, so that is what the ref is matched on. A FOREIGN node
- * has no such circularity and is read off its live shape, the way `sourceNodeFaces` does it for a
- * press-pull.
- */
-function planeFaceSource(nodeId: string, context: FeatureContext): Result<PlaneFaceSource> {
-    if (nodeId === context.host.id) {
-        const input = context.input;
-        if (input === undefined) return Result.err("Draft requires a preceding feature");
-        const faces = input.findSubShapes(ShapeTypes.face) as IFace[];
-        const ids = context.tracking?.inputFaceIds;
-        return Result.ok({
-            faces,
-            faceIds: ids !== undefined && ids.length === faces.length ? ids : undefined,
-            transform: context.host.worldTransform(),
-        });
-    }
-    const node = context.document.modelManager.findNode((n) => n.id === nodeId);
-    if (!(node instanceof ShapeNode) || !node.shape.isOk) {
-        return Result.err("Draft neutral plane body not found");
-    }
-    const faces = node.shape.value.findSubShapes(ShapeTypes.face) as IFace[];
-    const tracked = isBodyTrackingNode(node) ? node : undefined;
-    return Result.ok({
-        faces,
-        faceIds: tracked === undefined ? undefined : faces.map((_, index) => tracked.faceIdAt(index)),
-        transform: node.worldTransform(),
-    });
-}
-
-/** The tracked-id lookup a face set gives `matchFace`, or undefined where it carries no tracking. */
-function idLookup(ids: readonly (string | undefined)[] | undefined): IdLookup {
-    return ids === undefined
-        ? undefined
-        : (id) => {
-              const index = ids.indexOf(id);
-              return index < 0 ? undefined : index;
-          };
-}
-
-/** The multi-hit counterpart of `idLookup`: a face split since the capture matches by every piece. */
-function idMultiLookup(ids: readonly (string | undefined)[] | undefined): IdMultiLookup {
-    return ids === undefined ? undefined : (id) => indexesOfOverlappingId(ids, id);
 }
 
 /**

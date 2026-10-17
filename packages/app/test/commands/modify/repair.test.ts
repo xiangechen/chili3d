@@ -2,8 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { Matrix4 } from "@chili3d/core";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@rstest/core";
-import { RepairShapeCommand } from "../../../src/commands/modify/repair";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, rs, test } from "@rstest/core";
+import { RepairShapeCommand, repairShape } from "../../../src/commands/modify/repair";
 import {
     ensureGlobalStubApp,
     type MockShape,
@@ -67,6 +67,40 @@ function buildRepairCommand(nodeCount = 1) {
     seedStepDatas(cmd, [step0]);
     return { cmd, parent, nodes, shapes };
 }
+
+describe("repairShape", () => {
+    const nullShape = () => ({ isNull: () => true }) as any;
+
+    test("returns the caller's shape undisposed when every repair step fails", () => {
+        const shape = mockShape({
+            shellSewing: () => nullShape(),
+            fixShape: () => nullShape(),
+            fixSmallFace: () => nullShape(),
+            dispose: rs.fn(),
+        });
+
+        const result = repairShape(shape as any, 1e-5);
+
+        // The input belongs to the caller's node — the repair pass must never dispose it.
+        expect(result).toBe(shape);
+        expect(shape.dispose).not.toHaveBeenCalled();
+    });
+
+    test("disposes replaced intermediates but never the caller's shape", () => {
+        const finalShape = mockShape({ dispose: rs.fn() });
+        const smallFixed = mockShape({ fixSmallFace: () => finalShape, dispose: rs.fn() });
+        const sewnOnce = mockShape({ fixShape: () => smallFixed, dispose: rs.fn() });
+        const shape = mockShape({ shellSewing: () => sewnOnce, dispose: rs.fn() });
+
+        const result = repairShape(shape as any, 1e-5);
+
+        expect(result).toBe(finalShape);
+        expect(shape.dispose).not.toHaveBeenCalled();
+        expect(sewnOnce.dispose).toHaveBeenCalledTimes(1);
+        expect(smallFixed.dispose).toHaveBeenCalledTimes(1);
+        expect(finalShape.dispose).not.toHaveBeenCalled();
+    });
+});
 
 describe("RepairShapeCommand", () => {
     let restoreTx: () => void;

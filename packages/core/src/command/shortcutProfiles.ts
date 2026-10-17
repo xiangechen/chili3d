@@ -77,6 +77,9 @@ export const Chili3dShortcuts: ShortcutMap = {
     "modify.explode": "x",
     "modify.chamfer": "shift+c",
     "modify.fillet": "shift+f",
+    // The one feature command with a key of its own: Press Pull is the entry point that reads the
+    // selection and hands off, so the key has to reach it before any pick starts.
+    "feature.pressPull": "q",
 };
 
 export const DefaultShortcuts: ShortcutMap = Chili3dShortcuts;

@@ -45,8 +45,8 @@ const shellHandler: FeatureHandler<ShellFeatureData> = {
         // A dropdown, not a text box: the value goes straight to `getJoinType`, which throws on
         // anything it does not know — an unknown token typed by hand would take the whole
         // rebuild down with it. The two the Shell command offers, and no more: the field's type
-        // also admits `tangent`, which the guard below accepts (so a file carrying one still
-        // builds), but offering it here would put a value on the row that nothing else produces.
+        // also admits `tangent`, but the kernel NO-OPS on it (see the guard in `evaluate`), so
+        // offering it here would show a shell that never happened.
         {
             key: "joinType",
             display: "option.command.joinType",
@@ -74,6 +74,16 @@ const shellHandler: FeatureHandler<ShellFeatureData> = {
         // first for the same reason: the feature's own values are checked before the context's.
         if (feature.joinType !== undefined && !JoinTypes.includes(feature.joinType)) {
             return Result.err(`Invalid join type: ${feature.joinType}`);
+        }
+        // `tangent` IS a legal join type, but the kernel no-ops on it — measured on OCCT 8.0.0,
+        // `MakeThickSolidByJoin` with `GeomAbs_Tangent` returns the input unchanged
+        // (`shellFaceId.kernel.test.ts` pins it). A shell that quietly never happened is worse
+        // than a row saying so (the same call `draft.ts` makes on a zero angle), so a
+        // hand-edited file carrying one fails loudly instead of building the untapered input.
+        if (feature.joinType === "tangent") {
+            return Result.err(
+                'Shell join type "tangent" is not supported — the kernel returns the shape unchanged',
+            );
         }
         const input = context.input;
         if (input === undefined) return Result.err("Shell requires a preceding feature");

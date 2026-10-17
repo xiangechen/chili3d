@@ -946,6 +946,79 @@ describe("ShapeFactory — feature operations", () => {
         });
     });
 
+    describe("chamferTwoDist", () => {
+        // A 40×40×20 box: locate a vertical edge geometrically, then the faces that border
+        // it — the kernel must accept exactly those as the reference face and refuse the rest.
+        function verticalEdgeIndex(box: IShape): number {
+            const edges = box.findSubShapes(ShapeTypes.edge) as IEdge[];
+            const index = edges.findIndex((edge) => {
+                const [s, e] = [edge.startPoint(), edge.endPoint()];
+                return (
+                    Math.abs(Math.abs(s.z - e.z) - 20) < 1e-6 &&
+                    Math.abs(s.x - e.x) < 1e-6 &&
+                    Math.abs(s.y - e.y) < 1e-6
+                );
+            });
+            expect(index).toBeGreaterThanOrEqual(0);
+            return index;
+        }
+
+        function borderingFaceIndexes(box: IShape, edge: IShape): number[] {
+            return box
+                .findSubShapes(ShapeTypes.face)
+                .map((face, index) => ({ face, index }))
+                .filter(({ face }) => face.findSubShapes(ShapeTypes.edge).some((e) => e.isSame(edge)))
+                .map(({ index }) => index);
+        }
+
+        function verticalEdgeAndFaces(box: IShape) {
+            const edgeIndex = verticalEdgeIndex(box);
+            const edge = box.findSubShapes(ShapeTypes.edge)[edgeIndex];
+            const adjacent = borderingFaceIndexes(box, edge);
+            expect(adjacent).toHaveLength(2);
+            const foreign = box
+                .findSubShapes(ShapeTypes.face)
+                .map((_, index) => index)
+                .filter((index) => !adjacent.includes(index));
+            expect(foreign).toHaveLength(4);
+            return { edgeIndex, adjacent, foreign };
+        }
+
+        test("accepts a reference face bordering the edge and refuses the others", () => {
+            const box = factory.box(plane, 40, 40, 20).value;
+            const { edgeIndex, adjacent, foreign } = verticalEdgeAndFaces(box);
+
+            for (const faceIndex of adjacent) {
+                expect(factory.chamferTwoDist(box, [edgeIndex], 2, 1, [faceIndex]).isOk).toBe(true);
+            }
+            for (const faceIndex of foreign) {
+                const result = factory.chamferTwoDist(box, [edgeIndex], 2, 1, [faceIndex]);
+                expect(result.isOk).toBe(false);
+                expect(result.error).toBe("Chamfer reference face is not adjacent to its edge");
+            }
+        });
+
+        test("still rejects out-of-range indexes", () => {
+            const box = factory.box(plane, 40, 40, 20).value;
+            expect(factory.chamferTwoDist(box, [999], 2, 1, [0]).error).toBe(
+                "Chamfer edge or face index out of range",
+            );
+            expect(factory.chamferTwoDist(box, [0], 2, 1, [999]).error).toBe(
+                "Chamfer edge or face index out of range",
+            );
+        });
+
+        test("the tracked variant runs the same adjacency check", () => {
+            const box = factory.box(plane, 40, 40, 20).value;
+            const { edgeIndex, adjacent, foreign } = verticalEdgeAndFaces(box);
+
+            expect(factory.chamferTwoDistTracked(box, [edgeIndex], 2, 1, [adjacent[0]]).isOk).toBe(true);
+            const refused = factory.chamferTwoDistTracked(box, [edgeIndex], 2, 1, [foreign[0]]);
+            expect(refused.isOk).toBe(false);
+            expect(refused.error).toBe("Chamfer reference face is not adjacent to its edge");
+        });
+    });
+
     describe("removeFillet", () => {
         test("should return error when shape is not OccShape", () => {
             const fakeShape = new MockShape({ shapeType: ShapeTypes.solid }) as unknown as IShape;

@@ -618,7 +618,7 @@ function curveSnap(entity: SketchEntityData, position: [number, number]): DragSn
 
 /** The PointOn kind pinning a point onto each non-line curve family's curve. */
 const POINT_ON_KINDS: Record<
-    Exclude<SketchEntityType, "line" | "circle" | "arc" | "offsetCurve">,
+    Exclude<SketchEntityType, "line" | "circle" | "arc" | "point" | "offsetCurve">,
     ConstraintKind
 > = {
     ellipse: ConstraintKind.PointOnEllipse,

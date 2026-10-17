@@ -1062,6 +1062,43 @@ describe("feature evaluation", () => {
                 unit: LENGTH_UNITS,
             });
         });
+
+        test("a start offset keeps the unflipped sense under reverse", () => {
+            const translatedFace = {
+                shapeType: ShapeTypes.face,
+                isEqual: () => false,
+                dispose: rs.fn(),
+                findSubShapes: () => [],
+            };
+            const transformedMul = rs.fn((_matrix: Matrix4) => translatedFace);
+            mocks.face.mockImplementation(((wires: any[]) =>
+                Result.ok({
+                    shapeType: ShapeTypes.face,
+                    isEqual: () => false,
+                    outerWire: () => wires[0],
+                    findSubShapes: (type: ShapeType) =>
+                        type === ShapeTypes.edge ? wires.flatMap((w: any) => w.edges) : [],
+                    area: () => 0,
+                    boundingBox: () => BoundingBox.zero,
+                    transformedMul,
+                })) as any);
+            const extrude: ExtrudeFeatureData = {
+                id: "e1",
+                type: "extrude",
+                sketchId: sketch.id,
+                depth: 5,
+                startOffset: 3,
+                reverse: true,
+            };
+            const body = bodyWith([extrude]);
+
+            expect(body.shape.isOk).toBe(true);
+            // The start offset is NOT part of the flip: the profile still moves along +Z…
+            const t = (transformedMul.mock.calls[0][0] as Matrix4).translationPart();
+            expect([t.x, t.y, t.z]).toEqual([0, 0, 3]);
+            // …while the sweep itself runs the other way.
+            expect((mocks.prism.mock.calls[0] as unknown as [any, XYZ])[1].z).toBeCloseTo(-5);
+        });
     });
 
     describe("extrude operation", () => {
@@ -1183,6 +1220,26 @@ describe("feature evaluation", () => {
             expect(profile).toBe(face);
             expect(vec.z).toBeCloseTo(5);
             expect(body.shape.unchecked()).toBe(mocks.prismShape);
+        });
+
+        test("a press-pull with reverse sweeps against the face's outward normal", () => {
+            const sourceBody = bodyWith([{ id: "e0", type: "extrude", sketchId: sketch.id, depth: 2 }]);
+            const face = topFace(2);
+            sourceBody.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+                type === ShapeTypes.face ? [face] : []) as any;
+            const feature: ExtrudeFeatureData = {
+                id: "p1",
+                type: "extrude",
+                source: { nodeId: sourceBody.id, profiles: [captureProfileRef(face as any)] },
+                depth: 5,
+                reverse: true,
+            };
+            const body = bodyWith([feature]);
+
+            expect(body.shape.isOk).toBe(true);
+            expect(mocks.prism).toHaveBeenCalledTimes(2);
+            const [, vec] = mocks.prism.mock.calls[1] as unknown as [any, XYZ];
+            expect(vec.z).toBeCloseTo(-5);
         });
 
         test("a face of the host body itself resolves against the feature's input", () => {

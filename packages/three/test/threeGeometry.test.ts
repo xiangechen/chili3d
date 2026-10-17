@@ -250,6 +250,50 @@ describe("ThreeGeometry", () => {
             const result = geo.getSubShapeAndIndex("edge", 0);
             expect(result.shape).toBeUndefined();
         });
+
+        // Sketch points append 4-vertex cross-hair markers to the edge mesh without
+        // extending `range`, and a raycast can land on them.
+        const appendRangelessEdges = (node: ReturnType<typeof createTestGeometryNode>) => {
+            const position = node.mesh.edges!.position;
+            node.mesh.edges!.position = new Float32Array([
+                ...position,
+                2,
+                0,
+                0,
+                2.2,
+                0,
+                0,
+                2.1,
+                0.1,
+                0,
+                2.1,
+                -0.1,
+                0,
+            ]);
+        };
+
+        test("getSubShapeAndIndex reports no sub-shape for a hit past every range", () => {
+            const node = createTestGeometryNode();
+            appendRangelessEdges(node);
+            const geo = new ThreeGeometry(node, context);
+
+            // the mock's edge range is { start: 0, count: 6 }; vertex 8 sits in the cross
+            const result = geo.getSubShapeAndIndex("edge", 8);
+            expect(result.subShape).toBeUndefined();
+            expect(result.shape).toBeUndefined();
+            expect(result.transform).toBeUndefined();
+            expect(result.index).toBe(-1);
+        });
+
+        test("getSubShapeAndIndex still resolves a ranged hit with appended geometry present", () => {
+            const node = createTestGeometryNode();
+            appendRangelessEdges(node);
+            const geo = new ThreeGeometry(node, context);
+
+            const result = geo.getSubShapeAndIndex("edge", 2);
+            expect(result.subShape?.id).toBe("e1");
+            expect(result.index).toBe(0);
+        });
     });
 
     describe("setRenderOnTop", () => {

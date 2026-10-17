@@ -156,6 +156,19 @@ export class BodyTimeline {
     }
 
     /**
+     * The chain's final output — the after-state of the last evaluated feature, for
+     * callers measuring what that feature contributed (`featureDependencies.ts`).
+     * Undefined before any successful run. This is the `stateAt` of the index one past
+     * the last visited one, which the timeline array itself never records.
+     */
+    outputState(): FeatureTimelineState | undefined {
+        const entry = this._cache.at(-1);
+        return entry === undefined
+            ? undefined
+            : { shape: entry.shape, faceIds: entry.faceIds, edgeIds: entry.edgeIds };
+    }
+
+    /**
      * The final shape's id arrays. The cache is swapped only by a fully successful run,
      * so these always describe the displayed shape — a failed re-evaluation changes
      * neither.

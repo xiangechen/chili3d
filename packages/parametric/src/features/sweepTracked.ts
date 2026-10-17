@@ -1,8 +1,24 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type IShape, Matrix4, Result, ShapeTypes, type XYZ } from "@chili3d/core";
-import { completeTrackedHistory, trackedAncestors, trackedFaceIds, trackedIds } from "./feature";
+import {
+    type IEdge,
+    type IFace,
+    type IShape,
+    Matrix4,
+    Result,
+    ShapeTypes,
+    type TrackedShape,
+    type XYZ,
+} from "@chili3d/core";
+import { taperSweptPrism } from "./extrudeDraft";
+import {
+    type CompletedTrackedHistory,
+    completeTrackedHistory,
+    trackedAncestors,
+    trackedFaceIds,
+    trackedIds,
+} from "./feature";
 import { mergedEdgeAncestors, unionAncestors } from "./historyCompletion";
 import { mapFusedIds } from "./operationIds";
 import {
@@ -64,7 +80,103 @@ const PUSH_MARKER = "push";
  *   two families it can derive from the motion).
  * - **`seedSuffix`** keeps the mirrored half of a symmetric sweep from duplicating the first
  *   half's ids.
+ *
+ * A non-zero `draftAngle` (degrees) tapers the prism's side faces about its start plane as a
+ * second kernel step, composing the taper's history with the sweep's (`taperSweptPrism` in
+ * extrudeDraft.ts) so the ids below survive it.
  */
+/** What naming one swept prism needs: the profile it came from, and what the kernel said of it. */
+interface SweepNaming {
+    /** The profile face, already at the start offset. */
+    readonly face: IFace;
+    /** That face's own edges, in findSubShapes order. */
+    readonly faceEdges: readonly IEdge[];
+    /** The tracked id of the source face, or undefined for a prism nothing can name. */
+    readonly seedBase: string | undefined;
+    /** `:neg` for a symmetric sweep's second half (see `sweepFacesTracked`). */
+    readonly seedSuffix: string;
+    /** The caller's source-face ids, one per profile edge — undefined for a sketch. */
+    readonly faceEdgeIds: readonly (string | undefined)[] | undefined;
+    /** The sweep vector: a prism carries every profile point by it. */
+    readonly vec: XYZ;
+    /** What `prismTracked` reported of the prism it built. */
+    readonly tracked: TrackedShape;
+    /** What `completeTrackedHistory` made of that report. */
+    readonly history: CompletedTrackedHistory;
+}
+
+/**
+ * The ids one swept prism's faces and edges take, and the scope naming what a draft births on it.
+ *
+ * Answers id-less holes rather than nothing when the source face carries no tracked id: one unnamed
+ * face of a multi-face sweep must not blank the names the OTHER prisms did get, and the caller's
+ * arrays stay index-parallel with findSubShapes order.
+ */
+function nameSweptPrism(naming: SweepNaming): {
+    faceIds: (string | undefined)[];
+    edgeIds: (string | undefined)[];
+    scope: string;
+} {
+    const { face, faceEdges, seedBase, seedSuffix, faceEdgeIds, vec, tracked, history } = naming;
+    const { edgeMap, faceMap, outputEdges } = history;
+    // The scope naming the edges a draft births (see `taperSweptPrism`); unused when the prism is
+    // unnamed, since a born edge's name is a conjunction of face ids.
+    if (seedBase === undefined) {
+        return {
+            faceIds: faceMap.map(() => undefined),
+            edgeIds: edgeMap.map(() => undefined),
+            scope: "sweep",
+        };
+    }
+    // `derivedId`, not concatenation: an external `seedBase` is a tracked id that a merge can
+    // make compound, and a suffix on the whole string would leave the earlier leaves bare.
+    const seed = derivedId(seedBase, seedSuffix);
+    // Entity-derived seeds survive wire re-enumeration (see profileEdgeSeeds), and they carry
+    // the sweep's own seed in the stem (`<seed>:ent<N>`) — which is what keeps a sweep's names
+    // its own.
+    //
+    // An EXTERNAL seed is a body id, living in the same name space as everything the body has
+    // already built, so the sweep names the sub-shape it carries as a conjunction WITH its own
+    // identity: `boundaryId([seed, id, PUSH_MARKER])` — "the pressed face, that sub-shape, a
+    // press-pull". Without the pressed face the sweep re-derives names the body already answers
+    // to, since the convention gives a face's own boundary edges the ids `<faceId>` and
+    // `<faceId>:top` (measured: pressing a box's side face minted edges whose names the box's
+    // top edge already had 40mm away). `PUSH_MARKER` is what keeps the conjunction from
+    // collapsing: `boundaryId` DEDUPES its arguments, and the pressed face and its top edge
+    // already share one id — the very convention above — so without a component of its own the
+    // seed would dedupe back to a bare body id. The seed also separates a symmetric sweep's two
+    // halves, from the `:neg` its `seed` carries.
+    const edgeSeeds =
+        faceEdgeIds === undefined
+            ? profileEdgeSeeds(face, seed, faceEdges)
+            : faceEdgeIds.map((id) => (id === undefined ? undefined : boundaryId([seed, PUSH_MARKER, id])));
+    // The bottom face takes the seed — but an EXTERNAL seed names a body face that is still
+    // in the body, so the pad's own bottom cannot reuse it verbatim: it is a DISTINCT face
+    // (translated by `offsetVec`, so always distinct when there is a start offset), and the
+    // body already answers to the bare id. Qualify it with the press-pull marker exactly as
+    // the edge seeds below do. A sketch seed needs no qualification — nothing else in the
+    // body carries it.
+    const faceSeed = faceEdgeIds === undefined ? seed : boundaryId([seed, PUSH_MARKER]);
+    const faceIds = trackedFaceIds([faceSeed], edgeSeeds, faceMap, tracked.faceEdgeMap);
+    seedTopFace(faceIds, faceSeed, faceMap, tracked.faceEdgeMap, tracked.capFaces ?? []);
+    const edgeIds = trackedIds(edgeSeeds, edgeMap);
+    // A prism carries every profile point by `vec`; the swept image of an edge is its top.
+    attributeSweepEdges(
+        edgeIds,
+        outputEdges,
+        edgeMap,
+        face,
+        seed,
+        edgeSeeds,
+        Matrix4.fromTranslation(vec.x, vec.y, vec.z),
+        ":top",
+        // The corner images of a press-pull have no entities to key by — their seeds come
+        // from the (already qualified) ids of the edges meeting at each corner.
+        faceEdgeIds === undefined ? undefined : faceCornerSeeds(face, edgeSeeds),
+    );
+    return { faceIds, edgeIds, scope: seed };
+}
+
 export function sweepFaceTracked(
     profileFace: IFace,
     seedBase: string | undefined,
@@ -72,6 +184,7 @@ export function sweepFaceTracked(
     offsetVec: XYZ,
     seedSuffix = "",
     faceEdgeIds?: readonly (string | undefined)[],
+    draftAngle?: number,
 ): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> {
     const owned: IFace[] = [];
     try {
@@ -82,70 +195,39 @@ export function sweepFaceTracked(
         // The completed face map keeps the top-face seeding below unambiguous: a
         // kernel-missed bottom face would otherwise look like a second history-less
         // candidate.
-        const { edgeMap, faceMap, outputEdges } = completeTrackedHistory([face], result.value, {
+        const history = completeTrackedHistory([face], result.value, {
             inputEdges: faceEdges,
             inputFaces: [face],
         });
-        // Nothing can name this prism — the source face carries no tracked id. Report the
-        // geometry with an id-less hole per sub-shape rather than bailing out: one unnamed face
-        // of a multi-face sweep must not blank the names the OTHER prisms did get, and the
-        // caller's arrays stay index-parallel with findSubShapes order.
-        if (seedBase === undefined) {
-            return Result.ok({
-                shape: result.value.shape,
-                faceIds: faceMap.map(() => undefined),
-                edgeIds: edgeMap.map(() => undefined),
-            });
-        }
-        // `derivedId`, not concatenation: an external `seedBase` is a tracked id that a merge can
-        // make compound, and a suffix on the whole string would leave the earlier leaves bare.
-        const seed = derivedId(seedBase, seedSuffix);
-        // Entity-derived seeds survive wire re-enumeration (see profileEdgeSeeds), and they carry
-        // the sweep's own seed in the stem (`<seed>:ent<N>`) — which is what keeps a sweep's names
-        // its own.
-        //
-        // An EXTERNAL seed is a body id, living in the same name space as everything the body has
-        // already built, so the sweep names the sub-shape it carries as a conjunction WITH its own
-        // identity: `boundaryId([seed, id, PUSH_MARKER])` — "the pressed face, that sub-shape, a
-        // press-pull". Without the pressed face the sweep re-derives names the body already answers
-        // to, since the convention gives a face's own boundary edges the ids `<faceId>` and
-        // `<faceId>:top` (measured: pressing a box's side face minted edges whose names the box's
-        // top edge already had 40mm away). `PUSH_MARKER` is what keeps the conjunction from
-        // collapsing: `boundaryId` DEDUPES its arguments, and the pressed face and its top edge
-        // already share one id — the very convention above — so without a component of its own the
-        // seed would dedupe back to a bare body id. The seed also separates a symmetric sweep's two
-        // halves, from the `:neg` its `seed` carries.
-        const edgeSeeds =
-            faceEdgeIds === undefined
-                ? profileEdgeSeeds(face, seed, faceEdges)
-                : faceEdgeIds.map((id) =>
-                      id === undefined ? undefined : boundaryId([seed, PUSH_MARKER, id]),
-                  );
-        // The bottom face takes the seed — but an EXTERNAL seed names a body face that is still
-        // in the body, so the pad's own bottom cannot reuse it verbatim: it is a DISTINCT face
-        // (translated by `offsetVec`, so always distinct when there is a start offset), and the
-        // body already answers to the bare id. Qualify it with the press-pull marker exactly as
-        // the edge seeds below do. A sketch seed needs no qualification — nothing else in the
-        // body carries it.
-        const faceSeed = faceEdgeIds === undefined ? seed : boundaryId([seed, PUSH_MARKER]);
-        const faceIds = trackedFaceIds([faceSeed], edgeSeeds, faceMap, result.value.faceEdgeMap);
-        seedTopFace(faceIds, faceSeed, faceMap, result.value.faceEdgeMap, result.value.capFaces ?? []);
-        const edgeIds = trackedIds(edgeSeeds, edgeMap);
-        // A prism carries every profile point by `vec`; the swept image of an edge is its top.
-        attributeSweepEdges(
-            edgeIds,
-            outputEdges,
-            edgeMap,
+        const { faceIds, edgeIds, scope } = nameSweptPrism({
             face,
-            seed,
-            edgeSeeds,
-            Matrix4.fromTranslation(vec.x, vec.y, vec.z),
-            ":top",
-            // The corner images of a press-pull have no entities to key by — their seeds come
-            // from the (already qualified) ids of the edges meeting at each corner.
-            faceEdgeIds === undefined ? undefined : faceCornerSeeds(face, edgeSeeds),
+            faceEdges,
+            seedBase,
+            seedSuffix,
+            faceEdgeIds,
+            vec,
+            tracked: result.value,
+            history,
+        });
+        if (draftAngle === undefined || draftAngle === 0) {
+            return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
+        }
+        const [basePoint, baseNormal] = face.normal(0, 0);
+        // The kernel's face-edge map names the side faces exactly; a kernel that left it
+        // empty falls back to the geometric pick inside `taperSweptPrism`.
+        const sideFaces =
+            result.value.faceEdgeMap === undefined
+                ? undefined
+                : history.outputFaces.filter((_, index) => result.value.faceEdgeMap![index] >= 0);
+        return taperSweptPrism(
+            { shape: result.value.shape, faceIds, edgeIds },
+            basePoint,
+            baseNormal,
+            vec,
+            draftAngle,
+            scope,
+            sideFaces,
         );
-        return Result.ok({ shape: result.value.shape, faceIds, edgeIds });
     } finally {
         owned.forEach((x) => x.dispose());
     }
@@ -163,6 +245,9 @@ export function sweepFaceTracked(
  *
  * `faceEdgeIds` runs parallel to `faces`, each entry seeding that face's own edges (see
  * `sweepFaceTracked`) — the caller's source-face ids for a press-pull, undefined for sketches.
+ *
+ * A non-zero `draftAngle` (degrees) tapers each prism's side faces about its own start plane —
+ * see `sweepFaceTracked`.
  */
 export function sweepFacesTracked(
     faces: readonly IFace[],
@@ -170,7 +255,8 @@ export function sweepFacesTracked(
     vecsOf: (face: IFace) => XYZ[],
     offsetOf: (face: IFace) => XYZ,
     faceEdgeIds?: readonly (readonly (string | undefined)[] | undefined)[],
-): Result<{ shape: IShape; faceIds: (string | undefined)[]; edgeIds: (string | undefined)[] }> | undefined {
+    draftAngle?: number,
+): Result<TrackedPiece> | undefined {
     // `prismTracked` is optional on `IShapeFactory` (every sibling tracked path guards it): a
     // factory without it must fall back to the plain path, not throw out of `evaluate`.
     if (shapeFactory.prismTracked === undefined) return undefined;
@@ -194,6 +280,7 @@ export function sweepFacesTracked(
                 offsetOf(face),
                 direction === 0 ? "" : ":neg",
                 edgeIds,
+                draftAngle,
             );
             if (!swept.isOk) return Result.err(swept.error);
             shapes.push(swept.value.shape);
@@ -208,11 +295,14 @@ export function sweepFacesTracked(
     // as one sub-shape — so a name more than one prism claims is dropped (`uncontested`).
     const prismFaceIds = uncontestedPerShape(sweptFaceIds);
     const prismEdgeIds = uncontestedPerShape(sweptEdgeIds);
-    const fused = fuseSweptPrisms(shapes, prismFaceIds, prismEdgeIds);
-    if (fused !== undefined) return fused;
-    const combined = combineShapes(shapes);
-    if (!combined.isOk) return Result.err(combined.error);
-    return Result.ok({ shape: combined.value, faceIds: prismFaceIds.flat(), edgeIds: prismEdgeIds.flat() });
+    // Every prism at once: they are all pieces of the one body this sweep builds.
+    return fuseOrCombinePieces(
+        shapes.map((shape, index) => ({
+            shape,
+            faceIds: prismFaceIds[index],
+            edgeIds: prismEdgeIds[index],
+        })),
+    );
 }
 
 /**
@@ -238,6 +328,43 @@ export function uncontestedPerShape(idsPerShape: (string | undefined)[][]): (str
                 : id,
         ),
     );
+}
+
+/**
+ * One swept or revolved piece of a build, with the ids its own sub-shapes were given
+ * (findSubShapes order). `hostSpace.ts`'s `HostMappedTool` is the same three fields; they are not
+ * aliased because that would have this file's sweep own a type the host-space mapping is the
+ * natural home of.
+ */
+export interface TrackedPiece {
+    readonly shape: IShape;
+    readonly faceIds: (string | undefined)[];
+    readonly edgeIds: (string | undefined)[];
+}
+
+/**
+ * The pieces of one build as a single shape, fuse first and combine second.
+ *
+ * A tracked fuse runs when the kernel offers one and any two pieces TOUCH: the seam two of them
+ * meet along is then ONE face rather than two coincident ones, which is what a downstream
+ * reference has to be able to name. Everything else — nothing to fuse, nothing touching, no
+ * tracked kernel — falls through to the plain combine, and the ids come through either way. Both
+ * branches are `fuseSweptPrisms`'s and `combineShapes`'s own, not a second reading of them.
+ */
+export function fuseOrCombinePieces(pieces: readonly TrackedPiece[]): Result<TrackedPiece> {
+    const fused = fuseSweptPrisms(
+        pieces.map((x) => x.shape),
+        pieces.map((x) => x.faceIds),
+        pieces.map((x) => x.edgeIds),
+    );
+    if (fused !== undefined) return fused;
+    const combined = combineShapes(pieces.map((x) => x.shape));
+    if (!combined.isOk) return Result.err(combined.error);
+    return Result.ok({
+        shape: combined.value,
+        faceIds: pieces.flatMap((x) => x.faceIds),
+        edgeIds: pieces.flatMap((x) => x.edgeIds),
+    });
 }
 
 /**

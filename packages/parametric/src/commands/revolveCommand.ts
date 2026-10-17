@@ -6,7 +6,6 @@ import {
     AUTO_TARGETS,
     BoundingBox,
     Combobox,
-    CurveUtils,
     command,
     type I18nKeys,
     Id,
@@ -14,7 +13,6 @@ import {
     type IFace,
     type ILine,
     type IShape,
-    type IShapeFilter,
     type IStep,
     Line,
     MultistepCommand,
@@ -44,6 +42,7 @@ import {
     targetCandidate,
 } from "./booleanTargets";
 import { SelectSketchProfilesStep } from "./extrudeCommand";
+import { LineEdgeFilter } from "./shapeFilters";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -112,9 +111,9 @@ export class RevolveFeatureCommand extends MultistepCommand {
     protected override beforeExecute(): void {
         super.beforeExecute();
         // The panel is up by now (the base publishes it) and its list is subscribed, so this
-        // both starts the run on auto-detection and repaints the boxes. The option cache keys
-        // on the property name alone, so a set left over from an earlier run must not decide
-        // this one.
+        // both starts the run on auto-detection and repaints the boxes. The option cache
+        // restores this command's own last run too, so a set left over from it must not
+        // decide this one.
         this.targets = AUTO_TARGETS;
     }
 
@@ -140,6 +139,32 @@ export class RevolveFeatureCommand extends MultistepCommand {
     }
     set angle(value: ParameterValue) {
         this.setProperty("angle", value);
+    }
+
+    /**
+     * Sweeps half the angle to each side of the profile plane. Mutually exclusive with
+     * `angle2` (the feature refuses a payload carrying both): setting one clears the other.
+     */
+    @property("option.command.symmetric")
+    get symmetric(): boolean {
+        return this.getPrivateValue("symmetric", false);
+    }
+    set symmetric(value: boolean) {
+        this.setProperty("symmetric", value);
+        if (value) this.angle2 = "";
+    }
+
+    /**
+     * A second, independent angle for the direction opposite the axis's sense; empty leaves
+     * the revolve single-sided. Mutually exclusive with `symmetric` — see there.
+     */
+    @property("feature.revolve.angle2", { unit: ANGLE_UNITS })
+    get angle2(): ParameterValue {
+        return this.getPrivateValue("angle2", "");
+    }
+    set angle2(value: ParameterValue) {
+        this.setProperty("angle2", value);
+        if (value !== "") this.symmetric = false;
     }
 
     private get sketch(): SketchNode {
@@ -245,6 +270,9 @@ export class RevolveFeatureCommand extends MultistepCommand {
                 direction: { x: axis.direction.x, y: axis.direction.y, z: axis.direction.z },
             },
             angle: this.angle,
+            // The mutual exclusion of the setters guarantees at most one of the two lands.
+            ...(this.symmetric ? { symmetric: true } : {}),
+            ...(this.angle2 !== "" ? { angle2: this.angle2 } : {}),
             ...(faces.length > 0 ? { profiles: faces.map((face) => captureProfileRef(face)) } : {}),
             ...this.axisSource(),
         };
@@ -261,12 +289,5 @@ export class RevolveFeatureCommand extends MultistepCommand {
         return {
             axisSource: { nodeId: node.id, edge: captureEdgeRef(data.shape as unknown as IEdge) },
         };
-    }
-}
-
-class LineEdgeFilter implements IShapeFilter {
-    allow(shape: IShape): boolean {
-        if (shape.shapeType !== ShapeTypes.edge) return false;
-        return CurveUtils.isLine((shape as IEdge).curve.basisCurve);
     }
 }

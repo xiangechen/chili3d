@@ -544,10 +544,11 @@ const FAMILY_RANK: Record<TangentFamily, number> = {
 
 function tangentFamilyOf(type: SketchEntityType): TangentFamily | "line" | undefined {
     // An offset curve is no tangency target: it carries no solver params at all, so no
-    // constraint can reference it and the solver never has one to name. The caller reads that
-    // as "these two are not tangent" — the answer two lines get — rather than raising on a
-    // pick the user is free to make.
-    if (type === "offsetCurve") return undefined;
+    // constraint can reference it and the solver never has one to name. A point is none
+    // either: it has no curve to be tangent along. The caller reads that as "these two
+    // are not tangent" — the answer two lines get — rather than raising on a pick the
+    // user is free to make.
+    if (type === "offsetCurve" || type === "point") return undefined;
     return type === "ellipseArc" ? "ellipse" : type;
 }
 

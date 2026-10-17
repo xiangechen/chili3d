@@ -59,18 +59,34 @@ import { matchVertex, type VertexRef } from "./vertexRef";
  * edges a loft generates from section VERTICES have no kernel history channel and
  * stay unnamed — resolved geometrically downstream, per the no-id policy
  * (`trackedIds` in feature.ts).
+ *
+ * End tangency was evaluated and deliberately NOT offered (batch 3): the kernel runs
+ * `BRepOffsetAPI_ThruSections`, which exposes no tangency constraints at all — OCCT's
+ * only tangent-continuous loft path is `GeomFill_NSections` with `GeomFill_BoundWithSurf`
+ * boundary surfaces, and those need the ADJACENT SOLID's face as the tangent support, a
+ * reference channel (loft end section -> neighboring body face, held stable across
+ * rebuilds) this module does not have. Until that channel exists there is nothing to
+ * bind a tangency to, so the loft keeps `continuity` as its only smoothness control.
  */
 
 /** A section resolved against its node's current shape, mapped into the host's space. */
-interface ResolvedSection {
+/**
+ * One resolved section, discriminated on the kind it came from — one shape with an optional
+ * `ProfileRef | EdgeRef` would leave the caller casting to file a ref under the right kind, and the
+ * cast's safety would live in a guard ninety lines away (a section resolves to exactly one of the
+ * two, so the union says what is true).
+ */
+type ResolvedSection = {
     readonly shape: IWire | IVertex;
     /** The section's own identity, seeding the cap face at that end; undefined when unnamed. */
     readonly seedBase?: string;
     /** Seeds parallel to the wire's own `findSubShapes(edge)` enumeration (none for vertices). */
     readonly edgeSeeds?: (string | undefined)[];
-    /** The fingerprint actually matched this run, for re-anchoring (profile/edge kinds). */
-    readonly ref?: ProfileRef | EdgeRef;
-}
+} & (
+    | { readonly kind: "profile"; readonly ref?: ProfileRef }
+    | { readonly kind: "edge"; readonly ref?: EdgeRef }
+    | { readonly kind: "vertex"; readonly ref?: undefined }
+);
 
 /** The sections and the re-anchoring refs of one evaluate run. `owned` lives until the kernel has read the shapes. */
 interface ResolvedSections {
@@ -326,8 +342,12 @@ function resolveSections(feature: LoftFeatureData, context: FeatureContext): Res
             const resolved = resolveSection(section, context, owned);
             if (!resolved.isOk) return Result.err(resolved.error);
             sections.push(resolved.value);
-            if (section.kind === "profile") profiles.push(resolved.value.ref as ProfileRef);
-            if (section.kind === "edge") edges.push(resolved.value.ref as EdgeRef);
+            if (resolved.value.kind === "profile" && resolved.value.ref !== undefined) {
+                profiles.push(resolved.value.ref);
+            }
+            if (resolved.value.kind === "edge" && resolved.value.ref !== undefined) {
+                edges.push(resolved.value.ref);
+            }
         }
         return Result.ok({ sections, profiles, edges, owned });
     } catch (error) {
@@ -378,6 +398,7 @@ function resolveSketchSection(
     const faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
     const wire = face.outerWire();
     return Result.ok({
+        kind: "profile",
         shape: mapToHost(wire, sketch, context, owned) as IWire,
         seedBase,
         edgeSeeds: wireEdgeSeeds(wire, faceEdges, profileEdgeSeeds(face, seedBase, faceEdges)),
@@ -407,6 +428,7 @@ function resolveBodyFaceSection(
     // preserves it), so it maps onto the wire's edges by the same isSame lookup.
     const edgeSeeds = wireEdgeSeeds(wire, faceEdges, edgeIdsOf(index) ?? []);
     return Result.ok({
+        kind: "profile",
         shape: mapToHost(wire, undefined, context, owned) as IWire,
         seedBase: faceId,
         edgeSeeds,
@@ -436,6 +458,7 @@ function resolveEdgeSection(
     if (!wire.isOk) return Result.err(wire.error);
     const edgeId = edgeIds[matched.value.indexes[0]];
     return Result.ok({
+        kind: "edge",
         shape: mapToHost(wire.value, node, context, owned) as IWire,
         seedBase: edgeId,
         edgeSeeds: [edgeId],
@@ -452,7 +475,7 @@ function resolveVertexSection(
     if (!(node instanceof ShapeNode) || !node.shape.isOk) return Result.err("Loft section body not found");
     const vertex = matchVertex(node.shape.value, section.vertex);
     if (vertex === undefined) return Result.err("Loft section vertex not found after rebuild");
-    return Result.ok({ shape: mapToHost(vertex, node, context, owned) as IVertex });
+    return Result.ok({ kind: "vertex", shape: mapToHost(vertex, node, context, owned) as IVertex });
 }
 
 /**

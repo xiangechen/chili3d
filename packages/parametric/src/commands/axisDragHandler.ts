@@ -5,8 +5,6 @@ import {
     type AsyncController,
     type I18nKeys,
     type IDocument,
-    type IEventHandler,
-    type INode,
     type IView,
     Line,
     Precision,
@@ -24,36 +22,22 @@ import {
     distanceToSegment,
     pxSizedArrowLength,
 } from "./arrowHandle";
+import { PreviewConfirmHandler } from "./previewConfirmHandler";
+
+export type { DragPreview } from "./previewConfirmHandler";
 
 const DRAG_THRESHOLD_SQ = 9; // px², below this a press-release is a click, not a drag
 
-/** What a drag preview contributes: meshes to draw, and the nodes it stands in for. */
-export interface DragPreview {
-    meshes: ShapeMeshData[];
-    /**
-     * Nodes whose display the preview replaces — hidden for as long as it is shown.
-     * A boolean preview *is* the target body with the operation applied, so the body
-     * has to come down: drawn together, the two overlap and the result reads as a
-     * ghost over the geometry it replaces instead of as the geometry itself.
-     */
-    hide?: INode[];
-}
-
 /**
- * Shared skeleton of a "drag an arrow along an axis" handler: the press/drag and
- * click-move-click state machine, numeric keypad entry, the confirm control, the
- * pixel-sized arrow, and the temp-mesh lifecycle.
+ * A `PreviewConfirmHandler` with a draggable arrow on an axis: the press/drag and
+ * click-move-click state machine, numeric keypad entry, the pixel-sized arrow, and the
+ * camera tracking that keeps it pixel-sized.
  *
  * A subclass says what the arrow *means* — where the axis is (`axis`), what the preview
  * looks like (`buildPreview`), what counts as a committable value (`canConfirm`) — and
  * this class owns everything about the gesture itself.
  */
-export abstract class AxisDragHandler implements IEventHandler {
-    isEnabled: boolean = true;
-
-    /** The view that committed the drag, handed back to the step. */
-    commitView: IView | undefined;
-
+export abstract class AxisDragHandler extends PreviewConfirmHandler {
     /** World-space arrow length, adapted so the arrow renders at a fixed pixel size. */
     protected arrowLength: number | undefined;
 
@@ -68,36 +52,23 @@ export abstract class AxisDragHandler implements IEventHandler {
     private _boxShown = false;
 
     private _arrowIds: number[] = [];
-    private _previewIds: number[] = [];
-    /** Nodes the displayed preview hid (see `DragPreview.hide`). */
-    private _hidden: INode[] = [];
     /** The view whose camera changes are tracked for arrow rescaling. */
     private _cameraView: IView | undefined;
-    private _cleaned = false;
     /** Canonical arrow geometry, keyed by direction and colour, re-placed on every rebuild. */
     private readonly _arrowCache = new Map<string, ShapeMeshData[]>();
 
-    constructor(
-        readonly document: IDocument,
-        readonly controller: AsyncController,
-    ) {
-        controller.onCancelled(() => this.cleanup());
-        controller.onCompleted(() => this.cleanup());
-        controller.onFailed(() => this.cleanup());
+    constructor(document: IDocument, controller: AsyncController) {
+        super(document, controller);
     }
 
     /**
-     * Puts the gesture on screen. The subclass calls this at the END of its own
-     * constructor, once its state is in place — the hooks this triggers (`arrowSegment`,
-     * `buildPreview`, ...) all read it, and during `super(...)` the subclass's fields do
-     * not exist yet.
+     * The drag's start adds camera tracking to the preview's own start-up — the arrow is
+     * pixel-sized, so a zoom must reach it (see `handleCameraChanged`).
      */
-    protected start(): void {
+    protected override start(): void {
         const view = this.document.application.activeView;
         if (view !== undefined) this.trackCamera(view);
-        this.refreshTempShapes(view);
-        this.publishConfirmControl();
-        this.onReady();
+        super.start();
     }
 
     // ------------------------------------------------------------------ Subclass contract
@@ -121,59 +92,35 @@ export abstract class AxisDragHandler implements IEventHandler {
     protected abstract get arrowHovered(): boolean;
     protected abstract set arrowHovered(value: boolean);
 
-    /** Preview geometry for the current value. */
-    protected buildPreview(): DragPreview {
-        return { meshes: [] };
-    }
-    /** Whether the current value may be committed. */
-    protected canConfirm(): boolean {
-        return true;
+    /**
+     * Whether a drag or a click-move gesture is in flight. DOM overlays anchored near the
+     * arrow (a session's value badges) read this to go inert while it lasts: the badge is
+     * what the browser sees, the mesh handle underneath it is not, so a live badge over the
+     * handle would swallow the press that grabs it.
+     */
+    protected get gestureActive(): boolean {
+        return this._dragging || this._awaitingClick;
     }
     /** The point the arrow is measured at when sizing it in pixels; must not move with the value. */
     protected scaleAnchor(): XYZ {
         return this.axis().origin;
     }
-    /** How opaque the preview meshes are drawn. */
-    protected previewOpacity(): number {
-        return 1;
-    }
-    /**
-     * Whether the preview's faces keep their own colour instead of being shaded. Overlays
-     * whose colour *is* the information (a handle's state, a marker) want this; previews that
-     * stand in for geometry stay lit so they read as solids.
-     */
-    protected previewUnlit(): boolean {
-        return false;
-    }
-    /**
-     * Whether the preview ignores depth. A preview that stands in for a solid (a boolean
-     * result) stays behind whatever is in front of it; a plane being placed does not.
-     */
-    protected previewOnTop(): boolean {
-        return false;
-    }
-    /** Called once the handler is live and its first preview is up. */
-    protected onReady(): void {}
     /** Called on hover while not dragging, when the pointer is off the arrow. */
     protected onHover(_view: IView, _event: PointerEvent): void {}
     /** Called on a click that neither dragged nor hit the arrow. */
     protected onClick(_view: IView, _event: PointerEvent): void {}
     /** Drops subclass-owned hover highlight. */
     protected clearHover(): void {}
-    /** Runs after the preview meshes are up — ghosts, sibling display, ... */
-    protected afterPreview(): void {}
     /**
      * Called after a camera change has rescaled the arrow. Previews sized in pixels (rather
      * than in the world, the way a boolean's ghost is) rebuild here, or they keep the size
      * they were drawn at until the next gesture rebuilds them.
      */
     protected onCameraChanged(_view: IView): void {}
-    /** Extra teardown beyond the temp meshes this class owns. */
-    protected onCleanup(): void {}
 
     // ------------------------------------------------------------------ Pointer events
 
-    pointerMove(view: IView, event: PointerEvent): void {
+    override pointerMove(view: IView, event: PointerEvent): void {
         this.trackCamera(view);
         if (this._awaitingClick) {
             this.updateDrag(view, event);
@@ -192,7 +139,7 @@ export abstract class AxisDragHandler implements IEventHandler {
         }
     }
 
-    pointerDown(view: IView, event: PointerEvent): void {
+    override pointerDown(view: IView, event: PointerEvent): void {
         if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
         this.trackCamera(view);
         if (this._awaitingClick) return; // the release commits; nothing to track
@@ -205,7 +152,7 @@ export abstract class AxisDragHandler implements IEventHandler {
         this._dragging = false;
     }
 
-    pointerUp(view: IView, event: PointerEvent): void {
+    override pointerUp(view: IView, event: PointerEvent): void {
         if (event.pointerType === "mouse" && event.button !== 0) return;
         if (this._awaitingClick) {
             this.finishMoveMode(view);
@@ -247,28 +194,19 @@ export abstract class AxisDragHandler implements IEventHandler {
         view.update();
     }
 
-    keyDown(view: IView, event: KeyboardEvent): void {
-        if (event.key === "Escape") {
-            if (this._awaitingClick) {
-                // The first Escape only leaves the click-move mode; the next cancels.
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                this.exitMoveMode(view);
-                return;
-            }
-            this.controller.cancel();
-        } else if (event.key === "Enter" || event.key === " ") {
-            // Enter/Space confirms the pending value (and must not trigger HotKeyService).
+    override keyDown(view: IView, event: KeyboardEvent): void {
+        if (event.key === "Escape" && this._awaitingClick) {
+            // The first Escape only leaves the click-move mode; the next cancels.
             event.preventDefault();
             event.stopImmediatePropagation();
-            this.confirm();
-        } else {
-            this.handleNumericInput(view, event);
+            this.exitMoveMode(view);
+            return;
         }
-    }
-
-    dispose(): void {
-        this.cleanup();
+        if (event.key !== "Escape" && event.key !== "Enter" && event.key !== " ") {
+            this.handleNumericInput(view, event);
+            return;
+        }
+        super.keyDown(view, event);
     }
 
     // ------------------------------------------------------------------ Command push-back
@@ -277,11 +215,6 @@ export abstract class AxisDragHandler implements IEventHandler {
     setValue(value: number): void {
         if (Math.abs(this.currentValue() - value) < Precision.Float) return;
         this.setCurrentValue(value);
-        this.refreshTempShapes();
-    }
-
-    /** The command asks for a preview rebuild after an option changed. */
-    refresh(): void {
         this.refreshTempShapes();
     }
 
@@ -411,29 +344,6 @@ export abstract class AxisDragHandler implements IEventHandler {
         return Result.ok(text);
     }
 
-    protected confirm(): void {
-        if (!this.canConfirm()) return;
-        // The button/Enter has no pointer event to provide the view, so fall back to the
-        // active view; without it the step returns undefined and the command closes as if
-        // cancelled (e.g. confirming a cached value without dragging).
-        if (this.commitView === undefined) {
-            this.commitView = this.document.application.activeView;
-        }
-        this.controller.success();
-    }
-
-    /**
-     * Shows the confirm/cancel buttons for the whole step (not just after a release), so
-     * a user who only edits the options tab can still commit. The bare bar, not the
-     * selection one: a drag has no picked shapes to count.
-     */
-    private publishConfirmControl(): void {
-        PubSub.default.pub("showConfirmControl", {
-            success: () => this.confirm(),
-            cancel: () => this.controller.cancel(),
-        } as unknown as AsyncController);
-    }
-
     private handleNumericInput(view: IView, event: KeyboardEvent): void {
         if (!["#", "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(event.key)) return;
 
@@ -459,39 +369,22 @@ export abstract class AxisDragHandler implements IEventHandler {
         return distanceToSegment(event.offsetX, event.offsetY, a, b) <= ARROW_HOVER_TOLERANCE;
     }
 
-    // ------------------------------------------------------------------ Temp meshes
+    // ------------------------------------------------------------------ The arrow (the base's handle)
 
-    protected refreshTempShapes(view?: IView): void {
+    protected override refreshHandle(view?: IView): void {
         this.refreshArrow(view);
-        for (const id of this._previewIds) {
-            this.document.visual.context.removeMesh(id);
-        }
-        this._previewIds = [];
-        this.restoreHiddenNodes();
-        const preview = this.buildPreview();
-        for (const mesh of preview.meshes) {
-            this._previewIds.push(
-                this.document.visual.context.displayMesh([mesh], {
-                    meshOpacity: this.previewOpacity(),
-                    onTop: this.previewOnTop(),
-                    unlit: this.previewUnlit(),
-                }),
-            );
-        }
-        for (const node of preview.hide ?? []) {
-            this.document.visual.context.setVisible(node, false);
-            this._hidden.push(node);
-        }
-        this.afterPreview();
-        this.document.visual.update();
     }
 
-    protected refreshArrow(view?: IView): void {
-        if (view !== undefined) this.updateArrowScale(view);
+    protected override removeHandle(): void {
         for (const id of this._arrowIds) {
             this.document.visual.context.removeMesh(id);
         }
         this._arrowIds = [];
+    }
+
+    protected refreshArrow(view?: IView): void {
+        if (view !== undefined) this.updateArrowScale(view);
+        this.removeHandle();
         const context = this.document.visual.context;
         for (const mesh of this.buildArrowMeshes()) {
             this._arrowIds.push(context.displayMesh([mesh], { meshOpacity: 1, onTop: true }));
@@ -506,13 +399,13 @@ export abstract class AxisDragHandler implements IEventHandler {
         if (direction === undefined) return [];
         const color = this.arrowHovered ? ARROW_HOVER_COLOR : ARROW_COLOR;
         const key = `${direction.x},${direction.y},${direction.z},${color}`;
-        let meshes = this._arrowCache.get(key);
-        if (meshes === undefined) {
-            meshes = arrowMeshes(XYZ.zero, direction, ARROW_LENGTH, color);
-            this._arrowCache.set(key, meshes);
+        let arrow = this._arrowCache.get(key);
+        if (arrow === undefined) {
+            arrow = arrowMeshes(XYZ.zero, direction, ARROW_LENGTH, color);
+            this._arrowCache.set(key, arrow);
         }
         const scale = (this.arrowLength ?? ARROW_LENGTH) / ARROW_LENGTH;
-        return meshes.map((mesh) => ({
+        return arrow.map((mesh) => ({
             ...mesh,
             position: scaleAndTranslate(mesh.position, start, scale),
         }));
@@ -526,36 +419,15 @@ export abstract class AxisDragHandler implements IEventHandler {
     }
 
     /**
-     * Brings back the nodes the displayed preview hid. Each goes back to what its own
-     * flags say rather than to visible: a hidden body can still be the preview's target.
+     * The drag's own teardown, ahead of the preview meshes (see the base class's cleanup
+     * protocol): unhook the camera first — its next change would rescale an arrow that is
+     * about to come down.
      */
-    private restoreHiddenNodes(): void {
-        for (const node of this._hidden) {
-            this.document.visual.context.setVisible(node, node.visible && node.parentVisible);
-        }
-        this._hidden = [];
-    }
-
-    private removeTempShapes(): void {
-        for (const id of [...this._arrowIds, ...this._previewIds]) {
-            this.document.visual.context.removeMesh(id);
-        }
-        this._arrowIds = [];
-        this._previewIds = [];
-        this.restoreHiddenNodes();
-    }
-
-    protected cleanup(): void {
-        if (this._cleaned) return;
-        this._cleaned = true;
+    protected override onCleanupStart(): void {
         this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
         this._cameraView = undefined;
-        this.removeTempShapes();
         this.clearHover();
-        this.onCleanup();
         PubSub.default.pub("clearInput");
-        PubSub.default.pub("clearConfirmControl");
-        this.document.visual.update();
     }
 
     /**
@@ -571,7 +443,7 @@ export abstract class AxisDragHandler implements IEventHandler {
     }
 
     private readonly handleCameraChanged = () => {
-        if (this._cameraView !== undefined && !this._cleaned) {
+        if (this._cameraView !== undefined && !this.cleaned) {
             this.refreshArrow(this._cameraView);
             this.onCameraChanged(this._cameraView);
         }

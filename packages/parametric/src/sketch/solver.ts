@@ -605,6 +605,10 @@ export class SketchSolver implements ExternalEntityHost {
         return this.registerEntity("line", this.addEntityParams("line", [x1, y1, x2, y2]));
     }
 
+    addPoint(x: number, y: number): number {
+        return this.registerEntity("point", this.addEntityParams("point", [x, y]));
+    }
+
     addCircle(cx: number, cy: number, r: number): number {
         return this.registerEntity("circle", this.addEntityParams("circle", [cx, cy, r]));
     }
@@ -1030,7 +1034,9 @@ export class SketchSolver implements ExternalEntityHost {
      * would jump through its source to the other side.
      */
     private repointOffsetCopies(sourceId: number, type: SketchEntityType): void {
-        if (type === "offsetCurve") return;
+        // a point is never an offset source (`isOffsettable`), so no copy can be reading one —
+        // the guard is the type's, not the data's
+        if (type === "offsetCurve" || type === "point") return;
         for (const [id, ref] of [...this.entityOffsets]) {
             if (ref.sourceId !== sourceId) continue;
             const flipped = isClosedCurveType(ref.sourceType) !== isClosedCurveType(type);
@@ -1652,6 +1658,8 @@ export class SketchSolver implements ExternalEntityHost {
                 return this.registerEntity("offsetCurve", [], undefined, undefined, offset);
             case "line":
                 return this.addLine(x1, y1, x2, y2);
+            case "point":
+                return this.addPoint(x1, y1);
             case "circle":
                 return this.addCircle(x1, y1, x2);
             case "arc":
@@ -3240,6 +3248,9 @@ export class SketchSolver implements ExternalEntityHost {
 
     private pointCacheIndices(ref: SketchPointRef): [number, number] {
         const type = this.entityTypes.get(ref.entityId);
+        if (type === "point" && ref.pointIndex === 0) {
+            return [0, 1];
+        }
         if (type === "line" && (ref.pointIndex === 0 || ref.pointIndex === 1)) {
             return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
         }
