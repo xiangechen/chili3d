@@ -258,6 +258,40 @@ describe("BooleanOperate (via BooleanCommon)", () => {
             }
         });
 
+        test("should refuse to consume a body an instance reads", () => {
+            const restoreApp = ensureGlobalStubApp();
+            const restoreTx = stubTransactionRun();
+            const { restore: restoreFactory, factory } = installShapeFactory(Result.ok(shapeWithTolerance()));
+            const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                const cmd = new BooleanCommon();
+                const { doc, addedNodes } = wireCommand(cmd);
+
+                const parent0 = makeParent({ id: "parent0" });
+                const source = { id: "source", parent: parent0 } as any;
+                seedStepDatas(cmd, [
+                    { ...VIEW_STUB, shapes: [visShape(shapeWithTolerance(), parent0)], nodes: [source] },
+                    { ...VIEW_STUB, shapes: [visShape(shapeWithTolerance(), makeParent())], nodes: [] },
+                ]);
+                // The many-to-one edit has no successor to retarget the instance to.
+                (doc.modelManager as any).findNodesDeep = () => [
+                    { id: "instance", isInstance: true, sourceId: "source" },
+                ];
+
+                (cmd as any).executeMainTask();
+
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+                expect(factory.booleanCommon).not.toHaveBeenCalled();
+                expect(addedNodes).toHaveLength(0);
+                expect(parent0.removed).toHaveLength(0);
+            } finally {
+                pubSpy.mockRestore();
+                restoreFactory();
+                restoreTx();
+                restoreApp();
+            }
+        });
+
         test("should keep tools when keepTools is true", () => {
             const restoreApp = ensureGlobalStubApp();
             const restoreTx = stubTransactionRun();

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Component,
     FolderNode,
     Id,
     type INode,
@@ -9,6 +10,7 @@ import {
     type ModelManager,
     type NodeRecord,
     type OnNodeChanged,
+    XYZ,
 } from "../src";
 import { TestDocument } from "../test-utils";
 
@@ -280,6 +282,37 @@ describe("ModelManager", () => {
 
             const nodes = modelManager.findNodes();
             expect(nodes).toHaveLength(2);
+        });
+    });
+
+    describe("findNodeDeep", () => {
+        test("finds a node that a Component holds outside the document tree", () => {
+            const node = newNode("component-node");
+            const component = new Component({
+                name: "component",
+                nodes: [node as never],
+                origin: XYZ.zero,
+            });
+            modelManager.components.push(component);
+
+            expect(modelManager.findNode((x) => x.id === node.id)).toBeUndefined();
+            expect(modelManager.findNodeDeep((x) => x.id === node.id)).toBe(node);
+            expect(modelManager.findNodesDeep((x) => x.id === node.id)).toEqual([node]);
+        });
+
+        test("descends into a component member's own child list", () => {
+            const parentNode = new FolderNode({ document: doc, name: "inside-component" });
+            const child = newNode("consumed-tool");
+            parentNode.add(child);
+            const component = new Component({
+                name: "component",
+                nodes: [parentNode as never],
+                origin: XYZ.zero,
+            });
+            modelManager.components.push(component);
+
+            expect(modelManager.findNodeDeep((x) => x.id === child.id)).toBe(child);
+            expect(modelManager.findNodesDeep((x) => x.id === child.id)).toEqual([child]);
         });
     });
 

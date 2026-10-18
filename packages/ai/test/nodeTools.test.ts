@@ -9,7 +9,9 @@ import { buildNodeTools } from "../src/tools/nodeTools";
 describe("nodeTools", () => {
     test("delete_node removes a node by id", async () => {
         const removed: string[] = [];
-        const node = { id: "n1", name: "box", visible: true, parent: { remove: () => removed.push("n1") } };
+        const parent = { remove: () => removed.push("n1") };
+        Object.setPrototypeOf(parent, FolderNode.prototype);
+        const node = { id: "n1", name: "box", visible: true, parent };
         const doc = createMockDocument();
         (doc.modelManager as any).findNodes = rs.fn(() => [node]);
         (doc.visual as any).update = rs.fn(() => {});
@@ -23,6 +25,90 @@ describe("nodeTools", () => {
             const result = JSON.parse((await tool.handler({ id: "n1" })) as string);
             expect(result.deleted).toBe("n1");
             expect(removed).toEqual(["n1"]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("delete_node refuses a consumed boolean tool", async () => {
+        const node = { id: "n1", name: "tool", visible: true, parent: {} };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "delete_node")!;
+            const result = JSON.parse((await tool.handler({ id: "n1" })) as string);
+
+            expect(result.error).toContain("consumed boolean tool");
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("delete_node refuses a body an instance reads", async () => {
+        const removed: string[] = [];
+        const parent = { remove: () => removed.push("n1") };
+        Object.setPrototypeOf(parent, FolderNode.prototype);
+        const node = {
+            id: "n1",
+            name: "source",
+            visible: true,
+            parent,
+        };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.modelManager as any).findNodesDeep = rs.fn(() => [{ isInstance: true, sourceId: "n1" }]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "delete_node")!;
+            const result = JSON.parse((await tool.handler({ id: "n1" })) as string);
+
+            expect(result.error).toContain("read by an instance");
+            expect(removed).toEqual([]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("delete_node allows a folder that also contains every instance of its source", async () => {
+        const removed: string[] = [];
+        const parent = { remove: () => removed.push("folder") };
+        Object.setPrototypeOf(parent, FolderNode.prototype);
+        const instance = { id: "instance", nextSibling: undefined };
+        const folder = {
+            id: "folder",
+            firstChild: instance,
+            nextSibling: undefined,
+            add: () => {},
+            parent,
+        };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [folder]);
+        (doc.modelManager as any).findNodesDeep = rs.fn(() => [
+            { id: "instance", isInstance: true, sourceId: "folder" },
+        ]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "delete_node")!;
+            const result = JSON.parse((await tool.handler({ id: "folder" })) as string);
+
+            expect(result.deleted).toBe("folder");
+            expect(removed).toEqual(["folder"]);
         } finally {
             rs.unstubAllGlobals();
         }
@@ -83,6 +169,159 @@ describe("nodeTools", () => {
             );
             expect(node.transform.toArray().slice(12, 15)).toEqual([10, 20, 30]);
             expect(result.id).toBe("n1");
+            // A plain node owns its placement: report the resulting transform, not the
+            // increment (callers compose from this field).
+            expect(result.transform.slice(12, 15)).toEqual([10, 20, 30]);
+            expect(result.transform[12]).toBe(10);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("transform_node goes through a node's own transform hook", async () => {
+        const applyTransform = rs.fn((_matrix: Matrix4) => true);
+        const node = {
+            id: "n1",
+            name: "body",
+            transform: Matrix4.identity(),
+            // A parametric body records the move as a feature and keeps identity here.
+            transformMode: "feature",
+            applyTransform,
+        };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "transform_node")!;
+            const result = JSON.parse(
+                (await tool.handler({ id: "n1", translate: { x: 10, y: 20, z: 30 } })) as string,
+            );
+
+            expect(applyTransform).toHaveBeenCalledTimes(1);
+            expect((applyTransform.mock.calls[0][0] as Matrix4).toArray().slice(12, 15)).toEqual([
+                10, 20, 30,
+            ]);
+            // The hook owns the placement (a parametric body records a feature instead).
+            expect(node.transform.equals(Matrix4.identity())).toBe(true);
+            expect(result.transform.slice(12, 15)).toEqual([10, 20, 30]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("transform_node reports the resulting placement for a direct-mode hook", async () => {
+        const node = {
+            id: "n1",
+            name: "instance",
+            transform: Matrix4.fromTranslation(50, 0, 0),
+            applyTransform(this: { transform: Matrix4 }, matrix: Matrix4) {
+                this.transform = this.transform.multiply(matrix);
+                return true;
+            },
+        };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "transform_node")!;
+            const result = JSON.parse(
+                (await tool.handler({ id: "n1", translate: { x: 10, y: 0, z: 0 } })) as string,
+            );
+            // Not the increment (10): the node owns its placement, so report 60.
+            expect(result.transform.slice(12, 15)).toEqual([60, 0, 0]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("transform_node reports the placement when a feature-mode body has no chain", async () => {
+        const node = {
+            id: "n1",
+            name: "empty-body",
+            transform: Matrix4.fromTranslation(5, 0, 0),
+            transformMode: "feature",
+            // No features: the body stores the placement directly in `transform`.
+            applyTransform(this: { transform: Matrix4 }, matrix: Matrix4) {
+                this.transform = this.transform.multiply(matrix);
+                return true;
+            },
+        };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "transform_node")!;
+            const result = JSON.parse(
+                (await tool.handler({ id: "n1", translate: { x: 10, y: 0, z: 0 } })) as string,
+            );
+            // 15 (the placement), not 10 (the increment): the chain is empty.
+            expect(result.transform.slice(12, 15)).toEqual([15, 0, 0]);
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("transform_node reports a hook that refuses the transform", async () => {
+        const applyTransform = rs.fn((_matrix: Matrix4) => false);
+        const node = {
+            id: "n1",
+            name: "body",
+            transform: Matrix4.identity(),
+            applyTransform,
+        };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "transform_node")!;
+            const result = JSON.parse(
+                (await tool.handler({ id: "n1", scale: { x: 2, y: 1, z: 1 } })) as string,
+            );
+
+            expect(result.error).toContain("refused the transform");
+        } finally {
+            rs.unstubAllGlobals();
+        }
+    });
+
+    test("transform_node refuses world-space input such as a sketch", async () => {
+        const node = { id: "n1", name: "sketch", transform: Matrix4.identity(), transformMode: "none" };
+        const doc = createMockDocument();
+        (doc.modelManager as any).findNodes = rs.fn(() => [node]);
+        (doc.visual as any).update = rs.fn(() => {});
+
+        const app = createMockApplication();
+        (app as any).activeView = { document: doc };
+        rs.stubGlobal("app", app);
+
+        try {
+            const tool = buildNodeTools().find((t) => t.name === "transform_node")!;
+            const result = JSON.parse(
+                (await tool.handler({ id: "n1", translate: { x: 1, y: 0, z: 0 } })) as string,
+            );
+
+            expect(result.error).toContain("cannot be transformed");
+            expect(node.transform.equals(Matrix4.identity())).toBe(true);
         } finally {
             rs.unstubAllGlobals();
         }

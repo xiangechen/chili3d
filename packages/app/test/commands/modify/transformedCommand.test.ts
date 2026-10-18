@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BodyInstanceNode,
     BoundingBox,
     ComponentNode,
     DimensionAnnotation,
@@ -9,12 +10,14 @@ import {
     Matrix4,
     MeshNode,
     MultistepCommand,
+    Plane,
     PubSub,
     VisualConfig,
     XYZ,
 } from "@chili3d/core";
 import { TestDocument } from "@chili3d/core/test-utils";
 import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
+import { BoxNode } from "../../../src/bodys/box";
 import { Move } from "../../../src/commands/modify/move";
 import {
     ensureGlobalStubApp,
@@ -124,6 +127,23 @@ describe("TransformedCommand (via Move)", () => {
             expect(ok).toBe(true);
             expect((cmd as any).models).toEqual([node]);
             expect(pickNodeSpy).not.toHaveBeenCalled();
+        });
+
+        test("should explain a selection made only of world-space inputs", async () => {
+            const cmd = new Move();
+            const { doc } = wireCommand(cmd);
+            (doc.selection as any).getSelectedVisualNodes = () => [{ transformMode: "none" }];
+            const pickNodeSpy = rs.spyOn(doc.picker as any, "pickNode");
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const ok = await (cmd as any).ensureSelectedModels();
+
+                expect(ok).toBe(false);
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.node.notTransformable");
+                expect(pickNodeSpy).not.toHaveBeenCalled();
+            } finally {
+                pubSpy.mockRestore();
+            }
         });
 
         test("should fall back to pickNode and return true when it yields models", async () => {
@@ -267,6 +287,39 @@ describe("TransformedCommand (via Move)", () => {
         });
     });
 
+    describe("applyPlacement", () => {
+        test("publishes a toast when the node's transform hook refuses the move", () => {
+            const cmd = new Move();
+            wireCommand(cmd);
+            const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            const node = { transform: Matrix4.identity(), applyTransform: () => false } as any;
+
+            try {
+                (cmd as any).applyPlacement(node, Matrix4.fromTranslation(1, 0, 0));
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.node.transformRefused");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+
+        test("treats a hook that returns nothing as accepted, like the AI tool", () => {
+            const cmd = new Move();
+            wireCommand(cmd);
+            const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            const node = {
+                transform: Matrix4.identity(),
+                applyTransform: rs.fn(() => undefined),
+            } as any;
+
+            try {
+                (cmd as any).applyPlacement(node, Matrix4.fromTranslation(1, 0, 0));
+                expect(pubSpy).not.toHaveBeenCalledWith("showToast", "toast.node.transformRefused");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+    });
+
     describe("executeMainTask", () => {
         /**
          * A node that records the last transform assigned to it, so tests can
@@ -347,6 +400,64 @@ describe("TransformedCommand (via Move)", () => {
                 for (let i = 0; i < 16; i++) {
                     expect(cloneHolder.transform.array[i]).toBeCloseTo(expected.array[i], 6);
                 }
+            } finally {
+                restore();
+            }
+        });
+
+        test("should let a node choose how its copy is made (instance copy)", () => {
+            const restore = stubTransactionRun();
+            try {
+                const cmd = new Move();
+                cmd.isClone = true;
+                const parent = makeParent({ id: "parent" });
+                const { node } = trackingNode(parent);
+                const instance = { marker: "instance" };
+                const cloneForCopy = rs.fn((_transform: Matrix4) => instance as any);
+                (node as any).cloneForCopy = cloneForCopy;
+                wireCommand(cmd);
+                (cmd as any).models = [node];
+                seedStepDatas(cmd, [
+                    pointStepResult({ point: XYZ.zero }),
+                    pointStepResult({ point: new XYZ({ x: 1, y: 2, z: 3 }) }),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                expect(cloneForCopy).toHaveBeenCalledTimes(1);
+                expect(parent.insertedAfter[0].node).toBe(instance);
+            } finally {
+                restore();
+            }
+        });
+
+        test("a primitive body copies as an instance of itself", () => {
+            const restore = stubTransactionRun();
+            try {
+                const cmd = new Move();
+                cmd.isClone = true;
+                const { doc } = wireCommand(cmd);
+                const parent = makeParent({ id: "parent" });
+                const box = new BoxNode({
+                    document: doc as any,
+                    plane: Plane.XY,
+                    dx: 1,
+                    dy: 1,
+                    dz: 1,
+                });
+                box.parent = parent as any;
+                (cmd as any).models = [box];
+                seedStepDatas(cmd, [
+                    pointStepResult({ point: XYZ.zero }),
+                    pointStepResult({ point: new XYZ({ x: 1, y: 2, z: 3 }) }),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                const inserted = parent.insertedAfter[0].node as BodyInstanceNode;
+                expect(inserted).toBeInstanceOf(BodyInstanceNode);
+                expect(inserted.sourceId).toBe(box.id);
+                expect(inserted.transform.equals(Matrix4.fromTranslation(1, 2, 3))).toBe(true);
             } finally {
                 restore();
             }

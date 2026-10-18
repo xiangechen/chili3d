@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IShape, Matrix4 } from "@chili3d/core";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@rstest/core";
+import { type IShape, Matrix4, PubSub } from "@chili3d/core";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, rs, test } from "@rstest/core";
 import { Split } from "../../../src/commands/modify/split";
 import {
     ensureGlobalStubApp,
@@ -51,6 +51,7 @@ function buildSplitCommand(subShapes: MockShape[]) {
 
     const oldParent = makeParent({ id: "old-parent" }) as TrackingParent;
     const oldNode = {
+        id: "source",
         name: "solid0",
         transform: Matrix4.identity(),
         parent: oldParent,
@@ -83,10 +84,27 @@ function buildSplitCommand(subShapes: MockShape[]) {
         return undefined;
     });
 
-    return { cmd, oldParent, cutParent, shape1, cutShape };
+    return { cmd, doc, oldParent, cutParent, shape1, cutShape };
 }
 
 describe("Split", () => {
+    test("refuses to split a body an instance reads", () => {
+        const { cmd, doc, oldParent } = buildSplitCommand([mockShape()]);
+        (doc.modelManager as any).findNodesDeep = () => [
+            { id: "instance", isInstance: true, sourceId: "source" },
+        ];
+        const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+
+        try {
+            (cmd as any).executeMainTask();
+
+            expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+            expect(oldParent.removed).toHaveLength(0);
+        } finally {
+            pubSpy.mockRestore();
+        }
+    });
+
     let restoreTx: () => void;
     beforeEach(() => {
         restoreTx = stubTransactionRun();

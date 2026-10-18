@@ -12,6 +12,7 @@ import {
     MultistepCommand,
     PubSub,
     Result,
+    retargetInstanceSources,
     SelectShapeStep,
     type ShapeNode,
     type ShapeType,
@@ -91,6 +92,8 @@ export function replaceShapeNode(node: ShapeNode, shape: IShape) {
         model.transform = node.transform;
 
         (node.parent ?? node.document.modelManager.rootNode).add(model);
+        // The source id changes here; keep its instances pointing at the definition.
+        retargetInstanceSources(node.document, node.id, model.id);
         node.parent?.remove(node);
     }
 
@@ -220,9 +223,14 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
         const container1 = node1.parent ?? this.document.modelManager.rootNode;
         const container2 = node2.parent ?? this.document.modelManager.rootNode;
 
-        container1.add(this.standaloneEdgeNode(node1, trimmed1));
-        container2.add(this.standaloneEdgeNode(node2, trimmed2));
+        const replacement1 = this.standaloneEdgeNode(node1, trimmed1);
+        const replacement2 = this.standaloneEdgeNode(node2, trimmed2);
+        container1.add(replacement1);
+        container2.add(replacement2);
         container1.add(this.standaloneEdgeNode(node1, cornerEdge, `${node1.name}_1`));
+        // Each old edge node is replaced one-for-one; instances follow the same edge.
+        retargetInstanceSources(this.document, node1.id, replacement1.id);
+        if (node2 !== node1) retargetInstanceSources(this.document, node2.id, replacement2.id);
         node1.parent?.remove(node1);
         node2.parent?.remove(node2);
         this.document.visual.update();

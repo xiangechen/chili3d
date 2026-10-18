@@ -6,8 +6,10 @@ import {
     GetOrSelectNodeStep,
     type INode,
     type IStep,
+    instanceSourcesInUse,
     isConsumedTool,
     MultistepCommand,
+    NodeUtils,
     PubSub,
     Transaction,
 } from "@chili3d/core";
@@ -26,9 +28,19 @@ export class Delete extends MultistepCommand {
 
         // Consumed boolean tools belong to the owning body's feature list — deleting
         // one would leave a dangling tool id behind. Remove the boolean feature instead.
-        const deletable = nodes.filter((x) => !isConsumedTool(x));
-        if (deletable.length < nodes.length) {
+        const freeNodes = nodes.filter((x) => !isConsumedTool(x));
+        if (freeNodes.length < nodes.length) {
             PubSub.default.pub("showToast", "toast.consumedTool.forbidden");
+        }
+
+        // An instance reads its source's geometry; deleting the source would leave it
+        // dangling. Deleting the source together with every instance that reads it is
+        // fine — only instances that survive this delete pin their source. The helper
+        // expands subtrees: deleting a folder (or a body's consumed tools) cascades.
+        const stillUsed = instanceSourcesInUse(this.document, freeNodes);
+        const deletable = freeNodes.filter((node) => nodeTree(node).every((x) => !stillUsed.has(x.id)));
+        if (deletable.length < freeNodes.length) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
         }
         if (deletable.length === 0) return;
 
@@ -41,7 +53,9 @@ export class Delete extends MultistepCommand {
 
         this.document.selection.clearSelection();
         Transaction.execute(this.document, "delete", () => {
-            deletable.forEach((model) => model.parent?.remove(model));
+            deletable.forEach((model) => {
+                model.parent?.remove(model);
+            });
         });
         this.document.visual.update();
         PubSub.default.pub("showToast", "toast.delete{0}Objects", deletable.length);
@@ -57,4 +71,9 @@ export class Delete extends MultistepCommand {
             }),
         ];
     }
+}
+
+/** A node and every descendant — deleting a folder deletes all of them. */
+function nodeTree(node: INode): INode[] {
+    return NodeUtils.isLinkedListNode(node) ? [node, ...NodeUtils.children(node)] : [node];
 }

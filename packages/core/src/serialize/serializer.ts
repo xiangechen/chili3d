@@ -198,11 +198,16 @@ export class Serializer {
         };
     }
 
-    static serializeProperties(target: object) {
+    /**
+     * `skip` lets a proxy node (a mesh instance) omit an inherited field without reading
+     * it — the field's value would otherwise be serialized and thrown away.
+     */
+    static serializeProperties(target: object, skip?: ReadonlySet<string>) {
         const data: Record<string, any> = {};
 
         const props = Serializer.getAllKeysOfPrototypeChain(target, propertiesMap);
         for (const prop of props) {
+            if (skip?.has(prop.name)) continue;
             const value = (target as any)[prop.name];
             if (Array.isArray(value)) {
                 data[prop.name] = value.map((v) => Serializer.serializePropertyValue(v));

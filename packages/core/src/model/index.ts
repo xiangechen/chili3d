@@ -2,7 +2,9 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./annotation";
+export * from "./bodyInstanceNode";
 export * from "./childList";
+export * from "./cloneForCopy";
 export * from "./component";
 export * from "./dimensionLayout";
 export * from "./dimensionText";
@@ -11,6 +13,8 @@ export * from "./featureList";
 export * from "./folderNode";
 export * from "./geometryNode";
 export * from "./groupNode";
+export * from "./instanceNodeContract";
+export * from "./meshInstanceNode";
 export * from "./meshNode";
 export * from "./node";
 export * from "./nodeIcon";

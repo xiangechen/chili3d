@@ -1,12 +1,13 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IShape, ShapeTypes, XYZ } from "@chili3d/core";
-import { afterAll, beforeAll, describe, expect, test } from "@rstest/core";
+import { EditableShapeNode, type IShape, PubSub, ShapeTypes, XYZ } from "@chili3d/core";
+import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { ExtrudeNode } from "../../../src/bodys/extrude";
 import { ExtrudeCommand } from "../../../src/commands/create/extrude";
 import {
     ensureGlobalStubApp,
+    mockShape,
     pointStepResult,
     seedStepDatas,
     shapeStepResult,
@@ -31,6 +32,29 @@ describe("ExtrudeCommand", () => {
         const cmd = new ExtrudeCommand();
         const steps = (cmd as any).getSteps();
         expect(steps.length).toBe(2);
+    });
+
+    describe("instance sources", () => {
+        test("refuses to consume a profile node an instance reads", () => {
+            const cmd = new ExtrudeCommand();
+            const { doc, addedNodes } = wireCommand(cmd);
+            const shape = mockShape({ shapeType: ShapeTypes.face });
+            const node = new EditableShapeNode({ document: doc, name: "profile", shape });
+            seedStepDatas(cmd, [shapeStepResult([{ shape, node }])]);
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: node.id },
+            ];
+            const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+
+            try {
+                (cmd as any).executeMainTask();
+
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+                expect(addedNodes).toHaveLength(0);
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
     });
 
     describe("geometryNode", () => {

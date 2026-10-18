@@ -81,6 +81,11 @@ export class PlaneNode extends ParameterShapeNode implements IPlaneNode {
         return true;
     }
 
+    /** A datum plane is world-space reference geometry, never a placed body. */
+    override get copiesAsInstance(): boolean {
+        return false;
+    }
+
     @serialize()
     get definitionJson(): string {
         return this.getPrivateValue("definitionJson");

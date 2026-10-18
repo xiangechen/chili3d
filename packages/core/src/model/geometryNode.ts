@@ -51,6 +51,16 @@ export abstract class GeometryNode extends VisualNode {
 
     protected _originFaceMesh?: FaceMeshData;
 
+    /**
+     * The face mesh before per-face material grouping. `createMesh` replaces the shared
+     * `mesh.faces` with the merged result, so a consumer that must merge again (a
+     * `BodyInstanceNode` copying the source's paint) has to start from these raw faces;
+     * range indexes there are the original face indexes.
+     */
+    get unmergedFaceMesh(): FaceMeshData | undefined {
+        return this._originFaceMesh;
+    }
+
     @serialize()
     get faceMaterialPair(): FaceMaterialPair[] {
         return this.getPrivateValue("faceMaterialPair", []);

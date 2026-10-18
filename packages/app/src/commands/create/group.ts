@@ -11,9 +11,13 @@ import {
     type IApplication,
     type ICommand,
     type IDocument,
+    type INode,
     type IStep,
+    isConsumedTool,
+    isInstanceNode,
     Localize,
     MultistepCommand,
+    NodeUtils,
     Observable,
     PointStep,
     PubSub,
@@ -52,13 +56,22 @@ class GroupDefinition extends Observable {
 })
 export class GroupCommand extends MultistepCommand {
     protected override getSteps(): IStep[] {
-        return [new GetOrSelectNodeStep("prompt.select.shape", { multiple: true })];
+        return [
+            new GetOrSelectNodeStep("prompt.select.shape", {
+                multiple: true,
+                filter: { allow: (node: INode) => this.canGroup(node) },
+            }),
+        ];
     }
 
     protected override executeMainTask(): void {
-        const nodes = this.stepDatas[0].nodes?.filter((node) => node instanceof VisualNode) ?? [];
+        const selected = this.stepDatas[0].nodes?.filter((node) => node instanceof VisualNode) ?? [];
+        const nodes = selected.filter((node) => this.canGroup(node));
+        if (nodes.length < selected.length) {
+            PubSub.default.pub("showToast", "toast.instance.groupUnsupported");
+        }
         if (nodes.length === 0) {
-            PubSub.default.pub("showToast", "toast.select.noSelected");
+            if (selected.length === 0) PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
 
@@ -69,9 +82,38 @@ export class GroupCommand extends MultistepCommand {
         });
     }
 
+    /**
+     * A Component freezes one merged mesh. An instance inside it never follows its source,
+     * and grouping a source freezes ITS display while the instances keep reading the live
+     * node — both are refused for the same reason Array falls back for instances.
+     */
+    private canGroup(node: INode): boolean {
+        if (isConsumedTool(node)) return false;
+        const subtree = NodeUtils.isLinkedListNode(node) ? [node, ...NodeUtils.children(node)] : [node];
+        if (subtree.some((x) => isInstanceNode(x))) return false;
+        // A consumed tool is resolved from the root tree by feature evaluation. Grouped
+        // into a Component definition it would no longer be found on the next rebuild.
+        if (subtree.some((x) => isConsumedTool(x))) return false;
+        const sources = this.instanceSources();
+        return !subtree.some((x) => sources.has(x.id));
+    }
+
+    /** The document scan runs once per pick session, not once per hovered candidate. */
+    private instanceSources(): Set<string> {
+        this._instanceSources ??= new Set(
+            this.document.modelManager.findNodesDeep(isInstanceNode).map((x) => x.sourceId),
+        );
+        return this._instanceSources;
+    }
+
+    private _instanceSources?: Set<string>;
+
     private createGroup(definition: GroupDefinition, nodes: VisualNode[]) {
         Transaction.execute(this.document, "create group", () => {
             for (const node of nodes) {
+                // The nodes become a frozen Component definition merged into one mesh.
+                // A parametric body contributes identity here (its moves are features),
+                // and grouping is not an edit of its definition.
                 const worldTransform = node.worldTransform();
                 node.parent?.transfer(node);
                 node.transform = worldTransform;

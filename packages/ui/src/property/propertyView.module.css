@@ -34,3 +34,41 @@
     grid-gap: 10px;
     align-items: center;
 }
+
+/* The instance's source node, shown like a feature's referenced sketch. */
+.param {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.reference {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--primary-color);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.missing {
+    color: var(--error-color);
+    cursor: default;
+}
+
+.sourceButton {
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--border-color, #888);
+    border-radius: 3px;
+    background: var(--panel-background-color);
+    color: var(--foreground-color);
+}
+
+.sourceButton:hover {
+    background: var(--hover-background-color, rgba(128, 128, 128, 0.18));
+}

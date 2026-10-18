@@ -6,6 +6,7 @@ import {
     debounce,
     type IShape,
     type IStep,
+    instanceSourcesInUse,
     isReferenceGeometryNode,
     MultistepCommand,
     PubSub,
@@ -32,6 +33,15 @@ export abstract class BooleanOperate extends MultistepCommand {
     }
 
     protected override executeMainTask() {
+        // This is a many-to-one edit: the consumed bodies have no successor to retarget
+        // their instances to, so a referenced body must not be consumed here.
+        const removed = this.keepTools
+            ? (this.stepDatas[0].nodes ?? [])
+            : this.stepDatas.flatMap((x) => x.nodes ?? []);
+        if (instanceSourcesInUse(this.document, removed).size > 0) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
         Transaction.execute(this.document, "boolean", () => {
             const booleanShape = this.booleanOperate(this.stepDatas[1].shapes);
             if (!booleanShape.isOk) {

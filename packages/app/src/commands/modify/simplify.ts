@@ -6,6 +6,7 @@ import {
     EditableShapeNode,
     MultistepCommand,
     property,
+    retargetInstanceSources,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
@@ -55,6 +56,7 @@ export class SimplifyShapeCommand extends MultistepCommand {
             });
             model.transform = node.transform;
             (node.parent ?? this.document.modelManager.rootNode).add(model);
+            retargetInstanceSources(this.document, node.id, model.id);
             node.parent?.remove(node);
             this.document.visual.update();
         });

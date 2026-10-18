@@ -4,8 +4,10 @@
 import {
     type GeometryNode,
     type INode,
+    instanceSourcesInUse,
     isReferenceGeometryNode,
     MultistepCommand,
+    PubSub,
     property,
     ShapeNode,
     type SnapResult,
@@ -40,6 +42,7 @@ export function selectedWholeShapeNodes(stepDatas: SnapResult[]): INode[] {
 
 export abstract class CreateCommand extends MultistepCommand {
     protected override executeMainTask() {
+        if (!this.canExecute()) return;
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.geometryNode();
             this.document.modelManager.addNode(node);
@@ -49,6 +52,11 @@ export abstract class CreateCommand extends MultistepCommand {
     }
 
     protected afterNodeCreated(): void {}
+
+    /** Lets a command refuse before anything is created; a false answer publishes its own reason. */
+    protected canExecute(): boolean {
+        return true;
+    }
 
     protected abstract geometryNode(): GeometryNode;
 }
@@ -60,6 +68,18 @@ export abstract class CreateFromSelectionCommand extends CreateCommand {
     }
     set deleteObjects(value: boolean) {
         this.setProperty("deleteObjects", value);
+    }
+
+    /**
+     * An extrude/revolve/sweep consumes its profiles. When a consumed profile is a whole
+     * shape node an instance reads, there is no successor to retarget it to, so refuse.
+     */
+    protected override canExecute(): boolean {
+        if (!this.deleteObjects) return true;
+        const consumed = selectedWholeShapeNodes(this.stepDatas);
+        if (instanceSourcesInUse(this.document, consumed).size === 0) return true;
+        PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+        return false;
     }
 
     protected override afterNodeCreated(): void {

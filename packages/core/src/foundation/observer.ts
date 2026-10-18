@@ -109,6 +109,11 @@ export class Observable implements IPropertyChanged {
         this.propertyChangedHandlers.clear();
     }
 
+    /** True once `dispose` ran; a disposed node is no longer a valid reference target. */
+    get isDisposed(): boolean {
+        return this._isDisposed;
+    }
+
     readonly dispose = () => {
         if (this._isDisposed) return;
         this._isDisposed = true;

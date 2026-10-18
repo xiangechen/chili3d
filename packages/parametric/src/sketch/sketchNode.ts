@@ -23,6 +23,7 @@ import {
     Result,
     serializable,
     serialize,
+    type TransformMode,
     VisualConfig,
     type VisualItemConfig,
     type XYZ,
@@ -93,6 +94,25 @@ export class SketchNode extends ParameterShapeNode {
     /** `INodeIcon`: a sketch reads as a sketch, not as the solid it feeds. */
     override get icon(): string {
         return "icon-sketchEdit";
+    }
+
+    /**
+     * A sketch is an input defined in world space: its plane and entities drive the
+     * feature chain directly, and its own `transform` never takes part in evaluation
+     * (moving it would only move the drawing, not the geometry). Edit the sketch's
+     * geometry instead.
+     */
+    override get transformMode(): TransformMode {
+        return "none";
+    }
+
+    /** A sketch is an input, not a placed body: copying it makes an independent copy. */
+    override get copiesAsInstance(): boolean {
+        return false;
+    }
+
+    override applyTransform(): boolean {
+        return false;
     }
 
     @serialize()

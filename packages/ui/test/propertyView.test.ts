@@ -18,6 +18,10 @@ rs.mock("../src/property/propertyView.module.css", () => ({
     panel: "pv-panel",
     header: "pv-header",
     properties: "pv-properties",
+    param: "pv-param",
+    reference: "pv-reference",
+    missing: "pv-missing",
+    sourceButton: "pv-source-button",
 }));
 
 // Element helpers
@@ -36,17 +40,21 @@ rs.mock("../src/property/complexPropertyUtils", () => ({
     },
 }));
 
-rs.mock("../src/property/matrixProperty", () => ({
-    MatrixProperty: class extends HTMLElement {
+rs.mock("../src/property/matrixProperty", () => {
+    // A DOM class must be registered to be instantiated (Happy DOM throws "Illegal
+    // constructor" otherwise); the panel appends the instance, so it must be a Node.
+    class MockMatrixProperty extends HTMLElement {
         constructor(_doc: unknown, _geos: unknown, _cls: string) {
             super();
             this.textContent = "matrix";
         }
-    },
-}));
+    }
+    customElements.define("mock-matrix-property", MockMatrixProperty);
+    return { MatrixProperty: MockMatrixProperty };
+});
 
 // Now import the module under test
-import { type INode, Node } from "@chili3d/core";
+import { type INode, Node, VisualNode } from "@chili3d/core";
 import { PropertyView } from "../src/property/propertyView";
 import { mustQuery } from "./_helpers/domHelpers";
 
@@ -57,6 +65,29 @@ class TestNode extends (Node as unknown as new () => object) {
     color = "#ff0000";
     display() {
         return "TestNode";
+    }
+}
+
+class DirectVisual extends (VisualNode as unknown as new () => object) {
+    transformMode = "direct";
+    display() {
+        return "VisualObject";
+    }
+}
+
+class FeatureVisual extends (VisualNode as unknown as new () => object) {
+    transformMode = "feature";
+    display() {
+        return "VisualObject";
+    }
+}
+
+class InstanceVisual extends (VisualNode as unknown as new () => object) {
+    isInstance = true;
+    sourceId = "s1";
+    source: unknown;
+    display() {
+        return "VisualObject";
     }
 }
 
@@ -144,6 +175,69 @@ describe("PropertyView", () => {
             // addModel maps the mocked own properties through the propertyControl mock
             const controls = pv.querySelectorAll(".pv-panel .mock-property-control");
             expect(controls.length).toBe(1);
+        });
+
+        test("shows the direct matrix for a plainly placed visual node", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+
+            handler!(doc, [new DirectVisual() as unknown as INode]);
+
+            expect(pv.textContent).toContain("matrix");
+        });
+
+        test("hides the direct matrix for a node whose placement is a feature", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+
+            handler!(doc, [new FeatureVisual() as unknown as INode]);
+
+            expect(pv.textContent).not.toContain("matrix");
+        });
+
+        test("shows an instance's source as a link that selects it", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+            const setSelectedNodes = rs.fn();
+            (doc.selection as any).setSelectedNodes = setSelectedNodes;
+            const source = {
+                name: "Box1",
+                onPropertyChanged: () => {},
+                removePropertyChanged: () => {},
+            };
+            const instance = new InstanceVisual();
+            instance.source = source;
+
+            handler!(doc, [instance as unknown as INode]);
+
+            mustQuery(pv, ".pv-param");
+            const link = mustQuery(pv, ".pv-reference") as HTMLElement;
+            (link as unknown as { _onclick?: () => void })._onclick?.();
+            expect(setSelectedNodes).toHaveBeenCalledWith([source], false);
+
+            // The "make independent" button runs the same command as the ribbon.
+            const detach = mustQuery(pv, ".pv-source-button") as HTMLElement;
+            (detach as unknown as { _onclick?: () => void })._onclick?.();
+            expect(setSelectedNodes).toHaveBeenCalledWith([instance], false);
+            expect(pubSubRecorder.pubs).toContainEqual({
+                topic: "executeCommand",
+                args: ["modify.detach"],
+            });
+        });
+
+        test("shows a warning when the instance's source is missing", () => {
+            const pv = new PropertyView({ className: "test-panel" });
+            const doc = createMockDocument();
+            const handler = pubSubRecorder.handlers.get("showProperties");
+
+            handler!(doc, [new InstanceVisual() as unknown as INode]);
+
+            // The localized label is mocked in this suite; the missing branch is the class.
+            mustQuery(pv, ".pv-missing");
+            expect(pv.querySelector(".pv-source-button")).toBeNull();
         });
 
         test("should handle empty nodes gracefully", () => {

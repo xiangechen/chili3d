@@ -5,6 +5,7 @@ import {
     FolderNode,
     type IDocument,
     type INode,
+    instanceSourcesInUse,
     isConsumedTool,
     Matrix4,
     NodeUtils,
@@ -57,6 +58,20 @@ function deleteNodeTool(): Tool {
             const id = args["id"] as string;
             const node = requireNode(doc, id);
             if (typeof node === "string") return node;
+            if (isConsumedTool(node)) {
+                return JSON.stringify({
+                    error: `node is a consumed boolean tool owned by a parametric body: ${id}`,
+                });
+            }
+            const subtree = NodeUtils.isLinkedListNode(node) ? [node, ...NodeUtils.children(node)] : [node];
+            // Deleting the source together with every instance that reads it is fine:
+            // only instances that survive this delete pin their source.
+            const stillUsed = instanceSourcesInUse(doc, [node]);
+            if (subtree.some((x) => stillUsed.has(x.id))) {
+                return JSON.stringify({
+                    error: `node (or a descendant) is read by an instance: ${id} — delete the instance first or detach it`,
+                });
+            }
             Transaction.execute(doc, "AI delete node", () => {
                 node.parent?.remove(node);
                 doc.visual.update();
@@ -116,19 +131,39 @@ const transformNodeHandler: Tool["handler"] = async (args) => {
             error: `node is a consumed boolean tool owned by a parametric body: ${id}`,
         });
     }
+    const transformMode = (node as { transformMode?: string }).transformMode ?? "direct";
+    if (transformMode === "none") {
+        return JSON.stringify({ error: `node is world-space input and cannot be transformed: ${id}` });
+    }
     const matrix = buildTransformMatrix(args);
     if (typeof matrix === "string") return JSON.stringify({ error: matrix });
+    let accepted = true;
     Transaction.execute(doc, "AI transform node", () => {
-        const visual = node as { transform: Matrix4 };
-        visual.transform = visual.transform.multiply(matrix);
+        const apply = (node as { applyTransform?: (value: Matrix4) => boolean }).applyTransform;
+        if (apply !== undefined) {
+            accepted = apply.call(node, matrix) !== false;
+        } else {
+            const visual = node as { transform: Matrix4 };
+            visual.transform = visual.transform.multiply(matrix);
+        }
     });
+    if (!accepted) {
+        return JSON.stringify({
+            error: `node refused the transform (only rigid moves, rotations and mirrors are supported): ${id}`,
+        });
+    }
     doc.visual.update();
-    return JSON.stringify({ id, transform: roundedTransform(node) });
+    // A parametric body with features records the move as a feature and keeps identity,
+    // so report the increment that was applied. A body with no chain yet stores the
+    // placement in `transform` directly, and every other node owns its resulting
+    // placement — report whichever one actually holds it.
+    const placement = (node as { transform: Matrix4 }).transform;
+    const result = transformMode === "feature" && placement.equals(Matrix4.identity()) ? matrix : placement;
+    return JSON.stringify({ id, transform: roundedMatrix(result) });
 };
 
-function roundedTransform(node: unknown): number[] {
-    const transform = (node as { transform: Matrix4 }).transform;
-    return transform.toArray().map((v) => Math.round(v * 1000) / 1000);
+function roundedMatrix(matrix: Matrix4): number[] {
+    return matrix.toArray().map((v) => Math.round(v * 1000) / 1000);
 }
 
 function undoTool(): Tool {

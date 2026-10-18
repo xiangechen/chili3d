@@ -7,7 +7,9 @@ import {
     type IEdge,
     type IStep,
     type IVisualObject,
+    instanceSourcesInUse,
     MultistepCommand,
+    PubSub,
     SelectShapeStep,
     type ShapeType,
     ShapeTypes,
@@ -34,6 +36,12 @@ export class Split extends MultistepCommand {
     }
 
     protected override executeMainTask() {
+        // One shape becomes several; the inputs are removed with no successor to retarget.
+        const removed = this.stepDatas.flatMap((x) => x.nodes ?? []);
+        if (instanceSourcesInUse(this.document, removed).size > 0) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const old = this.stepDatas[0].nodes![0];
             const shape = this.splitedShape();

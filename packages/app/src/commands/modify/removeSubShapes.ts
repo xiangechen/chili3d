@@ -6,6 +6,7 @@ import {
     EditableShapeNode,
     MultistepCommand,
     PubSub,
+    retargetInstanceSources,
     SelectShapeStep,
     type ShapeNode,
     type ShapeType,
@@ -38,6 +39,7 @@ export class RemoveSubShapesCommand extends MultistepCommand {
             model.transform = node.transform;
 
             node.parent?.insertAfter(node.previousSibling, model);
+            retargetInstanceSources(this.document, node.id, model.id);
             node.parent?.remove(node);
             this.document.visual.update();
         });

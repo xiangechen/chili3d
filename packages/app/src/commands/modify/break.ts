@@ -8,9 +8,11 @@ import {
     type IEdge,
     type IStep,
     type ITrimmedCurve,
+    instanceSourcesInUse,
     MultistepCommand,
     PointOnCurveStep,
     Precision,
+    PubSub,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
@@ -24,6 +26,12 @@ import {
 })
 export class Break extends MultistepCommand {
     protected override executeMainTask() {
+        // One edge becomes two nodes; the original is removed with no single successor.
+        const removed = this.stepDatas[0].nodes ?? [];
+        if (instanceSourcesInUse(this.document, removed).size > 0) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const shape = this.stepDatas[0].shapes[0].shape as IEdge;
             const curve = shape.curve;

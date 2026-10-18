@@ -13,6 +13,7 @@ import {
     type IShape,
     type IVertex,
     type IWire,
+    instanceSourcesInUse,
     PubSub,
     property,
     Result,
@@ -122,12 +123,19 @@ export class LoftCommand extends CancelableCommand {
             }
             return;
         }
+        const sections = selectedWholeShapeNodes(this.selectedDatas);
+        // The loft is a new node, not a replacement for any section: consuming a
+        // referenced section would leave its instances dangling.
+        if (this.deleteObjects && instanceSourcesInUse(this.document, sections).size > 0) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
         Transaction.execute(this.document, "loft", () => {
             this.document.modelManager.addNode(
                 new EditableShapeNode({ document: this.document, name: "loft", shape: this.shape }),
             );
             if (this.deleteObjects) {
-                selectedWholeShapeNodes(this.selectedDatas).forEach((node) => {
+                sections.forEach((node) => {
                     node.parent?.remove(node);
                 });
             }

@@ -18,6 +18,7 @@ import {
     PubSub,
     property,
     Result,
+    retargetInstanceSources,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
@@ -478,7 +479,10 @@ export class ExtendCommand extends MultistepCommand {
         }
 
         const node = data.owner.node as ShapeNode;
-        (node.parent ?? this.document.modelManager.rootNode).add(this.standaloneEdgeNode(node, worldEdge));
+        const replacement = this.standaloneEdgeNode(node, worldEdge);
+        (node.parent ?? this.document.modelManager.rootNode).add(replacement);
+        // The old edge node is replaced one-for-one; instances follow the same edge.
+        retargetInstanceSources(this.document, node.id, replacement.id);
         node.parent?.remove(node);
     }
 

@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IShape, type IView, Matrix4, XYZ } from "@chili3d/core";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@rstest/core";
+import { type IShape, type IView, Matrix4, PubSub, XYZ } from "@chili3d/core";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, rs, test } from "@rstest/core";
 import { Break } from "../../../src/commands/modify/break";
 import {
     ensureGlobalStubApp,
@@ -57,7 +57,7 @@ function mockCurve(overrides: Partial<MockCurve> = {}): MockCurve {
 
 function buildBreakCommand(curveOverride: Partial<MockCurve> = {}) {
     const cmd = new Break();
-    wireCommand(cmd);
+    const { doc } = wireCommand(cmd);
 
     const curve = mockCurve(curveOverride);
     const edgeShape = mockShape({
@@ -69,6 +69,7 @@ function buildBreakCommand(curveOverride: Partial<MockCurve> = {}) {
 
     const parent = makeParent({ id: "edge-parent" }) as TrackingParent;
     const modelNode = {
+        id: "source",
         name: "edge0",
         transform: Matrix4.identity(),
         parent,
@@ -91,10 +92,28 @@ function buildBreakCommand(curveOverride: Partial<MockCurve> = {}) {
     };
 
     seedStepDatas(cmd, [step0, step1]);
-    return { cmd, parent, curve, edgeShape, modelNode };
+    return { cmd, doc, parent, curve, edgeShape, modelNode };
 }
 
 describe("Break", () => {
+    test("refuses to break an edge an instance reads", () => {
+        const { cmd, doc, parent } = buildBreakCommand();
+        (doc.modelManager as any).findNodesDeep = () => [
+            { id: "instance", isInstance: true, sourceId: "source" },
+        ];
+        const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+
+        try {
+            (cmd as any).executeMainTask();
+
+            expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+            expect(parent.insertedAfter).toHaveLength(0);
+            expect(parent.removed).toHaveLength(0);
+        } finally {
+            pubSpy.mockRestore();
+        }
+    });
+
     let restoreTx: () => void;
     beforeEach(() => {
         restoreTx = stubTransactionRun();

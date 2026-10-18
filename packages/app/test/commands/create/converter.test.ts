@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, Matrix4, type ShapeNode, ShapeTypes, type VisualNode } from "@chili3d/core";
-import { afterAll, beforeAll, describe, expect, test } from "@rstest/core";
+import { type IDocument, Matrix4, PubSub, type ShapeNode, ShapeTypes, type VisualNode } from "@chili3d/core";
+import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { WireNode } from "../../../src/bodys/wire";
 import {
     ConvertToCompound,
@@ -219,5 +219,67 @@ describe("ConvertToCompound", () => {
             const models = (cmd as any)._getSelectedModels(doc, filter);
             expect(models).toHaveLength(1);
         });
+    });
+});
+
+describe("ConvertCommand instance sources", () => {
+    function edgeNode(id: string) {
+        const shape = mockShape({
+            shapeType: ShapeTypes.edge,
+            transformedMul: () => mockShape({ shapeType: ShapeTypes.edge }) as any,
+        });
+        return {
+            id,
+            name: id,
+            shape: { value: shape },
+            transform: Matrix4.identity(),
+            worldTransform: () => Matrix4.identity(),
+            parent: { remove: rs.fn() },
+        };
+    }
+
+    test("retargets an instance when a single node is converted", async () => {
+        const restoreTx = stubTransactionRun();
+        try {
+            const cmd = new ConvertToWire();
+            const { doc } = wireCommand(cmd);
+            const source = edgeNode("source");
+            stubDocumentSelection(doc, [source as unknown as VisualNode]);
+            const instance = { id: "instance", isInstance: true, sourceId: "source" };
+            (doc.modelManager as any).findNodesDeep = () => [instance];
+
+            await cmd.executeAsync();
+
+            const root = doc.modelManager.rootNode as any;
+            expect(root.added).toHaveLength(1);
+            expect(instance.sourceId).toBe(root.added[0].id);
+            expect(source.parent.remove).toHaveBeenCalledWith(source);
+        } finally {
+            restoreTx();
+        }
+    });
+
+    test("refuses to merge several nodes when an instance reads one", async () => {
+        const restoreTx = stubTransactionRun();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            const cmd = new ConvertToWire();
+            const { doc } = wireCommand(cmd);
+            const first = edgeNode("source");
+            const second = edgeNode("other");
+            stubDocumentSelection(doc, [first as unknown as VisualNode, second as unknown as VisualNode]);
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: "source" },
+            ];
+
+            await cmd.executeAsync();
+
+            expect(pub).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+            expect((doc.modelManager.rootNode as any).added).toHaveLength(0);
+            expect(first.parent.remove).not.toHaveBeenCalled();
+        } finally {
+            pub.mockRestore();
+            restoreTx();
+        }
     });
 });

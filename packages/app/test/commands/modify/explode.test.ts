@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { EditableShapeNode, Matrix4, MultiShapeNode, ShapeTypes } from "@chili3d/core";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@rstest/core";
+import { EditableShapeNode, Matrix4, MultiShapeNode, PubSub, ShapeTypes } from "@chili3d/core";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, rs, test } from "@rstest/core";
 import { Explode } from "../../../src/commands/modify/explode";
 import {
     ensureGlobalStubApp,
@@ -129,6 +129,33 @@ describe("Explode", () => {
             expect(parent.removed).toHaveLength(1);
         });
 
+        test("refuses to explode a node an instance reads", () => {
+            const cmd = new Explode();
+            const { doc } = wireExplodeCommand(cmd);
+            const parent = makeParent({ id: "p" }) as TrackingParent;
+            const node = new EditableShapeNode({
+                document: doc,
+                name: "compound0",
+                shape: shapeWithSubShapes([mockShape()]),
+            });
+            (node as any).parent = parent;
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: node.id },
+            ];
+            seedStepDatas(cmd, [nodeStepResult([node] as any)]);
+            const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+
+            try {
+                (cmd as any).executeMainTask();
+
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+                expect(parent.insertedAfter).toHaveLength(0);
+                expect(parent.removed).toHaveLength(0);
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+
         test("should clone each component node and remove the component (explodeComponentNode)", () => {
             // `explodeComponentNode` calls `node.clone()`, which routes through the
             // Serializer and requires registered decorators. We invoke the private
@@ -142,6 +169,7 @@ describe("Explode", () => {
                 name: "inner",
                 transform: Matrix4.identity(),
                 clone: () => cloned,
+                cloneTransformed: () => cloned,
             };
             const componentNode = {
                 component: { nodes: [innerNode] },
@@ -157,6 +185,32 @@ describe("Explode", () => {
             expect((parent.insertedAfter[0] as any).node).toBe(cloned);
             expect(parent.removed).toHaveLength(1);
             expect(parent.removed[0]).toBe(componentNode);
+        });
+
+        test("should hand the component placement to the member's transform hook", () => {
+            const cmd = new Explode();
+            wireExplodeCommand(cmd);
+            const parent = makeParent({ id: "p" }) as TrackingParent;
+
+            const cloned = { name: "member_copy", transform: Matrix4.identity() };
+            const cloneTransformed = rs.fn((_matrix: Matrix4) => cloned);
+            const innerNode = {
+                name: "member",
+                transform: Matrix4.identity(),
+                cloneTransformed,
+            };
+            const componentTransform = Matrix4.fromTranslation(10, 20, 30);
+            const componentNode = {
+                component: { nodes: [innerNode] },
+                transform: componentTransform,
+                parent,
+                previousSibling: undefined,
+            };
+
+            (cmd as any).explodeComponentNode(componentNode);
+
+            expect(cloneTransformed).toHaveBeenCalledWith(componentTransform);
+            expect((parent.insertedAfter[0] as any).node).toBe(cloned);
         });
 
         test("should explode each shape of a MultiShapeNode into its own EditableShapeNode", () => {

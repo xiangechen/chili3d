@@ -70,7 +70,27 @@ export type FeatureData =
     | SplitFeatureData
     | SewFeatureData
     | OffsetFaceFeatureData
-    | HelixFeatureData;
+    | HelixFeatureData
+    | TransformFeatureData;
+
+/**
+ * A rigid placement applied to the whole chain input — how a parametric body "moves".
+ *
+ * The body's own `transform` stays identity: a transform feature is the only placement
+ * that survives a rebuild, because the sketch (and every world-space pick downstream)
+ * keeps its own coordinates. The matrix is stored as plain numbers rather than a
+ * `Matrix4` so `featuresJson` and the rebuild cache key stay JSON round-trippable.
+ *
+ * `transformedMul` goes through OCCT's `gp_Trsf`, which represents only similarity
+ * transforms (rigid, mirror, uniform scale). A non-uniform scale is silently
+ * orthogonalized there, so the handler rejects anything that is not rigid
+ * (orthonormal columns, |determinant| = 1); a mirror is allowed.
+ */
+export interface TransformFeatureData extends FeatureBase {
+    readonly type: "transform";
+    /** Column-major 4×4 in world space — the body's `transform` is identity. */
+    readonly matrix: readonly number[];
+}
 
 export interface ExtrudeFeatureData extends FeatureBase {
     readonly type: "extrude";

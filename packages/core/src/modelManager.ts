@@ -11,7 +11,7 @@ import {
     Transaction,
 } from "./foundation";
 import { Material } from "./material";
-import type { Component } from "./model/component";
+import { type Component, ComponentNode } from "./model/component";
 import { FolderNode } from "./model/folderNode";
 import { type INode, type INodeLinkedList, NodeUtils } from "./model/node";
 import { type Serialized, Serializer } from "./serialize";
@@ -106,6 +106,57 @@ export class ModelManager extends Observable {
         if (!this._rootNode) return [];
 
         return NodeUtils.findNodes(this._rootNode, predicate);
+    }
+
+    /**
+     * Also looks inside `components`. A Component owns its nodes outside the document tree
+     * (`group` transfers them there), so a plain `findNode` misses a body that an instance
+     * still reads.
+     */
+    findNodeDeep<T extends INode>(predicate: (value: INode) => value is T): T | undefined;
+    findNodeDeep(predicate: (value: INode) => boolean): INode | undefined;
+    findNodeDeep(predicate: (value: INode) => boolean): INode | undefined {
+        return this.findNode(predicate) ?? this.findComponentNodes(predicate)[0];
+    }
+
+    /** Tree nodes first, then every Component's nodes (nested components included). */
+    findNodesDeep<T extends INode>(predicate: (value: INode) => value is T): T[];
+    findNodesDeep(predicate?: (value: INode) => boolean): INode[];
+    findNodesDeep(predicate?: (value: INode) => boolean): INode[] {
+        return [...this.findNodes(predicate), ...this.findComponentNodes(predicate)];
+    }
+
+    private findComponentNodes(predicate?: (value: INode) => boolean): INode[] {
+        const result: INode[] = [];
+        // A Component's members keep their own child lists (consumed tools, folders) and
+        // can nest more components; both are part of the definition.
+        const seen = new Set<INode>();
+        const visitedComponents = new Set<Component>();
+        const visitNode = (node: INode) => {
+            if (seen.has(node)) return;
+            seen.add(node);
+            if (predicate === undefined || predicate(node)) result.push(node);
+            if (NodeUtils.isLinkedListNode(node)) {
+                for (let child = node.firstChild; child !== undefined; child = child.nextSibling) {
+                    visitNode(child);
+                }
+            }
+            // `component` is resolved through the collection rather than the node's
+            // getter: a partially deserialized node may not have its component yet.
+            if (node instanceof ComponentNode) {
+                const nested = this.components.find((c) => c.id === node.componentId);
+                if (nested !== undefined && !visitedComponents.has(nested)) {
+                    visitedComponents.add(nested);
+                    for (const member of nested.nodes as ReadonlyArray<INode>) visitNode(member);
+                }
+            }
+        };
+        for (const component of this.components) {
+            if (visitedComponents.has(component)) continue;
+            visitedComponents.add(component);
+            for (const member of component.nodes as ReadonlyArray<INode>) visitNode(member);
+        }
+        return result;
     }
 
     serialize() {

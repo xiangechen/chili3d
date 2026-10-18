@@ -3,18 +3,21 @@
 
 import {
     type AsyncController,
+    BodyInstanceNode,
     type FeatureItem,
     type FeatureMissingInput,
     type FeatureReference,
     I18n,
     type I18nKeys,
     type IDocument,
+    Id,
     type IEqualityComparer,
     type IFeatureListNode,
     type INode,
     type INodeLinkedList,
     type IShape,
     isPropertyChanged,
+    Matrix4,
     NodeChildList,
     type NodeRecord,
     ParameterShapeNode,
@@ -25,6 +28,8 @@ import {
     serializable,
     serialize,
     Transaction,
+    type TransformMode,
+    type VisualNode,
 } from "@chili3d/core";
 import { ReselectFeatureCommand } from "./commands/reselectCommand";
 import {
@@ -47,6 +52,7 @@ import {
     evaluateFeature,
     type FeatureData,
     featureHandler,
+    isRigidTransform,
     type ResolvedEndTargets,
     type ShapeTracking,
     type UnresolvedInputs,
@@ -75,6 +81,7 @@ import {
     type RibFeatureData,
     type SweepFeatureData,
     suppressionOf,
+    type TransformFeatureData,
 } from "./features/feature";
 import type { ProfileRef } from "./features/profileRef";
 import { syncNodeWatches } from "./nodeWatch";
@@ -209,6 +216,83 @@ export class ParametricBodyNode
         return "body.parametricBody";
     }
 
+    /** A move is a feature, not a placement: the chain itself must stay in world space. */
+    override get transformMode(): TransformMode {
+        return "feature";
+    }
+
+    /**
+     * Records a world-space move as a `transform` feature and keeps this node's own
+     * transform identity.
+     *
+     * Order matters: the feature rebuild reads `host.worldTransform()` (see
+     * `hostSpace.ts`), so the stale placement must be cleared BEFORE the new feature is
+     * appended — otherwise the rebuild maps every tool through the old transform and the
+     * geometry lands in the wrong place. A body with no feature list has nothing to
+     * replay, so it keeps the direct placement behavior.
+     */
+    override applyTransform(transform: Matrix4): boolean {
+        const placement = this.transform.multiply(transform);
+        if (placement.equals(Matrix4.identity())) return true;
+        // OCCT's gp_Trsf is a similarity transform and silently orthogonalizes a
+        // non-uniform scale; refuse it before it becomes a feature nobody can explain.
+        if (!isRigidTransform(placement)) {
+            PubSub.default.pub(
+                "showToast",
+                "error.default:{0}",
+                "Only rigid transforms (move, rotate, mirror) are supported",
+            );
+            return false;
+        }
+        if (this.features.length === 0) {
+            this.transform = placement;
+            return true;
+        }
+
+        const bar = this.rollbackBarIndex;
+        // Nothing is visible behind a bar at zero: there is no chain input to move, and
+        // a transform feature at that position would fail the rebuild. Refuse BEFORE
+        // clearing the node transform, so the attempt leaves the body untouched.
+        if (bar === 0) return false;
+        this.transform = Matrix4.identity();
+
+        const feature: TransformFeatureData = {
+            id: Id.generate(),
+            type: "transform",
+            matrix: placement.toArray(),
+        };
+        const features = [...this.features];
+        // Insert AT the bar (not at the end) so the move applies to the visible chain
+        // only; the bar then moves past it so the features it hides stay hidden.
+        // A bar at or past the end is inert — the full chain builds, so append.
+        const index = bar !== undefined && bar < features.length ? bar : features.length;
+        features.splice(index, 0, feature);
+        // Move the bar past the new feature BEFORE rebuilding, so one rebuild sees the
+        // final list and stop. At/past the end the bar is inert and is cleared, which
+        // also handles a stale bar left at the old feature count (e.g. after a removal):
+        // otherwise the new feature would land exactly behind it and the move would do
+        // nothing while still reporting success.
+        const nextBar = index + 1 >= features.length ? undefined : index + 1;
+        if (nextBar !== this.rollbackBarIndex) {
+            this.setProperty("rollbackBarIndex", nextBar);
+        }
+        this.setFeaturesEmitShapeChanged(features);
+        return true;
+    }
+
+    /**
+     * A copy of a parametric body is an instance of it: the copy placement is a node
+     * transform (not a feature), so the same source can back any number of instances and
+     * editing the source carries every one of them. `Detach` is the escape hatch.
+     */
+    override get copiesAsInstance(): boolean {
+        return true;
+    }
+
+    override cloneForCopy(transform: Matrix4): VisualNode {
+        return BodyInstanceNode.fromSource(this, transform);
+    }
+
     @serialize()
     get featuresJson(): string {
         return this.getPrivateValue("featuresJson");
@@ -240,6 +324,12 @@ export class ParametricBodyNode
     private readonly _timeline = new BodyTimeline();
     /** Guards against re-entrant evaluation when a watched node generates mid-evaluation. */
     private _evaluating = false;
+    /**
+     * True while `syncConsumedTools` moves tool nodes in or out. A move emits a node
+     * record for a watched tool, but its SHAPE did not change — rebuilding mid-move would
+     * read the tool before it is attached and report "Boolean tool not found".
+     */
+    private _syncingTools = false;
     /** False until the first evaluation; see the `shape` getter. */
     private _evaluated = false;
     /**
@@ -384,6 +474,15 @@ export class ParametricBodyNode
      */
     private syncConsumedTools(): void {
         if (this.document.history.disabled) return;
+        this._syncingTools = true;
+        try {
+            this.moveConsumedTools();
+        } finally {
+            this._syncingTools = false;
+        }
+    }
+
+    private moveConsumedTools(): void {
         const desired = new Set(
             this.features
                 .filter((x): x is BooleanFeatureData => x.type === "boolean" && x.consumeTools !== false)
@@ -1211,7 +1310,7 @@ export class ParametricBodyNode
      * would have no way to tell the reference had gone.
      */
     private readonly handleReferencedNodeChanged = (records: NodeRecord[]) => {
-        if (this._evaluating) return;
+        if (this._evaluating || this._syncingTools) return;
         const wanted = this.referencedIds();
         if (!records.some((record) => wanted.has(record.node.id))) return;
 

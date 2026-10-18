@@ -10,6 +10,7 @@ import {
     type ITrimmedCurve,
     type IView,
     Matrix4,
+    PubSub,
     ShapeTypes,
     type VisualShapeData,
     XYZ,
@@ -77,6 +78,36 @@ describe("Trim", () => {
 
         expect(selection.clearSelection).toHaveBeenCalledTimes(1);
         expect(pickAsync).toHaveBeenCalledTimes(1);
+    });
+
+    test("trimEdge should refuse a body an instance reads", () => {
+        const cmd = new Trim();
+        const remove = rs.fn();
+        const model = { id: "source", materialId: "mat", parent: { remove } };
+        const addNode = rs.fn();
+        const doc = {
+            visual: { context: { getNode: () => model } },
+            modelManager: {
+                addNode,
+                findNodesDeep: () => [{ id: "instance", isInstance: true, sourceId: "source" }],
+            },
+        } as unknown as IDocument;
+        (cmd as any)._application = { activeView: { document: doc } };
+        const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+
+        try {
+            (cmd as any).trimEdge({
+                edge: { owner: {} },
+                curve: { trim: rs.fn() },
+                segments: { retainSegments: [{ start: 0, end: 1 }] },
+            });
+
+            expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+            expect(addNode).not.toHaveBeenCalled();
+            expect(remove).not.toHaveBeenCalled();
+        } finally {
+            pubSpy.mockRestore();
+        }
     });
 });
 

@@ -40,6 +40,58 @@ describe("GroupCommand", () => {
         expect(steps.length).toBe(1);
     });
 
+    test("should refuse instances, their sources, folders holding either, and consumed tools", () => {
+        const cmd = new GroupCommand();
+        const { doc } = wireCommand(cmd);
+        const scan = rs.fn(() => [{ isInstance: true, sourceId: "source" }]);
+        (doc.modelManager as any).findNodesDeep = scan;
+        const folder = (child: unknown) => ({
+            id: "folder",
+            firstChild: child,
+            nextSibling: undefined,
+            add: () => {},
+        });
+
+        expect((cmd as any).canGroup({ id: "source" })).toBe(false);
+        expect((cmd as any).canGroup({ id: "other" })).toBe(true);
+        expect((cmd as any).canGroup(folder({ id: "source", nextSibling: undefined }))).toBe(false);
+        expect((cmd as any).canGroup(folder({ id: "other", nextSibling: undefined }))).toBe(true);
+        expect((cmd as any).canGroup({ id: "tool", parent: {} })).toBe(false);
+        // One scan for the whole pick session, no matter how many candidates are hovered.
+        expect(scan).toHaveBeenCalledTimes(1);
+    });
+
+    test("should refuse a body whose consumed tool would be grouped with it", () => {
+        const cmd = new GroupCommand();
+        const { doc } = wireCommand(cmd);
+        (doc.modelManager as any).findNodesDeep = () => [];
+        // A consumed tool has a non-folder parent; grouping would hide it from the
+        // root-tree lookup feature evaluation relies on.
+        const tool = { id: "tool", parent: {} };
+        const body = { id: "body", add: () => {}, firstChild: tool, nextSibling: undefined };
+
+        expect((cmd as any).canGroup(body)).toBe(false);
+    });
+
+    test("should refuse a folder that holds an instance", () => {
+        const cmd = new GroupCommand();
+        const { doc } = wireCommand(cmd);
+        (doc.modelManager as any).findNodesDeep = () => [];
+        // A duck-typed instance: `canGroup` only asks `isInstance` + `sourceId`, and a
+        // real half-constructed node would try to record `sourceId` in the document
+        // history (the prototype has no `document`).
+        const instance = { id: "instance", isInstance: true, sourceId: "source", nextSibling: undefined };
+
+        expect(
+            (cmd as any).canGroup({
+                id: "folder",
+                firstChild: instance,
+                nextSibling: undefined,
+                add: () => {},
+            }),
+        ).toBe(false);
+    });
+
     describe("executeMainTask", () => {
         test("should publish showToast when no valid nodes selected", () => {
             let toastMsg = "";

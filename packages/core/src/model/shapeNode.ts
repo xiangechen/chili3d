@@ -217,6 +217,16 @@ export interface ParameterShapeNodeOptions {
 }
 
 export abstract class ParameterShapeNode extends ShapeNode {
+    /**
+     * A shape derived from parameters (a box, a cylinder, an extrude body) is copied as
+     * an instance of its source: the parameters stay one definition, and the copy is a
+     * placement. Inputs that are not bodies opt out explicitly — `SketchNode` and
+     * `PlaneNode`.
+     */
+    override get copiesAsInstance(): boolean {
+        return true;
+    }
+
     override get shape(): Result<IShape> {
         if (!this._isDisposed && !this._shape.isOk) {
             this._shape = this.generateShape();
@@ -263,6 +273,11 @@ export interface EditableShapeNodeOptions {
 
 @serializable()
 export class EditableShapeNode extends ShapeNode {
+    /** A plain solid is copied as an instance; `SketchNode` deliberately stays out. */
+    override get copiesAsInstance(): boolean {
+        return true;
+    }
+
     override display(): I18nKeys {
         return "body.editableShape";
     }

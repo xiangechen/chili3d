@@ -9,6 +9,7 @@ import {
     Combobox,
     Component,
     ComponentNode,
+    cloneForCopyNode,
     command,
     Dimensions,
     GeometryNode,
@@ -17,6 +18,7 @@ import {
     type IEdge,
     type IStep,
     isConsumedTool,
+    isInstanceNode,
     isReferenceGeometryNode,
     LengthAtPlaneStep,
     Line,
@@ -193,15 +195,20 @@ export class ArrayCommand extends MultistepCommand {
     }
 
     private async ensureSelectedModels() {
-        this.models = this.document.selection
-            .getSelectedVisualNodes()
-            .filter((node) => !isReferenceGeometryNode(node));
+        const transformable = (node: VisualNode) =>
+            !isReferenceGeometryNode(node) && node.transformMode !== "none";
+        const selected = this.document.selection.getSelectedVisualNodes();
+        this.models = selected.filter(transformable);
         if (this.models.length > 0) return true;
+        if (selected.length > 0) {
+            PubSub.default.pub("showToast", "toast.node.notTransformable");
+            return false;
+        }
 
         this.controller = new AsyncController();
         this.models = await this.document.picker.pickNode("prompt.select.models", this.controller, {
             multi: true,
-            nodeFilter: { allow: (node) => !isReferenceGeometryNode(node) },
+            nodeFilter: { allow: transformable },
         });
 
         if (this.models.length > 0) return true;
@@ -584,24 +591,37 @@ export class ArrayCommand extends MultistepCommand {
     };
 
     protected override executeMainTask(): void {
-        const nodes: VisualNode[] = this.cloneNodes();
-
         Transaction.execute(this.document, "Array", () => {
-            if (this.isGroup) {
-                const component = new Component({ name: "Array", nodes });
-                this.document.modelManager.components.push(component);
-                this.document.modelManager.addNode(
-                    new ComponentNode({
-                        document: this.document,
-                        name: "Array",
-                        componentId: component.id,
-                        insert: component.origin,
-                    }),
-                );
-            } else {
-                this.document.modelManager.addNode(...nodes);
+            // Cloning belongs INSIDE the transaction: it may insert nodes (a parametric
+            // copy's sketch, an instance) that must be undone with the array itself.
+            const nodes: VisualNode[] = this.cloneNodes();
+            // A Component freezes one merged mesh, so a live instance inside it would
+            // never follow a source edit. Fall back to separate nodes instead.
+            const hasInstances = nodes.some((node) => isInstanceNode(node));
+            if (nodes.length > 0) {
+                if (this.isGroup && hasInstances) {
+                    PubSub.default.pub("showToast", "toast.instance.groupUnsupported");
+                }
+                if (this.isGroup && !hasInstances) {
+                    const component = new Component({ name: "Array", nodes });
+                    this.document.modelManager.components.push(component);
+                    this.document.modelManager.addNode(
+                        new ComponentNode({
+                            document: this.document,
+                            name: "Array",
+                            componentId: component.id,
+                            insert: component.origin,
+                        }),
+                    );
+                } else {
+                    this.document.modelManager.addNode(...nodes);
+                }
             }
             this.models?.forEach((model) => {
+                // A source body that backs instances stays: the instances read it. The
+                // identity slot was skipped for it, so `count === 1` produces no clones —
+                // and must not delete the definition.
+                if ((model as { copiesAsInstance?: boolean }).copiesAsInstance === true) return;
                 model.parent?.remove(model);
             });
 
@@ -646,9 +666,14 @@ export class ArrayCommand extends MultistepCommand {
         const nodes: VisualNode[] = [];
         for (const matrix of matrixs) {
             this.models?.forEach((model) => {
-                const cloned = model.clone();
-                cloned.transform = cloned.transform.multiply(matrix);
-                nodes.push(cloned);
+                // An instance is placed AT its source's position by cloneForCopy; the
+                // source body itself takes that slot, so skip the identity copy.
+                if ((model as { copiesAsInstance?: boolean }).copiesAsInstance === true) {
+                    if (matrix.equals(Matrix4.identity())) return;
+                }
+
+                // `cloneForCopyNode` also serves plain-object doubles and plugins.
+                nodes.push(cloneForCopyNode(model, matrix));
             });
         }
         return nodes;

@@ -84,6 +84,9 @@ export default {
         "body.fuse": "Fuse",
         "body.group": "Group",
         "body.imported": "Imported",
+        "body.instance": "Instance",
+        "body.instance.source": "Source",
+        "body.instance.sourceMissing": "Instance source not found",
         "body.line": "Line",
         "body.missingInputs{0}": "Missing inputs: {0}",
         "body.missingPick{0}": "Missing input #{0}",
@@ -175,6 +178,7 @@ export default {
         "command.feature.offsetFace": "Offset Face",
         "command.feature.pressPull": "Press Pull",
         "command.feature.helix": "Helix",
+        "command.feature.transform": "Transform",
         "command.feature.primitiveBox": "Box",
         "command.feature.primitiveCylinder": "Cylinder",
         "command.feature.primitiveSphere": "Sphere",
@@ -234,6 +238,7 @@ export default {
         "command.modify.brushRemove": "Brush Remove",
         "command.modify.chamfer": "Chamfer",
         "command.modify.deleteNode": "Delete Node",
+        "command.modify.detach": "Make independent",
         "command.modify.explode": "Explode",
         "command.modify.extend": "Extend",
         "command.modify.fillet": "Fillet",
@@ -415,6 +420,12 @@ export default {
         "feature.revolve.angle2": "Angle 2",
         "feature.sweep.path": "Path",
         "feature.sweep.profileControl": "Profile control",
+        "feature.transform.translateX": "X offset",
+        "feature.transform.translateY": "Y offset",
+        "feature.transform.translateZ": "Z offset",
+        "feature.transform.rotateX": "X angle",
+        "feature.transform.rotateY": "Y angle",
+        "feature.transform.rotateZ": "Z angle",
         "file.format": "Format",
         "helix.pitch": "Pitch",
         "helix.turns": "Turns",
@@ -771,6 +782,13 @@ export default {
         "toast.converter.invalidColor": "The color is invalid",
         "toast.consumedTool.forbidden":
             "Consumed boolean tools cannot be copied, moved or deleted — edit them through the owning body's feature list",
+        "toast.instance.groupUnsupported":
+            "Linked instances and the bodies they read cannot be grouped — the nodes stay separate",
+        "toast.instance.sourceInUse":
+            "This body is used by an instance — delete the instance first or make it independent",
+        "toast.node.notTransformable": "This node is input geometry and cannot be moved — edit it directly",
+        "toast.node.transformRefused":
+            "The node refused this move — nothing visible in its feature chain can take it",
         "toast.delete{0}Objects": "Deleted {0} objects",
         "toast.dimension.parallelEdges": "The two edges are parallel — no angle to dimension",
         "toast.text.defaultFontFailed":

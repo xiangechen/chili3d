@@ -33,8 +33,8 @@ function buildSewCommand() {
     const shape2 = mockShape();
     const parent1 = makeParent({ id: "p1" });
     const parent2 = makeParent({ id: "p2" });
-    const node1 = { parent: parent1, previousSibling: undefined, nextSibling: undefined };
-    const node2 = { parent: parent2, previousSibling: undefined, nextSibling: undefined };
+    const node1 = { id: "source1", parent: parent1, previousSibling: undefined, nextSibling: undefined };
+    const node2 = { id: "source2", parent: parent2, previousSibling: undefined, nextSibling: undefined };
 
     const step0 = shapeStepResult([{ shape: shape1 as Partial<IShape>, node: node1 }]);
     const step1 = shapeStepResult([{ shape: shape2 as Partial<IShape>, node: node2 }]);
@@ -45,7 +45,7 @@ function buildSewCommand() {
     seedStepDatas(cmd, [step0, step1]);
 
     const rootNode = doc.modelManager.rootNode as unknown as TrackingParent;
-    return { cmd, rootNode, shape1, shape2, parent1, parent2, node1, node2 };
+    return { cmd, doc, rootNode, shape1, shape2, parent1, parent2, node1, node2 };
 }
 
 /** Override the global factory.sewing implementation; returns a restore fn. */
@@ -96,6 +96,29 @@ describe("Sew", () => {
             expect((rootNode.added[0] as any).name).toBe("sewed");
             // Each source node was removed from its own parent.
             expect(parent1.removed).toHaveLength(1);
+        });
+
+        test("should refuse to remove a source body an instance reads", () => {
+            let toastMessage: unknown;
+            const originalPub = PubSub.default.pub;
+            PubSub.default.pub = ((channel: string, ...args: unknown[]) => {
+                if (channel === "showToast") toastMessage = args[0];
+            }) as typeof PubSub.default.pub;
+
+            try {
+                const { cmd, doc, rootNode, parent1 } = buildSewCommand();
+                (doc.modelManager as any).findNodesDeep = () => [
+                    { id: "instance", isInstance: true, sourceId: "source1" },
+                ];
+
+                (cmd as any).executeMainTask();
+
+                expect(toastMessage).toBe("toast.instance.sourceInUse");
+                expect(rootNode.added).toHaveLength(0);
+                expect(parent1.removed).toHaveLength(0);
+            } finally {
+                PubSub.default.pub = originalPub;
+            }
         });
 
         test("should publish a toast and skip node creation when sewing fails", () => {

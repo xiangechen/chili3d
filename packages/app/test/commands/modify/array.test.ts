@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BodyInstanceNode,
     BoundingBox,
     DimensionAnnotation,
     type ICurve,
@@ -380,6 +381,21 @@ describe("ArrayCommand", () => {
     });
 
     describe("canExcute consumed-tool guard", () => {
+        test("should explain a selection made only of world-space inputs", async () => {
+            const cmd = new ArrayCommand();
+            const { doc } = wireCommand(cmd);
+            (doc.selection as any).getSelectedVisualNodes = () => [{ transformMode: "none" }];
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const ok = await (cmd as any).canExcute();
+
+                expect(ok).toBe(false);
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.node.notTransformable");
+            } finally {
+                pubSpy.mockRestore();
+            }
+        });
+
         test("should reject a consumed boolean tool and show a hint", async () => {
             const cmd = new ArrayCommand();
             // A plain-object parent is not a FolderNode → the node reads as a consumed tool.
@@ -442,6 +458,126 @@ describe("ArrayCommand", () => {
                 expect(addedNodes).toHaveLength(3);
                 expect(parent.removed).toContain(model);
             } finally {
+                restoreTx();
+                restoreApp();
+            }
+        });
+
+        test("instances: the source takes the identity slot and stays in the document", () => {
+            const restoreApp = installStubApp();
+            const restoreTx = stubTransactionRun();
+            try {
+                const cmd = new ArrayCommand();
+                const { doc, addedNodes } = wireCommand(cmd);
+                cmd.isGroup = false;
+                cmd.count = 2;
+
+                const parent = makeParent({ id: "root" });
+                const source = {
+                    id: "source",
+                    parent,
+                    transform: Matrix4.identity(),
+                    copiesAsInstance: true,
+                    cloneForCopy: (matrix: Matrix4) =>
+                        new BodyInstanceNode({
+                            document: doc as any,
+                            sourceId: "source",
+                            transform: matrix,
+                        }),
+                };
+                (cmd as any).models = [source];
+                seedStepDatas(cmd, [
+                    pointStep(new XYZ({ x: 0, y: 0, z: 0 })),
+                    pointStep(new XYZ({ x: 5, y: 0, z: 0 })),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                // Identity is where the source already is; only the offset copy is added.
+                expect(addedNodes).toHaveLength(1);
+                expect((addedNodes[0] as BodyInstanceNode).sourceId).toBe("source");
+                expect(parent.removed).toEqual([]);
+            } finally {
+                restoreTx();
+                restoreApp();
+            }
+        });
+
+        test("instances: count=1 must not delete the source or add anything", () => {
+            const restoreApp = installStubApp();
+            const restoreTx = stubTransactionRun();
+            try {
+                const cmd = new ArrayCommand();
+                const { doc, addedNodes } = wireCommand(cmd);
+                // Group mode too: an empty clone list must not create an empty Component.
+                cmd.isGroup = true;
+                cmd.count = 1;
+
+                const parent = makeParent({ id: "root" });
+                const source = {
+                    id: "source",
+                    parent,
+                    transform: Matrix4.identity(),
+                    copiesAsInstance: true,
+                    cloneForCopy: (matrix: Matrix4) =>
+                        new BodyInstanceNode({
+                            document: doc as any,
+                            sourceId: "source",
+                            transform: matrix,
+                        }),
+                };
+                (cmd as any).models = [source];
+                seedStepDatas(cmd, [
+                    pointStep(new XYZ({ x: 0, y: 0, z: 0 })),
+                    pointStep(new XYZ({ x: 5, y: 0, z: 0 })),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                expect(addedNodes).toEqual([]);
+                expect(parent.removed).toEqual([]);
+            } finally {
+                restoreTx();
+                restoreApp();
+            }
+        });
+
+        test("instances: a group array falls back to separate nodes", () => {
+            const restoreApp = installStubApp();
+            const restoreTx = stubTransactionRun();
+            const pubSpy = rs.spyOn(PubSub.default, "pub");
+            try {
+                const cmd = new ArrayCommand();
+                const { doc, addedNodes } = wireCommand(cmd);
+                cmd.isGroup = true;
+                cmd.count = 2;
+
+                const parent = makeParent({ id: "root" });
+                const source = {
+                    id: "source",
+                    parent,
+                    transform: Matrix4.identity(),
+                    copiesAsInstance: true,
+                    cloneForCopy: (matrix: Matrix4) =>
+                        new BodyInstanceNode({
+                            document: doc as any,
+                            sourceId: "source",
+                            transform: matrix,
+                        }),
+                };
+                (cmd as any).models = [source];
+                seedStepDatas(cmd, [
+                    pointStep(new XYZ({ x: 0, y: 0, z: 0 })),
+                    pointStep(new XYZ({ x: 5, y: 0, z: 0 })),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                expect(addedNodes).toHaveLength(1);
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "toast.instance.groupUnsupported");
+                expect(parent.removed).toEqual([]);
+            } finally {
+                pubSpy.mockRestore();
                 restoreTx();
                 restoreApp();
             }

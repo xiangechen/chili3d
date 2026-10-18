@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Continuities, PubSub, ShapeTypes } from "@chili3d/core";
+import { Continuities, EditableShapeNode, PubSub, ShapeTypes } from "@chili3d/core";
 import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { LoftCommand } from "../../../src/commands/create/loft";
 import { ensureGlobalStubApp, mockShape, wireCommand } from "../commandTestUtils";
@@ -205,6 +205,38 @@ describe("LoftCommand", () => {
                     "error.default:{0}",
                     "Loft requires at least 2 sections",
                 );
+            } finally {
+                pub.mockRestore();
+            }
+        });
+
+        test("does not consume a section an instance reads", async () => {
+            const cmd = new LoftCommand() as any;
+            const { doc, addedNodes } = wireCommand(cmd);
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            const sectionShape = mockShape({ shapeType: ShapeTypes.wire });
+            const section = new EditableShapeNode({
+                document: doc,
+                name: "section",
+                shape: sectionShape,
+            });
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: section.id },
+            ];
+            let pickCall = 0;
+            (doc.picker as any).pickShape = async (_prompt: unknown, controller: any) => {
+                pickCall += 1;
+                controller.success();
+                return pickCall <= 2 ? [{ shape: sectionShape, owner: { node: section } }] : [];
+            };
+            (doc as any).application = { activeView: (cmd as any)._application.activeView };
+            (doc.visual.highlighter as any).clear = () => {};
+
+            try {
+                await cmd.executeAsync();
+
+                expect(pub).toHaveBeenCalledWith("showToast", "toast.instance.sourceInUse");
+                expect(addedNodes).toHaveLength(0);
             } finally {
                 pub.mockRestore();
             }

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Binding,
     FolderNode,
     GroupNode,
     type IDocument,
@@ -9,13 +10,15 @@ import {
     type INode,
     type IView,
     isFeatureListNode,
+    isInstanceNode,
     Localize,
     Node,
     PropertyUtils,
     PubSub,
     VisualNode,
 } from "@chili3d/core";
-import { div, Expander, label } from "@chili3d/element";
+import { button, div, Expander, label, span } from "@chili3d/element";
+import commonStyle from "./common.module.css";
 import { propertyControl } from "./complexPropertyUtils";
 import { FeatureListProperty } from "./featureListProperty";
 import { MatrixProperty } from "./matrixProperty";
@@ -84,22 +87,85 @@ export class PropertyView extends HTMLElement {
     }
 
     private addTransform(document: IDocument, geometries: (VisualNode | GroupNode)[]) {
+        // A parametric body records moves as features (its own transform must stay
+        // identity) and a sketch is world-space input; neither takes a direct matrix.
+        const direct = geometries.filter(
+            (x) =>
+                x instanceof GroupNode ||
+                ((x as { transformMode?: string }).transformMode ?? "direct") === "direct",
+        );
+        if (direct.length === 0) return;
+
         const matrix = new Expander("common.matrix");
         this.panel.append(matrix);
 
-        matrix.contenxtPanel.append(new MatrixProperty(document, geometries, style.properties));
+        matrix.contenxtPanel.append(new MatrixProperty(document, direct, style.properties));
     }
 
     private addParameters(geometries: (VisualNode | GroupNode)[], document: IDocument) {
         const entities = geometries.filter((x) => x instanceof VisualNode);
         if (entities.length === 0 || !this.isAllElementsOfTypeFirstElement(entities)) return;
         const parameters = new Expander(entities[0].display());
+        // The source belongs to the instance's own group, next to material/shape type —
+        // the same place a feature shows the sketch it references.
+        const source = this.instanceSourceRow(document, entities);
         parameters.contenxtPanel.append(
+            ...(source === undefined ? [] : [source]),
             ...PropertyUtils.getProperties(Object.getPrototypeOf(entities[0]), Node.prototype).map((x) =>
                 propertyControl(document, entities, x),
             ),
         );
         this.panel.append(parameters);
+    }
+
+    /**
+     * An instance's definition is another node, so its group shows that node the way a
+     * feature shows its referenced sketch: a read-only link (click selects, double-click
+     * opens). `sourceId` is structural — there is no re-targeting control.
+     */
+    private instanceSourceRow(document: IDocument, entities: VisualNode[]): HTMLElement | undefined {
+        if (entities.length !== 1 || !isInstanceNode(entities[0])) return undefined;
+        const source = entities[0].source;
+        const target =
+            source === undefined
+                ? span({
+                      className: `${style.reference} ${style.missing}`,
+                      textContent: new Localize("body.instance.sourceMissing"),
+                  })
+                : span({
+                      className: style.reference,
+                      textContent: new Binding(source, "name"),
+                      onclick: () => document.selection.setSelectedNodes([source], false),
+                      ondblclick: () => {
+                          document.selection.setSelectedNodes([source], false);
+                          PubSub.default.pub("nodeDoubleClicked", source);
+                      },
+                  });
+
+        // The inverse of the link: stop following the source and become an independent
+        // copy. It runs the same command as the ribbon, so there is one implementation.
+        const detach =
+            source === undefined
+                ? undefined
+                : button({
+                      className: style.sourceButton,
+                      textContent: new Localize("command.modify.detach"),
+                      title: new Localize("command.modify.detach"),
+                      onclick: () => {
+                          document.selection.setSelectedNodes([entities[0]], false);
+                          PubSub.default.pub("executeCommand", "modify.detach");
+                      },
+                  });
+
+        return div(
+            { className: style.param },
+            span({
+                className: commonStyle.propertyName,
+                textContent: new Localize("body.instance.source"),
+            }),
+            target,
+            ...(detach === undefined ? [] : [detach]),
+        );
     }
 
     private addFeatureList(document: IDocument, nodes: INode[]) {

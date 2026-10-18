@@ -6,6 +6,7 @@ import {
     EditableShapeNode,
     type IFace,
     MultistepCommand,
+    retargetInstanceSources,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
@@ -33,6 +34,7 @@ export class RemoveFaceCommand extends MultistepCommand {
             model.transform = node.transform;
 
             this.document.modelManager.addNode(model);
+            retargetInstanceSources(this.document, node.id, model.id);
             node.parent?.remove(node);
             this.document.visual.update();
         });

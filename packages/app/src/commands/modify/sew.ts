@@ -5,6 +5,7 @@ import {
     command,
     EditableShapeNode,
     type IStep,
+    instanceSourcesInUse,
     isReferenceGeometryNode,
     MultistepCommand,
     PubSub,
@@ -22,6 +23,12 @@ import { repairShape } from "./repair";
 })
 export class Sew extends MultistepCommand {
     protected override executeMainTask() {
+        // One sewed node replaces every input, so there is no successor to retarget.
+        const removed = this.stepDatas[0].nodes ?? [];
+        if (instanceSourcesInUse(this.document, removed).size > 0) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
         Transaction.execute(this.document, "sew", () => {
             const shapes = this.transformdShapes(this.stepDatas[0]);
             const result = shapeFactory.sewing(shapes);

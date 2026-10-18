@@ -182,7 +182,8 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
             {
                 groupName: "ribbon.group.node",
                 items: [
-                    ["modify.move", "modify.rotate", "modify.mirror"],
+                    "modify.move",
+                    ["modify.rotate", "modify.mirror", "modify.detach"],
                     ["modify.deleteNode", "modify.paintBucket", "modify.array"],
                 ],
             },

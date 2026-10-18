@@ -19,7 +19,9 @@ import {
     type ITrimmedCurve,
     type IView,
     type IVisualGeometry,
+    instanceSourcesInUse,
     isReferenceGeometryNode,
+    PubSub,
     type ShapeNode,
     ShapeSelectionHandler,
     ShapeTypes,
@@ -69,6 +71,11 @@ export class Trim extends CancelableCommand {
     private trimEdge(selected: TrimEdge) {
         const model = this.document.visual.context.getNode(selected.edge.owner);
         if (model === undefined || isReferenceGeometryNode(model)) return;
+        // One edge can become several nodes, so there is no successor to retarget.
+        if (instanceSourcesInUse(this.document, [model]).size > 0) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
         const materialId = (model as GeometryNode)?.materialId;
         selected.segments.retainSegments.forEach((segment) => {
             const curve = selected.curve.trim(segment.start, segment.end);

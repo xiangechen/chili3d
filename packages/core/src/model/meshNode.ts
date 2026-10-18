@@ -20,6 +20,11 @@ export interface MeshNodeOptions {
 
 @serializable()
 export class MeshNode extends VisualNode {
+    /** A mesh is copied as a `MeshInstanceNode`; see `cloneForCopyNode`. */
+    override get copiesAsInstance(): boolean {
+        return true;
+    }
+
     override display(): I18nKeys {
         return "body.meshNode";
     }

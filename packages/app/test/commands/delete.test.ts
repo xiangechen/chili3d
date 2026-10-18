@@ -142,6 +142,129 @@ describe("Delete", () => {
         }
     });
 
+    test("should refuse to delete a body an instance reads", () => {
+        const toasts: string[] = [];
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, message: string) => {
+            if (channel === "showToast") toasts.push(message);
+        }) as any;
+
+        try {
+            const doc = createMockDocument();
+            (doc.modelManager as any).findNodesDeep = () => [{ isInstance: true, sourceId: "source" }];
+            const removed: unknown[] = [];
+            const source = { id: "source", parent: folderParent(removed) };
+            const cmd = new Delete();
+            (cmd as any)._application = { activeView: { document: doc } };
+            (cmd as any).stepDatas = [{ nodes: [source] }];
+
+            (cmd as any).executeMainTask();
+
+            expect(removed).toEqual([]);
+            expect(toasts).toEqual(["toast.instance.sourceInUse"]);
+        } finally {
+            PubSub.default.pub = originalPub;
+        }
+    });
+
+    test("should refuse to delete a folder that contains a pinned source", () => {
+        const toasts: string[] = [];
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, message: string) => {
+            if (channel === "showToast") toasts.push(message);
+        }) as any;
+
+        try {
+            const doc = createMockDocument();
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: "source" },
+            ];
+            const removed: unknown[] = [];
+            const source: any = { id: "source", nextSibling: undefined };
+            const folder: any = {
+                id: "folder",
+                parent: folderParent(removed),
+                firstChild: source,
+                nextSibling: undefined,
+                add: () => {},
+            };
+            source.parent = folder;
+            const cmd = new Delete();
+            (cmd as any)._application = { activeView: { document: doc } };
+            (cmd as any).stepDatas = [{ nodes: [folder] }];
+
+            (cmd as any).executeMainTask();
+
+            expect(removed).toEqual([]);
+            expect(toasts).toEqual(["toast.instance.sourceInUse"]);
+        } finally {
+            PubSub.default.pub = originalPub;
+        }
+    });
+
+    test("should allow deleting a folder when its instance is deleted too", () => {
+        const originalExecute = Transaction.execute;
+        Transaction.execute = ((_doc: unknown, _label: string, fn: () => void) => fn()) as any;
+
+        try {
+            const doc = createMockDocument();
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: "source" },
+            ];
+            const removed: unknown[] = [];
+            const source: any = { id: "source", nextSibling: undefined };
+            const folder: any = {
+                id: "folder",
+                parent: folderParent(removed),
+                firstChild: source,
+                nextSibling: undefined,
+                add: () => {},
+            };
+            source.parent = folder;
+            const instance = { id: "instance", parent: folderParent(removed) };
+            const cmd = new Delete();
+            (cmd as any)._application = { activeView: { document: doc } };
+            (cmd as any).stepDatas = [{ nodes: [folder, instance] }];
+
+            (cmd as any).executeMainTask();
+
+            expect(removed).toEqual([folder, instance]);
+        } finally {
+            Transaction.execute = originalExecute;
+        }
+    });
+
+    test("should allow deleting a source together with all of its instances", () => {
+        const toasts: string[] = [];
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, message: string) => {
+            if (channel === "showToast") toasts.push(message);
+        }) as any;
+        const originalExecute = Transaction.execute;
+        Transaction.execute = ((_doc: unknown, _label: string, fn: () => void) => fn()) as any;
+
+        try {
+            const doc = createMockDocument();
+            (doc.modelManager as any).findNodesDeep = () => [
+                { id: "instance", isInstance: true, sourceId: "source" },
+            ];
+            const removed: unknown[] = [];
+            const source = { id: "source", parent: folderParent(removed) };
+            const instance = { id: "instance", parent: folderParent(removed) };
+            const cmd = new Delete();
+            (cmd as any)._application = { activeView: { document: doc } };
+            (cmd as any).stepDatas = [{ nodes: [source, instance] }];
+
+            (cmd as any).executeMainTask();
+
+            expect(removed).toEqual([source, instance]);
+            expect(toasts).toEqual(["toast.delete{0}Objects"]);
+        } finally {
+            PubSub.default.pub = originalPub;
+            Transaction.execute = originalExecute;
+        }
+    });
+
     test("should delete free nodes while skipping consumed tools", () => {
         const toasts: string[] = [];
         const originalPub = PubSub.default.pub;

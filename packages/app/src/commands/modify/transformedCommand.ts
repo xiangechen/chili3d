@@ -6,6 +6,7 @@ import {
     AsyncController,
     BoundingBox,
     ComponentNode,
+    cloneForCopyNode,
     type EdgeMeshData,
     GeometryNode,
     isConsumedTool,
@@ -48,11 +49,20 @@ export abstract class TransformedCommand extends MultistepCommand {
     };
 
     private async ensureSelectedModels() {
-        // Reference geometry (datum planes) is defined in world space and is not a
-        // placement of a body: moving it would only desynchronise its references.
-        const transformable = (node: VisualNode) => !isReferenceGeometryNode(node);
-        this.models = this.document.selection.getSelectedVisualNodes().filter(transformable);
+        // Reference geometry (datum planes) and inputs such as sketches are defined in
+        // world space and are not placements of a body: moving them would only
+        // desynchronise their references (or, for a sketch, do nothing at all).
+        const transformable = (node: VisualNode) =>
+            !isReferenceGeometryNode(node) && node.transformMode !== "none";
+        const selected = this.document.selection.getSelectedVisualNodes();
+        this.models = selected.filter(transformable);
         if (this.models.length > 0) return true;
+        // A selection made only of inputs (a sketch, a datum plane) is not "nothing
+        // selected": say why it cannot move instead of opening the picker again.
+        if (selected.length > 0) {
+            PubSub.default.pub("showToast", "toast.node.notTransformable");
+            return false;
+        }
 
         this.controller = new AsyncController();
         this.models = await this.document.picker.pickNode("prompt.select.models", this.controller, {
@@ -105,20 +115,38 @@ export abstract class TransformedCommand extends MultistepCommand {
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const transform = this.transfrom(this.stepDatas.at(-1)!.point!);
 
-            // `canExcute` already filtered consumed boolean tools out of `models`.
+            // `canExcute` already filtered consumed boolean tools and non-transformable
+            // inputs out of `models`.
             if (this.isClone) {
                 this.models?.forEach((x) => {
-                    const clone = x.clone();
-                    clone.transform = x.transform.multiply(transform);
+                    const clone = cloneForCopyNode(x, transform);
                     x.parent?.insertAfter(x, clone);
                 });
             } else {
                 this.models?.forEach((x) => {
-                    x.transform = x.transform.multiply(transform);
+                    this.applyPlacement(x, transform);
                 });
             }
 
             this.document.visual.update();
         });
+    }
+
+    /**
+     * Hooks rather than direct `transform` writes: a parametric body records the move as
+     * a feature, a sketch refuses it. The fallback keeps plain-object test doubles and
+     * third-party nodes that predate the hook working as before.
+     */
+    private applyPlacement(node: VisualNode, transform: Matrix4): void {
+        const apply = (node as { applyTransform?: (matrix: Matrix4) => boolean }).applyTransform;
+        if (apply !== undefined) {
+            // Only an explicit refusal counts (same rule as the AI tool): a JS plugin's
+            // hook that returns nothing still accepted the move.
+            if (apply.call(node, transform) === false) {
+                PubSub.default.pub("showToast", "toast.node.transformRefused");
+            }
+        } else {
+            node.transform = node.transform.multiply(transform);
+        }
     }
 }

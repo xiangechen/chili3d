@@ -14,9 +14,11 @@ import {
     type IShape,
     type IShapeFilter,
     type IShell,
+    instanceSourcesInUse,
     isReferenceGeometryNode,
     PubSub,
     Result,
+    retargetInstanceSources,
     SelectNodeStep,
     type ShapeNode,
     ShapeNodeFilter,
@@ -34,12 +36,23 @@ abstract class ConvertCommand extends CancelableCommand {
             PubSub.default.pub("showToast", "toast.select.noSelected");
             return;
         }
+        // Converting several nodes produces one successor-less result; a single node is
+        // a one-for-one replacement its instances can follow.
+        const inUse = instanceSourcesInUse(this.document, models);
+        if (inUse.size > 0 && models.length > 1) {
+            PubSub.default.pub("showToast", "toast.instance.sourceInUse");
+            return;
+        }
+
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.create(this.document, models);
             if (!node.isOk) {
                 PubSub.default.pub("showToast", "error.default:{0}", node.error);
             } else {
                 this.document.modelManager.rootNode.add(node.value);
+                if (inUse.size > 0) {
+                    retargetInstanceSources(this.document, models[0].id, node.value.id);
+                }
                 models.forEach((x) => x.parent?.remove(x));
                 this.document.visual.update();
                 PubSub.default.pub("showToast", "toast.success");

@@ -2,7 +2,7 @@
     "name": "chili3d",
     "version": "0.7.1",
     "description": "",
-    "documentVersion": "0.12.0",
+    "documentVersion": "0.13.0",
     "author": "仙阁",
     "type": "module",
     "scripts": {

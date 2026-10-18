@@ -390,6 +390,18 @@ describe("FilletCommand", () => {
             expect(parent.removed[0]).toBe(parent.removed[0]);
         });
 
+        test("should retarget instances of the replaced source node", () => {
+            const { cmd, doc, parent, solidNode } = buildFilletCommand([3]);
+            (solidNode as any).id = "source";
+            const instance = { isInstance: true, sourceId: "source" };
+            (doc.modelManager as any).findNodesDeep = () => [instance];
+
+            (cmd as any).executeMainTask();
+
+            const added = parent.added[0] as { id: string };
+            expect(instance.sourceId).toBe(added.id);
+        });
+
         test("should fall back to rootNode when the original node has no parent", () => {
             const { cmd, solidNode } = buildFilletCommand([1]);
             // Detach the node so `node.parent ?? rootNode` is exercised.

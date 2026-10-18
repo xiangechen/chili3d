@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMockApplication } from "@chili3d/core/test-utils";
+import { rs } from "@rstest/core";
 import { Document } from "../src/document";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -41,5 +42,24 @@ describe("document version", () => {
     test("a document serializes the version it was built under", () => {
         const document = new Document(createMockApplication(), "version test");
         expect(document.serialize()["version"]).toBe(pkg.documentVersion);
+    });
+
+    test("a payload from an older documentVersion is refused", async () => {
+        const alertFn = rs.fn();
+        rs.stubGlobal("alert", alertFn);
+        try {
+            const loaded = await Document.load(createMockApplication(), {
+                version: "0.12.0",
+                name: "old",
+                id: "old",
+                acts: [],
+                variables: [],
+            } as never);
+
+            expect(loaded).toBeUndefined();
+            expect(alertFn).toHaveBeenCalledTimes(1);
+        } finally {
+            rs.unstubAllGlobals();
+        }
     });
 });
