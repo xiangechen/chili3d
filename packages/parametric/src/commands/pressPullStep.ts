@@ -12,6 +12,7 @@ import {
     type IStep,
     type IView,
     LENGTH_UNITS,
+    NOT_REFERENCE_GEOMETRY_FILTER,
     Precision,
     PubSub,
     resolveUnitSpec,
@@ -63,6 +64,22 @@ export class PressPullHandler extends AxisDragHandler {
     private hovered: VisualShapeData | undefined;
     /** The body ghosted while the preview is up (see `syncGhost`). */
     private ghosted: INodeVisual | undefined;
+
+    /**
+     * Rebuilding the chain (or an offset, whose failure path bisects) on every pointer move
+     * is the expensive half of the gesture; the arrow and the value box stay synchronous,
+     * the preview trails by one debounce like Modify Corner's.
+     */
+    private readonly rebuildPreview = (view?: IView) => this.refreshPreviewNow(view);
+
+    private refreshPreviewNow(view?: IView): void {
+        if (this.cleaned) return;
+        super.refreshTempShapes(view);
+    }
+
+    protected override refreshTempShapes(view?: IView): void {
+        this.rebuildPreview(view);
+    }
 
     constructor(
         document: IDocument,
@@ -242,6 +259,8 @@ export class PressPullHandler extends AxisDragHandler {
             (ShapeTypes.face | ShapeTypes.edge) as typeof ShapeTypes.face,
             event.offsetX,
             event.offsetY,
+            undefined,
+            NOT_REFERENCE_GEOMETRY_FILTER,
         );
         return detected.find((x) => PressPullHandler.pickable(x));
     }

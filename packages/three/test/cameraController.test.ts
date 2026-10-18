@@ -41,6 +41,9 @@ function createFakeView(overrides: Partial<ThreeView> = {}): ThreeView {
                         getVisual() {
                             return undefined;
                         },
+                        getNode() {
+                            return undefined;
+                        },
                     },
                 },
             } as unknown as IDocument;
@@ -285,6 +288,18 @@ describe("CameraController — startRotate", () => {
 // ============================================================================
 
 describe("CameraController — fitContent", () => {
+    function addMesh(shapes: Object3D, halfSize: number) {
+        const geo = new BufferGeometry();
+        const s = halfSize;
+        geo.setAttribute(
+            "position",
+            new BufferAttribute(new Float32Array([-s, -s, -s, s, -s, -s, s, s, s, -s, s, s]), 3),
+        );
+        const mesh = new Mesh(geo, new MeshBasicMaterial());
+        shapes.add(mesh);
+        return mesh;
+    }
+
     function addBoxMesh(view: ThreeView, halfSize: number) {
         const geo = new BufferGeometry();
         const s = halfSize;
@@ -324,6 +339,36 @@ describe("CameraController — fitContent", () => {
         expect(cc.target.y).toBeCloseTo(0);
         expect(cc.target.z).toBeCloseTo(0);
         expect(cc.cameraPosition.distanceTo(cc.cameraTarget)).toBeCloseTo(expectedDistance);
+    });
+
+    test("fitContent ignores reference geometry (datum plane display squares)", () => {
+        const visualShapes = new Object3D();
+        const part = addMesh(visualShapes, 10);
+        const nested = new Object3D();
+        visualShapes.add(nested);
+        const plane = addMesh(nested, 250);
+        const reference = { isReferenceGeometry: true };
+        const document = {
+            selection: createMockSelection(),
+            visual: {
+                context: {
+                    visualShapes,
+                    getNode: (visual: unknown) => (visual === plane ? reference : undefined),
+                },
+            },
+        } as unknown as IDocument;
+        const view = createFakeView({
+            document,
+            content: { visualShapes } as unknown as ThreeVisualContext,
+        });
+        const cc = new CameraController(view);
+        cc.fitContent();
+
+        // The 500 mm datum square must not decide the framing.
+        const radius = Math.sqrt(3 * 10 * 10);
+        const expectedDistance = radius / Math.sin((25 * Math.PI) / 180);
+        expect(cc.cameraPosition.distanceTo(cc.cameraTarget)).toBeCloseTo(expectedDistance);
+        expect(part.parent).toBe(visualShapes);
     });
 
     test("fitContent with orthographic camera updates the frustum", () => {

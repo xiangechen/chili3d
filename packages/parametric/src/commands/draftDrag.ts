@@ -11,6 +11,7 @@ import {
     type IView,
     type IVisualObject,
     MathUtils,
+    NOT_REFERENCE_GEOMETRY_FILTER,
     type Plane,
     Precision,
     ShapeTypes,
@@ -344,7 +345,13 @@ export class DraftDragHandler extends AxisDragHandler {
     /** Faces of a parametric body — a draft tapers a body's chain, not a sketch's profiles. */
     private detectFace(view: IView, event: PointerEvent): VisualShapeData | undefined {
         return view
-            .detectShapes(ShapeTypes.face, event.offsetX, event.offsetY)
+            .detectShapes(
+                ShapeTypes.face,
+                event.offsetX,
+                event.offsetY,
+                undefined,
+                NOT_REFERENCE_GEOMETRY_FILTER,
+            )
             .find((x) => x.owner.node instanceof ParametricBodyNode);
     }
 

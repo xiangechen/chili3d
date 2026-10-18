@@ -12,8 +12,8 @@ import {
     type IEdge,
     type IFace,
     type ILine,
-    type IShape,
     type IStep,
+    isReferenceGeometryNode,
     Line,
     MultistepCommand,
     type ParameterValue,
@@ -285,7 +285,7 @@ export class RevolveFeatureCommand extends MultistepCommand {
     private axisSource(): Pick<RevolveFeatureData, "axisSource"> {
         const data = this.stepDatas[1].shapes[0];
         const node = data.owner.node;
-        if (!(node instanceof ShapeNode)) return {};
+        if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return {};
         return {
             axisSource: { nodeId: node.id, edge: captureEdgeRef(data.shape as unknown as IEdge) },
         };

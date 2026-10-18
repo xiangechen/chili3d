@@ -2,7 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IFace, Matrix4, type Plane, Result, ShapeNode, ShapeTypes } from "@chili3d/core";
-import { datumPlaneOf, type IdLookup, type IdMultiLookup, matchFace, planeOfFace } from "../sketch/planeRef";
+import { resolvePlaneSourceInWorld } from "../plane/planeSource";
+import { type IdLookup, type IdMultiLookup, matchFace, planeOfFace } from "../sketch/planeRef";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import type { FeatureContext, IShapeHost, NeutralPlaneRef } from "./feature";
 import { indexesOfOverlappingId } from "./trackedId";
@@ -43,9 +44,18 @@ export function neutralPlaneInHost(world: Plane, host: IShapeHost, label: string
     return Result.ok(world.transformed(inverse));
 }
 
-/** The plane as captured: a datum by name, or a face ref re-matched on its node. */
+/**
+ * The plane as captured: a datum/plane node resolved in world space, or a face ref re-matched
+ * on its node. A face of the HOST body is the one special case — it is read off the chain
+ * input at this feature's position, not off the body's final shape (which already contains
+ * this feature's output, or does not exist yet on the first rebuild).
+ */
 function worldPlaneOf(ref: NeutralPlaneRef, context: FeatureContext, label: string): Result<Plane> {
-    if (ref.kind === "datum") return Result.ok(datumPlaneOf(ref.name));
+    // A face ref keeps its own path (it distinguishes "not a body", "failed to build" and
+    // "rolled back" precisely); the newer kinds are resolved by the shared plane source.
+    if (ref.kind !== "face") {
+        return resolvePlaneSourceInWorld(context.document, ref, undefined, { label });
+    }
     const source = planeFaceSource(ref.ref.nodeId, context, label);
     if (!source.isOk) return Result.err(source.error);
     const face = matchFace(

@@ -171,6 +171,7 @@ describe("ParametricRibbonProfiles", () => {
 
         // Thicken sits with the builders, not the modifiers — Fusion's CREATE panel holds it too.
         expect(itemsOf("ribbon.group.create")).toEqual([
+            "feature.plane",
             "feature.primitiveBox",
             "feature.primitiveCylinder",
             "feature.primitiveSphere",
@@ -231,6 +232,7 @@ describe("ParametricRibbonProfiles", () => {
         expect(allItems).toEqual([
             "sketch.create",
             "sketch.enter",
+            "feature.plane",
             "feature.primitiveBox",
             "feature.primitiveCylinder",
             "feature.primitiveSphere",

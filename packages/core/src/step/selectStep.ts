@@ -5,7 +5,7 @@ import type { IDocument } from "../document";
 import type { AsyncController } from "../foundation";
 import type { I18nKeys } from "../i18n";
 import type { ShapeNode } from "../model";
-import type { INodeFilter, IShapeFilter } from "../selectionFilter";
+import { type INodeFilter, type IShapeFilter, isReferenceGeometryNode } from "../selectionFilter";
 import { type ShapeType, ShapeTypeUtils } from "../shape";
 import type { SnapResult } from "../snap";
 import type { VisualShapeData, VisualState } from "../visual";
@@ -14,6 +14,13 @@ import type { IStep } from "./step";
 export interface SelectShapeOptions {
     multiple?: boolean;
     nodeFilter?: INodeFilter;
+    /**
+     * Reference geometry (a datum plane) is not a modeling shape and is excluded by
+     * default. A caller-provided `nodeFilter` is COMPOSED with that exclusion, never a
+     * replacement; only this switch lets reference geometry through — a tool that
+     * genuinely targets one (Align to Plane, Delete) opts in here.
+     */
+    allowReferenceGeometry?: boolean;
     shapeFilter?: IShapeFilter;
     selectedState?: VisualState;
     highlightState?: VisualState;
@@ -34,7 +41,31 @@ export interface SelectShapeOptions {
 export interface SelectNodeOptions {
     multiple?: boolean;
     filter?: INodeFilter;
+    /** See `SelectShapeOptions.allowReferenceGeometry`. */
+    allowReferenceGeometry?: boolean;
     keepSelection?: boolean;
+}
+
+/**
+ * The picker's node gate. A caller's own filter is COMPOSED with the reference-geometry
+ * exclusion, never substituted for it: a filter like `node instanceof ShapeNode` would
+ * otherwise silently re-admit datum planes (and a command like Repair would replace the
+ * plane, dangling every reference). Only `allowReferenceGeometry: true` opts out.
+ */
+function effectiveShapeNodeFilter(options: SelectShapeOptions | undefined): INodeFilter | undefined {
+    const caller = options?.nodeFilter;
+    if (options?.allowReferenceGeometry === true) return caller;
+    return {
+        allow: (node) => !isReferenceGeometryNode(node) && (caller?.allow(node) ?? true),
+    };
+}
+
+function effectiveNodeFilter(options: SelectNodeOptions | undefined): INodeFilter | undefined {
+    const caller = options?.filter;
+    if (options?.allowReferenceGeometry === true) return caller;
+    return {
+        allow: (node) => !isReferenceGeometryNode(node) && (caller?.allow(node) ?? true),
+    };
 }
 
 export abstract class SelectStep implements IStep {
@@ -63,7 +94,7 @@ export class SelectShapeStep extends SelectStep {
         const shapes = await document.picker.pickShape(this.prompt, controller, {
             shapeType: this.snapeType,
             shapeFilter: this.options?.shapeFilter,
-            nodeFilter: this.options?.nodeFilter,
+            nodeFilter: effectiveShapeNodeFilter(this.options),
             multi: this.options?.multiple,
             selectedState: this.options?.selectedState,
             highlightState: this.options?.highlightState,
@@ -82,13 +113,14 @@ export class SelectShapeStep extends SelectStep {
 
 export class GetOrSelectShapeStep extends SelectShapeStep {
     override execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const nodeFilter = effectiveShapeNodeFilter(this.options);
         const shapes = document.selection.getSelectedShapes().filter((x) => {
             let isValid = ShapeTypeUtils.contains(this.snapeType, x.shape.shapeType);
             if (this.options?.shapeFilter?.allow) {
                 isValid &&= this.options.shapeFilter.allow(x.shape, x.transform);
             }
-            if (this.options?.nodeFilter?.allow) {
-                isValid &&= this.options.nodeFilter.allow(x.owner.node);
+            if (nodeFilter?.allow) {
+                isValid &&= nodeFilter.allow(x.owner.node);
             }
 
             return isValid;
@@ -121,7 +153,7 @@ export class SelectNodeStep implements IStep {
 
         return Promise.try(async () => {
             const nodes = await document.picker.pickNode(this.prompt, controller, {
-                nodeFilter: this.options?.filter,
+                nodeFilter: effectiveNodeFilter(this.options),
                 multi: this.options?.multiple,
             });
             if (nodes.length === 0) return undefined;
@@ -137,9 +169,10 @@ export class SelectNodeStep implements IStep {
 
 export class GetOrSelectNodeStep extends SelectNodeStep {
     override execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        const filter = effectiveNodeFilter(this.options);
         const selected = document.selection.getSelectedNodes().filter((x) => {
-            if (this.options?.filter?.allow) {
-                return this.options.filter.allow(x);
+            if (filter?.allow) {
+                return filter.allow(x);
             }
 
             return true;

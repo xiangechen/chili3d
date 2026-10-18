@@ -17,6 +17,7 @@ import {
     type IShape,
     type IVertex,
     type IWire,
+    isReferenceGeometryNode,
     Matrix4,
     PubSub,
     property,
@@ -222,7 +223,7 @@ export class LoftFeatureCommand extends CancelableCommand {
         const shapes = await this.document.picker.pickShape("prompt.select.section", this.controller!, {
             shapeType: (ShapeTypes.face | ShapeTypes.edge | ShapeTypes.vertex) as ShapeType,
             multi: false,
-            nodeFilter: { allow: (node) => node instanceof ShapeNode },
+            nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
             // A click accepts a section; the bar's confirm is what ends the section list,
             // so it has to be up even though this pick finishes on click (`multi: false`).
             showConfirmControl: true,

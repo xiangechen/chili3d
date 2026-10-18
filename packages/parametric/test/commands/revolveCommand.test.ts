@@ -215,6 +215,7 @@ describe("RevolveFeatureCommand axis step", () => {
 
     test("the axis step accepts line edges of any node, not just the sketch", () => {
         const step = axisStep() as any;
+        // Reference geometry is excluded by the step's default gate.
         expect(step.options.nodeFilter).toBeUndefined();
     });
 

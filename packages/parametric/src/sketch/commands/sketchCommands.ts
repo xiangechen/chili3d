@@ -55,6 +55,8 @@ interface PickedPlane {
     planeRef?: PlaneFaceRef;
     /** Set when the plane is one of the three global datums, so its offset stays editable. */
     datumPlane?: DatumPlaneName;
+    /** Set when the plane is a user-created datum plane, so the sketch follows its edits. */
+    planeNodeId?: string;
     /**
      * Where the face was clicked, on the base plane. Only the offset preview reads it:
      * it centres the quad — and so the drag arrow — on the point the user was aiming at.
@@ -129,7 +131,12 @@ export function captureBoundaryExternalRefs(
 
 function resolvePlane(document: IDocument, result: PlanePickResult | undefined): PickedPlane | undefined {
     if (result === undefined) return undefined;
-    if (result.kind === "datum") return { plane: result.plane, datumPlane: result.name };
+    if (result.kind === "datum") {
+        return { plane: result.plane, datumPlane: result.name, pickPoint: result.point };
+    }
+    if (result.kind === "planeNode") {
+        return { plane: result.plane, planeNodeId: result.nodeId, pickPoint: result.point };
+    }
 
     const face = result.data.shape.transformedMul(result.data.transform) as IFace;
     const plane = sketchPlaneOfFace(face);
@@ -163,7 +170,7 @@ function capturePlaneOwner(
         // preview — `features.length` would read as "no rollback" to
         // seedRollbackIndices and resolve the boundary refs against later geometry
         // the user never saw (same correction as sketch.projectEdges).
-        refPositions = { [owner.id]: owner.rollbackIndex ?? owner.features.length };
+        refPositions = { [owner.id]: owner.evaluationStopIndex() };
     }
     return {
         planeRef,
@@ -366,6 +373,7 @@ export class CreateSketch extends MultistepCommand {
             plane: picked.plane.offsetAlongNormal(resolved.value),
             planeRef: picked.planeRef,
             datumPlane: picked.datumPlane,
+            planeNodeId: picked.planeNodeId,
             planeOffset: resolved.value,
             data: sketchDataFromPick(picked),
         });

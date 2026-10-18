@@ -17,6 +17,7 @@ import {
     type Matrix4,
     MultistepCommand,
     type ParameterValue,
+    Precision,
     PubSub,
     property,
     ShapeTypes,
@@ -440,6 +441,13 @@ abstract class ModifyCornerFeatureCommand extends MultistepCommand implements Pi
         const resolved = this.resolveParameter(this.value, LENGTH_UNITS);
         if (!resolved.isOk) {
             PubSub.default.pub("showToast", "error.default:{0}", resolved.error);
+            return;
+        }
+        // The kernel refuses a zero/negative radius at every rebuild, which would take the
+        // whole body and its downstream chain down. The preview already shows nothing for
+        // it; the commit must refuse it too.
+        if (resolved.value <= Precision.Float) {
+            PubSub.default.pub("showToast", "error.default:{0}", "The corner size must be greater than zero");
             return;
         }
         // A feature can be deleted from the panel while the pick is open — the panel is not modal

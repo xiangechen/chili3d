@@ -13,6 +13,19 @@ export interface INodeFilter {
     allow(node: INode): boolean;
 }
 
+/**
+ * Whether a node is reference geometry (a datum plane) — structural, so core need not
+ * know the parametric node class. Modeling pickers, snaps and Fit exclude these.
+ */
+export function isReferenceGeometryNode(node: INode): boolean {
+    return (node as { isReferenceGeometry?: boolean }).isReferenceGeometry === true;
+}
+
+/** The shared gate of every picker/snap that must not consume reference geometry. */
+export const NOT_REFERENCE_GEOMETRY_FILTER: INodeFilter = {
+    allow: (node) => !isReferenceGeometryNode(node),
+};
+
 export class ShapeNodeFilter implements INodeFilter {
     constructor(readonly shapeFilter?: IShapeFilter) {}
 

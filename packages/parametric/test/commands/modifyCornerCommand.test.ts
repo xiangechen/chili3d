@@ -390,6 +390,23 @@ describe("ModifyCornerFeatureCommand commit", () => {
         }
     });
 
+    test("a zero or negative size is refused, and nothing is written", () => {
+        const { app, body, select } = scenario([fillet("f1", 2)], ["f1:e9:f"]);
+        const cmd = pick(new ModifyFilletFeatureCommand(), app, select, faceData(body));
+        cmd.value = -1;
+
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            (cmd as any).executeMainTask();
+
+            const toast = pub.mock.calls.find((call) => call[0] === "showToast");
+            expect(toast?.[1]).toBe("error.default:{0}");
+            expect((body.features[0] as FilletFeatureData).radius).toBe(2);
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
     test("the expression the user typed is what the feature keeps", () => {
         // The policy the extrude and fillet commits hold to as well: a feature stores the
         // relation, not the number it happened to evaluate to.

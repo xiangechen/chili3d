@@ -12,6 +12,7 @@ import "./mirrorFeatureCommand";
 import "./modifyCornerCommand";
 import "./offsetFaceCommand";
 import "./patternCommand";
+import "./planeCommand";
 import "./pressPullCommand";
 import "./primitiveCommand";
 import "./removeFeatureCommand";

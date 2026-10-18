@@ -104,7 +104,7 @@ export function stablePlaneFrame(point: XYZ, normal: XYZ): Plane {
  * X completing the right-handed frame as Y × normal. This keeps a sketch upright in
  * the viewport regardless of the face's tilt.
  */
-function worldAxisXVec(normal: XYZ): XYZ {
+export function worldAxisXVec(normal: XYZ): XYZ {
     const n = normal.normalize()!;
     const yvec = Math.abs(n.z) > 1 - 1e-6 ? XYZ.unitY : XYZ.unitZ.sub(n.multiply(n.z)).normalize()!;
     return yvec.cross(n);

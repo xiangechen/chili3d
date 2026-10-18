@@ -252,6 +252,7 @@ describe("SweepFeatureCommand path step", () => {
 
     test("the path step accepts edges of any node, not just the sketch", () => {
         const step = pathStep() as any;
+        // Reference geometry is excluded by the step's default gate.
         expect(step.options.nodeFilter).toBeUndefined();
         expect(step.options.shapeFilter).toBeUndefined();
     });

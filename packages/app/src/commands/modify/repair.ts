@@ -6,6 +6,7 @@ import {
     EditableShapeNode,
     GetOrSelectNodeStep,
     type IShape,
+    isReferenceGeometryNode,
     MultistepCommand,
     property,
     ShapeNode,
@@ -44,6 +45,8 @@ export class RepairShapeCommand extends MultistepCommand {
             if (!this.stepDatas[0].nodes) return;
 
             for (const node of this.stepDatas[0].nodes) {
+                // Defense in depth: the picker filter already excludes datum planes.
+                if (isReferenceGeometryNode(node)) continue;
                 const shapeNode = node as ShapeNode;
                 const shape = shapeNode.shape.value;
                 shape.setTolerance(this.tolerance);

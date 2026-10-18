@@ -522,19 +522,29 @@ export interface OffsetFaceFeatureData extends FeatureBase {
 }
 
 /**
- * The plane a draft rotates its faces about: one of the three global datums, or a planar face
- * of a node. Deliberately the SKETCH's plane reference (`PlaneFaceRef`, `planeRef.ts`) rather
- * than a re-invention — it is what the viewport plane picker produces, and it already carries
- * both the tracked `faceId` (precise re-match) and the `normal`+`offset` fingerprint
- * (geometric fallback) that a rebuild needs.
+ * The plane a draft rotates its faces about: one of the three global datums, a planar face
+ * of a node, or another user-created datum plane (a `PlaneNode`). Deliberately built on the
+ * SKETCH's plane reference (`PlaneFaceRef`, `planeRef.ts`) rather than a re-invention — it is
+ * what the viewport plane picker produces, and it already carries both the tracked `faceId`
+ * (precise re-match) and the `normal`+`offset` fingerprint (geometric fallback) that a
+ * rebuild needs.
  *
  * The name and nothing else is stored for a datum: the three never move, so there is nothing to
  * re-match. A face ref is captured in WORLD coordinates (as a sketch's is) and mapped into the
- * host's own frame when the feature evaluates.
+ * host's own frame when the feature evaluates. A plane node is named by id and resolves through
+ * its own definition, so editing that datum carries every user of it along.
  */
 export type NeutralPlaneRef =
     | { readonly kind: "face"; readonly ref: PlaneFaceRef }
-    | { readonly kind: "datum"; readonly name: DatumPlaneName };
+    | { readonly kind: "datum"; readonly name: DatumPlaneName }
+    /** Another user-created datum plane, named by node: editing its definition moves this plane's users. */
+    | { readonly kind: "planeNode"; readonly nodeId: string };
+
+/** The node a plane ref lives on, or undefined for a global datum (which names no node). */
+export function planeRefNodeId(ref: NeutralPlaneRef): string | undefined {
+    if (ref.kind === "datum") return undefined;
+    return ref.kind === "face" ? ref.ref.nodeId : ref.nodeId;
+}
 
 /**
  * Draft (Onshape's / Fusion's Draft): taper the named faces about their intersection with a

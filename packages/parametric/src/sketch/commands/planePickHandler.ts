@@ -6,6 +6,7 @@ import {
     type IDocument,
     type IFace,
     type IView,
+    isReferenceGeometryNode,
     type Plane,
     type Ray,
     ShapeSelectionHandler,
@@ -17,6 +18,7 @@ import {
 import { isBodyTrackingNode } from "../../features/bodyTracking";
 import type { NeutralPlaneRef } from "../../features/feature";
 import { reportSilentIdLoss } from "../../features/idDiagnostics";
+import { isPlaneNode } from "../../plane/planeNodeContract";
 import {
     captureFaceRef,
     DATUM_PLANE_NAMES,
@@ -33,6 +35,7 @@ import {
     DATUM_OPACITY,
     DATUM_SIZE,
     datumQuad,
+    quadAt,
 } from "./planePreview";
 
 /**
@@ -53,14 +56,33 @@ export type PlanePickResult =
      * which the offset preview centres on.
      */
     | { kind: "face"; data: VisualShapeData; point: XYZ }
-    /** A datum quad is a stand-in, not geometry: there is no clicked point to carry. */
-    | { kind: "datum"; plane: Plane; name: DatumPlaneName };
+    /** `point` is where the ray met the datum's quad; the offset preview centres on it. */
+    | { kind: "datum"; plane: Plane; name: DatumPlaneName; point?: XYZ }
+    /** A user-created datum plane, named by node so editing it moves every reference. */
+    | { kind: "planeNode"; plane: Plane; nodeId: string; point?: XYZ };
+
+const PLANE_NODE_COLOR = 0x6c9ce0;
+const PLANE_NODE_HIGHLIGHT_COLOR = 0x9ac4ff;
+
+interface PlaneNodeQuad {
+    readonly meshId: number;
+    readonly nodeId: string;
+    /** The plane a reference stores: the node's authoritative frame, not the display frame. */
+    readonly plane: Plane;
+    /** Where the node's visible square is drawn; the picker's quad and hit test match it. */
+    readonly displayPlane: Plane;
+    readonly center: XYZ;
+    readonly width: number;
+    readonly height: number;
+}
 
 /** What a plane pick captured: the stored reference, plus the plane it resolved to. */
 export interface PickedNeutralPlane {
     readonly ref: NeutralPlaneRef;
     /** The plane in WORLD coordinates — what has to be mapped into the body before the kernel sees it. */
     readonly plane: Plane;
+    /** A point of the plane near what was picked; where a datum plane draws its square. */
+    readonly anchor: XYZ;
 }
 
 /**
@@ -74,7 +96,19 @@ export function captureNeutralPlane(
     result: PlanePickResult,
 ): PickedNeutralPlane | undefined {
     if (result.kind === "datum") {
-        return { ref: { kind: "datum", name: result.name }, plane: datumPlaneOf(result.name) };
+        const plane = datumPlaneOf(result.name);
+        return {
+            ref: { kind: "datum", name: result.name },
+            plane,
+            anchor: result.point ?? plane.origin,
+        };
+    }
+    if (result.kind === "planeNode") {
+        return {
+            ref: { kind: "planeNode", nodeId: result.nodeId },
+            plane: result.plane,
+            anchor: result.point ?? result.plane.origin,
+        };
     }
     const owner = document.visual.context.getNode(result.data.owner);
     if (owner === undefined) return undefined;
@@ -91,7 +125,7 @@ export function captureNeutralPlane(
                 ref.faceId = faceId;
             }
         }
-        return { ref: { kind: "face", ref }, plane: planeOfFace(worldFace) };
+        return { ref: { kind: "face", ref }, plane: planeOfFace(worldFace), anchor: result.point };
     } finally {
         worldFace.dispose();
     }
@@ -121,11 +155,20 @@ export class PlanePickHandler extends ShapeSelectionHandler {
 
     private readonly _datumMeshIds: number[] = [];
     private _hoveredDatum = -1;
+    private readonly _planeNodeQuads: PlaneNodeQuad[] = [];
+    private _hoveredPlaneNode = -1;
 
     constructor(document: IDocument, controller: AsyncController) {
-        super(document, ShapeTypes.face, false, controller, {
-            allow: (shape) => (shape as IFace).surface().isPlanar(),
-        });
+        super(
+            document,
+            ShapeTypes.face,
+            false,
+            controller,
+            { allow: (shape) => (shape as IFace).surface().isPlanar() },
+            // A datum plane's own display rectangle is derived geometry: clicking it must
+            // pick the PLANE (the quad below), never capture its rectangle as a face ref.
+            { allow: (node) => !isReferenceGeometryNode(node) },
+        );
         this.highlightState = VisualStates.faceHighlight;
         const context = document.visual.context;
         DATUM_DISPLAY_PLANES.forEach((plane, i) => {
@@ -139,23 +182,51 @@ export class PlanePickHandler extends ShapeSelectionHandler {
             context.setMeshColor(id, DATUM_COLORS[DATUM_PLANES[i].name]);
             this._datumMeshIds.push(id);
         });
+        // User-created planes get the same treatment: a quad on top is reachable even when
+        // the plane's own (possibly half-transparent) face is behind a solid.
+        const planeNodes = document.modelManager
+            .findNodes((candidate) => isPlaneNode(candidate) && candidate.visible && candidate.parentVisible)
+            .filter(isPlaneNode);
+        for (const node of planeNodes) {
+            const plane = node.worldPlane();
+            const display = node.displayQuad();
+            if (plane === undefined || display === undefined) continue;
+            const id = context.displayMesh(
+                [quadAt(display.plane, display.center, display.width, display.height)],
+                { meshOpacity: DATUM_OPACITY, onTop: true },
+            );
+            context.setMeshColor(id, PLANE_NODE_COLOR);
+            this._planeNodeQuads.push({
+                meshId: id,
+                nodeId: node.id,
+                plane,
+                displayPlane: display.plane,
+                center: display.center,
+                width: display.width,
+                height: display.height,
+            });
+        }
     }
 
     protected override setHighlight(view: IView, event: PointerEvent): void {
-        const hovered = this.detectDatum(view.rayAt(event.offsetX, event.offsetY));
-        if (hovered >= 0) {
+        const ray = view.rayAt(event.offsetX, event.offsetY);
+        const hoveredDatum = this.detectDatum(ray);
+        const hoveredPlaneNode = hoveredDatum >= 0 ? -1 : this.detectPlaneNode(ray);
+        if (hoveredDatum >= 0 || hoveredPlaneNode >= 0) {
             // Drawing and picking stay in step: a quad under the pointer wins over the
             // face behind it, so the face highlight has to come down.
             this.cleanHighlights();
         } else {
             super.setHighlight(view, event);
         }
-        this.setHoveredDatum(view, hovered);
+        this.setHoveredDatum(view, hoveredDatum);
+        this.setHoveredPlaneNode(view, hoveredPlaneNode);
     }
 
     override pointerOut(view: IView, event: PointerEvent): void {
         super.pointerOut(view, event);
         this.setHoveredDatum(view, -1);
+        this.setHoveredPlaneNode(view, -1);
     }
 
     private detectDatum(ray: Ray): number {
@@ -166,6 +237,30 @@ export class PlanePickHandler extends ShapeSelectionHandler {
             const inRange = (v: number) => v >= DATUM_GAP && v <= DATUM_GAP + DATUM_SIZE;
             return inRange(vec.dot(plane.xvec)) && inRange(vec.dot(plane.yvec));
         });
+    }
+
+    private detectPlaneNode(ray: Ray): number {
+        return this._planeNodeQuads.findIndex((quad) => {
+            const hit = quad.displayPlane.intersectRay(ray);
+            if (hit === undefined) return false;
+            const offset = hit.sub(quad.center);
+            return (
+                Math.abs(offset.dot(quad.displayPlane.xvec)) <= quad.width / 2 &&
+                Math.abs(offset.dot(quad.displayPlane.yvec)) <= quad.height / 2
+            );
+        });
+    }
+
+    private setHoveredPlaneNode(view: IView, index: number): void {
+        if (index === this._hoveredPlaneNode) return;
+        this._hoveredPlaneNode = index;
+        const context = this.document.visual.context;
+        this._planeNodeQuads.forEach((quad, i) => {
+            const hovered = i === index;
+            context.setMeshColor(quad.meshId, hovered ? PLANE_NODE_HIGHLIGHT_COLOR : PLANE_NODE_COLOR);
+            context.setMeshOpacity(quad.meshId, hovered ? DATUM_HOVER_OPACITY : DATUM_OPACITY);
+        });
+        view.update();
     }
 
     private setHoveredDatum(view: IView, index: number): void {
@@ -186,9 +281,25 @@ export class PlanePickHandler extends ShapeSelectionHandler {
     protected override select(view: IView, event: PointerEvent): number {
         // A hovered datum wins: the quads draw on top, so the pointer over one is
         // aiming at it, not at the face the ray would otherwise hit first.
+        const ray = view.rayAt(event.offsetX, event.offsetY);
         if (this._hoveredDatum >= 0) {
             const datum = DATUM_PLANES[this._hoveredDatum];
-            this.result = { kind: "datum", plane: datum.plane, name: datum.name };
+            this.result = {
+                kind: "datum",
+                plane: datum.plane,
+                name: datum.name,
+                point: datum.plane.intersectRay(ray),
+            };
+            return 1;
+        }
+        if (this._hoveredPlaneNode >= 0) {
+            const quad = this._planeNodeQuads[this._hoveredPlaneNode];
+            this.result = {
+                kind: "planeNode",
+                plane: quad.plane,
+                nodeId: quad.nodeId,
+                point: quad.displayPlane.intersectRay(ray),
+            };
             return 1;
         }
         const face = this._highlights?.[0];
@@ -209,5 +320,9 @@ export class PlanePickHandler extends ShapeSelectionHandler {
             context.removeMesh(id);
         });
         this._datumMeshIds.length = 0;
+        this._planeNodeQuads.forEach((quad) => {
+            context.removeMesh(quad.meshId);
+        });
+        this._planeNodeQuads.length = 0;
     }
 }

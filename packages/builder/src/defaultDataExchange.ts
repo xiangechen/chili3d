@@ -116,7 +116,7 @@ export class DefaultDataExchange implements IDataExchange {
 
     private getExportShapes(nodes: VisualNode[]): IShape[] {
         const shapes = nodes
-            .filter((x): x is ShapeNode => x instanceof ShapeNode)
+            .filter((x): x is ShapeNode => x instanceof ShapeNode && !x.isReferenceGeometry)
             .map((x) => x.shape.value.transformedMul(x.worldTransform()));
 
         !shapes.length && PubSub.default.pub("showToast", "error.export.noNodeCanBeExported");

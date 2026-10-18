@@ -141,6 +141,7 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
             {
                 groupName: "ribbon.group.create",
                 items: [
+                    "feature.plane",
                     {
                         type: "split",
                         items: [

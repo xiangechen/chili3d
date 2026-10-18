@@ -14,6 +14,7 @@ import {
     Matrix4,
     MeshDataUtils,
     MultiShapeMesh,
+    type NodeRecord,
     ParameterShapeNode,
     type Plane,
     Precision,
@@ -28,6 +29,7 @@ import {
 } from "@chili3d/core";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { syncNodeWatches } from "../nodeWatch";
+import { type IPlaneNode, isPlaneNode } from "../plane/planeNodeContract";
 import { ensureVariableSync } from "../variableSync";
 import {
     conicWeight,
@@ -72,6 +74,8 @@ export interface SketchNodeOptions {
     planeRefJson?: string;
     /** Present when the plane was picked on a global datum; the sketch offsets from it. */
     datumPlane?: DatumPlaneName;
+    /** Present when the plane was picked on a user-created datum plane; the sketch follows it. */
+    planeNodeId?: string;
     /** Signed distance from the base plane along its normal. See `planeOffset`. */
     planeOffset?: number;
     data?: SketchData;
@@ -124,6 +128,16 @@ export class SketchNode extends ParameterShapeNode {
     }
 
     /**
+     * The user-created datum plane the sketch was drawn on, when it was not a global datum
+     * or a solid face. Unlike a `PlaneFaceRef` fingerprint this names the node itself, so
+     * editing the plane's definition carries the sketch along.
+     */
+    @serialize()
+    get planeNodeId(): string | undefined {
+        return this.getPrivateValue("planeNodeId", undefined);
+    }
+
+    /**
      * Signed distance of the sketch plane from its base plane, along that plane's
      * normal. With the base plane — `planeRef` for a solid face, `datumPlane` for a
      * global datum — this is the authoritative definition of where the sketch sits;
@@ -169,6 +183,8 @@ export class SketchNode extends ParameterShapeNode {
     }
 
     private _planeRefNode: INode | undefined;
+    /** The user-created datum plane this sketch is drawn on, when `planeNodeId` is set. */
+    private _planeNodeRefNode: (INode & IPlaneNode) | undefined;
 
     /**
      * Derived, runtime-only warning state behind `INodeWarning` (the model-tree
@@ -180,15 +196,24 @@ export class SketchNode extends ParameterShapeNode {
      */
     private _danglingProfileCount: number;
     private _danglingSignature: string;
+    /** True while `planeNodeId` names a datum plane that is gone or cannot resolve. */
+    private _danglingPlaneNode = false;
 
-    /** INodeWarning: dangling profile-role external references badge the model-tree row. */
+    /** INodeWarning: dangling profile refs and a missing datum plane badge the tree row. */
     get warningCount(): number {
-        return this._danglingProfileCount;
+        return this._danglingProfileCount + (this._danglingPlaneNode ? 1 : 0);
     }
 
     /** INodeWarning: badge tooltip (and loss toast) — `{0}` takes `warningCount`. */
     get warningTooltip(): I18nKeys {
-        return "sketch.externalRefsLost{0}";
+        return this._danglingPlaneNode ? "sketch.planeLost{0}" : "sketch.externalRefsLost{0}";
+    }
+
+    private setDanglingPlane(value: boolean): void {
+        if (value === this._danglingPlaneNode) return;
+        const oldCount = this.warningCount;
+        this._danglingPlaneNode = value;
+        this.emitPropertyChanged("warningCount", oldCount);
     }
 
     constructor(options: SketchNodeOptions) {
@@ -200,6 +225,7 @@ export class SketchNode extends ParameterShapeNode {
                 (options.planeRef === undefined ? undefined : JSON.stringify(options.planeRef)),
         );
         this.setPrivateValue("datumPlane", options.datumPlane);
+        this.setPrivateValue("planeNodeId", options.planeNodeId);
         this.setPrivateValue("planeOffset", options.planeOffset ?? 0);
         this.setPrivateValue(
             "dataJson",
@@ -209,6 +235,9 @@ export class SketchNode extends ParameterShapeNode {
         this._danglingProfileCount = danglingIds.length;
         this._danglingSignature = danglingIds.join(",");
         ensureVariableSync(options.document);
+        // Deleting the plane node emits no property change on it; the record is what lets
+        // this sketch surface a dangling-plane warning immediately.
+        options.document.modelManager.addNodeObserver?.(this.handleNodeRecords);
     }
 
     setDataEmitShapeChanged(data: SketchData): void {
@@ -649,8 +678,13 @@ export class SketchNode extends ParameterShapeNode {
         );
     }
 
-    /** Watches the node the plane reference points at; unresolved ids are retried next evaluation. */
+    /** Watches the nodes the plane reference points at; unresolved ids are retried next evaluation. */
     private syncPlaneRefWatch(): void {
+        this.syncFacePlaneWatch();
+        this.syncPlaneNodeWatch();
+    }
+
+    private syncFacePlaneWatch(): void {
         const ref = this.planeRef;
         const node =
             ref === undefined ? undefined : this.document.modelManager.findNode((n) => n.id === ref.nodeId);
@@ -663,6 +697,62 @@ export class SketchNode extends ParameterShapeNode {
             node.onPropertyChanged(this.handlePlaneRefNodeChanged);
         }
     }
+
+    /**
+     * Follows the user-created datum plane: watches its `plane` property (not `shape`, so
+     * the plane's display-size changes do not bounce back) and registers this sketch as a
+     * display dependent, which is what makes the plane grow to cover the sketch.
+     */
+    private syncPlaneNodeWatch(): void {
+        const nodeId = this.planeNodeId;
+        const candidate =
+            nodeId === undefined ? undefined : this.document.modelManager.findNode((n) => n.id === nodeId);
+        const node = isPlaneNode(candidate) ? candidate : undefined;
+        this.setDanglingPlane(nodeId !== undefined && node === undefined);
+        if (node === this._planeNodeRefNode) return;
+        if (this._planeNodeRefNode !== undefined) {
+            this._planeNodeRefNode.removeDisplayDependent(this);
+            if (isPropertyChanged(this._planeNodeRefNode)) {
+                this._planeNodeRefNode.removePropertyChanged(this.handlePlaneNodeChanged);
+            }
+        }
+        this._planeNodeRefNode = node;
+        if (node !== undefined) {
+            node.addDisplayDependent(this);
+            if (isPropertyChanged(node)) node.onPropertyChanged(this.handlePlaneNodeChanged);
+        }
+    }
+
+    /** The referenced datum plane left/returned to the document. */
+    private readonly handleNodeRecords = (records: NodeRecord[]) => {
+        const planeNodeId = this.planeNodeId;
+        if (planeNodeId === undefined) return;
+        let changed = false;
+        for (const record of records) {
+            if (record.node.id !== planeNodeId) continue;
+            if (record.action === "remove" || record.action === "transfer") {
+                this.setDanglingPlane(true);
+                changed = true;
+            } else if (record.action === "add") {
+                this.setDanglingPlane(false);
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        this.withoutHistory(() => {
+            if (this.reapplyPlane()) this.setShape(this.generateShape());
+        });
+    };
+
+    /** Follows the referenced datum plane: an edit to its definition carries this sketch along. */
+    private readonly handlePlaneNodeChanged = (property: string) => {
+        if (property !== "plane" && property !== "transform") return;
+        this.withoutHistory(() => {
+            if (this.followPlaneRef()) {
+                this.setShape(this.generateShape());
+            }
+        });
+    };
 
     /**
      * Runs work that only re-derives state — the plane, the external refs, the solved entities,
@@ -711,8 +801,8 @@ export class SketchNode extends ParameterShapeNode {
      *   the plane stays wedged at the old spot for good.
      */
     private followPlaneRef(): boolean {
-        // Only a face reference moves; the datum planes never do.
-        if (this.planeRef === undefined) return false;
+        // A global datum never moves; a face reference and a user-created plane both do.
+        if (this.planeRef === undefined && this.planeNodeId === undefined) return false;
         return this.reapplyPlane();
     }
 
@@ -723,6 +813,17 @@ export class SketchNode extends ParameterShapeNode {
      */
     private resolveBasePlane(): Plane | undefined {
         if (this.datumPlane !== undefined) return datumPlaneOf(this.datumPlane);
+        const planeNodeId = this.planeNodeId;
+        if (planeNodeId !== undefined) {
+            const node = this.document.modelManager.findNode((n) => n.id === planeNodeId);
+            if (!isPlaneNode(node)) {
+                this.setDanglingPlane(true);
+                return undefined;
+            }
+            const plane = node.worldPlane();
+            this.setDanglingPlane(plane === undefined);
+            return plane;
+        }
         const ref = this.planeRef;
         if (ref === undefined) return undefined;
         // A frozen source (a transient rollback preview, see `isFrozenSource`) yields no
@@ -750,7 +851,11 @@ export class SketchNode extends ParameterShapeNode {
     }
 
     private isSamePlane(plane: Plane): boolean {
-        return plane.origin.isEqualTo(this.plane.origin) && plane.normal.isEqualTo(this.plane.normal);
+        return (
+            plane.origin.isEqualTo(this.plane.origin) &&
+            plane.normal.isEqualTo(this.plane.normal) &&
+            plane.xvec.isEqualTo(this.plane.xvec)
+        );
     }
 
     /** Source nodes of the external references being watched, keyed by node id. */
@@ -968,10 +1073,18 @@ export class SketchNode extends ParameterShapeNode {
     };
 
     override disposeInternal(): void {
+        this.document.modelManager.removeNodeObserver?.(this.handleNodeRecords);
         if (this._planeRefNode !== undefined && isPropertyChanged(this._planeRefNode)) {
             this._planeRefNode.removePropertyChanged(this.handlePlaneRefNodeChanged);
         }
         this._planeRefNode = undefined;
+        if (this._planeNodeRefNode !== undefined) {
+            this._planeNodeRefNode.removeDisplayDependent(this);
+            if (isPropertyChanged(this._planeNodeRefNode)) {
+                this._planeNodeRefNode.removePropertyChanged(this.handlePlaneNodeChanged);
+            }
+        }
+        this._planeNodeRefNode = undefined;
         for (const node of this._externalRefNodes.values()) {
             if (isPropertyChanged(node)) node.removePropertyChanged(this.handleExternalRefNodeChanged);
         }

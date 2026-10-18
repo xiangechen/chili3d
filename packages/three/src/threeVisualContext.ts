@@ -188,6 +188,12 @@ export class ThreeVisualContext implements IVisualContext {
             if (path === "opacity") {
                 material["transparent"] = value < 1;
             }
+            if (path === "polygonOffset" && value === true) {
+                // A material created before the overlay bias existed has factor/units at
+                // their defaults (0), where `polygonOffset: true` does nothing.
+                material.polygonOffsetFactor = ThreeHelper.OverlayPolygonOffsetFactor;
+                material.polygonOffsetUnits = ThreeHelper.OverlayPolygonOffsetUnits;
+            }
         } else {
             this.setTextureValue(source, material, path, value);
         }

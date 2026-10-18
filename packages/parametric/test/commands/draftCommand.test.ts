@@ -209,7 +209,11 @@ describe("SelectNeutralPlaneStep", () => {
         const snapped = await new SelectNeutralPlaneStep(onPicked).execute(doc, new AsyncController());
 
         expect(pickAsync.mock.calls[0][1]).toBe("prompt.select.plane");
-        expect(onPicked).toHaveBeenCalledWith({ ref: { kind: "datum", name: "YZ" }, plane: Plane.YZ });
+        expect(onPicked).toHaveBeenCalledWith({
+            ref: { kind: "datum", name: "YZ" },
+            plane: Plane.YZ,
+            anchor: Plane.YZ.origin,
+        });
         expect(snapped!.type).toBe("input");
         expect(snapped!.plane).toBe(Plane.YZ);
     });

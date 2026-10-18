@@ -3,6 +3,7 @@
 
 import { Config } from "../../config";
 import { I18n } from "../../i18n";
+import { NOT_REFERENCE_GEOMETRY_FILTER } from "../../selectionFilter";
 import { type IFace, ShapeTypes } from "../../shape";
 import { ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import type { ISnap, MouseAndDetected, SnapResult } from "../snap";
@@ -12,7 +13,13 @@ export class SurfaceSnap implements ISnap {
         if (!ObjectSnapTypeUtils.hasType(Config.instance.snapType, ObjectSnapTypes.onSurface))
             return undefined;
 
-        const shapes = data.view.detectShapes(ShapeTypes.face, data.mx, data.my);
+        const shapes = data.view.detectShapes(
+            ShapeTypes.face,
+            data.mx,
+            data.my,
+            undefined,
+            NOT_REFERENCE_GEOMETRY_FILTER,
+        );
         if (shapes.length === 0) {
             return undefined;
         }

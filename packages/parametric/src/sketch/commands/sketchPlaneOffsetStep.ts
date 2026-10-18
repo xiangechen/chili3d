@@ -33,11 +33,11 @@ export interface OffsetDragData {
      */
     quadPlane?: Plane;
     /**
-     * The point the user picked on the base plane, when the pick was on real geometry. The
-     * preview centres on it, so the quad closes around the pointer and the drag arrow — the
-     * handle the user has to reach next — starts under it. A datum pick passes none: its quad
-     * is a stand-in the picker drew at a fixed place, and the preview has to read as that same
-     * quad moving rather than as one that jumped to the cursor.
+     * Where the pointer met the picked plane. The preview centres on it, so the quad closes
+     * around the cursor and the drag arrow — the handle the user has to reach next — starts
+     * under it. A datum/plane-node pick reports the point on its displayed quad too; the
+     * quad is still drawn in the datum's display frame (`quadPlane`), so the preview is the
+     * same stand-in moved under the click rather than a different surface.
      */
     pickPoint?: XYZ;
     /** The command's current offset, so the arrow starts in sync with its input. */

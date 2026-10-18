@@ -23,6 +23,14 @@ import {
 } from "three";
 
 export class ThreeHelper {
+    /**
+     * Depth bias of an overlay surface (`polygonOffset`): negative pulls it towards the
+     * camera so it wins against a co-planar sketch/face, while geometry genuinely in front
+     * still occludes it.
+     */
+    static readonly OverlayPolygonOffsetFactor = -2;
+    static readonly OverlayPolygonOffsetUnits = -2;
+
     static toMatrix(matrix: ThreeMatrix4) {
         return Matrix4.fromArray(matrix.toArray());
     }
@@ -151,6 +159,13 @@ export class ThreeHelper {
             emissive: ThreeHelper.fromColor(material.emissive),
             emissiveIntensity: material.emissiveIntensity,
             emissiveMap: ThreeHelper.loadTexture(material.emissiveMap, "emissiveMap"),
+            depthWrite: material.depthWrite,
+            polygonOffset: material.polygonOffset,
+            // NEGATIVE bias pulls the overlay towards the camera. A coplanar sketch face
+            // is drawn first (opaque) and writes depth; pushing the datum plane AWAY would
+            // make it fail the depth test in patches.
+            polygonOffsetFactor: ThreeHelper.OverlayPolygonOffsetFactor,
+            polygonOffsetUnits: ThreeHelper.OverlayPolygonOffsetUnits,
         });
     }
 }

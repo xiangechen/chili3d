@@ -159,6 +159,31 @@ export class Material extends HistoryObservable {
     }
 
     /**
+     * Whether the surface writes to the depth buffer. An overlay surface — a datum plane,
+     * which is a real face drawn on top of coincident sketch/body geometry — turns this
+     * off so it neither occludes nor fights with what lies in its plane.
+     */
+    @serialize()
+    get depthWrite(): boolean {
+        return this.getPrivateValue("depthWrite", true);
+    }
+    set depthWrite(value: boolean) {
+        this.setProperty("depthWrite", value);
+    }
+
+    /**
+     * Whether the surface is pushed back in depth by a hair (`polygonOffset`). This is
+     * what stops co-planar surfaces from flickering, without moving the geometry.
+     */
+    @serialize()
+    get polygonOffset(): boolean {
+        return this.getPrivateValue("polygonOffset", false);
+    }
+    set polygonOffset(value: boolean) {
+        this.setProperty("polygonOffset", value);
+    }
+
+    /**
      * How much of the studio environment this surface reflects — a weight, the way Onshape's
      * appearances carry one. What a new material starts with is `Material.DefaultEnvMapIntensity`;
      * a surface that should stand out asks for more, which is what a metal needs, having no
@@ -316,6 +341,9 @@ export class Material extends HistoryObservable {
             if (prop.name === "name" || prop.name === "color") continue;
             target[prop.name] = source[prop.name];
         }
+        // Not panel properties (no `@property`), but still part of the surface.
+        material.depthWrite = this.depthWrite;
+        material.polygonOffset = this.polygonOffset;
 
         return material;
     }

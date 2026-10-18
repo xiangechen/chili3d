@@ -14,6 +14,7 @@ import {
     type INodeVisual,
     type IShape,
     type IVertex,
+    isReferenceGeometryNode,
     Matrix4,
     type Plane,
     PointOnPlaneStep,
@@ -80,6 +81,8 @@ export interface ReselectHost extends INode, IBodyTrackingNode {
     worldTransform(): Matrix4;
     setFeaturesEmitShapeChanged(features: FeatureData[]): void;
     setRollbackIndex(index: number | undefined): boolean;
+    /** The persisted rollback-bar position (the session rollback is separate). */
+    readonly rollbackBarIndex?: number;
     edgeIdIsShared(id: string | undefined): boolean;
     faceIdIsShared(id: string | undefined): boolean;
 }
@@ -833,12 +836,12 @@ export class DirectionReselectSession {
             const picked = await document.picker.pickShape("prompt.select.lineEdge", round, {
                 shapeType: ShapeTypes.edge,
                 shapeFilter: new LineEdgeFilter(),
-                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
             });
             const data = picked[0];
             if (data === undefined) return undefined;
             const node = data.owner.node;
-            if (!(node instanceof ShapeNode)) return undefined;
+            if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return undefined;
             const edge = data.shape as unknown as IEdge;
             if (!isBodyTrackingNode(node)) return { nodeId: node.id, edge: captureEdgeRef(edge) };
             const edgeId = node.edgeIdAt(data.indexes[0]);
@@ -884,12 +887,12 @@ export class EndFaceReselectSession {
             document.selection.clearSelection();
             const picked = await document.picker.pickShape("prompt.select.faces", controller, {
                 shapeType: ShapeTypes.face,
-                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
             });
             const data = picked[0];
             if (data === undefined) return undefined;
             const node = data.owner.node;
-            if (!(node instanceof ShapeNode)) return undefined;
+            if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return undefined;
             // The press-pull `source` contract: a WORLD-space fingerprint (its normal captured —
             // the parallel-plane exactness check reads it), with the tracked face id when the
             // picked body tracks ids.
@@ -937,12 +940,12 @@ export class EndVertexReselectSession {
             document.selection.clearSelection();
             const picked = await document.picker.pickShape("prompt.select.vertexes", controller, {
                 shapeType: ShapeTypes.vertex,
-                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
             });
             const data = picked[0];
             if (data === undefined) return undefined;
             const node = data.owner.node;
-            if (!(node instanceof ShapeNode)) return undefined;
+            if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return undefined;
             const point = data.transform.ofPoint((data.shape as unknown as IVertex).point());
             return { nodeId: node.id, vertex: { point: plainVec(point) } };
         } finally {
@@ -1213,7 +1216,12 @@ export function evaluateChainSnapshot(host: ReselectHost, features: FeatureData[
     let faceIds: (string | undefined)[] | undefined;
     let edgeIds: (string | undefined)[] | undefined;
     const scope = host.document.variables.evaluate().scope;
-    for (const feature of features) {
+    // The SESSION rollback is ignored on purpose (the edited feature must be visible), but
+    // the PERSISTED rollback bar is not: the real rebuild stops there, so the preview must
+    // stop there too.
+    const stop = Math.min(features.length, host.rollbackBarIndex ?? features.length);
+    for (let index = 0; index < stop; index++) {
+        const feature = features[index];
         // The same question the real rebuild asks (`isSuppressedByVariable`), minus its bookkeeping:
         // reading only `suppressed` left variable-suppressed features in this chain, so the faces
         // the gesture offered to pick were not the ones the chain would have built.

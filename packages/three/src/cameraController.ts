@@ -5,6 +5,8 @@ import {
     type CameraTransitionOptions,
     type CameraType,
     type ICameraController,
+    type IVisualObject,
+    isReferenceGeometryNode,
     MathUtils,
     Observable,
     type ViewMode,
@@ -292,7 +294,19 @@ export class CameraController extends Observable implements ICameraController {
 
         const box = new Box3();
         if (shapes.length === 0) {
-            box.setFromObject(context.visualShapes);
+            // Reference geometry (a datum plane's display square) is not model content:
+            // including it makes Fit frame a 500 mm helper square instead of the part.
+            // Recurse so a plane nested in a Group/Component visual is skipped too.
+            const visit = (object: Object3D) => {
+                const node = context.getNode(object as unknown as IVisualObject);
+                if (node !== undefined && isReferenceGeometryNode(node)) return;
+                if (object.children.length === 0) {
+                    box.expandByObject(object);
+                    return;
+                }
+                for (const child of object.children) visit(child);
+            };
+            for (const child of context.visualShapes.children) visit(child);
         } else {
             for (const shape of shapes) {
                 const threeGeometry = context.getVisual(shape) as ThreeGeometry;

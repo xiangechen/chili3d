@@ -2,7 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IShape, Matrix4, Result } from "@chili3d/core";
-import { type FeatureContext, type FeatureHandler, type MirrorFeatureData, registerFeature } from "./feature";
+import {
+    type FeatureContext,
+    type FeatureHandler,
+    type MirrorFeatureData,
+    planeRefNodeId,
+    registerFeature,
+} from "./feature";
 import { mergeTrackedCopies } from "./mergeCopies";
 import { resolveNeutralPlane } from "./neutralPlane";
 import { prefixedId } from "./trackedId";
@@ -35,12 +41,15 @@ const mirrorHandler: FeatureHandler<MirrorFeatureData> = {
     icon: "icon-mirror",
     reselectable: true,
 
-    nodeIds: (feature) => (feature.plane.kind === "face" ? [feature.plane.ref.nodeId] : []),
+    nodeIds: (feature) => {
+        const nodeId = planeRefNodeId(feature.plane);
+        return nodeId === undefined ? [] : [nodeId];
+    },
 
-    references: (feature) =>
-        feature.plane.kind === "face"
-            ? [{ key: "plane", display: "feature.mirror.plane", nodeId: feature.plane.ref.nodeId }]
-            : [],
+    references: (feature) => {
+        const nodeId = planeRefNodeId(feature.plane);
+        return nodeId === undefined ? [] : [{ key: "plane", display: "feature.mirror.plane", nodeId }];
+    },
 
     parameters: (feature) => [
         { key: "merge", display: "option.command.merge", value: feature.merge ?? true },

@@ -1021,13 +1021,16 @@ static bool offsetIsGood(BRepOffset_MakeOffset& builder, const TopoDS_Shape& inp
     }
     if (!farFacesKept(builder, input, faces, moving, result))
         return false;
+    // No generated face means the result cannot be shown to have moved the picked faces at
+    // all — OCCT has been observed to return a body it calls successful here. Refuse rather
+    // than hand back geometry the caller would commit.
     if (!any)
-        return true;
+        return false;
     // A true offset surface is exactly `|distance|` from the original everywhere; 0.999 of it
     // leaves room for the joins without letting a face that barely moved pass.
     BRepExtrema_DistShapeShape measure(originals, offsets, Extrema_ExtFlag_MIN);
     if (!measure.IsDone())
-        return true;
+        return false;
     return measure.Value() >= 0.999 * std::fabs(distance) - 1e-3;
 }
 

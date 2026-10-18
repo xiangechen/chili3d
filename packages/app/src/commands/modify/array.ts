@@ -17,6 +17,7 @@ import {
     type IEdge,
     type IStep,
     isConsumedTool,
+    isReferenceGeometryNode,
     LengthAtPlaneStep,
     Line,
     MathUtils,
@@ -192,12 +193,15 @@ export class ArrayCommand extends MultistepCommand {
     }
 
     private async ensureSelectedModels() {
-        this.models = this.document.selection.getSelectedVisualNodes();
+        this.models = this.document.selection
+            .getSelectedVisualNodes()
+            .filter((node) => !isReferenceGeometryNode(node));
         if (this.models.length > 0) return true;
 
         this.controller = new AsyncController();
         this.models = await this.document.picker.pickNode("prompt.select.models", this.controller, {
             multi: true,
+            nodeFilter: { allow: (node) => !isReferenceGeometryNode(node) },
         });
 
         if (this.models.length > 0) return true;

@@ -18,6 +18,7 @@ import {
     type IStep,
     type IVertex,
     type IView,
+    isReferenceGeometryNode,
     LENGTH_UNITS,
     MultistepCommand,
     type ParameterValue,
@@ -429,6 +430,9 @@ export class ExtrudeEndTargetStep implements IStep {
                 round,
                 {
                     shapeType: isFace ? ShapeTypes.face : ShapeTypes.vertex,
+                    nodeFilter: {
+                        allow: (node) => !isReferenceGeometryNode(node),
+                    },
                     multi: false,
                     // The click only aims: the target is a parameter of an extrude whose
                     // depth/offset may still change, so the bar's confirm (or Enter) ends
@@ -1154,7 +1158,15 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
             };
             const faces = ExtrudeFeatureCommand.previewFaces(state, owned);
             if (faces === undefined) return undefined;
-            const vecsOf = this.sweepVectorsOf(state.node, state.normal, depth.value);
+            // A sketch's profiles share its plane, so one depth serves them all. A body's
+            // picked faces can lie on different planes and the feature measures the up-to
+            // reach from EACH face's own plane (see `extrudeFromSourceFaces`); the preview
+            // must do the same or it draws a prism the commit will not build.
+            const vecsOf =
+                node instanceof SketchNode
+                    ? this.sweepVectorsOf(node, natural, depth.value)
+                    : this.upToFaceVectors(faces, world, startOffset);
+            if (vecsOf === undefined) return undefined;
             const offsetOf = this.offsetVectorOf(state.node, state.normal);
             const built = ExtrudeFeatureCommand.buildPrisms(faces, vecsOf, offsetOf, this.draftAngleValue);
             if (!built.isOk) return undefined;
@@ -1170,6 +1182,23 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
         } finally {
             owned.forEach((x) => x.dispose());
         }
+    }
+
+    /** Per-face up-to vectors, measured from each face's own plane like the rebuild does. */
+    private upToFaceVectors(
+        faces: readonly IFace[],
+        target: IShape,
+        startOffset: number,
+    ): ((face: IFace) => XYZ[]) | undefined {
+        const vectors = new Map<IFace, XYZ[]>();
+        for (const face of faces) {
+            const [point, normal] = face.normal(0, 0);
+            const dir = this.oppositeDirection ? normal.multiply(-1) : normal;
+            const depth = upToTargetDepth(target, point, normal, dir, startOffset, this.endOffsetValue);
+            if (!depth.isOk || depth.value <= Precision.Float) return undefined;
+            vectors.set(face, [dir.multiply(depth.value)]);
+        }
+        return (face) => vectors.get(face) ?? [];
     }
 
     /**

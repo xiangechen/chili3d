@@ -48,6 +48,15 @@ export abstract class ShapeNode extends GeometryNode {
         return "icon-box";
     }
 
+    /**
+     * Whether this node is reference geometry — a datum plane, not a solid or a sketch a
+     * modeling operation may consume. Generic shape pickers filter these out; the nodes
+     * that are one override it (see the parametric `PlaneNode`).
+     */
+    get isReferenceGeometry(): boolean {
+        return false;
+    }
+
     protected setShape(shape: Result<IShape>) {
         if (this._shape.isOk && shape.isOk && this._shape.value.isEqual(shape.value)) {
             return;

@@ -53,6 +53,17 @@ describe("selectedWholeShapeNodes", () => {
         expect(selectedWholeShapeNodes(datas)).toEqual([]);
     });
 
+    test("should exclude reference geometry even when its whole shape was picked", () => {
+        const cmd = new ExtrudeCommand();
+        const { doc } = wireCommand(cmd);
+        const node = shapeNode(doc, ShapeTypes.face);
+        Object.defineProperty(node, "isReferenceGeometry", { value: true });
+        const datas = [shapeStepResult([{ shape: { shapeType: ShapeTypes.face }, node, point: XYZ.zero }])];
+
+        // Consuming a datum plane here would delete the plane and every reference to it.
+        expect(selectedWholeShapeNodes(datas)).toEqual([]);
+    });
+
     test("should deduplicate nodes selected in multiple steps", () => {
         const cmd = new ExtrudeCommand();
         const { doc } = wireCommand(cmd);

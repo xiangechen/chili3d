@@ -13,6 +13,7 @@ import {
     type IEdge,
     type INode,
     type IStep,
+    isReferenceGeometryNode,
     isSameShapeData,
     LENGTH_UNITS,
     MultistepCommand,
@@ -302,7 +303,7 @@ function worldLineOf(data: VisualShapeData): PatternLine | undefined {
 /** A picked edge as a live reference, carrying the source's tracked id when it has one. */
 function lineSourceOf(data: VisualShapeData): PatternLineSource | undefined {
     const node = data.owner.node;
-    if (!(node instanceof ShapeNode)) return undefined;
+    if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return undefined;
     const edge = data.shape as unknown as IEdge;
     if (!isBodyTrackingNode(node)) return { nodeId: node.id, edge: captureEdgeRef(edge) };
     const edgeId = node.edgeIdAt(data.indexes[0]);
@@ -507,7 +508,7 @@ export class LinearPatternFeatureCommand extends PatternFeatureCommand {
             const shapes = await this.document.picker.pickShape("prompt.select.direction2Edge", controller, {
                 shapeType: ShapeTypes.edge,
                 shapeFilter: new LineEdgeFilter(),
-                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
                 highlightState: VisualStates.edgeHighlight,
                 selectedState: VisualStates.edgeSelected,
             });

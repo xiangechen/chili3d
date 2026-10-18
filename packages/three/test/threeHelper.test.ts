@@ -274,6 +274,22 @@ describe("ThreeHelper", () => {
             expect(threeMat.normalScale.y).toBe(3);
         });
 
+        test("carries the overlay depth flags onto the three material", () => {
+            const doc = new TestDocument();
+            const coreMaterial = new Material({ document: doc, name: "overlay", color: 0xffffff });
+            coreMaterial.depthWrite = false;
+            coreMaterial.polygonOffset = true;
+
+            const threeMat = ThreeHelper.parseToThreeMaterial(coreMaterial);
+
+            // Co-planar overlay surfaces (a datum plane over a sketch) need both: no
+            // depth write, and a depth bias so they do not flicker against the sketch.
+            expect(threeMat.depthWrite).toBe(false);
+            expect(threeMat.polygonOffset).toBe(true);
+            expect(threeMat.polygonOffsetFactor).toBe(-2);
+            expect(threeMat.polygonOffsetUnits).toBe(-2);
+        });
+
         test("treats an opaque material as opaque", () => {
             const doc = new TestDocument();
             const coreMaterial = new Material({ document: doc, name: "opaque", color: 0xff0000 });

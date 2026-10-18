@@ -2,7 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import { BoundingBox, type IShape, type Plane, Result, ShapeTypes } from "@chili3d/core";
-import { type FeatureContext, type FeatureHandler, registerFeature, type SplitFeatureData } from "./feature";
+import {
+    type FeatureContext,
+    type FeatureHandler,
+    planeRefNodeId,
+    registerFeature,
+    type SplitFeatureData,
+} from "./feature";
 import { resolveNeutralPlane } from "./neutralPlane";
 
 /**
@@ -23,7 +29,10 @@ const splitHandler: FeatureHandler<SplitFeatureData> = {
     display: "command.feature.split",
     icon: "icon-split",
 
-    nodeIds: (feature) => (feature.tool.kind === "face" ? [feature.tool.ref.nodeId] : []),
+    nodeIds: (feature) => {
+        const nodeId = planeRefNodeId(feature.tool);
+        return nodeId === undefined ? [] : [nodeId];
+    },
 
     parameters: (feature) => [
         {

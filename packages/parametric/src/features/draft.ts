@@ -17,6 +17,7 @@ import {
     type FeatureContext,
     type FeatureHandler,
     type NeutralPlaneRef,
+    planeRefNodeId,
     registerFeature,
 } from "./feature";
 import { resolveNeutralPlane } from "./neutralPlane";
@@ -42,7 +43,10 @@ const draftHandler: FeatureHandler<DraftFeatureData> = {
     icon: "icon-draft",
     reselectable: true,
 
-    nodeIds: (feature) => (feature.neutralPlane.kind === "face" ? [feature.neutralPlane.ref.nodeId] : []),
+    nodeIds: (feature) => {
+        const nodeId = planeRefNodeId(feature.neutralPlane);
+        return nodeId === undefined ? [] : [nodeId];
+    },
 
     parameters: (feature) => [
         { key: "angle", display: "common.angle", value: feature.angle, unit: ANGLE_UNITS },

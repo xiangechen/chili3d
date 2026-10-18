@@ -48,6 +48,13 @@ export class Delete extends MultistepCommand {
     }
 
     protected override getSteps(): IStep[] {
-        return [new GetOrSelectNodeStep("prompt.select.models", { multiple: true })];
+        return [
+            // Deleting a datum plane is how a user removes one; its users fall back to
+            // their last plane and show a warning rather than blocking the delete.
+            new GetOrSelectNodeStep("prompt.select.models", {
+                multiple: true,
+                allowReferenceGeometry: true,
+            }),
+        ];
     }
 }

@@ -392,6 +392,9 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     /** Screen-space hit test against the arrow shaft segment. */
     protected isOverArrow(view: IView, event: PointerEvent): boolean {
         const { start, end } = this.arrowSegment();
+        // A collapsed arrow (nothing picked yet) has no handle: a degenerate screen segment
+        // would otherwise make the world origin hoverable.
+        if (start.distanceTo(end) < Precision.Float) return false;
         const a = view.worldToScreen(start);
         const b = view.worldToScreen(end);
         return distanceToSegment(event.offsetX, event.offsetY, a, b) <= ARROW_HOVER_TOLERANCE;

@@ -71,10 +71,10 @@ export class AlignToPlane implements ICommand {
         if (!view) return;
         view.document.selection.clearSelection();
         const controller = new AsyncController();
-        const data = await new SelectShapeStep(ShapeTypes.face, "prompt.select.faces").execute(
-            view.document,
-            controller,
-        );
+        // A datum plane is a legitimate work-plane target, unlike in modeling pickers.
+        const data = await new SelectShapeStep(ShapeTypes.face, "prompt.select.faces", {
+            allowReferenceGeometry: true,
+        }).execute(view.document, controller);
         controller.dispose();
         if (!data || data.shapes.length === 0) return;
         view.document.selection.clearSelection();

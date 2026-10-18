@@ -9,6 +9,7 @@ import {
     type EdgeMeshData,
     GeometryNode,
     isConsumedTool,
+    isReferenceGeometryNode,
     type Matrix4,
     MeshDataUtils,
     MeshNode,
@@ -47,12 +48,16 @@ export abstract class TransformedCommand extends MultistepCommand {
     };
 
     private async ensureSelectedModels() {
-        this.models = this.document.selection.getSelectedVisualNodes();
+        // Reference geometry (datum planes) is defined in world space and is not a
+        // placement of a body: moving it would only desynchronise its references.
+        const transformable = (node: VisualNode) => !isReferenceGeometryNode(node);
+        this.models = this.document.selection.getSelectedVisualNodes().filter(transformable);
         if (this.models.length > 0) return true;
 
         this.controller = new AsyncController();
         this.models = await this.document.picker.pickNode("prompt.select.models", this.controller, {
             multi: true,
+            nodeFilter: { allow: transformable },
         });
 
         if (this.models.length > 0) return true;

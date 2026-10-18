@@ -10,6 +10,7 @@ import {
     type IStep,
     type IView,
     type IVisualObject,
+    NOT_REFERENCE_GEOMETRY_FILTER,
     Plane,
     Precision,
     ShapeTypes,
@@ -377,7 +378,15 @@ export class ExtrudeDragHandler extends AxisDragHandler {
 
     /** Sketch profile faces, or planar faces of a parametric body (press-pull). */
     private detectProfileFace(view: IView, event: PointerEvent): VisualShapeData | undefined {
-        const faces = prioritizeSketchFaces(view.detectShapes(ShapeTypes.face, event.offsetX, event.offsetY));
+        const faces = prioritizeSketchFaces(
+            view.detectShapes(
+                ShapeTypes.face,
+                event.offsetX,
+                event.offsetY,
+                undefined,
+                NOT_REFERENCE_GEOMETRY_FILTER,
+            ),
+        );
         return faces.find(
             (x) =>
                 x.owner.node instanceof SketchNode ||

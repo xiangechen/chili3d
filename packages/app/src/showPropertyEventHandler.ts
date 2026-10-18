@@ -9,6 +9,7 @@ import {
     type INode,
     type IView,
     type Matrix4,
+    NOT_REFERENCE_GEOMETRY_FILTER,
     NodeSelectionHandler,
     ObjectSnap,
     Plane,
@@ -93,6 +94,8 @@ export class ShowPropertyEventHandler extends NodeSelectionHandler {
                 (ShapeTypes.edge | ShapeTypes.vertex) as ShapeType,
                 event.offsetX,
                 event.offsetY,
+                undefined,
+                NOT_REFERENCE_GEOMETRY_FILTER,
             );
             const snaped = drag.objectSnap.snap({ view, mx: event.offsetX, my: event.offsetY, shapes });
             drag.objectSnap.handleSnaped?.(this.document, snaped);

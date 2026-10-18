@@ -9,6 +9,7 @@ import {
     type I18nKeys,
     type IEdge,
     type INode,
+    isReferenceGeometryNode,
     type Plane,
     PubSub,
     property,
@@ -57,7 +58,7 @@ function pickedEdgeTrackedId(owner: INode, index: number): string | undefined {
  */
 function anchorBodyTimeline(editor: SketchEditor, owner: INode): void {
     if (owner instanceof ParametricBodyNode) {
-        editor.solver.recordRefPosition(owner.id, owner.rollbackIndex ?? owner.features.length);
+        editor.solver.recordRefPosition(owner.id, owner.evaluationStopIndex());
     }
 }
 
@@ -120,7 +121,9 @@ export class ProjectSketchEdges extends SketchConstraintCommand {
             shapeType: ShapeTypes.edge,
             multi: true,
             // projecting the sketch's own edges is pointless
-            nodeFilter: { allow: (node) => node !== editor.node },
+            nodeFilter: {
+                allow: (node) => node !== editor.node && !isReferenceGeometryNode(node),
+            },
         });
         this.controller.dispose();
         document.selection.clearSelection();

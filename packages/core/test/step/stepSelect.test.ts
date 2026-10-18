@@ -168,8 +168,37 @@ describe("SelectShapeStep", () => {
         expect(capturedOptions).toBeDefined();
         expect(capturedOptions.shapeType).toBe(ShapeTypes.edge);
         expect(capturedOptions.shapeFilter).toBe(shapeFilter);
-        expect(capturedOptions.nodeFilter).toBe(nodeFilter);
+        // The caller's filter is composed with the reference-geometry gate, not substituted.
+        expect(capturedOptions.nodeFilter).not.toBe(nodeFilter);
+        expect(capturedOptions.nodeFilter.allow({ isReferenceGeometry: true })).toBe(false);
+        expect(capturedOptions.nodeFilter.allow({})).toBe(true);
         controller.dispose();
+    });
+
+    test("should exclude reference geometry by default, and let a tool opt back in", async () => {
+        let capturedOptions: any;
+        const picker = createMockPicker({ pickShapeResult: [] });
+        picker.pickShape = (_prompt, _ctrl, options) => {
+            capturedOptions = options;
+            return Promise.resolve([]);
+        };
+        const doc = new TestDocument({
+            picker,
+            selection: createMockSelection(),
+            application: { activeView: {} as IView } as never,
+        });
+
+        await new SelectShapeStep(ShapeTypes.face, tip() as never).execute(doc, new AsyncController());
+
+        expect(capturedOptions.nodeFilter.allow({ isReferenceGeometry: true })).toBe(false);
+        expect(capturedOptions.nodeFilter.allow({})).toBe(true);
+
+        // A tool that genuinely targets a datum plane (Align to Plane) opts out.
+        await new SelectShapeStep(ShapeTypes.face, tip() as never, {
+            allowReferenceGeometry: true,
+        }).execute(doc, new AsyncController());
+
+        expect(capturedOptions.nodeFilter).toBeUndefined();
     });
 });
 

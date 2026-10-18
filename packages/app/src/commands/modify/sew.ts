@@ -5,6 +5,7 @@ import {
     command,
     EditableShapeNode,
     type IStep,
+    isReferenceGeometryNode,
     MultistepCommand,
     PubSub,
     SelectShapeStep,
@@ -47,7 +48,7 @@ export class Sew extends MultistepCommand {
     protected override getSteps(): IStep[] {
         return [
             new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
-                nodeFilter: { allow: (node) => node instanceof ShapeNode },
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
                 selectedState: VisualStates.faceTransparent,
                 multiple: true,
             }),

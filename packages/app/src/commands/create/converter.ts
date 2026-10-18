@@ -14,6 +14,7 @@ import {
     type IShape,
     type IShapeFilter,
     type IShell,
+    isReferenceGeometryNode,
     PubSub,
     Result,
     SelectNodeStep,
@@ -75,7 +76,7 @@ abstract class ConvertCommand extends CancelableCommand {
             .getSelectedNodes()
             .map((x) => x as ShapeNode)
             .filter((x) => {
-                if (x === undefined) return false;
+                if (x === undefined || isReferenceGeometryNode(x)) return false;
                 const shape = x.shape.value;
                 if (shape === undefined) return false;
                 if (filter !== undefined && !filter.allow(shape, x.transform)) return false;

@@ -6,6 +6,7 @@ import type { IDocument } from "../../document";
 import { type AsyncController, type MessageType, Precision, PubSub, Result } from "../../foundation";
 import type { I18nKeys } from "../../i18n";
 import type { XYZ } from "../../math";
+import { NOT_REFERENCE_GEOMETRY_FILTER } from "../../selectionFilter";
 import { MeshDataUtils, type ShapeType, ShapeTypes } from "../../shape";
 import { ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IEventHandler, type IView, type MeshOption, screenDistance } from "../../visual";
@@ -160,7 +161,13 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
     }
 
     private detectShapes(shapeType: ShapeType, view: IView, event: MouseEvent): MouseAndDetected {
-        const shapes = view.detectShapes(shapeType, event.offsetX, event.offsetY, this.data.filter);
+        const shapes = view.detectShapes(
+            shapeType,
+            event.offsetX,
+            event.offsetY,
+            this.data.filter,
+            NOT_REFERENCE_GEOMETRY_FILTER,
+        );
         return { shapes, view, mx: event.offsetX, my: event.offsetY };
     }
 

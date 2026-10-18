@@ -4,6 +4,7 @@
 import {
     type GeometryNode,
     type INode,
+    isReferenceGeometryNode,
     MultistepCommand,
     property,
     ShapeNode,
@@ -23,6 +24,10 @@ export function selectedWholeShapeNodes(stepDatas: SnapResult[]): INode[] {
             const node = shapeData.owner.node;
             if (
                 node instanceof ShapeNode &&
+                // A create command consumes its profile; reference geometry is never a
+                // profile, and deleting a datum plane here would also delete what other
+                // sketches/features reference.
+                !isReferenceGeometryNode(node) &&
                 node.shape.isOk &&
                 node.shape.value.shapeType === shapeData.shape.shapeType
             ) {

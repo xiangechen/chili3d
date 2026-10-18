@@ -78,6 +78,7 @@ import {
 } from "./features/feature";
 import type { ProfileRef } from "./features/profileRef";
 import { syncNodeWatches } from "./nodeWatch";
+import { isPlaneNode } from "./plane/planeNodeContract";
 import { danglingProfileRefs, SketchNode } from "./sketch/sketchNode";
 import { ensureVariableSync } from "./variableSync";
 
@@ -222,6 +223,12 @@ export class ParametricBodyNode
 
     /** Referenced nodes (sketches) currently watched for shape changes, by id. */
     private readonly _watched = new Map<string, INode>();
+    /**
+     * Watched datum planes, kept apart from `_watched`: their display rectangle's `shape`
+     * changes with the sketches bound to them and is NOT a change to the plane. Reacting
+     * to it would rebuild every body that uses the plane as a neutral/mirror/cut plane.
+     */
+    private readonly _watchedPlanes = new Map<string, INode>();
     private readonly _featureErrors = new Map<string, string>();
     /** Non-fatal conditions surfaced on the feature row (e.g. a sketch's dangling external refs). */
     private readonly _featureWarnings = new Map<string, string>();
@@ -309,7 +316,18 @@ export class ParametricBodyNode
      * features still count toward the index — the truncation is by list position.
      */
     private evaluationStop(featureCount: number): number {
-        return Math.min(this._rollbackIndex ?? featureCount, this.rollbackBarIndex ?? featureCount);
+        // The public getter, not the field: a reselect preview overrides it (and tests
+        // shadow it) and both the replay and the ref anchors must follow that position.
+        return Math.min(this.rollbackIndex ?? featureCount, this.rollbackBarIndex ?? featureCount);
+    }
+
+    /**
+     * The feature-list index the chain currently evaluates to — the timeline position a
+     * reference captured now belongs to. A reference taken while the persisted rollback
+     * bar hides later features must anchor there, not at the full chain.
+     */
+    evaluationStopIndex(): number {
+        return this.evaluationStop(this.features.length);
     }
 
     /**
@@ -969,9 +987,9 @@ export class ParametricBodyNode
     }
 
     private hasNewReferences(): boolean {
-        const before = this._watched.size;
+        const before = this._watched.size + this._watchedPlanes.size;
         this.syncWatchedNodes();
-        return this._watched.size > before;
+        return this._watched.size + this._watchedPlanes.size > before;
     }
 
     protected generateShape(): Result<IShape> {
@@ -1531,7 +1549,26 @@ export class ParametricBodyNode
                 // sourced on the body's own face) would re-evaluate on every rebuild.
                 .filter((id) => id !== this.id),
         );
-        syncNodeWatches(this.document, this._watched, wanted, this.handleWatchedNodeChanged);
+        // Datum planes are watched for their PLANE, not their display rectangle (see
+        // `_watchedPlanes`).
+        const planes = new Set<string>();
+        for (const id of wanted) {
+            // Already-classified ids need no tree lookup; only resolve the new ones.
+            if (this._watchedPlanes.has(id)) {
+                planes.add(id);
+                continue;
+            }
+            if (this._watched.has(id)) continue;
+            const node = this.document.modelManager.findNode((candidate) => candidate.id === id);
+            if (isPlaneNode(node)) planes.add(id);
+        }
+        syncNodeWatches(
+            this.document,
+            this._watched,
+            new Set([...wanted].filter((id) => !planes.has(id))),
+            this.handleWatchedNodeChanged,
+        );
+        syncNodeWatches(this.document, this._watchedPlanes, planes, this.handlePlaneSourceChanged);
     }
 
     // The referenced node assigns its new shape before notifying (setProperty order),
@@ -1542,6 +1579,16 @@ export class ParametricBodyNode
     // of toasting per change.
     private readonly handleWatchedNodeChanged = (property: string) => {
         if (property !== "shape" && property !== "transform") return;
+        this.rebuildFromUpstream();
+    };
+
+    /**
+     * A watched datum plane changed. Only a real plane change matters: `plane` is emitted
+     * by `PlaneNode` when its definition resolves to a different plane, and `transform` is
+     * kept for consistency with other nodes. Its display rectangle's `shape` is ignored.
+     */
+    private readonly handlePlaneSourceChanged = (property: string) => {
+        if (property !== "plane" && property !== "transform") return;
         this.rebuildFromUpstream();
     };
 
@@ -1601,6 +1648,10 @@ export class ParametricBodyNode
             if (isPropertyChanged(node)) node.removePropertyChanged(this.handleWatchedNodeChanged);
         }
         this._watched.clear();
+        for (const node of this._watchedPlanes.values()) {
+            if (isPropertyChanged(node)) node.removePropertyChanged(this.handlePlaneSourceChanged);
+        }
+        this._watchedPlanes.clear();
         this._children.dispose();
         this._timeline.dispose(this.currentShape());
         super.disposeInternal();

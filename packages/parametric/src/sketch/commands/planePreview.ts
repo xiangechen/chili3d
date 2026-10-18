@@ -61,10 +61,24 @@ export function datumQuad(plane: Plane, size: number = DATUM_SIZE): FaceMeshData
  * and with it the drag arrow, which is what the user then has to reach.
  */
 export function datumQuadAt(plane: Plane, center: XYZ, size: number = DATUM_SIZE): FaceMeshData {
+    return quadAt(plane, center, size, size);
+}
+
+/**
+ * The same double-sided quad with independent width and height — a datum plane's display
+ * rectangle follows a bound sketch's aspect ratio, and its pickable quad must match it.
+ */
+export function quadAt(plane: Plane, center: XYZ, width: number, height: number): FaceMeshData {
     const { xvec, yvec, normal } = plane;
-    const half = size / 2;
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
     const corner = (u: number, v: number) => center.add(xvec.multiply(u)).add(yvec.multiply(v));
-    const corners = [corner(-half, -half), corner(half, -half), corner(half, half), corner(-half, half)];
+    const corners = [
+        corner(-halfWidth, -halfHeight),
+        corner(halfWidth, -halfHeight),
+        corner(halfWidth, halfHeight),
+        corner(-halfWidth, halfHeight),
+    ];
     return {
         position: new Float32Array(corners.flatMap((c) => [c.x, c.y, c.z])),
         index: new Uint32Array([0, 1, 2, 0, 2, 3, 2, 1, 0, 3, 2, 0]),

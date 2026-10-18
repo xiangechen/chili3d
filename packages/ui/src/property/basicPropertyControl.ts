@@ -24,6 +24,10 @@ export function basicPropertyControl(document: IDocument, objs: any[], prop: Pro
     }
 
     const value = objs[0][prop.name];
+    // A property whose getter returns undefined does not apply to this object (e.g. a
+    // datum plane's Distance row on a three-point definition): omit the row silently.
+    if (value === undefined) return "";
+
     if (["object", "string", "number"].includes(typeof value)) {
         return new InputProperty(document, objs, prop);
     }

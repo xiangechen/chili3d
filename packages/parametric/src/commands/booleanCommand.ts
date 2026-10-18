@@ -7,6 +7,7 @@ import {
     Id,
     type INode,
     type IStep,
+    isReferenceGeometryNode,
     MultistepCommand,
     ShapeNode,
     Transaction,
@@ -31,7 +32,9 @@ abstract class BooleanFeatureCommand extends MultistepCommand {
                 multiple: true,
                 filter: {
                     allow: (node: INode) =>
-                        node instanceof ShapeNode && node !== this.stepDatas[0].nodes?.[0],
+                        node instanceof ShapeNode &&
+                        !isReferenceGeometryNode(node) &&
+                        node !== this.stepDatas[0].nodes?.[0],
                 },
             }),
         ];

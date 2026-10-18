@@ -23,6 +23,7 @@ import {
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
+import { PlaneNode } from "../../src/plane/planeNode";
 import { PlanePickHandler, type PlanePickResult } from "../../src/sketch/commands/planePickHandler";
 import { CreateSketch, EnterSketch } from "../../src/sketch/commands/sketchCommands";
 import { SketchPlaneOffsetHandler } from "../../src/sketch/commands/sketchPlaneOffsetStep";
@@ -138,8 +139,45 @@ describe("PlanePickHandler", () => {
 
         click(handler, view);
 
-        expect(handler.result).toEqual({ kind: "datum", plane: Plane.XY, name: "XY" });
+        expect(handler.result).toEqual({
+            kind: "datum",
+            plane: Plane.XY,
+            name: "XY",
+            point: new XYZ(50, 50, 0),
+        });
         expect(isCompleted()).toBe(true);
+    });
+
+    test("clicking a user-created plane's quad resolves with its node", () => {
+        setupShapeFactoryMock({
+            rect: () => ({ isOk: true, value: { isEqual: () => false, dispose: () => {} } }),
+        });
+        const document = new TestDocument();
+        document.visual = createMockVisualWithDocument(document) as any;
+        const node = new PlaneNode({
+            document,
+            definition: { kind: "offset", source: { kind: "datum", name: "XY" }, distance: 30 },
+        });
+        document.modelManager.addNode(node);
+        const controller = new AsyncController();
+        const handler = new PlanePickHandler(document, controller);
+        const view = createMockView({
+            document,
+            rayAt: () =>
+                new Ray({
+                    point: new XYZ({ x: 10, y: 10, z: 100 }),
+                    direction: new XYZ({ x: 0, y: 0, z: -1 }),
+                }),
+        });
+
+        click(handler, view);
+
+        expect(handler.result?.kind).toBe("planeNode");
+        const picked = handler.result as Extract<PlanePickResult, { kind: "planeNode" }>;
+        expect(picked.nodeId).toBe(node.id);
+        // The clicked point travels with the pick, so the offset preview lands there.
+        expect(picked.point?.isEqualTo(new XYZ(10, 10, 30))).toBe(true);
+        expect(controller.result?.status).toBe("success");
     });
 
     test("the ZX quad sits in the positive quadrant and resolves to the Z-up plane", () => {
@@ -153,7 +191,12 @@ describe("PlanePickHandler", () => {
 
         click(handler, view);
 
-        expect(handler.result).toEqual({ kind: "datum", plane: Plane.ZX, name: "ZX" });
+        expect(handler.result).toEqual({
+            kind: "datum",
+            plane: Plane.ZX,
+            name: "ZX",
+            point: new XYZ(100, 0, 100),
+        });
         expect(isCompleted()).toBe(true);
     });
 
@@ -206,7 +249,12 @@ describe("PlanePickHandler", () => {
 
         click(handler, view);
 
-        expect(handler.result).toEqual({ kind: "datum", plane: Plane.XY, name: "XY" });
+        expect(handler.result).toEqual({
+            kind: "datum",
+            plane: Plane.XY,
+            name: "XY",
+            point: new XYZ(50, 50, 0),
+        });
         expect(isCompleted()).toBe(true);
     });
 
