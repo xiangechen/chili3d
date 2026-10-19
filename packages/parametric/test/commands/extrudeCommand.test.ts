@@ -3102,3 +3102,176 @@ describe("ExtrudeFeatureCommand opposite direction", () => {
         expect((cmd as any).getDragData().normal.z).toBe(z);
     });
 });
+
+describe("ExtrudeFeatureCommand push-pull operation", () => {
+    /** A sketch profile at z = 100, and the drag frame the handler would report. */
+    function setup() {
+        const app = createMockApplication();
+        const doc = new TestDocument({ application: app });
+        (app as any).activeView = { document: doc };
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        const face = {
+            shape: {
+                shapeType: ShapeTypes.face,
+                boundingBox: () => new BoundingBox({ x: -5, y: -5, z: 0 }, { x: 5, y: 5, z: 0 }),
+            },
+            owner: { node: sketch },
+            transform: Matrix4.fromTranslation(0, 0, 100),
+            indexes: [0],
+            point: new XYZ({ x: 0, y: 0, z: 100 }),
+        };
+        return { app, doc, sketch, face };
+    }
+
+    function bodyAt(
+        doc: TestDocument,
+        inside: (point: any) => boolean,
+        box = new BoundingBox({ x: -5, y: -5, z: 50 }, { x: 5, y: 5, z: 100 }),
+    ) {
+        const body = new ParametricBodyNode({ document: doc, features: [] });
+        (body as any)._evaluated = true;
+        (body as any)._shape = Result.ok({
+            shapeType: ShapeTypes.solid,
+            isEqual: () => false,
+            boundingBox: () => box,
+            containsPoint: inside,
+            findSubShapes: () => [],
+            dispose: () => {},
+        });
+        doc.modelManager.addNode(body);
+        return body;
+    }
+
+    // The end at z = 140 sits INSIDE the box (the classification excludes the boundary), so the
+    // box early-out lets it through to `containsPoint`.
+    const upperBodyBox = () => new BoundingBox({ x: -5, y: -5, z: 130 }, { x: 5, y: 5, z: 170 });
+
+    function dragged(app: any, face: any) {
+        const cmd = new ExtrudeFeatureCommand();
+        (cmd as any)._application = app;
+        // The hand-off marker, not `pickSettled`: the whole-sketch entry leaves the drag running.
+        cmd.pressPull = true;
+        (cmd as any)._dragHandler = {
+            state: {
+                faces: [face],
+                anchor: face.point,
+                normal: XYZ.unitZ,
+                origin: face.point,
+                dist: 0,
+                startOffset: 0,
+                node: face.owner.node,
+            },
+            // The option setters push into an open drag.
+            refresh: () => {},
+            finishEarly: () => {},
+            setStartOffset: () => {},
+        };
+        return cmd;
+    }
+
+    test("a drag ending inside a body cuts", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z <= 70);
+        const cmd = dragged(app, face);
+
+        // The anchor is at z = 100; a -40 drag ends at z = 60, inside the body.
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.cut");
+    });
+
+    test("a drag ending outside, whose prism still meets a body, joins", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, () => false);
+        const cmd = dragged(app, face);
+
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.join");
+    });
+
+    test("a drag that meets nothing is a body of its own", () => {
+        const { app, face } = setup();
+        const cmd = dragged(app, face);
+
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.new");
+    });
+
+    test("an operation the user set is not talked over", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z <= 70);
+        const cmd = dragged(app, face);
+        cmd.operation = "option.command.operation.intersect";
+
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.intersect");
+    });
+
+    test("a condition that measures its own depth is not decided by the drag value", () => {
+        const { app, doc, face } = setup();
+        // A blind -40 drag would cut here; through-all measures its own reach instead.
+        bodyAt(doc, (point) => point.z <= 70);
+        const cmd = dragged(app, face);
+        cmd.endCondition = "feature.extrude.endCondition.throughAll";
+
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.new");
+    });
+
+    test("a start offset or draft moves the prism the reading was built from", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z <= 70);
+        const cmd = dragged(app, face);
+        cmd.startOffset = 5;
+
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.new");
+    });
+
+    test("only Press Pull's hand-off decides — a plain Extrude keeps its own operation", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z <= 70);
+        const cmd = dragged(app, face);
+        cmd.pressPull = false;
+
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.new");
+    });
+
+    test("the opposite-direction checkbox is part of the committed sweep", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z >= 140, upperBodyBox());
+        const cmd = dragged(app, face);
+
+        // Without the checkbox the -40 drag goes down, away from the body.
+        (cmd as any).syncPushedSketchOperation(-40);
+        expect(cmd.operation).toBe("option.command.operation.new");
+
+        // Checked, the commit sweeps up instead — and that is where the body is.
+        cmd.oppositeDirection = true;
+        (cmd as any).syncPushedSketchOperation(-40);
+        expect(cmd.operation).toBe("option.command.operation.cut");
+    });
+
+    test("a symmetric sweep reads both ends", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z >= 140, upperBodyBox());
+        const cmd = dragged(app, face);
+        cmd.symmetric = true;
+
+        // The drag goes down; symmetric lays the other half up into the body.
+        (cmd as any).syncPushedSketchOperation(-40);
+
+        expect(cmd.operation).toBe("option.command.operation.cut");
+    });
+});

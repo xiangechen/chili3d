@@ -5,20 +5,40 @@ import {
     CancelableCommand,
     CommandStore,
     command,
+    type IDocument,
     type IStep,
     LENGTH_UNITS,
     MultistepCommand,
     type ParameterValue,
+    type Plane,
     PubSub,
     property,
     ShapeTypeUtils,
     type VisualShapeData,
 } from "@chili3d/core";
 import { SketchNode } from "../sketch/sketchNode";
+import { END_CONDITION_BLIND } from "./extrudeCommand";
 import { cornerDragOf } from "./modifyCornerCommand";
-import type { PickSettledCommand } from "./pickSettled";
+import { markPressPullHandoff, type PickSettledCommand } from "./pickSettled";
 import { type PressPullHandler, PressPullStep } from "./pressPullStep";
 import { SELECTED_FACE_STATE } from "./selectedFaceState";
+import { SKETCH_OPERATIONS, sketchPressPullOperation } from "./sketchPressPull";
+
+/**
+ * The options a sketch push-pull pins before Extrude runs. The gesture has already decided the
+ * direction and the reach; a value restored from Extrude's own LAST run would describe a
+ * different prism from the one this hand-off judged — a checked Opposite Direction or symmetric
+ * sweep flips/doubles the sweep, an up-to/through-all condition measures its own depth, and a
+ * start offset or draft moves the geometry the reading was made against.
+ */
+export const SKETCH_PUSH_OPTIONS = {
+    symmetric: false,
+    oppositeDirection: false,
+    endCondition: END_CONDITION_BLIND,
+    startOffset: 0,
+    endOffset: 0,
+    draftAngle: 0,
+};
 
 /** The command a Press Pull opens. It has no geometry and no feature of its own. */
 export type PressPullTarget =
@@ -38,6 +58,11 @@ interface PressPullOpening {
      */
     readonly field?: string;
     readonly value?: number;
+    /**
+     * Option values the opened command needs besides its size — how a sketch profile's drag
+     * decides the extrusion's boolean operation. Seeded together with `field`/`value`.
+     */
+    readonly seeds?: Record<string, unknown>;
     /**
      * Whether this gesture's pick and confirm stand for the target's own, for a target that speaks
      * that protocol (`PickSettledCommand`). Left UNDEFINED for one that does not — an edge's Fillet
@@ -61,8 +86,10 @@ interface PressPullOpening {
  * negative one (in) chamfers it.
  */
 function openingOf(
+    document: IDocument,
     picked: readonly VisualShapeData[],
     distance: number,
+    plane: Plane | undefined,
     sizeOf: (value: ParameterValue) => number | undefined,
 ): PressPullOpening | undefined {
     const first = picked[0];
@@ -72,8 +99,31 @@ function openingOf(
     if (ShapeTypeUtils.hasFace(type)) {
         if (first.owner.node instanceof SketchNode) {
             // The sketch's profile is what was dragged, so the distance IS the prism's depth — the
-            // command builds it rather than asking for the same drag a second time.
-            return { key: "feature.extrude", field: "depth", value: distance, settled: true };
+            // command builds it rather than asking for the same drag a second time. Where the drag
+            // ENDS then decides whether the prism is cut out of a body, joined into one, or a body
+            // of its own — see `sketchPressPullOperation`. With no plane there was no drag to read
+            // (a hand-off written by hand, as tests do), so the operation is left to Extrude.
+            //
+            // Extrude measures a sketch's depth along the SKETCH PLANE's normal, while this drag
+            // measures along the picked profile's own normal. Those agree unless the profile's
+            // wire winds the other way; flipping the sign here keeps the depth, the operation and
+            // the preview on the same axis rather than handing Extrude a direction it will not
+            // sweep in.
+            const normal = first.owner.node.plane.normal;
+            const depth = plane !== undefined && plane.normal.dot(normal) < 0 ? -distance : distance;
+            const operation =
+                plane === undefined
+                    ? undefined
+                    : SKETCH_OPERATIONS[
+                          sketchPressPullOperation(document, picked, plane.origin, normal, depth)
+                      ];
+            return {
+                key: "feature.extrude",
+                field: "depth",
+                value: depth,
+                settled: true,
+                seeds: { ...SKETCH_PUSH_OPTIONS, ...(operation === undefined ? {} : { operation }) },
+            };
         }
         return (
             cornerOpeningOf(first, distance, sizeOf) ?? {
@@ -184,13 +234,43 @@ export class PressPullCommand extends MultistepCommand {
 
     /** The hand-off `executeMainTask` starts, awaited by `executeAsync` (see both). */
     private opening: Promise<void> | undefined;
+    /**
+     * Whether this run's preselection hand-off was already made. A repeated run must not make it
+     * again: the command stays open for the next push, and a selection that somehow survived the
+     * target (or a host that answers the same nodes every time) would otherwise hand the same
+     * sketch to Extrude forever.
+     */
+    private selectionHandedOff = false;
+
+    protected override beforeExecute(): void {
+        super.beforeExecute();
+        this.selectionHandedOff = false;
+    }
+
+    /**
+     * Each repeated round starts after the target command has closed its own options panel —
+     * Press Pull's distance field went with it. Put this command's context back up, or the
+     * next push has no panel to type a distance into.
+     */
+    protected override onRestarting(): void {
+        super.onRestarting();
+        PubSub.default.pub("openCommandContext", this);
+    }
 
     protected override async executeAsync(): Promise<void> {
+        // Whether this round keeps the command open is decided below, by the hand-off it makes:
+        // a completed push asks for the next one, a cancelled target (or a pick nothing could be
+        // made of) ends the run. Reset first so a previous round's decision cannot carry over.
+        this.repeatOperation = false;
         // A selected sketch is an extrude, and Extrude reads its own profiles off the selection —
         // no pick of ours. Nothing else the app's selection holds is pushable (it holds nodes, not
         // faces or edges), so everything else goes through the pick below.
-        if (this.document.selection.getSelectedNodes().some((x) => x instanceof SketchNode)) {
-            await this.open("feature.extrude");
+        if (
+            !this.selectionHandedOff &&
+            this.document.selection.getSelectedNodes().some((x) => x instanceof SketchNode)
+        ) {
+            this.selectionHandedOff = true;
+            this.repeatOperation = await this.open("feature.extrude");
             return;
         }
         await super.executeAsync();
@@ -214,7 +294,7 @@ export class PressPullCommand extends MultistepCommand {
             PubSub.default.pub("showToast", "error.default:{0}", "Invalid distance");
             return;
         }
-        const opening = openingOf(picked, size.value, (value) => {
+        const opening = openingOf(this.document, picked, size.value, this.stepDatas[0]?.plane, (value) => {
             const resolved = this.resolveParameter(value, LENGTH_UNITS);
             return resolved.isOk ? resolved.value : undefined;
         });
@@ -226,7 +306,7 @@ export class PressPullCommand extends MultistepCommand {
         // point — so the WHOLE set goes back before the target runs, whose own step preselects
         // from it (they are all multi picks themselves).
         this.document.selection.setSelectedShapes(picked, SELECTED_FACE_STATE, false);
-        await this.open(opening);
+        this.repeatOperation = await this.open(opening);
     }
 
     /**
@@ -239,13 +319,21 @@ export class PressPullCommand extends MultistepCommand {
      *
      * `executingCommand` is handed to the target so the app's cancel paths (Escape, a view change)
      * reach what the user is actually looking at.
+     *
+     * Returns whether the push-pull should stay open for another round: false when the target was
+     * cancelled (the user's Escape ends the whole gesture, not just the dialog it cancelled) or
+     * when there was no target to run at all.
      */
-    private async open(target: PressPullTarget | PressPullOpening): Promise<void> {
+    private async open(target: PressPullTarget | PressPullOpening): Promise<boolean> {
         const opening = typeof target === "string" ? { key: target } : target;
         const ctor = CommandStore.getCommand(opening.key);
-        if (ctor === undefined) return;
+        if (ctor === undefined) return false;
+        const seeds: Record<string, unknown> = { ...opening.seeds };
         if (opening.field !== undefined && opening.value !== undefined) {
-            CancelableCommand.seedOptions(opening.key, { [opening.field]: opening.value });
+            seeds[opening.field] = opening.value;
+        }
+        if (Object.keys(seeds).length > 0) {
+            CancelableCommand.seedOptions(opening.key, seeds);
         }
         const opened = new ctor();
         // This pick and its confirm stand for the target's own (`PickSettledCommand`), unless the
@@ -257,11 +345,22 @@ export class PressPullCommand extends MultistepCommand {
         if (opening.settled !== undefined) {
             (opened as PickSettledCommand).pickSettled = opening.settled;
         }
+        // A target that runs its own size drag is still our push-pull: the end of that drag is
+        // what decides its boolean (see `PressPullHandoffCommand`).
+        markPressPullHandoff(opened);
+
+        let keepGoing = false;
         this.application.executingCommand = opened;
         try {
             await opened.execute(this.application);
+            // `checkCanceled` covers both ways a run ends early: the target's own `cancel()` and
+            // Escape/Enter cancelling its step controller. `isCanceled` would miss the latter.
+            keepGoing = !(opened instanceof CancelableCommand && opened.checkCanceled());
         } finally {
-            this.application.executingCommand = undefined;
+            // While the next round runs, THIS command is the work in flight again: the service's
+            // cancel paths (a view change, another command) look here, not at a finished target.
+            this.application.executingCommand = keepGoing ? this : undefined;
         }
+        return keepGoing;
     }
 }

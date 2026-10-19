@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    type AsyncController,
+    AsyncController,
     CancelableCommand,
     type IApplication,
     type ICancelableCommand,
@@ -297,6 +297,19 @@ describe("Command System", () => {
             const command = new TestCommand();
             await command.execute(mockApplication);
             expect(command["controller"]).toBeUndefined();
+        });
+
+        test("isCanceled must not include a controller-side cancellation", () => {
+            // The sketch chain tools rely on the difference: the panel's ✗ ends the tool, while
+            // Escape/Enter only cancels the step controller and ends the chain. The broader
+            // reading lives in `checkCanceled`, which those tools never call here.
+            const command = new TestCommand();
+            const controller = new AsyncController();
+            command["controller"] = controller;
+            controller.cancel();
+
+            expect(command.isCanceled).toBe(false);
+            expect(command.checkCanceled()).toBe(true);
         });
 
         test("should set isCanceled when cancel is called", async () => {

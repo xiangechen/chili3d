@@ -15,3 +15,26 @@
 export interface PickSettledCommand {
     pickSettled?: boolean;
 }
+
+/**
+ * The second half of the hand-off: the target was opened by Press Pull, so the drag it is
+ * given IS the push-pull and its end decides the boolean operation.
+ *
+ * `pickSettled` cannot carry this. It says the target's own pick was answered, which is true
+ * for a face drag — but false when a whole sketch was picked as a NODE, where the target still
+ * runs its own depth drag. That drag is the push-pull all the same, so the opener marks it
+ * separately rather than reusing a flag whose other meaning would also skip the drag.
+ */
+export interface PressPullHandoffCommand {
+    pressPull: boolean;
+}
+
+/** Whether `command` speaks the hand-off protocol. */
+export function isPressPullHandoff(command: object): command is PressPullHandoffCommand {
+    return "pressPull" in command;
+}
+
+/** Marks `command` as Press Pull's hand-off when it speaks the protocol. */
+export function markPressPullHandoff(command: object): void {
+    if (isPressPullHandoff(command)) command.pressPull = true;
+}

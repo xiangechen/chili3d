@@ -30,6 +30,12 @@ export abstract class CancelableCommand extends Observable implements ICancelabl
     }
 
     private _isCanceled: boolean = false;
+    /**
+     * Whether `cancel()` was called. Deliberately NOT "the current controller was cancelled":
+     * the sketch chain tools distinguish the two — the panel's ✗ ends the tool, while Escape/
+     * Enter only ends the chain (`sketchLine` and friends read this flag for exactly that).
+     * A caller that wants the broader reading asks `checkCanceled()`.
+     */
     get isCanceled() {
         return this._isCanceled;
     }
@@ -125,7 +131,13 @@ export abstract class CancelableCommand extends Observable implements ICancelabl
         });
     }
 
-    protected checkCanceled() {
+    /**
+     * Whether this run was ended by a cancel signal of either kind: `cancel()` (the panel's ✗,
+     * another command taking over) or a step's controller being cancelled (Escape/Enter in a
+     * pick). Public for a caller that opens a command and has to tell a completed run from a
+     * cancelled one — Press Pull's hand-off.
+     */
+    checkCanceled(): boolean {
         if (this.isCanceled) {
             return true;
         }

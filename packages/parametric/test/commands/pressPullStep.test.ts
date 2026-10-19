@@ -140,6 +140,26 @@ describe("PressPullHandler", () => {
         expect((made as any).arrowSegment().end.z).toBe(0);
     });
 
+    test("confirming with nothing picked ends the command instead of doing nothing", () => {
+        // The confirm button is shown regardless of the pick, so an inert click on it reads as
+        // broken. An empty confirm means "done", the way an empty Enter ends a command.
+        const { made } = handler(5);
+
+        (made as any).confirm();
+
+        expect(made.controller.result?.status).toBe("cancel");
+    });
+
+    test("confirming a real push hands the gesture over", () => {
+        const { made, target } = handler(4);
+        (made as any).picked.push({ shape: target.shape, owner: target.owner });
+        (made as any).grip = { origin: XYZ.zero, direction: XYZ.unitZ };
+
+        (made as any).confirm();
+
+        expect(made.controller.result?.status).toBe("success");
+    });
+
     test("what the hand moves is reported out, so the panel follows the arrow", () => {
         const { made, settled } = handler(2);
 
@@ -165,6 +185,24 @@ describe("PressPullHandler", () => {
         // Past zero the arrow points the way the drag is going, not the way the normal does.
         expect(back.end.z).toBeCloseTo(-14, 6);
         expect((made as any).canConfirm()).toBe(true);
+    });
+
+    test("the grip it stands on is published as a plane, so the command can read the direction", () => {
+        const { made } = handler(2);
+        const origin = new XYZ({ x: 1, y: 2, z: 3 });
+        (made as any).grip = { origin, direction: XYZ.unitZ };
+
+        const plane = made.gripPlane;
+
+        expect(plane).toBeDefined();
+        expect(plane!.origin).toBe(origin);
+        expect(plane!.normal.dot(XYZ.unitZ)).toBeCloseTo(1, 6);
+        // A horizontal axis keeps the frame well-defined when the normal is itself vertical.
+        expect(plane!.xvec.dot(XYZ.unitZ)).toBeCloseTo(0, 6);
+    });
+
+    test("no pick yet means no plane to hand over", () => {
+        expect(handler(2).made.gripPlane).toBeUndefined();
     });
 
     test("a pick of another kind, or on another body, is refused", () => {
@@ -232,6 +270,34 @@ describe("PressPullHandler", () => {
         const view = { detectShapes: () => [line, profile] } as any;
 
         expect((made as any).detect(view, { offsetX: 0, offsetY: 0 })).toBe(profile);
+    });
+
+    test("a sketch lying on a solid face is taken before the face it is drawn on", () => {
+        // Coplanar, so the raycast hits both and their order flips with the pointer. The sketch
+        // is what the user put there, so a pick that takes the first entry must take it.
+        const { made } = handler(2);
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        const sketchFace = {
+            shape: shapeOf(ShapeTypes.face, XYZ.unitZ),
+            owner: { node: sketch },
+            transform: Matrix4.identity(),
+            indexes: [0],
+            point: XYZ.zero,
+        };
+        const solidFace = {
+            shape: shapeOf(ShapeTypes.face, XYZ.unitZ),
+            owner: { node: body },
+            transform: Matrix4.identity(),
+            indexes: [0],
+            point: XYZ.zero,
+        };
+        const view = { detectShapes: () => [solidFace, sketchFace] } as any;
+
+        expect((made as any).detect(view, { offsetX: 0, offsetY: 0 })).toBe(sketchFace);
     });
 
     test("an empty pick admits anything", () => {

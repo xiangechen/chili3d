@@ -13,6 +13,7 @@ import {
     type IView,
     LENGTH_UNITS,
     NOT_REFERENCE_GEOMETRY_FILTER,
+    type Plane,
     Precision,
     PubSub,
     resolveUnitSpec,
@@ -29,9 +30,10 @@ import { ARROW_LENGTH, outwardNormalAt } from "./arrowHandle";
 import { AxisDragHandler, type DragPreview } from "./axisDragHandler";
 import { cornerPreview } from "./edgeCornerCommand";
 import { ExtrudeFeatureCommand } from "./extrudeCommand";
-import { planeOfPickedFace } from "./extrudeDragStep";
+import { dragPlaneOf, planeOfPickedFace } from "./extrudeDragStep";
 import { cornerDragOf, cornerRebuilt } from "./modifyCornerCommand";
 import { offsetPreview } from "./offsetFaceCommand";
+import { prioritizeSketchFaces } from "./profileFaceSort";
 import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 /** Where the arrow stands and which way it points, in WORLD coordinates. */
@@ -100,6 +102,16 @@ export class PressPullHandler extends AxisDragHandler {
         return this._value;
     }
 
+    /**
+     * The axis the arrow stands on, as a plane through the grip — the gesture's own frame,
+     * handed to the command with the distance so it can tell which way the drag went
+     * (a sketch profile's extrusion decides its boolean operation from it).
+     */
+    get gripPlane(): Plane | undefined {
+        const grip = this.grip;
+        return grip === undefined ? undefined : dragPlaneOf(grip.origin, grip.direction);
+    }
+
     /** Nothing picked yet means no axis to drag along; the arrow is drawn collapsed until then. */
     protected override axis(): { origin: XYZ; normal: XYZ } {
         const grip = this.grip;
@@ -136,6 +148,19 @@ export class PressPullHandler extends AxisDragHandler {
     /** A gesture with nothing picked, or with nothing to move, has nothing to hand over. */
     protected override canConfirm(): boolean {
         return this.picked.length > 0 && Math.abs(this._value) > Precision.Float;
+    }
+
+    /**
+     * Confirm with nothing picked ends the command. There is no result to hand over, and the
+     * confirm button is shown regardless of the pick — leaving it inert reads as a broken
+     * button; the empty Enter that finishes a command is the convention.
+     */
+    protected override confirm(): void {
+        if (this.picked.length === 0) {
+            this.controller.cancel();
+            return;
+        }
+        super.confirm();
     }
 
     /** What the picks would become at the current value, built by the command that will be opened. */
@@ -262,7 +287,10 @@ export class PressPullHandler extends AxisDragHandler {
             undefined,
             NOT_REFERENCE_GEOMETRY_FILTER,
         );
-        return detected.find((x) => PressPullHandler.pickable(x));
+        // A sketch drawn ON a solid face is coplanar with it, so the raycast hits both and the
+        // order they come back in flips with the smallest pointer movement. The sketch is what
+        // the user put there, so it is what the pointer takes (`prioritizeSketchFaces`).
+        return prioritizeSketchFaces(detected).find((x) => PressPullHandler.pickable(x));
     }
 
     /** Whether pushing `shape` means anything — see `detect` for what each kind of node offers. */
@@ -371,6 +399,7 @@ export class PressPullStep implements IStep {
             view: document.application.activeView!,
             type: "input",
             point: handler.pickedShapes[0]?.point,
+            plane: handler.gripPlane,
             distance: handler.value,
             shapes: [...picked],
             nodes: [picked[0].owner.node as any],

@@ -47,6 +47,16 @@ import style from "./commandContext.module.css";
 
 export class CommandContext extends HTMLElement implements IDisposable {
     private readonly propMap: Map<string | number | symbol, [Property, HTMLElement][]> = new Map();
+    /**
+     * The dropdowns, so a property the COMMAND writes (a drag deciding an operation) reaches
+     * them. `<option selected>` is fixed when the list is built; without this the control keeps
+     * showing the value the panel opened with while the command holds another one.
+     */
+    private readonly comboboxes: Array<{
+        property: string | number | symbol;
+        element: HTMLSelectElement;
+        combobox: Combobox<any>;
+    }> = [];
     private readonly container = div({ className: style.container });
     /** The parameter groups, in their own column so a second row wraps under the first one
      *  rather than under the command icon. */
@@ -193,6 +203,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
 
     dispose() {
         this.propMap.clear();
+        this.comboboxes.length = 0;
         this.disconnectedCallback();
     }
 
@@ -369,6 +380,7 @@ export class CommandContext extends HTMLElement implements IDisposable {
     }
 
     private readonly onPropertyChanged = (property: string | number | symbol) => {
+        this.syncCombobox(property);
         let visibilityChanged = false;
         const items = this.propMap.get(property);
         if (items !== undefined) {
@@ -514,20 +526,34 @@ export class CommandContext extends HTMLElement implements IDisposable {
                     : (combobox.converter?.convert(item).unchecked() ?? String(item)),
             });
         });
-
-        return div(
-            label({ textContent: new Localize(g.display) }),
-            select(
-                {
-                    className: style.select,
-                    onchange: (e) => {
-                        combobox.selectedIndex = (e.target as HTMLSelectElement).selectedIndex;
-                        (this.command as any)[g.name] = combobox.selectedItem;
-                    },
+        const element = select(
+            {
+                className: style.select,
+                onchange: (e) => {
+                    combobox.selectedIndex = (e.target as HTMLSelectElement).selectedIndex;
+                    (this.command as any)[g.name] = combobox.selectedItem;
                 },
-                ...options,
-            ),
+            },
+            ...options,
         );
+        this.comboboxes.push({ property: g.name, element, combobox });
+
+        return div(label({ textContent: new Localize(g.display) }), element);
+    }
+
+    /** Puts the property's current value back into a dropdown the command has written itself. */
+    private syncCombobox(property: string | number | symbol): void {
+        for (const entry of this.comboboxes) {
+            if (entry.property !== property) continue;
+            const index = entry.combobox.items.indexOf((this.command as any)[entry.property]);
+            if (index < 0) continue;
+            // Both the index and the option flags: the first is what the browser renders, the
+            // second is what the DOM reports after a rebuild, and they can disagree.
+            entry.element.querySelectorAll("option").forEach((option, at) => {
+                (option as HTMLOptionElement).selected = at === index;
+            });
+            entry.element.selectedIndex = index;
+        }
     }
 
     /**

@@ -63,11 +63,16 @@ import {
     type ExtrudePreview,
     planeOfPickedFace,
 } from "./extrudeDragStep";
-import type { PickSettledCommand } from "./pickSettled";
+import type { PickSettledCommand, PressPullHandoffCommand } from "./pickSettled";
 import { prioritizeSketchFaces } from "./profileFaceSort";
 import { SELECTED_FACE_STATE } from "./selectedFaceState";
+import {
+    SKETCH_OPERATIONS,
+    type SketchPressPullOperation,
+    sketchPressPullOperation,
+} from "./sketchPressPull";
 
-const OPERATION_NEW: I18nKeys = "option.command.operation.new";
+const OPERATION_NEW: I18nKeys = SKETCH_OPERATIONS.new;
 
 /**
  * Maps a form feature command's operation dropdown values to boolean operations; "New Body" has
@@ -82,7 +87,7 @@ export const FORM_FEATURE_OPERATIONS: Record<string, BooleanOperation> = {
 /** The red a cut's tool volume is previewed in — the material the commit takes away. */
 const CUT_TOOL_COLOR = 0xff4d4d;
 
-const END_CONDITION_BLIND: I18nKeys = "feature.extrude.endCondition.blind";
+export const END_CONDITION_BLIND: I18nKeys = "feature.extrude.endCondition.blind";
 const END_CONDITION_THROUGH_ALL: I18nKeys = "feature.extrude.endCondition.throughAll";
 const END_CONDITION_UP_TO_FACE: I18nKeys = "feature.extrude.endCondition.upToFace";
 const END_CONDITION_UP_TO_VERTEX: I18nKeys = "feature.extrude.endCondition.upToVertex";
@@ -488,7 +493,10 @@ export class ExtrudeEndTargetStep implements IStep {
 }
 
 @command({ key: "feature.extrude", icon: "icon-prism" })
-export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettledCommand {
+export class ExtrudeFeatureCommand
+    extends MultistepCommand
+    implements PickSettledCommand, PressPullHandoffCommand
+{
     /**
      * Set by the command that opens this one (Press Pull) when its own pick and confirm already
      * answered this command's. The profile step reads the selection by itself, but the DEPTH comes
@@ -496,6 +504,13 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
      * drag below is skipped for it. Without the flag that drag ran a second time for one gesture.
      */
     pickSettled = false;
+
+    /**
+     * Set by Press Pull for EVERY hand-off it makes, including the one that leaves the depth
+     * drag running (a sketch picked as a whole node). See `PressPullHandoffCommand`: that drag
+     * is still the push-pull, so its end decides the boolean.
+     */
+    pressPull = false;
 
     @property("option.command.operation", {
         combobox: Combobox.from([
@@ -509,6 +524,9 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
         return this.getPrivateValue("operation", OPERATION_NEW);
     }
     set operation(value: I18nKeys) {
+        // A value the USER picked (the panel) is a decision the sketch push-pull's automatic
+        // reading must not talk over; the automatic write itself says so with this flag.
+        if (!this._syncingOperation) this._operationGiven = true;
         this.setProperty("operation", value);
         this.showTargets = value !== OPERATION_NEW;
         this._dragHandler?.refresh();
@@ -618,6 +636,7 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
         // restores this command's own last run too, so a set left over from it must not
         // decide this one. Its restored DEPTH is no gesture the user made in this run.
         this._depthGiven = false;
+        this._operationGiven = false;
         this.targets = AUTO_TARGETS;
     }
 
@@ -786,6 +805,10 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
     private _syncingFromDrag = false;
     /** See `depthGiven`: the panel depth came from the user this run, not the option cache. */
     private _depthGiven = false;
+    /** The operation came from the user this run (the panel), not from Press Pull's reading. */
+    private _operationGiven = false;
+    /** Whether the automatic push-pull reading is the one writing `operation` just now. */
+    private _syncingOperation = false;
     /**
      * The target step is one instance per command: the end-condition setter must reach the
      * in-flight pick to make it re-read the condition, and only the running step can.
@@ -902,9 +925,65 @@ export class ExtrudeFeatureCommand extends MultistepCommand implements PickSettl
                 this._syncingFromDrag = false;
                 // A real gesture: the user pulled the arrows off zero at least once.
                 if (Math.abs(dist) > Precision.Float) this._depthGiven = true;
+                this.syncPushedSketchOperation(dist);
             },
         };
     };
+
+    /**
+     * Press Pull's other entry: a sketch picked as a whole NODE opens Extrude, and the depth
+     * drag that follows is still the push-pull — so where it ENDS decides the boolean (see
+     * `sketchPressPullOperation`): into a body cuts, out of one joins, meeting none is a body
+     * of its own. Only for that hand-off (`pressPull`, not `pickSettled` — the pick may still be
+     * the target's own), only on a sketch's profile, and only while the user has not set the
+     * operation themselves this run.
+     *
+     * The end is the drag anchor walked by the drag: the same point and axis the arrow is
+     * drawn from, so the answer matches what the preview shows.
+     */
+    private syncPushedSketchOperation(distance: number): void {
+        if (!this.pressPull || this._operationGiven) return;
+        // The reading assumes the drag value IS the committed reach from the sketch plane: blind,
+        // no start offset, no draft. A whole-sketch hand-off runs the drag under whatever
+        // condition the option cache restored, and through-all measures its own reach while a
+        // start offset and a draft move/shape the prism — none of which the drag value describes.
+        if (this.endCondition !== END_CONDITION_BLIND) return;
+        if (Math.abs(this.startOffsetValue) > Precision.Float) return;
+        if (Math.abs(this.draftAngleValue ?? 0) > Precision.Float) return;
+        const state = this._dragHandler?.state;
+        if (state === undefined || Math.abs(distance) < Precision.Float) return;
+        // The whole profile set, not `faces[0]`: the drag can add and remove profiles mid-gesture,
+        // and every one of them is part of the prism.
+        if (!(state.node instanceof SketchNode) || state.faces.length === 0) return;
+
+        // The commit sweeps the opposite-direction net sign, and a symmetric sweep runs both
+        // ways — the reading has to follow those, not the raw drag (see `sweepVectorsOf`).
+        const signed = this.oppositeDirection ? -distance : distance;
+        const ends = this.symmetric ? [signed, -signed] : [signed];
+        let operation: SketchPressPullOperation = "new";
+        for (const end of ends) {
+            const reading = sketchPressPullOperation(
+                this.document,
+                state.faces,
+                state.anchor,
+                state.normal,
+                end,
+            );
+            if (reading === "cut") {
+                operation = "cut";
+                break;
+            }
+            if (reading === "join") operation = "join";
+        }
+
+        if (this.operation === SKETCH_OPERATIONS[operation]) return;
+        this._syncingOperation = true;
+        try {
+            this.operation = SKETCH_OPERATIONS[operation];
+        } finally {
+            this._syncingOperation = false;
+        }
+    }
 
     /**
      * Meshes the extruded prism as solid faces plus outline edges, previewing the final

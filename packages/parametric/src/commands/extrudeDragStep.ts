@@ -82,7 +82,7 @@ export function planeOfPickedFace(face: VisualShapeData): Plane {
 }
 
 /** The plane the drag measures along, reported back to the command (any xvec perpendicular to the normal). */
-function dragPlaneOf(origin: XYZ, normal: XYZ): Plane {
+export function dragPlaneOf(origin: XYZ, normal: XYZ): Plane {
     return new Plane({
         origin,
         normal,

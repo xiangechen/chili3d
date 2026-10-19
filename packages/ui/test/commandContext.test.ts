@@ -489,6 +489,22 @@ describe("CommandContext", () => {
             expect(command.choice).toBe("y");
         });
 
+        test("a value the command writes itself reaches the dropdown", () => {
+            // A drag can decide an option (Press Pull deciding Extrude's operation). The option
+            // list is built once, so without a push-back the control keeps the old selection.
+            const command = new TestCommand();
+            const ctx = track(new CommandContext(command));
+            // Connected, so the panel is subscribed to the command's property changes.
+            document.body.appendChild(ctx);
+            const select = mustQuery<HTMLSelectElement>(ctx, "select");
+            expect(select.options).toHaveLength(2);
+
+            command.choiceProp = "y";
+            (command as any).emitPropertyChanged("choiceProp", "x");
+
+            expect(select.selectedIndex).toBe(1);
+        });
+
         test("combobox selection should follow the command property value, not the shared combobox state", () => {
             const combobox = PropertyUtils.getProperty(TestCommand.prototype, "choiceProp")!.combobox!;
             const originalIndex = combobox.selectedIndex;

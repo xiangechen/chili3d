@@ -10,6 +10,7 @@ import {
     type ICommand,
     Matrix4,
     Plane,
+    PubSub,
     Result,
     type ShapeType,
     ShapeTypes,
@@ -18,7 +19,7 @@ import {
 import { createMockApplication, createMockShape, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import "../../src/commands"; // registers every command, the hand-off targets included
-import { PressPullCommand } from "../../src/commands/pressPullCommand";
+import { PressPullCommand, SKETCH_PUSH_OPTIONS } from "../../src/commands/pressPullCommand";
 import { PressPullHandler } from "../../src/commands/pressPullStep";
 import type { FeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
@@ -30,6 +31,8 @@ const data = (node: unknown, shapeType: ShapeType, index = 0) =>
             shapeType,
             isSame: () => false,
             dispose: () => {},
+            // Read when the pick is a sketch profile: the swept prism is built off the face's box.
+            boundingBox: () => BoundingBox.zero,
             // Read when the pick is a chamfer's flat: a surface is what says whether the drag has
             // ONE plane to parallel, and a mock that cannot answer one answers "not planar".
             surface: () => ({ isPlanar: () => false }),
@@ -72,12 +75,15 @@ describe("PressPullCommand hand-off", () => {
     let runs = 0;
     let seenExecuting: unknown[] = [];
     let seenSettled: (boolean | undefined)[] = [];
+    let seenPressPull: boolean[] = [];
     class Target implements ICommand {
         pickSettled?: boolean;
+        pressPull = false;
         async execute(application: IApplication): Promise<void> {
             runs++;
             seenExecuting.push(application.executingCommand);
             seenSettled.push(this.pickSettled);
+            seenPressPull.push(this.pressPull);
         }
     }
 
@@ -87,6 +93,7 @@ describe("PressPullCommand hand-off", () => {
         runs = 0;
         seenExecuting = [];
         seenSettled = [];
+        seenPressPull = [];
         getCommand = rs.spyOn(CommandStore, "getCommand").mockReturnValue(Target);
         // Spied but NOT stubbed: the command under test has to reach the real cache.
         seed = rs.spyOn(CancelableCommand, "seedOptions");
@@ -100,7 +107,7 @@ describe("PressPullCommand hand-off", () => {
      * A command whose pick and distance are already settled — what `PressPullStep` hands it. The
      * gesture itself (what is picked, and how) is `pressPullStep.test.ts`.
      */
-    function settled(shapes: any[], distance: number) {
+    function settled(shapes: any[], distance: number, plane?: Plane) {
         const app = createMockApplication();
         const doc = new TestDocument({ application: app });
         (app as any).activeView = { document: doc };
@@ -112,7 +119,7 @@ describe("PressPullCommand hand-off", () => {
         } as any;
         const cmd = new PressPullCommand();
         (cmd as any)._application = app;
-        (cmd as any).stepDatas = [{ shapes, nodes: [shapes[0]?.owner.node], type: "input", distance }];
+        (cmd as any).stepDatas = [{ shapes, nodes: [shapes[0]?.owner.node], type: "input", distance, plane }];
         return { cmd, app, doc };
     }
 
@@ -121,6 +128,9 @@ describe("PressPullCommand hand-off", () => {
             document: new TestDocument({ application: createMockApplication() }),
             features: [],
         });
+
+    /** What every sketch push-pull pins on Extrude: the gesture owns direction, reach and shape. */
+    const PUSH_OPTIONS = SKETCH_PUSH_OPTIONS;
 
     /** A body whose face tracking answers for the one corner face the pick names. */
     function cornerBody(feature: FeatureData, faceId: string): ParametricBodyNode {
@@ -232,8 +242,116 @@ describe("PressPullCommand hand-off", () => {
         expect(getCommand).toHaveBeenCalledWith("feature.extrude");
         // The profile is what was dragged, so the distance is the prism's depth: one gesture, where
         // handing nothing over made the user drag the same depth a second time inside Extrude.
-        expect(seed).toHaveBeenCalledWith("feature.extrude", { depth: 2 });
+        expect(seed).toHaveBeenCalledWith("feature.extrude", { ...PUSH_OPTIONS, depth: 2 });
         expect(seenSettled).toEqual([true]);
+    });
+
+    test("a sketch profile's drag hands Extrude the operation its end decided", async () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        // No body in the document, so the drag meets nothing and the prism is a body of its
+        // own — the reading itself is `sketchPressPull.test.ts`'s, this is the hand-off.
+        const { cmd } = settled([data(sketch, ShapeTypes.face)], 2, Plane.XY);
+
+        await (cmd as any).openFromPick();
+
+        // `showTargets` is not seeded: it is not a `@property`, so the cache could never
+        // return it — Extrude's getter derives it from the seeded operation.
+        expect(seed).toHaveBeenCalledWith("feature.extrude", {
+            ...PUSH_OPTIONS,
+            depth: 2,
+            operation: "option.command.operation.new",
+        });
+    });
+
+    test("a profile wound the other way still hands Extrude a depth on the plane's own axis", async () => {
+        // The grip's direction is the picked FACE's normal; Extrude sweeps a sketch along its
+        // PLANE's normal. When they disagree the depth has to flip, or the command builds the
+        // prism on the other side of the sketch from the drag the user watched.
+        const doc = new TestDocument({ application: createMockApplication() });
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        const flipped = new Plane({ origin: XYZ.zero, normal: XYZ.unitNZ, xvec: XYZ.unitX });
+        const { cmd } = settled([data(sketch, ShapeTypes.face)], 2, flipped);
+
+        await (cmd as any).openFromPick();
+
+        expect(seed).toHaveBeenCalledWith("feature.extrude", {
+            ...PUSH_OPTIONS,
+            depth: -2,
+            operation: "option.command.operation.new",
+        });
+    });
+
+    test("without the gesture's plane the operation is left to Extrude", async () => {
+        const doc = new TestDocument({ application: createMockApplication() });
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        const { cmd } = settled([data(sketch, ShapeTypes.face)], 2);
+
+        await (cmd as any).openFromPick();
+
+        // No drag frame to read the end off, so nothing is claimed about the boolean — but the
+        // options the gesture DOES own are still pinned.
+        expect(seed).toHaveBeenCalledWith("feature.extrude", { ...PUSH_OPTIONS, depth: 2 });
+    });
+
+    test("a completed push keeps the command open for the next one", async () => {
+        const { cmd } = settled([data(body(), ShapeTypes.edge)], 3);
+
+        await (cmd as any).openFromPick();
+
+        expect(cmd.repeatOperation).toBe(true);
+    });
+
+    test("cancelling the opened command ends the run instead of reopening the gesture", async () => {
+        class Cancelled extends CancelableCommand {
+            protected async executeAsync(): Promise<void> {
+                // What `cancel()` leaves behind, without the completion wait a real cancel does.
+                (this as any)._isCanceled = true;
+            }
+        }
+        getCommand.mockReturnValue(Cancelled);
+        const { cmd } = settled([data(body(), ShapeTypes.edge)], 3);
+
+        await (cmd as any).openFromPick();
+
+        expect(cmd.repeatOperation).toBe(false);
+    });
+
+    test("a repeated round puts Press Pull's own options panel back up", () => {
+        // The target command closed the panel when it finished (its `afterExecute`), so the next
+        // push would have nowhere to type a distance without this.
+        const pub = rs.spyOn(PubSub.default, "pub");
+        try {
+            const cmd = new PressPullCommand();
+
+            (cmd as any).onRestarting();
+
+            expect(pub).toHaveBeenCalledWith("openCommandContext", cmd);
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("every hand-off marks the target as a push-pull, settled pick or not", async () => {
+        const { cmd } = settled([data(body(), ShapeTypes.face)], 4);
+
+        await (cmd as any).openFromPick();
+
+        // The marker is what lets a target's own depth drag decide the boolean; `pickSettled`
+        // only says the pick was answered.
+        expect(seenPressPull).toEqual([true]);
     });
 
     test("the app is told the TARGET is executing, so its cancel paths reach it", async () => {
@@ -243,6 +361,22 @@ describe("PressPullCommand hand-off", () => {
 
         expect(seenExecuting).toHaveLength(1);
         expect(seenExecuting[0]).toBeInstanceOf(Target);
+        // The target is done, but Press Pull is about to run its next round: the service must
+        // still see a command in flight, or a view change or a second command would slip past it.
+        expect(app.executingCommand).toBe(cmd);
+    });
+
+    test("a cancelled target leaves no command in flight", async () => {
+        class Cancelled extends CancelableCommand {
+            protected async executeAsync(): Promise<void> {
+                (this as any)._isCanceled = true;
+            }
+        }
+        getCommand.mockReturnValue(Cancelled);
+        const { cmd, app } = settled([data(body(), ShapeTypes.edge)], 3);
+
+        await (cmd as any).openFromPick();
+
         expect(app.executingCommand).toBeUndefined();
     });
 });
@@ -287,9 +421,13 @@ describe("PressPullCommand preselection", () => {
         } as any;
         const pickAsync = rs.fn(() => Promise.resolve());
         doc.picker = { pickShape: rs.fn(() => Promise.resolve([])), pickAsync } as any;
+        // Cancelled, so the preselection hand-off ends the run instead of reopening the gesture:
+        // that is the subject of this test, and the mock viewport cannot host a real drag anyway.
         const getCommand = rs.spyOn(CommandStore, "getCommand").mockReturnValue(
-            class implements ICommand {
-                async execute(): Promise<void> {}
+            class extends CancelableCommand {
+                protected async executeAsync(): Promise<void> {
+                    (this as any)._isCanceled = true;
+                }
             },
         );
         try {
@@ -297,6 +435,46 @@ describe("PressPullCommand preselection", () => {
 
             expect(getCommand).toHaveBeenCalledWith("feature.extrude");
             expect(pickAsync).not.toHaveBeenCalled();
+        } finally {
+            getCommand.mockRestore();
+        }
+    });
+
+    test("a whole sketch is marked as a push-pull while its own drag still runs", async () => {
+        // The bug this guards: reusing `pickSettled` here would both leave the marker unset
+        // (the drag runs and reads it) and, if it were set, make Extrude skip the drag that IS
+        // the push-pull whenever the option cache restored a non-zero depth.
+        const app = createMockApplication();
+        const doc = new TestDocument({ application: app });
+        (app as any).activeView = { document: doc };
+        const sketch = new SketchNode({
+            document: doc,
+            plane: Plane.XY,
+            data: { entities: [], constraints: [] },
+        });
+        doc.selection = {
+            getSelectedShapes: () => [],
+            getSelectedNodes: () => [sketch],
+            setSelectedShapes: rs.fn(),
+            clearSelection: () => {},
+        } as any;
+        doc.picker = { pickShape: rs.fn(() => Promise.resolve([])), pickAsync: rs.fn() } as any;
+
+        let seen: { pressPull: boolean; pickSettled?: boolean } | undefined;
+        const getCommand = rs.spyOn(CommandStore, "getCommand").mockReturnValue(
+            class extends CancelableCommand {
+                pressPull = false;
+                pickSettled?: boolean;
+                protected async executeAsync(): Promise<void> {
+                    seen = { pressPull: this.pressPull, pickSettled: this.pickSettled };
+                    (this as any)._isCanceled = true;
+                }
+            },
+        );
+        try {
+            await new PressPullCommand().execute(app);
+
+            expect(seen).toEqual({ pressPull: true, pickSettled: undefined });
         } finally {
             getCommand.mockRestore();
         }
