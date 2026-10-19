@@ -6,11 +6,14 @@ import {
     CommandStore,
     DimensionAnnotation,
     FolderNode,
+    type IAnnotationAssociationResolver,
     type IDocument,
     type INode,
     PointOnPlaneStep,
     PubSub,
+    Result,
     SelectShapeStep,
+    setAnnotationAssociationResolver,
     XYZ,
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
@@ -59,6 +62,7 @@ function annotationFolders(doc: TestDocument): INode[] {
 describe("AnnotateAngleDimension", () => {
     afterEach(() => {
         rs.restoreAllMocks();
+        setAnnotationAssociationResolver(undefined);
     });
 
     test("should be registered in the CommandStore with its metadata", () => {
@@ -249,5 +253,31 @@ describe("AnnotateAngleDimension", () => {
         expect(dimensionAnnotations(doc)).toHaveLength(0);
 
         (cmd as any).afterExecute();
+    });
+
+    test("binds both picked edges, each to its own node", () => {
+        const resolver: IAnnotationAssociationResolver = {
+            captureCircleEdge: () => undefined,
+            capturePointAnchor: (_picked, point) => ({ point }),
+            captureEdgeAnchor: (picked) => (picked ? { nodeId: "body", ref: {} } : undefined),
+            resolveCircleEdge: () => Result.err("unused"),
+            resolvePointAnchor: () => Result.err("unused"),
+            resolveEdgeAnchor: () => Result.err("unused"),
+        };
+        setAnnotationAssociationResolver(resolver);
+
+        const doc = new TestDocument();
+        const cmd = angleCommand(doc);
+        (cmd as any).getPositionData().beforeExecute();
+        (cmd as any).dimensionPreview(POSITION);
+        (cmd as any).executeMainTask();
+
+        const association = dimensionAnnotations(doc)[0].association;
+        expect(association?.kind).toBe("edgePair");
+        if (association?.kind !== "edgePair") return;
+        expect(association.first.nodeId).toBe("body");
+        expect(association.second.nodeId).toBe("body");
+        expect(association.placement.reflex).toBe(false);
+        expect(association.placement.radius).toBeCloseTo(POSITION.distanceTo(XYZ.zero));
     });
 });

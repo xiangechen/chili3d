@@ -5,17 +5,20 @@ import {
     CommandStore,
     DimensionAnnotation,
     FolderNode,
+    type IAnnotationAssociationResolver,
     type IDocument,
     type INode,
     MeshDataUtils,
     Plane,
     PointOnPlaneStep,
     PointStep,
+    Result,
+    setAnnotationAssociationResolver,
     XY,
     XYZ,
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
-import { describe, expect, test } from "@rstest/core";
+import { afterEach, describe, expect, test } from "@rstest/core";
 import { AnnotateDimension } from "../../../src/commands/annotate/dimension";
 import { pointStepResult, seedStepDatas } from "../commandTestUtils";
 
@@ -288,6 +291,41 @@ describe("AnnotateDimension", () => {
 
             const annotation = dimensionAnnotations(doc)[0];
             expect(annotation.textPoint.isEqualTo(new XYZ({ x: 5, y: 5, z: 0 }))).toBe(true);
+        });
+    });
+
+    describe("association capture", () => {
+        afterEach(() => {
+            setAnnotationAssociationResolver(undefined);
+        });
+
+        test("binds both picked points, each to its own anchor", () => {
+            setAnnotationAssociationResolver({
+                captureCircleEdge: () => undefined,
+                capturePointAnchor: (_picked, point) => ({ nodeId: "body", ref: {}, point }),
+                captureEdgeAnchor: () => undefined,
+                resolveCircleEdge: () => Result.err("unused"),
+                resolvePointAnchor: () => Result.err("unused"),
+                resolveEdgeAnchor: () => Result.err("unused"),
+            });
+            const doc = new TestDocument();
+            const cmd = dimensionCommand(doc);
+            (cmd as any).executeMainTask();
+
+            const association = dimensionAnnotations(doc)[0].association;
+            expect(association?.kind).toBe("pointPair");
+            if (association?.kind !== "pointPair") return;
+            expect(association.start.nodeId).toBe("body");
+            expect(association.end.nodeId).toBe("body");
+            expect(association.placement).not.toBeUndefined();
+        });
+
+        test("stays static without a resolver", () => {
+            const doc = new TestDocument();
+            const cmd = dimensionCommand(doc);
+            (cmd as any).executeMainTask();
+
+            expect(dimensionAnnotations(doc)[0].association).toBeUndefined();
         });
     });
 });

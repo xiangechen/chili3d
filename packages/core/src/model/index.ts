@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./annotation";
+export * from "./annotationAssociation";
 export * from "./bodyInstanceNode";
 export * from "./childList";
 export * from "./cloneForCopy";

@@ -70,6 +70,8 @@ export default {
         "ai.workedFor": "Worked for {0}",
         annotation: "Annotation",
         "annotation.dimension": "Dimension",
+        "annotation.referenceLost{0}":
+            "The referenced geometry was not found after the rebuild ({0}); the annotation keeps its last position",
         "arc.angle": "Angle",
         "arc.start": "Start",
         "axis.x": "X Axis",
@@ -786,6 +788,8 @@ export default {
         "toast.converter.invalidColor": "The color is invalid",
         "toast.consumedTool.forbidden":
             "Consumed boolean tools cannot be copied, moved or deleted — edit them through the owning body's feature list",
+        "toast.annotation.groupUnsupported":
+            "A node measured by an annotation cannot be grouped — the annotation would lose its reference (the node stays independent)",
         "toast.instance.groupUnsupported":
             "Linked instances and the bodies they read cannot be grouped — the nodes stay separate",
         "toast.instance.sourceInUse":

@@ -94,9 +94,12 @@ export function wireCommand<C>(cmd: C): { doc: IDocument; addedNodes: unknown[] 
             addNode: (...nodes: unknown[]) => addedNodes.push(...nodes),
             // Node constructors derive their name from the nodes already in the
             // document; the stub holds none, so every name takes index 1.
+            findNode: () => undefined,
             findNodes: () => [],
             findNodeDeep: () => undefined,
             findNodesDeep: () => [],
+            addNodeObserver: () => {},
+            removeNodeObserver: () => {},
             currentNode: undefined,
             rootNode: makeParent({ id: "root" }),
             materials: [{ id: "mat-default" }],

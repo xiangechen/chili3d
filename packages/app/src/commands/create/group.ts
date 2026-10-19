@@ -3,6 +3,7 @@
 
 import {
     AsyncController,
+    annotationSourceIds,
     Binding,
     Component,
     ComponentNode,
@@ -68,7 +69,14 @@ export class GroupCommand extends MultistepCommand {
         const selected = this.stepDatas[0].nodes?.filter((node) => node instanceof VisualNode) ?? [];
         const nodes = selected.filter((node) => this.canGroup(node));
         if (nodes.length < selected.length) {
-            PubSub.default.pub("showToast", "toast.instance.groupUnsupported");
+            const measured = this.annotationSources();
+            const byAnnotation = selected
+                .filter((node) => !nodes.includes(node))
+                .some((node) => this.subtree(node).some((x) => measured.has(x.id)));
+            PubSub.default.pub(
+                "showToast",
+                byAnnotation ? "toast.annotation.groupUnsupported" : "toast.instance.groupUnsupported",
+            );
         }
         if (nodes.length === 0) {
             if (selected.length === 0) PubSub.default.pub("showToast", "toast.select.noSelected");
@@ -89,24 +97,46 @@ export class GroupCommand extends MultistepCommand {
      */
     private canGroup(node: INode): boolean {
         if (isConsumedTool(node)) return false;
-        const subtree = NodeUtils.isLinkedListNode(node) ? [node, ...NodeUtils.children(node)] : [node];
+        const subtree = this.subtree(node);
         if (subtree.some((x) => isInstanceNode(x))) return false;
         // A consumed tool is resolved from the root tree by feature evaluation. Grouped
         // into a Component definition it would no longer be found on the next rebuild.
         if (subtree.some((x) => isConsumedTool(x))) return false;
         const sources = this.instanceSources();
-        return !subtree.some((x) => sources.has(x.id));
+        if (subtree.some((x) => sources.has(x.id))) return false;
+        // The same holds for an annotated body: the annotation resolves its source from
+        // the root tree, so a definition member would leave it dangling.
+        const measured = this.annotationSources();
+        return !subtree.some((x) => measured.has(x.id));
+    }
+
+    private subtree(node: INode): INode[] {
+        return NodeUtils.isLinkedListNode(node) ? [node, ...NodeUtils.children(node)] : [node];
     }
 
     /** The document scan runs once per pick session, not once per hovered candidate. */
+    private scannedNodes(): INode[] {
+        this._scannedNodes ??= this.document.modelManager.findNodesDeep();
+        return this._scannedNodes;
+    }
+
     private instanceSources(): Set<string> {
         this._instanceSources ??= new Set(
-            this.document.modelManager.findNodesDeep(isInstanceNode).map((x) => x.sourceId),
+            this.scannedNodes()
+                .filter(isInstanceNode)
+                .map((x) => x.sourceId),
         );
         return this._instanceSources;
     }
 
+    private annotationSources(): Set<string> {
+        this._annotationSources ??= annotationSourceIds(this.scannedNodes());
+        return this._annotationSources;
+    }
+
+    private _scannedNodes?: INode[];
     private _instanceSources?: Set<string>;
+    private _annotationSources?: Set<string>;
 
     private createGroup(definition: GroupDefinition, nodes: VisualNode[]) {
         Transaction.execute(this.document, "create group", () => {

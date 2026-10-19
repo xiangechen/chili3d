@@ -2,12 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AngleGeometry,
+    angleFromLines,
+    angleTextPlacement,
     angularDimensionSweep,
     CurveUtils,
     command,
     DimensionAnnotation,
     Dimensions,
     formatMeasurement,
+    getAnnotationAssociationResolver,
     type IEdge,
     type IShapeFilter,
     type IStep,
@@ -15,6 +19,7 @@ import {
     PointOnPlaneStep,
     type PointSnapData,
     PubSub,
+    type ResolvedLine,
     SelectShapeStep,
     type ShapeMeshData,
     ShapeTypes,
@@ -23,37 +28,10 @@ import {
 } from "@chili3d/core";
 import { AnnotationCommandBase } from "./annotationCommandBase";
 
-/** A picked straight edge in world space. */
-interface PickedLine {
-    readonly start: XYZ;
-    readonly direction: XYZ;
-    readonly mid: XYZ;
-}
-
-/** The measured angle: vertex plus unit-offset points carrying the two directions. */
-interface PickedAngle {
-    readonly vertex: XYZ;
-    readonly p1: XYZ;
-    readonly p2: XYZ;
-    readonly normal: XYZ;
-}
-
 /** Only straight edges can take an angle dimension. */
 const lineEdgeFilter: IShapeFilter = {
     allow: (shape) => CurveUtils.isLine((shape as IEdge).curve.basisCurve),
 };
-
-/** Midpoint of the closest pair of points between two (non-parallel) infinite lines. */
-function closestMidpoint(l1: PickedLine, l2: PickedLine): XYZ {
-    const w0 = l1.start.sub(l2.start);
-    const b = l1.direction.dot(l2.direction);
-    const d = l1.direction.dot(w0);
-    const e = l2.direction.dot(w0);
-    const denom = 1 - b * b;
-    const q1 = l1.start.add(l1.direction.multiply((b * e - d) / denom));
-    const q2 = l2.start.add(l2.direction.multiply((e - b * d) / denom));
-    return q1.add(q2).multiply(0.5);
-}
 
 /**
  * Angle dimension between two straight edges: pick edge, pick edge, then pick
@@ -66,7 +44,7 @@ function closestMidpoint(l1: PickedLine, l2: PickedLine): XYZ {
     icon: "icon-dAngle",
 })
 export class AnnotateAngleDimension extends AnnotationCommandBase<DimensionAnnotation> {
-    private angle?: PickedAngle;
+    private angle?: AngleGeometry;
 
     protected override getSteps(): IStep[] {
         const firstStep = new SelectShapeStep(ShapeTypes.edge, "prompt.select.lineEdge", {
@@ -89,26 +67,17 @@ export class AnnotateAngleDimension extends AnnotationCommandBase<DimensionAnnot
         super.afterExecute();
     }
 
-    private lineOf(stepIndex: number): PickedLine {
+    private lineOf(stepIndex: number): ResolvedLine {
         const data = this.stepDatas[stepIndex].shapes[0];
         const edge = data.shape.transformedMul(data.transform) as IEdge;
         const [start, end] = edge.ends();
         edge.dispose();
-        return { start, direction: end.sub(start).normalize()!, mid: start.add(end).multiply(0.5) };
+        return { start, end };
     }
 
     /** Undefined when the two edges are parallel or coincident — no angle plane exists then. */
-    private computeAngle(): PickedAngle | undefined {
-        const l1 = this.lineOf(0);
-        const l2 = this.lineOf(1);
-        const normal = l1.direction.cross(l2.direction).normalize();
-        if (normal === undefined) return undefined;
-
-        const vertex = closestMidpoint(l1, l2);
-        // Orient each direction toward its edge's visible side of the vertex.
-        const d1 = l1.mid.sub(vertex).dot(l1.direction) < 0 ? l1.direction.reverse() : l1.direction;
-        const d2 = l2.mid.sub(vertex).dot(l2.direction) < 0 ? l2.direction.reverse() : l2.direction;
-        return { vertex, p1: vertex.add(d1), p2: vertex.add(d2), normal };
+    private computeAngle(): AngleGeometry | undefined {
+        return angleFromLines(this.lineOf(0), this.lineOf(1));
     }
 
     private readonly getPositionData = (): PointSnapData => {
@@ -172,5 +141,21 @@ export class AnnotateAngleDimension extends AnnotationCommandBase<DimensionAnnot
         annotation.endPoint = this.angle!.p2;
         annotation.textPoint = this.stepDatas[2].point!;
         annotation.textHeight = this.textHeight;
+        this.bind(annotation);
+    }
+
+    /** Binds both edges; a pair where either pick is not a body edge stays static. */
+    private bind(annotation: DimensionAnnotation): void {
+        const resolver = getAnnotationAssociationResolver();
+        if (resolver === undefined) return;
+
+        const first = resolver.captureEdgeAnchor(this.stepDatas[0].shapes[0]);
+        const second = resolver.captureEdgeAnchor(this.stepDatas[1].shapes[0]);
+        if (first === undefined || second === undefined) return;
+
+        const { vertex, p1, p2 } = this.angle!;
+        const placement = angleTextPlacement(vertex, p1, p2, this.stepDatas[2].point!);
+        if (placement === undefined) return;
+        annotation.association = { kind: "edgePair", first, second, placement };
     }
 }

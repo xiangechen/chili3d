@@ -65,6 +65,7 @@ export default {
         "ai.workedFor": "已处理 {0}",
         annotation: "注释",
         "annotation.dimension": "尺寸标注",
+        "annotation.referenceLost{0}": "标注引用的几何在重建后未找到（{0}），标注保留最后位置",
         "arc.angle": "角度",
         "arc.start": "起点",
         "axis.x": "X 轴",
@@ -758,6 +759,7 @@ export default {
         "toast.consumedTool.forbidden":
             "布尔工具已被参数体消耗，无法复制/移动/删除——请通过所属参数体的特征列表进行编辑",
         "toast.instance.groupUnsupported": "引用实例的节点（及实例本身）不能编组——会保留为独立节点",
+        "toast.annotation.groupUnsupported": "被标注引用的节点不能编组——标注会失去引用（节点保持独立）",
         "toast.instance.sourceInUse": "该几何被实例引用——请先删除实例或将其独立化",
         "toast.node.notTransformable": "该节点是输入几何，不能移动——请直接编辑它",
         "toast.node.transformRefused": "该节点拒绝了这次移动——特征链中当前没有可移动的几何",

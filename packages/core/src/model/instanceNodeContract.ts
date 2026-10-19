@@ -2,6 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import type { IDocument } from "../document";
+import { Annotation } from "./annotation";
+import { associationNodeIds } from "./annotationAssociation";
 import { type INode, NodeUtils } from "./node";
 
 /**
@@ -29,13 +31,14 @@ export function isInstanceNode(node: INode | undefined): node is IInstanceNode {
 }
 
 /**
- * Points every instance of `oldId` at `newId`. A destructive command that replaces a
+ * Points every instance of `oldId` at `newId`, and rewrites the annotations that
+ * measured `oldId` to follow its successor. A destructive command that replaces a
  * source node with a new one (a fillet on a primitive, a shell, a repair) calls this in
- * the same transaction, so the instances keep following the definition instead of
- * dangling. Returns how many references moved.
+ * the same transaction, so both keep following the definition instead of dangling.
+ * Returns how many references moved.
  *
- * One-to-many edits (split, break) have no single successor and deliberately keep the
- * old id; those instances surface their missing-source warning.
+ * One-to-many edits (split, break, boolean) have no single successor and deliberately
+ * keep the old id; those instances/annotations surface their missing-source warning.
  */
 export function retargetInstanceSources(document: IDocument, oldId: string, newId: string): number {
     if (oldId === newId) return 0;
@@ -45,7 +48,33 @@ export function retargetInstanceSources(document: IDocument, oldId: string, newI
         (node as { sourceId: string }).sourceId = newId;
         count++;
     }
+
+    const mapping = new Map([[oldId, newId]]);
+    for (const node of document.modelManager.findNodesDeep(
+        (candidate): candidate is Annotation => candidate instanceof Annotation,
+    )) {
+        // Structural guard: test doubles and plugins may ignore the predicate.
+        if (typeof node.remapAssociationNodes === "function" && node.remapAssociationNodes(mapping)) count++;
+    }
     return count;
+}
+
+/**
+ * Every node id an annotation in `nodes` currently measures. A command that moves one
+ * of these nodes out of the root tree (grouping into a Component) would leave the
+ * annotation unable to reach it, so `GroupCommand` refuses those nodes the way it
+ * refuses instance sources. The caller passes its own document scan, so grouping pays
+ * one walk for both questions.
+ */
+export function annotationSourceIds(nodes: Iterable<INode>): Set<string> {
+    const ids = new Set<string>();
+    for (const node of nodes) {
+        if (!(node instanceof Annotation)) continue;
+        const association = node.association;
+        if (association === undefined) continue;
+        for (const id of associationNodeIds(association)) ids.add(id);
+    }
+    return ids;
 }
 
 /**

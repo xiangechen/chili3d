@@ -4,7 +4,9 @@
 import {
     command,
     Dimensions,
+    getAnnotationAssociationResolver,
     type IStep,
+    isAttachedAnchor,
     MultistepCommand,
     type PointSnapData,
     PointStep,
@@ -33,10 +35,22 @@ export class RefSegment extends MultistepCommand {
                 startPoint: this.stepDatas[0].point!,
                 endPoint: this.stepDatas[1].point!,
             });
+            this.bind(annotation);
             this.document.modelManager.addNode(annotation);
             this.document.visual.update();
         });
         this.repeatOperation = true;
+    }
+
+    /** Binds each end to what it snapped to; a free end keeps its picked coordinate. */
+    private bind(annotation: RefSegmentAnnotation): void {
+        const resolver = getAnnotationAssociationResolver();
+        if (resolver === undefined) return;
+
+        const start = resolver.capturePointAnchor(this.stepDatas[0].shapes[0], this.stepDatas[0].point!);
+        const end = resolver.capturePointAnchor(this.stepDatas[1].shapes[0], this.stepDatas[1].point!);
+        if (!isAttachedAnchor(start) && !isAttachedAnchor(end)) return;
+        annotation.association = { kind: "pointPair", start, end };
     }
 
     getSteps(): IStep[] {

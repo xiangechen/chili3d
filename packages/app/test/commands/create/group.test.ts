@@ -73,6 +73,31 @@ describe("GroupCommand", () => {
         expect((cmd as any).canGroup(body)).toBe(false);
     });
 
+    test("should refuse a node an annotation measures", () => {
+        const cmd = new GroupCommand();
+        const { doc } = wireCommand(cmd);
+        const annotation = new DimensionAnnotation({
+            document: doc,
+            annotationType: "dimension",
+            name: "dimension",
+            startPoint: XYZ.zero,
+            endPoint: new XYZ({ x: 1, y: 0, z: 0 }),
+            textPoint: new XYZ({ x: 0, y: 1, z: 0 }),
+        });
+        annotation.association = {
+            kind: "circleEdge",
+            nodeId: "body",
+            edge: {},
+            axis: { x: 0, y: 0, z: 1 },
+            leader: { x: 1, y: 0, z: 0 },
+            distance: 1,
+        };
+        (doc.modelManager as any).findNodesDeep = () => [annotation];
+
+        expect((cmd as any).canGroup({ id: "body" })).toBe(false);
+        expect((cmd as any).canGroup({ id: "other" })).toBe(true);
+    });
+
     test("should refuse a folder that holds an instance", () => {
         const cmd = new GroupCommand();
         const { doc } = wireCommand(cmd);

@@ -6,8 +6,11 @@ import {
     DimensionAnnotation,
     Dimensions,
     formatMeasurement,
+    getAnnotationAssociationResolver,
     type IStep,
     type IView,
+    isAttachedAnchor,
+    linearTextPlacement,
     nearestDimensionNormal,
     Plane,
     PointOnPlaneStep,
@@ -188,6 +191,28 @@ export class AnnotateDimension extends AnnotationCommandBase<DimensionAnnotation
         annotation.endPoint = this.stepDatas[1].point!;
         annotation.textPoint = this.stepDatas[2].point!;
         annotation.textHeight = this.textHeight;
+        this.bind(annotation);
+    }
+
+    /**
+     * Binds each end to whatever the snap landed on. Either end may be a free point
+     * (typed coordinates, the workplane): it keeps its position while the other end
+     * follows its geometry. A pair with no attached end stays a plain annotation.
+     */
+    private bind(annotation: DimensionAnnotation): void {
+        const resolver = getAnnotationAssociationResolver();
+        if (resolver === undefined) return;
+
+        const start = resolver.capturePointAnchor(this.stepDatas[0].shapes[0], this.stepDatas[0].point!);
+        const end = resolver.capturePointAnchor(this.stepDatas[1].shapes[0], this.stepDatas[1].point!);
+        if (!isAttachedAnchor(start) && !isAttachedAnchor(end)) return;
+
+        const placement = linearTextPlacement(
+            this.stepDatas[0].point!,
+            this.stepDatas[1].point!,
+            this.stepDatas[2].point!,
+        );
+        annotation.association = { kind: "pointPair", start, end, placement };
     }
 
     protected override afterExecute(): void {

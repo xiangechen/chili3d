@@ -351,6 +351,22 @@ describe("ThreeDimensionAnnotation", () => {
         };
     }
 
+    test("resolves an association after the visual is registered, not in the constructor", async () => {
+        const annotation = createDimension();
+        const { context } = createTestContext();
+        const registered: boolean[] = [];
+        annotation.updateFromAssociation = ((silent?: boolean) => {
+            registered.push(silent === true && context.getVisual(annotation) !== undefined);
+            return false;
+        }) as typeof annotation.updateFromAssociation;
+
+        context.addNode([annotation]);
+        expect(registered).toHaveLength(0);
+
+        await flush();
+        expect(registered).toEqual([true]);
+    });
+
     async function createVisual(annotation: DimensionAnnotation) {
         const { context, visual: ivisual } = createTestContext();
         const update = rs.fn();

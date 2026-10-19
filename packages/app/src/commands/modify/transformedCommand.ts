@@ -138,6 +138,11 @@ export abstract class TransformedCommand extends MultistepCommand {
      * third-party nodes that predate the hook working as before.
      */
     private applyPlacement(node: VisualNode, transform: Matrix4): void {
+        // An explicit move wins over a derived measurement — the same rule as a grip
+        // drag of an attachment point. Grouping writes a transform too but must keep
+        // the association, so only the move commands detach.
+        if (node instanceof Annotation) node.detachAssociation();
+
         const apply = (node as { applyTransform?: (matrix: Matrix4) => boolean }).applyTransform;
         if (apply !== undefined) {
             // Only an explicit refusal counts (same rule as the AI tool): a JS plugin's

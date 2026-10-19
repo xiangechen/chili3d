@@ -7,6 +7,7 @@ import {
     DimensionAnnotation,
     Dimensions,
     formatMeasurement,
+    getAnnotationAssociationResolver,
     type IEdge,
     type IShapeFilter,
     type IStep,
@@ -164,6 +165,12 @@ abstract class RadialDimensionCommand extends AnnotationCommandBase<DimensionAnn
         annotation.textPoint = point;
         annotation.planeNormal = this.circle!.axis;
         annotation.textHeight = this.textHeight;
+        // Bind to the picked edge so a rebuild of its source moves the dimension too.
+        // Without the parametric resolver the annotation simply stays static.
+        const picked = this.stepDatas[0].shapes[0];
+        annotation.association = picked
+            ? getAnnotationAssociationResolver()?.captureCircleEdge(picked, annotation.textPoint)
+            : undefined;
     }
 }
 

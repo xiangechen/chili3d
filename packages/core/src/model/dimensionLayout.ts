@@ -10,6 +10,7 @@
 
 import { MathUtils, XYZ } from "../math";
 import type { DimensionType } from "./annotation";
+import type { AngleTextPlacement, LinearTextPlacement, ResolvedLine } from "./annotationAssociation";
 import {
     angleDimension,
     DIMENSION_ANGLE_LABEL_MARGIN_PX,
@@ -41,6 +42,9 @@ export interface DimensionLayout {
 }
 
 const TEXT_HEIGHT_PX = DIMENSION_BASE_TEXT_HEIGHT_PX;
+
+/** sine² threshold for an angular dimension's two lines — below ~0.08° there is no vertex. */
+const MIN_ANGLE_SINE = 1e-6;
 
 /**
  * Dimension text height in world units (mm), ISO/GB drafting-style: the whole
@@ -385,4 +389,156 @@ export function dimensionLayoutFor(
         default:
             return linearDimensionLayout(start, end, textPoint, scale);
     }
+}
+
+/** Two straight edges with the vertex they meet at and the directions the layout draws. */
+export interface AngleGeometry {
+    readonly vertex: XYZ;
+    /** `vertex + unit direction` along the first edge, oriented toward that edge's visible side. */
+    readonly p1: XYZ;
+    /** `vertex + unit direction` along the second edge. */
+    readonly p2: XYZ;
+    /** The angle plane's normal (`d1 × d2`). */
+    readonly normal: XYZ;
+}
+
+/**
+ * The vertex and directions of two straight edges, in world space — shared by the
+ * angle command (at pick time) and the annotation's association update, so both
+ * derive the same geometry. Undefined for parallel or coincident edges.
+ */
+export function angleFromLines(first: ResolvedLine, second: ResolvedLine): AngleGeometry | undefined {
+    const l1 = lineFrame(first);
+    const l2 = lineFrame(second);
+    if (l1 === undefined || l2 === undefined) return undefined;
+
+    // Near-parallel lines have no usable vertex: `closestMidpoint` divides by
+    // sin²(θ), so a tenth of a degree already magnifies pickup noise by 10⁵.
+    const cosine = Math.min(1, Math.abs(l1.direction.dot(l2.direction)));
+    if (1 - cosine < MIN_ANGLE_SINE) return undefined;
+    const normal = l1.direction.cross(l2.direction).normalize();
+    if (normal === undefined) return undefined;
+
+    const vertex = closestMidpoint(l1, l2);
+    // Orient each direction toward its edge's visible side of the vertex.
+    const d1 = l1.mid.sub(vertex).dot(l1.direction) < 0 ? l1.direction.reverse() : l1.direction;
+    const d2 = l2.mid.sub(vertex).dot(l2.direction) < 0 ? l2.direction.reverse() : l2.direction;
+    return { vertex, p1: vertex.add(d1), p2: vertex.add(d2), normal };
+}
+
+function lineFrame(line: ResolvedLine): { start: XYZ; direction: XYZ; mid: XYZ } | undefined {
+    const direction = line.end.sub(line.start).normalize();
+    if (direction === undefined) return undefined;
+    return { start: line.start, direction, mid: line.start.add(line.end).multiply(0.5) };
+}
+
+/** Midpoint of the closest pair of points between two (non-parallel) infinite lines. */
+function closestMidpoint(l1: { start: XYZ; direction: XYZ }, l2: { start: XYZ; direction: XYZ }): XYZ {
+    const w0 = l1.start.sub(l2.start);
+    const b = l1.direction.dot(l2.direction);
+    const d = l1.direction.dot(w0);
+    const e = l2.direction.dot(w0);
+    const denom = 1 - b * b;
+    const q1 = l1.start.add(l1.direction.multiply((b * e - d) / denom));
+    const q2 = l2.start.add(l2.direction.multiply((e - b * d) / denom));
+    return q1.add(q2).multiply(0.5);
+}
+
+/**
+ * The label's position in a linear dimension's frame, captured from the points the
+ * user placed. `normal` pins the dimension plane so a later edit that turns the
+ * segment keeps the label on the same side.
+ */
+export function linearTextPlacement(start: XYZ, end: XYZ, textPoint: XYZ): LinearTextPlacement | undefined {
+    const dir = end.sub(start).normalize();
+    if (dir === undefined) return undefined;
+
+    const { normal, side } = dimensionPlane(dir, start, textPoint);
+    const relative = textPoint.sub(start);
+    return {
+        along: relative.dot(dir),
+        lateral: relative.dot(side),
+        normal: { x: normal.x, y: normal.y, z: normal.z },
+    };
+}
+
+/** The label position a linear placement names on the rebuilt segment. */
+export function linearTextPoint(start: XYZ, end: XYZ, placement: LinearTextPlacement): XYZ | undefined {
+    const dir = end.sub(start).normalize();
+    if (dir === undefined) return undefined;
+
+    // Keep the captured plane's normal but orthogonalize it against the new direction;
+    // once the segment turns far enough to swallow it, fall back to a well-defined side.
+    const stored = new XYZ(placement.normal);
+    let normal = stored.sub(dir.multiply(stored.dot(dir))).normalize();
+    if (normal === undefined) {
+        const seed = Math.abs(dir.z) < 0.9 ? XYZ.unitZ : XYZ.unitX;
+        normal = dir.cross(seed).normalize();
+    }
+    if (normal === undefined) return undefined;
+
+    const side = normal.cross(dir).normalize();
+    if (side === undefined) return undefined;
+    return start.add(dir.multiply(placement.along)).add(side.multiply(placement.lateral));
+}
+
+/**
+ * The label's place in an angular dimension: its distance from the vertex and which
+ * side of the first direction the layout actually draws it on.
+ *
+ * The side must follow the layout, not the raw pick: `angleDimension` flips its arc
+ * start by half a turn when the label sits across the bisector of the drawn sweep, so
+ * a pick in the reflex sector can still draw on the short sector's side. Reproducing
+ * that flip here is what keeps a rebuild from turning the label upside down.
+ */
+export function angleTextPlacement(
+    vertex: XYZ,
+    p1: XYZ,
+    p2: XYZ,
+    textPoint: XYZ,
+): AngleTextPlacement | undefined {
+    const frame = angleFrame(vertex, p1, p2);
+    if (frame === undefined) return undefined;
+
+    const relative = textPoint.sub(vertex);
+    // The two bits the layout derives: which sweep it reads (theta2 is in (0, π), so the
+    // reflected one is negative) and whether it starts the arc half a turn round.
+    const sweep = sweepInFrame(frame, vertex, textPoint);
+    const bisector = sweep / 2;
+    const toLabel = relative.dot(frame.u) * Math.cos(bisector) + relative.dot(frame.v) * Math.sin(bisector);
+    return {
+        radius: relative.length(),
+        reflex: sweep < 0,
+        flip: toLabel < 0,
+    };
+}
+
+/**
+ * A label position that reproduces the stored sweep and flip on the rebuilt angle.
+ *
+ * The layout always draws the text on the sweep's bisector, so the stored radius plus
+ * the two bits fully determine what the user saw. The reconstructed point is a
+ * *canonical* one inside the same half-sector: a short sweep takes its bisector, a
+ * reflected sweep takes the bisector for `flip = false` and a point in the other half
+ * of the reflex sector for `flip = true`. Feeding it back to `sweepInFrame` and the
+ * layout's start flip returns the same branch, so both the value and the drawn text
+ * survive the rebuild.
+ */
+export function angleTextPoint(
+    vertex: XYZ,
+    p1: XYZ,
+    p2: XYZ,
+    placement: AngleTextPlacement,
+): XYZ | undefined {
+    const frame = angleFrame(vertex, p1, p2);
+    if (frame === undefined) return undefined;
+
+    const at = !placement.reflex
+        ? frame.theta2 / 2
+        : placement.flip
+          ? (3 * frame.theta2) / 4 + Math.PI / 4
+          : frame.theta2 / 2 + Math.PI;
+    return vertex
+        .add(frame.u.multiply(Math.cos(at) * placement.radius))
+        .add(frame.v.multiply(Math.sin(at) * placement.radius));
 }

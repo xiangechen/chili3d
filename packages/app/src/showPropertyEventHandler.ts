@@ -147,10 +147,42 @@ export class ShowPropertyEventHandler extends NodeSelectionHandler {
         if (!drag) return;
         drag.objectSnap?.clear();
         if (action === "commit") {
+            this.settleAssociation(drag);
             drag.transaction.commit();
         } else {
             drag.transaction.rollback();
         }
+    }
+
+    /**
+     * A bound dimension's attachment points are derived from geometry: dragging the
+     * text point only moves the stored placement (the association survives), and a
+     * linear dimension's end grip detaches just that end — the other stays anchored.
+     * Anything else is a hand edit to derived geometry, so it drops the association
+     * whole. All writes land in the drag's transaction, so undo restores it.
+     */
+    private settleAssociation(drag: ActiveDimensionDrag): void {
+        const association = drag.node.association;
+        if (association === undefined) return;
+
+        if (drag.grip === "textPoint") {
+            drag.node.refreshAssociationPlacement();
+            return;
+        }
+
+        const grip = drag.grip;
+        if (association.kind === "pointPair" && grip !== "centerPoint") {
+            const world = drag.node.worldTransform().ofPoint(drag.node[grip]);
+            // The association stores world coordinates; its free anchor is the grip's
+            // new position, while the other end keeps following its geometry.
+            drag.node.association =
+                grip === "startPoint"
+                    ? { ...association, start: { point: { x: world.x, y: world.y, z: world.z } } }
+                    : { ...association, end: { point: { x: world.x, y: world.y, z: world.z } } };
+            return;
+        }
+
+        drag.node.association = undefined;
     }
 
     private movedBeyond(px: number, event: PointerEvent) {

@@ -29,6 +29,8 @@ import type { ThreeVisualContext } from "./threeVisualContext";
 const HIGHLIGHT_COLOR = 0x00ffff;
 /** Grip-dot diameter in screen pixels (sizeAttenuation is off, so this never scales). */
 const HANDLE_SIZE_PX = 7;
+/** A dimension whose associated geometry can no longer be found draws in warning amber. */
+const LOST_REFERENCE_COLOR = 0xffa000;
 
 /**
  * Shared plumbing of the annotation visuals. An annotation draws nothing of its
@@ -67,7 +69,12 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
         return this.annotation.visible && this.annotation.parentVisible;
     }
 
+    /**
+     * A dangling association recolors the whole annotation, not just its badge:
+     * the drawn value may no longer be true, and the viewport says so too.
+     */
     get batchColor(): number {
+        if (this.annotation.warningCount > 0) return LOST_REFERENCE_COLOR;
         return this._highlighted ? HIGHLIGHT_COLOR : this.annotation.color;
     }
 
@@ -131,6 +138,19 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
     }
 }
 
+/**
+ * Resolves a loaded or cloned association after the visual is registered.
+ *
+ * `VisualNode.worldTransform()` falls back to the local transform until the visual is
+ * in `_NodeVisualMap`, and the context registers it only once its constructor returns.
+ * Resolving inside the constructor therefore drops the component instance's matrix and
+ * writes the points in the wrong frame. The saved points are already in sync, so the
+ * deferred pass is only there to install the watch and correct stale geometry.
+ */
+function resolveAssociationSoon(annotation: { updateFromAssociation?: (silent?: boolean) => boolean }): void {
+    queueMicrotask(() => annotation.updateFromAssociation?.(true));
+}
+
 /** The visual for an annotation node; kinds without one (infinite line) get undefined. */
 export function createAnnotationVisual(
     context: ThreeVisualContext,
@@ -154,6 +174,7 @@ export class ThreeRefSegmentAnnotation extends ThreeAnnotation implements IHighl
         readonly annotation: RefSegmentAnnotation,
     ) {
         super(context);
+        resolveAssociationSoon(annotation);
         this.transform = annotation.transform;
         annotation.onPropertyChanged(this.handlePropertyChanged);
     }
@@ -227,6 +248,7 @@ export class ThreeTextAnnotation extends ThreeAnnotation implements IHighlightab
         readonly annotation: TextAnnotation,
     ) {
         super(context);
+        resolveAssociationSoon(annotation);
         this.transform = annotation.transform;
         annotation.onPropertyChanged(this.handleAnnotationChanged);
         defaultFontService.ensureLoaded();
@@ -363,6 +385,7 @@ export class ThreeDimensionAnnotation extends ThreeAnnotation implements IHighli
 
         defaultFontService.ensureLoaded();
         defaultFontService.onLoaded(this.handleFontLoaded);
+        resolveAssociationSoon(annotation);
         this.rebuild();
         this.transform = annotation.transform;
         annotation.onPropertyChanged(this.handleAnnotationChanged);

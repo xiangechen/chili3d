@@ -4,7 +4,9 @@
 import {
     command,
     Dimensions,
+    getAnnotationAssociationResolver,
     type IStep,
+    isAttachedAnchor,
     Plane,
     PointOnPlaneStep,
     type PointSnapData,
@@ -102,5 +104,15 @@ export class TextAnnotationCommand extends AnnotationCommandBase<TextAnnotation>
         annotation.leaderPoint = this.stepDatas[0].point!;
         annotation.position = this.stepDatas[1].point!;
         annotation.textHeight = this.textHeight;
+        this.bind(annotation);
+    }
+
+    /** Binds the leader to whatever the first pick landed on; free space stays static. */
+    private bind(annotation: TextAnnotation): void {
+        const resolver = getAnnotationAssociationResolver();
+        if (resolver === undefined) return;
+
+        const anchor = resolver.capturePointAnchor(this.stepDatas[0].shapes[0], this.stepDatas[0].point!);
+        if (isAttachedAnchor(anchor)) annotation.association = { kind: "point", anchor };
     }
 }

@@ -11,6 +11,10 @@ export default {
         ...en.translation,
         annotation: "Аннотация",
         "annotation.dimension": "Размер",
+        "toast.annotation.groupUnsupported":
+            "Узел, измеряемый аннотацией, нельзя группировать — аннотация потеряет ссылку (узел остаётся независимым)",
+        "annotation.referenceLost{0}":
+            "Ссылочная геометрия не найдена после перестроения ({0}); аннотация сохраняет последнее положение",
         "arc.angle": "Угол",
         "arc.start": "Начать",
         "axis.x": "Ось X",

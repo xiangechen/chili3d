@@ -5,18 +5,21 @@ import {
     AsyncController,
     CommandStore,
     Dimensions,
+    type IAnnotationAssociationResolver,
     type IDocument,
     MeshDataUtils,
     Plane,
     PointOnPlaneStep,
     PointStep,
+    Result,
     SnapPointPlaneEventHandler,
+    setAnnotationAssociationResolver,
     TextAnnotation,
     XY,
     XYZ,
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
-import { describe, expect, rs, test } from "@rstest/core";
+import { afterEach, describe, expect, rs, test } from "@rstest/core";
 import { TextAnnotationCommand } from "../../../src/commands/annotate/text";
 import { pointStepResult, seedStepDatas } from "../commandTestUtils";
 
@@ -47,6 +50,10 @@ function textAnnotations(doc: TestDocument): TextAnnotation[] {
 }
 
 describe("TextAnnotationCommand", () => {
+    afterEach(() => {
+        setAnnotationAssociationResolver(undefined);
+    });
+
     test("should be registered in the CommandStore with its metadata", () => {
         const data = CommandStore.getComandData("annotate.text");
         expect(data).not.toBeUndefined();
@@ -182,5 +189,27 @@ describe("TextAnnotationCommand", () => {
         expect(note.content).toBe("Torque here");
         expect(note.leaderPoint.isEqualTo(leader())).toBe(true);
         expect(note.position.isEqualTo(position())).toBe(true);
+    });
+
+    test("binds the leader point when a resolver is installed", () => {
+        const resolver: IAnnotationAssociationResolver = {
+            captureCircleEdge: () => undefined,
+            capturePointAnchor: (_picked, point) => ({ nodeId: "body", ref: {}, point }),
+            captureEdgeAnchor: () => undefined,
+            resolveCircleEdge: () => Result.err("unused"),
+            resolvePointAnchor: () => Result.err("unused"),
+            resolveEdgeAnchor: () => Result.err("unused"),
+        };
+        setAnnotationAssociationResolver(resolver);
+
+        const doc = new TestDocument();
+        const cmd = textCommand(doc);
+        (cmd as any).executeMainTask();
+
+        const note = textAnnotations(doc)[0];
+        expect(note.association?.kind).toBe("point");
+        if (note.association?.kind === "point") {
+            expect(note.association.anchor.nodeId).toBe("body");
+        }
     });
 });

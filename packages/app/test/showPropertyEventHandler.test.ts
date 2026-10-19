@@ -242,6 +242,44 @@ describe("ShowPropertyEventHandler dimension dragging", () => {
         expect(node.textPoint).toEqual(text);
     });
 
+    test("dragging one end of a bound linear dimension detaches only that end", () => {
+        node.association = {
+            kind: "pointPair",
+            start: { nodeId: "body", ref: {}, point: { x: 0, y: 0, z: 0 } },
+            end: { nodeId: "body", ref: {}, point: { x: 10, y: 0, z: 0 } },
+            placement: { along: 5, lateral: 8, normal: { x: 0, y: 0, z: 1 } },
+        };
+
+        handler.pointerDown(view, pointer(GRIP_START.x + 2, GRIP_START.y - 1));
+        handler.pointerMove(view, pointer(450, 350));
+        handler.pointerUp(view, pointer(450, 350));
+
+        const association = node.association;
+        expect(association?.kind).toBe("pointPair");
+        if (association?.kind !== "pointPair") return;
+        expect(association.start.nodeId).toBeUndefined();
+        expect(association.end.nodeId).toBe("body");
+    });
+
+    test("dragging an attachment point of a radial dimension drops the association", () => {
+        node.dimensionType = "radial";
+        node.planeNormal = XYZ.unitZ;
+        node.association = {
+            kind: "circleEdge",
+            nodeId: "body",
+            edge: {},
+            axis: { x: 0, y: 0, z: 1 },
+            leader: { x: 1, y: 0, z: 0 },
+            distance: 10,
+        };
+
+        handler.pointerDown(view, pointer(GRIP_START.x + 2, GRIP_START.y - 1));
+        handler.pointerMove(view, pointer(450, 350));
+        handler.pointerUp(view, pointer(450, 350));
+
+        expect(node.association).toBeUndefined();
+    });
+
     test("a press without movement stays a plain click: no drag, no history", () => {
         handler.pointerDown(view, pointer(500, 400));
         handler.pointerUp(view, pointer(500, 400));

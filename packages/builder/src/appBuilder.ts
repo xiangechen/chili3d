@@ -96,6 +96,7 @@ export class AppBuilder {
             // serializers, and exposes the sketch ribbon contributions
             const parametric = await import("@chili3d/parametric");
             await parametric.initGarlic();
+            parametric.installAnnotationAssociations();
             this._ribbonExtras.push(...parametric.SketchRibbonProfiles, ...ParametricRibbonProfiles);
         });
         return this;

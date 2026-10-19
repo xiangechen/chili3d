@@ -1,8 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { XYZ } from "@chili3d/core";
-import { afterAll, beforeAll, describe, expect, test } from "@rstest/core";
+import {
+    type IAnnotationAssociationResolver,
+    RefSegmentAnnotation,
+    Result,
+    setAnnotationAssociationResolver,
+    XYZ,
+} from "@chili3d/core";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "@rstest/core";
 import { RefSegment } from "../../../src/commands/create/refSegment";
 import { ensureGlobalStubApp, pointStepResult, seedStepDatas, wireCommand } from "../commandTestUtils";
 
@@ -13,6 +19,10 @@ beforeAll(() => {
 afterAll(() => restoreApp());
 
 describe("RefSegment", () => {
+    afterEach(() => {
+        setAnnotationAssociationResolver(undefined);
+    });
+
     test("should have command metadata", () => {
         const data = (RefSegment as any).prototype.data;
         expect(data).not.toBeNull();
@@ -90,6 +100,35 @@ describe("RefSegment", () => {
             (cmd as any).executeMainTask();
             // The operation should be repeatable (for chaining segments)
             expect((cmd as any).repeatOperation).toBe(true);
+        });
+
+        test("binds each end when a resolver is installed", () => {
+            const resolver: IAnnotationAssociationResolver = {
+                captureCircleEdge: () => undefined,
+                capturePointAnchor: (_picked, point) => ({ nodeId: "body", ref: {}, point }),
+                captureEdgeAnchor: () => undefined,
+                resolveCircleEdge: () => Result.err("unused"),
+                resolvePointAnchor: () => Result.err("unused"),
+                resolveEdgeAnchor: () => Result.err("unused"),
+            };
+            setAnnotationAssociationResolver(resolver);
+
+            const cmd = new RefSegment();
+            const { addedNodes } = wireCommand(cmd);
+            seedStepDatas(cmd, [
+                pointStepResult({ point: new XYZ({ x: 0, y: 0, z: 0 }) }),
+                pointStepResult({ point: new XYZ({ x: 10, y: 0, z: 0 }) }),
+            ]);
+            (cmd as any).executeMainTask();
+
+            const annotation = addedNodes.find(
+                (node) => node instanceof RefSegmentAnnotation,
+            ) as RefSegmentAnnotation;
+            expect(annotation.association?.kind).toBe("pointPair");
+            if (annotation.association?.kind === "pointPair") {
+                expect(annotation.association.start.nodeId).toBe("body");
+                expect(annotation.association.end.nodeId).toBe("body");
+            }
         });
     });
 });

@@ -2,17 +2,21 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type CircleEdgeAssociation,
     CommandStore,
     DimensionAnnotation,
     FolderNode,
+    type IAnnotationAssociationResolver,
     type IDocument,
     type INode,
     PointOnPlaneStep,
+    Result,
     SelectShapeStep,
+    setAnnotationAssociationResolver,
     XYZ,
 } from "@chili3d/core";
 import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
-import { describe, expect, test } from "@rstest/core";
+import { afterEach, describe, expect, test } from "@rstest/core";
 import {
     AnnotateDiameterDimension,
     AnnotateRadialDimension,
@@ -21,6 +25,18 @@ import { pointStepResult, seedStepDatas, shapeStepResult } from "../commandTestU
 
 const CIRCLE = { center: XYZ.zero, radius: 10, axis: XYZ.unitZ };
 const POSITION = new XYZ({ x: 20, y: 0, z: 0 });
+const ASSOCIATION: CircleEdgeAssociation = {
+    kind: "circleEdge",
+    nodeId: "body",
+    edge: { kind: "circle" },
+    axis: { x: 0, y: 0, z: 1 },
+    leader: { x: 1, y: 0, z: 0 },
+    distance: 20,
+};
+
+afterEach(() => {
+    setAnnotationAssociationResolver(undefined);
+});
 
 type RadialCommand = AnnotateRadialDimension | AnnotateDiameterDimension;
 
@@ -192,5 +208,42 @@ describe("AnnotateRadialDimension", () => {
         expect(dimensionAnnotations(doc)).toHaveLength(0);
         expect(annotationFolders(doc)).toHaveLength(0);
         expect(doc.history.undoCount()).toBe(0);
+    });
+
+    test("a committed dimension binds the picked edge when a resolver is installed", () => {
+        let captured: { picked: unknown; textPoint: XYZ } | undefined;
+        const resolver: IAnnotationAssociationResolver = {
+            captureCircleEdge: (picked, textPoint) => {
+                captured = { picked, textPoint };
+                return ASSOCIATION;
+            },
+            capturePointAnchor: (_picked, point) => ({ point }),
+            captureEdgeAnchor: () => undefined,
+            resolveCircleEdge: () => Result.err("unused"),
+            resolvePointAnchor: () => Result.err("unused"),
+            resolveEdgeAnchor: () => Result.err("unused"),
+        };
+        setAnnotationAssociationResolver(resolver);
+
+        const doc = new TestDocument();
+        const cmd = radialCommand(doc, () => new AnnotateRadialDimension());
+        const picked = (cmd as any).stepDatas[0].shapes[0];
+        (cmd as any).getPositionData().beforeExecute();
+        (cmd as any).dimensionPreview(POSITION);
+        (cmd as any).executeMainTask();
+
+        expect(captured?.picked).toBe(picked);
+        expect(captured?.textPoint.isEqualTo(POSITION)).toBe(true);
+        expect(dimensionAnnotations(doc)[0].association).toEqual(ASSOCIATION);
+    });
+
+    test("without a resolver a committed dimension stays static", () => {
+        const doc = new TestDocument();
+        const cmd = radialCommand(doc, () => new AnnotateRadialDimension());
+        (cmd as any).getPositionData().beforeExecute();
+        (cmd as any).dimensionPreview(POSITION);
+        (cmd as any).executeMainTask();
+
+        expect(dimensionAnnotations(doc)[0].association).toBeUndefined();
     });
 });

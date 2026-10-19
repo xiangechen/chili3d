@@ -70,6 +70,10 @@ export default {
         "ai.workedFor": "Processado em {0}",
         annotation: "Anotação",
         "annotation.dimension": "Cota",
+        "toast.annotation.groupUnsupported":
+            "Um nó medido por uma anotação não pode ser agrupado — a anotação perderia a referência (o nó permanece independente)",
+        "annotation.referenceLost{0}":
+            "A geometria referenciada não foi encontrada após a reconstrução ({0}); a anotação mantém sua última posição",
         "arc.angle": "Ângulo",
         "arc.start": "Início",
         "axis.x": "Eixo X",

@@ -588,6 +588,34 @@ describe("TransformedCommand (via Move)", () => {
             }
         });
 
+        test("moving a bound annotation detaches it", () => {
+            const restore = stubTransactionRun();
+            try {
+                const cmd = new Move();
+                const anno = dimension();
+                anno.association = {
+                    kind: "circleEdge",
+                    nodeId: "body",
+                    edge: {},
+                    axis: { x: 0, y: 0, z: 1 },
+                    leader: { x: 1, y: 0, z: 0 },
+                    distance: 10,
+                };
+                wireCommand(cmd);
+                (cmd as any).models = [anno];
+                seedStepDatas(cmd, [
+                    pointStepResult({ point: XYZ.zero }),
+                    pointStepResult({ point: new XYZ({ x: 1, y: 2, z: 3 }) }),
+                ]);
+
+                (cmd as any).executeMainTask();
+
+                expect(anno.association).toBeUndefined();
+            } finally {
+                restore();
+            }
+        });
+
         test("clones an annotation onto the translated copy when isClone is true", () => {
             const restore = stubTransactionRun();
             try {
