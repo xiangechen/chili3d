@@ -500,17 +500,85 @@ function renderQueryEntry(c) {
     )}, family: ${JSON.stringify(c.family)}, returnKind: ${JSON.stringify(c.returnKind)},${runtimeType} params: [${params}] }`;
 }
 
-function buildDocSections(queries) {
-    const owners = [...new Set(queries.map((q) => q.owner))];
+function buildDocSections(queries, family) {
+    const inFamily = queries.filter((q) => q.family === family);
+    const owners = [...new Set(inFamily.map((q) => q.owner))];
     return owners.map((owner) => {
-        const lines = queries.filter((q) => q.owner === owner).map((q) => `  ${queryDocLine(q)}`);
+        const lines = inFamily.filter((q) => q.owner === owner).map((q) => `  ${queryDocLine(q)}`);
         const article = /^[aeiou]/i.test(owner) ? "an" : "a";
         const scope =
-            queries.find((q) => q.owner === owner)?.family === "shape"
+            family === "shape"
                 ? `target must be ${article} ${owner}`
                 : `target must be ${article} ${owner} (or a subtype of it)`;
         return `${owner}.* (${scope}):\n${lines.join("\n")}`;
     });
+}
+
+/** The protocol every query family shares: target, refs, result encodings, kind encodings. */
+const QUERY_PROTOCOL = `- target: an op id, an existing node id, a sub-shape ref (q1#2), or a curve/surface ref.
+- Refs persist across run_program calls on the same document and re-resolve against the live shape; a ref whose source node was deleted fails with a clear error — re-run the query that produced it. At most 256 refs are kept per document: in a long session the oldest are evicted and later fail as "Unknown ref".
+- Every query op needs an "id"; its return value comes back in the response "results" under that id. Result encodings: data queries return the plain value; curve/surface-producing queries (edge.curve, face.surface, trimmedCurve.basisCurve, ...) return { ref, kind } where kind is "curve" or "surface" — pass ref as the target of follow-up queries, and only to members matching its kind; single-shape queries (wire.toFace, wire.offset, face.outerWire, edge.trim, ...) return { ref, kind: "shape" } — the ref works both as a query target and as a shape argument in creation ops; list queries (shape.findSubShapes, wire.edgeLoop) return { count, refs, kind: "shape" }; mutation queries (curve.reverse, trimmedCurve.setTrim, ...) return null and modify the target ref's geometry in place — the mutation is remembered and re-applied whenever the ref is re-resolved.
+- Query ops never consume or delete the referenced node, and never create scene nodes.
+- kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} (XY-oriented through origin when normal is omitted) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid (the plural is accepted too, and shape.findSubShapes' subshapeType may be left out — it then means edge); ref/curveRef/surfaceRef take a ref string.`;
+
+/** What belongs to one family and would only be noise in the other two documents. */
+const QUERY_NOTES = {
+    shape: `- Shape/vertex/edge/wire/face ops are the topology half: measure a solid, find its faces and edges, walk a wire, close a wire into a face. The curve behind an edge and the surface behind a face are the curve-query and surface-query skills.
+- Type hierarchy of the refs these ops return: circle/ellipse/hyperbola/parabola are conic; conic/line/bezierCurve/bsplineCurve/trimmedCurve/offsetCurve are curve — curve.* and conic.* members apply to those targets too. Surfaces likewise: cylindricalSurface/planeSurface/sphericalSurface/... are elementarySurface, and every *Surface is a surface.
+- shape.containsPoint(target, point, containsBoundary?, tolerance?) asks whether the point lies in the shape — the two trailing arguments default to true (a point ON the boundary counts) and 0.001 mm — and reads it by the shape's own kind: a solid's volume — or, for the compound a body, a boolean result and an import all are (shape.shapeType reports it, and so does get_document_state's shapeKind), any of the solids it holds — a face's region, an edge's curve within its parameter window, a wire's edges, a shell's faces, a vertex's own point. containsBoundary says whether a point ON the boundary counts (a solid's surface, a face's own edges); a kind with no interior (edge, wire, shell, vertex) answers only the boundary reading, so by default it answers true for a point on it — pass false to require a point strictly inside. The individual solids a compound is built from are shape.findSubShapes(target, solid) — those refs (q1#0) are what the solid, face and edge families take.
+- A face's SURFACE (face.surface → plane/cylinder/...) is NOT its boundary curve: to inspect the edges bounding a face (e.g. the circular rim of a cylinder's top face), run shape.findSubShapes with subshapeType=edge on the face or solid, then edge.curve on the edge refs.`,
+    curve: `- These ops read and edit the curve behind edges. Obtain a curve ref with edge.curve (shape-query) or pass an edge ref directly — see Auto-derivation below.
+- Type hierarchy: circle/ellipse/hyperbola/parabola are conic; conic/line/bezierCurve/bsplineCurve/trimmedCurve/offsetCurve are curve — curve.* and conic.* members apply to those targets too. Use curve.curveType to check what a curve ref actually is.
+- edge.curve ALWAYS yields a trimmedCurve (it carries the edge's parameter range), even for a straight or circular edge.
+- Auto-derivation: curve-family queries accept an edge shape ref directly (edge.curve is applied for you). Type-specific curve members (circle.radius, line.direction, ...) additionally unwrap a trimmedCurve to its basisCurve, so circle.radius works straight on an edge ref. curve.curveType is the exception — it reports the target's own type, so on an edge or trimmedCurve it says "trimmedCurve"; chain trimmedCurve.basisCurve (callable on an edge ref too) to classify the underlying curve. Mutation queries (curve.reverse, trimmedCurve.setTrim) are strict: they need an explicit curve ref from edge.curve.
+- A trimmed curve reports its own parameter window, so length/tangent/parameter apply to the trimmed span; chain trimmedCurve.basisCurve when the underlying full curve is what you need.`,
+    surface: `- These ops read the surface behind faces. Obtain a surface ref with face.surface (shape-query), or pass a face ref directly — see Auto-derivation below.
+- Type hierarchy: cylindricalSurface/planeSurface/sphericalSurface/... are elementarySurface, and every *Surface is a surface; members of the concrete type apply when the target is one. surface.isPlanar answers the common question of whether a face's surface is flat.
+- Auto-derivation: surface-family queries accept a face shape ref directly (face.surface is applied for you).
+- A face's SURFACE is NOT its boundary curve: to inspect the edges bounding a face (e.g. the circular rim of a cylinder's top face), run shape.findSubShapes with subshapeType=edge on the face or solid, then edge.curve on the edge refs.`,
+};
+
+const QUERY_EXAMPLES = {
+    shape: `Examples:
+- Measure a solid: { "method": "shape.volume", "target": "<nodeId>", "id": "v" } -> results.v = 12000
+- Face area of a box face: { "method": "shape.findSubShapes", "target": "b", "id": "f", "args": { "subshapeType": "face" } } then { "method": "face.area", "target": "f#0", "id": "a" }
+- Face from a wire loop: { "method": "wire.toFace", "target": "<wireRef>", "id": "f" } -> results.f = { ref: "f", kind: "shape" }, then e.g. { "method": "face.area", "target": "f", "id": "a" }
+- Edges of a solid: { "method": "shape.findSubShapes", "target": "<solidId>", "id": "e", "args": { "subshapeType": "edge" } } -> results.e = { count, refs, kind: "shape" }; pass e#0, e#1, ... to edge/curve queries.`,
+    curve: `Examples:
+- Classify a solid's edge: { "method": "shape.findSubShapes", "target": "<solidId>", "id": "e", "args": { "subshapeType": "edge" } }, then { "method": "trimmedCurve.basisCurve", "target": "e#0", "id": "c" }, then { "method": "curve.curveType", "target": "c", "id": "t" } — and when t is "circle", { "method": "circle.radius", "target": "e#0", "id": "r" } works directly on the edge ref.
+- Length of an edge: { "method": "curve.length", "target": "e#0", "id": "l" }.
+- Endpoints and tangent: { "method": "edge.ends", "target": "e#0", "id": "p" } (shape-query) and { "method": "curve.value", "target": "e#0", "id": "v", "args": { "parameter": 0.5 } }.`,
+    surface: `Examples:
+- Surface bounds: { "method": "face.surface", "target": "f#0", "id": "s" } then { "method": "surface.bounds", "target": "s", "id": "uv" }
+- Normal at a parameter: { "method": "surface.dn", "target": "s", "id": "n", "args": { "u": 0.5, "v": 0.5, "nu": 1, "nv": 0 } }
+- Is a face flat: { "method": "surface.isPlanar", "target": "f#0", "id": "flat" }.
+- Project a point onto a face's surface: { "method": "surface.nearestPoint", "target": "s", "id": "p", "args": { "point": { "x": 10, "y": 20, "z": 5 } } }.`,
+};
+
+/** Escape a document for embedding inside a generated template literal. */
+function inlineDoc(text) {
+    return text.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$\{/g, "\\${");
+}
+
+function buildQueryDoc(queries, family) {
+    const title = {
+        shape: "Shape query API",
+        curve: "Curve query API",
+        surface: "Surface query API",
+    }[family];
+    // Only the surface document can reach semiAngle, so only it carries the exception.
+    const units =
+        family === "surface"
+            ? "units: mm, angles: degrees — the exception is conicalSurface.semiAngle, which reports OCCT's native radians"
+            : "units: mm, angles: degrees";
+    return `${title} (${units}). Run via run_program query ops:
+{ "method": "<owner>.<name>", "target": "<ref>", "id": "q1", "args": { ... } }
+${QUERY_PROTOCOL}
+${QUERY_NOTES[family]}
+
+${buildDocSections(queries, family).join("\n\n")}
+
+${QUERY_EXAMPLES[family]}`;
 }
 
 function renderGenerated(capabilities, queries) {
@@ -524,14 +592,18 @@ function renderGenerated(capabilities, queries) {
     ].join("\n");
 
     const sourceLines = capabilities.map((c) => `  ${c.method}(${paramList(c.params)}) -> ${c.returnKind}`);
-    const docSections = buildDocSections(queries);
+    const queryDocs = {
+        shape: buildQueryDoc(queries, "shape"),
+        curve: buildQueryDoc(queries, "curve"),
+        surface: buildQueryDoc(queries, "surface"),
+    };
     const queryEntries = queries.map(renderQueryEntry).join(",\n");
     const ownerUnion = [...new Set(queries.map((q) => q.owner))].map((o) => JSON.stringify(o)).join(" | ");
 
-    return header + renderBody(capabilities, queryEntries, ownerUnion, sourceLines, docSections);
+    return header + renderBody(capabilities, queryEntries, ownerUnion, sourceLines, queryDocs);
 }
 
-function renderBody(capabilities, queryEntries, ownerUnion, sourceLines, docSections) {
+function renderBody(capabilities, queryEntries, ownerUnion, sourceLines, queryDocs) {
     return `
 export type ShapeParamKind =
     | "number" | "boolean" | "string" | "numberArray"
@@ -592,27 +664,11 @@ JSON encoding: XYZ={x,y,z}; Plane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}
 Placement: box/rect/pyramid — plane.origin is a CORNER, the shape extends +dx/+dy/+dz from it. cylinder/cone — center is the BASE-FACE center, the shape extends +dz along normal. sphere — center is the true center. To center a box at P use origin = P - (dx/2,dy/2,dz/2); to center a cylinder/cone at P use center = P - normal*(dz/2).
 polygon: pass the corner points in PERIMETER ORDER, at least 3, ALL ON ONE PLANE, and REPEAT THE FIRST POINT as the last point to close the wire explicitly. polygon returns a WIRE, not a face — prism/revolve take it as it is: a CLOSED wire (or a closed edge such as a circle) is closed into a face for you and sweeps a solid, while an UNCLOSED one is swept into an open SHELL, a silent wrong result that breaks downstream booleans and fillets. A self-crossing point order (bowtie) yields a degenerate near-zero-area face, not an error — order points around the perimeter.\`;
 
-export const queryApiDoc = \`Shape query API (units: mm, angles: degrees — the exception is conicalSurface.semiAngle, which reports OCCT's native radians). Run via run_program query ops:
-{ "method": "<owner>.<name>", "target": "<ref>", "id": "q1", "args": { ... } }
-- target: an op id, an existing node id, a sub-shape ref (q1#2), or a curve/surface ref.
-- Refs persist across run_program calls on the same document and re-resolve against the live shape; a ref whose source node was deleted fails with a clear error — re-run the query that produced it. At most 256 refs are kept per document: in a long session the oldest are evicted and later fail as "Unknown ref".
-- Every query op needs an "id"; its return value comes back in the response "results" under that id. Result encodings: data queries return the plain value; curve/surface-producing queries (edge.curve, face.surface, trimmedCurve.basisCurve, ...) return { ref, kind } where kind is "curve" or "surface" — pass ref as the target of follow-up queries, and only to members matching its kind; single-shape queries (wire.toFace, wire.offset, face.outerWire, edge.trim, ...) return { ref, kind: "shape" } — the ref works both as a query target and as a shape argument in creation ops; list queries (shape.findSubShapes, wire.edgeLoop) return { count, refs, kind: "shape" }; mutation queries (curve.reverse, trimmedCurve.setTrim, ...) return null and modify the target ref's geometry in place — the mutation is remembered and re-applied whenever the ref is re-resolved.
-- Query ops never consume or delete the referenced node, and never create scene nodes.
-- kind encodings: xyz={x,y,z}; plane/refOrPlane={origin:{x,y,z}, normal:{x,y,z}?, xvec:{x,y,z}?} (XY-oriented through origin when normal is omitted) or, for refOrPlane, a shape ref string; line/refOrLine={point:{x,y,z},direction:{x,y,z}} or a ref string; matrix={array:[16 numbers, column-major]}; shapeType one of solid|shell|face|wire|edge|vertex|compound|compoundSolid (the plural is accepted too, and shape.findSubShapes' subshapeType may be left out — it then means edge); ref/curveRef/surfaceRef take a ref string.
-- Type hierarchy: circle/ellipse/hyperbola/parabola are conic; conic/line/bezierCurve/bsplineCurve/trimmedCurve/offsetCurve are curve — curve.* and conic.* members apply to those targets too. Surfaces likewise: cylindricalSurface/planeSurface/sphericalSurface/... are elementarySurface, and every *Surface is a surface. Use curve.curveType to check what a curve ref actually is.
-- edge.curve ALWAYS yields a trimmedCurve (it carries the edge's parameter range), even for a straight or circular edge.
-- shape.containsPoint(target, point, containsBoundary, tolerance) asks whether the point lies in the shape, and reads it by the shape's own kind: a solid's volume — or, for the compound a body, a boolean result and an import all are (shape.shapeType reports it, and so does get_document_state's shapeKind), any of the solids it holds — a face's region, an edge's curve within its parameter window, a wire's edges, a shell's faces, a vertex's own point. containsBoundary says whether a point ON the boundary counts (a solid's surface, a face's own edges); a kind with no interior (edge, wire, shell, vertex) answers false unless it is set. The individual solids a compound is built from are shape.findSubShapes(target, solid) — those refs (q1#0) are what the solid, face and edge families take.
-- Auto-derivation: curve-family queries accept an edge shape ref directly (edge.curve is applied for you), and surface-family queries accept a face shape ref (face.surface). Type-specific curve members (circle.radius, line.direction, ...) additionally unwrap a trimmedCurve to its basisCurve, so circle.radius works straight on an edge ref. curve.curveType is the exception — it reports the target's own type, so on an edge or trimmedCurve it says "trimmedCurve"; chain trimmedCurve.basisCurve (callable on an edge ref too) to classify the underlying curve. Mutation queries (curve.reverse, trimmedCurve.setTrim) are strict: they need an explicit curve ref from edge.curve.
-- curve/surface refs come from edge.curve and face.surface; sub-shape refs from shape.findSubShapes / wire.edgeLoop. A face's SURFACE (face.surface → plane/cylinder/...) is NOT its boundary curve: to inspect the edges bounding a face (e.g. the circular rim of a cylinder's top face), run shape.findSubShapes with subshapeType=edge on the face or solid, then edge.curve on the edge refs.
+export const queryApiDoc = \`${inlineDoc(queryDocs.shape)}\`;
 
-${docSections.join("\n\n")}
+export const curveQueryApiDoc = \`${inlineDoc(queryDocs.curve)}\`;
 
-Examples:
-- Measure a solid: { "method": "shape.volume", "target": "<nodeId>", "id": "v" } -> results.v = 12000
-- Face area of a box face: { "method": "shape.findSubShapes", "target": "b", "id": "f", "args": { "subshapeType": "face" } } then { "method": "face.area", "target": "f#0", "id": "a" }
-- Face from a wire loop: { "method": "wire.toFace", "target": "<wireRef>", "id": "f" } -> results.f = { ref: "f", kind: "shape" }, then e.g. { "method": "face.area", "target": "f", "id": "a" }
-- Classify a solid's edge: { "method": "shape.findSubShapes", "target": "<solidId>", "id": "e", "args": { "subshapeType": "edge" } }, then { "method": "trimmedCurve.basisCurve", "target": "e#0", "id": "c" }, then { "method": "curve.curveType", "target": "c", "id": "t" } — and when t is "circle", { "method": "circle.radius", "target": "e#0", "id": "r" } works directly on the edge ref.
-- Surface bounds: { "method": "face.surface", "target": "f#0", "id": "s" } then { "method": "surface.bounds", "target": "s", "id": "uv" }\`;
+export const surfaceQueryApiDoc = \`${inlineDoc(queryDocs.surface)}\`;
 `;
 }
 

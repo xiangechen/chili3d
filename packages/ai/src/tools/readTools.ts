@@ -52,7 +52,7 @@ export function buildReadTools(): Tool[] {
         {
             name: "get_document_state",
             description:
-                "Read the current document: whether there is an active document, its name, node count, and each node's id/type/name/parentId/shapeKind. Nodes of type FolderNode are the groups; a node's parentId is the folder holding it. shapeKind is the kind of shape the node holds (a compound is a body of several features, a boolean result or an import) — the shape-query skill's compound.* and solid.* sections say which queries each kind takes.",
+                "Read the current document: whether there is an active document, its name, node count, and each node's id/type/name/parentId/shapeKind. Nodes of type FolderNode are the groups; a node's parentId is the folder holding it. shapeKind is the kind of shape the node holds (a compound is a body of several features, a boolean result or an import) — load_skill shape-query for the shape.* queries each kind takes, and shape.findSubShapes to reach the solids a compound holds.",
             parameters: { type: "object", properties: {} },
             handler: readDocumentState,
         },

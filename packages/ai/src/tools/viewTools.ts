@@ -13,6 +13,7 @@ import {
     Transaction,
     type XYZLike,
 } from "@chili3d/core";
+import { splitDataUrl } from "../llm/imageData";
 import type { Tool, ToolResult } from "../llm/types";
 import { findNode, getDocument } from "./documentContext";
 import { summarizeTexture } from "./propertyBag";
@@ -99,13 +100,212 @@ export function imageResult(
     view: { toImage(options?: ToImageOptions): string },
     payload: Record<string, unknown>,
 ): ToolResult {
-    const dataUrl = view.toImage(SCREENSHOT_IMAGE);
-    const comma = dataUrl.indexOf(",");
-    const mediaType = dataUrl.slice(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";")) || "image/png";
+    const image = splitDataUrl(view.toImage(SCREENSHOT_IMAGE));
+    // The canvas's own PNG header always names a type; the fallback is for a renderer that does not.
+    const mediaType = image.mediaType || "image/png";
     return {
         content: JSON.stringify({ ...payload, mediaType }),
-        images: [{ mediaType, data: dataUrl.slice(comma + 1) }],
+        images: [{ mediaType, data: image.data }],
     };
+}
+
+const DEFAULT_VIEWS = ["iso", "front", "top"];
+const MIN_VIEW_SIZE = 256;
+const MAX_VIEW_SIZE = 1600;
+/** Each view costs a full render, so a long list is a freeze, not a richer answer. */
+const MAX_CAPTURE_VIEWS = 6;
+
+interface CaptureFrame {
+    target: XYZLike;
+    distance: number;
+}
+
+/**
+ * Several standard views of the model in one call, at one projection and one output size, so the
+ * pictures can be compared with each other and with a reference image. Everything the camera is
+ * asked to do happens with `duration: 0` and the pose is restored before returning — the user is
+ * looking at this viewport, and a capture must not leave it somewhere else.
+ */
+export function buildCaptureViewsTool(): Tool {
+    return {
+        name: "capture_views",
+        description:
+            "Capture several standard views of the viewport in one call — the deterministic counterpart of capture_screenshot. Use it to compare a model with a reference image: all views share one projection, one framing and one pixel size, and the response lists which image is which. The camera is restored afterwards.",
+        parameters: {
+            type: "object",
+            properties: {
+                views: {
+                    type: "array",
+                    items: {
+                        type: "string",
+                        enum: ["front", "back", "left", "right", "top", "bottom", "iso"],
+                    },
+                    maxItems: MAX_CAPTURE_VIEWS,
+                    description: `Views to capture, in image order (default ${DEFAULT_VIEWS.join(", ")}; at most ${MAX_CAPTURE_VIEWS}, duplicates are dropped)`,
+                },
+                orthographic: {
+                    type: "boolean",
+                    description: "Use orthographic projection (default true); false uses perspective",
+                },
+                framing: {
+                    type: "string",
+                    enum: ["all", "selection"],
+                    description:
+                        'What to frame: "all" ignores the current selection (default), "selection" frames it when one exists',
+                },
+                width: {
+                    type: "number",
+                    description: `Output width in pixels (default 1024, ${MIN_VIEW_SIZE}..${MAX_VIEW_SIZE})`,
+                },
+                height: {
+                    type: "number",
+                    description: `Output height in pixels (default 768, ${MIN_VIEW_SIZE}..${MAX_VIEW_SIZE})`,
+                },
+                frame: {
+                    type: "object",
+                    description:
+                        "Reuse a framing returned by an earlier call, so two captures are directly comparable",
+                    properties: {
+                        target: {
+                            type: "object",
+                            properties: {
+                                x: { type: "number" },
+                                y: { type: "number" },
+                                z: { type: "number" },
+                            },
+                            required: ["x", "y", "z"],
+                        },
+                        distance: { type: "number" },
+                    },
+                    required: ["target", "distance"],
+                },
+            },
+        },
+        handler: captureViewsHandler,
+    };
+}
+
+const captureViewsHandler: Tool["handler"] = async (args) => {
+    const view = globalThis.app.activeView;
+    if (!view) return textResult({ error: "no active view" });
+
+    const views = parseViews(args["views"]);
+    if (typeof views === "string") return textResult({ error: views });
+    const frame = parseFrame(args["frame"]);
+    if (typeof frame === "string") return textResult({ error: frame });
+    const orthographic = typeof args["orthographic"] === "boolean" ? args["orthographic"] : true;
+    const framing = args["framing"] === "selection" ? "selection" : "all";
+    const width = boundedSize(args["width"], 1024);
+    const height = boundedSize(args["height"], 768);
+
+    const camera = view.cameraController;
+    // A fly-to still running would be cancelled by the capture and restored at its midpoint.
+    camera.settle?.();
+    const saved = {
+        type: camera.cameraType,
+        position: camera.cameraPosition,
+        target: camera.cameraTarget,
+        up: camera.cameraUp,
+    };
+
+    // Switch the drawing-buffer size once for the whole batch; without it each view would resize
+    // and restore the renderer twice over.
+    const restoreCapture = view.beginImageCapture?.(width, height);
+    try {
+        camera.cameraType = orthographic ? "orthographic" : "perspective";
+        // Fit the shape this capture will actually have, not the viewport's shape.
+        const distance = frame?.distance ?? frameAll(camera, framing, width / height);
+        const target = frame?.target ?? camera.cameraTarget;
+        // Same encoding as capture_screenshot: these pictures are replayed with every request,
+        // and a full-resolution PNG buys nothing the API does not downscale away.
+        const imageOptions = {
+            ...SCREENSHOT_IMAGE,
+            ...(restoreCapture ? {} : { width, height }),
+        };
+        const images = views.map((name) => {
+            const preset = VIEW_PRESETS[name];
+            const { eye, up } = presetEye(preset, target, distance);
+            camera.lookAt(eye, target, up, { duration: 0 });
+            view.update();
+            const image = splitDataUrl(view.toImage(imageOptions));
+            return { mediaType: image.mediaType || "image/jpeg", data: image.data };
+        });
+        return {
+            content: JSON.stringify({
+                ok: true,
+                views,
+                imageOrder: views,
+                orthographic,
+                framing,
+                frame: { target: toPlainPoint(target), distance: Math.round(distance * 100) / 100 },
+                mediaType: images[0]?.mediaType || "image/jpeg",
+            }),
+            images,
+        };
+    } finally {
+        restoreCapture?.();
+        camera.cameraType = saved.type;
+        camera.lookAt(saved.position, saved.target, saved.up, { duration: 0 });
+        view.update();
+    }
+};
+
+/** Frame the content at once and report the distance the views will keep from the target. */
+function frameAll(
+    camera: {
+        fitContent(options?: { duration?: number; scope?: "all" | "selection"; aspect?: number }): void;
+        cameraPosition: XYZLike;
+        cameraTarget: XYZLike;
+    },
+    framing: "all" | "selection",
+    aspect: number,
+): number {
+    camera.fitContent({ duration: 0, scope: framing, aspect });
+    const dx = camera.cameraPosition.x - camera.cameraTarget.x;
+    const dy = camera.cameraPosition.y - camera.cameraTarget.y;
+    const dz = camera.cameraPosition.z - camera.cameraTarget.z;
+    return Math.hypot(dx, dy, dz) || 1;
+}
+
+function parseViews(raw: unknown): string[] | string {
+    if (raw === undefined) return [...DEFAULT_VIEWS];
+    if (!Array.isArray(raw) || raw.some((value) => typeof value !== "string")) {
+        return "views must be an array of view names";
+    }
+    if (raw.length === 0) return "views must name at least one view";
+    // Each view is a full render, so duplicates buy nothing and a long list freezes the tab.
+    const names = [...new Set(raw as string[])];
+    // hasOwn, not a truthiness check: "constructor" and "toString" live on the prototype chain
+    // and would pass `VIEW_PRESETS[name] === undefined` and then fail inside presetEye.
+    const unknown = names.filter((name) => !Object.hasOwn(VIEW_PRESETS, name));
+    if (unknown.length) {
+        return `unknown view(s) ${unknown.join(", ")}, expected one of ${Object.keys(VIEW_PRESETS).join("|")}`;
+    }
+    if (names.length > MAX_CAPTURE_VIEWS) {
+        return `capture at most ${MAX_CAPTURE_VIEWS} views, got ${names.length}`;
+    }
+    return names;
+}
+
+function parseFrame(raw: unknown): CaptureFrame | string | undefined {
+    if (raw === undefined) return undefined;
+    const frame = raw as { target?: { x?: unknown; y?: unknown; z?: unknown }; distance?: unknown };
+    const target = frame?.target;
+    // Finite, not just `typeof number`: 1e999 parses to Infinity, which reaches the camera matrix
+    // as NaN and leaves the capture blank.
+    const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+    if (!target || !finite(target.x) || !finite(target.y) || !finite(target.z)) {
+        return "frame.target must be a finite { x, y, z }";
+    }
+    if (typeof frame.distance !== "number" || !Number.isFinite(frame.distance) || frame.distance <= 0) {
+        return "frame.distance must be a positive number";
+    }
+    return { target: { x: target.x, y: target.y, z: target.z }, distance: frame.distance };
+}
+
+function boundedSize(value: unknown, fallback: number): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+    return Math.min(MAX_VIEW_SIZE, Math.max(MIN_VIEW_SIZE, Math.round(value)));
 }
 
 function textResult(value: unknown): ToolResult {
@@ -482,11 +682,11 @@ function resolveOrientation(
     distance: number,
 ): CameraOrientation | string {
     if (a.view !== undefined) {
-        const preset = VIEW_PRESETS[a.view];
-        if (!preset) {
+        // Own property only: a prototype name would otherwise reach presetEye as a non-preset.
+        if (!Object.hasOwn(VIEW_PRESETS, a.view)) {
             return `unknown view "${a.view}", expected one of ${Object.keys(VIEW_PRESETS).join("|")}`;
         }
-        return presetEye(preset, target, distance);
+        return presetEye(VIEW_PRESETS[a.view], target, distance);
     }
     if (a.azimuth === undefined && a.elevation === undefined) {
         return "provide view or azimuth/elevation";

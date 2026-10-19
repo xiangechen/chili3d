@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MaterialPresets } from "@chili3d/core";
+import { MaterialPresets, type ToImageOptions } from "@chili3d/core";
 import { createMockDocument, stubImageRaster } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { buildViewTools, parseColor, parseToolColor } from "../src/tools/viewTools";
+import { buildCaptureViewsTool, buildViewTools, parseColor, parseToolColor } from "../src/tools/viewTools";
 
 describe("parseColor", () => {
     test.each([
@@ -363,6 +363,15 @@ describe("rotate_view tool", () => {
         expect(JSON.parse(unknown.content).error).toContain("unknown view");
     });
 
+    test("rejects a prototype-chain name as an unknown view", async () => {
+        const { lookAt } = stubView({ x: 1, y: 0, z: 0 });
+
+        const result = (await getTool().handler({ view: "constructor" })) as { content: string };
+
+        expect(JSON.parse(result.content).error).toContain('unknown view "constructor"');
+        expect(lookAt).not.toHaveBeenCalled();
+    });
+
     test("reports an error when there is no active view", async () => {
         rs.stubGlobal("app", { activeView: undefined });
 
@@ -491,6 +500,167 @@ describe("set_camera_type tool", () => {
         rs.stubGlobal("app", { activeView: undefined });
 
         const result = (await getTool().handler({ type: "orthographic" })) as { content: string };
+
+        expect(JSON.parse(result.content)).toEqual({ error: "no active view" });
+    });
+});
+
+describe("capture_views tool", () => {
+    afterEach(() => {
+        rs.unstubAllGlobals();
+    });
+
+    function getTool() {
+        return buildCaptureViewsTool();
+    }
+
+    function stubView() {
+        const cameraController = {
+            cameraType: "perspective",
+            cameraPosition: { x: 10, y: 20, z: 30 },
+            cameraTarget: { x: 1, y: 2, z: 3 },
+            cameraUp: { x: 0, y: 0, z: 1 },
+            fitContent: rs.fn(),
+            lookAt: rs.fn(),
+            settle: rs.fn(),
+        };
+        const update = rs.fn();
+        // Record the projection at capture time: the handler restores the camera afterwards, so a
+        // post-call assertion cannot tell whether it was ever switched.
+        const capturedTypes: string[] = [];
+        const toImage = rs.fn((_options?: ToImageOptions) => {
+            capturedTypes.push(cameraController.cameraType);
+            return "data:image/png;base64,AAAA";
+        });
+        rs.stubGlobal("app", { activeView: { cameraController, update, toImage } });
+        return { cameraController, update, toImage, capturedTypes };
+    }
+
+    test("captures every requested view in one result, in the requested order", async () => {
+        const { toImage } = stubView();
+
+        const result = (await getTool().handler({
+            views: ["front", "top"],
+            width: 512,
+            height: 384,
+        })) as { content: string; images: unknown[] };
+
+        const payload = JSON.parse(result.content);
+        expect(payload.views).toEqual(["front", "top"]);
+        expect(payload.imageOrder).toEqual(["front", "top"]);
+        expect(result.images).toHaveLength(2);
+        expect(toImage).toHaveBeenCalledTimes(2);
+        expect(toImage.mock.calls[0][0]).toEqual({
+            maxSize: 1568,
+            mimeType: "image/jpeg",
+            quality: 0.85,
+            width: 512,
+            height: 384,
+        });
+    });
+
+    test("frames all content by default and the selection on request", async () => {
+        const first = stubView();
+        await getTool().handler({});
+        expect(first.cameraController.fitContent).toHaveBeenCalledWith({
+            duration: 0,
+            scope: "all",
+            aspect: 1024 / 768,
+        });
+
+        rs.unstubAllGlobals();
+        const second = stubView();
+        await getTool().handler({ framing: "selection", width: 512, height: 1024 });
+        // The fit uses the shape the capture will have, not the viewport's.
+        expect(second.cameraController.fitContent).toHaveBeenCalledWith({
+            duration: 0,
+            scope: "selection",
+            aspect: 512 / 1024,
+        });
+    });
+
+    test("pins the framing when one is passed instead of fitting again", async () => {
+        const { cameraController } = stubView();
+
+        await getTool().handler({ views: ["iso"], frame: { target: { x: 1, y: 2, z: 3 }, distance: 50 } });
+
+        expect(cameraController.fitContent).not.toHaveBeenCalled();
+        const [eye, target] = cameraController.lookAt.mock.calls[0];
+        expect(target).toEqual({ x: 1, y: 2, z: 3 });
+        const distance = Math.hypot(eye.x - 1, eye.y - 2, eye.z - 3);
+        expect(distance).toBeCloseTo(50, 6);
+    });
+
+    test("uses orthographic projection by default and restores the camera afterwards", async () => {
+        const { cameraController, update, capturedTypes } = stubView();
+
+        const result = (await getTool().handler({ views: ["iso"] })) as { content: string };
+
+        expect(JSON.parse(result.content).orthographic).toBe(true);
+        // The projection seen by the renderer during the capture is what proves the switch.
+        expect(capturedTypes).toEqual(["orthographic"]);
+        // Afterwards the camera is as it was.
+        expect(cameraController.cameraType).toBe("perspective");
+        expect(cameraController.lookAt).toHaveBeenLastCalledWith(
+            { x: 10, y: 20, z: 30 },
+            { x: 1, y: 2, z: 3 },
+            { x: 0, y: 0, z: 1 },
+            { duration: 0 },
+        );
+        expect(update).toHaveBeenCalled();
+    });
+
+    test("settles an in-flight camera before saving its pose", async () => {
+        const { cameraController } = stubView();
+
+        await getTool().handler({ views: ["iso"] });
+
+        // Otherwise the capture would cancel the user's fly-to and restore its midpoint.
+        expect(cameraController.settle).toHaveBeenCalledTimes(1);
+    });
+
+    test("restores the camera when a capture throws", async () => {
+        const { cameraController, toImage } = stubView();
+        toImage.mockImplementation(() => {
+            throw new Error("context lost");
+        });
+
+        await expect(getTool().handler({ views: ["iso"] })).rejects.toThrow("context lost");
+
+        expect(cameraController.cameraType).toBe("perspective");
+        expect(cameraController.lookAt).toHaveBeenLastCalledWith(
+            { x: 10, y: 20, z: 30 },
+            { x: 1, y: 2, z: 3 },
+            { x: 0, y: 0, z: 1 },
+            { duration: 0 },
+        );
+    });
+
+    test("rejects an unknown view name without touching the camera", async () => {
+        const { cameraController, toImage } = stubView();
+
+        const result = (await getTool().handler({ views: ["three-quarter"] })) as { content: string };
+
+        expect(JSON.parse(result.content).error).toContain("unknown view(s) three-quarter");
+        expect(cameraController.fitContent).not.toHaveBeenCalled();
+        expect(cameraController.lookAt).not.toHaveBeenCalled();
+        expect(toImage).not.toHaveBeenCalled();
+    });
+
+    test("rejects a prototype-chain name as an unknown view instead of throwing", async () => {
+        const { cameraController, toImage } = stubView();
+
+        const result = (await getTool().handler({ views: ["constructor"] })) as { content: string };
+
+        expect(JSON.parse(result.content).error).toContain("unknown view(s) constructor");
+        expect(cameraController.fitContent).not.toHaveBeenCalled();
+        expect(toImage).not.toHaveBeenCalled();
+    });
+
+    test("reports an error when there is no active view", async () => {
+        rs.stubGlobal("app", { activeView: undefined });
+
+        const result = (await getTool().handler({})) as { content: string };
 
         expect(JSON.parse(result.content)).toEqual({ error: "no active view" });
     });

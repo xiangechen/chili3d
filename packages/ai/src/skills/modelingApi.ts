@@ -34,9 +34,9 @@ function catalogue(): string {
 }
 
 /**
- * The creation-op counterpart of shape-query, and by far the most-loaded skill — the
- * catalog is ~5k characters, which is a third of the resident prompt, so it lives here
- * and is pulled on demand instead.
+ * The creation-op counterpart of the query family skills (shape-query, curve-query,
+ * surface-query). The catalog is a third of the resident prompt, so it lives here and is
+ * pulled on demand instead.
  */
 export const modelingApi: Skill = {
     name: "modeling-api",

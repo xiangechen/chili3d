@@ -30,6 +30,7 @@ import {
     PerspectiveCamera,
     Raycaster,
     Scene,
+    Vector2,
 } from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { Constants } from "../src/constants";
@@ -406,6 +407,45 @@ describe("ThreeView — toImage", () => {
         const { view } = createTestView();
         const img = view.toImage();
         expect(typeof img).toBe("string");
+    });
+
+    test("renders at the requested pixel size and restores the renderer", () => {
+        const { view } = createTestView();
+        const renderer = (view as any)._renderer;
+        rs.spyOn(renderer, "getSize").mockReturnValue(new Vector2(100, 80));
+        rs.spyOn(renderer, "getPixelRatio").mockReturnValue(2);
+        const setSize = rs.spyOn(renderer, "setSize");
+        const setPixelRatio = rs.spyOn(renderer, "setPixelRatio");
+
+        view.toImage({ width: 640, height: 480 });
+
+        expect(setSize.mock.calls.map((call) => [call[0], call[1]])).toEqual([
+            [640, 480],
+            [100, 80],
+        ]);
+        // Fixed output hides the device ratio, then the viewport's own ratio comes back.
+        expect(setPixelRatio.mock.calls.map((call) => call[0])).toEqual([1, 2]);
+    });
+
+    test("syncs the directional light to the camera before rendering", () => {
+        const { view } = createTestView();
+        rs.spyOn((view as any)._renderer, "render").mockImplementation(() => {});
+        view.cameraController.lookAt(
+            { x: 10, y: 20, z: 30 },
+            { x: 1, y: 2, z: 3 },
+            { x: 0, y: 0, z: 1 },
+            {
+                duration: 0,
+            },
+        );
+
+        view.toImage();
+
+        const position = view.cameraController.cameraPosition;
+        const target = view.cameraController.cameraTarget;
+        expect(view.dynamicLight.position.x).toBeCloseTo(position.x - target.x);
+        expect(view.dynamicLight.position.y).toBeCloseTo(position.y - target.y);
+        expect(view.dynamicLight.position.z).toBeCloseTo(position.z - target.z);
     });
 });
 

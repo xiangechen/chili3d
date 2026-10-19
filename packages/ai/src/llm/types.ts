@@ -40,7 +40,17 @@ export interface ToolResult {
 }
 
 export type ChatMessage =
-    | { role: "user"; content: string; images?: ImagePart[] }
+    | {
+          role: "user";
+          content: string;
+          images?: ImagePart[];
+          /**
+           * Recovery text the agent addressed to the model, not something the user typed. It stays
+           * in memory only: the panel does not archive it, revert does not count it as a turn, and
+           * the context journal ignores it.
+           */
+          synthetic?: boolean;
+      }
     | { role: "assistant"; content: string; toolCalls?: ToolCall[]; thinking?: ThinkingBlock[] }
     | { role: "tool"; toolCallId: string; name: string; content: string; images?: ImagePart[] };
 

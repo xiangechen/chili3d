@@ -849,6 +849,21 @@ describe("containsPoint", () => {
         expect(box.containsPoint({ x: 15, y: 5, z: 5 }, true, 1e-7)).toBe(false);
     });
 
+    test("the boundary flag and tolerance default to boundary-inclusive and 0.001 mm", () => {
+        const box = createBox(factory, 10, 10, 10);
+
+        expect(box.containsPoint({ x: 5, y: 5, z: 5 })).toBe(true);
+        // On the bottom face: the default counts the boundary...
+        expect(box.containsPoint({ x: 5, y: 5, z: 0 })).toBe(true);
+        // ...and false asks for strictly inside.
+        expect(box.containsPoint({ x: 5, y: 5, z: 0 }, false)).toBe(false);
+        expect(box.containsPoint({ x: 15, y: 5, z: 5 })).toBe(false);
+
+        // Half a micron below the bottom face is within the default 0.001 mm tolerance, so the
+        // default boundary reading sees it as ON.
+        expect(box.containsPoint({ x: 5, y: 5, z: -0.0005 })).toBe(true);
+    });
+
     test("a compound holds the points in any of its solids", () => {
         const { near, part } = twoBoxes();
 

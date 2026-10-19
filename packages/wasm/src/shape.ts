@@ -184,7 +184,7 @@ export class OccShape implements IShape {
      * `IShape.containsPoint`). What is left here is the wrapper for a shape kind without one: it
      * encloses no point, and saying so is better than leaving the member undefined on it.
      */
-    containsPoint(_point: XYZLike, _containsBoundary: boolean, _tolerance: number): boolean {
+    containsPoint(_point: XYZLike, _containsBoundary = true, _tolerance = 0.001): boolean {
         return false;
     }
 
@@ -432,7 +432,7 @@ export class OccVertex extends OccShape implements IVertex {
         return toXYZ(wasm.Vertex.point(this.vertex));
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // A vertex has no interior, so only the boundary reading can be true, and it is the point
         // itself: this is "is that where the vertex is".
         return containsBoundary && this.point().distanceTo(point) <= tolerance;
@@ -491,7 +491,7 @@ export class OccEdge extends OccShape implements IEdge {
         return wasm.Edge.curveLength(this.edge);
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // An edge is its curve between two parameters, so the boundary reading is the point landing
         // on that stretch: `parameter` answers only within `tolerance` of the curve, and the window
         // is what keeps a point on the curve's continuation from counting as on the edge.
@@ -611,7 +611,7 @@ export class OccWire extends OccShape implements IWire {
         return wasm.Wire.edgeLoop(this.wire).map((x) => OccShape.wrap(x)) as IEdge[];
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // A wire is its edges, so a point counts only when it lands on one of them.
         return (
             containsBoundary &&
@@ -702,7 +702,7 @@ export class OccFace extends OccShape implements IFace {
         }
         return undefined;
     }
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // A face's own region, with its edges counting when the boundary is asked for — the kernel
         // classifies in the plane's uv space (see `Face::containsPoint`).
         return wasm.Face.containsPoint(this.face, point, containsBoundary, tolerance);
@@ -723,7 +723,7 @@ export class OccShell extends OccShape implements IShell {
         super(options);
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // A shell is the faces it is sewn from and encloses nothing itself, so a point counts only
         // when it lands on one of them — an edge of a face included, since that edge is on the shell.
         return (
@@ -750,7 +750,7 @@ export class OccSolid extends OccShape implements ISolid {
         this.solid = options.shape;
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         return wasm.Solid.containsPoint(this.solid, point, containsBoundary, tolerance);
     }
 }
@@ -769,7 +769,7 @@ export class OccCompSolid extends OccShape implements ICompoundSolid {
         super(options);
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // The classifier reads a compound as the region its solids enclose: a point inside any of
         // them is inside, and one inside none is outside — the reading `IShape.containsPoint` gives
         // a whole part (packages/wasm/test/shape.test.ts pins it over two disjoint boxes).
@@ -791,7 +791,7 @@ export class OccCompound extends OccShape implements ICompound {
         super(options);
     }
 
-    override containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean {
+    override containsPoint(point: XYZLike, containsBoundary = true, tolerance = 0.001): boolean {
         // See `OccCompound.containsPoint`: a compound solid answers through the solids it holds.
         return wasm.Solid.containsPoint(this.shape, point, containsBoundary, tolerance);
     }

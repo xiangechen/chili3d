@@ -41,12 +41,16 @@ export default {
         "ai.newChat": "New chat",
         "ai.noReply": "(no text response)",
         "ai.provider": "Provider",
+        "ai.reference.blocked": "Reference image read — asking the model to replan the build.",
+        "ai.reference.checked": "Reference image read.",
+        "ai.reference.checking": "Reading the reference image…",
+        "ai.reference.unchecked": "Could not read the reference image — continuing without it.",
         "ai.reasoningEffort": "Thinking depth",
         "ai.reasoningEffortHint":
             "How much the model may think before it answers. The default leaves that to the endpoint; lower it when a reply runs out of output budget on reasoning alone.",
         "ai.save": "Save",
         "ai.send": "Send",
-        "ai.sendHint": "Send (Ctrl+Enter)",
+        "ai.sendHint": "Send (Enter; Shift+Enter for a new line)",
         "ai.settings": "Settings",
         "ai.settingsTitle": "AI Assistant Settings",
         "ai.stepLimit":

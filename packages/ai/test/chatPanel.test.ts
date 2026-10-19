@@ -22,7 +22,17 @@ const agentMock = rs.hoisted(() => {
     };
 });
 
+const referenceMock = rs.hoisted(() => ({
+    readReference: rs.fn(
+        async (): Promise<{ ok: boolean; report?: string; error?: string }> => ({
+            ok: true,
+            report: "A rectangular plate with one hole.",
+        }),
+    ),
+}));
+
 rs.mock("../src/llm/agent", () => ({ runAgent: agentMock.runAgent }));
+rs.mock("../src/llm/referenceReader", () => ({ readReference: referenceMock.readReference }));
 
 rs.mock("../src/chatPanel.module.css", () => ({
     root: "root",
@@ -131,6 +141,7 @@ beforeEach(() => {
     mockLocalStorage();
     agentMock.pending.length = 0;
     agentMock.runAgent.mock.calls.length = 0;
+    referenceMock.readReference.mockClear();
 });
 
 afterEach(() => {
@@ -249,6 +260,345 @@ describe("ChatPanel", () => {
         expect(messages.length).toBe(32);
         expect(messages[0].content.startsWith("m13")).toBe(true);
         expect(messages.at(-1)!.content.startsWith("m44")).toBe(true);
+    });
+
+    test("folds what the trim dropped into the journal", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 400 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        for (let i = 0; i < 45; i++) {
+            messages.push({ role: "user", content: `m${i}`.padEnd(40, "x") });
+        }
+
+        (panel as any).trimMessages();
+
+        const journal = (panel as any).journal as string;
+        expect(journal).toContain("m0");
+        expect(journal).toContain("m12");
+        expect(journal).not.toContain("m13");
+    });
+
+    test("leaves a history with no real user turn intact rather than splitting a tool pair", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 10 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        for (let i = 0; i < 5; i++) messages.push({ role: "assistant", content: `${i}${"x".repeat(99)}` });
+
+        (panel as any).trimMessages();
+
+        // Over budget is recoverable; starting the window on a tool result without its assistant
+        // call is rejected outright, so a boundary-less history is left alone.
+        expect(messages.length).toBe(5);
+    });
+
+    test("does not treat a recovery nudge as a turn boundary", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 10 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        messages.push(
+            { role: "user", content: "real turn" },
+            { role: "assistant", content: "a".repeat(200) },
+            { role: "user", content: "make the call now", synthetic: true },
+            { role: "assistant", content: "b".repeat(200) },
+        );
+
+        (panel as any).trimMessages();
+
+        // The nudge cannot start the kept window: doing so would split the turn it repairs. With
+        // no later real boundary the whole turn is kept, synthetic message included.
+        expect(messages.length).toBe(4);
+        expect(messages[0]).toMatchObject({ role: "user", content: "real turn" });
+        expect(messages[2]).toMatchObject({ role: "user", synthetic: true });
+    });
+
+    test("drops a recovery nudge the model never answered before the next turn", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        messages.push(
+            { role: "assistant", content: "partial" },
+            { role: "user", content: "Re-issue the same tool call now.", synthetic: true },
+        );
+
+        (panel as any).beginTurn("do it");
+
+        // Left at the tail, the stale nudge would merge with this message at the API and the model
+        // could re-issue a call from a run that is already over.
+        expect(messages.some((m: any) => m.synthetic)).toBe(false);
+        expect(messages.at(-1)).toMatchObject({ role: "user", content: "do it" });
+    });
+
+    test("drops a recovery nudge even when an empty assistant turn follows it", () => {
+        // The loop pushes an assistant every iteration, and every provider discards an empty one,
+        // so the nudge is still effectively last.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        messages.push(
+            { role: "assistant", content: "partial" },
+            { role: "user", content: "Re-issue the same tool call now.", synthetic: true },
+            { role: "assistant", content: "" },
+        );
+
+        (panel as any).beginTurn("do it");
+
+        expect(messages.some((m: any) => m.synthetic)).toBe(false);
+        expect(messages.at(-1)).toMatchObject({ role: "user", content: "do it" });
+    });
+
+    test("keeps the current turn whole rather than starting on a tool result", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 10 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        messages.push(
+            { role: "user", content: "build it" },
+            {
+                role: "assistant",
+                content: "working",
+                toolCalls: [{ id: "t1", name: "run_program", arguments: "{}" }],
+            },
+            { role: "tool", toolCallId: "t1", name: "run_program", content: "created" },
+        );
+
+        (panel as any).trimMessages();
+
+        // Starting at the tool result would leave it without the assistant call it answers, and a
+        // provider rejects that pairing. Over budget is recoverable; a broken wire is not.
+        expect(messages.length).toBe(3);
+        expect(messages[0].role).toBe("user");
+    });
+
+    test("reports a trim that only removed screenshots as a change", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 1_000_000 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        const screenshot = [{ mediaType: "image/jpeg", data: "x".repeat(286_000) }];
+        messages.push(
+            { role: "user", content: "what does it look like" },
+            {
+                role: "assistant",
+                content: "",
+                toolCalls: [{ id: "t1", name: "capture_screenshot", arguments: "{}" }],
+            },
+            { role: "tool", toolCallId: "t1", name: "capture_screenshot", content: "{}", images: screenshot },
+        );
+
+        // Nothing was spliced, but the screenshot is gone — after an overflow that is exactly the
+        // reduction the retry needs, so the compact callback must hear "changed".
+        expect((panel as any).trimMessages()).toBe(true);
+        expect(messages[2].images).toBeUndefined();
+    });
+
+    test("a hard trim keeps the newest screenshot instead of clearing them all", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 1_000_000 });
+        const panel = new ChatPanel();
+        const messages = (panel as any).messages as any[];
+        const oldShot = [{ mediaType: "image/jpeg", data: "x".repeat(1_000) }];
+        const newShot = [{ mediaType: "image/jpeg", data: "y".repeat(1_000) }];
+        messages.push(
+            { role: "user", content: "look twice" },
+            {
+                role: "assistant",
+                content: "",
+                toolCalls: [{ id: "t1", name: "capture_screenshot", arguments: "{}" }],
+            },
+            { role: "tool", toolCallId: "t1", name: "capture_screenshot", content: "{}", images: oldShot },
+            {
+                role: "assistant",
+                content: "",
+                toolCalls: [{ id: "t2", name: "capture_screenshot", arguments: "{}" }],
+            },
+            { role: "tool", toolCallId: "t2", name: "capture_screenshot", content: "{}", images: newShot },
+        );
+
+        (panel as any).trimMessages(0.5, true);
+
+        // The newest is the state the model is working from mid-run; only the older one is stale.
+        expect(messages[2].images).toBeUndefined();
+        expect(messages[4].images).toBe(newShot);
+    });
+
+    describe("reference gate", () => {
+        const IMAGE = { mediaType: "image/png", data: "AAAA" };
+
+        function gate(
+            panel: ChatPanel,
+            handler: (args: any, signal?: AbortSignal) => Promise<any>,
+            name = "run_program",
+            signal = new AbortController().signal,
+        ) {
+            const tools = (panel as any).withReferenceGate(
+                [{ name, description: "", parameters: {}, handler }],
+                loadConfig(),
+                signal,
+            );
+            return tools[0] as { handler: (args: any, signal?: AbortSignal) => Promise<any> };
+        }
+
+        function panelWithReference() {
+            const panel = new ChatPanel();
+            (panel as any).referenceState = { images: [IMAGE], read: false, blockedBatch: false };
+            return panel;
+        }
+
+        test("blocks the first run_program and hands back the reader's report", async () => {
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran);
+
+            const result = JSON.parse(await tool.handler({}));
+
+            expect(result.error).toContain("BLOCKED");
+            expect(result.referenceReport).toBe("A rectangular plate with one hole.");
+            expect(ran).not.toHaveBeenCalled();
+            expect(referenceMock.readReference).toHaveBeenCalledTimes(1);
+        });
+
+        test("runs the next model turn's call without reading again", async () => {
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran);
+
+            await tool.handler({});
+            // A new model response starts a new batch; the reader has already run this turn.
+            (panel as any).referenceState.blockedBatch = false;
+            const second = await tool.handler({});
+
+            expect(second).toBe("ran");
+            expect(ran).toHaveBeenCalledTimes(1);
+            expect(referenceMock.readReference).toHaveBeenCalledTimes(1);
+        });
+
+        test("blocks every call in the batch that was blocked", async () => {
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran);
+
+            await tool.handler({});
+            const sameBatch = JSON.parse(await tool.handler({}));
+
+            expect(sameBatch.error).toContain("This batch was blocked");
+            // The UI must render this pause as information, not as a failed build.
+            expect(sameBatch.blocked).toBe("reference");
+            expect(ran).not.toHaveBeenCalled();
+        });
+
+        test("fails open when the reader cannot see the image", async () => {
+            referenceMock.readReference.mockResolvedValueOnce({ ok: false, error: "no vision" });
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran);
+
+            const result = await tool.handler({});
+
+            expect(result).toBe("ran");
+            expect(ran).toHaveBeenCalledTimes(1);
+        });
+
+        test("gates run_parametric as well", async () => {
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran, "run_parametric");
+
+            const result = JSON.parse(await tool.handler({}));
+
+            expect(result.error).toContain("BLOCKED");
+            expect(result.error).toContain("call run_parametric again");
+            expect(ran).not.toHaveBeenCalled();
+        });
+
+        test.each([
+            "transform_node",
+            "move_nodes",
+            "delete_node",
+            "set_node_properties",
+            "set_material",
+            "set_material_properties",
+            // document_variables is action-dependent; its own test covers list vs set.
+        ])("gates %s as well", async (name) => {
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran, name);
+
+            const result = JSON.parse(await tool.handler({}));
+
+            expect(result.error).toContain("BLOCKED");
+            expect(ran).not.toHaveBeenCalled();
+        });
+
+        test("lets a variable list through but gates a variable write", async () => {
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran, "document_variables");
+
+            expect(await tool.handler({ action: "list" })).toBe("ran");
+            expect(ran).toHaveBeenCalledTimes(1);
+
+            const blocked = JSON.parse(await tool.handler({ action: "set" }));
+            expect(blocked.error).toContain("BLOCKED");
+            expect(ran).toHaveBeenCalledTimes(1);
+        });
+
+        test("does not build when the reference read was cancelled", async () => {
+            referenceMock.readReference.mockResolvedValueOnce({ ok: false, error: "aborted" });
+            const controller = new AbortController();
+            const panel = panelWithReference();
+            const ran = rs.fn(async () => "ran");
+            const tool = gate(panel, ran, "run_program", controller.signal);
+            controller.abort();
+
+            const result = JSON.parse(await tool.handler({}, controller.signal));
+
+            expect(result.error).toContain("interrupted");
+            expect(ran).not.toHaveBeenCalled();
+        });
+
+        test("shows a gate pause as information, not an error", () => {
+            const panel = new ChatPanel();
+            const card = (panel as any).toolCardElement({
+                name: "run_program",
+                args: "{}",
+                result: JSON.stringify({
+                    error: "BLOCKED — read the report, then call run_program again.",
+                    blocked: "reference",
+                    referenceReport: "A plate with a hole.",
+                }),
+            }) as HTMLElement;
+
+            expect(card.classList.contains("open")).toBe(false);
+            expect(card.querySelector(".toolStatusError")).toBeNull();
+            // The locale is not loaded in this package, so the key itself is what comes back —
+            // which is still proof that the model-facing "BLOCKED" text never reached the user.
+            expect(card.textContent).not.toContain("BLOCKED");
+            expect(card.textContent).toContain("ai.reference.blocked");
+        });
+
+        test("leaves the tools untouched when the turn carries no reference image", () => {
+            const panel = new ChatPanel();
+            const original = { name: "run_program", description: "", parameters: {}, handler: rs.fn() };
+            const tools = (panel as any).withReferenceGate(
+                [original],
+                loadConfig(),
+                new AbortController().signal,
+            );
+
+            expect(tools[0]).toBe(original);
+        });
+
+        test("snapshots the turn's images when the turn begins", async () => {
+            saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+            const panel = new ChatPanel();
+            let state: { images: unknown[] } | undefined;
+            agentMock.runAgent.mockImplementationOnce(async () => {
+                state = (panel as any).referenceState;
+            });
+            (panel as any).pendingImages.push(IMAGE);
+            (panel as any).input.value = "build this";
+
+            await (panel as any).send();
+
+            expect(state?.images).toEqual([IMAGE]);
+        });
     });
 
     test("counts an inline image by what base64 costs, not by its length", () => {
@@ -1167,6 +1517,60 @@ describe("ChatPanel", () => {
         expect(panel.querySelector(".thinkingDots")).toBeNull();
     });
 
+    test("aborts a run in flight when a new conversation starts", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let signal: AbortSignal | undefined;
+        let finish!: () => void;
+        agentMock.runAgent.mockImplementationOnce((opts: any) => {
+            signal = opts.signal;
+            return new Promise<void>((resolve) => {
+                finish = resolve;
+            });
+        });
+
+        anyPanel.input.value = "hi";
+        const sending = anyPanel.send();
+        expect(signal?.aborted).toBe(false);
+
+        anyPanel.startConversation();
+
+        // The run holds this.messages by reference; without the abort it would keep writing into
+        // the fresh conversation, and its reference gate would keep a state no longer reset.
+        expect(signal?.aborted).toBe(true);
+        finish();
+        await sending;
+    });
+
+    test("aborts a run in flight when another conversation is opened", async () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        let signal: AbortSignal | undefined;
+        let finish!: () => void;
+        agentMock.runAgent.mockImplementationOnce((opts: any) => {
+            signal = opts.signal;
+            return new Promise<void>((resolve) => {
+                finish = resolve;
+            });
+        });
+
+        anyPanel.input.value = "hi";
+        const sending = anyPanel.send();
+        anyPanel.openConversation({
+            id: "c1",
+            title: "restored",
+            createdAt: 0,
+            updatedAt: 0,
+            messages: [],
+        });
+
+        expect(signal?.aborted).toBe(true);
+        finish();
+        await sending;
+    });
+
     test("settings overlay opens over the panel, saves config, and shows the model badge", async () => {
         const panel = new ChatPanel();
         const anyPanel = panel as any;
@@ -1423,7 +1827,7 @@ describe("ChatPanel", () => {
         expect(localStorage.getItem("chili3d.app.ai.config")).not.toContain("sk-session");
     });
 
-    test("enter inserts a newline, ctrl+enter sends", async () => {
+    test("enter sends, shift+enter inserts a newline", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
         const panel = new ChatPanel();
         const anyPanel = panel as any;
@@ -1434,15 +1838,42 @@ describe("ChatPanel", () => {
                 new KeyboardEvent("keydown", { key: "Enter", cancelable: true, ...init }),
             );
 
-        pressEnter({});
         pressEnter({ shiftKey: true });
         expect(agentMock.runAgent.mock.calls.length).toBe(0);
 
-        pressEnter({ ctrlKey: true });
+        pressEnter({});
         expect(agentMock.runAgent.mock.calls.length).toBe(1);
 
         agentMock.pending.shift()?.resolve();
         await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    test("an Enter that confirms an IME candidate does not send", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        anyPanel.input.value = "ni";
+
+        anyPanel.input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Enter", isComposing: true, cancelable: true }),
+        );
+
+        expect(agentMock.runAgent.mock.calls.length).toBe(0);
+    });
+
+    test("an Enter carrying keyCode 229 does not send either", () => {
+        // Safari reports isComposing false on the keydown that commits a candidate; 229 is the
+        // signal that still marks it as IME work.
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        anyPanel.input.value = "ni";
+        const event = new KeyboardEvent("keydown", { key: "Enter", cancelable: true });
+        Object.defineProperty(event, "keyCode", { value: 229 });
+
+        anyPanel.input.dispatchEvent(event);
+
+        expect(agentMock.runAgent.mock.calls.length).toBe(0);
     });
 });
 
@@ -1487,6 +1918,28 @@ describe("ChatPanel history", () => {
     function historyItems(panel: ChatPanel): NodeListOf<HTMLElement> {
         return (panel as any).historyListEl.querySelectorAll(".historyItem");
     }
+
+    test("does not duplicate a restored turn's journal record when it is trimmed again", () => {
+        saveConfig({ provider: "anthropic", apiKey: "k", model: "m", contextWindow: 100 });
+        const long = (text: string) => text.padEnd(200, "x");
+        const conversation = conversationOf("c1", [
+            userMessage(long("first question"), 1),
+            assistantMessage(long("first answer"), 2, "run_program"),
+            userMessage(long("second question"), 3),
+            assistantMessage(long("second answer"), 4, "run_program"),
+        ]);
+        const panel = panelOn(documentWith("d1", conversation));
+
+        (panel as any).openConversation(conversation);
+
+        const journal = (panel as any).journal as string;
+        // Only the turn the trim removed is journaled; the surviving turn still has its own tool
+        // exchange in the model history, so recording it here would duplicate it.
+        expect(journal.match(/- build run_program/g)).toHaveLength(1);
+        expect(journal.match(/- user: first question/g)).toHaveLength(1);
+        expect(journal.match(/- assistant: first answer/g)).toHaveLength(1);
+        expect(journal).not.toContain("second question");
+    });
 
     test("archives a finished turn into the document that hosted it", async () => {
         saveConfig({ provider: "anthropic", apiKey: "k", model: "m" });

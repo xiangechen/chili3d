@@ -89,7 +89,7 @@ export class MockShape implements IShape {
         return 0;
     }
 
-    containsPoint(_point: XYZLike, _containsBoundary: boolean, _tolerance: number): boolean {
+    containsPoint(_point: XYZLike, _containsBoundary = true, _tolerance = 0.001): boolean {
         return false;
     }
 

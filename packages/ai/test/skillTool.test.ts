@@ -6,14 +6,46 @@ import { SKILLS } from "../src/skills";
 import { buildSkillTool } from "../src/skills/skillTool";
 
 describe("skillTool", () => {
-    test("returns the skill document for a known name", async () => {
+    test("returns the shape family document for shape-query", async () => {
         const tool = buildSkillTool();
         const content = (await tool.handler({ name: "shape-query" })) as string;
 
         expect(content).toContain("face.area");
         expect(content).toContain("shape.volume");
-        expect(content).toContain("curve.length");
         expect(content).toContain("wire.toFace");
+        // The curve and surface families live in their own skills now.
+        expect(content).not.toContain("curve.length");
+        expect(content).not.toContain("surface.bounds");
+    });
+
+    test("splits the query reference by geometry family", async () => {
+        const tool = buildSkillTool();
+        const curve = (await tool.handler({ name: "curve-query" })) as string;
+        const surface = (await tool.handler({ name: "surface-query" })) as string;
+
+        expect(curve).toContain("curve.length");
+        expect(curve).toContain("circle.radius");
+        expect(curve).toContain("trimmedCurve.basisCurve");
+        expect(curve).not.toContain("shape.volume");
+
+        expect(surface).toContain("surface.bounds");
+        expect(surface).toContain("cylindricalSurface");
+        expect(surface).not.toContain("curve.length");
+    });
+
+    test("every registered skill is loadable and distinct", async () => {
+        const tool = buildSkillTool();
+        const contents = new Map<string, string>();
+
+        for (const skill of SKILLS) {
+            const content = (await tool.handler({ name: skill.name })) as string;
+            expect(content.length).toBeGreaterThan(0);
+            expect(contents.has(content)).toBe(false);
+            contents.set(content, skill.name);
+        }
+
+        expect(new Set(SKILLS.map((s) => s.name)).size).toBe(SKILLS.length);
+        for (const skill of SKILLS) expect(skill.description.length).toBeGreaterThan(0);
     });
 
     test("the modeling API skill carries the catalog together with its encoding rules", async () => {

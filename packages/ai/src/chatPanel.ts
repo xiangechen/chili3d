@@ -40,8 +40,12 @@ import {
     writeConversations,
 } from "./history";
 import { runAgent } from "./llm/agent";
+import { splitDataUrl } from "./llm/imageData";
+import { journalEntriesFromMessages, journalFromStored, mergeJournal } from "./llm/journal";
+import { dropSupersededImages, dropSupersededThinking, dropTrailingSynthetic } from "./llm/messages";
 import { buildSystemPrompt } from "./llm/prompt";
-import type { ChatMessage, ImagePart, TokenUsage } from "./llm/types";
+import { readReference } from "./llm/referenceReader";
+import type { ChatMessage, ImagePart, TokenUsage, Tool } from "./llm/types";
 import {
     CONTEXT_WINDOW_OPTIONS,
     currentConfig,
@@ -64,6 +68,38 @@ import { findNode, getDocument } from "./tools/documentContext";
  * The remainder is slack for the estimate below, which is deliberately rough.
  */
 const CONTEXT_BUDGET_RATIO = 0.8;
+
+/**
+ * What to keep after the endpoint has already refused the request as too long. The ordinary trim
+ * aims at 0.8 of the window and trusts its own estimate; this one aims well below the reported
+ * limit, because the estimate is what was wrong in the first place.
+ */
+const HARD_CONTEXT_BUDGET_RATIO = 0.5;
+
+/**
+ * Tools that change geometry or material appearance — what "build from the photo" can reach. The
+ * gate has to cover all of them: gating only the two program runners lets "scale this and move it
+ * like the photo" run through `transform_node` or `set_node_properties` without the reading.
+ * Deliberately absent: `set_node_visible` (visibility is not geometry or appearance),
+ * `undo`/`redo`/`create_folder` (they do not build from the image).
+ */
+const MODELING_TOOLS = new Set([
+    "run_program",
+    "run_parametric",
+    "transform_node",
+    "move_nodes",
+    "delete_node",
+    "set_node_properties",
+    "set_material",
+    "set_material_properties",
+    "document_variables",
+]);
+
+/** `document_variables` reads by default; only set and remove change the document. */
+function variableMutation(args: Record<string, unknown>): boolean {
+    const action = args["action"];
+    return action === "set" || action === "remove";
+}
 
 /**
  * How close to the bottom still counts as reading along. About a line: far enough that rounding
@@ -200,6 +236,8 @@ interface ToolResultSummary {
     created?: { nodeId?: string; name?: string }[];
     removed?: { nodeId?: string; name?: string }[];
     error?: string;
+    /** A deliberate pause (the reference gate), not a failed call: shown as information. */
+    blocked?: unknown;
 }
 
 /** One line of a tool card's detail. `nodeIds` marks what clicking it should reveal. */
@@ -297,6 +335,32 @@ function contextTokens(usage: TokenUsage): number {
     return usage.inputTokens + usage.cacheReadTokens + usage.cacheCreationTokens;
 }
 
+/**
+ * Whether this message begins a real user turn. Recovery nudges are user-role messages the agent
+ * wrote to itself; treating one as a boundary would let a trim split the turn it repairs.
+ */
+function isTurnStart(message: ChatMessage): boolean {
+    return message.role === "user" && !message.synthetic;
+}
+
+/** Index of the newest real user turn, or -1 when the history has none. */
+function lastTurnStart(messages: ChatMessage[]): number {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (isTurnStart(messages[i])) return i;
+    }
+    return -1;
+}
+
+/** Whole user turns in the stored archive. */
+function storedUserTurns(messages: StoredMessage[]): number {
+    return messages.filter((message) => message.role === "user").length;
+}
+
+/** Real user turns left in the model history after a trim. */
+function liveUserTurns(messages: ChatMessage[]): number {
+    return messages.filter(isTurnStart).length;
+}
+
 /** The estimated weight of a conversation — what the trim budget and the meter both need. */
 function estimateContext(messages: ChatMessage[]): number {
     return messages.reduce((sum, message) => sum + estimateTokens(message), 0);
@@ -377,6 +441,19 @@ export class ChatPanel extends HTMLElement {
     onDock?: () => void;
 
     private readonly messages: ChatMessage[] = [];
+    /**
+     * What the history trim has folded away. Sent in the volatile half of the system prompt so the
+     * model keeps the record of failed attempts and user decisions after their exchanges leave the
+     * window. Rebuilt from the transcript on restore and revert, never persisted.
+     */
+    private journal = "";
+    /**
+     * The current turn's reference images and whether an isolated reader has seen them. Set in
+     * `beginTurn`, because by the time a tool runs the turn may also carry recovery nudges that
+     * would otherwise look like "the latest user message".
+     */
+    private referenceState?: { images: ImagePart[]; read: boolean; blockedBatch: boolean };
+    private referenceNoticeEl?: HTMLElement;
     private readonly messageList: HTMLElement;
     /**
      * Whether the reader is being carried along as the transcript grows — the one thing that stops
@@ -521,7 +598,11 @@ export class ChatPanel extends HTMLElement {
             className: style.input,
             placeholder: I18n.translate("ai.inputPlaceholder"),
             onkeydown: (e: KeyboardEvent) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !e.isComposing) {
+                // Enter sends; Shift+Enter is the textarea's own newline. `isComposing` covers most
+                // IMEs, but Safari (and older Firefox) report false on the keydown that commits a
+                // candidate — keyCode 229 is the one signal that still distinguishes it, and
+                // without it the pinyin before the candidate would be sent as the message.
+                if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
                     e.preventDefault();
                     this.send();
                 }
@@ -939,15 +1020,24 @@ export class ChatPanel extends HTMLElement {
      * archived by the caller, so nothing is lost — which is why this replaced a plain "clear".
      */
     private startConversation() {
+        // Stopping the run first matters twice over: it would otherwise keep writing into the
+        // cleared messages, and its reference gate holds a state this method is about to replace.
+        if (this.sending) {
+            this.turnConversation = undefined;
+            this.interrupt();
+        }
         this.abandonPendingAsk();
         this.conversation = newConversation();
         this.messages.length = 0;
+        this.journal = "";
         this.turnParts = [];
         // An empty transcript has no "scrolled away" to speak of: the next turn starts with the
         // reader at the bottom of it whatever they were doing in the last conversation.
         this.following = true;
         this.messageList.innerHTML = "";
         this.contextNoticeEl = undefined;
+        this.referenceNoticeEl = undefined;
+        this.referenceState = undefined;
         this.contextUsed = undefined;
         this.renderContextMeter();
         this.pendingImages.length = 0;
@@ -1049,13 +1139,28 @@ export class ChatPanel extends HTMLElement {
         this.renderHistoryList();
     }
 
+    /** How many whole turns the trim removed from the front of the model history. */
+    private droppedTurnCount(): number {
+        return Math.max(0, storedUserTurns(this.conversation.messages) - liveUserTurns(this.messages));
+    }
+
     /** Restore an archived conversation: the transcript, and the context the model resumes from. */
     private openConversation(conversation: StoredConversation) {
+        // A run in flight holds this.messages by reference and would keep appending to the
+        // conversation this is about to replace.
+        if (this.sending) {
+            this.turnConversation = undefined;
+            this.interrupt();
+        }
         this.abandonPendingAsk();
         this.conversation = conversation;
         this.messages.length = 0;
         this.messages.push(...conversation.messages.map(toChatMessage));
         this.trimMessages();
+        // A restored `messages` has no tool exchanges — `toChatMessage` drops them — so the record
+        // of what those turns did has to come from the stored parts. The turns the trim then
+        // removed also need their text back, which the stored parts still have.
+        this.journal = journalFromStored(conversation.messages, this.droppedTurnCount());
         this.renderConversation(conversation);
         this.hideHistory();
     }
@@ -1143,10 +1248,8 @@ export class ChatPanel extends HTMLElement {
         if (!file.type.startsWith("image/")) return;
         const reader = new FileReader();
         reader.onload = () => {
-            const dataUrl = reader.result as string;
-            const comma = dataUrl.indexOf(",");
-            const mediaType = dataUrl.slice(dataUrl.indexOf(":") + 1, dataUrl.indexOf(";")) || file.type;
-            this.pendingImages.push({ mediaType, data: dataUrl.slice(comma + 1) });
+            const image = splitDataUrl(reader.result as string);
+            this.pendingImages.push({ mediaType: image.mediaType || file.type, data: image.data });
             this.renderImagePreview();
         };
         reader.readAsDataURL(file);
@@ -1282,6 +1385,8 @@ export class ChatPanel extends HTMLElement {
         this.turnParts = [];
         this.turnUsage = undefined;
         this.turnConversation = undefined;
+        this.referenceState = undefined;
+        dropTrailingSynthetic(this.messages);
         this.activeAssistantEl = undefined;
         this.stream = undefined;
         this.sending = false;
@@ -1303,10 +1408,16 @@ export class ChatPanel extends HTMLElement {
     private async runTurn(config: LLMConfig, signal: AbortSignal): Promise<void> {
         await runAgent({
             config,
-            system: buildSystemPrompt(),
+            system: buildSystemPrompt({ journal: this.journal }),
             messages: this.messages,
-            tools: buildTools(),
+            tools: this.withReferenceGate(buildTools(), config, signal),
             signal,
+            // The endpoint has already refused the request as too long: its own count is more
+            // trustworthy than the estimate above, so aim well below it and let the run retry once.
+            compact: (_reason, limit) => this.trimMessages(HARD_CONTEXT_BUDGET_RATIO, true, limit),
+            // Compaction folds the dropped turns into the journal, so the retry has to be told
+            // about them — the system prompt was built before this run started.
+            refreshSystem: () => buildSystemPrompt({ journal: this.journal }),
             callbacks: {
                 onTextDelta: (t) => this.handleTextDelta(t),
                 onThinkingDelta: (t) => this.handleThinkingDelta(t),
@@ -1317,6 +1428,10 @@ export class ChatPanel extends HTMLElement {
                     this.contextUsed = contextTokens(usage);
                     this.renderContextMeter();
                 },
+                onToolBatchStart: () => {
+                    // The gate blocks one batch; the next batch is free to run.
+                    if (this.referenceState) this.referenceState.blockedBatch = false;
+                },
                 onToolCall: (c) => {
                     // ask_user drew its own card while it waited (see askUser); agent.ts only reports
                     // the call once it resolves, so without this guard it would be drawn twice.
@@ -1325,6 +1440,87 @@ export class ChatPanel extends HTMLElement {
                 },
             },
         });
+    }
+
+    /**
+     * Block the first `run_program` of a turn that carries a reference image until an isolated
+     * reader has described it. The report comes back as the tool's error result and the call does
+     * not run, so the model's first plan is made against the reading rather than the picture it
+     * believed it saw.
+     *
+     * A reader that cannot see the image — an endpoint without vision, a cancellation — fails
+     * open. Blocking the build would make the assistant unusable rather than safer.
+     */
+    private withReferenceGate(tools: Tool[], config: LLMConfig, signal: AbortSignal): Tool[] {
+        const state = this.referenceState;
+        if (!state) return tools;
+        return tools.map((tool) => {
+            if (!MODELING_TOOLS.has(tool.name)) return tool;
+            const run = tool.handler;
+            return {
+                ...tool,
+                handler: async (args, toolSignal) => {
+                    // Listing variables is a read — it can run before the reference is read.
+                    if (tool.name === "document_variables" && !variableMutation(args)) {
+                        return run(args, toolSignal);
+                    }
+                    if (state.blockedBatch) {
+                        return JSON.stringify({
+                            error: `This batch was blocked by the reference gate; call ${tool.name} again in a new response.`,
+                            // Same pause as the first call: the UI renders it as information and
+                            // the journal must not record it as a failed build.
+                            blocked: "reference",
+                        });
+                    }
+                    if (state.read) return run(args, toolSignal);
+
+                    // Marked before the await: a second call in this batch must not start another
+                    // reader, and the model has to see this report before it builds either way.
+                    state.read = true;
+                    this.setReferenceNotice("ai.reference.checking");
+                    const reading = await readReference({
+                        config,
+                        images: state.images,
+                        signal: toolSignal ?? signal,
+                    });
+                    if (!reading.ok) {
+                        this.setReferenceNotice("ai.reference.unchecked");
+                        // A cancelled read is not permission to build: the user pressed Stop, and
+                        // the run_program/run_parametric handlers do not check the signal themselves.
+                        if ((toolSignal ?? signal)?.aborted) {
+                            return JSON.stringify({
+                                error: "the reference read was interrupted; the call was not executed",
+                            });
+                        }
+                        return run(args, toolSignal);
+                    }
+                    state.blockedBatch = true;
+                    this.setReferenceNotice("ai.reference.checked");
+                    return JSON.stringify({
+                        error:
+                            `BLOCKED — read the reference report below, then call ${tool.name} again with your ops. ` +
+                            "The original call was not executed.",
+                        blocked: "reference",
+                        referenceReport: reading.report,
+                    });
+                },
+            };
+        });
+    }
+
+    /** One small status line for the reference read, reused across its three states. */
+    private setReferenceNotice(key: I18nKeys) {
+        if (!this.referenceNoticeEl) {
+            this.referenceNoticeEl = div({ className: style.contextNotice });
+            this.messageList.append(this.referenceNoticeEl);
+            this.followBottom();
+        }
+        this.referenceNoticeEl.textContent = I18n.translate(key);
+    }
+
+    private clearReferenceNotice() {
+        this.referenceNoticeEl?.remove();
+        this.referenceNoticeEl = undefined;
     }
 
     /** Lock the composer, record the user message and render its bubble. */
@@ -1338,6 +1534,13 @@ export class ChatPanel extends HTMLElement {
         this.autosizeInput();
         const images = this.pendingImages.splice(0, this.pendingImages.length);
         this.renderImagePreview();
+        // Snapshot the attachments here: by the time a tool runs, the turn may also carry recovery
+        // nudges, and "the latest user message" would no longer be the one that carried them.
+        this.clearReferenceNotice();
+        this.referenceState = images.length ? { images, read: false, blockedBatch: false } : undefined;
+        // A recovery nudge from a failed/aborted run is not the user's words. Left at the tail, it
+        // merges with this message at the API and the model may act on a stale instruction.
+        dropTrailingSynthetic(this.messages);
         this.messages.push({ role: "user", content: text, images: images.length ? images : undefined });
         this.trimMessages();
         this.recordMessage({
@@ -1665,7 +1868,7 @@ export class ChatPanel extends HTMLElement {
      * 32k one, so it either starves short conversations or overruns long ones.
      *
      * Three things are not negotiable whatever the budget. Earlier turns' reasoning is dropped (the
-     * same rule, applied when a turn begins, as agent.ts's `dropSupersededThinking`): the API needs
+     * same rule, applied when a turn begins, as `dropSupersededThinking` in llm/messages.ts): the API needs
      * thinking only for the tool loop still open, and it is billed as input like everything else,
      * so keeping it makes the window fill with the model's own past reasoning. Screenshots go with
      * the turn that took them — the user's own images stay, whatever turn they came in on (see
@@ -1673,44 +1876,55 @@ export class ChatPanel extends HTMLElement {
      * the next user boundary so assistant tool_calls and their tool results stay paired, or are
      * dropped together.
      */
-    private trimMessages() {
-        this.dropSupersededThinking();
-        this.dropEarlierScreenshots();
+    private trimMessages(
+        budgetRatio = CONTEXT_BUDGET_RATIO,
+        keepNewestScreenshot = false,
+        limit?: number,
+    ): boolean {
+        // The return value is "did the request get smaller", not "did a whole message go": dropping
+        // stale reasoning and screenshots also shrinks it, and after an overflow that is exactly
+        // what the retry needs to happen.
+        const before = estimateContext(this.messages);
+        dropSupersededThinking(this.messages);
+        // At a turn boundary every screenshot is of a viewport that has moved on; in the middle of
+        // a run the newest one is the state the model is working from, so it stays.
+        if (keepNewestScreenshot) dropSupersededImages(this.messages);
+        else this.dropEarlierScreenshots();
 
-        const budget = (currentConfig().contextWindow ?? DEFAULT_CONTEXT_WINDOW) * CONTEXT_BUDGET_RATIO;
+        // The endpoint's own number wins: the configured window is what the user thinks the model
+        // offers, while an overflow error's limit is what it actually refused past.
+        const window = limit ?? currentConfig().contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+        const budget = window * budgetRatio;
         let total = estimateContext(this.messages);
-        if (total <= budget) return;
-
-        // Always keep the newest message, even alone over budget: an empty context answers nothing.
-        let start = 0;
-        while (start < this.messages.length - 1 && total > budget) {
-            total -= estimateTokens(this.messages[start]);
-            start++;
-        }
-        while (start < this.messages.length && this.messages[start].role !== "user") start++;
-        this.messages.splice(0, start);
-        this.showContextNotice();
-    }
-
-    /**
-     * Drop every turn's reasoning but the one in flight. The API needs thinking blocks only while
-     * the tool loop that produced them is open, and bills whatever it is sent — a conversation that
-     * keeps them all re-sends the model's whole reasoning history on every request. Same rule as
-     * agent.ts's `dropSupersededThinking`, run here when a turn begins so that the trim below sizes
-     * the history that is actually going to be sent.
-     */
-    private dropSupersededThinking() {
-        // With no user message there is no newer turn to supersede anything, so nothing is dropped.
-        let boundary = 0;
-        for (let i = this.messages.length - 1; i >= 0; i--) {
-            if (this.messages[i].role === "user") {
-                boundary = i;
-                break;
+        if (total > budget) {
+            // Always keep the newest message, even alone over budget: an empty context answers nothing.
+            let start = 0;
+            while (start < this.messages.length - 1 && total > budget) {
+                total -= estimateTokens(this.messages[start]);
+                start++;
             }
+            // The kept window must begin at a real user turn, so an assistant call and its results
+            // are never separated. A recovery nudge is not a turn boundary — it belongs to the turn
+            // it repairs.
+            while (start < this.messages.length && !isTurnStart(this.messages[start])) start++;
+            if (start >= this.messages.length) {
+                // The budget point fell inside the current turn. Keep that turn whole — starting at
+                // a tool result would leave it without the assistant call it answers. With no real
+                // user turn at all (a seeded/degenerate history), keep everything: over budget is
+                // recoverable, a dangling tool result is rejected outright by the API.
+                const turnStart = lastTurnStart(this.messages);
+                start = turnStart >= 0 ? turnStart : 0;
+            }
+            // Read the slice before deleting it: the journal is the only thing that will remember
+            // what these exchanges did once their messages are gone.
+            const dropped = this.messages.slice(0, start);
+            this.messages.splice(0, start);
+            if (dropped.length) {
+                this.journal = mergeJournal(this.journal, journalEntriesFromMessages(dropped));
+            }
+            if (start > 0) this.showContextNotice();
         }
-        for (const [i, message] of this.messages.entries()) {
-            if (i < boundary && message.role === "assistant") message.thinking = undefined;
-        }
+        return estimateContext(this.messages) < before;
     }
 
     /**
@@ -1718,7 +1932,7 @@ export class ChatPanel extends HTMLElement {
      * now", so the last turn's is a picture of a viewport that has moved on — and a model reading a
      * stale one is worse off than a model without one, since another costs it a single tool call.
      * Images the user attached are left alone whatever turn they came in on: those are the input
-     * the user gave, not a picture of a moment. agent.ts's `dropSupersededImages` covers the other
+     * the user gave, not a picture of a moment. `llm/messages.ts`'s `dropSupersededImages` covers the other
      * half of the rule: within a run, the newest screenshot survives so the model can look at what
      * it just captured.
      */
@@ -1882,6 +2096,10 @@ export class ChatPanel extends HTMLElement {
         this.contextNoticeEl?.remove();
         this.contextNoticeEl = undefined;
 
+        // The reverted turns' tool records go with them: rebuild the journal from what survived,
+        // including the text of turns the trim removed from the model history.
+        this.journal = journalFromStored(this.conversation.messages, this.droppedTurnCount());
+
         // The message is back in the box, ready to be said differently.
         this.input.value = turn.text;
         this.autosizeInput();
@@ -1894,9 +2112,12 @@ export class ChatPanel extends HTMLElement {
     }
 
     /** Drop one turn's user message and everything the model said in response to it. */
-    private dropLastRound(list: { role: string }[]) {
+    private dropLastRound(list: { role: string; synthetic?: boolean }[]) {
         while (list.length > 0) {
-            if (list.pop()?.role === "user") break;
+            const last = list.pop();
+            // A recovery nudge lives inside the turn; popping it would leave the turn's own
+            // assistant/tool messages behind with no request they belong to.
+            if (last?.role === "user" && !last.synthetic) break;
         }
     }
 
@@ -2122,6 +2343,11 @@ export class ChatPanel extends HTMLElement {
     private parseToolResult(result: string): { segments: ResultSegment[]; isError: boolean } {
         try {
             const parsed = JSON.parse(result) as ToolResultSummary;
+            // The reference gate answers with `error` so the model treats the call as not done,
+            // but nothing failed — the user should not see a red cross for a working pause.
+            if (parsed.blocked) {
+                return { segments: [{ text: I18n.translate("ai.reference.blocked") }], isError: false };
+            }
             if (parsed.error) {
                 return {
                     segments: [{ text: I18n.translate("ai.error.prefix", parsed.error) }],

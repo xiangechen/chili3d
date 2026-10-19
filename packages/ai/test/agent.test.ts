@@ -2,7 +2,16 @@
 // See LICENSE file in the project root for full license information.
 
 import { rs } from "@rstest/core";
-import { MAX_AGENT_ITERATIONS, MAX_TRUNCATION_CONTINUES, runAgent } from "../src/llm/agent";
+import {
+    contextLimitFromError,
+    isContextOverflowError,
+    MAX_AGENT_ITERATIONS,
+    MAX_IDLE_NUDGES,
+    MAX_LOST_CALL_NUDGES,
+    MAX_TRUNCATION_CONTINUES,
+    promisedToAct,
+    runAgent,
+} from "../src/llm/agent";
 import type { ChatMessage, LLMProvider, StreamEvent, SystemPrompt, Tool } from "../src/llm/types";
 
 /** The system prompt is irrelevant to these tests — one stable half, no snapshot. */
@@ -10,6 +19,15 @@ const SYSTEM: SystemPrompt = { stable: "sys", volatile: "" };
 
 async function* fakeStream(events: StreamEvent[]): AsyncIterable<StreamEvent> {
     for (const e of events) yield e;
+}
+
+/** An async iterable that rejects on its first pull, like an endpoint refusing the request. */
+function rejectingStream(err: unknown): AsyncIterable<StreamEvent> {
+    return {
+        [Symbol.asyncIterator]() {
+            return { next: () => Promise.reject(err) };
+        },
+    };
 }
 
 /** An async iterable that runs `before` then fails on first pull, like an SDK abort mid-stream. */
@@ -78,6 +96,97 @@ describe("runAgent", () => {
         expect(handlerCalls).toEqual([{ a: 1 }]);
         expect(messages.map((m) => m.role)).toEqual(["assistant", "tool", "assistant"]);
         expect((messages[1] as { toolCallId: string }).toolCallId).toBe("t1");
+    });
+
+    test("stops between tool calls and drops their results once aborted", async () => {
+        const controller = new AbortController();
+        const ran: string[] = [];
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                yield { type: "tool_call", id: "t1", name: "first", arguments: "{}" };
+                yield { type: "tool_call", id: "t2", name: "second", arguments: "{}" };
+                yield { type: "done", stopReason: "tool_use" };
+            },
+        };
+        const tool = (name: string): Tool => ({
+            name,
+            description: "",
+            parameters: { type: "object" },
+            handler: async () => {
+                ran.push(name);
+                return "{}";
+            },
+        });
+        const tools: Tool[] = [
+            {
+                ...tool("first"),
+                handler: async () => {
+                    ran.push("first");
+                    // The user pressed Stop while the first call was running.
+                    controller.abort();
+                    return "{}";
+                },
+            },
+            tool("second"),
+        ];
+        const messages: ChatMessage[] = [];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages,
+            tools,
+            signal: controller.signal,
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+        });
+
+        expect(ran).toEqual(["first"]);
+        // The aborted batch's result must not land in whatever history replaced this one.
+        expect(messages.some((message) => message.role === "tool")).toBe(false);
+    });
+
+    test("announces each tool batch before running it", async () => {
+        let batches = 0;
+        let calls = 0;
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                calls++;
+                if (calls === 1) {
+                    yield { type: "tool_call", id: "t1", name: "my_tool", arguments: "{}" };
+                    yield { type: "done", stopReason: "tool_use" };
+                } else {
+                    yield { type: "done", stopReason: "end_turn" };
+                }
+            },
+        };
+        const tools: Tool[] = [
+            { name: "my_tool", description: "", parameters: { type: "object" }, handler: async () => "{}" },
+        ];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools,
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+                onToolBatchStart: () => batches++,
+            },
+            provider,
+        });
+
+        expect(batches).toBe(1);
     });
 
     test("runs every call one response carries, in the order the model listed them", async () => {
@@ -387,10 +496,68 @@ describe("runAgent", () => {
         expect(deltas).toEqual(["ai.truncated"]);
     });
 
-    test("says so when a tool call the model asked for never arrived", async () => {
+    test("asks again when a tool call the model asked for never arrived", async () => {
+        let calls = 0;
+        const ran: string[] = [];
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* (opts) {
+                calls++;
+                if (calls === 1) {
+                    yield { type: "done", stopReason: "tool_use" };
+                    return;
+                }
+                if (calls === 2) {
+                    // The nudge is a synthetic user message and must have reached the model.
+                    const nudge = opts.messages.find((m) => m.role === "user" && m.synthetic);
+                    expect(nudge?.role === "user" && nudge.content).toContain("payload arrived empty");
+                    yield { type: "tool_call", id: "t1", name: "my_tool", arguments: "{}" };
+                    yield { type: "done", stopReason: "tool_use" };
+                    return;
+                }
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+        const deltas: string[] = [];
+        const messages: ChatMessage[] = [];
+        const tools: Tool[] = [
+            {
+                name: "my_tool",
+                description: "",
+                parameters: { type: "object" },
+                handler: async () => {
+                    ran.push("ran");
+                    return JSON.stringify({ ok: true });
+                },
+            },
+        ];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages,
+            tools,
+            callbacks: {
+                onTextDelta: (t) => deltas.push(t),
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+        });
+
+        expect(calls).toBe(3);
+        expect(ran).toEqual(["ran"]);
+        expect(messages.some((m) => m.role === "user" && m.synthetic)).toBe(true);
+        expect(deltas).not.toContain("ai.lostToolCall");
+    });
+
+    test("gives up on a lost call after MAX_LOST_CALL_NUDGES", async () => {
+        let calls = 0;
         const provider: LLMProvider = {
             id: "fake",
             streamChat: async function* () {
+                calls++;
                 yield { type: "done", stopReason: "tool_use" };
             },
         };
@@ -410,7 +577,302 @@ describe("runAgent", () => {
             provider,
         });
 
+        expect(calls).toBe(1 + MAX_LOST_CALL_NUDGES);
         expect(deltas).toEqual(["ai.lostToolCall"]);
+    });
+
+    test("nudges a turn that promised to act but made no call", async () => {
+        let calls = 0;
+        const ran: string[] = [];
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                calls++;
+                if (calls === 1) {
+                    yield { type: "text", text: "Let me build that." };
+                    yield { type: "done", stopReason: "end_turn" };
+                    return;
+                }
+                if (calls === 2) {
+                    yield { type: "tool_call", id: "t1", name: "my_tool", arguments: "{}" };
+                    yield { type: "done", stopReason: "tool_use" };
+                    return;
+                }
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+        const tools: Tool[] = [
+            {
+                name: "my_tool",
+                description: "",
+                parameters: { type: "object" },
+                handler: async () => {
+                    ran.push("ran");
+                    return "{}";
+                },
+            },
+        ];
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools,
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+        });
+
+        expect(calls).toBe(3);
+        expect(ran).toEqual(["ran"]);
+    });
+
+    test.each([
+        "Which face should I fillet?",
+        "Let me know if you want it taller.",
+        "The box is 10x20x5.",
+    ])("does not nudge an ordinary answer: %s", async (text) => {
+        let calls = 0;
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                calls++;
+                yield { type: "text", text };
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools: [],
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+        });
+
+        expect(calls).toBe(1);
+    });
+
+    test("caps idle nudges at MAX_IDLE_NUDGES", async () => {
+        let calls = 0;
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                calls++;
+                yield { type: "text", text: "Next I'll make the cut." };
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools: [],
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+        });
+
+        expect(calls).toBe(1 + MAX_IDLE_NUDGES);
+    });
+
+    test("retries once after the endpoint reports an oversized context", async () => {
+        let calls = 0;
+        const compactCalls: { reason: string; limit?: number }[] = [];
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* () {
+                calls++;
+                if (calls === 1) {
+                    throw Object.assign(new Error("prompt is too long: 210000 tokens > 200000 maximum"), {
+                        status: 400,
+                    });
+                }
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools: [],
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+            compact: (reason, limit) => {
+                compactCalls.push({ reason, limit });
+                return true;
+            },
+        });
+
+        expect(calls).toBe(2);
+        // The endpoint's own number travels with the compaction: the configured window is not
+        // necessarily the one the request was rejected past.
+        expect(compactCalls).toEqual([{ reason: "context-overflow", limit: 200000 }]);
+    });
+
+    test("does not retry when compacting removed nothing", async () => {
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: () =>
+                rejectingStream(Object.assign(new Error("prompt is too long"), { status: 400 })),
+        };
+
+        await expect(
+            runAgent({
+                config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+                system: SYSTEM,
+                messages: [],
+                tools: [],
+                callbacks: {
+                    onTextDelta: () => {},
+                    onToolCall: () => {},
+                    onThinkingDelta: () => {},
+                    onUsage: () => {},
+                },
+                provider,
+                compact: () => false,
+            }),
+        ).rejects.toThrow("prompt is too long");
+    });
+
+    test("does not retry an ordinary endpoint error", async () => {
+        let compacted = false;
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: () => rejectingStream(Object.assign(new Error("invalid api key"), { status: 401 })),
+        };
+
+        await expect(
+            runAgent({
+                config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+                system: SYSTEM,
+                messages: [],
+                tools: [],
+                callbacks: {
+                    onTextDelta: () => {},
+                    onToolCall: () => {},
+                    onThinkingDelta: () => {},
+                    onUsage: () => {},
+                },
+                provider,
+                compact: () => {
+                    compacted = true;
+                    return true;
+                },
+            }),
+        ).rejects.toThrow("invalid api key");
+        expect(compacted).toBe(false);
+    });
+
+    test.each([
+        [{ status: 400, message: "prompt is too long: 210000 tokens > 200000 maximum" }, true],
+        [{ code: "context_length_exceeded", message: "nope" }, true],
+        [{ status: 413, message: "request too large" }, true],
+        [{ status: 400, message: "invalid tool schema" }, false],
+        [{ status: 401, message: "too many tokens in your account" }, false],
+        [new Error("network down"), false],
+    ])("recognizes an overflow error: %j", (err, expected) => {
+        expect(isContextOverflowError(err)).toBe(expected);
+    });
+
+    test.each([
+        ["prompt is too long: 210000 tokens > 200000 maximum", 200000],
+        [
+            "This model's maximum context length is 128000 tokens. However, you requested 210000 tokens",
+            128000,
+        ],
+        ["This model's context length of only 8192 tokens is too small", 8192],
+        ["the context window is 32000", 32000],
+        ["prompt is too long", undefined],
+    ])("reads the context limit from an overflow error: %j", (message, expected) => {
+        expect(contextLimitFromError(new Error(message))).toBe(expected);
+    });
+
+    test.each([
+        ["Let me build that.", true],
+        ["Next I'll make the cut.", true],
+        ["Here is the plan:", true],
+        ["Here is what I changed:", false],
+        ["The remaining options are:", false],
+        ["I’ll build that.", true],
+        ["Let’s make it.", true],
+        ["Which face should I fillet?", false],
+        ["Let me know if you want it taller.", false],
+        ["The box is 10x20x5.", false],
+        // A closing that names no action is not a promise to act.
+        ["I'll be here if you need anything.", false],
+        ["I'll let you know when it's done.", false],
+        ["Let's see how it looks.", false],
+        // Waiting or negating is not consent to act.
+        ["I'll wait for your confirmation.", false],
+        ["I will not delete that.", false],
+        ["I won’t delete that.", false],
+        // CJK punctuation is a sentence boundary and the intent words are localized too.
+        ["我先创建底板，然后拉伸。", true],
+        ["我来建一个盒子。", true],
+        ["我先等你确认。", false],
+        ["Vou criar a placa agora.", true],
+        ["Aguardo sua confirmação.", false],
+        ["", false],
+    ])("reads a promise to act: %j", (text, expected) => {
+        expect(promisedToAct(text)).toBe(expected);
+    });
+
+    test("rebuilds the system prompt after an overflow compaction", async () => {
+        let calls = 0;
+        const systems: SystemPrompt[] = [];
+        const provider: LLMProvider = {
+            id: "fake",
+            streamChat: async function* (opts) {
+                calls++;
+                systems.push(opts.system);
+                if (calls === 1) throw Object.assign(new Error("prompt is too long"), { status: 400 });
+                yield { type: "done", stopReason: "end_turn" };
+            },
+        };
+        const refreshed: SystemPrompt = { stable: "sys2", volatile: "condensed" };
+
+        await runAgent({
+            config: { provider: "anthropic", apiKey: "k", model: "claude-opus-5" },
+            system: SYSTEM,
+            messages: [],
+            tools: [],
+            callbacks: {
+                onTextDelta: () => {},
+                onToolCall: () => {},
+                onThinkingDelta: () => {},
+                onUsage: () => {},
+            },
+            provider,
+            compact: () => true,
+            refreshSystem: () => refreshed,
+        });
+
+        expect(calls).toBe(2);
+        expect(systems[0]).toBe(SYSTEM);
+        // The retry must carry the journal the compaction just wrote into the volatile half.
+        expect(systems[1]).toBe(refreshed);
     });
 
     test("a turn that ended short is reported where the console shows it", async () => {

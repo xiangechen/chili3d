@@ -2,11 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import { appGuide } from "./appGuide";
+import { curveQuery } from "./curveQuery";
 import { errorRecovery } from "./errorRecovery";
 import { modelingApi } from "./modelingApi";
 import { modelingRecipes } from "./modelingRecipes";
 import { parametricModeling } from "./parametricModeling";
 import { shapeQuery } from "./shapeQuery";
+import { surfaceQuery } from "./surfaceQuery";
 import type { Skill } from "./types";
 
 export type { Skill };
@@ -20,6 +22,8 @@ export const SKILLS: Skill[] = [
     appGuide,
     modelingApi,
     shapeQuery,
+    curveQuery,
+    surfaceQuery,
     modelingRecipes,
     errorRecovery,
     parametricModeling,

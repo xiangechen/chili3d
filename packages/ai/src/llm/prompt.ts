@@ -8,16 +8,29 @@ import { documentSnapshot } from "../tools/readTools";
 import { TRANSFORM_ARGS_SENTENCE, TRANSFORM_ORDER } from "../tools/transformMatrix";
 import type { SystemPrompt } from "./types";
 
+export interface BuildSystemPromptOptions {
+    /** What the context trim folded away; see `journal.ts`. It changes, so it belongs in volatile. */
+    journal?: string;
+}
+
 /**
  * Split at the stability boundary: everything above the document snapshot is byte-identical for
- * every request in a run and carries the cache breakpoint; the snapshot is per-run and must stay
- * after it (see `SystemPrompt`).
+ * every request in a run and carries the cache breakpoint; the snapshot and the journal are
+ * per-run and must stay after it (see `SystemPrompt`).
  */
-export function buildSystemPrompt(): SystemPrompt {
+export function buildSystemPrompt(options: BuildSystemPromptOptions = {}): SystemPrompt {
     return {
         stable: [introSection(), toolIndexSection(), policySection(), rulesSection()].join("\n\n"),
-        volatile: contextSection(),
+        volatile: [contextSection(), journalSection(options.journal)].filter(Boolean).join("\n\n"),
     };
+}
+
+/**
+ * The condensed record of turns the trim removed. It is deliberately separate from the live
+ * document snapshot above it: the snapshot says what exists now, this says what was tried.
+ */
+function journalSection(journal: string | undefined): string {
+    return journal?.trim() ? `## Condensed history\n${journal.trim()}` : "";
 }
 
 function introSection(): string {

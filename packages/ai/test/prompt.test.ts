@@ -47,7 +47,13 @@ describe("buildSystemPrompt", () => {
             expect(stable).toContain(skill.name);
         }
         expect(SKILLS.map((s) => s.name)).toEqual(
-            expect.arrayContaining(["shape-query", "modeling-recipes", "error-recovery"]),
+            expect.arrayContaining([
+                "shape-query",
+                "curve-query",
+                "surface-query",
+                "modeling-recipes",
+                "error-recovery",
+            ]),
         );
     });
 
@@ -59,6 +65,18 @@ describe("buildSystemPrompt", () => {
         // would invalidate the tool schemas and the rest of the prompt on every run.
         expect(stable).not.toContain("Current document (snapshot");
         expect(stable).not.toContain('"hasActiveDocument"');
+    });
+
+    test("puts the condensed journal in the volatile half only", () => {
+        const without = buildSystemPrompt();
+        const withJournal = buildSystemPrompt({ journal: "- build run_program: created 1 (Box)" });
+
+        expect(withJournal.volatile).toContain("## Condensed history");
+        expect(withJournal.volatile).toContain("- build run_program: created 1 (Box)");
+        // A journal changes whenever the trim runs; inside the stable half it would invalidate the
+        // cached tools and prompt on every fold.
+        expect(withJournal.stable).toBe(without.stable);
+        expect(without.volatile).not.toContain("## Condensed history");
     });
 
     test("builds the same stable half twice in a row", () => {

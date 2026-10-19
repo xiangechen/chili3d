@@ -14,7 +14,7 @@ import { buildReadTools } from "./readTools";
 import { buildRibbonTools } from "./ribbonTools";
 import { buildSelectionTools } from "./selectionTools";
 import { buildVariableTools } from "./variableTools";
-import { buildViewTools } from "./viewTools";
+import { buildCaptureViewsTool, buildViewTools } from "./viewTools";
 
 export function buildTools(): Tool[] {
     return [
@@ -34,5 +34,6 @@ export function buildTools(): Tool[] {
         ...buildVariableTools(),
         buildAskUserTool(),
         ...buildMaterialTools(),
+        buildCaptureViewsTool(),
     ];
 }

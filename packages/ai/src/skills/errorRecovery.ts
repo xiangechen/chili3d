@@ -7,9 +7,9 @@ export const errorRecovery: Skill = {
     name: "error-recovery",
     description:
         "What common run_program / tool errors mean and how to fix them: failed booleans, bad fillet radius, stale refs, wrong ref kinds, missed clicks",
-    content: `Error recovery. Strategy: read the message, fix the cause, re-run ONLY the failed ops — refs persist across run_program calls, so retries are cheap. Load shape-query for the full query reference when a query fails.
+    content: `Error recovery. Strategy: read the message, fix the cause, re-run ONLY the failed ops — refs persist across run_program calls, so retries are cheap. Load the query skill for the failing ref's family when a query fails — shape-query for topology, curve-query for curves, surface-query for surfaces.
 
-"unknown method "x"" — the method is not in the modeling catalog. Query methods (owner.name like face.area) are listed in the shape-query skill; modeling methods in the modeling-api skill. Check spelling and casing.
+"unknown method "x"" — the method is not in the modeling catalog. Query methods (owner.name like face.area) are listed in the query skills by family: shape-query (shape/vertex/edge/wire/face), curve-query (curve and its subtypes), surface-query (surface and its subtypes); modeling methods in the modeling-api skill. Check spelling and casing.
 
 "must be a finite number" / "must be one of a|b|c" / "must be { x, y, z }" — argument encoding wrong. Re-check the JSON encoding section: XYZ={x,y,z}, Line={point,direction} (NOT {start,end}), Plane={origin, normal?, xvec?}, enum params list values inline.
 

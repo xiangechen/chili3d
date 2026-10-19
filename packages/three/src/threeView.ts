@@ -375,6 +375,41 @@ export class ThreeView extends Observable implements IView {
     }
 
     toImage(options?: ToImageOptions): string {
+        const { width, height } = options ?? {};
+        if (width === undefined || height === undefined) {
+            this.syncCameraDependentState();
+            return this.capture(options);
+        }
+
+        // A fixed output size is what makes two captures comparable: the viewport's size and
+        // device pixel ratio belong to the window, not to the model. Everything changed here is
+        // restored before returning, so the user's viewport is untouched.
+        const restore = this.beginImageCapture(width, height);
+        try {
+            this.syncCameraDependentState();
+            return this.capture(options);
+        } finally {
+            restore();
+        }
+    }
+
+    /**
+     * Switch the renderer to a capture size and hand back the restore. A batch of captures calls
+     * this once; each `toImage()` in between then renders at that size without reallocating the
+     * drawing buffer. The viewport's own size and pixel ratio come back on restore.
+     */
+    beginImageCapture(width: number, height: number): () => void {
+        const size = this._renderer.getSize(new Vector2());
+        const pixelRatio = this._renderer.getPixelRatio();
+        this._renderer.setPixelRatio(1);
+        this.resize(width, height);
+        return () => {
+            this._renderer.setPixelRatio(pixelRatio);
+            this.resize(size.x, size.y);
+        };
+    }
+
+    private capture(options?: ToImageOptions): string {
         this._renderer.render(this._scene, this.camera);
         const source = this.renderer.domElement;
         const maxSize = options?.maxSize ?? Number.POSITIVE_INFINITY;
@@ -382,6 +417,12 @@ export class ThreeView extends Observable implements IView {
             return source.toDataURL(options?.mimeType, options?.quality);
         }
         return this.downscaleImage(source, maxSize, options);
+    }
+
+    /** Lighting that follows the camera; `animate` used to be the only place that updated it. */
+    private syncCameraDependentState() {
+        const dir = this.camera.position.clone().sub(this.cameraController.target);
+        this.dynamicLight.position.copy(dir);
     }
 
     private downscaleImage(source: HTMLCanvasElement, maxSize: number, options?: ToImageOptions): string {
@@ -427,8 +468,7 @@ export class ThreeView extends Observable implements IView {
 
         if (!this._needsUpdate) return;
 
-        const dir = this.camera.position.clone().sub(this.cameraController.target);
-        this.dynamicLight.position.copy(dir);
+        this.syncCameraDependentState();
         this._renderer.render(this._scene, this.camera);
         this._cssRenderer.render(this._scene, this.camera);
         this._gizmo?.update();

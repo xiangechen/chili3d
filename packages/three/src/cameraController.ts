@@ -267,11 +267,13 @@ export class CameraController extends Observable implements ICameraController {
 
     fitContent(options?: CameraTransitionOptions): void {
         const context = this.view.document.visual.context as ThreeVisualContext;
-        const sphere = this.getBoundingSphere(context);
+        const sphere = this.getBoundingSphere(context, options?.scope);
+        // The limiting half-angle: the vertical one for a landscape frame, the narrower horizontal
+        // one for a portrait frame. `aspect` lets a capture fit the shape it is about to render
+        // rather than the viewport the user happens to have.
+        const aspect = options?.aspect ?? this._width / this._height;
         let fieldOfView = CAMERA_FOV / 2.0;
-        if (this._width < this._height) {
-            fieldOfView = (fieldOfView * this._width) / this._height;
-        }
+        if (aspect < 1) fieldOfView *= aspect;
 
         const distance = Math.abs(sphere.radius / Math.sin(fieldOfView * DEG_TO_RAD));
         // Framed along the direction the camera is heading, not a mid-flight one, so the lookAt that
@@ -289,8 +291,10 @@ export class CameraController extends Observable implements ICameraController {
         );
     }
 
-    private getBoundingSphere(context: ThreeVisualContext) {
-        const shapes = this.view.document.selection.getSelectedVisualNodes();
+    private getBoundingSphere(context: ThreeVisualContext, scope: "auto" | "all" | "selection" = "auto") {
+        // "all" exists for captures that must be comparable: the user's current selection would
+        // otherwise decide the framing, so two frames of the same model could differ.
+        const shapes = scope === "all" ? [] : this.view.document.selection.getSelectedVisualNodes();
 
         const box = new Box3();
         if (shapes.length === 0) {
@@ -388,6 +392,17 @@ export class CameraController extends Observable implements ICameraController {
             },
             options?.duration,
         );
+    }
+
+    /**
+     * Land on the pose a fly-to was heading to and drop the transition. A tool that must save and
+     * restore a static pose calls this first, so it restores the destination rather than a frame
+     * from the middle of the user's animation.
+     */
+    settle(): void {
+        const pose = this.settledPose();
+        this._transition = undefined;
+        this.commitPose(pose);
     }
 
     /**

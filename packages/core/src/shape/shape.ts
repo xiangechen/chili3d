@@ -50,8 +50,11 @@ export interface IShape extends IDisposable {
      * a face's region, an edge's curve within its parameter window, a wire's edges, a shell's faces,
      * a vertex's own point. A kind with no interior answers the boundary reading only, so
      * `containsBoundary` false is false for it.
+     *
+     * `containsBoundary` defaults to true (a point on the boundary counts) and `tolerance` to
+     * 0.001 mm, the same point tolerance the other classifier-style queries use.
      */
-    containsPoint(point: XYZLike, containsBoundary: boolean, tolerance: number): boolean;
+    containsPoint(point: XYZLike, containsBoundary?: boolean, tolerance?: number): boolean;
     checkShape(): boolean;
     checkFaces(): { index: number; isValid: boolean; status: string[] }[];
     fixShape(tolerance: number): IShape;

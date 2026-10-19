@@ -312,6 +312,50 @@ describe("CameraController — fitContent", () => {
         return mesh;
     }
 
+    test("fitContent with scope all ignores the selection", () => {
+        const visualShapes = new Object3D();
+        const selected = addMesh(visualShapes, 1);
+        addMesh(visualShapes, 100);
+        const selection = { ...createMockSelection(), getSelectedVisualNodes: () => [selected] };
+        const context = {
+            visualShapes,
+            getVisual: (shape: unknown) => shape,
+            getNode: () => undefined,
+        };
+        const view = createFakeView({
+            document: { selection, visual: { context } } as unknown as IDocument,
+            content: context as unknown as ThreeVisualContext,
+        });
+
+        const all = new CameraController(view);
+        all.fitContent({ duration: 0, scope: "all" });
+        const allDistance = all.cameraPosition.distanceTo(all.cameraTarget);
+
+        const auto = new CameraController(view);
+        auto.fitContent({ duration: 0, scope: "auto" });
+        const autoDistance = auto.cameraPosition.distanceTo(auto.cameraTarget);
+
+        // "all" frames the 100-half-size body; "auto" would frame only the selected 1-half-size one.
+        expect(allDistance).toBeGreaterThan(autoDistance * 10);
+    });
+
+    test("fitContent uses the requested aspect to pick the limiting field of view", () => {
+        const view = createFakeView();
+        addBoxMesh(view, 10);
+
+        const landscape = new CameraController(view);
+        landscape.fitContent({ duration: 0, aspect: 2 });
+        const landscapeDistance = landscape.cameraPosition.distanceTo(landscape.cameraTarget);
+
+        const portrait = new CameraController(view);
+        portrait.fitContent({ duration: 0, aspect: 0.5 });
+        const portraitDistance = portrait.cameraPosition.distanceTo(portrait.cameraTarget);
+
+        // A portrait frame is limited by the narrower horizontal half-angle, so it stands farther
+        // back than the same content framed for a landscape capture.
+        expect(portraitDistance).toBeGreaterThan(landscapeDistance);
+    });
+
     test("fitContent on empty scene falls back to the default sphere radius", () => {
         const view = createFakeView();
         const cc = new CameraController(view);
@@ -459,6 +503,20 @@ describe("CameraController — transitions", () => {
         expect(cc.tick(100)).toBe(true);
         expect(cc.tick(100)).toBe(true);
 
+        expect(cc.cameraPosition.x).toBeCloseTo(300);
+        expect(cc.cameraPosition.y).toBeCloseTo(40);
+        expect(cc.cameraTarget.x).toBeCloseTo(10);
+        expect(cc.tick(16)).toBe(false);
+    });
+
+    test("settle lands on the pose a fly-to was heading to", () => {
+        const cc = new CameraController(createFakeView());
+        cc.lookAt({ x: 300, y: 40, z: 0 }, { x: 10, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }, { duration: 1000 });
+        expect(cc.tick(100)).toBe(true);
+
+        cc.settle();
+
+        // The destination, not the midpoint the frame happened to be at.
         expect(cc.cameraPosition.x).toBeCloseTo(300);
         expect(cc.cameraPosition.y).toBeCloseTo(40);
         expect(cc.cameraTarget.x).toBeCloseTo(10);

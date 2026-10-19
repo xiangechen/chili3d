@@ -47,6 +47,12 @@ export interface ToImageOptions {
     mimeType?: string;
     /** Encoder quality 0..1 for lossy types. */
     quality?: number;
+    /**
+     * Render at this pixel size instead of the viewport's, then restore the viewport. Two frames
+     * taken at the same size can be compared, which a window-sized capture cannot promise.
+     */
+    width?: number;
+    height?: number;
 }
 
 export interface IView extends IPropertyChanged, IDisposable {
@@ -62,6 +68,12 @@ export interface IView extends IPropertyChanged, IDisposable {
     update(): void;
     up(): XYZ;
     toImage(options?: ToImageOptions): string;
+    /**
+     * Resize the renderer for a batch of captures and return a function that restores it. A batch
+     * (e.g. several standard views) should switch size once, not once per frame. Optional: a view
+     * that cannot resize keeps the per-call `toImage({ width, height })` path.
+     */
+    beginImageCapture?(width: number, height: number): () => void;
     direction(): XYZ;
     rayAt(mx: number, my: number): Ray;
     screenToWorld(mx: number, my: number): XYZ;

@@ -61,7 +61,7 @@ export class TestEdge implements IEdge {
         throw new Error("Method not implemented.");
     }
 
-    containsPoint(_point: XYZLike, _containsBoundary: boolean, _tolerance: number): boolean {
+    containsPoint(_point: XYZLike, _containsBoundary = true, _tolerance = 0.001): boolean {
         throw new Error("Method not implemented.");
     }
 
