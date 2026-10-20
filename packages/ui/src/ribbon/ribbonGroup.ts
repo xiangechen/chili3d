@@ -3,10 +3,12 @@
 
 import {
     Binding,
+    type ButtonSize,
     type IConverter,
     Localize,
     ObservableCollection,
     Result,
+    type RibbonButton,
     type RibbonCommand,
     type RibbonGroup,
 } from "@chili3d/core";
@@ -18,22 +20,31 @@ import { RibbonPulldownButton } from "./ribbonPulldownButton";
 import { RibbonSplitButton } from "./ribbonSplitButton";
 import { RibbonStack } from "./ribbonStack";
 
-export function createRibbonButton(item: RibbonCommand): HTMLElement {
+export function createRibbonButton(item: RibbonCommand): HTMLElement | undefined {
+    if (item instanceof ObservableCollection) {
+        return createRibbonStack(item);
+    }
+    return createRibbonButtonElement(item, "large");
+}
+
+function createRibbonStack(items: ObservableCollection<RibbonButton>): RibbonStack | undefined {
+    const stack = new RibbonStack();
+    items.forEach((item) => {
+        const button = createRibbonButtonElement(item, "small");
+        if (button) stack.append(button);
+    });
+    return stack.childElementCount > 0 ? stack : undefined;
+}
+
+function createRibbonButtonElement(item: RibbonButton, size: ButtonSize): HTMLElement | undefined {
     if (typeof item === "string") {
-        return RibbonPushButton.fromCommandName(item, "large")!;
-    } else if (item instanceof ObservableCollection) {
-        const stack = new RibbonStack();
-        item.forEach((b) => {
-            const button = RibbonPushButton.fromCommandName(b, "small");
-            if (button) stack.append(button);
-        });
-        return stack;
+        return RibbonPushButton.fromCommandName(item, size);
     } else if (item.type === "push") {
-        return new RibbonPushButton(item.command, item.icon, "large", item.onClick, item.display);
+        return new RibbonPushButton(item.command, item.icon, size, item.onClick, item.display);
     } else if (item.type === "pulldown") {
-        return new RibbonPulldownButton(item, "large");
+        return new RibbonPulldownButton(item, size);
     } else if (item.type === "split") {
-        return new RibbonSplitButton(item, "large");
+        return new RibbonSplitButton(item, size);
     } else {
         throw new Error("unknown ribbon button type");
     }

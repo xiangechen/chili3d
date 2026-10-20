@@ -160,22 +160,32 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
                 groupName: "ribbon.group.feature",
                 items: [
                     "feature.pressPull",
-                    {
-                        type: "split",
-                        items: [
-                            "feature.fillet",
-                            "feature.chamfer",
-                            "feature.modifyFillet",
-                            "feature.modifyChamfer",
-                        ],
-                    },
-                    {
-                        type: "split",
-                        items: ["feature.patternLinear", "feature.patternCircular", "feature.patternCurve"],
-                    },
-                    ["feature.draft", "feature.offsetFace", "feature.shell"],
-                    ["feature.removeFeature", "feature.split", "feature.hole"],
-                    ["feature.mirror"],
+                    [
+                        {
+                            type: "split",
+                            items: [
+                                "feature.fillet",
+                                "feature.chamfer",
+                                "feature.modifyFillet",
+                                "feature.modifyChamfer",
+                            ],
+                        },
+                        "feature.draft",
+                        "feature.shell",
+                    ],
+                    ["feature.offsetFace", "feature.split", "feature.hole"],
+                    [
+                        "feature.removeFeature",
+                        {
+                            type: "split",
+                            items: [
+                                "feature.patternLinear",
+                                "feature.patternCircular",
+                                "feature.patternCurve",
+                            ],
+                        },
+                        "feature.mirror",
+                    ],
                 ],
             },
             {

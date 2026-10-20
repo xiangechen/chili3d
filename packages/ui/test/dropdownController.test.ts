@@ -9,7 +9,6 @@ import { createDropdownItem, DropdownController, getItemData } from "../src/ribb
 function makePushButton(overrides: Partial<PushButton> & { command: CommandKeys }): PushButton {
     return {
         type: "push",
-        size: "large",
         icon: "icon-command",
         onClick: () => {},
         ...overrides,

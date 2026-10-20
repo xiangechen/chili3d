@@ -101,6 +101,63 @@ describe("Collection", () => {
         });
     });
 
+    describe("with a template that returns undefined", () => {
+        const skipTemplate = (item: string) => {
+            if (item === "skip") return undefined;
+            const div = document.createElement("div");
+            div.textContent = item;
+            return div;
+        };
+
+        test("should leave the item out of the DOM", () => {
+            const collection = new Collection({ sources: ["a", "skip", "b"], template: skipTemplate });
+
+            container.appendChild(collection);
+
+            expect(collection.children.length).toBe(2);
+            expect(collection.children[0].textContent).toBe("a");
+            expect(collection.children[1].textContent).toBe("b");
+            expect(collection.getItem("skip")).toBeUndefined();
+        });
+
+        test("should leave an added item out of the DOM", () => {
+            const sources = new ObservableCollection("a");
+            const collection = new Collection({ sources, template: skipTemplate });
+            container.appendChild(collection);
+
+            sources.push("skip", "b");
+
+            expect(collection.children.length).toBe(2);
+            expect(collection.children[1].textContent).toBe("b");
+        });
+
+        test("should leave a replaced item out of the DOM", () => {
+            const sources = new ObservableCollection("a", "b");
+            const collection = new Collection({ sources, template: skipTemplate });
+            container.appendChild(collection);
+
+            sources.replace(1, "skip", "c");
+
+            expect(collection.children.length).toBe(2);
+            expect(collection.children[0].textContent).toBe("a");
+            expect(collection.children[1].textContent).toBe("c");
+            expect(collection.getItem("skip")).toBeUndefined();
+        });
+
+        test("should move the rendered items in source order when some are skipped", () => {
+            const sources = new ObservableCollection("a", "skip", "b", "c");
+            const collection = new Collection({ sources, template: skipTemplate });
+            container.appendChild(collection);
+
+            sources.move(0, 3);
+
+            expect(collection.children.length).toBe(3);
+            expect(collection.children[0].textContent).toBe("b");
+            expect(collection.children[1].textContent).toBe("a");
+            expect(collection.children[2].textContent).toBe("c");
+        });
+    });
+
     describe("with ObservableCollection", () => {
         test("should render initial items", () => {
             const sources = new ObservableCollection("a", "b", "c");

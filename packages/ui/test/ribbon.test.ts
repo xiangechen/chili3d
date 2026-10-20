@@ -102,7 +102,6 @@ class TestCommand {
 function makePushButton(): PushButton {
     return {
         type: "push",
-        size: "large",
         command: CMD_QUICK,
         icon: "icon-test",
         onClick: () => {},

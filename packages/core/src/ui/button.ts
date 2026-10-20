@@ -11,7 +11,6 @@ export interface PushButton {
     command: CommandKeys;
     display?: I18nKeys;
     icon: string;
-    size: ButtonSize;
     onClick: () => void;
 }
 

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { CommandKeys, PushButton, RibbonCommand } from "@chili3d/core";
+import type { CommandKeys, PushButton, RibbonButton, RibbonCommand } from "@chili3d/core";
 import { CommandStore, ObservableCollection, PubSub, RibbonGroup } from "@chili3d/core";
 import { afterEach, describe, expect, test } from "@rstest/core";
 
@@ -80,11 +80,17 @@ class TestCommand {
 }
 
 function makePushButton(command: CommandKeys): PushButton {
-    return { type: "push", size: "large", command, icon: "icon-test", onClick: () => {} } as PushButton;
+    return { type: "push", command, icon: "icon-test", onClick: () => {} } as PushButton;
 }
 
 function makeGroup(items: RibbonCommand[] = [], collapsedItems: CommandKeys[] = []): RibbonGroup {
     return new RibbonGroup("group.test" as RibbonGroup["groupName"], items, collapsedItems);
+}
+
+function mustCreateRibbonButton(item: RibbonCommand): HTMLElement {
+    const button = createRibbonButton(item);
+    if (!button) throw new Error("expected a ribbon button");
+    return button;
 }
 
 describe("RibbonStack", () => {
@@ -109,10 +115,38 @@ describe("createRibbonButton", () => {
     test("should create stack of small buttons from ObservableCollection", () => {
         CommandStore.registerCommand(TestCommand, { key: CMD_A, icon: "icon-a" });
         CommandStore.registerCommand(TestCommand, { key: CMD_B, icon: "icon-b" });
-        const el = createRibbonButton(new ObservableCollection<CommandKeys>(CMD_A, CMD_B));
+        const el = mustCreateRibbonButton(new ObservableCollection<CommandKeys>(CMD_A, CMD_B));
         expect(el).toBeInstanceOf(RibbonStack);
         expect(el.childElementCount).toBe(2);
         expect(el.children[0].className).toBe("rb-small");
+    });
+
+    test("should stack small pulldown and split buttons too", () => {
+        const pulldown: RibbonButton = {
+            type: "pulldown",
+            icon: "icon-pd",
+            display: "PD" as never,
+            items: [],
+        };
+        const split: RibbonButton = { type: "split", items: [makePushButton(CMD_B)] };
+        const el = mustCreateRibbonButton(
+            new ObservableCollection<RibbonButton>(makePushButton(CMD_A), pulldown, split),
+        );
+
+        expect(el).toBeInstanceOf(RibbonStack);
+        expect(el.childElementCount).toBe(3);
+        expect(el.children[1]).toBeInstanceOf(RibbonPulldownButton);
+        expect(el.children[1].className).toBe("rpd-pulldown-small");
+        expect(el.children[2]).toBeInstanceOf(RibbonSplitButton);
+        expect(el.children[2].className).toBe("rsb-split-small");
+    });
+
+    test("should return undefined for a command this build does not register", () => {
+        expect(createRibbonButton(CMD_B)).toBeUndefined();
+    });
+
+    test("should return undefined for a stack whose commands are all unregistered", () => {
+        expect(createRibbonButton(new ObservableCollection<CommandKeys>(CMD_B))).toBeUndefined();
     });
 
     test("should create push button from push item", () => {

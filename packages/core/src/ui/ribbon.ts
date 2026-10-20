@@ -15,16 +15,15 @@ export type RibbonGroupKeys = {
     [P in I18nKeys]: P extends `ribbon.group.${infer _}` ? P : never;
 }[I18nKeys];
 
-export type RibbonCommand =
-    | CommandKeys
-    | ObservableCollection<CommandKeys>
-    | PushButton
-    | PulldownButton
-    | SplitButton;
+/** A single ribbon button; a bare string names a registered command. */
+export type RibbonButton = CommandKeys | PushButton | PulldownButton | SplitButton;
+
+export type RibbonCommand = RibbonButton | ObservableCollection<RibbonButton>;
 
 export type RibbonGroupProfile = {
     groupName: RibbonGroupKeys;
-    items: (RibbonCommand | CommandKeys[])[];
+    /** An array stacks its buttons as a column of small ones. */
+    items: (RibbonCommand | RibbonButton[])[];
     collapsedItems?: CommandKeys[];
 };
 
@@ -47,7 +46,7 @@ export class RibbonGroup extends Observable {
     }
 
     static fromProfile(profile: RibbonGroupProfile) {
-        const mapItems = (items: (RibbonCommand | CommandKeys[])[]) =>
+        const mapItems = (items: (RibbonCommand | RibbonButton[])[]) =>
             items.map((item) => (Array.isArray(item) ? new ObservableCollection(...item) : item));
 
         return new RibbonGroup(profile.groupName, mapItems(profile.items), profile.collapsedItems);

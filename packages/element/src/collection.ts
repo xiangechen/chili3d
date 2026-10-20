@@ -7,7 +7,8 @@ import { setProperties } from "./utils";
 
 export type CollectionProps<T> = HTMLProps<Collection<T>> & {
     sources: ObservableCollection<T> | Array<T>;
-    template: (item: T, index: number) => HTMLElement | SVGSVGElement;
+    /** Returning `undefined` leaves the item out of the DOM. */
+    template: (item: T, index: number) => HTMLElement | SVGSVGElement | undefined;
 };
 
 export class Collection<T> extends HTMLElement {
@@ -44,7 +45,7 @@ export class Collection<T> extends HTMLElement {
                 this._removeItem(args.items);
                 break;
             case "move":
-                this._moveItem(args.from, args.to);
+                this._moveItem();
                 break;
             case "replace":
                 this._replaceItem(args.index, args.item, args.items);
@@ -54,10 +55,15 @@ export class Collection<T> extends HTMLElement {
         }
     };
 
-    private _moveItem(from: number, to: number) {
-        const item1 = this.children.item(from);
-        const item2 = this.children.item(to);
-        if (item1 && item2) this.insertBefore(item1, item2);
+    private _moveItem() {
+        // Source indices are not child indices: items whose template returned undefined have no
+        // element, so re-appending in source order is what keeps the DOM in step.
+        const sources = this.props.sources;
+        const items = Array.isArray(sources) ? sources : sources.items();
+        for (const item of items) {
+            const el = this._itemMap.get(item);
+            if (el) this.append(el);
+        }
     }
 
     private _replaceItem(index: number, item: T, items: T[]) {
@@ -65,6 +71,7 @@ export class Collection<T> extends HTMLElement {
         if (child) {
             items.forEach((item, i) => {
                 const e = this.props.template(item, index + i);
+                if (!e) return;
                 this._itemMap.set(item, e);
                 this.insertBefore(e, child);
             });
@@ -74,12 +81,19 @@ export class Collection<T> extends HTMLElement {
 
     private _mapItems(items: T[]) {
         const index = this._itemMap.size;
-        return items.map((item, i) => {
-            if (this._itemMap.has(item)) return this._itemMap.get(item)!;
+        const elements: (HTMLElement | SVGSVGElement)[] = [];
+        items.forEach((item, i) => {
+            const existing = this._itemMap.get(item);
+            if (existing) {
+                elements.push(existing);
+                return;
+            }
             const e = this.props.template(item, index + i);
+            if (!e) return;
             this._itemMap.set(item, e);
-            return e;
+            elements.push(e);
         });
+        return elements;
     }
 
     private _removeItem(items: T[]) {

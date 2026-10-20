@@ -46,7 +46,7 @@ class TestCommand {
 }
 
 function makePushButton(command: CommandKeys, icon: string, onClick: () => void): PushButton {
-    return { type: "push", size: "large", command, icon, onClick } as PushButton;
+    return { type: "push", command, icon, onClick } as PushButton;
 }
 
 function makeSplitData(items: SplitButton["items"]): SplitButton {

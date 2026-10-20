@@ -190,15 +190,15 @@ describe("ParametricRibbonProfiles", () => {
             "feature.chamfer",
             "feature.modifyFillet",
             "feature.modifyChamfer",
+            "feature.draft",
+            "feature.shell",
+            "feature.offsetFace",
+            "feature.split",
+            "feature.hole",
+            "feature.removeFeature",
             "feature.patternLinear",
             "feature.patternCircular",
             "feature.patternCurve",
-            "feature.draft",
-            "feature.offsetFace",
-            "feature.shell",
-            "feature.removeFeature",
-            "feature.split",
-            "feature.hole",
             "feature.mirror",
         ]);
     });
@@ -250,15 +250,15 @@ describe("ParametricRibbonProfiles", () => {
             "feature.chamfer",
             "feature.modifyFillet",
             "feature.modifyChamfer",
+            "feature.draft",
+            "feature.shell",
+            "feature.offsetFace",
+            "feature.split",
+            "feature.hole",
+            "feature.removeFeature",
             "feature.patternLinear",
             "feature.patternCircular",
             "feature.patternCurve",
-            "feature.draft",
-            "feature.offsetFace",
-            "feature.shell",
-            "feature.removeFeature",
-            "feature.split",
-            "feature.hole",
             "feature.mirror",
             "feature.fuse",
             "feature.cut",
@@ -313,7 +313,7 @@ function flattenItems(items: any[]): string[] {
         if (typeof item === "string") {
             result.push(item);
         } else if (Array.isArray(item)) {
-            result.push(...item);
+            result.push(...flattenItems(item));
         } else if (typeof item === "object" && "items" in item && Array.isArray(item.items)) {
             result.push(...flattenItems(item.items));
         }

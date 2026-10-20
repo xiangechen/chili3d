@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { ObservableCollection } from "../src/foundation/collection";
 import { Ribbon, RibbonGroup, RibbonTab } from "../src/ui/ribbon";
 
 describe("RibbonGroup", () => {
@@ -73,6 +74,25 @@ describe("RibbonGroup", () => {
             const group = RibbonGroup.fromProfile(profile);
 
             expect(group.items.length).toBe(2);
+        });
+
+        test("should keep buttons inside a stacked item array", () => {
+            const push = {
+                type: "push",
+                command: "command.a",
+                icon: "icon-a",
+                onClick: () => {},
+            } as const;
+            const profile = {
+                groupName: "ribbon.group.sketch" as any,
+                items: [[push, "command.b" as any]],
+            };
+
+            const group = RibbonGroup.fromProfile(profile);
+
+            const stack = group.items.at(0);
+            expect(stack).toBeInstanceOf(ObservableCollection);
+            expect((stack as ObservableCollection<unknown>).items()).toEqual([push, "command.b"]);
         });
 
         test("should handle collapsedItems", () => {
