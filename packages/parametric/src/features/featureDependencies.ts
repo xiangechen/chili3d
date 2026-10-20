@@ -287,6 +287,9 @@ function loftSectionIds(sections: readonly LoftSectionData[], hostId: string): F
 }
 
 function patternLineIds(feature: PatternFeatureData, hostId: string): string[] {
+    if (feature.mode === "curve") {
+        return feature.path.nodeId === hostId ? edgeRefIds(feature.path.edges) : [];
+    }
     const sources = feature.mode === "linear" ? [feature.direction, feature.direction2] : [feature.axis];
     return sources.flatMap((source) =>
         source?.nodeId === hostId && source.edge.edgeId !== undefined ? [source.edge.edgeId] : [],

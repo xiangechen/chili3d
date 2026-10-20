@@ -5,6 +5,7 @@ import {
     ANGLE_UNITS,
     CurveUtils,
     type FeatureParameter,
+    type I18nKeys,
     type IEdge,
     type IShape,
     LENGTH_UNITS,
@@ -12,6 +13,7 @@ import {
     MathUtils,
     Matrix4,
     type ParameterValue,
+    Precision,
     Result,
     resolveUnitSpec,
     type Scope,
@@ -22,20 +24,24 @@ import {
 } from "@chili3d/core";
 import { isBodyTimelineNode, isBodyTrackingNode } from "./bodyTracking";
 import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
-import { captureEdgeRef, type EdgeRef } from "./edgeRef";
+import { captureEdgeRef, type EdgeRef, withoutHoles } from "./edgeRef";
 import {
     type FeatureContext,
     type FeatureHandler,
     type PatternFeatureData,
     type PatternLineSource,
+    type PatternOrientation,
+    type PatternPathSource,
     registerFeature,
 } from "./feature";
 import { mergeTrackedCopies } from "./mergeCopies";
+import { measuredPath, orderPathEdges, type PatternPathFrame, type PatternPathFrames } from "./patternPath";
 import { prefixedId } from "./trackedId";
 
 /**
- * Pattern (Onshape's Linear/Circular pattern): the body's chain input repeated along a direction
- * or about an axis, fused into one body (the default) or kept as an unmerged compound.
+ * Pattern (Onshape's Linear/Circular/Curve pattern): the body's chain input repeated along a
+ * direction, about an axis, or along an edge path, fused into one body (the default) or kept as
+ * an unmerged compound.
  *
  * Structured like `mirror.ts` — the merge IS a tracked fuse, with the copies in the tool seats —
  * and the copies are what the mirror's copy is: the input itself transformed, so each copy's
@@ -51,6 +57,12 @@ import { prefixedId } from "./trackedId";
  * line ref carries its endpoints — and says so through `ShapeTracking.unresolved` rather than
  * failing the feature.
  *
+ * A curve pattern's path is the same contract at a larger grain: a SET of edge refs, re-matched
+ * and then sorted into one end-to-end chain on every rebuild (`resolvePatternPath`,
+ * `patternPath.ts`). There is no frozen fallback — an `EdgeRef` freezes no whole curve — so a
+ * path that cannot be re-matched fails the feature rather than arraying along a guessed chord,
+ * the sweep path's own contract.
+ *
  * What is deliberately NOT named: on the untracked path (no kernel history) the copies' sub-shapes
  * get no ids at all rather than a positional guess — the argument `trackedIds` in feature.ts
  * gives. And the merge=false compound names its copies by the same rule as the mirror's half:
@@ -58,62 +70,41 @@ import { prefixedId } from "./trackedId";
  * ids concatenate without a mapping.
  */
 
+const PATTERN_DISPLAY: Record<
+    PatternFeatureData["mode"],
+    "command.feature.patternLinear" | "command.feature.patternCircular" | "command.feature.patternCurve"
+> = {
+    linear: "command.feature.patternLinear",
+    circular: "command.feature.patternCircular",
+    curve: "command.feature.patternCurve",
+};
+
+const PATTERN_ICONS: Record<PatternFeatureData["mode"], string> = {
+    linear: "icon-array",
+    circular: "icon-rotate",
+    curve: "icon-curveProject",
+};
+
+const ORIENTATION_CHOICES = [
+    { value: "tangent", display: "feature.pattern.orientation.tangent" },
+    { value: "locked", display: "feature.pattern.orientation.locked" },
+] as const;
+
 const patternHandler: FeatureHandler<PatternFeatureData> = {
-    display: (feature) =>
-        feature.mode === "linear" ? "command.feature.patternLinear" : "command.feature.patternCircular",
-    icon: (feature) => (feature.mode === "linear" ? "icon-array" : "icon-rotate"),
+    display: (feature) => PATTERN_DISPLAY[feature.mode],
+    icon: (feature) => PATTERN_ICONS[feature.mode],
     reselectable: true,
 
-    nodeIds: (feature) => [...new Set(lineSourcesOf(feature).map((x) => x.source.nodeId))],
+    nodeIds: (feature) => [...new Set(patternReferencesOf(feature).map((x) => x.nodeId))],
 
-    references: (feature) =>
-        lineSourcesOf(feature).map((x) => ({ key: x.key, display: x.display, nodeId: x.source.nodeId })),
+    references: (feature) => patternReferencesOf(feature),
 
-    parameters: (feature) => {
-        const params: FeatureParameter[] = [
-            { key: "count", display: "common.count", value: feature.count, unit: UNITLESS },
-        ];
-        if (feature.mode === "linear") {
-            params.push({
-                key: "spacing",
-                display: "feature.pattern.spacing",
-                value: feature.spacing,
-                unit: LENGTH_UNITS,
-            });
-            // The direction-2 rows exist only where a second direction does — a grid the data
-            // cannot describe has nothing to edit. Both carry their evaluation defaults, so the
-            // rows always show resolvable values.
-            if (feature.direction2 !== undefined) {
-                params.push({
-                    key: "count2",
-                    display: "feature.pattern.count2",
-                    value: feature.count2 ?? 2,
-                    unit: UNITLESS,
-                });
-                params.push({
-                    key: "spacing2",
-                    display: "feature.pattern.spacing2",
-                    value: feature.spacing2 ?? feature.spacing,
-                    unit: LENGTH_UNITS,
-                });
-            }
-        } else {
-            params.push({
-                key: "angle",
-                display: "common.angle",
-                value: feature.angle ?? 360,
-                unit: ANGLE_UNITS,
-            });
-            params.push({
-                key: "equalSpacing",
-                display: "feature.pattern.equalSpacing",
-                value: feature.equalSpacing ?? true,
-            });
-        }
-        params.push({ key: "merge", display: "option.command.merge", value: feature.merge ?? true });
-        params.push({ key: "skip", display: "feature.pattern.skip", value: (feature.skip ?? []).join(", ") });
-        return params;
-    },
+    parameters: (feature) => [
+        { key: "count", display: "common.count", value: feature.count, unit: UNITLESS },
+        ...patternModeParameters(feature),
+        { key: "merge", display: "option.command.merge", value: feature.merge ?? true },
+        { key: "skip", display: "feature.pattern.skip", value: (feature.skip ?? []).join(", ") },
+    ],
 
     setParameter: (feature, key, value) => {
         switch (key) {
@@ -130,6 +121,10 @@ const patternHandler: FeatureHandler<PatternFeatureData> = {
             case "spacing2":
                 if (feature.mode !== "linear" || feature.direction2 === undefined) return feature;
                 return typeof value === "boolean" ? feature : { ...feature, [key]: value };
+            case "orientation":
+                return feature.mode === "curve" && isOrientation(value)
+                    ? { ...feature, orientation: value }
+                    : feature;
             default:
                 return feature;
         }
@@ -137,6 +132,9 @@ const patternHandler: FeatureHandler<PatternFeatureData> = {
 
     applyResolvedRefs: (feature, { resolvedEdges }) => {
         if (resolvedEdges === undefined) return feature;
+        if (feature.mode === "curve") {
+            return { ...feature, path: { ...feature.path, edges: withoutHoles(resolvedEdges) } };
+        }
         if (feature.mode === "circular") {
             const axis = resolvedEdges[0];
             return axis === undefined ? feature : { ...feature, axis: { ...feature.axis, edge: axis } };
@@ -186,8 +184,93 @@ const patternHandler: FeatureHandler<PatternFeatureData> = {
     },
 };
 
+/** The rows a mode adds beyond count/merge/skip — the panel's per-mode half. */
+function patternModeParameters(feature: PatternFeatureData): FeatureParameter[] {
+    switch (feature.mode) {
+        case "linear":
+            return linearParameters(feature);
+        case "circular":
+            return circularParameters(feature);
+        case "curve":
+            return curveParameters(feature);
+    }
+}
+
+function linearParameters(feature: Extract<PatternFeatureData, { mode: "linear" }>): FeatureParameter[] {
+    const params: FeatureParameter[] = [
+        { key: "spacing", display: "feature.pattern.spacing", value: feature.spacing, unit: LENGTH_UNITS },
+    ];
+    // The direction-2 rows exist only where a second direction does — a grid the data cannot
+    // describe has nothing to edit. Both carry their evaluation defaults, so the rows always
+    // show resolvable values.
+    if (feature.direction2 !== undefined) {
+        params.push({
+            key: "count2",
+            display: "feature.pattern.count2",
+            value: feature.count2 ?? 2,
+            unit: UNITLESS,
+        });
+        params.push({
+            key: "spacing2",
+            display: "feature.pattern.spacing2",
+            value: feature.spacing2 ?? feature.spacing,
+            unit: LENGTH_UNITS,
+        });
+    }
+    return params;
+}
+
+function circularParameters(feature: Extract<PatternFeatureData, { mode: "circular" }>): FeatureParameter[] {
+    return [
+        { key: "angle", display: "common.angle", value: feature.angle ?? 360, unit: ANGLE_UNITS },
+        {
+            key: "equalSpacing",
+            display: "feature.pattern.equalSpacing",
+            value: feature.equalSpacing ?? true,
+        },
+    ];
+}
+
+function curveParameters(feature: Extract<PatternFeatureData, { mode: "curve" }>): FeatureParameter[] {
+    const params: FeatureParameter[] = [];
+    // Equal spacing is the default, so the distance field exists only when it is off: a value
+    // nothing reads would be a row the user can edit to no effect.
+    if (feature.equalSpacing === false) {
+        params.push({
+            key: "spacing",
+            display: "feature.pattern.spacing",
+            value: feature.spacing ?? "",
+            unit: LENGTH_UNITS,
+        });
+    }
+    params.push({
+        key: "equalSpacing",
+        display: "feature.pattern.equalSpacing",
+        value: feature.equalSpacing ?? true,
+    });
+    params.push({
+        key: "orientation",
+        display: "feature.pattern.orientation",
+        value: feature.orientation ?? "tangent",
+        choices: ORIENTATION_CHOICES,
+    });
+    return params;
+}
+
+/** The nodes and rows a feature references — a line (or two) for the line modes, the path for a curve. */
+function patternReferencesOf(feature: PatternFeatureData): {
+    key: string;
+    display: I18nKeys;
+    nodeId: string;
+}[] {
+    if (feature.mode === "curve") {
+        return [{ key: "path", display: "feature.pattern.path", nodeId: feature.path.nodeId }];
+    }
+    return lineSourcesOf(feature).map((x) => ({ key: x.key, display: x.display, nodeId: x.source.nodeId }));
+}
+
 /** The line references a feature carries, with the slot key and row label of each. */
-function lineSourcesOf(feature: PatternFeatureData): {
+function lineSourcesOf(feature: Exclude<PatternFeatureData, { mode: "curve" }>): {
     key: string;
     display: "feature.pattern.direction" | "feature.pattern.direction2" | "feature.pattern.axis";
     source: PatternLineSource;
@@ -206,6 +289,10 @@ function lineSourcesOf(feature: PatternFeatureData): {
         });
     }
     return sources;
+}
+
+function isOrientation(value: ParameterValue | boolean): value is PatternOrientation {
+    return value === "tangent" || value === "locked";
 }
 
 /**
@@ -246,7 +333,9 @@ function resolveInstances(feature: PatternFeatureData, context: FeatureContext):
     const planned =
         feature.mode === "linear"
             ? planLinear(feature, count.value, context)
-            : planCircular(feature, count.value, context);
+            : feature.mode === "circular"
+              ? planCircular(feature, count.value, context)
+              : planCurve(feature, count.value, context);
     if (!planned.isOk) return Result.err(planned.error);
     const skipped = new Set(feature.skip ?? []);
     const { instances, anchors, lostKey } = planned.value;
@@ -371,6 +460,186 @@ function planCircular(
         anchors: [axis.value.anchor],
         lostKey: axis.value.lost ? "axis" : undefined,
     });
+}
+
+/**
+ * The curve placement math as a pure function — the third sibling, shared with the preview the
+ * same way. The path's start is the seed's own seat (Onshape's "start the path on the seed"
+ * practice): instance `i` is the input carried to `s_i` along the path, and the original itself
+ * holds `s = 0`, so a path that does not begin at the body still places the copies off its start.
+ *
+ * Equal spacing fills the whole length — `L / (count − 1)` on an open path, `L / count` on a
+ * closed one, so a loop keeps its last copy off the original. Fixed distance steps by `spacing`
+ * and refuses a path too short for the count. `tangent` turns each copy by the shortest arc from
+ * the path's initial tangent (the minimal turn that follows the path); `locked` only translates.
+ */
+export function curvePlacements(
+    frames: PatternPathFrames,
+    count: number,
+    spacing: number,
+    equalSpacing: boolean,
+    orientation: PatternOrientation,
+): Result<Matrix4[]> {
+    const start = frames.at(0);
+    if (start === undefined) return Result.err("Pattern path has no start");
+    const step = instanceStep(frames, count, spacing, equalSpacing);
+    if (!step.isOk) return Result.err(step.error);
+    const matrices: Matrix4[] = [];
+    for (let i = 1; i < count; i++) {
+        const frame = frames.at(step.value * i);
+        if (frame === undefined) return Result.err("Pattern path has no frame at an instance");
+        matrices.push(instanceMatrix(start, frame, orientation));
+    }
+    return Result.ok(matrices);
+}
+
+/**
+ * The abscissa between consecutive instances: the equal-spacing fill of the whole path, or the
+ * fixed distance once it is known to fit. Refusals live here so both callers (the feature and
+ * the live preview) share one rule.
+ */
+function instanceStep(
+    frames: PatternPathFrames,
+    count: number,
+    spacing: number,
+    equalSpacing: boolean,
+): Result<number> {
+    if (equalSpacing) {
+        return Result.ok(frames.closed ? frames.length / count : frames.length / (count - 1));
+    }
+    if (spacing <= 0) return Result.err("Pattern spacing must be positive");
+    if ((count - 1) * spacing > frames.length + Precision.Distance) {
+        return Result.err("Pattern path is too short for the count and spacing");
+    }
+    return Result.ok(spacing);
+}
+
+/**
+ * One copy's transform: the seed turned about the path's start, then carried to the copy's seat.
+ * The pivot is the path start, not the origin, so the original instance itself (`s = 0`) stays
+ * exactly where it is however the body sits away from the origin.
+ */
+function instanceMatrix(
+    start: PatternPathFrame,
+    frame: PatternPathFrame,
+    orientation: PatternOrientation,
+): Matrix4 {
+    const carry = Matrix4.fromTranslation(
+        frame.point.x - start.point.x,
+        frame.point.y - start.point.y,
+        frame.point.z - start.point.z,
+    );
+    const rotation =
+        orientation === "locked" ? undefined : tangentRotation(start.tangent, frame.tangent, start.point);
+    return rotation === undefined ? carry : rotation.multiply(carry);
+}
+
+/**
+ * The shortest rotation about `pivot` carrying `from` onto `to`. Antiparallel tangents have no
+ * unique axis, so any perpendicular one turns the copy half a turn. Undefined when the two agree.
+ */
+function tangentRotation(from: XYZ, to: XYZ, pivot: XYZ): Matrix4 | undefined {
+    const dot = Math.max(-1, Math.min(1, from.dot(to)));
+    const axis = from.cross(to);
+    const unit = axis.length() > Precision.Float ? axis.normalize() : undefined;
+    if (unit !== undefined) return Matrix4.fromAxisRad(pivot, unit, Math.acos(dot));
+    if (dot > 0) return undefined;
+    const perpendicular = from.isParallelTo(XYZ.unitZ)
+        ? XYZ.unitX
+        : (from.cross(XYZ.unitZ).normalize() ?? XYZ.unitX);
+    return Matrix4.fromAxisRad(pivot, perpendicular, Math.PI);
+}
+
+function planCurve(
+    feature: Extract<PatternFeatureData, { mode: "curve" }>,
+    count: number,
+    context: FeatureContext,
+): Result<PatternPlan> {
+    const path = resolvePatternPath(feature.path, context);
+    if (!path.isOk) return Result.err(path.error);
+    const equalSpacing = feature.equalSpacing ?? true;
+    const spacing = equalSpacing ? Result.ok(0) : resolveSpacing(feature.spacing ?? "", context.scope);
+    if (!spacing.isOk) return Result.err(spacing.error);
+    const placements = curvePlacements(
+        path.value.frames,
+        count,
+        spacing.value,
+        equalSpacing,
+        feature.orientation ?? "tangent",
+    );
+    if (!placements.isOk) return Result.err(placements.error);
+    return Result.ok({
+        instances: placements.value.map((matrix, flat) => ({ flat, matrix })),
+        anchors: path.value.anchors,
+    });
+}
+
+/** The measured path, in the host's frame, plus the fresh anchors of its edges. */
+interface ResolvedPatternPath {
+    readonly frames: PatternPathFrames;
+    readonly anchors: EdgeRef[];
+}
+
+/**
+ * The path as a live reference, resolved the sweep way: the edges are fingerprinted in their
+ * source node's local frame and re-matched on every rebuild (id channel first, geometric
+ * fallback), so editing the picked geometry moves the copies. A path on the host itself names
+ * edges of this feature's INPUT (the pattern's own copies are not part of it).
+ *
+ * There is no frozen snapshot: unlike a line ref, an `EdgeRef` does not carry enough of a curve
+ * to rebuild it, so a lost path fails the feature loudly rather than arraying copies along a
+ * guessed chord.
+ */
+function resolvePatternPath(source: PatternPathSource, context: FeatureContext): Result<ResolvedPatternPath> {
+    return source.nodeId === context.host.id
+        ? pathFromInput(source, context)
+        : pathFromSourceNode(source, context);
+}
+
+function pathFromInput(source: PatternPathSource, context: FeatureContext): Result<ResolvedPatternPath> {
+    const input = context.input;
+    if (input === undefined) return Result.err("Pattern path requires a preceding feature");
+    const edges = input.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const tracked = context.tracking?.inputEdgeIds;
+    const ids = tracked !== undefined && tracked.length === edges.length ? tracked : [];
+    const matched = matchEdgesAnchored(input, source.edges, ids);
+    if (!matched.isOk) return Result.err(matched.error);
+    return measureMatched(edges, matched.value.indexes, matched.value.anchors);
+}
+
+function pathFromSourceNode(source: PatternPathSource, context: FeatureContext): Result<ResolvedPatternPath> {
+    const hostInverse = context.host.worldTransform().invert();
+    if (hostInverse === undefined) return Result.err("Pattern path cannot be mapped into the body");
+    const node = context.document.modelManager.findNode((n) => n.id === source.nodeId);
+    if (!(node instanceof ShapeNode) || !node.shape.isOk) {
+        return Result.err("Pattern path body not found");
+    }
+    const shape = node.shape.value;
+    const edges = shape.findSubShapes(ShapeTypes.edge) as IEdge[];
+    const ids = isBodyTrackingNode(node) ? edges.map((_, index) => node.edgeIdAt(index)) : [];
+    const matched = matchEdgesAnchored(shape, source.edges, ids);
+    if (!matched.isOk) return Result.err(matched.error);
+    // Source local → world → host: `a.multiply(b)` applies `a` first in this Matrix4, so the
+    // source's world transform is the receiver and the host inverse the appended step.
+    return measureMatched(
+        edges,
+        matched.value.indexes,
+        matched.value.anchors,
+        node.worldTransform().multiply(hostInverse),
+    );
+}
+
+function measureMatched(
+    edges: IEdge[],
+    indexes: readonly number[],
+    anchors: EdgeRef[],
+    transform?: Matrix4,
+): Result<ResolvedPatternPath> {
+    const ordered = orderPathEdges(indexes.map((index) => edges[index]));
+    if (!ordered.isOk) return Result.err(ordered.error);
+    const frames = measuredPath(ordered.value, transform);
+    if (!frames.isOk) return Result.err(frames.error);
+    return Result.ok({ frames: frames.value, anchors });
 }
 
 /** A copy's sub-shape ids: the input's own, scoped under the feature and the copy's flat index. */

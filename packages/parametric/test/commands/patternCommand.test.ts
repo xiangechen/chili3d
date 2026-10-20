@@ -14,6 +14,7 @@ import {
     Result,
     type ShapeType,
     ShapeTypes,
+    Signal,
     VisualStates,
     XY,
     XYZ,
@@ -34,6 +35,7 @@ import { ARROW_COLOR, ARROW_HOVER_COLOR } from "../../src/commands/arrowHandle";
 import "../../src/features"; // registers all feature handlers
 import {
     CircularPatternFeatureCommand,
+    CurvePatternFeatureCommand,
     LinearPatternFeatureCommand,
 } from "../../src/commands/patternCommand";
 import type {
@@ -82,14 +84,28 @@ const arrowShape = () => ({
     value: { mesh: { faces: { range: [], position: new Float32Array() } }, dispose: () => {} },
 });
 
-/** A line edge mock — the fields `captureEdgeRef` and the command's `worldLine` read. */
+/** A line edge mock — the fields `captureEdgeRef`, `worldLine` and the path sampler read. */
 function edge(start: XYZ, end: XYZ) {
+    const direction = end.sub(start);
+    const length = direction.length();
     const self: any = {
         shapeType: ShapeTypes.edge,
         curve: {
             basisCurve: { direction: { x: end.x - start.x, y: end.y - start.y, z: end.z - start.z } },
             nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point),
+            uniformAbscissaByCount: (count: number) =>
+                Array.from({ length: count + 1 }, (_, index) => start.add(direction.multiply(index / count))),
+            parameter: (point: XYZ) =>
+                length === 0 ? undefined : point.sub(start).dot(direction) / (length * length),
+            value: (parameter: number) => start.add(direction.multiply(parameter)),
+            d1: (parameter: number) => ({
+                point: start.add(direction.multiply(parameter)),
+                vec: direction,
+            }),
+            period: () => 0,
+            isPeriodic: () => false,
         },
+        length: () => length,
         startPoint: () => start,
         endPoint: () => end,
         firstParameter: () => 0,
@@ -219,13 +235,20 @@ function setup() {
     };
 }
 
-type AnyPatternCommand = LinearPatternFeatureCommand | CircularPatternFeatureCommand;
+type AnyPatternCommand =
+    | LinearPatternFeatureCommand
+    | CircularPatternFeatureCommand
+    | CurvePatternFeatureCommand;
 
 function seedPicks(cmd: AnyPatternCommand, app: IApplication, body: ParametricBodyNode, picked: any) {
+    seedShapePicks(cmd, app, body, [picked]);
+}
+
+function seedShapePicks(cmd: AnyPatternCommand, app: IApplication, body: ParametricBodyNode, picked: any[]) {
     (cmd as any)._application = app;
     (cmd as any).stepDatas = [
         { nodes: [body], shapes: [], type: "pick" },
-        { shapes: [picked], nodes: [], type: "pick" },
+        { shapes: picked, nodes: [], type: "pick" },
         {},
     ];
 }
@@ -1553,5 +1576,341 @@ describe("linear pattern direction 2", () => {
         // the ten ghosts and the two arrows (shaft + head each), plus what the redraw of the
         // first arrow cost when the second direction joined
         expect(removeMesh).toHaveBeenCalledTimes(14 + 2 + 4);
+    });
+});
+
+describe("curve pattern command", () => {
+    /** A straight path of two 10mm edges, so the copies sit on known abscissas. */
+    const straightPath = () => [
+        edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+        edge(new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 20, y: 0, z: 0 })),
+    ];
+
+    /**
+     * The path lives on its own node (a sketch or another body), whose mock shape exposes the
+     * picked edges — the feature re-matches the stored refs against that shape on every rebuild.
+     */
+    function seedPath(
+        cmd: CurvePatternFeatureCommand,
+        app: IApplication,
+        doc: TestDocument,
+        body: ParametricBodyNode,
+        path = straightPath(),
+    ) {
+        const source = new ParametricBodyNode({
+            document: doc,
+            features: [{ id: "s1", type: "primitive", primitive: "box", dx: 10, dy: 10, dz: 5 } as any],
+        });
+        doc.modelManager.addNode(source);
+        source.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+            type === ShapeTypes.edge ? path : []) as any;
+        (cmd as any)._application = app;
+        (cmd as any).stepDatas = [{ nodes: [body], shapes: [], type: "pick" }];
+        const picks = path.map((picked, index) => ({ ...edgePick(source, picked), indexes: [index] }));
+        return { source, path, picks };
+    }
+
+    /**
+     * Drives the ONE combined step: a live selection the test sets directly (the real handler
+     * writes it), a picker that settles when the controller does, and the selection bar's
+     * confirm standing in for the commit.
+     */
+    function openPathPick(doc: TestDocument, cmd: CurvePatternFeatureCommand, picks: any[]) {
+        let shapes: any[] = [];
+        const clearSelection = rs.fn(() => {
+            shapes = [];
+        });
+        const onShapeChanged = new Signal<(selected: any[]) => void>();
+        doc.selection = {
+            clearSelection,
+            setSelectedNodes: () => 0,
+            setSelectedShapes: () => 0,
+            getSelectedNodes: () => [],
+            getSelectedNodeLength: () => 0,
+            getSelectedShapes: () => shapes,
+            getSelectedVisualNodes: () => [],
+            onNodeChanged: new Signal(),
+            onShapeChanged,
+            dispose: () => {},
+        } as any;
+        let captured = false;
+        doc.picker = {
+            pickAsync: rs.fn((_handler: any, _prompt: any, controller: AsyncController) => {
+                captured = true;
+                const previous = (doc.visual as any).eventHandler;
+                let resolve!: () => void;
+                const done = new Promise<void>((r) => (resolve = r));
+                const settle = () => {
+                    if ((doc.visual as any).eventHandler === _handler) {
+                        (doc.visual as any).eventHandler = previous;
+                    }
+                    resolve();
+                };
+                (doc.visual as any).eventHandler = _handler;
+                controller.onCompleted(settle);
+                controller.onCancelled(settle);
+                controller.onFailed(settle);
+                return done;
+            }),
+        } as any;
+        const steps = (cmd as any).getSteps();
+        const step = steps[steps.length - 1];
+        const controller = new AsyncController();
+        const promise = step.execute(doc, controller);
+        if (!captured) throw new Error("the path pick never opened");
+        return {
+            controller,
+            promise,
+            clearSelection,
+            select(next: any[]) {
+                shapes = next;
+                onShapeChanged.emit(next);
+            },
+            /** The selection bar's confirm (or Enter): the one and only commit control. */
+            async commit() {
+                controller.success();
+                const result = await promise;
+                if (result !== undefined) (cmd as any).stepDatas.push(result);
+                return result;
+            },
+        };
+    }
+
+    test("the path pick ghosts the copies as the edges are selected", () => {
+        const { app, doc, body, displayMesh } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(picks);
+
+        // Two copies, each a face mesh and an edge mesh — the preview appeared with the pick,
+        // before any confirm.
+        expect(ghostCalls(displayMesh)).toBe(4);
+        cmd.count = 4;
+        expect(ghostCalls(displayMesh)).toBe(10);
+
+        pick.controller.cancel();
+        void pick.promise;
+    });
+
+    test("the selection confirm commits the panel's values", async () => {
+        const { app, doc, body, booleanFuse } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { source, picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        cmd.equalSpacing = false;
+        cmd.spacing = 4;
+        cmd.orientation = "feature.pattern.orientation.locked";
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(picks);
+
+        const result = await pick.commit();
+        expect(result?.type).toBe("shape");
+        (cmd as any).executeMainTask();
+
+        expect(body.features).toHaveLength(2);
+        const feature = body.features[1] as any;
+        expect(feature.type).toBe("pattern");
+        expect(feature.mode).toBe("curve");
+        expect(feature.count).toBe(3);
+        expect(feature.equalSpacing).toBe(false);
+        expect(feature.spacing).toBe(4);
+        expect(feature.orientation).toBe("locked");
+        expect(feature.path.nodeId).toBe(source.id);
+        expect(feature.path.edges).toHaveLength(2);
+        // Fixed distance 4 along a straight path: copies at x = 4 and 8.
+        const tools = booleanFuse.mock.calls[0][1] as any[];
+        expect(tools.map((tool) => Math.round(tool.transformedBy.ofPoint(XYZ.zero).x))).toEqual([4, 8]);
+    });
+
+    test("a blank distance converges to the equal-spacing step as the path appears", async () => {
+        const { app, doc, body, booleanFuse } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        cmd.spacing = "";
+        cmd.equalSpacing = false;
+        const pick = openPathPick(doc, cmd, picks);
+
+        expect(cmd.spacing).toBe("");
+        pick.select(picks);
+        // The panel is written the step the ghosts opened with, 10mm on a 20mm path.
+        expect(cmd.spacing).toBe(10);
+
+        cmd.equalSpacing = true;
+        await pick.commit();
+        (cmd as any).executeMainTask();
+
+        const feature = body.features[1] as any;
+        expect(feature.equalSpacing).toBe(true);
+        // Equal spacing ignores the distance, so no spacing is stored.
+        expect(feature.spacing).toBeUndefined();
+        const tools = booleanFuse.mock.calls[0][1] as any[];
+        expect(tools.map((tool) => Math.round(tool.transformedBy.ofPoint(XYZ.zero).x))).toEqual([10, 20]);
+    });
+
+    test("a tangent curve pattern turns a copy with the path", async () => {
+        const { app, doc, body, booleanFuse } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body, [
+            edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            edge(new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 10, y: 20, z: 0 })),
+        ]);
+        cmd.count = 3;
+        cmd.equalSpacing = true;
+        cmd.orientation = "feature.pattern.orientation.tangent";
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(picks);
+
+        await pick.commit();
+        (cmd as any).executeMainTask();
+
+        // The L is 30 long, so the first copy sits at 15 — halfway up the +Y segment. The seed
+        // is turned a quarter turn there, so its own +X probe points along the path.
+        const tools = booleanFuse.mock.calls[0][1] as any[];
+        const mapped = tools[0].transformedBy.ofPoint(new XYZ({ x: 1, y: 0, z: 0 }));
+        expect([Math.round(mapped.x), Math.round(mapped.y)]).toEqual([10, 6]);
+    });
+
+    test("ESC cancels the pick — and its ghosts — with nothing written", async () => {
+        const { app, doc, body, booleanFuse, removeMesh } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(picks);
+
+        pick.controller.cancel();
+        const result = await pick.promise;
+
+        expect(result).toBeUndefined();
+        expect(body.features).toHaveLength(1);
+        expect(booleanFuse).not.toHaveBeenCalled();
+        expect(removeMesh).toHaveBeenCalledTimes(4);
+    });
+
+    test("an unresolvable distance never reaches the preview; the commit reports it", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        cmd.equalSpacing = false;
+        cmd.spacing = "";
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(picks);
+        cmd.spacing = "1 +";
+
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            await pick.commit();
+            (cmd as any).executeMainTask();
+            expect(body.features).toHaveLength(1);
+            expect(pub.mock.calls.some((call) => call[0] === "showToast")).toBe(true);
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("a distance that overruns the path is refused by the commit", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        cmd.equalSpacing = false;
+        cmd.spacing = "";
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(picks);
+        // The path is 20mm; two gaps of 15 need 30.
+        cmd.spacing = 15;
+
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            await pick.commit();
+            (cmd as any).executeMainTask();
+            expect(body.features).toHaveLength(1);
+            expect(
+                pub.mock.calls.some(
+                    (call) =>
+                        call[0] === "showToast" &&
+                        call[2] === "Pattern path is too short for the count and spacing",
+                ),
+            ).toBe(true);
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("picks from two different nodes ghost nothing and are refused", () => {
+        const { app, doc, body, displayMesh } = setup();
+        const other = new ParametricBodyNode({
+            document: doc,
+            features: [{ id: "f2", type: "primitive", primitive: "box", dx: 5, dy: 5, dz: 5 } as any],
+        });
+        doc.modelManager.addNode(other);
+        const cmd = new CurvePatternFeatureCommand();
+        const { source, picks } = seedPath(cmd, app, doc, body);
+        const mixed = [
+            picks[0],
+            {
+                ...edgePick(other, edge(new XYZ({ x: 20, y: 0, z: 0 }), new XYZ({ x: 30, y: 0, z: 0 }))),
+                indexes: [0],
+            },
+        ];
+
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select(mixed);
+
+        expect(ghostCalls(displayMesh)).toBe(0);
+        expect((cmd as any).buildFeature(body)).toBeUndefined();
+        expect(source.shape.isOk).toBe(true);
+        pick.controller.cancel();
+        void pick.promise;
+    });
+
+    test("the path pick starts from an empty selection", () => {
+        const { app, doc, body } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        const pick = openPathPick(doc, cmd, picks);
+
+        // A body picked as a NODE does not clear shapes left selected beside it; those are not
+        // path edges and the sorter would read them as curves.
+        expect(pick.clearSelection).toHaveBeenCalledTimes(1);
+        pick.controller.cancel();
+        void pick.promise;
+    });
+
+    test("equal spacing still refuses a disconnected path at the commit", async () => {
+        const { app, doc, body } = setup();
+        const cmd = new CurvePatternFeatureCommand();
+        const { source, picks } = seedPath(cmd, app, doc, body);
+        cmd.count = 3;
+        cmd.equalSpacing = true;
+        const detached = {
+            ...edgePick(source, edge(new XYZ({ x: 30, y: 0, z: 0 }), new XYZ({ x: 40, y: 0, z: 0 }))),
+            indexes: [9],
+        };
+        const pick = openPathPick(doc, cmd, picks);
+        pick.select([picks[0], detached]);
+
+        // No ghosts could be drawn, but the confirm bar still settles — the commit is the
+        // guard that must not store a chain the rebuild will refuse.
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        try {
+            await pick.commit();
+            (cmd as any).executeMainTask();
+            expect(body.features).toHaveLength(1);
+            expect(
+                pub.mock.calls.some(
+                    (call) =>
+                        call[0] === "showToast" && call[2] === "Pattern path edges must connect end to end",
+                ),
+            ).toBe(true);
+        } finally {
+            pub.mockRestore();
+        }
     });
 });

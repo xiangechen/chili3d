@@ -6,6 +6,7 @@ import {
     BoundingBox,
     Matrix4,
     Plane,
+    PubSub,
     Result,
     type ShapeType,
     ShapeTypes,
@@ -16,7 +17,12 @@ import { createMockApplication, nearestOnSegment, TestDocument } from "@chili3d/
 import { rs } from "@rstest/core";
 import { type SketchData, SketchNode } from "../src/sketch";
 import "../src/features"; // registers all feature handlers
-import { featureHandler, type PatternFeatureData, type PatternLineSource } from "../src/features/feature";
+import {
+    type CurvePatternFeatureData,
+    featureHandler,
+    type PatternFeatureData,
+    type PatternLineSource,
+} from "../src/features/feature";
 import { ParametricBodyNode } from "../src/parametricBodyNode";
 
 function mockShapeFactory(methods: Record<string, (...args: any[]) => any>) {
@@ -42,12 +48,28 @@ const SQUARE: SketchData = {
 };
 
 function edge(start: XYZ, end: XYZ) {
+    const direction = end.sub(start);
+    const length = direction.length();
     const self: any = {
         shapeType: ShapeTypes.edge,
         curve: {
             basisCurve: { direction: { x: end.x - start.x, y: end.y - start.y, z: end.z - start.z } },
             nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point),
+            // The path sampler's side of a curve: uniform arc-length points and the
+            // parameter each of them sits at (a line's parameter IS its length fraction).
+            uniformAbscissaByCount: (count: number) =>
+                Array.from({ length: count + 1 }, (_, index) => start.add(direction.multiply(index / count))),
+            parameter: (point: XYZ) =>
+                length === 0 ? undefined : point.sub(start).dot(direction) / (length * length),
+            value: (parameter: number) => start.add(direction.multiply(parameter)),
+            d1: (parameter: number) => ({
+                point: start.add(direction.multiply(parameter)),
+                vec: direction,
+            }),
+            period: () => 0,
+            isPeriodic: () => false,
         },
+        length: () => length,
         startPoint: () => start,
         endPoint: () => end,
         firstParameter: () => 0,
@@ -183,6 +205,47 @@ describe("pattern feature", () => {
         return body;
     }
 
+    /** Line references matching `pathEdges`' own fingerprints (source-local coordinates). */
+    const lineRefsOf = (pathEdges: any[]) =>
+        pathEdges.map((pathEdge) => ({
+            kind: "line" as const,
+            start: {
+                x: pathEdge.startPoint().x,
+                y: pathEdge.startPoint().y,
+                z: pathEdge.startPoint().z,
+            },
+            end: { x: pathEdge.endPoint().x, y: pathEdge.endPoint().y, z: pathEdge.endPoint().z },
+        }));
+
+    /**
+     * A body whose pattern runs along `pathEdges` on a foreign source node: the refs are the
+     * edges' own lines, so the fingerprint matcher finds them on the source's shape.
+     */
+    function curvePatternBody(
+        pathEdges: any[],
+        feature: Partial<CurvePatternFeatureData> & { count: number },
+    ) {
+        const source = sourceBody();
+        source.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+            type === ShapeTypes.edge ? pathEdges : []) as any;
+        return bodyWith([
+            { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 },
+            {
+                id: "p1",
+                type: "pattern",
+                mode: "curve",
+                path: { nodeId: source.id, edges: lineRefsOf(pathEdges) },
+                ...feature,
+            },
+        ]);
+    }
+
+    /** The two-segment L the curve tests run along: 10mm +X, then 20mm +Y. */
+    const lPath = () => [
+        edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+        edge(new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 10, y: 20, z: 0 })),
+    ];
+
     /** The matrices the copies were built with, in build order. */
     const copyMatrices = () =>
         (mocks.booleanFuse.mock.calls.at(-1) as unknown as [any[], any[]])[1].map(
@@ -194,14 +257,19 @@ describe("pattern feature", () => {
         expect(handler).toBeDefined();
         const linear = { id: "p", type: "pattern", mode: "linear" } as PatternFeatureData;
         const circular = { id: "p", type: "pattern", mode: "circular" } as PatternFeatureData;
+        const curve = { id: "p", type: "pattern", mode: "curve" } as PatternFeatureData;
         expect((handler!.display as (f: PatternFeatureData) => string)(linear)).toBe(
             "command.feature.patternLinear",
         );
         expect((handler!.display as (f: PatternFeatureData) => string)(circular)).toBe(
             "command.feature.patternCircular",
         );
+        expect((handler!.display as (f: PatternFeatureData) => string)(curve)).toBe(
+            "command.feature.patternCurve",
+        );
         expect((handler!.icon as (f: PatternFeatureData) => string)(linear)).toBe("icon-array");
         expect((handler!.icon as (f: PatternFeatureData) => string)(circular)).toBe("icon-rotate");
+        expect((handler!.icon as (f: PatternFeatureData) => string)(curve)).toBe("icon-curveProject");
         expect(handler!.reselectable).toBe(true);
     });
 
@@ -383,6 +451,174 @@ describe("pattern feature", () => {
         expect(body.featureItems()[1].error).toBe("Pattern angle must be non-zero");
     });
 
+    test("curve: a locked pattern translates the copies along the path", () => {
+        const body = curvePatternBody(lPath(), {
+            count: 3,
+            equalSpacing: true,
+            orientation: "locked",
+        });
+
+        expect(body.shape.isOk).toBe(true);
+        // The L is 10 + 20 long; three equal-spaced instances sit at 15 and 30.
+        const [first, second] = copyMatrices().map((m) => m.ofPoint(XYZ.zero));
+        expect([first.x, first.y]).toEqual([10, 5]);
+        expect([second.x, second.y]).toEqual([10, 20]);
+    });
+
+    test("curve: a tangent pattern turns the copies with the path", () => {
+        const body = curvePatternBody(lPath(), { count: 3, equalSpacing: true });
+
+        expect(body.shape.isOk).toBe(true);
+        // The second segment runs +Y: a copy there is the seed turned 90° about the path start.
+        const probe = new XYZ({ x: 1, y: 0, z: 0 });
+        const [first, second] = copyMatrices().map((m) => m.ofPoint(probe));
+        expect([first.x, first.y].map(Math.round)).toEqual([10, 6]);
+        expect([second.x, second.y].map(Math.round)).toEqual([10, 21]);
+    });
+
+    test("curve: fixed distance steps by the spacing instead of filling the path", () => {
+        const body = curvePatternBody(lPath(), {
+            count: 3,
+            equalSpacing: false,
+            spacing: 5,
+            orientation: "locked",
+        });
+
+        expect(body.shape.isOk).toBe(true);
+        const offsets = copyMatrices().map((m) => m.ofPoint(XYZ.zero));
+        expect(offsets.map((p) => [p.x, p.y])).toEqual([
+            [5, 0],
+            [10, 0],
+        ]);
+    });
+
+    test("curve: a closed path divides by the count so the last copy misses the original", () => {
+        const corners = [
+            new XYZ({ x: 0, y: 0, z: 0 }),
+            new XYZ({ x: 10, y: 0, z: 0 }),
+            new XYZ({ x: 10, y: 10, z: 0 }),
+            new XYZ({ x: 0, y: 10, z: 0 }),
+        ];
+        const loop = corners.map((corner, index) => edge(corner, corners[(index + 1) % corners.length]));
+        // An OPEN path of the same edges uses L/(count−1) = 13.33 for its first step; the
+        // closed one uses L/count = 10, which is what the first copy's seat tells apart.
+        const open = loop.slice(0, 3);
+        const closedBody = curvePatternBody(loop, { count: 3, orientation: "locked" });
+        expect(closedBody.shape.isOk).toBe(true);
+        const closedOffset = copyMatrices()[0].ofPoint(XYZ.zero);
+        expect([closedOffset.x, closedOffset.y].map(Math.round)).toEqual([10, 3]);
+
+        const openBody = curvePatternBody(open, { count: 3, orientation: "locked" });
+        expect(openBody.shape.isOk).toBe(true);
+        const openOffset = copyMatrices()[0].ofPoint(XYZ.zero);
+        // The open path is 30 long: its first copy sits at 15, halfway up the second segment.
+        expect([openOffset.x, openOffset.y].map(Math.round)).toEqual([10, 5]);
+    });
+
+    test.each([
+        [
+            { count: 3, equalSpacing: false, spacing: 20 },
+            "Pattern path is too short for the count and spacing",
+        ],
+        [{ count: 3, equalSpacing: false, spacing: 0 }, "Pattern spacing must be non-zero"],
+    ])("curve rejects %o with '%s'", (patch, message) => {
+        const body = curvePatternBody(lPath(), patch as Partial<CurvePatternFeatureData> & { count: number });
+
+        expect(body.shape.isOk).toBe(false);
+        expect(body.featureItems()[1].error).toBe(message);
+    });
+
+    test("curve refuses edges that do not form one connected chain", () => {
+        const detached = [
+            edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            edge(new XYZ({ x: 30, y: 0, z: 0 }), new XYZ({ x: 40, y: 0, z: 0 })),
+        ];
+
+        const body = curvePatternBody(detached, { count: 2 });
+
+        expect(body.shape.isOk).toBe(false);
+        expect(body.featureItems()[1].error).toBe("Pattern path edges must connect end to end");
+    });
+
+    test("curve reports a missing path body instead of arraying along a guess", () => {
+        const source = sourceBody();
+        const body = bodyWith([
+            { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 },
+            {
+                id: "p1",
+                type: "pattern",
+                mode: "curve",
+                path: { nodeId: "deleted", edges: [] },
+                count: 2,
+            },
+        ]);
+        expect(source.shape.isOk).toBe(true);
+
+        expect(body.shape.isOk).toBe(false);
+        expect(body.featureItems()[1].error).toBe("Pattern path body not found");
+    });
+
+    test("a rotated host maps a moved foreign path into its own frame", () => {
+        const source = sourceBody();
+        const pathEdges = [edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 20, y: 0, z: 0 }))];
+        source.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+            type === ShapeTypes.edge ? pathEdges : []) as any;
+        source.transform = Matrix4.fromTranslation(10, 0, 0);
+        const body = bodyWith([
+            { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 },
+            {
+                id: "p1",
+                type: "pattern",
+                mode: "curve",
+                count: 2,
+                orientation: "locked",
+                path: {
+                    nodeId: source.id,
+                    edges: [{ kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 20, y: 0, z: 0 } }],
+                },
+            },
+        ]);
+        // A rotation and a translation only disagree about composition order — the host must be
+        // turned, not merely moved, for this to pin the source → world → host mapping down.
+        body.transform = Matrix4.fromAxisRad(XYZ.zero, XYZ.unitZ, Math.PI / 2);
+        body.setFeaturesEmitShapeChanged([...body.features]);
+
+        expect(body.shape.isOk).toBe(true);
+        const offset = copyMatrices()[0].ofPoint(XYZ.zero);
+        // World path: (10,0)→(30,0). Host = rotated −90°: (0,−10)→(0,−30), so the copy moves 20
+        // along the host's −Y.
+        expect([Math.round(offset.x), Math.round(offset.y)]).toEqual([0, -20]);
+    });
+
+    test("a path on the host's own input is matched against that input", () => {
+        const pathEdges = lPath();
+        // The most common pick: edges of the body being patterned. They belong to an earlier
+        // feature, so they are re-matched on this feature's INPUT, not on the final shape.
+        mocks.prismShape.findSubShapes = ((type: ShapeType) =>
+            type === ShapeTypes.edge ? pathEdges : []) as any;
+        const body = new ParametricBodyNode({
+            document: doc,
+            id: "host1",
+            features: [
+                { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 },
+                {
+                    id: "p1",
+                    type: "pattern",
+                    mode: "curve",
+                    count: 3,
+                    orientation: "locked",
+                    path: { nodeId: "host1", edges: lineRefsOf(pathEdges) },
+                },
+            ],
+        });
+        doc.modelManager.addNode(body);
+
+        expect(body.shape.isOk).toBe(true);
+        const [first] = copyMatrices().map((m) => m.ofPoint(XYZ.zero));
+        // The L is 30 long: three equal instances sit at 15, on the second segment.
+        expect([Math.round(first.x), Math.round(first.y)]).toEqual([10, 5]);
+    });
+
     test("the panel rows follow the mode, and the direction-2 rows follow the data", () => {
         const handler = featureHandler("pattern")!;
         const linear: PatternFeatureData = {
@@ -420,6 +656,31 @@ describe("pattern feature", () => {
             "merge",
             "skip",
         ]);
+        const curve: PatternFeatureData = {
+            id: "p1",
+            type: "pattern",
+            mode: "curve",
+            path: { nodeId: "n", edges: [DIRECTION_REF] },
+            count: 3,
+        };
+        // Equal spacing is the default, so the distance row is absent until it is switched off.
+        expect(handler.parameters(curve).map((x) => x.key)).toEqual([
+            "count",
+            "equalSpacing",
+            "orientation",
+            "merge",
+            "skip",
+        ]);
+        expect(handler.parameters({ ...curve, equalSpacing: false, spacing: 5 }).map((x) => x.key)).toEqual([
+            "count",
+            "spacing",
+            "equalSpacing",
+            "orientation",
+            "merge",
+            "skip",
+        ]);
+        const orientation = handler.parameters(curve).find((parameter) => parameter.key === "orientation");
+        expect(orientation?.choices?.map((choice) => choice.value)).toEqual(["tangent", "locked"]);
     });
 
     test("setParameter writes values, booleans and the skip list", () => {
@@ -450,6 +711,23 @@ describe("pattern feature", () => {
         expect(handler.setParameter(linear, "count2", 4)).toBe(linear);
         const grid: PatternFeatureData = { ...linear, direction2: { nodeId: "n", edge: DIRECTION_REF } };
         expect(handler.setParameter(grid, "count2", 4)).toMatchObject({ count2: 4 });
+
+        const curve: PatternFeatureData = {
+            id: "p1",
+            type: "pattern",
+            mode: "curve",
+            path: { nodeId: "n", edges: [DIRECTION_REF] },
+            count: 3,
+        };
+        expect(handler.setParameter(curve, "equalSpacing", false)).toMatchObject({ equalSpacing: false });
+        expect(handler.setParameter(curve, "spacing", 8)).toMatchObject({ spacing: 8 });
+        expect(handler.setParameter(curve, "orientation", "locked")).toMatchObject({
+            orientation: "locked",
+        });
+        // A token outside the mode's set rejects the edit.
+        expect(handler.setParameter(curve, "orientation", "sideways")).toBe(curve);
+        // The line modes have no orientation to set.
+        expect(handler.setParameter(linear, "orientation", "locked")).toBe(linear);
     });
 
     test("nodeIds and references follow the line sources", () => {
@@ -478,6 +756,17 @@ describe("pattern feature", () => {
         expect(handler.nodeIds(circular)).toEqual(["n3"]);
         expect(handler.references?.(circular)).toEqual([
             { key: "axis", display: "feature.pattern.axis", nodeId: "n3" },
+        ]);
+        const curve: PatternFeatureData = {
+            id: "p1",
+            type: "pattern",
+            mode: "curve",
+            path: { nodeId: "n4", edges: [DIRECTION_REF] },
+            count: 3,
+        };
+        expect(handler.nodeIds(curve)).toEqual(["n4"]);
+        expect(handler.references?.(curve)).toEqual([
+            { key: "path", display: "feature.pattern.path", nodeId: "n4" },
         ]);
     });
 
@@ -512,6 +801,18 @@ describe("pattern feature", () => {
             { mode: "circular" }
         >;
         expect(rotated.axis.edge).toBe(fresh);
+
+        const curve: PatternFeatureData = {
+            id: "p1",
+            type: "pattern",
+            mode: "curve",
+            path: { nodeId: "n", edges: [DIRECTION_REF, DIRECTION_REF] },
+            count: 3,
+        };
+        const reanchored = handler.applyResolvedRefs!(curve, {
+            resolvedEdges: [undefined, fresh],
+        }) as Extract<PatternFeatureData, { mode: "curve" }>;
+        expect(reanchored.path).toEqual({ nodeId: "n", edges: [fresh] });
     });
 
     describe("re-picking the line sources", () => {
@@ -614,6 +915,100 @@ describe("pattern feature", () => {
                 start: { x: 0, y: 0, z: 0 },
                 end: { x: 0, y: 10, z: 0 },
             });
+            expect(doc.history.undoCount()).toBe(undoCount);
+        });
+
+        test("a curve pattern re-picks its whole path in one transaction", async () => {
+            const source = sourceBody();
+            const first = edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }));
+            const second = edge(new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 20, y: 0, z: 0 }));
+            source.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+                type === ShapeTypes.edge ? [first, second] : []) as any;
+            const body = bodyWith([
+                { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 },
+                {
+                    id: "p1",
+                    type: "pattern",
+                    mode: "curve",
+                    count: 2,
+                    path: {
+                        nodeId: source.id,
+                        edges: [{ kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } }],
+                    },
+                },
+            ]);
+            expect(body.shape.isOk).toBe(true);
+            const { settleStates } = mockPickSession([
+                [
+                    { owner: { node: source }, shape: first, transform: Matrix4.identity(), indexes: [0] },
+                    { owner: { node: source }, shape: second, transform: Matrix4.identity(), indexes: [1] },
+                ],
+            ]);
+            const undoCount = doc.history.undoCount();
+
+            await body.reselectSession("p1", new AsyncController());
+
+            expect(settleStates).toEqual([false]);
+            const pattern = body.features[1] as Extract<PatternFeatureData, { mode: "curve" }>;
+            expect(pattern.path.edges.map((ref) => ref.kind === "line" && ref.end)).toEqual([
+                { x: 10, y: 0, z: 0 },
+                { x: 20, y: 0, z: 0 },
+            ]);
+            expect(body.featureItems()[1].error).toBeUndefined();
+            expect(doc.history.undoCount()).toBe(undoCount + 1);
+        });
+
+        test("a disconnected re-picked path is refused and the old one kept", async () => {
+            const source = sourceBody();
+            const first = edge(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }));
+            const second = edge(new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 20, y: 0, z: 0 }));
+            source.shape.unchecked()!.findSubShapes = ((type: ShapeType) =>
+                type === ShapeTypes.edge ? [first, second] : []) as any;
+            const body = bodyWith([
+                { id: "e1", type: "extrude", sketchId: sketch.id, depth: 5 },
+                {
+                    id: "p1",
+                    type: "pattern",
+                    mode: "curve",
+                    count: 2,
+                    path: {
+                        nodeId: source.id,
+                        edges: [
+                            { kind: "line", start: { x: 0, y: 0, z: 0 }, end: { x: 10, y: 0, z: 0 } },
+                            { kind: "line", start: { x: 10, y: 0, z: 0 }, end: { x: 20, y: 0, z: 0 } },
+                        ],
+                    },
+                },
+            ]);
+            expect(body.shape.isOk).toBe(true);
+            // Two edges on the same node, but 20mm apart: the capture succeeds and the chain
+            // does not — storing it would break the body on the next rebuild.
+            const detached = edge(new XYZ({ x: 40, y: 0, z: 0 }), new XYZ({ x: 50, y: 0, z: 0 }));
+            mockPickSession([
+                [
+                    { owner: { node: source }, shape: first, transform: Matrix4.identity(), indexes: [0] },
+                    { owner: { node: source }, shape: detached, transform: Matrix4.identity(), indexes: [2] },
+                ],
+            ]);
+            const undoCount = doc.history.undoCount();
+            const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+            try {
+                await body.reselectSession("p1", new AsyncController());
+                expect(
+                    pub.mock.calls.some(
+                        (call) =>
+                            call[0] === "showToast" &&
+                            call[2] === "Pattern path edges must connect end to end",
+                    ),
+                ).toBe(true);
+            } finally {
+                pub.mockRestore();
+            }
+
+            const pattern = body.features[1] as Extract<PatternFeatureData, { mode: "curve" }>;
+            expect(pattern.path.edges).toHaveLength(2);
+            expect(pattern.path.edges[1]).toMatchObject({ end: { x: 20, y: 0, z: 0 } });
+            expect(body.featureItems()[1].error).toBeUndefined();
             expect(doc.history.undoCount()).toBe(undoCount);
         });
     });

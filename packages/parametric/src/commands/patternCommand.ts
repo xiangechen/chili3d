@@ -5,9 +5,11 @@ import {
     ANGLE_UNITS,
     AsyncController,
     type BoundingBox,
+    Combobox,
     command,
     GetOrSelectNodeStep,
     type I18nKeys,
+    type IDisposable,
     type IDocument,
     Id,
     type IEdge,
@@ -18,11 +20,15 @@ import {
     LENGTH_UNITS,
     MultistepCommand,
     type ParameterValue,
+    Precision,
     PubSub,
     property,
+    type Result,
     SelectShapeStep,
     ShapeNode,
     ShapeTypes,
+    type SnapResult,
+    SubshapeSelectionHandler,
     Transaction,
     UNITLESS,
     type UnitSpec,
@@ -30,16 +36,19 @@ import {
     VisualStates,
     type XYZ,
 } from "@chili3d/core";
-import { isBodyTrackingNode } from "../features/bodyTracking";
-import { captureEdgeRef } from "../features/edgeRef";
 import type {
     CircularPatternFeatureData,
+    CurvePatternFeatureData,
     LinearPatternFeatureData,
+    PatternFeatureData,
     PatternLineSource,
+    PatternOrientation,
 } from "../features/feature";
-import { idIsShared } from "../features/trackedId";
+import type { PatternPathFrames } from "../features/patternPath";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import {
+    CallbackStep,
+    CurvePatternPathPreview,
     PATTERN_SESSION_CURSOR,
     PatternDragHandler,
     type PatternLine,
@@ -47,31 +56,39 @@ import {
     PatternPreviewHandler,
     PatternSessionStep,
     type PatternStepHandler,
+    pathFramesFromPicks,
 } from "./patternSession";
+import { capturePatternLineSource, capturePatternPathSource } from "./patternSources";
 import { LineEdgeFilter } from "./shapeFilters";
 
 /**
- * The shared flow of the two pattern commands: pick the parametric body (or take the selected
- * one), pick the line edge the pattern runs along — the direction for a linear pattern, the
- * rotation axis for a circular one — then a last step, always run, previews every copy as a
- * ghost until the confirm control (or Enter) commits the feature or ESC cancels with nothing
- * written. How the numbers edit is the mode's own: a linear pattern puts an arrow per
- * direction on the canvas, each dragging its spacing while the panel follows; a circular one
- * adds a turn-handle drag session whose hand writes the panel back. The edge is stored as a
- * live reference (source-local fingerprint plus the tracked id when the source carries one),
- * so editing or moving the source re-aims the copies on rebuild; count/spacing/angle/merge
- * ride on the options panel (and the feature row afterwards), skip on the feature row.
+ * The shared flow of the three pattern commands: pick the parametric body (or take the selected
+ * one), pick the geometry the pattern runs along — the direction for a linear pattern, the
+ * rotation axis for a circular one, the whole path for a curve one — then preview the copies
+ * until the confirm control (or Enter) commits the feature or ESC cancels with nothing written.
+ * How that preview edits is the mode's own: a linear pattern puts an arrow per direction on the
+ * canvas, each dragging its spacing while the panel follows; a circular one adds a turn-handle
+ * drag session whose hand writes the panel back; a curve one has no single axis to drag, so its
+ * numbers stay on the panel and its ghosts ride the path pick itself (one step, one confirm).
+ * The reference is stored as a live one (source-local fingerprint plus the tracked id when the
+ * source carries one), so editing or moving the source re-aims the copies on rebuild;
+ * count/spacing/angle/merge ride on the options panel (and the feature row afterwards), skip on
+ * the feature row.
  *
  * A linear pattern is one-directional unless the panel's direction-2 checkbox is ticked:
  * ticking it asks for a second line edge and folds that direction into the live preview; with
  * nothing ticked the panel shows no count2/spacing2 pair and the commit carries no second
  * direction at all.
  *
+ * A curve pattern's path is picked in ONE multi-select (the selection bar confirms it) and
+ * stored in click order — the feature sorts the edges into one end-to-end chain on rebuild, so
+ * the command never asks the user to click them in sequence.
+ *
  * No new body and no boolean scope — a pattern appends to the chain of the body it is applied
  * to, exactly as a mirror does.
  */
 abstract class PatternFeatureCommand extends MultistepCommand {
-    protected abstract readonly mode: "linear" | "circular";
+    protected abstract readonly mode: "linear" | "circular" | "curve";
     /** The session step's prompt — the number its handle drags names it. */
     protected abstract readonly sessionTip: I18nKeys;
 
@@ -114,10 +131,36 @@ abstract class PatternFeatureCommand extends MultistepCommand {
     protected override getSteps(): IStep[] {
         // Direction 2 is not a step: a linear pattern opens single-directional and the
         // panel's checkbox asks for the second edge only once it is ticked.
+        return [this.bodyStep(), ...this.referenceSteps(), ...this.sessionSteps()];
+    }
+
+    /** The body the run patterns — taken from the selection or picked as a node. */
+    protected bodyStep(): IStep {
+        return new GetOrSelectNodeStep("prompt.select.models", {
+            filter: { allow: (node: INode) => node instanceof ParametricBodyNode },
+        });
+    }
+
+    /**
+     * The preview step the line modes append after their edge pick. A mode whose pick already
+     * carries its preview (the curve) returns none — the pick itself commits.
+     */
+    protected sessionSteps(): IStep[] {
         return [
-            new GetOrSelectNodeStep("prompt.select.models", {
-                filter: { allow: (node: INode) => node instanceof ParametricBodyNode },
-            }),
+            new PatternSessionStep(this.sessionTip, (document, controller) =>
+                this.createSession(document, controller),
+            ),
+        ];
+    }
+
+    /**
+     * The pick(s) between the body and the preview: one line edge for the line modes, the whole
+     * path for a curve. Every mode keeps the picks selected — the session opens on their live
+     * geometry — and swaps the body's node-selected outline for the translucent face tint, so
+     * the edges this step asks for are the only bright outlines on the canvas.
+     */
+    protected referenceSteps(): IStep[] {
+        return [
             new SelectShapeStep(
                 ShapeTypes.edge,
                 this.mode === "linear" ? "prompt.select.lineEdge" : "prompt.select.axis",
@@ -126,15 +169,8 @@ abstract class PatternFeatureCommand extends MultistepCommand {
                     keepSelection: true,
                     highlightState: VisualStates.edgeHighlight,
                     selectedState: VisualStates.edgeSelected,
-                    // The body is selected as a NODE, which lights its whole outline. Swap
-                    // that outline for the translucent tint a preview already uses, so the
-                    // edge this step asks for is the only bright outline on the canvas.
-                    // Only this command does it, and only for the run's own target.
                     beforeSelection: () => this.tintTargetBody(),
                 },
-            ),
-            new PatternSessionStep(this.sessionTip, (document, controller) =>
-                this.createSession(document, controller),
             ),
         ];
     }
@@ -156,11 +192,16 @@ abstract class PatternFeatureCommand extends MultistepCommand {
         return { body, line, count: count.isOk ? count.value : 3 };
     }
 
-    /** The last step's handler — the mode's own (a linear's ghost preview, a circular's drag session). */
-    protected abstract createSession(
-        document: IDocument,
-        controller: AsyncController,
-    ): PatternStepHandler | undefined;
+    /**
+     * The preview step's handler — the line modes' own (a linear's ghost preview, a circular's
+     * drag session). The curve has no such step: its pick carries the preview.
+     */
+    protected createSession(
+        _document: IDocument,
+        _controller: AsyncController,
+    ): PatternStepHandler | undefined {
+        return undefined;
+    }
 
     /** The picked edge of step `stepIndex` as a world line (see `PatternLine`). */
     protected worldLine(stepIndex: number): PatternLine | undefined {
@@ -201,17 +242,29 @@ abstract class PatternFeatureCommand extends MultistepCommand {
             PubSub.default.pub("showToast", "error.default:{0}", "Select a parametric body");
             return;
         }
-        const source = this.lineSource(1);
-        if (source === undefined) {
-            PubSub.default.pub("showToast", "error.default:{0}", "Select a line edge");
-            return;
-        }
+        const feature = this.buildFeature(body);
+        if (feature === undefined) return;
         if (!this.validateParams()) return;
 
         Transaction.execute(this.document, "excute feature.pattern", () => {
-            body.setFeaturesEmitShapeChanged([...body.features, this.feature(body, source)]);
+            body.setFeaturesEmitShapeChanged([...body.features, feature]);
             this.document.visual.update();
         });
+    }
+
+    /**
+     * The feature the picks describe, or undefined (after its own toast) when they do not. The
+     * line modes read the one edge their step picked; a curve reads the whole path.
+     */
+    protected abstract buildFeature(body: ParametricBodyNode): PatternFeatureData | undefined;
+
+    /** The picked edge of step 1 as a live reference, toasting the run when it did not come. */
+    protected lineSourceOrToast(): PatternLineSource | undefined {
+        const source = this.lineSource(1);
+        if (source === undefined) {
+            PubSub.default.pub("showToast", "error.default:{0}", "Select a line edge");
+        }
+        return source;
     }
 
     /**
@@ -232,10 +285,10 @@ abstract class PatternFeatureCommand extends MultistepCommand {
         return true;
     }
 
-    /** The picked edge of step `stepIndex` as a live reference (see `lineSourceOf`). */
+    /** The picked edge of step `stepIndex` as a live reference (see `capturePatternLineSource`). */
     protected lineSource(stepIndex: number): PatternLineSource | undefined {
         const data = this.stepDatas[stepIndex]?.shapes?.[0];
-        return data === undefined ? undefined : lineSourceOf(data);
+        return data === undefined ? undefined : capturePatternLineSource(data);
     }
 
     /**
@@ -244,7 +297,7 @@ abstract class PatternFeatureCommand extends MultistepCommand {
      * canvas. A node selection lights every edge in the same colour a pick uses, so without
      * the swap there is no telling which edge the pattern was aimed at.
      */
-    private tintTargetBody(): void {
+    protected tintTargetBody(): void {
         const node = this.stepDatas[0]?.nodes?.[0];
         const visual = node === undefined ? undefined : this.document.visual.context.getVisual(node);
         if (visual === undefined) return;
@@ -282,11 +335,6 @@ abstract class PatternFeatureCommand extends MultistepCommand {
         this._untintTarget = undefined;
         super.afterExecute();
     }
-
-    protected abstract feature(
-        body: ParametricBodyNode,
-        source: PatternLineSource,
-    ): LinearPatternFeatureData | CircularPatternFeatureData;
 }
 
 /** A picked edge as the world line the preview reads — the live geometry, not the stored ref. */
@@ -298,21 +346,6 @@ function worldLineOf(data: VisualShapeData): PatternLine | undefined {
         point: data.transform.ofPoint(edge.startPoint()),
         direction: data.transform.ofVector(direction),
     };
-}
-
-/** A picked edge as a live reference, carrying the source's tracked id when it has one. */
-function lineSourceOf(data: VisualShapeData): PatternLineSource | undefined {
-    const node = data.owner.node;
-    if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return undefined;
-    const edge = data.shape as unknown as IEdge;
-    if (!isBodyTrackingNode(node)) return { nodeId: node.id, edge: captureEdgeRef(edge) };
-    const edgeId = node.edgeIdAt(data.indexes[0]);
-    const edges = node.shape.isOk ? (node.shape.value.findSubShapes(ShapeTypes.edge) as IEdge[]) : [];
-    const shared = idIsShared(
-        edges.map((_, index) => node.edgeIdAt(index)),
-        edgeId,
-    );
-    return { nodeId: node.id, edge: captureEdgeRef(edge, edgeId, shared) };
 }
 
 /** The body's extent along `direction` — the spread of its bounding-box corners projected on it. */
@@ -450,7 +483,7 @@ export class LinearPatternFeatureCommand extends PatternFeatureCommand {
     }
 
     /** The last step's handler: the ghost preview the panel drives. */
-    protected createSession(
+    protected override createSession(
         document: IDocument,
         controller: AsyncController,
     ): PatternStepHandler | undefined {
@@ -566,7 +599,7 @@ export class LinearPatternFeatureCommand extends PatternFeatureCommand {
 
     /** Folds a picked second edge into the panel and the live preview. */
     private applyDirection2(pick: VisualShapeData, body: ParametricBodyNode): void {
-        const source = lineSourceOf(pick);
+        const source = capturePatternLineSource(pick);
         const line = worldLineOf(pick);
         if (source === undefined || line === undefined) {
             this.direction2Enabled = false;
@@ -655,6 +688,11 @@ export class LinearPatternFeatureCommand extends PatternFeatureCommand {
             return false;
         }
         return true;
+    }
+
+    protected buildFeature(body: ParametricBodyNode): PatternFeatureData | undefined {
+        const source = this.lineSourceOrToast();
+        return source === undefined ? undefined : this.feature(body, source);
     }
 
     protected feature(body: ParametricBodyNode, source: PatternLineSource): LinearPatternFeatureData {
@@ -748,7 +786,7 @@ export class CircularPatternFeatureCommand extends PatternFeatureCommand {
     }
 
     /** The last step's handler: the turn-handle drag session, writing the panel back as it drags. */
-    protected createSession(
+    protected override createSession(
         document: IDocument,
         controller: AsyncController,
     ): PatternStepHandler | undefined {
@@ -783,6 +821,11 @@ export class CircularPatternFeatureCommand extends PatternFeatureCommand {
         return true;
     }
 
+    protected buildFeature(body: ParametricBodyNode): PatternFeatureData | undefined {
+        const source = this.lineSourceOrToast();
+        return source === undefined ? undefined : this.feature(body, source);
+    }
+
     protected feature(_body: ParametricBodyNode, source: PatternLineSource): CircularPatternFeatureData {
         return {
             id: Id.generate(),
@@ -795,4 +838,273 @@ export class CircularPatternFeatureCommand extends PatternFeatureCommand {
             ...(this.merge ? {} : { merge: false }),
         };
     }
+}
+
+const ORIENTATION_TANGENT: I18nKeys = "feature.pattern.orientation.tangent";
+const ORIENTATION_LOCKED: I18nKeys = "feature.pattern.orientation.locked";
+
+/**
+ * The curve pattern command: the body, then the whole path in one multi-pick, then a ghost
+ * preview the panel drives. The path's edge order in the store is the PICK order — the feature
+ * sorts the edges into one end-to-end chain on every rebuild, so the command never has to ask
+ * the user to click them in sequence.
+ *
+ * Equal spacing is the default and the distance field appears only when it is switched off
+ * (Onshape's Equal spacing / Distance). A blank distance converges to the equal-spacing step as
+ * soon as the path is known: the field and the ghosts then speak the same number, and a run
+ * that never opened the preview still commits a resolvable value.
+ */
+@command({ key: "feature.patternCurve", icon: "icon-curveProject" })
+export class CurvePatternFeatureCommand extends PatternFeatureCommand {
+    protected readonly mode = "curve";
+    protected readonly sessionTip: I18nKeys = "prompt.curvePatternPreview";
+
+    /** Distance between instances along the path; read only when `equalSpacing` is off. */
+    @property("feature.pattern.spacing", {
+        unit: LENGTH_UNITS,
+        dependencies: [{ property: "equalSpacing", value: false }],
+    })
+    get spacing(): ParameterValue {
+        return this.getPrivateValue("spacing", "");
+    }
+    set spacing(value: ParameterValue) {
+        this.setProperty("spacing", value, () => this.pushSessionValue(this.spacing, LENGTH_UNITS));
+    }
+
+    /** Evenly fill the path's length (the default) instead of stepping by `spacing`. */
+    @property("feature.pattern.equalSpacing")
+    get equalSpacing(): boolean {
+        return this.getPrivateValue("equalSpacing", true);
+    }
+    set equalSpacing(value: boolean) {
+        this.setProperty("equalSpacing", value, () => {
+            this.curveSession?.setEqualSpacing(value);
+            // The distance row just appeared; an empty field stands the preview on the
+            // equal-spacing step so the first distance-mode ghost is a sensible one.
+            if (!value && this.spacing === "") {
+                const suggested = this.curveSession?.suggestedSpacing;
+                if (suggested !== undefined) this.spacing = roundLength(suggested);
+            }
+        });
+    }
+
+    /** Follow the path's tangent (the default) or keep the seed's orientation. */
+    @property("feature.pattern.orientation", {
+        combobox: Combobox.from([ORIENTATION_TANGENT, ORIENTATION_LOCKED]),
+    })
+    get orientation(): I18nKeys {
+        return this.getPrivateValue("orientation", ORIENTATION_TANGENT);
+    }
+    set orientation(value: I18nKeys) {
+        this.setProperty("orientation", value, () =>
+            this.curveSession?.setOrientation(this.orientationValue),
+        );
+    }
+
+    private get orientationValue(): PatternOrientation {
+        return this.orientation === ORIENTATION_LOCKED ? "locked" : "tangent";
+    }
+
+    /** The live preview, narrowed for the mode-specific pushes. */
+    private get curveSession(): CurvePatternPathPreview | undefined {
+        return this._session instanceof CurvePatternPathPreview ? this._session : undefined;
+    }
+
+    protected get draggedValue(): ParameterValue {
+        return this.spacing;
+    }
+    protected set draggedValue(value: ParameterValue) {
+        this.spacing = value;
+    }
+
+    protected sessionValue(_body: ParametricBodyNode): number {
+        const resolved = this.resolveParameter(this.spacing, LENGTH_UNITS);
+        return resolved.isOk ? resolved.value : 0;
+    }
+
+    /**
+     * One combined step: multi-select the path edges while the ghosts follow the selection, then
+     * the selection bar's confirm (or Enter) IS the commit. There is no separate preview step
+     * and no second confirm — picking the curve shows the pattern, and finishing the pick ends
+     * the command.
+     */
+    protected override referenceSteps(): IStep[] {
+        return [new CallbackStep((document, controller) => this.pickPath(document, controller))];
+    }
+
+    /** The pick carries the preview — the base's preview step would be a second confirm. */
+    protected override sessionSteps(): IStep[] {
+        return [];
+    }
+
+    private async pickPath(
+        document: IDocument,
+        controller: AsyncController,
+    ): Promise<SnapResult | undefined> {
+        const body = this.stepDatas[0].nodes?.[0];
+        if (!(body instanceof ParametricBodyNode)) return undefined;
+        // `GetOrSelectNodeStep` returns an already-selected body without clearing, and a node
+        // selection leaves any shapes selected beside it. Those are not path edges (a face
+        // would reach the sorter as an IEdge), so the pick starts from an empty selection.
+        document.selection.clearSelection();
+        this.tintTargetBody();
+
+        const watch = this.watchPathSelection(document, body);
+        const handler = this.pathSelectionHandler(document, controller);
+        try {
+            await document.picker.pickAsync(
+                handler,
+                "prompt.select.path",
+                controller,
+                "selection",
+                PATTERN_SESSION_CURSOR,
+            );
+        } finally {
+            handler.dispose();
+            watch.dispose();
+        }
+        if (controller.result?.status !== "success") return undefined;
+        const shapes = this.settledPathShapes(document);
+        return shapes === undefined
+            ? undefined
+            : { view: document.application.activeView!, shapes, type: "shape" };
+    }
+
+    /**
+     * The picks the settle leaves behind, as a SNAPSHOT: `executeSteps` clears the selection on
+     * its way out, and the commit reads this list. Undefined when nothing was picked.
+     */
+    private settledPathShapes(document: IDocument): VisualShapeData[] | undefined {
+        const shapes = [...document.selection.getSelectedShapes()];
+        return shapes.length === 0 ? undefined : shapes;
+    }
+
+    /**
+     * The ghosts, kept in step with the live selection: every change re-measures the picked
+     * chain, converges a blank distance, and reports the pattern's prompt once a path exists.
+     * Disposing drops the subscription and the ghosts — the pick's teardown runs it either way.
+     */
+    private watchPathSelection(document: IDocument, body: ParametricBodyNode): IDisposable {
+        const preview = new CurvePatternPathPreview(document, body, {
+            count: this.resolvedCount(),
+            spacing: this.spacing === "" ? 0 : this.sessionValue(body),
+            equalSpacing: this.equalSpacing,
+            orientation: this.orientationValue,
+        });
+        this._session = preview;
+        const selection = document.selection;
+        const update = () => {
+            preview.setEdges(selection.getSelectedShapes());
+            const suggested = preview.suggestedSpacing;
+            if (!this.equalSpacing && this.spacing === "" && suggested !== undefined) {
+                this.spacing = roundLength(suggested);
+            }
+            // Once the edges make a path, the bar asks for the pattern's numbers, not the pick.
+            if (preview.frames !== undefined) PubSub.default.pub("statusBarTip", this.sessionTip);
+        };
+        selection.onShapeChanged.sub(update);
+        return {
+            dispose: () => {
+                selection.onShapeChanged.remove(update);
+                this._session = undefined;
+                preview.dispose();
+            },
+        };
+    }
+
+    /**
+     * The path pick's handler: kernel edges only. A mesh node's display edges are not a
+     * candidate — its sub-shapes have no curve to measure.
+     */
+    private pathSelectionHandler(document: IDocument, controller: AsyncController): SubshapeSelectionHandler {
+        const handler = new SubshapeSelectionHandler(document, ShapeTypes.edge, true, controller, undefined, {
+            allow: (node: INode) => node instanceof ShapeNode && !isReferenceGeometryNode(node),
+        });
+        handler.selectedState = VisualStates.edgeSelected;
+        handler.highlightState = VisualStates.edgeHighlight;
+        return handler;
+    }
+
+    /** The panel's count resolved; the field's own default stands in when it does not. */
+    private resolvedCount(): number {
+        const count = this.resolveParameter(this.count, UNITLESS);
+        return count.isOk ? count.value : 3;
+    }
+
+    protected override validateParams(): boolean {
+        if (!super.validateParams()) return false;
+        // The path is checked in BOTH distribution modes: equal spacing needs a connected
+        // chain too, and the selection bar settles without consulting the preview (a run with
+        // no ghosts on screen would otherwise commit a path whose first rebuild fails).
+        const frames = this.runPathFrames();
+        if (!this.pathIsValid(frames)) return false;
+        return this.equalSpacing || this.distanceIsValid(frames);
+    }
+
+    private pathIsValid(frames: Result<PatternPathFrames> | undefined): boolean {
+        if (frames === undefined || frames.isOk) return true;
+        PubSub.default.pub("showToast", "error.default:{0}", frames.error);
+        return false;
+    }
+
+    private distanceIsValid(frames: Result<PatternPathFrames> | undefined): boolean {
+        const spacing = this.resolveParameter(this.spacing, LENGTH_UNITS);
+        if (!spacing.isOk || spacing.value <= 0) {
+            PubSub.default.pub("showToast", "error.default:{0}", "Invalid pattern spacing");
+            return false;
+        }
+        const count = this.resolveParameter(this.count, UNITLESS);
+        if (
+            frames?.isOk === true &&
+            count.isOk &&
+            pathOverruns(frames.value.length, count.value, spacing.value)
+        ) {
+            PubSub.default.pub(
+                "showToast",
+                "error.default:{0}",
+                "Pattern path is too short for the count and spacing",
+            );
+            return false;
+        }
+        return true;
+    }
+
+    /** The picks' live path — the commit's own measurement of what it is about to store. */
+    private runPathFrames(): Result<PatternPathFrames> | undefined {
+        const body = this.stepDatas[0].nodes?.[0];
+        return body instanceof ParametricBodyNode
+            ? pathFramesFromPicks(body, this.stepDatas[1]?.shapes ?? [])
+            : undefined;
+    }
+
+    protected buildFeature(_body: ParametricBodyNode): PatternFeatureData | undefined {
+        const source = capturePatternPathSource(this.stepDatas[1]?.shapes ?? []);
+        if (source === undefined) {
+            PubSub.default.pub("showToast", "error.default:{0}", "Select the path edges on one body");
+            return undefined;
+        }
+        return {
+            id: Id.generate(),
+            type: "pattern",
+            mode: "curve",
+            path: source,
+            count: this.count,
+            equalSpacing: this.equalSpacing,
+            orientation: this.orientationValue,
+            // Equal spacing ignores the distance; keeping a value nothing reads would make the
+            // stored feature lie about which number placed its copies.
+            ...(this.equalSpacing ? {} : { spacing: this.spacing }),
+            ...(this.merge ? {} : { merge: false }),
+        } satisfies CurvePatternFeatureData;
+    }
+}
+
+/** A converged auto spacing: the same 1e-6 rounding the linear pattern's default keeps. */
+function roundLength(value: number): number {
+    return Math.round(value * 1e6) / 1e6;
+}
+
+/** Whether fixed spacing runs the last instance past the path's far end. */
+function pathOverruns(length: number, count: number, spacing: number): boolean {
+    return (count - 1) * spacing > length + Precision.Distance;
 }

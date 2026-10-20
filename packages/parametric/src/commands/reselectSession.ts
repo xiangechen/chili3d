@@ -40,6 +40,7 @@ import {
     type HoleSketchPoints,
     type NeutralPlaneRef,
     type PatternLineSource,
+    type PatternPathSource,
     type RibFeatureData,
     type ShapeTracking,
     type SweepFeatureData,
@@ -47,6 +48,7 @@ import {
 } from "../features/feature";
 import { findSketchPointAt, holePointUV, resolveHolePlane, type SketchPointSnap } from "../features/hole";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
+import { measuredPath, orderPathEdges } from "../features/patternPath";
 import { allProfiles, profileEntitiesOf, sketchProfiles } from "../features/profileBuilder";
 import { matchProfileIndexes } from "../features/profileMatcher";
 import { captureProfileRef, type ProfileRef } from "../features/profileRef";
@@ -57,6 +59,7 @@ import type { VertexRef } from "../features/vertexRef";
 import { captureNeutralPlane, PlanePickHandler } from "../sketch/commands/planePickHandler";
 import { shapeEntityIds, viewPixelSize } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
+import { capturePatternPathSource } from "./patternSources";
 import { LineEdgeFilter } from "./shapeFilters";
 
 /**
@@ -857,6 +860,62 @@ export class DirectionReselectSession {
             document.selection.setSelectedNodes([this.host], false);
         }
     }
+}
+
+/**
+ * Re-picks a curve pattern's path — a multi-edge chain on any one body, the same pick the
+ * command runs — and returns the replacement source, or undefined when the user cancels.
+ *
+ * The body is rolled back to just before the pattern for the whole pick, as with the line
+ * session: a path picked on the host itself is re-matched against the pattern's INPUT on every
+ * rebuild, and only the rolled-back shape offers exactly that geometry.
+ */
+export class PatternPathReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(featureIndex: number, controller: AsyncController): Promise<PatternPathSource | undefined> {
+        const document = this.host.document;
+        // Deliberately ignores the boolean, as the edge session does: a failed rollback replay
+        // keeps the full chain displayed, so the pick simply proceeds against it.
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            document.selection.clearSelection();
+            const picked = await document.picker.pickShape("prompt.select.path", controller, {
+                shapeType: ShapeTypes.edge,
+                multi: true,
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
+            });
+            return verifiedPatternPath(picked);
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+}
+
+/**
+ * The picked set as a replacement path, or undefined with the reason toasted. Nothing picked is
+ * a cancel; anything else must be ONE connected, measurable chain before it replaces the stored
+ * path — a bad set would otherwise break the body on the next rebuild, with the old path gone.
+ */
+function verifiedPatternPath(picked: readonly VisualShapeData[]): PatternPathSource | undefined {
+    if (picked.length === 0) return undefined;
+    const source = capturePatternPathSource(picked);
+    if (source === undefined) {
+        PubSub.default.pub("showToast", "error.default:{0}", "Select the path edges on one body");
+        return undefined;
+    }
+    const chained = orderPathEdges(picked.map((shape) => shape.shape as unknown as IEdge));
+    if (!chained.isOk) {
+        PubSub.default.pub("showToast", "error.default:{0}", chained.error);
+        return undefined;
+    }
+    const measured = measuredPath(chained.value);
+    if (!measured.isOk) {
+        PubSub.default.pub("showToast", "error.default:{0}", measured.error);
+        return undefined;
+    }
+    return source;
 }
 
 /**

@@ -42,6 +42,7 @@ import {
     FaceReselectSession,
     HolePointsReselectSession,
     PathReselectSession,
+    PatternPathReselectSession,
     PlaneReselectSession,
     ProfileReselectSession,
     RibChainReselectSession,
@@ -755,6 +756,9 @@ export class ParametricBodyNode
         featureIndex: number,
         controller: AsyncController,
     ): Promise<void> {
+        if (feature.mode === "curve") {
+            return this.reselectPatternPath(feature, featureIndex, controller);
+        }
         const session = new DirectionReselectSession(this);
         const first = await session.pick(featureIndex, controller);
         if (first === undefined) return;
@@ -767,11 +771,36 @@ export class ParametricBodyNode
         Transaction.execute(this.document, "reselect pattern direction", () => {
             const features = this.features.map((x): FeatureData => {
                 if (x.id !== feature.id || x.type !== "pattern") return x;
+                if (x.mode === "curve") return x;
                 if (x.mode === "circular") return { ...x, axis: first };
                 return second === undefined
                     ? { ...x, direction: first }
                     : { ...x, direction: first, direction2: second };
             });
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a curve pattern's whole path and stores the replacement, one undo step. The set
+     * is replaced WHOLE: the edges only mean something as one chain, so keeping a survivor of
+     * the previous pick would join two paths the user never chose.
+     */
+    private async reselectPatternPath(
+        feature: PatternFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const path = await new PatternPathReselectSession(this).pick(featureIndex, controller);
+        if (path === undefined) return;
+
+        Transaction.execute(this.document, "reselect pattern path", () => {
+            const features = this.features.map(
+                (x): FeatureData =>
+                    x.id === feature.id && x.type === "pattern" && x.mode === "curve" ? { ...x, path } : x,
+            );
             this.setFeaturesEmitShapeChanged(features);
             this.document.selection.clearSelection();
             this.document.visual.update();

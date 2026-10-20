@@ -247,14 +247,18 @@ abstract class ModifyCornerFeatureCommand extends MultistepCommand implements Pi
     private activeHandler: ValueArrowPickHandler | undefined;
     private previewId: number | undefined;
     private previewOwner: INodeVisual | undefined;
-    private active = true;
+    /** Whether a run is live. False before `executeAsync` starts and after it ends. */
+    private active = false;
 
     /**
      * Rebuilding the whole chain is the expensive part of a drag, so it trails the pointer while
      * the arrow stays synchronous (see `refresh`). `debounce` has no cancel, which is what
-     * `active` is for: a rebuild queued as the command ends must not display a mesh nobody owns.
+     * `active` is for: a rebuild queued as the command ends (or one queued by a caller driving
+     * the command without running it) must not display a mesh nobody owns.
      */
-    private readonly rebuildPreview = debounce(() => this.showPreview(), 20);
+    private readonly rebuildPreview = debounce(() => {
+        if (this.active) this.showPreview();
+    }, 20);
 
     protected override async executeAsync(): Promise<void> {
         const selection = this.document.selection;
@@ -470,7 +474,6 @@ abstract class ModifyCornerFeatureCommand extends MultistepCommand implements Pi
     }
 
     private showPreview(): void {
-        if (!this.active) return;
         this.removePreview();
         const target = this.target;
         const size = this.valueNumber;

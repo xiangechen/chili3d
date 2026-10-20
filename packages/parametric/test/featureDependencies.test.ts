@@ -332,6 +332,21 @@ describe("referencedSubshapeIds", () => {
             axis: { nodeId: HOST, edge: edgeRef("a1") },
         } as FeatureData;
         expect(refsOf(circular)).toEqual({ faces: [], edges: ["a1"] });
+
+        const curve = {
+            id: "p",
+            type: "pattern",
+            mode: "curve",
+            count: 3,
+            path: { nodeId: HOST, edges: [edgeRef("e1"), edgeRef("e2")] },
+        } as FeatureData;
+        expect(refsOf(curve)).toEqual({ faces: [], edges: ["e1", "e2"] });
+
+        const foreignPath = {
+            ...curve,
+            path: { nodeId: "other", edges: [edgeRef("e3")] },
+        } as FeatureData;
+        expect(refsOf(foreignPath)).toEqual({ faces: [], edges: [] });
     });
 
     test("a primitive names its own-chain direction override", () => {

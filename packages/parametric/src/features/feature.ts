@@ -633,6 +633,20 @@ export interface PatternLineSource {
     readonly edge: EdgeRef;
 }
 
+/**
+ * A path reference a curve pattern runs along: the edges of a node, fingerprinted in that node's
+ * LOCAL frame — the sweep `path` contract. The edges need not arrive in order (a multi-pick
+ * reports the click order); the feature sorts them into one end-to-end chain on every rebuild
+ * (`orderPathEdges`), so the same connected geometry always walks the same way.
+ */
+export interface PatternPathSource {
+    readonly nodeId: string;
+    readonly edges: EdgeRef[];
+}
+
+/** How a curve pattern's copies face along the path (Onshape's Tangent / Locked). */
+export type PatternOrientation = "tangent" | "locked";
+
 interface PatternBase extends FeatureBase {
     readonly type: "pattern";
     /**
@@ -643,9 +657,10 @@ interface PatternBase extends FeatureBase {
     /**
      * Flattened indexes of the copies to skip — 0 is the FIRST COPY, the original has no index
      * and cannot be skipped. The flattening runs direction-1 first, then direction-2 (a grid's
-     * first row, then the next), and around the axis in rotation order; the index a copy carries
-     * never depends on which OTHER copies are skipped, so editing the list does not rename the
-     * survivors. Out-of-range entries skip nothing.
+     * first row, then the next), around the axis in rotation order, and along a curve pattern's
+     * path in walk order; the index a copy carries never depends on which OTHER copies are
+     * skipped, so editing the list does not rename the survivors. Out-of-range entries skip
+     * nothing.
      */
     readonly skip?: number[];
     /**
@@ -689,7 +704,33 @@ export interface CircularPatternFeatureData extends PatternBase {
     readonly equalSpacing?: boolean;
 }
 
-export type PatternFeatureData = LinearPatternFeatureData | CircularPatternFeatureData;
+/**
+ * Curve pattern (Onshape's): copies distributed along an edge run, each turned with the path's
+ * tangent (the default) or keeping the seed's orientation.
+ */
+export interface CurvePatternFeatureData extends PatternBase {
+    readonly mode: "curve";
+    /** The connected edge chain the copies run along. */
+    readonly path: PatternPathSource;
+    /**
+     * Distance between consecutive instances along the path, in length units — read only when
+     * `equalSpacing` is false. The path must be long enough for `(count − 1) · spacing`.
+     */
+    readonly spacing?: ParameterValue;
+    /**
+     * Evenly spread the instances over the path's whole length (the default): the step is
+     * `length / (count − 1)` on an open path, `length / count` on a closed one, so a loop does
+     * not land its last copy on the original.
+     */
+    readonly equalSpacing?: boolean;
+    /** Tangent (the default) turns each copy with the path; locked only translates it. */
+    readonly orientation?: PatternOrientation;
+}
+
+export type PatternFeatureData =
+    | LinearPatternFeatureData
+    | CircularPatternFeatureData
+    | CurvePatternFeatureData;
 
 /** What a hole cuts with: a plain drilled hole, a socket-head's counterbore, or a flat-head's countersink. */
 export type HoleStyle = "simple" | "counterbore" | "countersink";

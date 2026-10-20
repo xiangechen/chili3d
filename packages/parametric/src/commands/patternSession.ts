@@ -11,6 +11,7 @@ import {
     type I18nKeys,
     type IDisposable,
     type IDocument,
+    type IEdge,
     type IEventHandler,
     type IStep,
     type IView,
@@ -23,9 +24,12 @@ import {
     type SnapResult,
     UNITLESS,
     type UnitSpec,
+    type VisualShapeData,
     XYZ,
 } from "@chili3d/core";
-import { circularPlacements, linearPlacements } from "../features/pattern";
+import type { PatternOrientation } from "../features/feature";
+import { circularPlacements, curvePlacements, linearPlacements } from "../features/pattern";
+import { measuredPath, orderPathEdges, type PatternPathFrames } from "../features/patternPath";
 import type { ParametricBodyNode } from "../parametricBodyNode";
 import { promptDatum } from "../sketch/editor/datumPrompt";
 import {
@@ -78,6 +82,7 @@ export type PatternStepHandler = IEventHandler & {
  * picks so far and waits it out — the confirm control (or Enter) commits while ESC leaves
  * nothing behind. Which handler that is belongs to the mode: a linear pattern hangs a ghost
  * preview for the options panel to drive; a circular one runs the turn-handle drag session.
+ * The curve pattern has no such step: its path pick owns the ghosts and commits on its own.
  */
 export class PatternSessionStep implements IStep {
     constructor(
@@ -1055,5 +1060,169 @@ export class PatternDragHandler extends AxisDragHandler implements PatternPanelS
     private resolveInput(input: ParameterValue, unit: UnitSpec): Result<number> {
         if (this.data.resolve !== undefined) return this.data.resolve(input, unit);
         return typeof input === "number" ? Result.ok(input) : Result.err("error.input.invalidNumber");
+    }
+}
+
+/** A step that is nothing but its own work — the curve path pick, which opens its preview as it goes. */
+export class CallbackStep implements IStep {
+    constructor(
+        private readonly run: (
+            document: IDocument,
+            controller: AsyncController,
+        ) => Promise<SnapResult | undefined>,
+    ) {}
+
+    execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
+        return this.run(document, controller);
+    }
+}
+
+/**
+ * The picked edges' live geometry in the BODY's frame — what the curve preview ghosts are built
+ * from, read from the picks rather than the stored refs so the first frame is up before any
+ * rebuild. Fails when the picks are not one chain on one node: the run then shows nothing rather
+ * than a path the commit could not store.
+ */
+export function pathFramesFromPicks(
+    body: ParametricBodyNode,
+    shapes: readonly VisualShapeData[],
+): Result<PatternPathFrames> {
+    const first = shapes[0];
+    if (first === undefined) return Result.err("Select the path edges on one body");
+    if (shapes.some((shape) => shape.owner.node !== first.owner.node)) {
+        return Result.err("Select the path edges on one body");
+    }
+    const inverse = body.worldTransform().invert();
+    if (inverse === undefined) return Result.err("Pattern path cannot be mapped into the body");
+    const ordered = orderPathEdges(shapes.map((shape) => shape.shape as unknown as IEdge));
+    if (!ordered.isOk) return Result.err(ordered.error);
+    // Pick-local → world → host: the receiver of `multiply` runs first.
+    return measuredPath(ordered.value, first.transform.multiply(inverse));
+}
+
+/**
+ * The curve pattern's canvas ghosts, driven live by the path selection and the options panel.
+ *
+ * It is not an event handler: the path step owns the viewport with the ordinary multi-select
+ * handler, and this class only draws. Every selection change re-measures the picked chain and
+ * re-ghosts it, which is what makes the curve pattern ONE step — the copies appear as the edges
+ * are clicked, and the selection bar's own confirm (or Enter) is the commit.
+ *
+ * There is no drag handle: a curve has no single axis to drag a distance along, so the numbers
+ * stay on the panel (the line modes put arrows on their directions because each direction IS an
+ * axis). The ghosts are placed by the FEATURE'S OWN math (`curvePlacements`), so what previews is
+ * bit for bit what a rebuild builds — only the boolean is skipped.
+ */
+export class CurvePatternPathPreview implements PatternPanelSink, IDisposable {
+    private _meshes: number[] = [];
+    private _frames: PatternPathFrames | undefined;
+    private _count: number;
+    private _value: number;
+    private _equalSpacing: boolean;
+    private _orientation: PatternOrientation;
+
+    constructor(
+        private readonly document: IDocument,
+        private readonly body: ParametricBodyNode,
+        options: {
+            readonly count: number;
+            readonly spacing: number;
+            readonly equalSpacing: boolean;
+            readonly orientation: PatternOrientation;
+        },
+    ) {
+        this._count = options.count;
+        this._value = options.spacing;
+        this._equalSpacing = options.equalSpacing;
+        this._orientation = options.orientation;
+    }
+
+    /** The measured path, once the current selection makes one; undefined when it does not. */
+    get frames(): PatternPathFrames | undefined {
+        return this._frames;
+    }
+
+    /** The distance equal spacing would use — what the command converges a blank field to. */
+    get suggestedSpacing(): number | undefined {
+        const frames = this._frames;
+        if (frames === undefined) return undefined;
+        // A closed path divides by the count (the last copy must miss the original), exactly
+        // as `curvePlacements` does; an open path has an end for the last copy to reach.
+        const gaps = frames.closed ? this._count : this._count - 1;
+        return frames.length / Math.max(1, gaps);
+    }
+
+    /** The selection changed: re-measure the picked chain and re-ghost it. */
+    setEdges(shapes: readonly VisualShapeData[]): void {
+        const frames = pathFramesFromPicks(this.body, shapes);
+        this._frames = frames.isOk ? frames.value : undefined;
+        this.refresh();
+    }
+
+    // ------------------------------------------------------------------ The panel's pushes
+
+    setCount(count: number): void {
+        if (this._count === count) return;
+        this._count = count;
+        this.refresh();
+    }
+
+    setValue(value: number): void {
+        if (Math.abs(this._value - value) < Precision.Float) return;
+        this._value = value;
+        this.refresh();
+    }
+
+    setEqualSpacing(value: boolean): void {
+        if (this._equalSpacing === value) return;
+        this._equalSpacing = value;
+        this.refresh();
+    }
+
+    setOrientation(value: PatternOrientation): void {
+        if (this._orientation === value) return;
+        this._orientation = value;
+        this.refresh();
+    }
+
+    dispose(): void {
+        this.dropMeshes();
+        this._frames = undefined;
+    }
+
+    // ------------------------------------------------------------------ The ghosts
+
+    private refresh(): void {
+        this.dropMeshes();
+        const frames = this._frames;
+        const shape = this.body.shape;
+        if (frames === undefined || !shape.isOk) return;
+        const placements = curvePlacements(
+            frames,
+            this._count,
+            this._value,
+            this._equalSpacing,
+            this._orientation,
+        );
+        if (!placements.isOk) return;
+
+        const world = this.body.worldTransform();
+        const context = this.document.visual.context;
+        for (const placement of placements.value) {
+            // The placement lives in the body's frame, so it runs BEFORE the body's own
+            // transform: `a.multiply(b)` applies `a` first in this Matrix4.
+            const copy = shape.value.transformedMul(placement.multiply(world));
+            const { faces, edges } = copy.mesh;
+            if (faces !== undefined) this._meshes.push(context.displayMesh([faces], { meshOpacity: 0.5 }));
+            if (edges !== undefined) this._meshes.push(context.displayMesh([edges], { meshOpacity: 0.5 }));
+            copy.dispose();
+        }
+        this.document.visual.update();
+    }
+
+    private dropMeshes(): void {
+        for (const id of this._meshes) this.document.visual.context.removeMesh(id);
+        this._meshes = [];
+        this.document.visual.update();
     }
 }

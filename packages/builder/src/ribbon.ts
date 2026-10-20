@@ -169,10 +169,13 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
                             "feature.modifyChamfer",
                         ],
                     },
-                    "feature.shell",
-                    ["feature.draft", "feature.offsetFace", "feature.hole"],
-                    ["feature.removeFeature", "feature.split", "feature.sew"],
-                    ["feature.mirror", "feature.patternLinear", "feature.patternCircular"],
+                    {
+                        type: "split",
+                        items: ["feature.patternLinear", "feature.patternCircular", "feature.patternCurve"],
+                    },
+                    ["feature.draft", "feature.offsetFace", "feature.shell"],
+                    ["feature.removeFeature", "feature.split", "feature.hole"],
+                    ["feature.mirror"],
                 ],
             },
             {
