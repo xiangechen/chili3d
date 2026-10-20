@@ -1,27 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import {
     DefaultDarkDrivenColor,
     DefaultDarkEdgeColor,
     DefaultLightDrivenColor,
-    defaultFontService,
-    type ICameraController,
     Plane,
     PubSub,
-    Result,
-    VisualConfig,
-    XYZ,
+    VisualConfig
 } from "@chili3d/core";
-import {
-    createMockApplication,
-    createMockView,
-    createMockVisualWithDocument,
-    TestDocument,
-} from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import annotationsStyle from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";
@@ -1564,7 +1555,10 @@ describe("SketchEditor dimension highlight and selection display", () => {
         // transparent for a ghost. This reads the stylesheet's own cascade: the two are
         // equally specific, so which one applies is decided by source order alone.
         const css = readFileSync(
-            path.resolve(process.cwd(), "packages/parametric/src/sketch/editor/sketchAnnotations.module.css"),
+            path.resolve(
+                path.dirname(fileURLToPath(import.meta.url)),
+                "../../src/sketch/editor/sketchAnnotations.module.css",
+            ),
             "utf8",
         );
         const sheet = document.createElement("style");
