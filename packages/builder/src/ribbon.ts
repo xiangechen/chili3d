@@ -201,8 +201,20 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
                 ],
             },
             {
+                groupName: "ribbon.group.annotation",
+                items: [
+                    "annotate.dimension",
+                    ["annotate.radius", "annotate.diameter", "annotate.angle"],
+                    "annotate.text",
+                ],
+            },
+            {
+                groupName: "ribbon.group.importExport",
+                items: ["file.import", "file.export"],
+            },
+            {
                 groupName: "ribbon.group.other",
-                items: ["feature.variable"],
+                items: ["feature.variable", "wechat.group", "ai.toggleChat"],
             },
         ],
     },
