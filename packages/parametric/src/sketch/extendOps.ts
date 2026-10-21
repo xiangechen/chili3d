@@ -178,6 +178,8 @@ function extendPair(
     if (solver.isFixed(target.id)) return Result.err("The datum and external references cannot be extended");
     // a point *is* its one position: no end of it to move along its own curve
     if (target.type === "point") return Result.err("A point has no end to extend");
+    // a text has no end either: its one point is its anchor, not an end of a curve
+    if (target.type === "text") return Result.err("A text has no end to extend");
     if (isClosedCurveType(target.type)) {
         return Result.err(
             target.type === "circle" ? "A circle has no end to extend" : "An ellipse has no end to extend",
@@ -188,6 +190,8 @@ function extendPair(
     if (boundary.id === target.id) return Result.err("Pick a different entity for the boundary");
     // a point is no boundary either: there is no corner of two curves where one is a position
     if (boundary.type === "point") return Result.err("A point is no boundary to extend to");
+    // nor is a text: it is no single curve, so no corner of it and anything can be found
+    if (boundary.type === "text") return Result.err("A text is no boundary to extend to");
     return Result.ok({ target, boundary });
 }
 

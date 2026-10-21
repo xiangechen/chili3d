@@ -1,18 +1,18 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
     DefaultDarkDrivenColor,
     DefaultDarkEdgeColor,
     DefaultLightDrivenColor,
     Plane,
     PubSub,
-    VisualConfig
+    VisualConfig,
 } from "@chili3d/core";
 import { rs } from "@rstest/core";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import annotationsStyle from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import type { SketchEventHandler } from "../../src/sketch/editor/sketchEventHandler";

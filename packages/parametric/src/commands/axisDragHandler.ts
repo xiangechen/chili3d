@@ -56,6 +56,13 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     private _cameraView: IView | undefined;
     /** Canonical arrow geometry, keyed by direction and colour, re-placed on every rebuild. */
     private readonly _arrowCache = new Map<string, ShapeMeshData[]>();
+    /**
+     * A preview rebuild coalesced onto the next animation frame (with the view it refreshes):
+     * a pointermove storm would otherwise pay the full preview build — the sketch's profiles,
+     * the sweep, the boolean, the meshing — once per event.
+     */
+    private _previewFrame: number | undefined;
+    private _previewView: IView | undefined;
 
     constructor(document: IDocument, controller: AsyncController) {
         super(document, controller);
@@ -242,6 +249,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     /** The command pushes a new value (from the options-tab input) into the drag. */
     setValue(value: number): void {
         if (Math.abs(this.currentValue() - value) < Precision.Float) return;
+        this.cancelPendingPreview();
         this.setCurrentValue(value);
         this.refreshTempShapes();
     }
@@ -289,6 +297,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     /** Leaves click-move-click mode without committing, resetting the value. */
     protected exitMoveMode(view: IView): void {
         this._awaitingClick = false;
+        this.cancelPendingPreview();
         this.resetValue();
         this.setArrowHover(view, false);
         this.refreshTempShapes(view);
@@ -309,9 +318,61 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
 
     protected updateDrag(view: IView, event: PointerEvent): void {
         this.setCurrentValue(this.projectValue(view, event) - this._grabOffset);
-        this.refreshTempShapes(view);
+        this.schedulePreviewRefresh(view);
         this.showDragBox(view);
-        view.document.visual.update();
+    }
+
+    /**
+     * One preview rebuild per animation frame, the latest value winning. The value and the
+     * readout box stay synchronous with the pointer; only the geometry trails. Every path
+     * that settles or supersedes the value — confirm, cancel, a typed commit, a push-back
+     * — flushes or drops the pending frame synchronously, so nothing ever observes a
+     * preview a frame behind the value.
+     */
+    private schedulePreviewRefresh(view: IView): void {
+        this._previewView = view;
+        this._previewFrame ??= requestAnimationFrame(() => {
+            this._previewFrame = undefined;
+            const pendingView = this._previewView;
+            this._previewView = undefined;
+            if (this.cleaned || pendingView === undefined) return;
+            this.refreshTempShapes(pendingView);
+        });
+    }
+
+    /**
+     * Runs the pending frame now, synchronously. `confirm()` is the only caller: the commit
+     * proceeds synchronously from the final value, so its preview goes up first. Every path
+     * that tears down or rebuilds for itself cancels instead.
+     */
+    private flushPendingPreview(): void {
+        if (this._previewFrame === undefined) return;
+        cancelAnimationFrame(this._previewFrame);
+        this._previewFrame = undefined;
+        const view = this._previewView;
+        this._previewView = undefined;
+        this.refreshTempShapes(view);
+    }
+
+    /** Drops the pending frame — for a path about to rebuild the preview itself. */
+    private cancelPendingPreview(): void {
+        if (this._previewFrame === undefined) return;
+        cancelAnimationFrame(this._previewFrame);
+        this._previewFrame = undefined;
+        this._previewView = undefined;
+    }
+
+    /** The push-back rebuild cannot wait a frame, and must not be doubled by one. */
+    override refresh(): void {
+        this.cancelPendingPreview();
+        super.refresh();
+    }
+
+    protected override confirm(): void {
+        // A drag may hold a not-yet-drawn frame; the commit proceeds synchronously from
+        // here, so the final value's preview goes up now.
+        this.flushPendingPreview();
+        super.confirm();
     }
 
     /**
@@ -367,6 +428,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
         const value = Number(text);
         if (Number.isNaN(value)) return Result.err("error.input.invalidNumber" as I18nKeys);
 
+        this.cancelPendingPreview();
         this.setCurrentValue(value);
         this.refreshTempShapes(view);
         return Result.ok(text);
@@ -379,6 +441,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
             if (Number.isNaN(Number(text))) return Result.err("error.input.invalidNumber" as I18nKeys);
 
             const value = Number(text);
+            this.cancelPendingPreview();
             this.setCurrentValue(this.currentValue() < -Precision.Float ? -value : value);
             // The command's push-back is guarded against feeding the drag its own value
             // (see the `onOffset`/`onDist` setters), so neither path redraws for us — a
@@ -467,6 +530,10 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     protected override onCleanupStart(): void {
         this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
         this._cameraView = undefined;
+        // A frame still pending here belongs to a gesture being torn down: the meshes it
+        // would build are removed a statement later, before anything renders them. Only
+        // confirm() flushes — the commit proceeds synchronously from the final value.
+        this.cancelPendingPreview();
         this.clearHover();
         PubSub.default.pub("clearInput");
     }

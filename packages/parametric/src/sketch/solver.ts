@@ -73,6 +73,7 @@ import {
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
+    type SketchTextData,
     syncExternalRoles,
     toDatumSource,
 } from "./sketchModel";
@@ -260,6 +261,56 @@ function copyOffsetRef(ref: OffsetCurveRef): OffsetCurveRef {
 }
 
 /**
+ * A copy of a text sidecar: every field is a scalar (the contours are a JSON string), so
+ * a spread is a deep copy — and like a NURBS' knots, the refs the solver keeps are its
+ * own while the ones it hands out are the caller's to do what it likes with.
+ */
+function copyTextData(spec: SketchTextData): SketchTextData {
+    return { ...spec };
+}
+
+/** Whether two text sidecars say the same thing, field for field. */
+function sameTextSpec(first: SketchTextData | undefined, second: SketchTextData | undefined): boolean {
+    if (first === undefined || second === undefined) return first === second;
+    return (
+        first.text === second.text &&
+        first.size === second.size &&
+        first.fontName === second.fontName &&
+        first.fontUrl === second.fontUrl &&
+        first.contours === second.contours
+    );
+}
+
+/**
+ * The text sidecar as stored, or undefined when it cannot be read as one. The load path
+ * repairs rather than refuses (see `loadEntity`): an entity whose sidecar is malformed
+ * keeps its anchor and drops the text, the way a malformed NURBS keeps its poles and
+ * takes the default knots. The size must be a positive finite number — `NaN` passes a
+ * bare `typeof` check, and the edit path takes the size as a DIVISOR when rescaling the
+ * stored contours, so a zero here would turn a height edit into a wiped sidecar.
+ */
+function validTextData(spec: SketchTextData | undefined): SketchTextData | undefined {
+    if (spec === undefined) return undefined;
+    if (
+        typeof spec.text !== "string" ||
+        typeof spec.size !== "number" ||
+        !Number.isFinite(spec.size) ||
+        spec.size <= 0 ||
+        typeof spec.fontName !== "string" ||
+        typeof spec.fontUrl !== "string" ||
+        typeof spec.contours !== "string"
+    ) {
+        return undefined;
+    }
+    try {
+        if (!Array.isArray(JSON.parse(spec.contours))) return undefined;
+    } catch {
+        return undefined;
+    }
+    return copyTextData(spec);
+}
+
+/**
  * The kinds whose value arrives through a datum param rather than from the geometry: the
  * dimensions (`isDimensionKind`), plus the one kind whose datum is a pair of pinned
  * coordinates instead of a reading.
@@ -364,6 +415,13 @@ export class SketchSolver implements ExternalEntityHost {
      * garlic none and no constraint can name it.
      */
     private readonly entityOffsets = new Map<number, OffsetCurveRef>();
+    /**
+     * The text entities' sidecars, by id (`SketchTextData`). Beside the params rather than
+     * among them for the same reason as a NURBS' constants: none of it is a solver
+     * parameter — the anchor point alone is, and the stored contours are laid out relative
+     * to it, so a solve that moves the anchor moves the text.
+     */
+    private readonly entityTexts = new Map<number, SketchTextData>();
     /**
      * The internal constraints holding each NURBS' rational weights (`pinNurbsWeights`), by
      * entity id: the datum param each weight is held at, and the pin itself. Never
@@ -647,6 +705,63 @@ export class SketchSolver implements ExternalEntityHost {
 
     addConic(sx: number, sy: number, cx: number, cy: number, ex: number, ey: number, rho: number): number {
         return this.registerEntity("conic", this.addEntityParams("conic", [sx, sy, cx, cy, ex, ey, rho]));
+    }
+
+    /**
+     * A text entity at anchor (x, y), its baseline running at `angle` (radians,
+     * counter-clockwise from +u). The sidecar carries everything else — the string, its
+     * size and font, and the contours laid out relative to the anchor in the unrotated
+     * frame — so the entity is three params plus a spec, and no structural constraints:
+     * the glyphs have no ends to pin, they simply follow the anchor, and the angle is a
+     * free scalar like a circle's radius.
+     */
+    addText(x: number, y: number, angle: number, spec: SketchTextData): number {
+        return this.registerEntity(
+            "text",
+            this.addEntityParams("text", [x, y, angle]),
+            undefined,
+            undefined,
+            undefined,
+            spec,
+        );
+    }
+
+    /** A text entity's sidecar, copied — the caller's to keep or change; undefined for any other entity. */
+    textOf(id: number): SketchTextData | undefined {
+        const spec = this.entityTexts.get(id);
+        return spec === undefined ? undefined : copyTextData(spec);
+    }
+
+    /**
+     * Replaces a text entity's sidecar. Writes ONLY when something actually changed: an
+     * edit the user confirms untouched must leave `toData` byte-identical, or closing the
+     * dialog would record a phantom history entry. Returns whether it wrote.
+     */
+    setText(id: number, spec: SketchTextData): boolean {
+        if (this.entityTypes.get(id) !== "text") return false;
+        const current = this.entityTexts.get(id);
+        if (current !== undefined && sameTextSpec(current, spec)) return false;
+        this.entityTexts.set(id, copyTextData(spec));
+        return true;
+    }
+
+    /**
+     * Turns a text entity to `angle` (radians, the baseline direction). Writes ONLY when the
+     * angle actually moved — `setText`'s discipline, for the same reason. The tolerance is
+     * the angle precision the dialogs display with, so confirming a rounded reading of the
+     * angle back is no change. No re-layout is involved: the stored contours are
+     * anchor-relative and unrotated, and every reader applies the angle. Returns whether
+     * it wrote.
+     */
+    setTextAngle(id: number, angle: number): boolean {
+        if (this.entityTypes.get(id) !== "text") return false;
+        const cache = this.entityCache.get(id);
+        const paramId = this.entityParams.get(id)?.[2];
+        if (cache === undefined || paramId === undefined) return false;
+        if (Math.abs(cache[2] - angle) <= Precision.Angle) return false;
+        this.system.set_param(paramId, angle);
+        cache[2] = angle;
+        return true;
     }
 
     /** A cubic bezier through its four control poles: `poles` is [x0, y0, x1, y1, x2, y2, x3, y3]. */
@@ -1118,6 +1233,7 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityCache.delete(id);
         this.entityNurbs.delete(id);
         this.entityOffsets.delete(id);
+        this.entityTexts.delete(id);
         this.constructionEntities.delete(id);
         return removedConstraints;
     }
@@ -1601,6 +1717,9 @@ export class SketchSolver implements ExternalEntityHost {
         if (this.entityTypes.get(id) !== spec.type) return false;
         const params = this.entityCache.get(id);
         if (params === undefined || params.length !== spec.params.length) return false;
+        // no instance spec ever carries a text sidecar (arrays skip text sources), so an id
+        // still holding one is stale data: the entity is re-made, never rewritten in place
+        if (this.entityTexts.has(id)) return false;
         if (spec.type !== "nurbs") return true;
         return sameNurbsSpec(this.entityNurbs.get(id), spec.nurbs);
     }
@@ -1648,6 +1767,7 @@ export class SketchSolver implements ExternalEntityHost {
         params: readonly number[],
         nurbs?: NurbsSpec,
         offset?: OffsetCurveRef,
+        text?: SketchTextData,
     ): number {
         const [x1, y1, x2, y2, x3, y3] = params;
         switch (type) {
@@ -1660,6 +1780,18 @@ export class SketchSolver implements ExternalEntityHost {
                 return this.addLine(x1, y1, x2, y2);
             case "point":
                 return this.addPoint(x1, y1);
+            case "text":
+                // the sidecar is the whole drawing: without one the anchor still registers
+                // (a text no caller can read draws nothing, but stays the user's to delete);
+                // the angle defaults to unrotated, as a pre-rotation document read
+                return this.registerEntity(
+                    "text",
+                    this.addEntityParams("text", [x1, y1, params[2] ?? 0]),
+                    undefined,
+                    undefined,
+                    undefined,
+                    text,
+                );
             case "circle":
                 return this.addCircle(x1, y1, x2);
             case "arc":
@@ -2112,10 +2244,11 @@ export class SketchSolver implements ExternalEntityHost {
                 id,
                 type: this.entityTypes.get(id)!,
                 ...this.offsetGeometry(id, params),
-                // emitted only when set — a sketch without construction geometry or a
-                // NURBS must round-trip byte-identical (no phantom history entry)
+                // emitted only when set — a sketch without construction geometry, a
+                // NURBS or a text must round-trip byte-identical (no phantom history entry)
                 ...(this.constructionEntities.has(id) ? { construction: true } : {}),
                 ...(this.entityNurbs.has(id) ? { nurbs: this.copyNurbsSpec(id) } : {}),
+                ...(this.entityTexts.has(id) ? { text: copyTextData(this.entityTexts.get(id)!) } : {}),
             }));
     }
 
@@ -2152,6 +2285,9 @@ export class SketchSolver implements ExternalEntityHost {
             type,
             ...this.offsetGeometry(id, params),
             ...(this.entityNurbs.has(id) ? { nurbs: this.copyNurbsSpec(id) } : {}),
+            // the editor meshes one entity from this read, so a text's contours ride
+            // along the way they do in `entities()` — emitted only when present
+            ...(this.entityTexts.has(id) ? { text: copyTextData(this.entityTexts.get(id)!) } : {}),
         };
     }
 
@@ -2491,6 +2627,7 @@ export class SketchSolver implements ExternalEntityHost {
         // reload may hand that id to any entity, and the stale knots would be its curve
         this.entityNurbs.clear();
         this.entityOffsets.clear();
+        this.entityTexts.clear();
         this.weightPins.clear();
         this.constraints.clear();
         this.markStructureChanged();
@@ -2567,6 +2704,7 @@ export class SketchSolver implements ExternalEntityHost {
         this.entityParams.delete(id);
         this.entityCache.delete(id);
         this.entityNurbs.delete(id);
+        this.entityTexts.delete(id);
     }
 
     setFixed(id: number, fixed: boolean): void {
@@ -2676,6 +2814,7 @@ export class SketchSolver implements ExternalEntityHost {
         id?: number,
         nurbs?: NurbsSpec,
         offset?: OffsetCurveRef,
+        text?: SketchTextData,
     ): number {
         let entityId: number;
         if (id === undefined) {
@@ -2700,6 +2839,7 @@ export class SketchSolver implements ExternalEntityHost {
             this.derivedEntities.add(entityId);
             this.markStructureChanged();
         }
+        if (text !== undefined) this.entityTexts.set(entityId, copyTextData(text));
         return entityId;
     }
 
@@ -3251,6 +3391,10 @@ export class SketchSolver implements ExternalEntityHost {
         if (type === "point" && ref.pointIndex === 0) {
             return [0, 1];
         }
+        if (type === "text" && ref.pointIndex === 0) {
+            // a text's one addressable point is its anchor
+            return [0, 1];
+        }
         if (type === "line" && (ref.pointIndex === 0 || ref.pointIndex === 1)) {
             return [ref.pointIndex * 2, ref.pointIndex * 2 + 1];
         }
@@ -3370,12 +3514,26 @@ export class SketchSolver implements ExternalEntityHost {
             if (entity.construction === true) this.constructionEntities.add(entity.id);
             return;
         }
-        const values = entity.type === "nurbs" ? normalizeNurbsParams(entity.params) : entity.params;
+        // a text written before the rotation param carries only its anchor: it read as
+        // unrotated then, and the appended 0 says exactly that now
+        const stored =
+            entity.type === "text" && entity.params.length === 2 ? [...entity.params, 0] : entity.params;
+        const values = entity.type === "nurbs" ? normalizeNurbsParams(stored) : stored;
         const spec =
             entity.type === "nurbs"
                 ? specOf({ type: "nurbs", params: values, nurbs: entity.nurbs })
                 : undefined;
-        this.registerEntity(entity.type, this.addEntityParams(entity.type, values), entity.id, spec);
+        // a text sidecar rides only on a text entity, and only when it still reads as one —
+        // a malformed one is dropped here rather than carried where a reader would trip on it
+        const text = entity.type === "text" ? validTextData(entity.text) : undefined;
+        this.registerEntity(
+            entity.type,
+            this.addEntityParams(entity.type, values),
+            entity.id,
+            spec,
+            undefined,
+            text,
+        );
         this.pinNurbsWeights(entity.id);
         if (entity.construction === true) this.constructionEntities.add(entity.id);
     }

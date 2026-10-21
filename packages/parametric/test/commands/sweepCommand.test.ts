@@ -288,9 +288,10 @@ describe("SweepFeatureCommand execution", () => {
         return { restoreFactory, doc, sketch, pathNode, cmd, face, profileFaces };
     }
 
-    // The preview asks for the tool again after every path pick, and `sketchProfiles` makes
-    // fresh faces on each call — the whole sketch's profiles are the run's, built once.
-    test("builds the whole sketch's profiles once and frees them with the run", () => {
+    // The preview asks for the tool again after every path pick; the profiles come from the
+    // sketch's memoized set (see `sketchProfiles`), so the repeat costs nothing — and the
+    // faces are the sketch's own, never the command's to free.
+    test("builds the whole sketch's profiles once and never frees them", () => {
         const { restoreFactory, cmd, face, profileFaces } = scenario(false);
         try {
             expect((cmd as any).buildToolShape().isOk).toBe(true);
@@ -300,7 +301,7 @@ describe("SweepFeatureCommand execution", () => {
             expect(profileFaces[0].disposed).toBe(false);
 
             (cmd as any).afterExecute();
-            expect(profileFaces[0].disposed).toBe(true);
+            expect(profileFaces[0].disposed).toBe(false);
         } finally {
             restoreFactory();
         }

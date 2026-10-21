@@ -181,7 +181,8 @@ export function arcStartRef(entityId: number): SketchPointRef {
  * The incidence constraint pinning `point` onto the entity's curve, refs in the
  * garlic params layout. The ellipse and the free curves read the curve's entity id
  * alone, so their second ref is the plain `{entityId, 0}`; `undefined` for a type
- * with no PointOn (none — every entity type has one; the datum axes pass as lines).
+ * with no PointOn (a point and a text have no curve to lie on — a text's anchor is
+ * its one constraint target; the datum axes pass as lines).
  */
 export function pointOnConstraintFor(
     type: SketchEntityType | undefined,
@@ -545,10 +546,10 @@ const FAMILY_RANK: Record<TangentFamily, number> = {
 function tangentFamilyOf(type: SketchEntityType): TangentFamily | "line" | undefined {
     // An offset curve is no tangency target: it carries no solver params at all, so no
     // constraint can reference it and the solver never has one to name. A point is none
-    // either: it has no curve to be tangent along. The caller reads that as "these two
-    // are not tangent" — the answer two lines get — rather than raising on a pick the
-    // user is free to make.
-    if (type === "offsetCurve" || type === "point") return undefined;
+    // either: it has no curve to be tangent along. Nor is a text: its one param pair is an
+    // anchor, not a curve. The caller reads that as "these two are not tangent" — the answer
+    // two lines get — rather than raising on a pick the user is free to make.
+    if (type === "offsetCurve" || type === "point" || type === "text") return undefined;
     return type === "ellipseArc" ? "ellipse" : type;
 }
 

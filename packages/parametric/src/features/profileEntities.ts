@@ -33,8 +33,9 @@ import { INCIDENCE_TOLERANCE } from "./refGeometry";
 /**
  * Makes a missing entity id loud, in the spirit of `reportSilentIdLoss`
  * (features/idDiagnostics.ts): the edge list and the entity-id list are parallel on
- * every healthy path (generateShape builds one edge per entity, then the
- * profile-role external refs), so a miss means the kernel's source report and the
+ * every healthy path (generateShape builds one edge per entity — one per contour
+ * segment for a text — then the profile-role external refs, and `shapeEntityIds`
+ * repeats a text's id per edge), so a miss means the kernel's source report and the
  * sketch have diverged. Silently stuffing undefined into a region's identity set
  * would degrade its ProfileRef to geometric matching only after a serialization
  * round-trip (undefined → null), far from the cause.
@@ -46,12 +47,13 @@ export function reportMissingEntityId(sketch: SketchNode, what: string): void {
 }
 
 /**
- * Input edge i corresponds to shapeEntityIds[i] (generateShape combines one edge
- * per entity in `data.entities` order, then the profile-role external refs) — map
- * the kernel's source indexes to the entity ids, which survive endpoint drags and
- * re-splits. An index outside the entity list would stuff undefined into the
- * region's identity set: skip it (loudly) instead. An in-range miss was already
- * reported where the lookup dropped it (see splitProfiles).
+ * Input edge i corresponds to shapeEntityIds[i] (generateShape combines the entities'
+ * edges in `data.entities` order — one per entity, one per contour segment for a
+ * text — then the profile-role external refs, and `shapeEntityIds` lists the ids per
+ * edge the same way) — map the kernel's source indexes to the entity ids, which
+ * survive endpoint drags and re-splits. An index outside the entity list would stuff
+ * undefined into the region's identity set: skip it (loudly) instead. An in-range
+ * miss was already reported where the lookup dropped it (see splitProfiles).
  */
 export function sourceEntityIds(
     sourceIndexes: number[],
@@ -73,19 +75,37 @@ export function sourceEntityIds(
         .sort((a, b) => a - b);
 }
 
-/** A region's boundary edges are pieces the splitter cut from its source edges. */
+/**
+ * A region's boundary edges are pieces the splitter cut from its source edges.
+ *
+ * When the sketch holds an entity that expands to several edges (a text — one edge per
+ * contour segment), `suffixes` carries every sketch edge's seed suffix, and a region
+ * such an entity borders takes the suffix channel: its pieces of that entity would
+ * otherwise all mint the one `ent<id>` seed and `uncontested` would drop them all (see
+ * `edgeSeedSuffixes`). Regions without such an edge keep the pure entity-id seeds, so
+ * a sketch without text — every older document — is byte-identical.
+ */
 export function registerRegionEdgeEntities(
     face: IFace,
     edges: IEdge[],
     sourceIndexes: number[],
     entityIds: readonly (number | undefined)[],
     sketch: SketchNode,
+    suffixes?: EdgeSeedSuffixes,
 ): void {
     const candidates = sourceIndexes.map((i) => edges[i]);
     registerProfileEdgeEntities(
         face,
         attributeFaceEdges(face, candidates, entityIdByEdge(candidates, entityIds, sourceIndexes, sketch)),
     );
+    if (suffixes === undefined) return;
+    const borderedByText = sourceIndexes.some((i) => {
+        const id = entityIds[i];
+        return id !== undefined && suffixes.textIds.has(id);
+    });
+    if (borderedByText) {
+        registerProfileEdgeSuffixes(face, attributeFaceEdges(face, candidates, suffixes.byEdge));
+    }
 }
 
 /** Candidate edge → entity id lookup for `attributeFaceEdges`. */
@@ -115,17 +135,19 @@ function entityIdByEdge(
 }
 
 /**
- * The entity id each boundary edge of `face` was generated from, parallel to the
- * face's edge enumeration: an exact `isSame` hit first (a face shares the TShapes
- * of the edges it was built from; the kernel splitter also keeps untouched edges),
- * then an on-curve probe for split pieces (region edges are new TShapes cut from
- * the input edges). Undefined where neither matches — the edge then has no seed.
+ * What each boundary edge of `face` was generated from, parallel to the face's edge
+ * enumeration: an exact `isSame` hit first (a face shares the TShapes of the edges it
+ * was built from; the kernel splitter also keeps untouched edges), then an on-curve
+ * probe for split pieces (region edges are new TShapes cut from the input edges).
+ * Undefined where neither matches — the edge then has no seed. The attributed value is
+ * whatever `byEdge` keys the candidates by: an entity id, or a seed suffix when an
+ * entity expands to several edges (see `edgeSeedSuffixes`).
  */
-export function attributeFaceEdges(
+export function attributeFaceEdges<T>(
     face: IFace,
     candidates: IEdge[],
-    idByEdge: Map<IEdge, number>,
-): (number | undefined)[] {
+    byEdge: Map<IEdge, T>,
+): (T | undefined)[] {
     let faceEdges: IEdge[];
     try {
         faceEdges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
@@ -133,7 +155,7 @@ export function attributeFaceEdges(
         // A mocked face without sub-shape access — no attribution, no seeds.
         return [];
     }
-    return attributeEdges(faceEdges, candidates, (candidate) => idByEdge.get(candidate));
+    return attributeEdges(faceEdges, candidates, (candidate) => byEdge.get(candidate));
 }
 
 /**
@@ -268,18 +290,33 @@ export function profileEdgeEntityIds(face: IFace): (number | undefined)[] | unde
 }
 
 /**
- * Profile faces → the seed SUFFIX each boundary edge carries, for a profile that is not a sketch
- * region at all and so has no entity id to key by.
+ * Profile faces → the seed SUFFIX each boundary edge carries, for a profile whose edges
+ * a bare entity id cannot tell apart.
  *
- * A rib's band is the case: one chain entity offsets into TWO band edges, one per side, so
+ * A rib's band is one case: one chain entity offsets into TWO band edges, one per side, so
  * keying both by that entity would hand two sub-shapes the same seed — and the ids they mint
  * collide, which `uncontested` settles by dropping BOTH (measured: the rib's two top edges came
  * back unnamed, along with everything else derived from them). A suffix can say which side an
- * edge is, which an entity id cannot.
+ * edge is, which an entity id cannot. A sketch TEXT is the other: one entity expands to one
+ * edge per contour segment, so edge k of the entity carries `ent<id>:e<k>`.
  *
  * Preferred over `profileEdgeEntities` when both are registered (`profileEdgeSeeds`).
  */
 const edgeSeedSuffixes = new WeakMap<IFace, (string | undefined)[]>();
+
+/**
+ * The seed suffix of every edge of a sketch, keyed by the edge object — built only when
+ * an entity expands to several edges (a text, one edge per contour segment), which a
+ * single `ent<id>` per entity cannot tell apart. The multi-edge entity's edge k carries
+ * `ent<id>:e<k>` (k in the order `shapeEntityIds` repeats the id); every other edge
+ * carries the plain `ent<id>` the entity channel would have minted, so a face mixing
+ * both keeps its non-text seeds byte-identical.
+ */
+export interface EdgeSeedSuffixes {
+    readonly byEdge: Map<IEdge, string>;
+    /** Ids of the multi-edge entities; a face borders one of their edges ⇒ it takes the suffix channel. */
+    readonly textIds: ReadonlySet<number>;
+}
 
 /** Records the per-edge seed suffixes of a profile face (see `edgeSeedSuffixes`). */
 export function registerProfileEdgeSuffixes(face: IFace, suffixes: (string | undefined)[]): void {

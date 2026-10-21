@@ -1091,7 +1091,14 @@ export class SketchArrayCommand extends SketchConstraintCommand {
     private async pickCurve(editor: SketchEditor): Promise<SketchArrayPattern | undefined> {
         this.controller = new AsyncController();
         const controller = this.controller;
-        const id = await editor.pickEntity("prompt.pickArrayCurve", undefined, undefined, controller);
+        // the curve kinds a pattern can follow: a point has no curve to run along, an offset
+        // copy is derived geometry (refused below), and a text is many contours, not one curve
+        const id = await editor.pickEntity(
+            "prompt.pickArrayCurve",
+            ["line", "circle", "arc", "ellipse", "ellipseArc", "conic", "bezier", "nurbs"],
+            undefined,
+            controller,
+        );
         controller.dispose();
         if (id === undefined) return undefined;
         // an instance is the record's own geometry, not a curve the pattern may follow

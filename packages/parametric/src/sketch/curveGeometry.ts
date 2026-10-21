@@ -249,11 +249,14 @@ export function cutsOn(solver: SketchSolver, entity: SketchEntityData, tolerance
  * What can cut the entity: every other entity, the external references, and the datum
  * axes. The axes are read as the infinite lines the editor draws them as, so a line
  * crossing the X axis beyond the unit segment the datum is stored with is still cut
- * there.
+ * there. A text is never a cutter: its contours are many curves, and the crossing math
+ * reads one curve per entity — nor could a cut against it be written to anything.
  */
 export function cuttersFor(solver: SketchSolver, entity: SketchEntityData): SketchEntityData[] {
     return [
-        ...solver.entities().filter((other) => other.id !== entity.id && !isDegenerate(other)),
+        ...solver
+            .entities()
+            .filter((other) => other.id !== entity.id && other.type !== "text" && !isDegenerate(other)),
         ...solver.externalEntitiesData().filter((other) => !isDegenerate(other)),
         datumEntityData(SKETCH_X_AXIS_ID),
         datumEntityData(SKETCH_Y_AXIS_ID),

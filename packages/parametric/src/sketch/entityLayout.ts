@@ -22,7 +22,9 @@ export const PARAM_KIND_DIMENSIONLESS = 2;
  * garlic param kinds per entity type: point = 1 point, line = 2 points, circle =
  * center + radius, arc = 3 points, ellipse = 3 points, ellipseArc = 5 points,
  * conic = 3 points + a dimensionless rho, bezier = its 4 control poles, nurbs =
- * `count`/3 control poles followed by their dimensionless weights (variable length).
+ * `count`/3 control poles followed by their dimensionless weights (variable length),
+ * text = its 1 anchor point + a dimensionless rotation (the baseline direction —
+ * a scalar like a circle's radius, not a drag point).
  */
 export function entityParamKinds(type: SketchEntityType, count?: number): number[] {
     switch (type) {
@@ -33,6 +35,8 @@ export function entityParamKinds(type: SketchEntityType, count?: number): number
         case "ellipseArc":
         case "bezier":
             return new Array(ENTITY_PARAM_COUNTS[type]).fill(PARAM_KIND_COORDINATE);
+        case "text":
+            return [PARAM_KIND_COORDINATE, PARAM_KIND_COORDINATE, PARAM_KIND_DIMENSIONLESS];
         case "offsetCurve":
             // no geometry of its own to param: it is read off its source
             return [];
@@ -66,6 +70,7 @@ export const ENTITY_PARAM_COUNTS: Record<Exclude<SketchEntityType, "nurbs">, num
     // an offset curve lays out its *source's* params, so it has none of its own
     offsetCurve: 0,
     point: 2,
+    text: 3,
     line: 4,
     circle: 3,
     arc: 6,

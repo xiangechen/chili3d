@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    contourEdges,
     type EdgeMeshData,
     type I18nKeys,
     type IDocument,
@@ -64,7 +65,13 @@ import {
     toWorld,
     viewPixelSize,
 } from "./sketchModel";
+import { textContoursOf, textPoint } from "./sketchText";
 import { SketchSolver } from "./solver";
+
+/** The one-edge answer every entity but a text gives, in the per-edge shape `entityEdges` returns. */
+function oneEdge(edge: Result<IEdge>): Result<IEdge[]> {
+    return edge.isOk ? Result.ok([edge.value]) : Result.err(edge.error);
+}
 
 export interface SketchNodeOptions {
     document: IDocument;
@@ -455,47 +462,74 @@ export class SketchNode extends ParameterShapeNode {
         // Construction entities are solver-only reference geometry — they never
         // enter the shape, exactly like reference-role external refs below.
         for (const entity of profileEntities(data)) {
-            const edge = this.entityEdge(entity);
-            if (!edge.isOk) return Result.err(edge.error);
-            edges.push(edge.value);
+            const built = this.entityEdges(entity);
+            if (!built.isOk) return Result.err(built.error);
+            edges.push(...built.value);
         }
         // Profile-role external refs join the shape as real edges, after the sketch's
         // own entities — shapeEntityIds(data) maps edge indexes back to entity ids on
         // the crossing path. Reference-role externals never enter shape building.
         for (const ref of profileExternalRefs(data)) {
-            const edge = this.entityEdge({ id: ref.entityId, type: ref.type, params: ref.snapshot });
-            if (!edge.isOk) return Result.err(edge.error);
-            edges.push(edge.value);
+            const built = this.entityEdges({ id: ref.entityId, type: ref.type, params: ref.snapshot });
+            if (!built.isOk) return Result.err(built.error);
+            edges.push(...built.value);
         }
         return Result.ok(edges);
     }
 
-    private entityEdge(entity: SketchEntityData): Result<IEdge> {
+    /**
+     * The entity's edges, in the order `shapeEntityIds` lists its id: one per entity —
+     * except a text, which builds one per segment of every stored contour, contours in
+     * stored order.
+     */
+    private entityEdges(entity: SketchEntityData): Result<IEdge[]> {
         const p = entity.params;
         switch (entity.type) {
             case "line":
-                return shapeFactory.line(toWorld(this.plane, p[0], p[1]), toWorld(this.plane, p[2], p[3]));
+                return oneEdge(
+                    shapeFactory.line(toWorld(this.plane, p[0], p[1]), toWorld(this.plane, p[2], p[3])),
+                );
             case "circle":
-                return shapeFactory.circle(this.plane.normal, toWorld(this.plane, p[0], p[1]), p[2]);
+                return oneEdge(shapeFactory.circle(this.plane.normal, toWorld(this.plane, p[0], p[1]), p[2]));
             case "arc":
-                return this.arcEdge(p as [number, number, number, number, number, number]);
+                return oneEdge(this.arcEdge(p as [number, number, number, number, number, number]));
             case "ellipse":
-                return this.ellipseEdge(p);
+                return oneEdge(this.ellipseEdge(p));
             case "ellipseArc":
-                return this.ellipseArcEdge(p);
+                return oneEdge(this.ellipseArcEdge(p));
             case "conic":
-                return this.conicEdge(p);
+                return oneEdge(this.conicEdge(p));
             case "bezier":
-                return this.bezierEdge(p);
+                return oneEdge(this.bezierEdge(p));
             case "nurbs":
-                return this.nurbsEdge(entity);
+                return oneEdge(this.nurbsEdge(entity));
             case "point":
                 // unreachable through `buildEdges` — `profileEntities` keeps points out —
                 // but the switch must still answer for one
                 return Result.err("A sketch point has no curve to build an edge from");
             case "offsetCurve":
-                return this.offsetCurveEdge(entity);
+                return oneEdge(this.offsetCurveEdge(entity));
+            case "text":
+                return this.textEdges(entity);
         }
+    }
+
+    /**
+     * A text entity's edges: one per segment of every stored contour, the local-frame
+     * contour points turned by the entity's rotation and shifted by its anchor
+     * (`textPoint`), mapped onto the sketch plane. A failure of any segment fails the
+     * entity, exactly as any other entity's single edge would.
+     */
+    private textEdges(entity: SketchEntityData): Result<IEdge[]> {
+        const edges: IEdge[] = [];
+        for (const contour of textContoursOf(entity)) {
+            const built = contourEdges(contour, (point) =>
+                toWorld(this.plane, ...textPoint(entity, point.x, point.y)),
+            );
+            if (!built.isOk) return Result.err(built.error);
+            edges.push(...built.value);
+        }
+        return Result.ok(edges);
     }
 
     /** One offset copy's edge, built off its source's own edge and cut to the window drawn. */
@@ -510,11 +544,14 @@ export class SketchNode extends ParameterShapeNode {
             params: entity.params,
             ...(entity.nurbs === undefined ? {} : { nurbs: entity.nurbs }),
         };
-        const basis = this.entityEdge(source);
+        const basis = this.entityEdges(source);
         if (!basis.isOk) return Result.err(basis.error);
+        // the source of an offset copy is always a single curve — a text, the one entity
+        // that builds several edges, is never offsettable (`isOffsettable`)
+        if (basis.value.length !== 1) return Result.err("An offset curve's source builds no single edge");
         // the edge's own offset: the kernel holds the pair (basis, distance) as a
         // `Geom_OffsetCurve` rather than deriving a curve of some other kind
-        const offset = basis.value.offset(this.offsetReach(source, ref.distance), this.plane.normal);
+        const offset = basis.value[0].offset(this.offsetReach(source, ref.distance), this.plane.normal);
         // the window the canvas draws, not the one the entity stores: a source that has
         // moved out from under its window leaves a stretch the copy no longer covers,
         // and the two readers have to clamp it the same way or the built edge would be

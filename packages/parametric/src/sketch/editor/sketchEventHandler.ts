@@ -51,6 +51,7 @@ import {
     toWorld,
     viewPixelSize,
 } from "../sketchModel";
+import { textContoursMesh, textEntityDistance } from "../sketchText";
 import { constraintTargetEntities } from "../solverEntities";
 import { applyConstraintIcon, type BadgeSymbol, badgeSymbol, isBadgeEventTarget } from "./sketchAnnotations";
 import style from "./sketchAnnotations.module.css";
@@ -661,7 +662,8 @@ export class SketchEventHandler implements IEventHandler {
     }
 
     /**
-     * A double-click in the sketch: doubling one of an array's copies opens that array's tool.
+     * A double-click in the sketch: doubling a text entity re-opens its editing dialog,
+     * and doubling one of an array's copies opens that array's tool.
      *
      * A copy is the only thing on canvas that *is* the pattern, so it is what the tool has to
      * hang off — SolidWorks puts its "Edit Pattern" on the instance for the same reason, the
@@ -674,6 +676,11 @@ export class SketchEventHandler implements IEventHandler {
      */
     doubleClick(view: IView, event: MouseEvent): void {
         const entityId = this.hitTestEntity(view, event as PointerEvent)?.entityId;
+        // before the array branch: a text is never in a pattern, and it has its own editor
+        if (entityId !== undefined && this.editor.solver.entity(entityId)?.type === "text") {
+            this.editor.editText(entityId);
+            return;
+        }
         const array = entityId === undefined ? undefined : this.editor.solver.arrayOf(entityId);
         if (array === undefined) return;
         this.editor.editArray(array.id);
@@ -1679,6 +1686,8 @@ export function sketchEntityMesh(
     let mesh: EdgeMeshData;
     if (entity.type === "point") {
         mesh = pointCrossMesh(plane, [x1, y1], pointMarkerHalf(editor), color, lineType);
+    } else if (entity.type === "text") {
+        mesh = textContoursMesh(plane, entity, color, lineType);
     } else if (entity.type === "line") {
         mesh = MeshDataUtils.createEdgeMesh(toWorld(plane, x1, y1), toWorld(plane, x2, y2), color, lineType);
     } else if (entity.type === "arc") {
@@ -1798,6 +1807,7 @@ function controlNetHit(
 function entityDistance(uv: [number, number], entity: SketchEntityData): number {
     const [x1, y1, x2, y2] = entity.params;
     if (entity.type === "line") return pointToSegmentDistance(uv[0], uv[1], x1, y1, x2, y2);
+    if (entity.type === "text") return textEntityDistance(uv, entity);
     if (entity.type === "arc") return pointToArcDistance(uv[0], uv[1], entity.params);
     if (entity.type === "circle") return Math.abs(Math.hypot(uv[0] - x1, uv[1] - y1) - entity.params[2]);
     return projectPoint(entity, uv).distance;

@@ -458,9 +458,14 @@ describe("SketchArrayCommand", () => {
 
             await runCommand(command, editor);
 
-            // a curve the pattern follows is not a datum target the way a direction line is
+            // a curve the pattern follows is not a datum target the way a direction line is,
+            // and only a single-curve kind may be picked — a text is many contours, not one curve
             expect(editor.entityPicks).toEqual([
-                { tip: "prompt.pickArrayCurve", type: undefined, datum: false },
+                {
+                    tip: "prompt.pickArrayCurve",
+                    type: ["line", "circle", "arc", "ellipse", "ellipseArc", "conic", "bezier", "nurbs"],
+                    datum: false,
+                },
             ]);
             expect(arraySummary(editor.solver)).toEqual([
                 {

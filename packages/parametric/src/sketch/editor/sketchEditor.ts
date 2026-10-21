@@ -6,6 +6,7 @@ import {
     type AsyncController,
     CAMERA_FLY_DURATION,
     type CameraType,
+    FontCatalog,
     I18n,
     type I18nKeys,
     type IDisposable,
@@ -13,7 +14,10 @@ import {
     type IEventHandler,
     type IView,
     LENGTH_UNITS,
+    Logger,
+    outlineOfPicked,
     type ParameterValue,
+    type PickedFont,
     PubSub,
     Result,
     resolveUnitSpec,
@@ -43,16 +47,19 @@ import {
     type SketchEntityData,
     type SketchEntityType,
     type SketchPointRef,
+    type SketchTextData,
     viewPixelSize,
 } from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
+import { fusedTextContours, scaledTextContours, textContoursOf } from "../sketchText";
 import { type SketchDiagnostics, SketchSolver, type SolveOutcome } from "../solver";
 import * as datumPrompt from "./datumPrompt";
 import { type DimensionAnchor, datumReading } from "./dimensionLayout";
 import { SketchAnnotationManager } from "./sketchAnnotations";
 import { SketchConstraintsPanel } from "./sketchConstraintsPanel";
 import { SketchEventHandler } from "./sketchEventHandler";
+import { promptSketchText, type SketchTextEdit } from "./sketchTextPrompt";
 
 /**
  * One sketch editing session, and the only thing that owns it.
@@ -1188,6 +1195,101 @@ export class SketchEditor implements IDisposable {
         );
     }
 
+    /**
+     * Re-opens a placed text for editing — what double-clicking one does. The dialog is
+     * `sketchTextPrompt.ts`; a confirmed edit re-lays the glyphs when the string or font
+     * changed, scales the stored contours when only the height did, and turns them in
+     * place when only the angle did, then solves and commits like any value edit
+     * (`applyDatum`). No-op when the entity is not there or holds no text — the
+     * double-click's hit test can race a delete.
+     */
+    editText(entityId: number): void {
+        const spec = this.solver.textOf(entityId);
+        if (spec === undefined) return;
+        promptSketchText(
+            {
+                text: spec.text,
+                size: spec.size,
+                // the rotation is a param, not sidecar state; a 2-param text is a pre-rotation
+                // document's, and reads as unrotated
+                angle: this.solver.entity(entityId)?.params[2] ?? 0,
+                fontName: spec.fontName,
+            },
+            (edited) => void this.applyTextEdit(entityId, spec, edited),
+            (input) => resolveUnitSpec(input, this.variableScope(), LENGTH_UNITS),
+            (input) => resolveUnitSpec(input, this.variableScope(), ANGLE_UNITS),
+        );
+    }
+
+    /**
+     * Writes an edited text into the sketch. What the edit touched decides the path:
+     *
+     * - the STRING or the FONT — re-lay the glyphs out and rewrite the sidecar; laying
+     *   out needs the font, so it is read first — the one the text already has when the
+     *   choice did not change (remembered for the session after its first read), the
+     *   catalogue's when it did. A font that cannot be had keeps the text as it was, and
+     *   says so.
+     * - the HEIGHT alone — multiply the stored contours (`scaledTextContours`): layout
+     *   is linear in size, so no font is asked for. A text set in a local-file font —
+     *   session memory, gone from a reopened document — can still be resized.
+     * - the ANGLE alone — re-reads the SAME stored contours turned (`setTextAngle`): the
+     *   contours are local-frame and unrotated, so no font is asked for either.
+     *
+     * Both awaits can outlive the session (a catalogue font is fetched, the merge is
+     * kernel work): the editor may already be disposed when the continuation runs, and
+     * the solver it would write to is freed — `disposed` says so before either happens.
+     */
+    private async applyTextEdit(
+        entityId: number,
+        previous: SketchTextData,
+        edited: SketchTextEdit,
+    ): Promise<void> {
+        let written = false;
+        if (edited.text !== previous.text || edited.fontName !== previous.fontName) {
+            const picked = pickedFontForEdit(previous, edited.fontName);
+            if (picked === undefined) {
+                PubSub.default.pub("showToast", "toast.text.fontFailed");
+                return;
+            }
+            const outline = await outlineOfPicked(picked);
+            if (this.disposed) return;
+            if (!outline.isOk) {
+                Logger.warn(outline.error);
+                PubSub.default.pub("showToast", "toast.text.fontFailed");
+                return;
+            }
+
+            // The stored contours are the merged ones — each glyph's strokes fused into their
+            // union — so a confirmed edit never writes stroke crossings into the sketch.
+            const contours = await fusedTextContours(outline.value, edited.text, edited.size);
+            if (this.disposed) return;
+            if (!contours.isOk) {
+                PubSub.default.pub("displayError", contours.error);
+                return;
+            }
+            written = this.solver.setText(entityId, {
+                text: edited.text,
+                size: edited.size,
+                fontName: picked.name,
+                fontUrl: picked.url ?? "",
+                contours: JSON.stringify(contours.value),
+            });
+        } else if (edited.size !== previous.size) {
+            written = this.solver.setText(entityId, {
+                ...previous,
+                size: edited.size,
+                contours: JSON.stringify(
+                    scaledTextContours(textContoursOf({ text: previous }), edited.size / previous.size),
+                ),
+            });
+        }
+        const turned = this.solver.setTextAngle(entityId, edited.angle);
+        // nothing changed: confirming an untouched edit must not record a phantom history entry
+        if (!written && !turned) return;
+        this.solve(true);
+        this.commit();
+    }
+
     // ------------------------------------------------------------------ Exit and view restoration
 
     /** Commits and disposes this session; clears the active-editor reference. */
@@ -1438,6 +1540,22 @@ function sameEntityIds(previous: ReadonlySet<number> | undefined, next: Readonly
         if (!previous.has(id)) return false;
     }
     return true;
+}
+
+/**
+ * The font an edit re-lays out in: the one the text already has when the choice did not
+ * change — kept by name and address, a local file's having no address (the session's
+ * memory is all that is left of it) — the catalogue's entry when it did. Undefined when
+ * the chosen name is neither, which the dialog's own option list makes unreachable.
+ */
+function pickedFontForEdit(previous: SketchTextData, fontName: string): PickedFont | undefined {
+    if (fontName === previous.fontName) {
+        return previous.fontUrl === ""
+            ? { name: previous.fontName }
+            : { name: previous.fontName, url: previous.fontUrl };
+    }
+    const catalog = FontCatalog.find((font) => font.family === fontName);
+    return catalog === undefined ? undefined : { name: catalog.family, url: catalog.url };
 }
 
 /** What the dialog that edits an array's number is naming — the field's own name in the bar. */

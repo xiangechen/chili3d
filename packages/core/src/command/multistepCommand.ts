@@ -28,7 +28,9 @@ export abstract class MultistepCommand extends CancelableCommand {
             return;
         }
 
-        this.executeMainTask();
+        // Awaited: a main task may need async work before it commits (a merge the kernel
+        // runs after the last pick), and the command is not done until that has landed.
+        await this.executeMainTask();
     }
 
     protected async executeSteps(): Promise<boolean> {
@@ -147,5 +149,6 @@ export abstract class MultistepCommand extends CancelableCommand {
 
     protected abstract getSteps(): IStep[];
 
-    protected abstract executeMainTask(): void;
+    /** `void` for the common synchronous commit; a `Promise` when the commit itself awaits. */
+    protected abstract executeMainTask(): void | Promise<void>;
 }

@@ -175,6 +175,8 @@ function planTrim(
     // a point has no curve, so there is no piece of it to remove: it answers a delete
     // key, not the trim tool
     if (entity.type === "point") return Result.err("A point cannot be trimmed");
+    // a text is a placement, not a piece of curve: reword or move it, there is no span to cut
+    if (entity.type === "text") return Result.err("A text cannot be trimmed");
     // The datum, the external references and an array's instances are reference geometry:
     // they cut, but they are never cut up. An offset copy is the exception — the solver does
     // place it, but it is the user's own curve, and the copy's window is exactly what a trim

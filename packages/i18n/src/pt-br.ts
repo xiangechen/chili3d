@@ -172,6 +172,7 @@ export default {
         "command.sketch.polygon": "Polígono",
         "command.sketch.projectEdges": "Projetar Arestas",
         "command.sketch.rectangle": "Retângulo",
+        "command.sketch.text": "Texto",
         "command.sketch.nurbs": "Spline",
         "command.sketch.toggleConstruction": "Alternar Construção",
         "command.sketch.toggleExternal": "Alternar Função Externa",
@@ -201,7 +202,15 @@ export default {
         "prompt.pickMirrorSources": "escolha as entidades a espelhar, ESC para terminar",
         "prompt.pickOffsetEntities":
             "escolha as entidades a deslocar (clique ou caixa) e arraste a seta para definir a distância",
+        "error.input.emptyText": "Digite um texto",
+        "font.select": "Fonte",
+        "text.angle": "Ângulo",
+        "text.content": "Texto",
+        "text.edit": "Editar texto",
+        "text.size": "Altura",
+        "toast.text.fontFailed": "Não foi possível carregar a fonte do texto",
         "prompt.pickTextPosition": "escolha a posição do texto, ESC para cancelar",
+        "prompt.text.height": "escolha o topo do texto (altura e direção vertical), ESC para cancelar",
         "prompt.pickTrimEntity": "escolha o trecho a aparar, ESC para cancelar",
         "prompt.transformEntities":
             "Selecione as entidades a transformar (clique ou cerque), arraste um puxador; Enter para confirmar",

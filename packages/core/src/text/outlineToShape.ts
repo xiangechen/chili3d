@@ -31,9 +31,7 @@ export interface OutlineShapeOptions {
  * an OCCT failure in a release build aborts the module rather than throwing.
  */
 export function glyphFaces(contours: readonly Contour2D[], options: OutlineShapeOptions): IFace[][] {
-    const usable = distinctContours(contours).filter(
-        (contour) => contourSize(contour, options.toWorld) >= options.minContourSize,
-    );
+    const usable = usableContours(contours, options.toWorld, options.minContourSize);
 
     const pieces: IFace[][] = [];
     for (const piece of groupContours(usable)) {
@@ -91,7 +89,7 @@ function wireOf(contour: Contour2D, toWorld: ToWorld) {
 }
 
 /** Edges chaining the contour's points, a straight one per line and a curve per curve. */
-function contourEdges(contour: Contour2D, toWorld: ToWorld): Result<IEdge[]> {
+export function contourEdges(contour: Contour2D, toWorld: ToWorld): Result<IEdge[]> {
     if (contour.segments.length === 0) return Result.err("the contour has no segments");
 
     const edges: IEdge[] = [];
@@ -115,6 +113,19 @@ function contourEdges(contour: Contour2D, toWorld: ToWorld): Result<IEdge[]> {
     }
 
     return Result.ok(edges);
+}
+
+/**
+ * The contours worth drawing: verbatim repeats dropped (they would otherwise nest inside
+ * each other), and what bounds less than `minContourSize` where it will be drawn dropped
+ * with them — a contour that small is a speck, not a face.
+ */
+export function usableContours(
+    contours: readonly Contour2D[],
+    toWorld: ToWorld,
+    minContourSize: number,
+): Contour2D[] {
+    return distinctContours(contours).filter((contour) => contourSize(contour, toWorld) >= minContourSize);
 }
 
 /** The diagonal of a contour's bounding box, measured where it will be drawn. */

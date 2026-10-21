@@ -787,10 +787,11 @@ function copyPointKey(point: CopyPoint): string {
 /**
  * A picked entity the offset can copy: any real curve geometry — every curve kind has an
  * offset. A point has no curve to run parallel to, so it is silently not a source, the way
- * a datum or external id is not.
+ * a datum or external id is not — and a text is not one either: its contours are many
+ * curves, not the one an offset copy reads its geometry through.
  */
 function isOffsettable(entity: SketchEntityData | undefined): entity is SketchEntityData {
-    return entity !== undefined && entity.type !== "point";
+    return entity !== undefined && entity.type !== "point" && entity.type !== "text";
 }
 
 /**
@@ -1011,12 +1012,17 @@ function validateCopy(copy: OffsetCopy): string | undefined {
  * from.
  */
 function findDuplicate(copies: readonly OffsetCopy[], solver: SketchSolver): string | undefined {
-    const present: CurveEntity[] = solver.entities().map((entity) => ({
-        type: entity.type,
-        params: entity.params,
-        nurbs: entity.nurbs,
-        offset: entity.offset,
-    }));
+    // a text is left out: it is no single curve, so neither the params comparison nor the
+    // probe-landing walk could read it — and a copy landing on a glyph is no duplicate anyway
+    const present: CurveEntity[] = solver
+        .entities()
+        .filter((entity) => entity.type !== "text")
+        .map((entity) => ({
+            type: entity.type,
+            params: entity.params,
+            nurbs: entity.nurbs,
+            offset: entity.offset,
+        }));
     for (const copy of copies) {
         // An offset copy's params are its *source's*, so the params comparison below cannot
         // read it: it would match the source itself, which is the one thing the copy is

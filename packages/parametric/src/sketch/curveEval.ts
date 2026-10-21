@@ -938,6 +938,10 @@ function adapterOf(entity: CurveEntity): CurveAdapter {
             return pointAdapter(entity.params);
         case "offsetCurve":
             return offsetAdapter(entity);
+        case "text":
+            // a text is many contours, not one curve: its readers (meshes, distances,
+            // edges) go through `sketchText` instead
+            throw new Error("A text entity has no single curve");
     }
 }
 
@@ -1148,6 +1152,8 @@ function defaultSegments(entity: CurveEntity): number {
             // one knot span is one polynomial piece, so the pole count is what says how
             // much curve there is to draw
             return Math.max(32, Math.min(128, 12 * (nurbsPoleCount(entity.params) - 1)));
+        case "text":
+            throw new Error("A text entity has no single curve");
     }
 }
 

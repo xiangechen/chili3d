@@ -576,7 +576,9 @@ function nearestCurveSnap(
 ): DragSnap | undefined {
     let nearest: { distance: number; snap: DragSnap } | undefined;
     for (const entity of entities) {
-        if (excludeEntityIds?.has(entity.id) || entity.type === "line") continue;
+        // a line snaps to its ends rather than its span, and a text snaps only at its
+        // anchor — neither has a curve a probe would land on here
+        if (excludeEntityIds?.has(entity.id) || entity.type === "line" || entity.type === "text") continue;
         const projection = projectOntoEntity(entity, probe);
         if (projection === undefined || projection.distance >= tolerance) continue;
         if (nearest !== undefined && projection.distance >= nearest.distance) continue;
@@ -618,7 +620,7 @@ function curveSnap(entity: SketchEntityData, position: [number, number]): DragSn
 
 /** The PointOn kind pinning a point onto each non-line curve family's curve. */
 const POINT_ON_KINDS: Record<
-    Exclude<SketchEntityType, "line" | "circle" | "arc" | "point" | "offsetCurve">,
+    Exclude<SketchEntityType, "line" | "circle" | "arc" | "point" | "offsetCurve" | "text">,
     ConstraintKind
 > = {
     ellipse: ConstraintKind.PointOnEllipse,
@@ -638,6 +640,8 @@ function projectOntoEntity(
     entity: SketchEntityData,
     [u, v]: [number, number],
 ): { position: [number, number]; distance: number } | undefined {
+    // a text has no single curve to project onto — its anchor is the only snap it carries
+    if (entity.type === "text") return undefined;
     if (entity.type !== "circle" && entity.type !== "arc") {
         const projection = projectPoint(entity, [u, v]);
         return { position: projection.point, distance: projection.distance };

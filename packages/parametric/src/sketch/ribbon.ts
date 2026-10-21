@@ -43,13 +43,16 @@ export const SketchRibbonProfiles: RibbonProfileExtra[] = [
                     },
                     {
                         type: "split",
-                        items: ["sketch.bezier", "sketch.nurbs", "sketch.conic"],
-                    },
-                    {
-                        type: "split",
                         items: ["sketch.rectangle", "sketch.polygon"],
                     },
-                    "sketch.point",
+                    [
+                        {
+                            type: "split",
+                            items: ["sketch.nurbs", "sketch.bezier", "sketch.conic"],
+                        },
+                        "sketch.point",
+                        "sketch.text",
+                    ],
                 ],
             },
             {

@@ -19,6 +19,9 @@ import {
 } from "@chili3d/core";
 import { ConstraintKind } from "../../lib/garlic";
 import type { EdgeRef } from "../features/edgeRef";
+// one entity = one edge is every entity but the text's: its id repeats per contour
+// segment, which only a reader of the sidecar can count
+import { textEdgeCount } from "./sketchText";
 
 export { ConstraintKind };
 
@@ -35,7 +38,8 @@ export type SketchEntityType =
     | "bezier"
     | "nurbs"
     | "point"
-    | "offsetCurve";
+    | "offsetCurve"
+    | "text";
 
 /**
  * line: params = [x1, y1, x2, y2]; circle: params = [cx, cy, r];
@@ -57,7 +61,11 @@ export type SketchEntityType =
  * origin, never profile geometry);
  * offsetCurve: params are its *source's*, verbatim, and `offset` says which entity they
  * came from and how far off it this curve runs — the entity has no geometry of its own to
- * lay out, so nothing of it is a solver parameter at all — all in sketch (u, v) coordinates.
+ * lay out, so nothing of it is a solver parameter at all — all in sketch (u, v) coordinates;
+ * text: params = [x, y, θ] (the anchor the text is laid out from, and the baseline
+ * direction in radians, counter-clockwise from +u; the glyphs themselves are the `text`
+ * sidecar's contours, stated relative to the anchor in the UNROTATED local frame —
+ * every reader applies θ, so turning a text never re-lays it out).
  */
 export interface SketchEntityData {
     id: number;
@@ -82,6 +90,20 @@ export interface SketchEntityData {
     offset?: OffsetCurveRef;
 
     /**
+     * What a `text` entity draws: the string, its size and font, and the laid-out glyph
+     * contours (`SketchTextData`). They ride on the entity rather than in `params` because
+     * none of them is a solver parameter — the anchor point and the baseline rotation are,
+     * and the contours are laid out relative to the anchor in the unrotated frame, so a
+     * solve that moves the anchor moves the text, and turning it re-reads the same contours.
+     *
+     * The contours are stored laid out and filtered (every one has at least one segment),
+     * so the edge count of a text entity — the sum of the contours' segment counts — reads
+     * straight off the data, with no font at hand (`shapeEntityIds`, `SketchNode`). Emitted
+     * only when present, so a sketch without text round-trips byte-identical.
+     */
+    text?: SketchTextData;
+
+    /**
      * Construction geometry: a constraint/snap/drag target like any other entity,
      * but excluded from the shape and therefore from profile building — the
      * native-entity counterpart of a "reference"-role external ref. Emitted only
@@ -100,6 +122,32 @@ export interface SketchEntityData {
 export interface NurbsSpec {
     degree: number;
     knots: number[];
+}
+
+/**
+ * A text entity beside its anchor: what it says and what that looks like laid out. The
+ * contours — not the font — are what is kept: laying out needs the font (async), while
+ * building the shape, drawing the mesh and counting the edges all read the contours
+ * synchronously, and a re-opened document has no font to ask again.
+ */
+export interface SketchTextData {
+    /** The string as the user wrote it. */
+    text: string;
+    /** Em height in sketch units (mm). */
+    size: number;
+    fontName: string;
+    /** Empty for a font the user picked from a local file — it has no address. */
+    fontUrl: string;
+    /**
+     * The laid-out glyph contours as a JSON `Contour2D[]`, in the text's local frame:
+     * anchor-relative sketch (u, v) units, unrotated, the baseline running along +x from
+     * the anchor. The rotation lives in the entity's `params[2]`, not in here — turning a
+     * text re-reads these same contours through the angle, never re-lays them out. Laid out
+     * filtered (`usableContours`), so every stored contour has at least one segment, and
+     * merged (`fusedTextContours`): a glyph's crossing strokes are fused into their union
+     * at layout time, so the sketch never sees the stroke crossings as geometry.
+     */
+    contours: string;
 }
 
 /**
@@ -188,7 +236,8 @@ export function defaultNurbsSpec(poleCount: number): NurbsSpec {
  * bezier: pointIndex i = the i-th control pole (all four are points);
  * nurbs: pointIndex i = the i-th control pole — its weights are params too, but they are
  * not addressed as points and have no index here;
- * point: pointIndex 0 = the point itself.
+ * point: pointIndex 0 = the point itself;
+ * text: pointIndex 0 = the anchor.
  */
 export interface SketchPointRef {
     entityId: number;
@@ -201,6 +250,8 @@ const ENTITY_POINT_COUNTS: Record<Exclude<SketchEntityType, "nurbs">, number> = 
     offsetCurve: 0,
     circle: 1,
     point: 1,
+    // a text entity's one point is its anchor: the glyphs follow it, they are not points
+    text: 1,
     line: 2,
     arc: 3,
     ellipse: 3,
@@ -773,10 +824,17 @@ export function profileEntities(data: SketchData): SketchEntityData[] {
  * own non-construction entities first, then the profile-role external refs.
  * `sketchProfiles` maps the kernel's source edge indexes through this list on the
  * crossing path.
+ *
+ * The list is per *edge*, not per entity: every other entity builds one edge and lists
+ * its id once, while a text entity builds one edge per stored contour segment and so
+ * lists its id that many times (`textEdgeCount`), contours in stored order. That keeps
+ * the list index-for-index with `buildEdges` — which is the whole contract.
  */
 export function shapeEntityIds(data: SketchData): number[] {
     return [
-        ...profileEntities(data).map((entity) => entity.id),
+        ...profileEntities(data).flatMap((entity) =>
+            entity.type === "text" ? new Array<number>(textEdgeCount(entity)).fill(entity.id) : [entity.id],
+        ),
         ...profileExternalRefs(data).map((r) => r.entityId),
     ];
 }

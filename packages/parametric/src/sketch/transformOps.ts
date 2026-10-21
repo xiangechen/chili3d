@@ -199,7 +199,8 @@ function boundsCorners(entity: SketchEntityData): [number, number][] {
 /**
  * The entities the transform may move: real geometry, each id once, in the order given.
  * Datum and external entities drop out — neither is the solver's to move (its setters
- * refuse them outright).
+ * refuse them outright) — and so does a text: it is no single curve, so the base cannot
+ * bound it and the params map cannot reshape it; dragging its anchor is how it moves.
  */
 function movableEntities(solver: SketchSolver, ids: readonly number[]): SketchEntityData[] {
     const seen = new Set<number>();
@@ -208,7 +209,7 @@ function movableEntities(solver: SketchSolver, ids: readonly number[]): SketchEn
         if (seen.has(id) || solver.isFixed(id)) continue;
         seen.add(id);
         const entity = solver.entity(id);
-        if (entity !== undefined) entities.push(entity);
+        if (entity !== undefined && entity.type !== "text") entities.push(entity);
     }
     return entities;
 }

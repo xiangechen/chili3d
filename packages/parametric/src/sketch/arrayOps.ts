@@ -496,6 +496,10 @@ function curveSource(solver: SketchSolver, curveId: number): Result<SketchEntity
     if (curve === undefined || isDatumEntityId(curve.id) || isExternalEntityId(curve.id)) {
         return Result.err("The array curve is not sketch geometry");
     }
+    // a text is many contours rather than the one curve a run follows — it cannot be a path
+    // (the pick filter keeps new ones out; this is for a record that names one anyway)
+    if (curve.type === "text" || curve.type === "point")
+        return Result.err("The array curve is not sketch geometry");
     if (isDegenerate(curve)) return Result.err("The array curve is too short to follow");
     return Result.ok(curve);
 }
@@ -769,6 +773,8 @@ function curveRun(curve: SketchEntityData, frame: CurveFrame, spacing: number, c
  *
  * Sources that are not the solver's to copy drop out: the datum and external refs are not
  * geometry an array may hold, and a source that has since been deleted simply is not there.
+ * Nor is a text a source: an instance turned by the pattern would have to redraw its glyphs,
+ * and a text entity carries them laid out for its own anchor alone.
  */
 export function arrayInstanceSpecs(
     solver: SketchSolver,
@@ -781,7 +787,7 @@ export function arrayInstanceSpecs(
         if (seen.has(id) || isDatumEntityId(id) || isExternalEntityId(id)) continue;
         seen.add(id);
         const entity = solver.entity(id);
-        if (entity !== undefined) sources.push(entity);
+        if (entity !== undefined && entity.type !== "text") sources.push(entity);
     }
     const specs: ArrayInstanceSpec[] = [];
     for (const { index, transform } of resolved.placements) {

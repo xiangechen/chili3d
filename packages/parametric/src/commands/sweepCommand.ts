@@ -70,8 +70,6 @@ const SWEEP_OPERATIONS: Record<string, BooleanOperation> = {
 @command({ key: "feature.sweep", icon: "icon-sweep" })
 export class SweepFeatureCommand extends MultistepCommand {
     private readonly preview = new PreviewVisual();
-    /** The whole sketch's profiles for this run, owned here (see `wholeSketchProfiles`). */
-    private sketchProfileFaces: IFace[] | undefined;
 
     /**
      * Which bodies the join/cut/intersect combines with. The set is the command's, and the
@@ -261,15 +259,6 @@ export class SweepFeatureCommand extends MultistepCommand {
         this.targets = AUTO_TARGETS;
     }
 
-    protected override afterExecute(): void {
-        // The whole-sketch profiles were built for this run; the next one builds its own.
-        for (const face of this.sketchProfileFaces ?? []) {
-            face.dispose();
-        }
-        this.sketchProfileFaces = undefined;
-        super.afterExecute();
-    }
-
     protected override executeMainTask(): void {
         const node = this.sourceNode;
         const feature = this.buildFeature();
@@ -357,19 +346,16 @@ export class SweepFeatureCommand extends MultistepCommand {
     }
 
     /**
-     * The whole sketch's outer profiles — built once per run rather than once per pick.
-     * `sketchProfiles` makes fresh faces on every call, and the preview asks for the tool
-     * again after each path edge; they are freed with the run (see `afterExecute`).
+     * The whole sketch's outer profiles, through the sketch's own memoized set (see
+     * `sketchProfiles`): the preview asks for the tool again after each path edge, and the
+     * faces come back identity-stable — they are the sketch's, never this command's to free.
      */
     private wholeSketchProfiles(): Result<IFace[]> {
-        if (this.sketchProfileFaces !== undefined) return Result.ok(this.sketchProfileFaces);
-
         const node = this.sourceNode;
         if (!(node instanceof SketchNode)) return Result.err("Sweep has no profile");
         const profiles = sketchProfiles(node);
         if (!profiles.isOk) return Result.err(profiles.error);
-        this.sketchProfileFaces = profiles.value.outer;
-        return Result.ok(this.sketchProfileFaces);
+        return Result.ok(profiles.value.outer);
     }
 
     /**

@@ -4,6 +4,7 @@
 import {
     type IEdge,
     type IFace,
+    type IShape,
     type IWire,
     type LoopNesting,
     nestLoops,
@@ -11,11 +12,13 @@ import {
     type Polygon,
     Result,
 } from "@chili3d/core";
-import { shapeEntityIds } from "../sketch/sketchModel";
+import { type SketchData, shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
 import {
     attributeFaceEdges,
+    type EdgeSeedSuffixes,
     registerProfileEdgeEntities,
+    registerProfileEdgeSuffixes,
     registerProfileEntities,
     registerRegionEdgeEntities,
     reportMissingEntityId,
@@ -56,6 +59,20 @@ export interface SketchProfileSet {
 }
 
 /**
+ * The profiles of a sketch's current shape, per sketch node. Building them — the crossing
+ * scan, the wire/face construction, the per-edge attribution — runs several times per
+ * preview frame during an extrude or press-pull drag, and the result stays valid until
+ * the sketch rebuilds its shape. Object identity is the validity test: every
+ * `generateShape` mints fresh kernel objects (a data edit goes through
+ * `setPropertyEmitShapeChanged` and rebuilds), so the same shape object IS the same
+ * geometry. The faces being identity-stable across calls is load-bearing, not accidental:
+ * callers register their attributions in WeakMaps keyed on the face object. And the
+ * WeakMap dies with its node, matching the faces' own lifetime — there is nothing to
+ * dispose or invalidate.
+ */
+const profileCache = new WeakMap<SketchNode, { shape: IShape; result: Result<SketchProfileSet> }>();
+
+/**
  * Extrudable profiles of a sketch as faces. Two paths, chosen by whether the sketch's edges can
  * be trusted to form simple loops.
  *
@@ -69,31 +86,84 @@ export interface SketchProfileSet {
  *   The whole sketch then goes through `shapeFactory.facesFromEdges`, which splits the edges at
  *   their contacts and returns every minimal bounded region as a profile — even-odd no longer
  *   applies on that path.
+ *
+ * Memoized per sketch node while the sketch's shape object lives — see `profileCache`.
+ * The contract that keeps the cache honest: ANY data change rebuilds the shape object
+ * (the attribution channels are data, not geometry, so a same-shape cache hit must mean
+ * same data). An edit that ever changed data without minting a fresh shape would read
+ * stale profiles here.
  */
 export function sketchProfiles(sketch: SketchNode): Result<SketchProfileSet> {
     const shape = sketch.shape;
     if (!shape.isOk) return Result.err(shape.error);
 
-    const edges = collectEdges(shape.value);
+    const cached = profileCache.get(sketch);
+    if (cached?.shape === shape.value) return cached.result;
+
+    const result = buildProfiles(sketch, shape.value);
+    profileCache.set(sketch, { shape: shape.value, result });
+    return result;
+}
+
+function buildProfiles(sketch: SketchNode, shape: IShape): Result<SketchProfileSet> {
+    const edges = collectEdges(shape);
     if (edges.length === 0) return Result.err("Sketch has no entities");
 
     // Edge i was generated from sketch entity shapeEntityIds[i] (generateShape combines
-    // one edge per entity, then the profile-role external refs) — the entity ids survive
+    // the entities' edges in `data.entities` order — one edge per entity, one per contour
+    // segment for a text — then the profile-role external refs) — the entity ids survive
     // endpoint drags and re-splits, unlike edge positions.
-    const entityIds = shapeEntityIds(sketch.data);
+    const data = sketch.data;
+    const entityIds = shapeEntityIds(data);
     const idByEdge = new Map(edges.map((edge, index) => [edge, entityIds[index]]));
+    const suffixes = sketchEdgeSuffixes(data, edges, entityIds);
 
     // Mid-span crossings and T-junctions split edges into regions endpoint connectivity
     // cannot see, so the whole sketch goes through the kernel.
     if (needsKernelSplit(edges)) {
-        return crossingProfiles(edges, entityIds, sketch);
+        return crossingProfiles(edges, entityIds, sketch, suffixes);
     }
 
     const groups = groupConnected(edges);
     const branchGroups = groups.filter(hasBranchVertex);
     return branchGroups.length === 0
-        ? connectivityProfiles(groups, sketch.plane, idByEdge)
-        : splitProfiles(groups, branchGroups, idByEdge, sketch);
+        ? connectivityProfiles(groups, sketch.plane, idByEdge, suffixes)
+        : splitProfiles(groups, branchGroups, idByEdge, sketch, suffixes);
+}
+
+/**
+ * The seed suffix of every sketch edge when an entity expands to several edges — a text
+ * builds one per contour segment, so its edge k carries `ent<id>:e<k>` (k in the order
+ * `shapeEntityIds` repeats the id), and every other edge carries the plain `ent<id>` the
+ * entity channel would mint. Undefined when the sketch holds no such entity: a face then
+ * never registers the suffix channel and its seeds stay byte-identical to what the pure
+ * entity-id path mints (see `EdgeSeedSuffixes`).
+ */
+function sketchEdgeSuffixes(
+    data: SketchData,
+    edges: IEdge[],
+    entityIds: readonly number[],
+): EdgeSeedSuffixes | undefined {
+    const textIds = new Set(
+        data.entities.filter((entity) => entity.type === "text").map((entity) => entity.id),
+    );
+    if (textIds.size === 0) return undefined;
+    const seen = new Map<number, number>();
+    const byEdge = new Map<IEdge, string>();
+    edges.forEach((edge, index) => {
+        const id = entityIds[index];
+        // Parallel to idByEdge: an id list shorter than the edge list is pathological —
+        // the edge then carries no suffix, exactly as it carries no entity id.
+        if (id === undefined) return;
+        if (!textIds.has(id)) {
+            byEdge.set(edge, `ent${id}`);
+            return;
+        }
+        const k = seen.get(id) ?? 0;
+        seen.set(id, k + 1);
+        byEdge.set(edge, `ent${id}:e${k}`);
+    });
+    return { byEdge, textIds };
 }
 
 /**
@@ -107,13 +177,14 @@ function splitProfiles(
     branchGroups: IEdge[][],
     idByEdge: Map<IEdge, number>,
     sketch: SketchNode,
+    suffixes: EdgeSeedSuffixes | undefined,
 ): Result<SketchProfileSet> {
     const simpleGroups = groups.filter((group) => !hasBranchVertex(group));
     const empty: SketchProfileSet = { outer: [], inner: [], outerEntities: [], innerEntities: [] };
     const simple =
         simpleGroups.length === 0
             ? Result.ok(empty)
-            : connectivityProfiles(simpleGroups, sketch.plane, idByEdge);
+            : connectivityProfiles(simpleGroups, sketch.plane, idByEdge, suffixes);
     if (!simple.isOk) return Result.err(simple.error);
 
     const branchEdges = branchGroups.flat();
@@ -127,7 +198,7 @@ function splitProfiles(
     if (missing > 0) {
         reportMissingEntityId(sketch, `${missing} of ${branchEdges.length} branch edges have no entity id`);
     }
-    const branch = crossingProfiles(branchEdges, branchEntityIds, sketch);
+    const branch = crossingProfiles(branchEdges, branchEntityIds, sketch, suffixes);
     if (!branch.isOk) return Result.err(branch.error);
 
     return Result.ok({
@@ -143,6 +214,7 @@ function crossingProfiles(
     edges: IEdge[],
     entityIds: readonly (number | undefined)[],
     sketch: SketchNode,
+    suffixes: EdgeSeedSuffixes | undefined,
 ): Result<SketchProfileSet> {
     const regions = shapeFactory.facesFromEdges(edges, sketch.plane);
     if (!regions.isOk) return Result.err(regions.error);
@@ -151,7 +223,7 @@ function crossingProfiles(
     const outerEntities = sources.map((set) => sourceEntityIds(set, entityIds, sketch));
     for (const [index, face] of faces.entries()) {
         registerProfileEntities(face, outerEntities[index]);
-        registerRegionEdgeEntities(face, edges, sources[index], entityIds, sketch);
+        registerRegionEdgeEntities(face, edges, sources[index], entityIds, sketch, suffixes);
     }
     return Result.ok({ outer: faces, inner: [], outerEntities, innerEntities: [] });
 }
@@ -161,6 +233,7 @@ function connectivityProfiles(
     groups: IEdge[][],
     plane: Plane,
     idByEdge: Map<IEdge, number>,
+    suffixes: EdgeSeedSuffixes | undefined,
 ): Result<SketchProfileSet> {
     const loops = buildWires(groups, plane, idByEdge);
     if (!loops.isOk) return Result.err(loops.error);
@@ -171,6 +244,7 @@ function connectivityProfiles(
         wireEntities,
         wireEdges,
         idByEdge,
+        suffixes,
         nestLoops(polygons.length, (outer, inner) => loopContains(polygons[outer], polygons[inner])),
     );
 }
@@ -199,8 +273,9 @@ function buildWires(
         // The sorted unique entity ids of the loop's edges — the profile's identity,
         // stable across reordering and geometry edits (entity ids are never reused).
         // The filter only guards pathological data (an entity-id list shorter than
-        // the edge list): on every healthy path generateShape builds one edge per
-        // entity, so the lookup cannot miss.
+        // the edge list): on every healthy path `shapeEntityIds` lists an id per edge
+        // (a text entity's repeated, once per contour segment), so the lookup cannot
+        // miss.
         wireEntities.push(
             [
                 ...new Set(
@@ -219,6 +294,7 @@ function buildFaces(
     wireEntities: number[][],
     wireEdges: IEdge[][],
     idByEdge: Map<IEdge, number>,
+    suffixes: EdgeSeedSuffixes | undefined,
     nesting: LoopNesting,
 ): Result<SketchProfileSet> {
     const outer: IFace[] = [];
@@ -233,14 +309,24 @@ function buildFaces(
         // The outer wire's entities are the profile's identity; hole wires are incidental.
         registerProfileEntities(face.value, wireEntities[index]);
         // Boundary edges of the outer AND hole wires are the face's seed candidates.
-        registerProfileEdgeEntities(
-            face.value,
-            attributeFaceEdges(
+        const candidates = [index, ...holeIndexes].flatMap((j) => wireEdges[j]);
+        const faceEntities = attributeFaceEdges(face.value, candidates, idByEdge);
+        registerProfileEdgeEntities(face.value, faceEntities);
+        // A face a text entity borders mints its seeds through the suffix channel: the
+        // text's N edges would otherwise all mint the one `ent<id>` seed, which
+        // `uncontested` settles by dropping every one. The face's non-text edges carry
+        // the plain `ent<id>` suffix, so their seeds are byte-identical to the entity
+        // path's; a face without a text edge never registers, keeping sketches without
+        // text — every older document — exactly where they were.
+        if (
+            suffixes !== undefined &&
+            faceEntities.some((id) => id !== undefined && suffixes.textIds.has(id))
+        ) {
+            registerProfileEdgeSuffixes(
                 face.value,
-                [index, ...holeIndexes].flatMap((j) => wireEdges[j]),
-                idByEdge,
-            ),
-        );
+                attributeFaceEdges(face.value, candidates, suffixes.byEdge),
+            );
+        }
         if (isHole) {
             inner.push(face.value);
             innerEntities.push(wireEntities[index]);
