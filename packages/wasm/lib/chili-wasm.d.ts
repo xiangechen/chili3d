@@ -694,6 +694,7 @@ interface EmbindModule {
     removeFillet(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): RemoveFilletResult;
     removeSubShape(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>): ShapeResult;
     replaceSubShapes(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: Array<TopoDS_Shape>): ShapeResult;
+    glueShapes(_0: Array<TopoDS_Shape>): ShapeResult;
     sewing(_0: Array<TopoDS_Shape>): ShapeResult;
     wire(_0: Array<TopoDS_Edge>): ShapeResult;
     shell(_0: Array<TopoDS_Face>): ShapeResult;

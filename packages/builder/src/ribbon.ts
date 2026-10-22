@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { RibbonTabKeys, RibbonTabProfile } from "@chili3d/core";
+import {
+    type CommandKeys,
+    ObservableCollection,
+    type PushButton,
+    type RibbonButton,
+    type RibbonCommand,
+    type RibbonGroupProfile,
+    type RibbonTabKeys,
+    type RibbonTabProfile,
+} from "@chili3d/core";
 
 export const DefaultRibbon: RibbonTabProfile[] = [
     {
@@ -224,24 +233,48 @@ export const ParametricRibbonProfiles: RibbonProfileExtra[] = [
  * Returns a new profile list with `extras` merged into a copy of `base`: extra
  * items are prepended to the matching group (contributions land first), unknown
  * groups are appended, and new tabs are inserted before their `before` tab or
- * appended. `base` is left untouched.
+ * appended. The copy is deep — neither `base` nor `extras` is referenced by the
+ * result, so merging twice or editing the result cannot grow the module-level
+ * profiles.
  */
 export function mergeRibbonProfiles(
     base: RibbonTabProfile[],
     extras: RibbonProfileExtra[],
 ): RibbonTabProfile[] {
-    const result = base.map((tab) => ({
-        ...tab,
-        groups: tab.groups.map((group) => ({
-            ...group,
-            items: [...group.items],
-            collapsedItems: group.collapsedItems === undefined ? undefined : [...group.collapsedItems],
-        })),
-    }));
+    const result = base.map(copyTabProfile);
     for (const extra of extras) {
         mergeTab(result, extra);
     }
     return result;
+}
+
+function copyTabProfile(tab: RibbonTabProfile): RibbonTabProfile {
+    return { ...tab, groups: tab.groups.map(copyGroupProfile) };
+}
+
+function copyGroupProfile(group: RibbonGroupProfile): RibbonGroupProfile {
+    return {
+        ...group,
+        items: group.items.map(copyItem),
+        collapsedItems: group.collapsedItems === undefined ? undefined : [...group.collapsedItems],
+    };
+}
+
+function copyItem(item: RibbonCommand | RibbonButton[]): RibbonCommand | RibbonButton[] {
+    if (Array.isArray(item)) return item.map(copyButton);
+    // An ObservableCollection is a runtime value, not static layout — share it.
+    if (item instanceof ObservableCollection) return item;
+    return copyButton(item);
+}
+
+function copyButton(button: RibbonButton): RibbonButton {
+    if (typeof button === "string") return button;
+    if (button.type === "push") return { ...button };
+    return { ...button, items: button.items.map(copyButtonItem) };
+}
+
+function copyButtonItem(item: PushButton | CommandKeys): PushButton | CommandKeys {
+    return typeof item === "string" ? item : { ...item };
 }
 
 function mergeTab(result: RibbonTabProfile[], extra: RibbonProfileExtra): void {
@@ -249,9 +282,9 @@ function mergeTab(result: RibbonTabProfile[], extra: RibbonProfileExtra): void {
     if (tab === undefined) {
         const beforeIndex = result.findIndex((t) => t.tabName === extra.before);
         if (beforeIndex < 0) {
-            result.push(extra);
+            result.push(copyTabProfile(extra));
         } else {
-            result.splice(beforeIndex, 0, extra);
+            result.splice(beforeIndex, 0, copyTabProfile(extra));
         }
         return;
     }
@@ -259,9 +292,9 @@ function mergeTab(result: RibbonTabProfile[], extra: RibbonProfileExtra): void {
     for (const group of extra.groups) {
         const existing = tab.groups.find((g) => g.groupName === group.groupName);
         if (existing === undefined) {
-            tab.groups.push(group);
+            tab.groups.push(copyGroupProfile(group));
         } else {
-            existing.items.unshift(...group.items);
+            existing.items.unshift(...group.items.map(copyItem));
             if (group.collapsedItems !== undefined) {
                 existing.collapsedItems = [...group.collapsedItems, ...(existing.collapsedItems ?? [])];
             }

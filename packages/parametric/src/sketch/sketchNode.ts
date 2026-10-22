@@ -25,6 +25,7 @@ import {
     serializable,
     serialize,
     type TransformMode,
+    ViewUtils,
     VisualConfig,
     type VisualItemConfig,
     type XYZ,
@@ -63,7 +64,6 @@ import {
     shapeEntityIds,
     sketchConstraintColor,
     toWorld,
-    viewPixelSize,
 } from "./sketchModel";
 import { textContoursOf, textPoint } from "./sketchText";
 import { SketchSolver } from "./solver";
@@ -374,7 +374,7 @@ export class SketchNode extends ParameterShapeNode {
         let merged: EdgeMeshData | undefined;
         for (const entity of points) {
             const center = toWorld(this.plane, entity.params[0], entity.params[1]);
-            const px = view === undefined ? undefined : viewPixelSize(view, center);
+            const px = view === undefined ? undefined : ViewUtils.viewPixelSize(view, center);
             // no view to measure against → collapse the cross onto the point itself: nothing
             // to see, still a mesh in the layout the colouring below counts on
             const half = (px ?? 0) * (VisualConfig.editVertexSize / 2);

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Config } from "../src/config";
-import { Plane, XYZ } from "../src/math";
+import { Plane, Ray, XYZ } from "../src/math";
 import type { ICameraController } from "../src/visual/cameraController";
 import type { IView } from "../src/visual/view";
 import { ViewUtils } from "../src/visual/viewUtils";
@@ -258,6 +258,73 @@ describe("ViewUtils", () => {
 
             expect(plane).not.toBeNull();
             expect(plane.origin).toEqual(start);
+        });
+    });
+
+    describe("viewPixelSize / worldPerPixel", () => {
+        /**
+         * An orthographic-style view whose rays are consistent with `direction`: adjacent
+         * horizontal pixels shift the ray origin by one world unit along the screen-right
+         * axis, so a correct pixel-size measure reads exactly 1 at any view angle.
+         */
+        function orthoView(direction: XYZ, up: XYZ = XYZ.unitY): IView {
+            const d = direction.normalize()!;
+            let right = d.cross(up);
+            if (right.lengthSq() < 1e-12) right = XYZ.unitY.reverse();
+            const step = right.normalize()!;
+            return createMockView({
+                direction: () => d,
+                up: () => up,
+                rayAt: (mx, _my) =>
+                    new Ray({
+                        point: step.multiply(mx - 400).sub(d.multiply(500)),
+                        direction: d,
+                    }),
+            });
+        }
+
+        test("matches the on-plane measure when the view faces the plane", () => {
+            const view = orthoView(XYZ.unitZ.reverse());
+            expect(ViewUtils.viewPixelSize(view, XYZ.zero)).toBeCloseTo(1);
+            expect(ViewUtils.worldPerPixel(view, Plane.XY, 400, 300)).toBeCloseTo(1);
+        });
+
+        test("stays bounded when the plane is viewed edge-on", () => {
+            // Orbiting to a side view aligns the screen-right axis with the YZ plane
+            // normal, so the on-plane measure explodes...
+            const view = orthoView(new XYZ({ x: 0.02, y: -1, z: 0 }), XYZ.unitZ);
+            expect(ViewUtils.worldPerPixel(view, Plane.YZ, 400, 300)).toBeGreaterThan(10);
+            // ...while the perpendicular measure keeps its exact value
+            expect(ViewUtils.viewPixelSize(view, XYZ.zero)).toBeCloseTo(1);
+        });
+
+        test("picks any perpendicular when the view runs along the up axis", () => {
+            const view = orthoView(XYZ.unitZ, XYZ.unitZ);
+            expect(ViewUtils.viewPixelSize(view, XYZ.zero)).toBeCloseTo(1);
+        });
+
+        test("doubles when the point is twice as far under a perspective camera", () => {
+            const view = createMockView({
+                rayAt: (mx, my) =>
+                    new Ray({
+                        point: XYZ.zero,
+                        direction: new XYZ({ x: mx - 400, y: 300 - my, z: -500 }).normalize()!,
+                    }),
+            });
+
+            const near = ViewUtils.viewPixelSize(view, new XYZ({ x: 0, y: 0, z: -500 }));
+            const far = ViewUtils.viewPixelSize(view, new XYZ({ x: 0, y: 0, z: -1000 }));
+            expect(near).toBeCloseTo(1, 2);
+            expect(far! / near!).toBeCloseTo(2, 3);
+        });
+
+        test("returns undefined when the sampled rays collapse", () => {
+            const view = createMockView({
+                rayAt: () =>
+                    new Ray({ point: new XYZ({ x: 0, y: 0, z: 500 }), direction: XYZ.unitZ.reverse() }),
+            });
+
+            expect(ViewUtils.viewPixelSize(view, XYZ.zero)).toBeUndefined();
         });
     });
 });

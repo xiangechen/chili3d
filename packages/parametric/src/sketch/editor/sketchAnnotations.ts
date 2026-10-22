@@ -13,6 +13,7 @@ import {
     type IDisposable,
     type IView,
     type ShapeMeshData,
+    ViewUtils,
     VisualConfig,
     type VisualItemConfig,
 } from "@chili3d/core";
@@ -33,7 +34,6 @@ import {
     type SketchPointRef,
     toUV,
     toWorld,
-    viewPixelSize,
 } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import {
@@ -1642,7 +1642,7 @@ export class SketchAnnotationManager implements IDisposable {
 
     /** World units per screen pixel at the view center (falls back to 1). */
     private pixelSize(): number {
-        return viewPixelSize(this.view, this.solver.plane.origin) ?? 1;
+        return ViewUtils.viewPixelSize(this.view, this.solver.plane.origin) ?? 1;
     }
 
     private toEdgeMesh(

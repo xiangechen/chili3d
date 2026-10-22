@@ -37,21 +37,6 @@ import type { SketchEntityData, SketchPointRef } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
 /**
- * The sketch trim: clicking a piece of an entity removes it. The piece is the span
- * between the two crossings nearest the click — one on each side — so what survives
- * is bounded by real geometry rather than by where the click happened to land. That
- * is the semantics Onshape, Fusion and FreeCAD all document, and the three shapes a
- * trim can take follow from applying it to each entity type: a span touching an end
- * shortens the entity, a span in the middle splits it in two, and a whole circle
- * becomes the arc the removed span leaves behind.
- *
- * The op is a plan and its application: the plan is pure geometry, the application is
- * direct solver mutation, and `guardedEdit` rolls the whole thing back on any failure —
- * the caller solves and commits afterwards. The geometry and the solver edits it shares
- * with the extend and the break live in `curveGeometry.ts` and `entityEditOps.ts`.
- */
-
-/**
  * The two cuts bracketing the click, which bound the piece to remove. A missing side
  * is one of the entity's own ends — no cut there, so the piece runs to that end and
  * the entity is merely shortened. A circle has no ends, so for it both sides are
@@ -202,13 +187,6 @@ function planTrim(
     return Result.ok(plan);
 }
 
-/**
- * How much of the entity the piece under the click takes. No crossing bounds a piece
- * at all when the entity has none, or a closed curve has only one — and that is the case
- * all three CAD systems resolve by removing the whole curve rather than refusing
- * (FreeCAD's delGeometry, Fusion "deletes the original"). A closed curve also wraps, so
- * its piece is measured round the seam rather than as a difference of its two parameters.
- */
 function removedLength(
     entity: SketchEntityData,
     span: RemovedSpan,
@@ -379,19 +357,6 @@ function shorten(
     return Result.ok({ entityIds: [entity.id], removedConstraints, deletedEntities: [] });
 }
 
-/**
- * Trims a piece out of the middle: the entity is cut back to the near bound, and the
- * far half is added as a new entity. The half holding the entity's origin keeps the
- * id — the same choice FreeCAD makes, and the reason the constraints that migrate are
- * only the ones hung off the far end.
- *
- * The free curves cannot move one end and keep their shape: their kept half is the
- * *same curve* shortened, which is a different control-point set (`splitCurveEntity`
- * reparametrizes it, and moves the far end's constraints onto the new half itself), and
- * their far half likewise. A NURBS piece is reshaped rather than reparametrized, which is
- * the one way a split loses constraints — the ones reading control points the kept piece no
- * longer has, whose ids come back to be reported.
- */
 function split(
     solver: SketchSolver,
     entity: SketchEntityData,

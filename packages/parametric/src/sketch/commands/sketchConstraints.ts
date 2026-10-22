@@ -133,16 +133,6 @@ function addAndCommit(
 /**
  * Two picked points fused into one place.
  *
- * The coincidence is the stronger statement when either point already carries an incidence onto
- * an entity the other is a point of: with the two standing in one place "this point is on that
- * line" follows from the line's own structure, so that row is what the tool settles
- * (`subsumedIncidenceIds` — both ends, since either pick order says the same thing). Left in,
- * the pair is a row that says nothing: garlic reads it as a redundant group as soon as the rest
- * of the sketch determines the point, and the panel then offers to delete either of them, of
- * which only the incidence is the one the user meant to give up. FreeCAD drops the same row
- * from the other end (`removeRedundantPointOnObject`, when a B-spline internally implies
- * point-on-object) and says so.
- *
  * That reading has a boundary, and `coincidenceRefusal` draws it: a midpoint holds the point at
  * a place of its own on the entity, and an entity's own curve misses its center and its inner
  * control points, so a fuse onto either is refused rather than settled by deleting something
@@ -386,14 +376,6 @@ export class MidpointConstraintCommand extends SketchConstraintCommand {
             PubSub.default.pub("showToast", "sketch.midpointOnOwnEnd");
             return;
         }
-        // A midpoint is strictly stronger than an incidence onto the same line — it pins the
-        // point at (S+E)/2, which is on the line by construction — so that incidence is a row
-        // the midpoint already carries. Left in, the pair reads as a redundant group as soon
-        // as the rest of the sketch determines the point, and the panel then offers to delete
-        // either of them, of which only the incidence is the one the user meant to give up.
-        // FreeCAD drops the same constraint from the other end (`removeRedundantPointOnObject`,
-        // when a tangent or perpendicular onto a B-spline internally implies it) and says so.
-        //
         // A midpoint that already holds this point on that line — on a coincident neighbour of
         // it as much as on the picked point — is this same statement: one row for the place,
         // not one per point standing in it.
@@ -445,16 +427,6 @@ export class FixConstraintCommand extends SketchConstraintCommand {
     }
 }
 
-/**
- * FreeCAD's "Toggle driving/reference constraint", on the selected dimensions: they become
- * reference measurements, or go back to driving the sketch.
- *
- * A selection is read as one statement, so a mixed one converges on driven — the dimension
- * that already measures is not the one at fault. Nothing checks the reverse direction:
- * turning a reference back on can restate a dimension that already drives that geometry,
- * and the sketch reports that as a redundancy for the user to resolve, which is the same
- * answer every other over-constraining edit in the editor gets.
- */
 @command({ key: "constraint.toggleDriven", icon: "icon-lock" })
 export class ToggleDrivenConstraintCommand extends SketchConstraintCommand {
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {

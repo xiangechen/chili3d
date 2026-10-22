@@ -24,6 +24,7 @@ import {
     type Scope,
     Transaction,
     type UnitSpec,
+    ViewUtils,
     type XYZ,
 } from "@chili3d/core";
 import type { ParametricBodyNode } from "../../parametricBodyNode";
@@ -48,7 +49,6 @@ import {
     type SketchEntityType,
     type SketchPointRef,
     type SketchTextData,
-    viewPixelSize,
 } from "../sketchModel";
 import type { SketchNode } from "../sketchNode";
 import { computeSketchRollback, rollbackRestoreOrder } from "../sketchRollback";
@@ -950,7 +950,7 @@ export class SketchEditor implements IDisposable {
     screenTolerance(): number {
         const view = this.document.application.activeView;
         if (view === undefined) return 0;
-        const size = viewPixelSize(view, this.node.plane.origin);
+        const size = ViewUtils.viewPixelSize(view, this.node.plane.origin);
         return size === undefined ? 0 : size * 8;
     }
 
@@ -1472,10 +1472,6 @@ export class SketchEditor implements IDisposable {
         return this.colouring;
     }
 
-    /**
-     * The FreeCAD-style constraint list panel: solver diagnostics up top, every
-     * user constraint below. Toggled from the sketch ribbon, closed with the session.
-     */
     toggleConstraintsPanel(): void {
         if (this.disposed) return;
         if (this.constraintsPanel !== undefined) {

@@ -166,16 +166,6 @@ function addIncircle(
     return incircleId;
 }
 
-/**
- * A regular polygon from a center pick and a pick that sets its size and rotation.
- *
- * It lands as N independent lines, not a polygon object — the solver has no such
- * entity type, the same shape FreeCAD's regular polygon takes. Its construction
- * circles are serialized with them: the carrier through the vertices in both modes,
- * plus the picked incircle in circumscribed mode. Both stay visible and pickable as
- * ordinary construction geometry, and both show their constraints in the editor's
- * constraint panel.
- */
 @command({ key: "sketch.polygon", icon: "icon-polygon" })
 export class SketchPolygonCommand extends SketchMultistepCommand {
     /** Sides of the polygon; garlic's angular step needs at least a triangle. */

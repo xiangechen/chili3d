@@ -23,6 +23,7 @@ import {
     type ShapeMeshData,
     type SnapResult,
     Transaction,
+    ViewUtils,
     VisualConfig,
     type XYZ,
 } from "@chili3d/core";
@@ -30,7 +31,6 @@ import type { HoleFeatureData, HoleSketchPoints } from "../features/feature";
 import { findSketchPointAt, holePointUV, type SketchPointSnap } from "../features/hole";
 import { pointCrossMesh } from "../sketch/curveMesh";
 import type { PlaneFaceRef } from "../sketch/planeRef";
-import { viewPixelSize } from "../sketch/sketchModel";
 import { HoleCenterPickHandler, type SketchPointGlyphHit } from "./holeCenterPickHandler";
 import { deduceHoleFace, type PickedHoleFace } from "./holeFace";
 
@@ -283,7 +283,7 @@ export class HoleFeatureCommand extends MultistepCommand {
     private snapAt(view: IView, point: XYZ): SketchPointSnap | undefined {
         const picked = this.picked;
         if (picked === undefined) return undefined;
-        const pixel = viewPixelSize(view, point);
+        const pixel = ViewUtils.viewPixelSize(view, point);
         if (pixel === undefined) return undefined;
         return findSketchPointAt(
             this.document,
@@ -297,7 +297,7 @@ export class HoleFeatureCommand extends MultistepCommand {
     /** A bound center's marker: the sketch point's own cross, on the face where the hole lands. */
     private crossPoint(center: XYZ): EdgeMeshData {
         const view = this.document.application.activeView;
-        const pixel = view === undefined ? undefined : viewPixelSize(view, center);
+        const pixel = view === undefined ? undefined : ViewUtils.viewPixelSize(view, center);
         // No view to measure against collapses the cross onto the point — nothing to see then.
         const half = (pixel ?? 0) * (VisualConfig.editVertexSize / 2);
         return pointCrossMesh(

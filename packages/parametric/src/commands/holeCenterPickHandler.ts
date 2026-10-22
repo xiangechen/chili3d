@@ -11,13 +11,14 @@ import {
     ShapeSelectionHandler,
     ShapeTypes,
     screenDistance,
+    ViewUtils,
     VisualConfig,
     VisualStates,
     type XYZ,
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { pointCrossMesh } from "../sketch/curveMesh";
-import { toUV, toWorld, viewPixelSize } from "../sketch/sketchModel";
+import { toUV, toWorld } from "../sketch/sketchModel";
 import { SketchNode } from "../sketch/sketchNode";
 import { capturePickedHoleFace, type PickedHoleFace } from "./holeFace";
 
@@ -185,7 +186,7 @@ export class HoleCenterPickHandler extends ShapeSelectionHandler {
      */
     private displayCross(view: IView, hit: SketchPointGlyphHit, color: number): number {
         const plane = hit.sketch.plane.transformed(hit.sketch.worldTransform());
-        const half = (viewPixelSize(view, hit.world) ?? 0) * (VisualConfig.editVertexSize / 2);
+        const half = (ViewUtils.viewPixelSize(view, hit.world) ?? 0) * (VisualConfig.editVertexSize / 2);
         return this.document.visual.context.displayMesh(
             [pointCrossMesh(plane, toUV(plane, hit.world), half, color)],
             { onTop: true },

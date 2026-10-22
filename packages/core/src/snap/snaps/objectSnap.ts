@@ -3,9 +3,18 @@
 
 import { Config, VisualConfig } from "../../config";
 import type { IDocument } from "../../document";
+import { Precision } from "../../foundation";
 import { I18n, type I18nKeys } from "../../i18n";
 import { Line, type Ray, type XYZ } from "../../math";
-import { CurveUtils, type ICircle, type IEdge, type IVertex, MeshDataUtils, ShapeTypes } from "../../shape";
+import {
+    CurveUtils,
+    type ICircle,
+    type IEdge,
+    type IFace,
+    type IVertex,
+    MeshDataUtils,
+    ShapeTypes,
+} from "../../shape";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "../../snapType";
 import { type IView, type IVisualContext, screenDistance, type VisualShapeData } from "../../visual";
 import type { MouseAndDetected, SnapResult, SnapType } from "../snap";
@@ -69,14 +78,15 @@ export class ObjectSnap extends BaseSnap {
     snap(data: MouseAndDetected): SnapResult | undefined {
         if (!Config.instance.enableSnap) return undefined;
 
+        const shapes = this.visibleOnly(data);
         let snap: SnapResult | undefined;
         if (
-            data.shapes.some(
+            shapes.some(
                 (x) => x.shape.shapeType === ShapeTypes.edge || x.shape.shapeType === ShapeTypes.vertex,
             )
         ) {
-            this.showInvisibleSnaps(data.view, data.shapes[0]);
-            snap = this.snapOnShape(data.view, data.mx, data.my, data.shapes);
+            this.showInvisibleSnaps(data.view, shapes[0]);
+            snap = this.snapOnShape(data.view, data.mx, data.my, shapes);
         } else {
             snap = this.snapeInvisible(data.view, data.mx, data.my);
         }
@@ -84,6 +94,46 @@ export class ObjectSnap extends BaseSnap {
             snap.distance = this.referencePoint().distanceTo(snap.point);
         }
         return snap;
+    }
+
+    /**
+     * Shaded picking sees through the model: the raycast reports edges and vertices behind the
+     * face under the cursor, and their feature points snap as if they were visible. Keep what
+     * the visible surface shows — shapes floating in front of it, and shapes lying on it. A
+     * wireframe view detects no faces, so nothing is filtered there.
+     */
+    private visibleOnly(data: MouseAndDetected): VisualShapeData[] {
+        const face = data.shapes.find((x) => x.shape.shapeType === ShapeTypes.face);
+        if (face?.point === undefined) return data.shapes;
+
+        const ray = data.view.rayAt(data.mx, data.my);
+        const faceDepth = face.point.sub(ray.point).dot(ray.direction);
+        return data.shapes.filter((x) => {
+            if (x.shape.shapeType === ShapeTypes.face) return true;
+            if (x.point === undefined) return false;
+            const depth = x.point.sub(ray.point).dot(ray.direction);
+            return depth <= faceDepth + Precision.OnSurface || this.onVisibleSideOfFace(face, x.point, ray);
+        });
+    }
+
+    /**
+     * Whether a point behind the visible face still lies on its visible side: the parallel ray
+     * through the point meets the face no nearer to the camera than the point itself. A
+     * distance-to-surface test cannot answer this — the basis surface is unbounded, so the far
+     * edge of a cylinder measures distance 0 to the surface of the face hiding it.
+     */
+    private onVisibleSideOfFace(face: VisualShapeData, point: XYZ, ray: Ray): boolean {
+        const invert = face.transform.invert()!;
+        const hit = (face.shape as IFace).intersectLine(
+            invert.ofPoint(point),
+            invert.ofVector(ray.direction),
+            Precision.OnSurface,
+        );
+        if (hit === undefined) return false;
+
+        const depth = point.sub(ray.point).dot(ray.direction);
+        const hitDepth = face.transform.ofPoint(hit).sub(ray.point).dot(ray.direction);
+        return depth <= hitDepth + Precision.OnSurface;
     }
 
     private snapOnShape(view: IView, x: number, y: number, shapes: VisualShapeData[]) {

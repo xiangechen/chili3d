@@ -77,15 +77,6 @@ export function isBroken(result: SolveOutcome["result"]): boolean {
 
 // ------------------------------------------------------------------ Endpoints the edits create
 
-/**
- * Attaches a freshly created or moved endpoint to the entity that cut it, so the two
- * stay together when either is edited later. A cut landing on the cutter's own end is
- * common enough (a T-junction) that the incidence becomes a coincidence there — the
- * same point-to-point / point-to-object choice `autoConstraints` makes when a drawn
- * point snaps onto geometry, and the one FreeCAD's trim documents. Every entity type
- * has its PointOn kind (`pointOnConstraintFor`), the datum axes included — an axis is
- * a line stored as its own unit segment, and the line's refs serve both.
- */
 export function pinCut(
     solver: SketchSolver,
     ref: SketchPointRef,

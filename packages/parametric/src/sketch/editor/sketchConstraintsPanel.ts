@@ -116,24 +116,6 @@ function datumText(constraint: SketchConstraintData, display: RadiusDisplay): st
     return undefined;
 }
 
-/**
- * The FreeCAD-style constraint list, hosted in a float panel by the `SketchEditor`:
- * a header on top (a state dot for the solve — red on conflict, amber on redundant,
- * green when fully constrained — plus the constraint count; the degree-of-freedom
- * number lives in the status bar), and every user constraint below. Flagged
- * constraints carry the issue on their own row: a red or amber chip next to the
- * name, on top of the row tint.
- *
- * Row interactions mirror the viewport badges: click selects (shift adds), hovering
- * highlights the constraint's badge along with its referenced entities,
- * double-clicking a datum row re-opens its value input, and the trailing button
- * deletes the constraint.
- * Selection stays in sync both ways through `annotations.onSelectionChanged`.
- *
- * All DOM is raw `document.createElement` — the parametric package depends only
- * on core, so the element helpers the ui package uses are unavailable here
- * (`datumPrompt.ts` is the package's precedent).
- */
 export class SketchConstraintsPanel {
     readonly element: HTMLElement;
     private readonly headerSection: HTMLElement;
@@ -308,10 +290,6 @@ export class SketchConstraintsPanel {
         }
     }
 
-    /**
-     * The issue rides on the row itself: a red "conflict" or amber "redundant" chip
-     * next to the name, plus the row tint — FreeCAD's list marks them the same way.
-     */
     private addIssueChip(row: HTMLElement, id: number): void {
         const { conflicting, redundant } = this.editor.diagnostics;
         const isConflicting = conflicting.includes(id);

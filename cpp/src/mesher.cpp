@@ -4,6 +4,8 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
+#include <algorithm>
+
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepLib_ToolTriangulatedShape.hxx>
@@ -239,8 +241,55 @@ public:
         } else {
             this->lineDeflection = lineDeflection;
         }
-        BRepMesh_IncrementalMesh mesh(shape, lineDeflection, true, ANGLE_DEFLECTION, true);
+        triangulate(shape, lineDeflection);
     }
+
+private:
+    /**
+     * A face carrying a loose vertex — one no edge of the face references, embedded e.g. by a
+     * boolean whose tool only touched the face at a point — raises inside BRepMesh, and with
+     * exception catching disabled that aborts the whole module. Clean shapes mesh in one call
+     * as before; once a corrupt face shows up, mesh face by face and skip it: it stays
+     * invisible, but its edges still mesh from their curves and everything else survives.
+     */
+    void triangulate(const TopoDS_Shape& shape, double deflection)
+    {
+        std::vector<TopoDS_Face> corrupt;
+        for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next()) {
+            if (hasLooseVertex(TopoDS::Face(exp.Current()))) {
+                corrupt.push_back(TopoDS::Face(exp.Current()));
+            }
+        }
+        if (corrupt.empty()) {
+            BRepMesh_IncrementalMesh mesh(shape, deflection, true, ANGLE_DEFLECTION, true);
+            return;
+        }
+        for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next()) {
+            const TopoDS_Face& face = TopoDS::Face(exp.Current());
+            const auto isCorrupt = [&face](const TopoDS_Face& c) { return face.IsSame(c); };
+            if (std::none_of(corrupt.begin(), corrupt.end(), isCorrupt)) {
+                BRepMesh_IncrementalMesh mesh(face, deflection, true, ANGLE_DEFLECTION, true);
+            }
+        }
+    }
+
+    static bool hasLooseVertex(const TopoDS_Face& face)
+    {
+        NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> wired;
+        for (TopExp_Explorer edgeExp(face, TopAbs_EDGE); edgeExp.More(); edgeExp.Next()) {
+            for (TopExp_Explorer vertexExp(edgeExp.Current(), TopAbs_VERTEX); vertexExp.More(); vertexExp.Next()) {
+                wired.Add(vertexExp.Current());
+            }
+        }
+        for (TopExp_Explorer vertexExp(face, TopAbs_VERTEX); vertexExp.More(); vertexExp.Next()) {
+            if (!wired.Contains(vertexExp.Current())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+public:
 
     NumberArray edgesMeshPosition()
     {

@@ -90,13 +90,20 @@ export class ShowPropertyEventHandler extends NodeSelectionHandler {
     /** Where the dragged grip goes: a snapped feature point if one is near, else the drag plane. */
     private dragPoint(view: IView, drag: ActiveDimensionDrag, event: PointerEvent): XYZ | undefined {
         if (drag.objectSnap) {
-            const shapes = view.detectShapes(
-                (ShapeTypes.edge | ShapeTypes.vertex) as ShapeType,
+            // Faces are detected so the snap's occlusion filter can drop what the face under
+            // the cursor hides, and moved last: snapOnShape reads feature points from the
+            // first shapes, and a face has none.
+            const detected = view.detectShapes(
+                (ShapeTypes.edge | ShapeTypes.vertex | ShapeTypes.face) as ShapeType,
                 event.offsetX,
                 event.offsetY,
                 undefined,
                 NOT_REFERENCE_GEOMETRY_FILTER,
             );
+            const shapes = [
+                ...detected.filter((x) => x.shape.shapeType !== ShapeTypes.face),
+                ...detected.filter((x) => x.shape.shapeType === ShapeTypes.face),
+            ];
             const snaped = drag.objectSnap.snap({ view, mx: event.offsetX, my: event.offsetY, shapes });
             drag.objectSnap.handleSnaped?.(this.document, snaped);
             if (snaped?.point !== undefined) return snaped.point;

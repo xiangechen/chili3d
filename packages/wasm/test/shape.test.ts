@@ -786,6 +786,14 @@ describe("OccFace", () => {
         expect(bottomFace!.containsPoint({ x: 50, y: 10, z: 0 }, false, 0.01)).toBe(false);
     });
 
+    test("containsPoint measures the distance linearly, not squared", () => {
+        // Above the bottom face interior: 0.005 is within the 0.01 tolerance, 0.02 is not.
+        // A squared-distance comparison would accept both (√0.01 = 0.1).
+        const bottomFace = boxFaces.find((f) => f.normal(0.5, 0.5)[1].z === -1);
+        expect(bottomFace!.containsPoint({ x: 5, y: 10, z: 0.005 }, true, 0.01)).toBe(true);
+        expect(bottomFace!.containsPoint({ x: 5, y: 10, z: 0.02 }, true, 0.01)).toBe(false);
+    });
+
     test("segmentsOfEdgeOnFace returns the pcurve domain for an edge on the face", () => {
         const box = createBox(factory, 10, 10, 10);
         const face = box.findSubShapes(ShapeTypes.face)[0] as OccFace;

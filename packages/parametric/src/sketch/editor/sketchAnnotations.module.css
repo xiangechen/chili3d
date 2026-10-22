@@ -172,17 +172,6 @@
     opacity: 0.7;
 }
 
-/*
- * Constraints that share an anchor draw on top of each other, so they fold into one chip
- * that opens into a row on hover — FreeCAD, Fusion and Creo all stack rather than offset
- * them, because offsetting cannot keep every constraint reachable once their count grows.
- *
- * The chip carries `position` and `transform` from the CSS2D renderer (which re-sets the
- * transform every frame), so it is already the containing block for `.stackMembers` and
- * needs no positioning of its own. Note that the renderer also rewrites `zIndex` per frame:
- * a `z-index` set here would be overwritten, so the row stays in the chip's own stacking
- * context and relies on the members sharing its camera distance.
- */
 .stack {
     font-variant-numeric: tabular-nums;
 }

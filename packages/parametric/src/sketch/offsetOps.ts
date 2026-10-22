@@ -31,61 +31,6 @@ import {
 import type { SketchSolver } from "./solver";
 import { centerRef, lineRefs } from "./solverEntities";
 
-/**
- * The sketch offset: a *tied* copy of the selected entities, shifted a distance to one
- * side. The side is the caller's sign — the entities of one chain are traversed as a
- * chain, so "left of the traversal" is one side for all of them, and a closed loop comes
- * out consistently inside or outside rather than a mix of the two. What "left" means on
- * one entity is per kind, and deliberate: see `offsetParams`.
- *
- * The copy is held by the source rather than copied, the same choice the mirror makes
- * (see `mirrorOps.ts`): each line copy is `Parallel` to its source at a fixed
- * `P2LDistance`, and because that distance carries a datum it *is* a dimension on the
- * sketch — editable like any other, so the tool is one drag to place and one number to
- * adjust afterwards. Adjacent copies are stitched at the corners with `P2PCoincident`,
- * which is what makes a closed loop exactly rigid: N lines have 4N degrees of freedom,
- * and N parallels + N distances + N coincidences (two equations each) take exactly 4N.
- * That is also FreeCAD's own count (its Intersection mode is criticised for adding about
- * twice as much — FreeCAD/FreeCAD#32699 — so nothing here is decorative).
- *
- * Corners are joined by intersecting the offset **carriers** — the infinite line, the
- * whole circle — never the trimmed curves, and the solution nearest the original corner
- * is the one taken. It matters for arcs: their start point *is* their radius, so moving
- * one onto a point that is not on the offset circle would resize the arc. Both Fusion
- * and FreeCAD document the same join: extend/trim the neighbours to their intersection,
- * so a rectangle offsets to a rectangle instead of four crossing lines.
- *
- * Two things the solver cannot express, and the tool therefore does not pretend to. A
- * circle's or an arc's offset radius is a *difference* of radii, and garlic has no such
- * constraint (`EqualRadius`/`EqualArcRadius` only state equality, and tangency between
- * concentric curves degenerates to equality) — so a circle or arc copy is held
- * concentric by its centre alone and keeps the radius it was created with. Neither is a
- * branched pick (three edges meeting at one point) joined: which pair would meet there
- * is ambiguous, so those edges offset independently and the caller says so.
- *
- * The five numeric families — the ellipse, the ellipseArc, the conic, the cubic bezier and
- * the NURBS — are offset differently, and the reason is mathematics rather than taste: **the
- * offset of a curve is not a curve of its own kind**. An ellipse's parallel curve is not an
- * ellipse, a cubic's is not a cubic, and garlic has no constraint expressing "this curve is
- * that one offset by d" to hold a copy of the same kind in place (`P2PDistance` is between
- * points, `P2LDistance` between a point and a line). Onshape solves the same problem by
- * keeping the copy as its source's parameters *plus* an offset value and evaluating it
- * numerically, held by one of its minimum-distance constraints; garlic has no such
- * constraint, and its build is not in this repository — so there is nothing for a tied copy
- * to be tied *by*.
- *
- * Those copies are therefore plain, unattached geometry — no constraint ties them to their
- * source, and `offsetCurve` is the kind that holds them (see `offsetCurveGeometry`): the
- * source's own params, the distance, and nothing else. The parallel curve is what the
- * evaluator reads off that pair (`curveEval.offsetAdapter`), so a copy *does* follow its
- * source — exactly, and with no fitted control points for the user to look at — but nothing
- * holds its two ends anywhere, and the number that is its distance is the only handle it has.
- *
- * The op mirrors `cornerOps.ts` / `trimOps.ts`: pure geometry plus direct solver
- * mutation, all of it rolled back on any failure, with the caller solving and committing
- * afterwards.
- */
-
 /** A point of a copy — its id only exists once the copy has been created. */
 interface CopyPoint {
     readonly copyIndex: number;

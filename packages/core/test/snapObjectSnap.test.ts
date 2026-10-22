@@ -1401,4 +1401,203 @@ describe("ObjectSnap", () => {
             expect(result!.type).toBe("nearCurve");
         });
     });
+
+    // ========================================================================
+    // snap() — occlusion by the face under the cursor
+    // ========================================================================
+
+    describe("snap — occlusion", () => {
+        /**
+         * The z=0 plane under the cursor; the parallel ray through any point meets it at z=0.
+         * The default mock view looks down -Z from z=500, so a point's depth is 500 - z.
+         * `intersectLine` overrides the face's bounded intersection for curved-face cases.
+         */
+        function createFaceShapeData(
+            intersectLine: (p: XYZ, d: XYZ) => XYZ | undefined = (p) => new XYZ({ x: p.x, y: p.y, z: 0 }),
+        ): VisualShapeData {
+            return {
+                shape: {
+                    id: "face-1",
+                    shapeType: ShapeTypes.face,
+                    intersectLine,
+                    dispose: () => {},
+                } as never,
+                owner: {
+                    node: {
+                        id: "node-1",
+                        document: {
+                            visual: {
+                                highlighter: {
+                                    addState: () => {},
+                                    removeState: () => {},
+                                },
+                            },
+                        },
+                    },
+                } as never,
+                transform: {
+                    ofPoint: (p: XYZ) => p,
+                    invert: () => ({
+                        ofPoint: (p: XYZ) => p,
+                        ofVector: (p: XYZ) => p,
+                    }),
+                    ofVector: (p: XYZ) => p,
+                } as never,
+                indexes: [],
+                point: XYZ.zero,
+            } as unknown as VisualShapeData;
+        }
+
+        function createEdgeAtZ(z: number): VisualShapeData {
+            const curve = createMockEdgeCurve({
+                start: new XYZ({ x: 0, y: 0, z }),
+                end: new XYZ({ x: 10, y: 0, z }),
+            });
+            return createEdgeShapeData({
+                shape: {
+                    id: `edge-z${z}`,
+                    shapeType: ShapeTypes.edge,
+                    curve,
+                    point: () => XYZ.zero,
+                    transformedMul: () => ({
+                        curve,
+                        intersect: () => [],
+                        dispose: () => {},
+                    }),
+                    intersect: () => [],
+                    dispose: () => {},
+                } as never,
+                point: new XYZ({ x: 0, y: 0, z }),
+            });
+        }
+
+        test("should not snap to an edge hidden behind the face under the cursor", () => {
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [createFaceShapeData(), createEdgeAtZ(-10)],
+            });
+
+            expect(snap.snap(data)).toBeUndefined();
+        });
+
+        test("should still snap to an edge lying on the visible face", () => {
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [createFaceShapeData(), createEdgeAtZ(0)],
+            });
+
+            const result = snap.snap(data);
+            expect(result).not.toBeNull();
+            expect(result!.type).toBe("end");
+            expect(result!.point!.z).toBe(0);
+        });
+
+        test("should still snap to an edge floating in front of the face", () => {
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [createFaceShapeData(), createEdgeAtZ(10)],
+            });
+
+            const result = snap.snap(data);
+            expect(result).not.toBeNull();
+            expect(result!.type).toBe("end");
+            expect(result!.point!.z).toBe(10);
+        });
+
+        test("should not snap to a vertex hidden behind the face", () => {
+            const snap = new ObjectSnap(ObjectSnapTypes.vertex);
+            const view = createMockView();
+            // The vertex is shapes[0] on purpose: with the filter gutted, snapOnShape reads
+            // its feature point and the test fails, so the filter branch is really exercised.
+            const data = createMouseAndDetected(view, {
+                shapes: [createVertexShapeData(new XYZ({ x: 0, y: 0, z: -10 })), createFaceShapeData()],
+            });
+
+            expect(snap.snap(data)).toBeUndefined();
+        });
+
+        test("should snap to the on-face edge when a hidden edge is also detected", () => {
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [createFaceShapeData(), createEdgeAtZ(0), createEdgeAtZ(-10)],
+            });
+
+            const result = snap.snap(data);
+            expect(result).not.toBeNull();
+            expect(result!.type).toBe("end");
+            expect(result!.point!.z).toBe(0);
+        });
+
+        test("should not snap to an edge on the far side of a curved face", () => {
+            // The edge point lies on the face's region (a distance-to-basis-surface test would
+            // keep it), but the parallel ray through it meets the face 10 units nearer to the
+            // camera — the point is on the face's far side, like a cylinder's back edge.
+            const face = createFaceShapeData((p) => new XYZ({ x: p.x, y: p.y, z: p.z + 10 }));
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [face, createEdgeAtZ(-10)],
+            });
+
+            expect(snap.snap(data)).toBeUndefined();
+        });
+
+        test("should still snap to an edge bulging toward the camera on a curved face", () => {
+            // The parallel ray through the edge point meets the face BEHIND the point: the
+            // point is on the visible side even though it sits behind the cursor's face hit.
+            const face = createFaceShapeData((p) => new XYZ({ x: p.x, y: p.y, z: p.z - 10 }));
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [face, createEdgeAtZ(-10)],
+            });
+
+            const result = snap.snap(data);
+            expect(result).not.toBeNull();
+            expect(result!.type).toBe("end");
+            expect(result!.point!.z).toBe(-10);
+        });
+
+        test("should not snap to an edge whose parallel ray misses the bounded face", () => {
+            const face = createFaceShapeData(() => undefined);
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [face, createEdgeAtZ(-10)],
+            });
+
+            expect(snap.snap(data)).toBeUndefined();
+        });
+
+        test("should not filter anything when the face has no pick point", () => {
+            const face = createFaceShapeData();
+            face.point = undefined;
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [face, createEdgeAtZ(-10)],
+            });
+
+            const result = snap.snap(data);
+            expect(result).not.toBeNull();
+            expect(result!.type).toBe("end");
+            expect(result!.point!.z).toBe(-10);
+        });
+
+        test("should drop a detected shape that has no pick point", () => {
+            const edge = createEdgeAtZ(10);
+            edge.point = undefined;
+            const snap = new ObjectSnap(ObjectSnapTypes.endPoint);
+            const view = createMockView();
+            const data = createMouseAndDetected(view, {
+                shapes: [createFaceShapeData(), edge],
+            });
+
+            expect(snap.snap(data)).toBeUndefined();
+        });
+    });
 });

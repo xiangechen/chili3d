@@ -104,8 +104,11 @@ const ENUM_VALUES = {
 
 // Factory methods hidden from the AI catalog. fuse IS booleanFuse underneath, but unlike
 // booleanFuse it is not an edit op: its input nodes stay in the scene, leaving overlapping
-// duplicate solids. booleanFuse covers the use case without the foot-gun.
-const FACTORY_EXCLUDES = new Set(["fuse"]);
+// duplicate solids. booleanFuse covers the use case without the foot-gun. glueShapes only
+// fuses faces that share geometry; volume-interfering inputs come back as an unmerged
+// compound reported as success, which reads as "the solids fused" — booleanFuse is the
+// op with that semantics.
+const FACTORY_EXCLUDES = new Set(["fuse", "glueShapes"]);
 
 // Named type aliases the checker prints unexpanded — inline their values so the AI knows
 // what to compare query results against.

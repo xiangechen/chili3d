@@ -948,6 +948,9 @@ export class ShapeFactory implements IShapeFactory {
         const occShapes = ensureOccShape(shapes);
         return convertShapeResult(wasm.ShapeFactory.sewing, [occShapes], "Sewing Error");
     }
+    glueShapes(shapes: IShape[]): Result<IShape> {
+        return convertShapeResult(wasm.ShapeFactory.glueShapes, [ensureOccShape(shapes)], "Glue Error");
+    }
     combine(shapes: IShape[]): Result<ICompound> {
         return convertShapeResult(
             wasm.ShapeFactory.combine,

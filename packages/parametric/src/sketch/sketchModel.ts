@@ -4,10 +4,9 @@
 import {
     ANGLE_UNITS,
     type DimensionLabel,
-    type IView,
     LENGTH_UNITS,
     type ParameterValue,
-    Plane,
+    type Plane,
     Precision,
     Result,
     resolveUnitSpec,
@@ -15,7 +14,7 @@ import {
     UNITLESS,
     type UnitSpec,
     VisualConfig,
-    XYZ,
+    type XYZ,
 } from "@chili3d/core";
 import { ConstraintKind } from "../../lib/garlic";
 import type { EdgeRef } from "../features/edgeRef";
@@ -291,17 +290,6 @@ export interface SketchConstraintData {
      * it drives, and only this record knows which reading the user wrote.
      */
     display?: RadiusDisplay;
-    /**
-     * A driven (reference) dimension: it measures the geometry and never constrains it,
-     * the way SolidWorks' reference dimensions and FreeCAD's reference constraints do.
-     * garlic has the mode natively — a driven constraint contributes no degree of freedom
-     * and has its datum *written back* after each solve, which is precisely "the geometry
-     * drives the dimension"; `SketchSolver` is what passes the flag through. Absent is
-     * driving, so a reference from before this existed round-trips unchanged.
-     *
-     * Only a dimensional constraint can be driven: garlic refuses `driving = false`
-     * without a datum, and there is nothing for a geometric one to measure.
-     */
     driven?: boolean;
 }
 
@@ -1085,44 +1073,4 @@ export function toWorld(plane: Plane, u: number, v: number): XYZ {
 export function toUV(plane: Plane, point: XYZ): [number, number] {
     const vector = plane.project(point).sub(plane.origin);
     return [vector.dot(plane.xvec), vector.dot(plane.yvec)];
-}
-
-/**
- * Sketch-plane units per screen pixel at viewport position (x, y), measured with
- * two rays — exact for both camera types, unlike `worldToScreen` which rounds to
- * whole pixels and collapses small spans at low zoom levels. Undefined when the
- * plane is off-ray or the span collapses.
- *
- * NOTE: the on-plane measure explodes like 1/cos(grazing) as the view turns
- * edge-on to the plane. For screen-constant graphics (annotation text, arrows,
- * pick tolerances) use `viewPixelSize` instead.
- */
-export function worldPerPixel(view: IView, plane: Plane, x: number, y: number): number | undefined {
-    const p0 = plane.intersectRay(view.rayAt(x, y));
-    const p1 = plane.intersectRay(view.rayAt(x + 1, y));
-    if (p0 === undefined || p1 === undefined) return undefined;
-    const size = p0.distanceTo(p1);
-    return size < 1e-12 ? undefined : size;
-}
-
-/**
- * World units per screen pixel at `point`, measured on the plane perpendicular to
- * the center ray through that point. Unlike `worldPerPixel` on the sketch plane
- * this stays bounded at any view angle — it depends only on the camera and the
- * depth of `point` — so screen-sized graphics foreshorten naturally with the
- * tilted sketch instead of ballooning as the view turns edge-on.
- */
-export function viewPixelSize(view: IView, point: XYZ): number | undefined {
-    const cx = view.width / 2;
-    const cy = view.height / 2;
-    // the center ray, not view.direction(): the measure must come from the same
-    // ray family it samples (the two agree on a real camera)
-    const direction = view.rayAt(cx, cy).direction;
-    let xvec = direction.cross(view.up());
-    if (xvec.lengthSq() < 1e-12) {
-        // looking straight along the up axis — pick any perpendicular
-        xvec = direction.cross(Math.abs(direction.dot(XYZ.unitX)) < 0.9 ? XYZ.unitX : XYZ.unitY);
-    }
-    const facing = new Plane({ origin: point, normal: direction, xvec });
-    return worldPerPixel(view, facing, cx, cy);
 }

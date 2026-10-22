@@ -84,12 +84,6 @@ export interface MaterialOptions {
     id?: string;
 }
 
-/**
- * A surface a new material can start from. A CAD user picks what the surface *is* — satin plastic,
- * polished metal — rather than dialling a neutral shader into shape: Fusion 360 and Onshape both
- * ship appearance libraries and keep their defaults inside those assets, and FreeCAD's cards store
- * a whole named material. These are the same idea with the values written down.
- */
 export interface MaterialPreset {
     /** Names the preset in the picker and the material it creates. English, like the rest of a
      *  document's materials, and like the appearance names in Fusion's library. */

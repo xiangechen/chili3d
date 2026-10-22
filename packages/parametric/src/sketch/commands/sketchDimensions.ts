@@ -44,34 +44,6 @@ import { SketchConstraintCommand } from "./sketchConstraints";
 /** The longest selection the inference table ever reads — two elements, whatever they are. */
 const MAX_ELEMENTS = 2;
 
-/**
- * Onshape's Dimension: one tool that reads what you picked instead of being told what to
- * measure. A line is its length, a circle its diameter, two lines an angle, two points
- * whichever distance the label is dragged into (see `inferDimension` for the whole table).
- *
- * A click does two jobs, and which one it does is decided by what it hit — on an element
- * it adds to the selection, on empty space it places what the selection has earned. That
- * is the only arrangement in which "one line is a length" and "two lines are an angle"
- * coexist: a line alone is already a complete dimension, so no rule based on the selection
- * growing could tell "place now" from "I am picking a second line". Hitting nothing is how
- * the user says the second thing.
- *
- * The tool stays up after placing, so a second dimension is the next click rather than a
- * second command — the same shape as `sketch.trim`.
- */
-/**
- * A dimension tool's one option: while it is on, the dimensions this tool places measure
- * the geometry instead of driving it (`SketchConstraintData.driven`) — SolidWorks' "driven
- * dimension in sketch", the same toggle FreeCAD puts on its creation tools.
- *
- * On the command rather than on the editor, because it belongs to the tool that is
- * running: it is declared the way every other command option is, so the command bar
- * renders it (`CommandContext` reads a command's `@property` fields) and the value the
- * user leaves behind is the one the tool starts with next time (`CancelableCommand`).
- * The option is not private to one dimension tool — every one of these commands reads it,
- * so the toggle set on one applies to the others; `cacheKeyOfProperty` below keeps it on
- * the shared bare-name key now that options are otherwise cached per command.
- */
 abstract class DrivenDimensionCommand extends SketchConstraintCommand {
     @property("option.command.driven")
     get driven(): boolean {

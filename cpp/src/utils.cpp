@@ -151,7 +151,10 @@ std::optional<gp_Pnt2d> pointToFaceUV(const TopoDS_Face& face, gp_Pnt pnt, doubl
             aIndice = i;
         }
     }
-    if (aIndice && aMaxDist <= tolerance) {
+    // aMaxDist is a SQUARED distance — comparing it with the linear tolerance directly
+    // would accept points as far as √tolerance off the surface (0.0316 for the default
+    // 0.001), making Face::containsPoint claim floating points lie on the face.
+    if (aIndice && aMaxDist <= tolerance * tolerance) {
         aExtrema.Point(aIndice).Parameter(aU1, aU2);
         aPuv.SetCoord(aU1, aU2);
         return aPuv;

@@ -1,8 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { ObservableCollection } from "@chili3d/core";
 import { SketchRibbonProfiles } from "@chili3d/parametric";
-import { DefaultRibbon, mergeRibbonProfiles, ParametricRibbonProfiles } from "../src/ribbon";
+import {
+    DefaultRibbon,
+    mergeRibbonProfiles,
+    ParametricRibbonProfiles,
+    type RibbonProfileExtra,
+} from "../src/ribbon";
 
 describe("DefaultRibbon", () => {
     test("should be a non-empty array of tab profiles", () => {
@@ -270,7 +276,16 @@ describe("ParametricRibbonProfiles", () => {
             "modify.deleteNode",
             "modify.paintBucket",
             "modify.array",
+            "annotate.dimension",
+            "annotate.radius",
+            "annotate.diameter",
+            "annotate.angle",
+            "annotate.text",
+            "file.import",
+            "file.export",
             "feature.variable",
+            "wechat.group",
+            "ai.toggleChat",
         ]);
     });
 });
@@ -304,7 +319,67 @@ describe("mergeRibbonProfiles", () => {
         expect(allItems.some((x) => x.startsWith("sketch."))).toBe(false);
         expect(DefaultRibbon.some((t) => t.tabName === "ribbon.tab.sketch")).toBe(false);
     });
+
+    test("merging the same extras twice leaves them unchanged and repeats the result", () => {
+        const extras = [...SketchRibbonProfiles, ...ParametricRibbonProfiles];
+        const before = JSON.stringify(extras);
+
+        const first = mergeRibbonProfiles(DefaultRibbon, extras);
+        const second = mergeRibbonProfiles(DefaultRibbon, extras);
+
+        expect(JSON.stringify(extras)).toBe(before);
+        expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+    });
+
+    test("an extra group merged into an existing group is not grown by the merge", () => {
+        const extras: RibbonProfileExtra[] = [
+            {
+                tabName: "ribbon.tab.model",
+                groups: [
+                    {
+                        groupName: "ribbon.group.draw",
+                        items: ["create.point", { type: "split", items: ["create.line", "create.rect"] }],
+                    },
+                ],
+            },
+        ];
+
+        const first = mergeRibbonProfiles(DefaultRibbon, extras);
+        mergeRibbonProfiles(DefaultRibbon, extras);
+        mergeRibbonProfiles(DefaultRibbon, extras);
+
+        expect(flattenItems(extras[0].groups[0].items)).toEqual([
+            "create.point",
+            "create.line",
+            "create.rect",
+        ]);
+        const second = mergeRibbonProfiles(DefaultRibbon, extras);
+        expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+    });
+
+    test("the merged result shares no array or object with base or extras", () => {
+        const extras = [...SketchRibbonProfiles, ...ParametricRibbonProfiles];
+        const merged = mergeRibbonProfiles(DefaultRibbon, extras);
+
+        const mergedRefs = collectRefs(merged);
+        const sourceRefs = collectRefs(DefaultRibbon);
+        collectRefs(extras, sourceRefs);
+
+        for (const ref of mergedRefs) {
+            expect(sourceRefs.has(ref)).toBe(false);
+        }
+    });
 });
+
+/** Every array and plain object reachable from `root`; runtime collections are shared by design. */
+function collectRefs(root: unknown, into: Set<object> = new Set()): Set<object> {
+    if (typeof root !== "object" || root === null || root instanceof ObservableCollection) return into;
+    into.add(root);
+    for (const value of Object.values(root)) {
+        collectRefs(value, into);
+    }
+    return into;
+}
 
 /** Recursively flatten item entries that may be strings, string arrays, or {type, items} objects. */
 function flattenItems(items: any[]): string[] {

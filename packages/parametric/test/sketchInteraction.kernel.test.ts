@@ -240,13 +240,6 @@ describe("sketch editor interactions", () => {
     });
 });
 
-/**
- * The TNP scenarios FreeCAD's `TestTopologicalNamingProblem.py` pins that this codebase
- * can reproduce — reached by REWRITING the sketch data, since the editor has no split or
- * trim operation. The point in each is the same one FreeCAD asserts: the outline's
- * geometry is unchanged or barely changed, but the entity list re-enumerates, so anything
- * downstream that anchored by index rather than by identity would silently move.
- */
 describe("sketch geometry rewrites", () => {
     const coincident = (id: number, a: number, aPoint: number, b: number, bPoint: number) => ({
         id,
@@ -257,10 +250,6 @@ describe("sketch geometry rewrites", () => {
         ],
     });
 
-    // The sweep's face ids are PREFIXED by the sketch's entity-id set — `...:e1.2.3.4:ent2` —
-    // so rewriting the outline rewrites every face id at once (`e1.2.3.4.5:ent2`) even when the
-    // geometry is untouched. FreeCAD's TNP suite pins this scenario; the matcher falls back to
-    // the id's entity segment, which survives the rewrite (see `matchFingerprintRefs`).
     test("splitting one outline edge into two keeps the downstream chain resolving", () => {
         const doc = editorDoc();
         const sketch = new SketchNode({ document: doc, plane: Plane.XY, data: constrainedRect(40, 40) });

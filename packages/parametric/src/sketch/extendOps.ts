@@ -277,22 +277,6 @@ function endFor(entity: SketchEntityData, atOrigin: boolean): PickedEnd {
     return { atOrigin, ref: atOrigin ? originEnd(entity) : farEnd(entity) };
 }
 
-/**
- * The end a corner moves: the one the corner lies *beyond*, or — when it lies inside the
- * entity, where either end could be the one meant — the one the click picked.
- *
- * That is the freeform extend's own rule (`bothEndsFreeRange`: a destination inside the
- * range is settled by the pick, one outside "grows the range to reach it"), and FreeCAD's
- * (`DrawSketchHandlerExtend` re-decides its end from the cursor unless the projection falls
- * on the curve, where the object pick stands). The destination decides an extension and the
- * object pick decides a cut back, which is what a sketch can express: the click is where the
- * user was looking, and it is not a statement about the far end of the line.
- *
- * An arc is the exception: every point of its circle is reachable from either of its ends,
- * so nothing but the click can say which was meant. The numeric open curves (ellipseArc,
- * conic, bezier) follow it: their support wraps or bends back on itself, so the click
- * decides there too.
- */
 function endToMove(
     entity: SketchEntityData,
     picked: PickedEnd | undefined,

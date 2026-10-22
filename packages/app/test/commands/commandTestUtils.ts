@@ -301,6 +301,12 @@ export function mockShape(overrides: Partial<IShape> = {}): MockShape {
         fixShape: track("fixShape"),
         fixSmallFace: track("fixSmallFace"),
         setTolerance: track("setTolerance"),
+        split: track("split"),
+        findSubShapes: () => [],
+        ends: () => [XYZ.zero, XYZ.zero],
+        containsPoint: () => false,
+        isClosed: () => false,
+        boundingBox: () => undefined,
         ...overrides,
     } as unknown as MockShape;
     shape.calls = calls;

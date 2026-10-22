@@ -6,7 +6,9 @@
 
 #include "shared.hpp"
 #include "utils.hpp"
+#include <BOPAlgo_Builder.hxx>
 #include <BOPAlgo_BuilderFace.hxx>
+#include <BOPAlgo_GlueEnum.hxx>
 #include <BOPAlgo_Splitter.hxx>
 #include <BRepAdaptor_Curve.hxx>
 #include <BRepAdaptor_Surface.hxx>
@@ -578,8 +580,6 @@ static std::string mapBuildWireError(const BRepBuilderAPI_WireError& error)
         return "Done";
     }
 };
-
-// Helpers for ShapeFactory::facesFromEdges (FreeCAD's FaceMakerBuildFace recipe).
 
 // The split edges plus a map from each split segment to its input edge index.
 struct SplitEdgesResult {
@@ -2494,10 +2494,6 @@ public:
         return ShapeResult { faceFix.Face(), true, "" };
     }
 
-    // Finds the minimal bounded planar regions of `edges` on `plane` (FreeCAD's
-    // FaceMakerBuildFace recipe), with the sorted unique input edge indexes bounding
-    // each region. Used for sketch profiles of crossing curves, which endpoint
-    // connectivity alone misses.
     static RegionsResult facesFromEdges(const EdgeArray& edges, const Pln& plane)
     {
         std::vector<TopoDS_Edge> edgesVec = vecFromJSArray<TopoDS_Edge>(edges);
@@ -3764,6 +3760,36 @@ public:
         return ShapeResult { reShape.Apply(shape), true, "" };
     }
 
+    // General-fuse gluing: every shape's image keeps its own dimension (a solid stays a
+    // solid, a flange face stays a face), while sub-shapes that coincide across shapes
+    // become a single shared instance — e.g. a face drawn against a body's edge shares
+    // that edge instead of duplicating it (sewing refuses such non-manifold merges).
+    static ShapeResult glueShapes(const ShapeArray& shapes)
+    {
+        std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(shapes);
+        if (shapeVector.empty()) {
+            return ShapeResult { TopoDS_Shape(), false, "No shapes provided" };
+        }
+        if (shapeVector.size() == 1) {
+            return ShapeResult { shapeVector[0], true, "" };
+        }
+
+        NCollection_List<TopoDS_Shape> arguments;
+        for (const auto& shape : shapeVector) {
+            arguments.Append(shape);
+        }
+
+        BOPAlgo_Builder builder;
+        builder.SetArguments(arguments);
+        builder.SetGlue(BOPAlgo_GlueFull);
+        builder.SetNonDestructive(true);
+        builder.Perform();
+        if (builder.HasErrors()) {
+            return ShapeResult { TopoDS_Shape(), false, "Glue failed" };
+        }
+        return ShapeResult { builder.Shape(), true, "" };
+    }
+
     static ShapeResult sewing(const ShapeArray& shapes)
     {
         std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(shapes);
@@ -3894,5 +3920,6 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("removeFillet", &ShapeFactory::removeFillet)
         .class_function("removeSubShape", &ShapeFactory::removeSubShape)
         .class_function("replaceSubShapes", &ShapeFactory::replaceSubShapes)
+        .class_function("glueShapes", &ShapeFactory::glueShapes)
         .class_function("sewing", &ShapeFactory::sewing);
 }

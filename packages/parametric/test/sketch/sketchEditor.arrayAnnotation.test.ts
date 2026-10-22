@@ -13,13 +13,13 @@
  * drawing and one dialog rather than a dimension's.
  */
 
-import { type I18nKeys, Plane, PubSub } from "@chili3d/core";
+import { type I18nKeys, Plane, PubSub, ViewUtils } from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { arrayInstanceTotal, DRAFT_ARRAY_ID, liveInstanceIds } from "../../src/sketch/arrayOps";
 import style from "../../src/sketch/editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { offsetEntities } from "../../src/sketch/offsetOps";
-import { originRef, type SketchArrayPattern, viewPixelSize } from "../../src/sketch/sketchModel";
+import { originRef, type SketchArrayPattern } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import { badgeView, type MockBadge } from "./_helpers/sketchBadges";
 import "./setup";
@@ -105,7 +105,7 @@ describe("an array's numbers on the canvas", () => {
             // lies, so both stand off it — the spacing to one side, the count to the other. The
             // distance is a *screen* one, so here it is asserted in the world units it comes to:
             // 26 px of the view's own scale, which is the number this behavior is about
-            const px = viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
+            const px = ViewUtils.viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
             expect(px).toBeGreaterThan(0);
             expect(spacing.position.y).toBeCloseTo(-26 * px, 6);
             expect(spacing.element.title).toContain("20.00");
@@ -155,7 +155,7 @@ describe("an array's numbers on the canvas", () => {
             y: { count: 3, spacing: 20 },
         });
         try {
-            const px = viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
+            const px = ViewUtils.viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
             expect(px).toBeGreaterThan(0);
 
             const spacing = badgeFaced(ctx.badges, "20.00");
@@ -184,7 +184,7 @@ describe("an array's numbers on the canvas", () => {
             equalSpacing: false,
         });
         try {
-            const px = viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
+            const px = ViewUtils.viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
             expect(px).toBeGreaterThan(0);
 
             const spacing = badgeFaced(ctx.badges, "90.0°");

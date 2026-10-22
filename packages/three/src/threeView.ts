@@ -21,6 +21,7 @@ import {
     MultiShapeNode,
     Observable,
     type Plane,
+    Precision,
     PubSub,
     Ray,
     type ShapeMeshRange,
@@ -1015,7 +1016,7 @@ export class ThreeView extends Observable implements IView {
             if (i < 0) return subs;
 
             const nearest = (subs[0].shape as IFace).surface().nearestPoint(subs[i].point!) ?? [];
-            if (nearest.length > 0 && nearest[0]!.distanceTo(subs[i].point!) < 0.001) {
+            if (nearest.length > 0 && nearest[0]!.distanceTo(subs[i].point!) < Precision.OnSurface) {
                 const v = subs.splice(i, 1);
                 subs.splice(0, 0, ...v);
             }

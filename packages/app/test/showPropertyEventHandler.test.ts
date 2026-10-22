@@ -10,9 +10,13 @@ import {
     type ISelection,
     type IView,
     type IVisualObject,
+    type MouseAndDetected,
     type ObjectSnap,
     PubSub,
+    type ShapeType,
+    ShapeTypes,
     type Signal,
+    type VisualShapeData,
     XYZ,
 } from "@chili3d/core";
 import { createMockDocument, createMockView } from "@chili3d/core/test-utils";
@@ -413,6 +417,35 @@ describe("ShowPropertyEventHandler dimension dragging", () => {
         h.keyDown(view, { key: "Escape" } as KeyboardEvent);
 
         expect(clear).toHaveBeenCalledTimes(1);
+        h.dispose();
+    });
+
+    test("detection includes faces for the occlusion filter, handed to the snap last", () => {
+        const snap = rs.fn((_data: MouseAndDetected) => undefined);
+        const stub = { snap, clear: () => {}, removeDynamicObject: () => {} } as unknown as ObjectSnap;
+        const h = new (class extends ShowPropertyEventHandler {
+            protected override createObjectSnap(): ObjectSnap {
+                return stub;
+            }
+        })(document);
+
+        const face = { shape: { shapeType: ShapeTypes.face } } as VisualShapeData;
+        const edge = { shape: { shapeType: ShapeTypes.edge } } as VisualShapeData;
+        let seenMask: ShapeType | undefined;
+        view.detectShapes = (mask: ShapeType) => {
+            seenMask = mask;
+            return [face, edge];
+        };
+
+        h.pointerDown(view, pointer(GRIP_START.x + 2, GRIP_START.y - 1));
+        h.pointerMove(view, pointer(450, 350));
+        h.pointerUp(view, pointer(450, 350));
+
+        expect(seenMask).toBe((ShapeTypes.edge | ShapeTypes.vertex | ShapeTypes.face) as ShapeType);
+        expect(snap).toHaveBeenCalledTimes(1);
+        // snapOnShape reads feature points from the front shapes; a face has none, so it
+        // must not shadow the edge there.
+        expect(snap.mock.calls[0][0].shapes).toEqual([edge, face]);
         h.dispose();
     });
 });

@@ -172,6 +172,18 @@ export interface IShapeFactory {
     booleanCut(shape1: IShape[], shape2: IShape[]): Result<IShape>;
     booleanFuse(shape1: IShape[], shape2: IShape[], simplifyShape: boolean): Result<IShape>;
     sewing(shapes: IShape[]): Result<IShape>;
+    /**
+     * General-fuse gluing: every shape's image keeps its own dimension (a solid stays a solid,
+     * a flange face stays a face), while sub-shapes that coincide across shapes become a single
+     * shared instance — e.g. a face drawn against a body's edge shares that edge instead of
+     * duplicating it (sewing refuses such non-manifold merges). Optional: kernels predating it
+     * fall back to a plain combine (coincident edges stay duplicated).
+     *
+     * The inputs must not interfere in volume: BOPAlgo_GlueFull assumes non-overlapping
+     * shapes, and overlapping solids come back as an unmerged compound reported as success.
+     * Use booleanFuse for inputs that may overlap.
+     */
+    glueShapes?(shapes: IShape[]): Result<IShape>;
     combine(shapes: IShape[]): Result<ICompound>;
     makeThickSolidBySimple(shape: IShape, thickness: number): Result<IShape>;
     /**

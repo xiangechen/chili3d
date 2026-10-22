@@ -278,3 +278,30 @@ describe("Mesher — cone", () => {
         expect(faces!.range.length).toBeGreaterThanOrEqual(1);
     });
 });
+
+// ============================================================================
+// Mesher — corrupt split results
+// ============================================================================
+
+describe("Mesher — loose face vertices", () => {
+    test("a face carrying a loose vertex is skipped instead of aborting the module", () => {
+        const box = createBox(factory, 10, 10, 10);
+        // An edge that only touches the top face at its endpoint makes the splitter embed a
+        // loose vertex in that face — a vertex no wire references; BRepMesh raises on it, which
+        // would abort the whole module with exception catching disabled.
+        const line = unwrapOk(factory.line(new XYZ({ x: 5, y: 5, z: 10 }), new XYZ({ x: 5, y: 5, z: 15 })));
+        const split = box.split([line], 1e-4);
+        expect(
+            split
+                .findSubShapes(ShapeTypes.face)
+                .some((face) => face.findSubShapes(ShapeTypes.vertex).length > 4),
+        ).toBe(true);
+
+        const mesh = split.mesh;
+
+        // The corrupt face is skipped, the other five render, and every edge still meshes
+        // from its curve — the module stays alive.
+        expect(mesh.faces!.range.length).toBe(5);
+        expect(mesh.edges!.position.length).toBe(72);
+    });
+});

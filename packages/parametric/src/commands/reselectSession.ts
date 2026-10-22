@@ -24,6 +24,7 @@ import {
     ShapeNode,
     type ShapeType,
     ShapeTypes,
+    ViewUtils,
     type VisualShapeData,
     VisualStates,
     type XYZ,
@@ -57,7 +58,7 @@ import { matchSourceFaceIndexes } from "../features/sourceFaceMatcher";
 import { idIsShared } from "../features/trackedId";
 import type { VertexRef } from "../features/vertexRef";
 import { captureNeutralPlane, PlanePickHandler } from "../sketch/commands/planePickHandler";
-import { shapeEntityIds, viewPixelSize } from "../sketch/sketchModel";
+import { shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
 import { capturePatternPathSource } from "./patternSources";
 import { LineEdgeFilter } from "./shapeFilters";
@@ -1224,7 +1225,7 @@ export class HolePointsReselectSession {
             // A pick snapped to a sketch point binds to it rather than adding a raw center —
             // the command's own contract, pinned to the first bound sketch. Re-picking an
             // already bound entity is a no-op pick: the loop asks again.
-            const pixel = viewPixelSize(data.view, data.point);
+            const pixel = ViewUtils.viewPixelSize(data.view, data.point);
             const snap =
                 pixel === undefined
                     ? undefined

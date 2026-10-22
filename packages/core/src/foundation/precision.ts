@@ -7,4 +7,9 @@ export const Precision = {
     Float: 1e-7,
     /** Parametric-space tolerance, mirroring OCCT's Precision::PConfusion(). */
     PConfusion: 1e-9,
+    /**
+     * How far off a face a picked point may sit and still count as lying on it, in model
+     * units. Picking is pixel-based, so this is far looser than kernel tolerances.
+     */
+    OnSurface: 1e-3,
 };

@@ -24,23 +24,6 @@ import {
 import { ConstraintKind, type SketchEntityData } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
-/**
- * The sketch break: the entity is carved in two at the click, and the two halves are held
- * together by a coincidence at the cut — the shape Fusions' "Break", FreeCAD's "Split edge"
- * and Onshape's "Split" all leave, and what makes the new point a real vertex that can be
- * constrained, dimensioned or dragged rather than a mere drawing artefact.
- *
- * A line, an arc or one of the numeric open curves takes one click, anywhere along it that
- * is not one of its own ends. A circle or an ellipse takes two: a closed curve has no ends
- * to cut from, so a single cut would leave the same closed curve with a seam on it and
- * nothing carved — Onshape's own rule for closed curves, and the reason the command asks
- * for a second point before it commits.
- *
- * The op is a plan and its application, on `trimOps`' terms: the plan is pure geometry, the
- * application is direct solver mutation, and `guardedEdit` rolls the whole thing back on any
- * failure. The caller solves and commits afterwards.
- */
-
 /** What a break leaves behind (see `EditOutcome`). */
 export type BreakOutcome = EditOutcome;
 

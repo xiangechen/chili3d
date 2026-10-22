@@ -7,6 +7,46 @@ import { Line, MathUtils, Plane, XYZ } from "../math";
 import type { IView } from "./view";
 
 export class ViewUtils {
+    /**
+     * Sketch-plane units per screen pixel at viewport position (x, y), measured with
+     * two rays — exact for both camera types, unlike `worldToScreen` which rounds to
+     * whole pixels and collapses small spans at low zoom levels. Undefined when the
+     * plane is off-ray or the span collapses.
+     *
+     * NOTE: the on-plane measure explodes like 1/cos(grazing) as the view turns
+     * edge-on to the plane. For screen-constant graphics (annotation text, arrows,
+     * pick tolerances) use `viewPixelSize` instead.
+     */
+    static worldPerPixel(view: IView, plane: Plane, x: number, y: number): number | undefined {
+        const p0 = plane.intersectRay(view.rayAt(x, y));
+        const p1 = plane.intersectRay(view.rayAt(x + 1, y));
+        if (p0 === undefined || p1 === undefined) return undefined;
+        const size = p0.distanceTo(p1);
+        return size < 1e-12 ? undefined : size;
+    }
+
+    /**
+     * World units per screen pixel at `point`, measured on the plane perpendicular to
+     * the center ray through that point. Unlike `worldPerPixel` on the sketch plane
+     * this stays bounded at any view angle — it depends only on the camera and the
+     * depth of `point` — so screen-sized graphics foreshorten naturally with the
+     * tilted sketch instead of ballooning as the view turns edge-on.
+     */
+    static viewPixelSize(view: IView, point: XYZ): number | undefined {
+        const cx = view.width / 2;
+        const cy = view.height / 2;
+        // the center ray, not view.direction(): the measure must come from the same
+        // ray family it samples (the two agree on a real camera)
+        const direction = view.rayAt(cx, cy).direction;
+        let xvec = direction.cross(view.up());
+        if (xvec.lengthSq() < 1e-12) {
+            // looking straight along the up axis — pick any perpendicular
+            xvec = direction.cross(Math.abs(direction.dot(XYZ.unitX)) < 0.9 ? XYZ.unitX : XYZ.unitY);
+        }
+        const facing = new Plane({ origin: point, normal: direction, xvec });
+        return ViewUtils.worldPerPixel(view, facing, cx, cy);
+    }
+
     static rayFromEye(view: IView, point: XYZ) {
         const cameraPosition = view.cameraController.cameraPosition;
         const vector = point.sub(cameraPosition);

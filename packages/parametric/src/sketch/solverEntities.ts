@@ -107,23 +107,6 @@ export function isConstraintTarget(solver: SketchSolver, entityId: number): bool
     return false;
 }
 
-/**
- * Whether a constraint of `kind` over `refs` may be asserted. A rejected pick pubs a toast —
- * a one-shot refusal, not one of the standing readouts the status bar carries — and returns
- * false.
- *
- * An external (projected) entity is frozen geometry: it never moves, so what a constraint
- * naming one says is satisfied by the *other* entities it names. That is why the
- * associative kinds make sense against one at all — a coincidence onto a projected corner,
- * a parallel to a projected edge — and it is just as true of a dimension, whose reading is
- * a value the sketch side moves to reach: "this point is 20 mm from that projected edge"
- * drives the point and the external is only where the measurement starts. So the rule is
- * about the whole constraint rather than about each entity, and the rigid kinds are refused
- * only when *every* entity they name is external, leaving nothing the constraint could
- * move. FreeCAD draws the same line with `areBothPointsOrSegmentsFixed`; its dimensions over
- * nothing but fixed geometry are not refused but created as references instead, which here
- * is `measuresOnlyExternalGeometry`.
- */
 export function allowsConstraintOnRefs(
     solver: SketchSolver,
     kind: ConstraintKind,
@@ -148,13 +131,6 @@ export function allowsConstraintOnEntity(
     return allowsConstraintOnRefs(solver, kind, [{ entityId, pointIndex: 0 }]);
 }
 
-/**
- * Whether a dimension names nothing but external (projected) geometry — a reading of the
- * frozen model rather than of the sketch. Such a dimension is placed as a *reference*: there
- * is nothing on either side free to move, so asserting it would only fight the structural
- * pins the external is held by. FreeCAD creates exactly these as `driving = False`; the
- * result is the same state the user reaches by hand with `constraint.toggleDriven`.
- */
 export function measuresOnlyExternalGeometry(refs: readonly SketchPointRef[]): boolean {
     return refs.length > 0 && refs.every((ref) => isExternalEntityId(ref.entityId));
 }
@@ -419,9 +395,6 @@ function isSizeCenter(entity: SketchEntityData, pointIndex: number): boolean {
  *   that size solves to nothing and the sketch comes back "Conflicting" — a circle whose
  *   center lies on its own rim is one of radius zero.
  *
- * FreeCAD arrives at the same place from the other side: it lets these through and then offers
- * `Sketcher ValidateSketch` to find the "degenerated geometry" — a zero length line, a zero
- * radius circle — they leave behind.
  */
 export function allowsPointOnOwnEntity(solver: SketchSolver, ref: SketchPointRef, entityId: number): boolean {
     const entity = solver.entity(entityId);
