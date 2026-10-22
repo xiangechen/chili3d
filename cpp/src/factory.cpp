@@ -3806,7 +3806,7 @@ public:
         if (!gordon.IsDone())
             return ShapeResult { TopoDS_Shape(), false, mapGordonError(gordon.Status()) };
 
-        Handle(Geom_Surface) surface = gordon.Surface();
+        auto surface = gordon.Surface();
         if (surface.IsNull())
             return ShapeResult { TopoDS_Shape(), false, "Failed to create Gordon surface: the kernel returned no surface" };
         BRepBuilderAPI_MakeFace makeFace(surface, Precision::Confusion());
