@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { SKILLS } from "../skills";
+import { SkillStore } from "../skills";
 import { buildTools } from "../tools";
 import { EDIT_METHODS } from "../tools/capabilityEngine";
 import { documentSnapshot } from "../tools/readTools";
@@ -73,7 +73,9 @@ function firstSentence(description: string): string {
 /** Hand-written usage policy: what the tool schemas cannot say — when and in which order. */
 function policySection(): string {
     return `Usage policy:
-- Reference material: pull a skill with load_skill when its topic comes up (${SKILLS.map((s) => s.name).join(", ")}) instead of answering from memory.
+- Reference material: pull a skill with load_skill when its topic comes up (${SkillStore.getAll()
+        .map((s) => s.name)
+        .join(", ")}) instead of answering from memory.
 - A response may carry several calls at once and they run in the order listed, so independent reads belong together rather than in round trips of their own, and a call may use an id an earlier one returned.
 - When the user does something themselves — how do I, where is, which hotkey: load_skill app-guide for the teaching prose, call get_ribbon for the tabs, groups and buttons as they are right now (their language, their profile's hotkeys), then teach the click path. Don't answer from memory, and don't do the operation for them instead of teaching it unless they ask.
 - run_program ops run in order; reference only earlier ops by id (refs persist across calls and re-resolve against the live scene). Referencing a node never deletes it, EXCEPT for edit-style methods whose result replaces their inputs: ${[...EDIT_METHODS].join(", ")} — the response's "removed" lists the nodes consumed this way; they no longer exist, so never hide, delete or reference them afterward.

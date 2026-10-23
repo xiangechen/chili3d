@@ -3,7 +3,28 @@
 
 import { AppGuideStore } from "@chili3d/core";
 import { SKILLS } from "../src/skills";
+import { SkillStore } from "../src/skills/skillStore";
 import { buildSkillTool } from "../src/skills/skillTool";
+import type { Skill } from "../src/skills/types";
+
+const contributed: Skill = {
+    name: "contributed",
+    description: "A skill a module contributed",
+    content: "Contributed body.",
+};
+
+/** The stored schema is an open record; prefer a narrower view over index-signature access. */
+function advertisedSkills(tool: ReturnType<typeof buildSkillTool>): string[] {
+    const schema = tool.parameters as { properties: { name: { enum: string[] } } };
+    return schema.properties.name.enum;
+}
+
+afterEach(() => {
+    // Unregistering a built-in name only drops the override, so this is a safe reset even for
+    // tests that never touched app-guide — and the one that does is covered if it throws.
+    SkillStore.unregister("contributed");
+    SkillStore.unregister("app-guide");
+});
 
 describe("skillTool", () => {
     test("returns the shape family document for shape-query", async () => {
@@ -158,5 +179,44 @@ describe("skillTool", () => {
         for (const skill of SKILLS) {
             expect(tool.description).toContain(skill.name);
         }
+    });
+
+    test("advertises and serves a skill a module registered", async () => {
+        SkillStore.register(contributed);
+
+        const tool = buildSkillTool();
+        expect(tool.description).toContain("contributed");
+        expect(advertisedSkills(tool)).toContain("contributed");
+        expect(await tool.handler({ name: "contributed" })).toBe("Contributed body.");
+    });
+
+    test("replaces a built-in skill without moving it in the advertised order", async () => {
+        const override: Skill = {
+            name: "app-guide",
+            description: "Retargeted guide",
+            content: "Retargeted body.",
+        };
+        try {
+            SkillStore.register(override);
+
+            const names = SkillStore.getAll().map((s) => s.name);
+            expect(names.indexOf("app-guide")).toBe(SKILLS.findIndex((s) => s.name === "app-guide"));
+            expect(await buildSkillTool().handler({ name: "app-guide" })).toBe("Retargeted body.");
+        } finally {
+            SkillStore.unregister("app-guide");
+        }
+
+        // Unregistering a built-in name drops only the override, as the store documents.
+        expect(SkillStore.getAll().find((s) => s.name === "app-guide")).toBe(
+            SKILLS.find((s) => s.name === "app-guide"),
+        );
+    });
+
+    test("drops a registered skill once it is unregistered", () => {
+        SkillStore.register(contributed);
+        SkillStore.unregister("contributed");
+
+        expect(SkillStore.getAll().some((s) => s.name === "contributed")).toBe(false);
+        expect(advertisedSkills(buildSkillTool())).not.toContain("contributed");
     });
 });

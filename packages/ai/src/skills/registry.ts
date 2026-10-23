@@ -16,7 +16,9 @@ export type { Skill };
 /**
  * Every skill the assistant can load, in the order they are advertised. This is only the
  * register — each skill's text lives in its own module beside this one, so adding one is a
- * new file plus a line here, not another hundred lines of prose in this one.
+ * new file plus a line here, not another hundred lines of prose in this one. The list built
+ * here is the built-in set only; a module or build that adds a skill of its own registers it
+ * with SkillStore (see skillStore.ts) rather than editing this array.
  */
 export const SKILLS: Skill[] = [
     appGuide,

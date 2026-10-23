@@ -2,3 +2,4 @@
 // See LICENSE file in the project root for full license information.
 
 export { ChatPanel } from "./chatPanel";
+export { type Skill, SkillStore } from "./skills";

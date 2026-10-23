@@ -2,4 +2,5 @@
 // See LICENSE file in the project root for full license information.
 
 export { SKILLS, type Skill } from "./registry";
+export { SkillStore } from "./skillStore";
 export { buildSkillTool } from "./skillTool";
