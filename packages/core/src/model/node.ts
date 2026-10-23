@@ -5,12 +5,14 @@ import type { IDocument } from "../document";
 import { HistoryObservable, type IDisposable, Id, type IPropertyChanged } from "../foundation";
 import { property } from "../property";
 import { type Serialized, Serializer, serialize } from "../serialize";
+import { UserData } from "./userData";
 
 export interface INode extends IPropertyChanged, IDisposable {
     readonly id: string;
     visible: boolean;
     parentVisible: boolean;
     name: string;
+    userData: UserData;
     parent: INodeLinkedList | undefined;
     previousSibling: INode | undefined;
     nextSibling: INode | undefined;
@@ -60,6 +62,23 @@ export abstract class Node extends HistoryObservable implements INode {
         this.setProperty("visible", value, () => this.onVisibleChanged());
     }
 
+    /**
+     * Generic serializable data bag, open to any feature (the auxiliary-line display is its
+     * first consumer). The bag is immutable: write by assigning a derived bag back —
+     * `node.userData = node.userData.with(key, value)` (`without(key)` removes) — so the
+     * undo history restores it by identity; values follow `UserData`'s rules (primitives,
+     * arrays, `@serializable` instances — an `IShape` included). A write never rebuilds the
+     * mesh on its own — callers whose entries feed the display follow up with
+     * `GeometryNode.refreshMesh`.
+     */
+    @serialize()
+    get userData(): UserData {
+        return this.getPrivateValue("userData", new UserData());
+    }
+    set userData(value: UserData) {
+        this.setProperty("userData", value);
+    }
+
     protected abstract onVisibleChanged(): void;
 
     get parentVisible() {
@@ -71,6 +90,9 @@ export abstract class Node extends HistoryObservable implements INode {
 
     override disposeInternal(): void {
         this.document.visual.context.removeNode([this]);
+        // Read through the getter so a node that never stored anything disposes an empty bag
+        // instead of touching the private field by name.
+        this.userData.dispose();
         super.disposeInternal();
     }
 

@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import type { INode, INodeLinkedList } from "../model";
-import { type IDisposable, isDisposable } from "./disposable";
+import { DisposeExceptKey, type IDisposable, isDisposable, isDisposeExcept } from "./disposable";
 import type { Result } from "./result";
 
 export interface IHistoryRecord extends IDisposable {
@@ -135,11 +135,19 @@ function unwrapResult(value: unknown): unknown {
  * Dispose the dropped side of a property change — unwrapping Result — unless both sides name it
  * or the object currently holds it: a later change may have restored the same instance (A→B→A),
  * and freeing it here would then dispose the live value out from under the object.
+ *
+ * A value bag (model/UserData) shares value references with its `with`/`without` copies, so it
+ * frees only what neither side still holds. The `DisposeExceptKey` brand keeps the contract
+ * explicit — no model-layer import, no method-name collision with an unrelated disposable.
  */
 function disposeStaleValue(stale: unknown, live: unknown, current: unknown): void {
     const staleValue = unwrapResult(stale);
     if (staleValue === undefined) return;
     if (staleValue === unwrapResult(live) || staleValue === unwrapResult(current)) return;
+    if (isDisposeExcept(staleValue)) {
+        staleValue[DisposeExceptKey](unwrapResult(live), unwrapResult(current));
+        return;
+    }
     if (isDisposable(staleValue)) staleValue.dispose();
 }
 

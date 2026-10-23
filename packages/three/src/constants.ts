@@ -9,3 +9,10 @@ export class Constants {
         Isolation: 30,
     });
 }
+
+/**
+ * The `userData` key a split edge line object carries its source-mesh vertex offset under —
+ * set in `ThreeGeometry.initEdges`, read back in `threeView.findShapeAndIndex` to shift a
+ * pick index into the mesh's own vertex numbering.
+ */
+export const EdgeVertexOffsetKey = "edgeVertexOffset";

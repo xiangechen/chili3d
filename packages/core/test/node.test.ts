@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, type IDocument, Id, type INode, NodeUtils } from "../src";
+import { FolderNode, type IDocument, Id, type INode, NodeUtils, UserData } from "../src";
 import { TestDocument } from "../test-utils";
 
 function newNode(name: string, id?: string): INode {
@@ -13,6 +13,7 @@ function newNode(name: string, id?: string): INode {
         parent: undefined,
         previousSibling: undefined,
         nextSibling: undefined,
+        userData: new UserData(),
         onPropertyChanged: () => {},
         clearPropertyChanged() {},
         removePropertyChanged: () => {},

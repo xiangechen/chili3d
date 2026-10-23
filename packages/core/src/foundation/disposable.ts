@@ -14,3 +14,23 @@ export function isDisposable(value: unknown): value is IDisposable {
         (value as IDisposable).dispose.length === 0
     );
 }
+
+/**
+ * The explicit contract behind "dispose me, but spare what one of these survivors still
+ * holds" (implemented by model/UserData). Branded with a symbol so the history's structural
+ * check cannot collide with an unrelated disposable that happens to grow a `disposeExcept`
+ * method — and without importing the model layer into the foundation one.
+ */
+export const DisposeExceptKey: unique symbol = Symbol("chili3d.disposeExcept");
+
+export interface IDisposeExcept extends IDisposable {
+    [DisposeExceptKey](...survivors: unknown[]): void;
+}
+
+export function isDisposeExcept(value: unknown): value is IDisposeExcept {
+    return (
+        value != null &&
+        typeof value === "object" &&
+        typeof (value as IDisposeExcept)[DisposeExceptKey] === "function"
+    );
+}

@@ -61,7 +61,7 @@ import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { AnnotationBatch } from "./annotationBatch";
 import { CameraController } from "./cameraController";
-import { Constants } from "./constants";
+import { Constants, EdgeVertexOffsetKey } from "./constants";
 import { ThreeAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
@@ -1155,7 +1155,11 @@ export class ThreeView extends Observable implements IView {
 
     private findShapeAndIndex(parent: ThreeVisualObject, element: Intersection) {
         let type: "edge" | "face" | "vertex" = "edge";
-        let subVisualIndex = element.faceIndex! * 2;
+        // An edge mesh split into several line objects (mixed line types, see ThreeGeometry's
+        // initEdges) numbers each object's segments from zero — the tag shifts a hit back
+        // into the mesh's own vertex numbering, which is what the ranges speak.
+        const edgeVertexOffset = (element.object.userData[EdgeVertexOffsetKey] as number | undefined) ?? 0;
+        let subVisualIndex = element.faceIndex! * 2 + edgeVertexOffset;
         if (!element.pointOnLine && !Number.isInteger(element.faceIndex)) {
             type = "vertex";
             subVisualIndex = element.index!;

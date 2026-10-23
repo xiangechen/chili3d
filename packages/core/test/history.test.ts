@@ -219,6 +219,30 @@ describe("History", () => {
         expect(obj.val).toBe("no");
     });
 
+    test("PropertyHistoryRecord dispose ignores an unbranded disposeExcept method", () => {
+        let disposed = 0;
+        let disposeExceptCalled = 0;
+        const stale = {
+            dispose() {
+                disposed++;
+            },
+            disposeExcept() {
+                disposeExceptCalled++;
+            },
+        };
+        const live = { dispose() {} };
+        // the change stands, so the object holds the new value and oldValue is the stale side
+        const obj = { val: live as any };
+        const record = new PropertyHistoryRecord(obj, "val", stale, live);
+
+        // the method NAME alone must not opt into the spared-values path — only the
+        // DisposeExceptKey brand does, so this falls back to a plain dispose
+        record.dispose();
+
+        expect(disposeExceptCalled).toBe(0);
+        expect(disposed).toBe(1);
+    });
+
     test("NodeLinkedListHistoryRecord name", () => {
         const nr = new NodeLinkedListHistoryRecord([]);
         expect(nr.name).toBe("change node");

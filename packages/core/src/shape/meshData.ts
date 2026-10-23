@@ -102,6 +102,12 @@ export interface ShapeMeshRange {
     count: number;
     shape: ISubShape;
     transform?: Matrix4;
+    /**
+     * Draws this range's segments with a line type other than the mesh's own — how appended
+     * display-only edges (auxiliary lines) stay dashed inside a solid mesh. A renderer splits
+     * the mesh at these ranges (`MeshDataUtils.splitEdgeRuns`); left undefined everywhere else.
+     */
+    lineType?: LineType;
 }
 
 export interface ShapeMeshData {
@@ -167,6 +173,117 @@ export class MeshDataUtils {
         };
     }
 
+    /**
+     * Appends display-only edges to an edge mesh, keeping colours correct on both sides:
+     * when every part carries the same single colour the result keeps it, otherwise each
+     * part expands to the per-vertex RGB triplets the array form of `color` consumes
+     * (`mergeEdgeMesh` cannot serve here — it keeps only the first side's colour). A part
+     * whose line type differs from the base mesh's keeps it on its copied ranges, so a
+     * renderer can still tell its segments apart. Neither input is mutated.
+     */
+    static appendEdgeMeshes(data: EdgeMeshData | undefined, extras: EdgeMeshData[]): EdgeMeshData {
+        const parts = [data, ...extras].filter(
+            (x): x is EdgeMeshData => x !== undefined && x.position.length > 0,
+        );
+        const baseLineType = parts[0]?.lineType ?? "solid";
+        let position: Float32Array = new Float32Array(0);
+        let range: ShapeMeshRange[] = [];
+        for (const part of parts) {
+            const offset = position.length / 3;
+            position = concatTypedArrays([position, part.position]);
+            range = range.concat(
+                part.range.map((x) => {
+                    const rebased = { ...x, start: x.start + offset };
+                    if (part.lineType !== baseLineType) rebased.lineType = part.lineType;
+                    return rebased;
+                }),
+            );
+        }
+        return {
+            position,
+            range,
+            lineType: baseLineType,
+            lineWidth: parts[0]?.lineWidth,
+            color: MeshDataUtils.mergedEdgeColor(parts),
+        };
+    }
+
+    /**
+     * Splits an edge mesh into maximal runs of one line type, for a renderer that draws each
+     * type with an object of its own (dashing is a per-material feature). Ranges carrying a
+     * `lineType` other than the mesh's own mark the non-default blocks — adjacent ones of the
+     * same type coalesce — everything else, including segments no range covers, keeps the
+     * mesh's type. `startVertex` maps the run back into the source mesh's vertex numbering, so
+     * a pick index found in a run object shifts back by it. Without any marked range the whole
+     * mesh comes back as a single run sharing the source arrays — no copying.
+     */
+    static splitEdgeRuns(data: EdgeMeshData): EdgeMeshRun[] {
+        const marked = data.range.filter((x) => x.lineType !== undefined && x.lineType !== data.lineType);
+        if (marked.length === 0 || data.position.length === 0) {
+            return [
+                {
+                    lineType: data.lineType,
+                    startVertex: 0,
+                    position: data.position,
+                    color: data.color,
+                },
+            ];
+        }
+
+        const blocks: { start: number; end: number; lineType: LineType }[] = [];
+        for (const range of [...marked].sort((a, b) => a.start - b.start)) {
+            const last = blocks.at(-1);
+            if (last && last.lineType === range.lineType && last.end === range.start) {
+                last.end = range.start + range.count;
+            } else {
+                blocks.push({
+                    start: range.start,
+                    end: range.start + range.count,
+                    lineType: range.lineType!,
+                });
+            }
+        }
+
+        const runs: EdgeMeshRun[] = [];
+        const pushRun = (start: number, end: number, lineType: LineType) => {
+            if (end <= start) return;
+            runs.push({
+                lineType,
+                startVertex: start,
+                position: data.position.slice(start * 3, end * 3),
+                color: Array.isArray(data.color) ? data.color.slice(start * 3, end * 3) : data.color,
+            });
+        };
+        let cursor = 0;
+        for (const block of blocks) {
+            pushRun(cursor, block.start, data.lineType);
+            pushRun(block.start, block.end, block.lineType);
+            cursor = block.end;
+        }
+        pushRun(cursor, data.position.length / 3, data.lineType);
+        return runs;
+    }
+
+    private static mergedEdgeColor(parts: EdgeMeshData[]): number | number[] {
+        const first = parts[0]?.color ?? VisualConfig.defaultEdgeColor;
+        const uniform = parts.every(
+            (x) => !Array.isArray(x.color) && (x.color ?? VisualConfig.defaultEdgeColor) === first,
+        );
+        if (uniform) return first;
+        return parts.flatMap((x) => MeshDataUtils.expandEdgeColor(x));
+    }
+
+    private static expandEdgeColor(part: EdgeMeshData): number[] {
+        if (Array.isArray(part.color)) return part.color;
+        const color = part.color ?? VisualConfig.defaultEdgeColor;
+        const rgb = [((color >> 16) & 0xff) / 255, ((color >> 8) & 0xff) / 255, (color & 0xff) / 255];
+        const result: number[] = [];
+        for (let i = 0; i < part.position.length / 3; i++) {
+            result.push(rgb[0], rgb[1], rgb[2]);
+        }
+        return result;
+    }
+
     static mergeFaceMesh(data: FaceMeshData, other: FaceMeshData): FaceMeshData {
         const otherRange = other.range.map((range) => {
             return {
@@ -202,6 +319,15 @@ export interface VertexMeshData extends ShapeMeshData {
 export interface EdgeMeshData extends ShapeMeshData {
     lineType: LineType;
     lineWidth?: number;
+}
+
+/** One maximal run of same-type segments inside an edge mesh — see `MeshDataUtils.splitEdgeRuns`. */
+export interface EdgeMeshRun {
+    lineType: LineType;
+    /** Index of the run's first vertex in the source mesh; a pick index found in the run shifts back by it. */
+    startVertex: number;
+    position: Float32Array;
+    color?: number | number[];
 }
 
 export function concatTypedArrays<T extends Float32Array | Uint32Array>(arrays: T[]): T {

@@ -10,6 +10,7 @@ import {
     type ISubShape,
     type IVisualGeometry,
     type Matrix4,
+    MeshDataUtils,
     MeshUtils,
     ShapeNode,
     type ShapeType,
@@ -28,7 +29,7 @@ import {
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
-import { Constants } from "./constants";
+import { Constants, EdgeVertexOffsetKey } from "./constants";
 import {
     defaultEdgeMaterial,
     defaultVertexMaterial,
@@ -45,13 +46,15 @@ const OnTopMaterialKey = "onTopMaterial";
 
 export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry {
     private _faceMaterial: Material | Material[];
-    private _edgeMaterial: LineMaterial = defaultEdgeMaterial;
     /**
-     * True while `_edgeMaterial` is a copy this object owns — a mesh carrying per-segment
-     * colours needs its own material (`initEdges`), and that one must be disposed with us.
+     * The edge lines of the node: one `LineSegments2` per maximal run of one line type —
+     * a mesh whose ranges carry a `lineType` (appended display-only edges, e.g. auxiliary
+     * lines) splits here, because dashing is a per-material feature and cannot mix within
+     * one object. Each part remembers the material to restore after a temporary swap, and
+     * whether that material is its own copy to dispose with us (per-segment colours or
+     * dashing rule the shared per-width materials out — see `edgeMaterialFor`).
      */
-    private _ownsEdgeMaterial = false;
-    private _edges?: LineSegments2;
+    private _edgeParts: { line: LineSegments2; material: LineMaterial; ownsMaterial: boolean }[] = [];
     private _faces?: Mesh;
     private _vertexs?: Points;
     private _renderOnTop = false;
@@ -85,7 +88,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         if (this._renderOnTop === value) return;
         this._renderOnTop = value;
         if (this._vertexs) this.applyOnTopMaterial(this._vertexs, defaultVertexMaterial);
-        if (this._edges) this.applyOnTopMaterial(this._edges, this._edgeMaterial);
+        for (const part of this._edgeParts) this.applyOnTopMaterial(part.line, part.material);
         if (this._faces) this.applyOnTopMaterial(this._faces, this._faceMaterial);
     }
 
@@ -114,13 +117,29 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     box() {
+        // Fast path: at most one edge run and no points — nothing to union (a body's own
+        // edges cannot stick out past its faces), and the geometry's live box can be
+        // returned as-is. Rect picks call this once per visual, so skip the copies.
+        if (this._edgeParts.length <= 1 && !this._vertexs) {
+            return (
+                this._faces?.geometry.boundingBox ??
+                this._edgeParts[0]?.line.geometry.boundingBox ??
+                undefined
+            );
+        }
         // A lone-vertex shape (a point node) has no faces or edges; its points are the
         // geometry, and a rect pick needs a box to admit it as a candidate at all.
-        return (
-            this._faces?.geometry.boundingBox ??
-            this._edges?.geometry.boundingBox ??
-            this._vertexs?.geometry.boundingBox
-        );
+        // Every edge part counts, not just the first — a dashed auxiliary run can stick
+        // out past the solid's own edges.
+        let box = this._faces?.geometry.boundingBox?.clone();
+        for (const part of this._edgeParts) {
+            const partBox = part.line.geometry.boundingBox;
+            if (!partBox) continue;
+            box = box ? box.union(partBox) : partBox.clone();
+        }
+        const vertexBox = this._vertexs?.geometry.boundingBox;
+        if (vertexBox) box = box ? box.union(vertexBox) : vertexBox.clone();
+        return box;
     }
 
     override boundingBox(): BoundingBox | undefined {
@@ -187,18 +206,13 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
             this._vertexs.geometry.dispose();
             this._vertexs = null as any;
         }
-        if (this._edges) {
-            this.disposeOnTopMaterial(this._edges);
-            this.remove(this._edges);
-            this._edges.geometry.dispose();
-            this._edges = null as any;
+        for (const part of this._edgeParts) {
+            this.disposeOnTopMaterial(part.line);
+            this.remove(part.line);
+            part.line.geometry.dispose();
+            if (part.ownsMaterial) part.material.dispose();
         }
-        if (this._ownsEdgeMaterial) {
-            // our own copy (per-segment colours) — the shared materials are never disposed here
-            this._edgeMaterial.dispose();
-            this._ownsEdgeMaterial = false;
-            this._edgeMaterial = defaultEdgeMaterial;
-        }
+        this._edgeParts = [];
         if (this._faces) {
             this.disposeOnTopMaterial(this._faces);
             this.remove(this._faces);
@@ -217,30 +231,50 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     private initEdges(data: EdgeMeshData) {
-        const buff = ThreeGeometryFactory.createEdgeBufferGeometry(data);
-        this._edgeMaterial = this.edgeMaterialFor(data, buff);
-        this._edges = new LineSegments2(buff, this._edgeMaterial);
-        this._edges.layers.set(Constants.Layers.Wireframe);
-        if (this._renderOnTop) this.applyOnTopMaterial(this._edges, this._edgeMaterial);
-        this.add(this._edges);
+        const runs = MeshDataUtils.splitEdgeRuns(data);
+        for (const run of runs) {
+            const runData: EdgeMeshData = {
+                ...data,
+                position: run.position,
+                color: run.color,
+                lineType: run.lineType,
+            };
+            const buff = ThreeGeometryFactory.createEdgeBufferGeometry(runData);
+            const { material, owned } = this.edgeMaterialFor(runData, buff);
+            const line = new LineSegments2(buff, material);
+            if (run.lineType === "dash") line.computeLineDistances();
+            line.layers.set(Constants.Layers.Wireframe);
+            // A split object's raycast index counts from its own buffer — the pick mapping
+            // (`threeView.findShapeAndIndex`) shifts it back by this into the mesh's numbering.
+            if (runs.length > 1) line.userData[EdgeVertexOffsetKey] = run.startVertex;
+            if (this._renderOnTop) this.applyOnTopMaterial(line, material);
+            this.add(line);
+            this._edgeParts.push({ line, material, ownsMaterial: owned });
+        }
     }
 
     /**
-     * The edge material: the shared per-width one by default. A mesh carrying per-segment
-     * colours — what a sketch being edited hands in for its constraint state — needs a
-     * material of its own instead, because `vertexColors` is a material flag and the
-     * shared materials are keyed by width alone: setting it there would repaint every
-     * other visual of that width. The copy belongs to this object and is disposed with it.
+     * The edge material of one run: the shared per-width one by default. A dashed run always
+     * gets a material of its own — dashing is a material flag — and so does a run carrying
+     * per-segment colours, what a sketch being edited hands in for its constraint state,
+     * because `vertexColors` is a material flag too and the shared materials are keyed by
+     * width alone: setting it there would repaint every other visual of that width. An owned
+     * copy is disposed with this object.
      */
-    private edgeMaterialFor(data: EdgeMeshData, geometry: LineSegmentsGeometry): LineMaterial {
-        if (!Array.isArray(data.color)) return edgeMaterialOfWidth(data.lineWidth);
+    private edgeMaterialFor(data: EdgeMeshData, geometry: LineSegmentsGeometry) {
+        if (data.lineType === "dash") {
+            const material = ThreeGeometryFactory.createEdgeMaterial(data);
+            ThreeGeometryFactory.setColor(geometry, data, material);
+            return { material, owned: true };
+        }
+        if (!Array.isArray(data.color))
+            return { material: edgeMaterialOfWidth(data.lineWidth), owned: false };
         const material = edgeMaterialOfWidth(data.lineWidth).clone();
         // `setColor` puts the per-segment colours on the geometry and whitens the material —
         // the whitening is what matters here, since the clone inherited the shared material's
         // `defaultEdgeColor` (see its comment)
         ThreeGeometryFactory.setColor(geometry, data, material);
-        this._ownsEdgeMaterial = true;
-        return material;
+        return { material, owned: true };
     }
 
     private initFaces(data: FaceMeshData) {
@@ -257,7 +291,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     setEdgesMateiralTemperary(material: LineMaterial) {
-        if (this._edges) this._edges.material = material;
+        for (const part of this._edgeParts) part.line.material = material;
     }
 
     setVertexsMateiralTemperary(material: PointsMaterial) {
@@ -266,15 +300,18 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
 
     removeTemperaryMaterial(): void {
         if (this._vertexs) this._vertexs.material = defaultVertexMaterial;
-        if (this._edges && this._edges.material !== lockLineMaterial)
-            this._edges.material = this._edgeMaterial;
+        for (const part of this._edgeParts) {
+            if (part.line.material !== lockLineMaterial) part.line.material = part.material;
+        }
         if (this._faces && this._faces.material !== lockFaceMaterial)
             this._faces.material = this._faceMaterial;
         // restore the on-top state the temporary material replaced
         if (this._renderOnTop) {
             if (this._vertexs) this.applyOnTopMaterial(this._vertexs, defaultVertexMaterial);
-            if (this._edges && this._edges.material !== lockLineMaterial)
-                this.applyOnTopMaterial(this._edges, this._edgeMaterial);
+            for (const part of this._edgeParts) {
+                if (part.line.material !== lockLineMaterial)
+                    this.applyOnTopMaterial(part.line, part.material);
+            }
             if (this._faces && this._faces.material !== lockFaceMaterial)
                 this.applyOnTopMaterial(this._faces, this._faceMaterial);
         }
@@ -306,7 +343,12 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     edges() {
-        return this._edges;
+        return this._edgeParts[0]?.line;
+    }
+
+    /** Every edge line object — several when the mesh mixes line types (`initEdges` splits it). */
+    edgeLines(): LineSegments2[] {
+        return this._edgeParts.map((x) => x.line);
     }
 
     vertexs() {
@@ -354,9 +396,9 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         // vertices to every whole pick made each hover raycast walk every point in the
         // scene (three's `Points.raycast` is a per-point loop).
         const picksVertex = ShapeTypeUtils.hasVertex(shapeType);
-        // `removeMeshes` nulls the meshes rather than deleting them, so test truthiness:
+        // `removeMeshes` empties the part lists rather than deleting them, so test length:
         // a lone-vertex shape swapped in place must still answer a whole pick with points.
-        const vertexOnly = isWhole && !this._faces && !this._edges;
+        const vertexOnly = isWhole && !this._faces && this._edgeParts.length === 0;
         if (picksVertex || vertexOnly) {
             shapes.push(this.ensureVertexs());
         }
@@ -366,7 +408,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         // them out of the raycast set so the pick stays a points-only walk.
         const wholeGeometry = isWhole && !picksVertex;
         if (wholeGeometry || ShapeTypeUtils.hasEdge(shapeType) || ShapeTypeUtils.hasWire(shapeType)) {
-            shapes.push(this.edges());
+            shapes.push(...this.edgeLines());
         }
 
         if (wholeGeometry || ShapeTypeUtils.hasFace(shapeType) || ShapeTypeUtils.hasShell(shapeType)) {
@@ -378,6 +420,8 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     override wholeVisual(): (Mesh | LineSegments2 | Points)[] {
-        return [this.edges(), this.faces(), this.vertexs()].filter((x) => x !== undefined && x !== null);
+        return [...this.edgeLines(), this.faces(), this.vertexs()].filter(
+            (x) => x !== undefined && x !== null,
+        );
     }
 }

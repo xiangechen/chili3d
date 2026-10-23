@@ -1,7 +1,14 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IShape, type IShapeMeshData, Matrix4, Result } from "../src";
+import {
+    type EdgeMeshData,
+    FaceMaterialPair,
+    type IShape,
+    type IShapeMeshData,
+    Matrix4,
+    Result,
+} from "../src";
 import * as ShapeNodeClasses from "../src/model/shapeNode";
 import { MockShape, TestDocument } from "../test-utils";
 
@@ -347,6 +354,86 @@ describe("shapeNode", () => {
 
         test("should return correct display key", () => {
             expect(node.display()).toBe("body.editableShape");
+        });
+    });
+
+    describe("face material merge", () => {
+        /** Two faces, the first painted — the merge regroups ranges by material. */
+        function twoFaceNode() {
+            const shape = new MockShape();
+            shape.mesh.faces = {
+                position: new Float32Array(18),
+                normal: new Float32Array(18),
+                index: new Uint32Array([0, 1, 2, 3, 4, 5]),
+                uv: new Float32Array(12),
+                range: [
+                    { start: 0, count: 3, shape: { id: "f0" } as any },
+                    { start: 3, count: 3, shape: { id: "f1" } as any },
+                ],
+                groups: [],
+                color: 0xdedede,
+            };
+            const node = new ShapeNodeClasses.EditableShapeNode({ document: doc, name: "painted", shape });
+            node.faceMaterialPair = [new FaceMaterialPair({ faceIndex: 0, materialIndex: 1 })];
+            return node;
+        }
+
+        const rangeIds = (node: any) => node.mesh.faces.range.map((x: any) => x.shape.id);
+
+        test("a second createMesh on the same shape merges from the raw faces, not the merged ones", () => {
+            const node = twoFaceNode();
+
+            // paint face 0 → the merged ranges regroup by material: [f1(mat0), f0(mat1)]
+            expect(rangeIds(node)).toEqual(["f1", "f0"]);
+            const origin = node.unmergedFaceMesh!;
+            expect(origin.range.map((x: any) => x.shape.id)).toEqual(["f0", "f1"]);
+
+            node.refreshMesh();
+
+            // a rebuild must reproduce the first merge exactly — merging the already-merged
+            // faces again would flip the ranges back and paint f1 instead of f0
+            expect(node.unmergedFaceMesh).toBe(origin);
+            expect(rangeIds(node)).toEqual(["f1", "f0"]);
+            expect(node.mesh.faces!.groups).toEqual([
+                { start: 0, count: 3, materialIndex: 0 },
+                { start: 3, count: 3, materialIndex: 1 },
+            ]);
+        });
+
+        test("a shape change resets the raw faces", () => {
+            const node = twoFaceNode();
+            node.mesh;
+            const origin = node.unmergedFaceMesh;
+
+            node.shape = Result.ok(new MockShape());
+
+            expect(node.unmergedFaceMesh).toBeUndefined();
+            expect(node.unmergedFaceMesh).not.toBe(origin);
+        });
+
+        test("setExtraDisplayEdges(undefined) on a node without extras does not rebuild the mesh", () => {
+            class CountingNode extends ShapeNodeClasses.EditableShapeNode {
+                createMeshCalls = 0;
+                protected override createMesh(): IShapeMeshData {
+                    this.createMeshCalls++;
+                    return super.createMesh();
+                }
+            }
+            const node = new CountingNode({ document: doc, name: "x", shape: new MockShape() });
+            node.mesh;
+            expect(node.createMeshCalls).toBe(1);
+
+            node.setExtraDisplayEdges(undefined);
+            expect(node.createMeshCalls).toBe(1);
+
+            const extra: EdgeMeshData = {
+                position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                range: [],
+                lineType: "solid",
+            };
+            node.setExtraDisplayEdges([extra]);
+            node.mesh;
+            expect(node.createMeshCalls).toBe(2);
         });
     });
 

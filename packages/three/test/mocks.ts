@@ -3,6 +3,7 @@
 
 import type {
     ComponentNode,
+    EdgeMeshData,
     GeometryNode,
     GroupNode,
     IVisual,
@@ -143,6 +144,8 @@ export function createTestGeometryNode(
         edgeLineWidth?: number;
         /** Per-vertex edge colours — what a sketch being edited hands in for its constraint state. */
         edgeColors?: number[];
+        /** Replaces the default edge mesh outright — e.g. one with per-range line types. */
+        edges?: EdgeMeshData;
     } = {},
 ): GeometryNode & Notifiable {
     const listeners: Array<(prop: string) => void> = [];
@@ -194,13 +197,14 @@ export function createTestGeometryNode(
         name: "test-geo",
         mesh: {
             edges: hasEdges
-                ? ({
+                ? (overrides.edges ??
+                  ({
                       position: new Float32Array([0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0]),
                       color: overrides.edgeColors ?? 0xff0000,
                       lineType: "solid" as const,
                       lineWidth: overrides.edgeLineWidth,
                       range: [{ start: 0, count: 6, shape: edgeShape }],
-                  } as any)
+                  } as any))
                 : null,
             faces: hasFaces
                 ? ({

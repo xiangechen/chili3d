@@ -7,11 +7,13 @@ import {
     type IVisualObject,
     Material,
     type Matrix4,
+    ShapeTypes,
     type VisualNode,
     VisualStates,
 } from "@chili3d/core";
 import { createMockVisual, TestDocument } from "@chili3d/core/test-utils";
 import { Group, MeshBasicMaterial, type MeshPhysicalMaterial, Object3D, Scene, Texture } from "three";
+import { ThreeGeometry } from "../src/threeGeometry";
 import { ThreeVisualContext } from "../src/threeVisualContext";
 import { createTestGeometryNode } from "./mocks";
 
@@ -286,6 +288,29 @@ describe("ThreeVisualContext (real instance)", () => {
         test("should return visualShapes children for shape type", () => {
             const shapes = context.findShapes({} as any);
             expect(Array.isArray(shapes)).toBe(true);
+        });
+
+        test("edge shapes include every run of a mixed-line-type visual", () => {
+            context.materialMap.set("mat-1", new MeshBasicMaterial());
+            const node = createTestGeometryNode({
+                hasFaces: false,
+                hasVertexs: false,
+                edges: {
+                    position: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0]),
+                    color: 0xff0000,
+                    lineType: "solid",
+                    range: [
+                        { start: 0, count: 2, shape: { id: "e1" } as any },
+                        { start: 2, count: 2, shape: { id: "aux1" } as any, lineType: "dash" },
+                    ],
+                },
+            });
+            const geo = new ThreeGeometry(node, context);
+            context.visualShapes.add(geo);
+
+            const shapes = context.findShapes(ShapeTypes.edge);
+            expect(shapes).toHaveLength(2);
+            expect(shapes).toEqual(geo.edgeLines());
         });
     });
 

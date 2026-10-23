@@ -583,8 +583,7 @@ export class ThreeVisualContext implements IVisualContext {
             if (!(child instanceof ThreeGeometry)) return;
 
             if (shapeType === ShapeTypes.edge) {
-                const wireframe = child.edges();
-                if (wireframe) shapes.push(wireframe);
+                shapes.push(...child.edgeLines());
             } else if (shapeType === ShapeTypes.face) {
                 const faces = child.faces();
                 if (faces) shapes.push(faces);

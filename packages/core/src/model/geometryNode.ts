@@ -52,10 +52,12 @@ export abstract class GeometryNode extends VisualNode {
     protected _originFaceMesh?: FaceMeshData;
 
     /**
-     * The face mesh before per-face material grouping. `createMesh` replaces the shared
-     * `mesh.faces` with the merged result, so a consumer that must merge again (a
-     * `BodyInstanceNode` copying the source's paint) has to start from these raw faces;
-     * range indexes there are the original face indexes.
+     * The face mesh before per-face material grouping, captured once per shape — the holders
+     * of a new shape (`ShapeNode.setShape`, an instance's source change) clear it. `createMesh`
+     * writes the merged result back into the mesher's cache and later builds may re-read that,
+     * so the merge must always start from here, never from `mesh.faces`; a consumer that must
+     * merge again (a `BodyInstanceNode` copying the source's paint) does the same. Range
+     * indexes here are the original face indexes.
      */
     get unmergedFaceMesh(): FaceMeshData | undefined {
         return this._originFaceMesh;
@@ -91,6 +93,34 @@ export abstract class GeometryNode extends VisualNode {
         return this._mesh as any;
     }
 
+    /**
+     * Drop every cached mesh — the visual mesh and the raw faces captured for the face-material
+     * merge. Only a shape change (or disposal) may call this: `_originFaceMesh` belongs to the
+     * outgoing shape, and the incoming shape's mesher will hand createMesh its own raw faces.
+     * A same-shape display refresh must use `refreshMesh` — clearing the raw faces there would
+     * re-capture them from the mesher cache, which by then holds the MERGED faces.
+     */
+    protected invalidateMesh(): void {
+        this._mesh = undefined;
+        this._originFaceMesh = undefined;
+    }
+
+    /**
+     * Drop the cached mesh and rebuild the visual. Called by the node itself when geometry
+     * inputs change, and by features whose own state feeds `createMesh` (e.g. the extra
+     * display edges of `ShapeNode`). Nodes not in the scene (mid-construction, removed but
+     * kept by the history) have no visual to rebuild.
+     *
+     * `_originFaceMesh` deliberately survives: the shape is unchanged, so its raw faces are
+     * still the ones the next `createMesh` must merge from.
+     */
+    refreshMesh(): void {
+        this._mesh = undefined;
+        if (!this._isDisposed && this.document.visual.context.getVisual(this) !== undefined) {
+            this.document.visual.context.redrawNode([this]);
+        }
+    }
+
     override boundingBox(): BoundingBox | undefined {
         let points = this.mesh.faces?.position;
         if (!points || points.length === 0) {
@@ -105,7 +135,7 @@ export abstract class GeometryNode extends VisualNode {
 
     override disposeInternal(): void {
         super.disposeInternal();
-        this._mesh = undefined;
+        this.invalidateMesh();
     }
 
     private copyOldValue() {

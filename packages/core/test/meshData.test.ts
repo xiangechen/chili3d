@@ -192,6 +192,152 @@ describe("MeshData", () => {
             });
         });
 
+        describe("appendEdgeMeshes line types", () => {
+            const shapeOf = (id: string) =>
+                ({
+                    id,
+                    shapeType: 1,
+                    isEqual: () => false,
+                    findAncestor: () => [],
+                    findSubShapes: () => [],
+                }) as unknown as ISubShape;
+
+            const baseEdges = (): EdgeMeshData => ({
+                position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                range: [{ start: 0, count: 2, shape: shapeOf("e1") }],
+                color: 0x111111,
+                lineType: "solid",
+            });
+
+            const auxEdges = (): EdgeMeshData => ({
+                position: new Float32Array([2, 0, 0, 3, 0, 0]),
+                range: [{ start: 0, count: 2, shape: shapeOf("aux1") }],
+                color: 0x222222,
+                lineType: "dash",
+            });
+
+            test("tags the ranges of a part whose line type differs from the base", () => {
+                const result = MeshDataUtils.appendEdgeMeshes(baseEdges(), [auxEdges()]);
+                expect(result.lineType).toBe("solid");
+                expect(result.range[0].lineType).toBeUndefined();
+                expect(result.range[1]).toEqual({
+                    start: 2,
+                    count: 2,
+                    shape: result.range[1].shape,
+                    lineType: "dash",
+                });
+            });
+
+            test("a part sharing the base line type leaves its ranges untagged", () => {
+                const extra = { ...auxEdges(), lineType: "solid" as const };
+                const result = MeshDataUtils.appendEdgeMeshes(baseEdges(), [extra]);
+                expect(result.range.every((x) => x.lineType === undefined)).toBe(true);
+            });
+
+            test("the inputs are not mutated", () => {
+                const base = baseEdges();
+                const aux = auxEdges();
+                MeshDataUtils.appendEdgeMeshes(base, [aux]);
+                expect(base.range[0].lineType).toBeUndefined();
+                expect(aux.range[0].lineType).toBeUndefined();
+            });
+        });
+
+        describe("splitEdgeRuns", () => {
+            const shapeOf = (id: string) =>
+                ({
+                    id,
+                    shapeType: 1,
+                    isEqual: () => false,
+                    findAncestor: () => [],
+                    findSubShapes: () => [],
+                }) as unknown as ISubShape;
+
+            test("an untagged mesh comes back as one run sharing the source arrays", () => {
+                const data: EdgeMeshData = {
+                    position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                    range: [{ start: 0, count: 2, shape: shapeOf("e1") }],
+                    color: 0x111111,
+                    lineType: "solid",
+                };
+                const runs = MeshDataUtils.splitEdgeRuns(data);
+                expect(runs).toHaveLength(1);
+                expect(runs[0].lineType).toBe("solid");
+                expect(runs[0].startVertex).toBe(0);
+                expect(runs[0].position).toBe(data.position);
+                expect(runs[0].color).toBe(data.color);
+            });
+
+            test("splits around a tagged block and reports mesh-space start vertices", () => {
+                const data: EdgeMeshData = {
+                    position: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0, 5, 0, 0]),
+                    range: [
+                        { start: 0, count: 2, shape: shapeOf("e1") },
+                        { start: 2, count: 2, shape: shapeOf("aux1"), lineType: "dash" },
+                        { start: 4, count: 2, shape: shapeOf("e2") },
+                    ],
+                    color: 0x111111,
+                    lineType: "solid",
+                };
+                const runs = MeshDataUtils.splitEdgeRuns(data);
+                expect(runs.map((x) => [x.lineType, x.startVertex, x.position.length])).toEqual([
+                    ["solid", 0, 6],
+                    ["dash", 2, 6],
+                    ["solid", 4, 6],
+                ]);
+                expect(Array.from(runs[1].position)).toEqual([2, 0, 0, 3, 0, 0]);
+            });
+
+            test("adjacent tagged ranges of the same type coalesce into one run", () => {
+                const data: EdgeMeshData = {
+                    position: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0]),
+                    range: [
+                        { start: 0, count: 2, shape: shapeOf("e1") },
+                        { start: 2, count: 1, shape: shapeOf("aux1"), lineType: "dash" },
+                        { start: 3, count: 1, shape: shapeOf("aux2"), lineType: "dash" },
+                    ],
+                    color: 0x111111,
+                    lineType: "solid",
+                };
+                const runs = MeshDataUtils.splitEdgeRuns(data);
+                expect(runs.map((x) => [x.lineType, x.startVertex, x.position.length])).toEqual([
+                    ["solid", 0, 6],
+                    ["dash", 2, 6],
+                ]);
+            });
+
+            test("slices the per-vertex colour array along with the positions", () => {
+                const colors = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0];
+                const data: EdgeMeshData = {
+                    position: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0]),
+                    range: [
+                        { start: 0, count: 2, shape: shapeOf("e1") },
+                        { start: 2, count: 2, shape: shapeOf("aux1"), lineType: "dash" },
+                    ],
+                    color: colors,
+                    lineType: "solid",
+                };
+                const runs = MeshDataUtils.splitEdgeRuns(data);
+                expect(runs[0].color).toEqual([1, 0, 0, 1, 0, 0]);
+                expect(runs[1].color).toEqual([0, 1, 0, 0, 1, 0]);
+                expect(colors).toHaveLength(12); // sliced, not mutated
+            });
+
+            test("segments no range covers keep the mesh's own line type", () => {
+                const data: EdgeMeshData = {
+                    position: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0]),
+                    range: [{ start: 0, count: 2, shape: shapeOf("aux1"), lineType: "dash" }],
+                    color: 0x111111,
+                    lineType: "solid",
+                };
+                const runs = MeshDataUtils.splitEdgeRuns(data);
+                expect(runs.map((x) => [x.lineType, x.startVertex])).toEqual([
+                    ["dash", 0],
+                    ["solid", 2],
+                ]);
+            });
+        });
+
         describe("mergeFaceMesh", () => {
             test("should merge two face meshes", () => {
                 const mesh1: FaceMeshData = {

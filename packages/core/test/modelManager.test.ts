@@ -10,6 +10,7 @@ import {
     type ModelManager,
     type NodeRecord,
     type OnNodeChanged,
+    UserData,
     XYZ,
 } from "../src";
 import { TestDocument } from "../test-utils";
@@ -23,6 +24,7 @@ function newNode(name: string, id?: string): INode {
         parent: undefined,
         previousSibling: undefined,
         nextSibling: undefined,
+        userData: new UserData(),
         onPropertyChanged: () => {},
         clearPropertyChanged() {},
         removePropertyChanged: () => {},

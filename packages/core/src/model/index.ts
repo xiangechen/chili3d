@@ -22,4 +22,5 @@ export * from "./nodeIcon";
 export * from "./nodeWarning";
 export * from "./planarDimensionLayout";
 export * from "./shapeNode";
+export * from "./userData";
 export * from "./visualNode";

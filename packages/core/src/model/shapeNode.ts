@@ -13,6 +13,7 @@ import {
     type FaceMeshData,
     type IShape,
     type IShapeMeshData,
+    MeshDataUtils,
     ShapeTypeUtils,
     type VertexMeshData,
 } from "../shape";
@@ -67,8 +68,27 @@ export abstract class ShapeNode extends GeometryNode {
             return;
         }
 
-        this._mesh = undefined;
+        this.invalidateMesh();
         this.setProperty("shape", shape);
+    }
+
+    /**
+     * Runtime-only extra edges merged into `mesh.edges` — drawn and pickable like the node's
+     * own edges, but neither serialized nor recorded in the history. An editing session (or any
+     * feature with geometry to overlay) sets them and clears them with `undefined`; the node's
+     * own shape is never touched.
+     */
+    private _extraDisplayEdges: EdgeMeshData[] | undefined;
+    get extraDisplayEdges(): readonly EdgeMeshData[] | undefined {
+        return this._extraDisplayEdges;
+    }
+    setExtraDisplayEdges(edges: EdgeMeshData[] | undefined): void {
+        const next = edges?.length ? edges : undefined;
+        // A no-op change must not rebuild: the editor asks on every start, and createMesh
+        // is a full remesh of the node.
+        if (next === undefined && this._extraDisplayEdges === undefined) return;
+        this._extraDisplayEdges = next;
+        this.refreshMesh();
     }
 
     protected override createMesh(): IShapeMeshData {
@@ -77,13 +97,25 @@ export abstract class ShapeNode extends GeometryNode {
             return { edges: undefined, faces: undefined, vertexs: undefined };
         }
         const mesh = this.shape.value.mesh;
-        this._originFaceMesh = mesh.faces;
-        if (mesh.faces)
+        // Capture the raw faces once per shape: the merge below writes back into the
+        // mesher's cache, so re-reading `mesh.faces` on a rebuild would feed an
+        // already-merged mesh back in and misapply the pairs to rearranged ranges.
+        this._originFaceMesh ??= mesh.faces;
+        if (this._originFaceMesh)
             mesh.faces = MeshUtils.mergeFaceMesh(
-                mesh.faces,
+                this._originFaceMesh,
                 this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex]),
             );
-        return mesh;
+        if (!this._extraDisplayEdges?.length) return mesh;
+        // Wrap instead of assigning `mesh.edges`: the shape's mesher keeps owning (and
+        // disposing) exactly the ranges it created, extras included never reach it.
+        return {
+            get vertexs() {
+                return mesh.vertexs;
+            },
+            faces: mesh.faces,
+            edges: MeshDataUtils.appendEdgeMeshes(mesh.edges, this._extraDisplayEdges!),
+        };
     }
 
     override disposeInternal(): void {

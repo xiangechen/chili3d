@@ -215,7 +215,7 @@ export class BodyInstanceNode extends ShapeNode {
     /** A source rebuild invalidates the shared mesh; the renderer listens for `shape`. */
     private readonly onSourceShapeChanged = (property: keyof ShapeNode) => {
         if (property !== "shape") return;
-        this._mesh = undefined;
+        this.invalidateMesh();
         this.emitPropertyChanged("shape", this._shape);
     };
 
@@ -223,7 +223,7 @@ export class BodyInstanceNode extends ShapeNode {
     private readonly handleSourceIdChanged = (property: PropertyKey) => {
         if (property !== "sourceId") return;
         this.watch(undefined);
-        this._mesh = undefined;
+        this.invalidateMesh();
         this.emitPropertyChanged("shape", this._shape);
     };
 }

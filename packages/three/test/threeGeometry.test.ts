@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { ShapeTypes, XYZ } from "@chili3d/core";
+import { type EdgeMeshData, ShapeTypes, XYZ } from "@chili3d/core";
 import { Box3, Mesh, MeshBasicMaterial, Points } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
@@ -511,6 +511,114 @@ describe("ThreeGeometry", () => {
             node._notify("materialId");
             // The mock context returns a new material instance per getMaterial call
             expect(geo.faces()?.material).not.toBe(originalFaceMat);
+        });
+    });
+
+    describe("mixed line types", () => {
+        // A solid mesh with an appended dashed block — the shape `appendEdgeMeshes` produces
+        // for a node carrying auxiliary edges: one solid range, then ranges tagged "dash".
+        const solidShape = {
+            id: "e1",
+            shapeType: 1,
+            isEqual: () => false,
+            findAncestor: () => [],
+            findSubShapes: () => [],
+        };
+        const auxShape = {
+            id: "aux1",
+            shapeType: 1,
+            isEqual: () => false,
+            findAncestor: () => [],
+            findSubShapes: () => [],
+        };
+        const mixedEdges = (): EdgeMeshData => ({
+            position: new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 0]),
+            color: 0xff0000,
+            lineType: "solid",
+            range: [
+                { start: 0, count: 2, shape: solidShape as any },
+                { start: 2, count: 2, shape: auxShape as any, lineType: "dash" },
+            ],
+        });
+
+        test("splits the edges into one line object per line type", () => {
+            const node = createTestGeometryNode({ edges: mixedEdges() });
+            const geo = new ThreeGeometry(node, context);
+
+            const lines = geo.edgeLines();
+            expect(lines).toHaveLength(2);
+            expect(geo.edges()).toBe(lines[0]);
+            // the solid run keeps the shared per-width material, the dashed run owns its own
+            expect(lines[0].material).toBe(defaultEdgeMaterial);
+            const dashMaterial = lines[1].material as LineMaterial;
+            expect(dashMaterial).not.toBe(defaultEdgeMaterial);
+            expect(dashMaterial.dashed).toBe(true);
+            // pick indexes of a split object shift back into the mesh's vertex numbering
+            expect(lines[0].userData["edgeVertexOffset"]).toBe(0);
+            expect(lines[1].userData["edgeVertexOffset"]).toBe(2);
+        });
+
+        test("both runs join the raycast sets", () => {
+            const node = createTestGeometryNode({ edges: mixedEdges() });
+            const geo = new ThreeGeometry(node, context);
+
+            expect(geo.subShapeVisual(ShapeTypes.edge)).toHaveLength(2);
+            expect(geo.wholeVisual().filter((x) => x instanceof LineSegments2)).toHaveLength(2);
+        });
+
+        test("the box of a wireframe-only node reaches every run, not just the first", () => {
+            const node = createTestGeometryNode({ hasFaces: false, hasVertexs: false, edges: mixedEdges() });
+            const geo = new ThreeGeometry(node, context);
+
+            // the dashed run ends at x=3, the solid one at x=1 — the union admits both
+            expect(geo.box()?.min.x).toBe(0);
+            expect(geo.box()?.max.x).toBe(3);
+        });
+
+        test("temporary materials apply to every run and restore each one's own", () => {
+            const node = createTestGeometryNode({ edges: mixedEdges() });
+            const geo = new ThreeGeometry(node, context);
+            const dashMaterial = geo.edgeLines()[1].material;
+
+            const temp = { isLineMaterial: true } as any;
+            geo.setEdgesMateiralTemperary(temp);
+            expect(geo.edgeLines().map((x) => x.material)).toEqual([temp, temp]);
+
+            geo.removeTemperaryMaterial();
+            expect(geo.edgeLines()[0].material).toBe(defaultEdgeMaterial);
+            expect(geo.edgeLines()[1].material).toBe(dashMaterial);
+        });
+
+        test("a shape change rebuilds back to one object once the dash tag is gone", () => {
+            const node = createTestGeometryNode({ edges: mixedEdges() });
+            const geo = new ThreeGeometry(node, context);
+            expect(geo.edgeLines()).toHaveLength(2);
+
+            node.mesh.edges = {
+                position: new Float32Array([0, 0, 0, 1, 0, 0]),
+                color: 0xff0000,
+                lineType: "solid",
+                range: [{ start: 0, count: 2, shape: solidShape as any }],
+            };
+            node._notify("shape");
+
+            expect(geo.edgeLines()).toHaveLength(1);
+            expect(geo.edges()!.userData["edgeVertexOffset"]).toBeUndefined();
+        });
+
+        test("dispose releases the dashed material this visual owned", () => {
+            const node = createTestGeometryNode({ edges: mixedEdges() });
+            const geo = new ThreeGeometry(node, context);
+            const dashMaterial = geo.edgeLines()[1].material as LineMaterial;
+
+            let released = false;
+            dashMaterial.addEventListener("dispose", () => {
+                released = true;
+            });
+            geo.dispose();
+
+            expect(released).toBe(true);
+            expect(geo.edgeLines()).toHaveLength(0);
         });
     });
 });
