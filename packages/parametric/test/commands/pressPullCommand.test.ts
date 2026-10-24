@@ -76,14 +76,17 @@ describe("PressPullCommand hand-off", () => {
     let seenExecuting: unknown[] = [];
     let seenSettled: (boolean | undefined)[] = [];
     let seenPressPull: boolean[] = [];
+    let seenOperations: (string | undefined)[] = [];
     class Target implements ICommand {
         pickSettled?: boolean;
         pressPull = false;
+        handoffOperation?: string;
         async execute(application: IApplication): Promise<void> {
             runs++;
             seenExecuting.push(application.executingCommand);
             seenSettled.push(this.pickSettled);
             seenPressPull.push(this.pressPull);
+            seenOperations.push(this.handoffOperation);
         }
     }
 
@@ -94,6 +97,7 @@ describe("PressPullCommand hand-off", () => {
         seenExecuting = [];
         seenSettled = [];
         seenPressPull = [];
+        seenOperations = [];
         getCommand = rs.spyOn(CommandStore, "getCommand").mockReturnValue(Target);
         // Spied but NOT stubbed: the command under test has to reach the real cache.
         seed = rs.spyOn(CancelableCommand, "seedOptions");
@@ -259,13 +263,10 @@ describe("PressPullCommand hand-off", () => {
 
         await (cmd as any).openFromPick();
 
-        // `showTargets` is not seeded: it is not a `@property`, so the cache could never
-        // return it — Extrude's getter derives it from the seeded operation.
-        expect(seed).toHaveBeenCalledWith("feature.extrude", {
-            ...PUSH_OPTIONS,
-            depth: 2,
-            operation: "option.command.operation.new",
-        });
+        // The operation rides the INSTANCE, not the option cache: a seeded join/cut would
+        // outlive the gesture and decide the next, unrelated extrude.
+        expect(seed).toHaveBeenCalledWith("feature.extrude", { ...PUSH_OPTIONS, depth: 2 });
+        expect(seenOperations).toEqual(["option.command.operation.new"]);
     });
 
     test("a profile wound the other way still hands Extrude a depth on the plane's own axis", async () => {
@@ -283,11 +284,8 @@ describe("PressPullCommand hand-off", () => {
 
         await (cmd as any).openFromPick();
 
-        expect(seed).toHaveBeenCalledWith("feature.extrude", {
-            ...PUSH_OPTIONS,
-            depth: -2,
-            operation: "option.command.operation.new",
-        });
+        expect(seed).toHaveBeenCalledWith("feature.extrude", { ...PUSH_OPTIONS, depth: -2 });
+        expect(seenOperations).toEqual(["option.command.operation.new"]);
     });
 
     test("without the gesture's plane the operation is left to Extrude", async () => {
@@ -304,6 +302,7 @@ describe("PressPullCommand hand-off", () => {
         // No drag frame to read the end off, so nothing is claimed about the boolean — but the
         // options the gesture DOES own are still pinned.
         expect(seed).toHaveBeenCalledWith("feature.extrude", { ...PUSH_OPTIONS, depth: 2 });
+        expect(seenOperations).toEqual([undefined]);
     });
 
     test("a completed push keeps the command open for the next one", async () => {

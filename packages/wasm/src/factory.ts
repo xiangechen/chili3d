@@ -783,6 +783,26 @@ export class ShapeFactory implements IShapeFactory {
             "Prism Error",
         );
     }
+    prismToFaceTracked(
+        sbase: IShape,
+        pbase: IFace,
+        until: IFace,
+        direction: XYZ,
+        mode: "cut" | "join" | "new",
+    ): Result<TrackedShape> {
+        if (direction.length() === 0) {
+            return Result.err(`The vector length is 0, the prism cannot be created.`);
+        }
+        // "new" has no base body; the kernel then reads only the limit face for its internal
+        // length estimate, so it doubles as `sbase`.
+        const occUntil = ensureOccShape(until)[0];
+        const occBase = mode === "new" ? occUntil : ensureOccShape(sbase)[0];
+        return convertTrackedShapeResult(
+            wasm.ShapeFactory.prismToFaceTracked,
+            [occBase, ensureOccShape(pbase)[0], occUntil, direction, { cut: 0, join: 1, new: 2 }[mode]],
+            "Prism Error",
+        );
+    }
     pushPull(shape: IShape, face: IShape, vec: XYZ): Result<IShape> {
         if (vec.length() === 0) {
             return Result.err(`The vector length is 0, the prism cannot be created.`);

@@ -111,10 +111,12 @@ export interface ExtrudeFeatureData extends FeatureBase {
     readonly symmetric?: boolean;
     /**
      * Flips the sweep direction (Onshape's Opposite Direction): a blind `depth` reaches
-     * to the other side of the profile plane, an up-to/`throughAll` condition measures
-     * along the flipped direction (a target on the natural side then lies behind the
-     * start plane and is a rebuild error), and a press-pull sweeps AGAINST the face's
-     * outward normal. The flip negates the sweep vectors, never their order: `depth2`
+     * to the other side of the profile plane, a `throughAll` condition measures along
+     * the flipped direction, and a press-pull sweeps AGAINST the face's outward normal.
+     * An up-to target OUTRANKS the flip: one lying behind the flipped direction
+     * auto-reverses the sweep back toward itself (`upToAim` in extrudeEnd.ts), so with a
+     * resolved up-to target this flag changes nothing (a lost target's blind fallback
+     * still reads it). The flip negates the sweep vectors, never their order: `depth2`
      * still lands on the side opposite the main sweep (so with `reverse` that is the
      * natural side), a `:neg` half keeps its ids, and a draft's narrow end moves with
      * the flip, since the taper's pull direction is the sweep vector itself. A
@@ -129,9 +131,10 @@ export interface ExtrudeFeatureData extends FeatureBase {
      * tall). `throughAll` infers a depth that carries the prism past the chain input's
      * far side (a preceding feature is required: standalone geometry has nothing to go
      * through); `upToFace`/`upToVertex` measure the depth from the profile plane to the
-     * named target along the sweep direction. The stored `depth` stays the fallback the
-     * feature builds with while an up-to target is missing or lost — the row reports the
-     * lost pick (`ShapeTracking.unresolved`) instead of the feature failing.
+     * named target, auto-reversing the sweep toward a target lying behind it. The stored
+     * `depth` stays the fallback the feature builds with while an up-to target is missing
+     * or lost — the row reports the lost pick (`ShapeTracking.unresolved`) instead of the
+     * feature failing.
      */
     readonly endCondition?: ExtrudeEndCondition;
     /**
@@ -140,11 +143,11 @@ export interface ExtrudeFeatureData extends FeatureBase {
      * doubles as the frozen fallback when the node is gone, its frame having gone with
      * it). The host's own id names a face of the chain input, matched on
      * `context.input`. A planar target parallel to the profile plane resolves exactly
-     * (the end plane coincides with the target's plane); any other face — curved, or
-     * planar but tilted — terminates at the face's FARTHEST point along the direction,
-     * sampled from its wire vertices and bounding-box corners: the prism end clears the
-     * whole face, which keeps cuts separating. An exact curved-surface termination needs
-     * kernel `BRepFeat` support and is out of scope here.
+     * (the end plane coincides with the target's plane). Any other face is capped BY the
+     * surface itself when the parameters admit the conforming build (`extrudeToFace.ts`,
+     * kernel `prismToFaceTracked`); when they do not, the prism terminates at the face's
+     * NEAREST sampled point along the sweep direction (wire vertices plus bounding-box
+     * corners): it stops at the face's near side instead of passing through to the far one.
      */
     readonly endFace?: { readonly nodeId: string; readonly profile: ProfileRef };
     /**

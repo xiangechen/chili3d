@@ -2,11 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    type AsyncController,
     BoundingBox,
+    type I18nKeys,
     LENGTH_UNITS,
     Line,
     Matrix4,
     Plane,
+    PubSub,
     Result,
     type ShapeType,
     ShapeTypes,
@@ -15,6 +18,7 @@ import {
 } from "@chili3d/core";
 import {
     createMockApplication,
+    createMockSelection,
     nearestOnCircle,
     nearestOnSegment,
     TestDocument,
@@ -366,6 +370,254 @@ describe("feature evaluation", () => {
         // …and reported no anchor, so the body cannot persist a re-anchor onto
         // preview geometry (see ShapeTracking.resolvedEdges).
         expect(tracking.resolvedEdges).toBeUndefined();
+    });
+
+    describe("revolve reselect", () => {
+        /** An axis carried by its own sketch: a unit-length line from (5,0,0) in +Y. */
+        function axisSketch() {
+            const node = new SketchNode({
+                document: doc,
+                plane: Plane.XY,
+                data: { entities: [{ id: 1, type: "line", params: [5, 0, 5, 1] }], constraints: [] },
+            });
+            doc.modelManager.addNode(node);
+            return node;
+        }
+
+        function revolveFeature(): RevolveFeatureData {
+            return { id: "r1", type: "revolve", sketchId: sketch.id, axis: AXIS, angle: 90 };
+        }
+
+        test("is registered as reselectable", () => {
+            expect(featureHandler("revolve")!.reselectable).toBe(true);
+        });
+
+        test("reselectShapes replaces the profiles and the axis in one step", async () => {
+            const axisNode = axisSketch();
+            const axisShape = axisNode.shape.unchecked() as any;
+            const axisEdge =
+                axisShape.shapeType === ShapeTypes.edge
+                    ? axisShape
+                    : axisShape.findSubShapes(ShapeTypes.edge)[0];
+            const body = bodyWith([revolveFeature()]);
+            expect(body.shape.isOk).toBe(true);
+            // The picked profile is the sketch's own, so the rebuild re-matches it exactly.
+            const profileSet = sketchProfiles(sketch);
+            expect(profileSet.isOk).toBe(true);
+            const profileFace = allProfiles(profileSet.value)[0];
+            doc.application.activeView = { document: doc } as any;
+            doc.selection = createMockSelection();
+            const prompts: I18nKeys[] = [];
+            doc.picker.pickShape = rs.fn((prompt: I18nKeys) => {
+                prompts.push(prompt);
+                // First the sketch profiles, then the axis line edge.
+                return Promise.resolve(
+                    prompts.length === 1
+                        ? [{ shape: profileFace, indexes: [0], owner: { node: sketch } } as any]
+                        : [
+                              {
+                                  shape: axisEdge,
+                                  transform: Matrix4.identity(),
+                                  indexes: [0],
+                                  owner: { node: axisNode },
+                              } as any,
+                          ],
+                );
+            });
+            const undoCount = doc.history.undoCount();
+
+            await body.reselectShapes("r1");
+
+            expect(prompts).toEqual(["prompt.select.faces", "prompt.select.axis"]);
+            const stored = body.features[0] as RevolveFeatureData;
+            expect(stored.profiles).toEqual([captureProfileRef(profileFace as any)]);
+            expect(stored.axisSource).toEqual({
+                nodeId: axisNode.id,
+                edge: { kind: "line", start: { x: 5, y: 0, z: 0 }, end: { x: 5, y: 1, z: 0 } },
+            });
+            // The world-space snapshot moved with the pick, so a lost source cannot
+            // resurrect the old axis.
+            expect(stored.axis).toEqual({ point: { x: 5, y: 0, z: 0 }, direction: { x: 0, y: 1, z: 0 } });
+            // Both picks commit in a single undo step.
+            expect(doc.history.undoCount()).toBe(undoCount + 1);
+            // The rebuild revolves around the re-picked axis.
+            const [, axis] = mocks.revolve.mock.calls.at(-1) as unknown as [any, Line, number];
+            expect([axis.point.x, axis.point.y, axis.point.z]).toEqual([5, 0, 0]);
+        });
+
+        test("the axis pick is not short-circuited by the profile pick's settled controller", async () => {
+            const axisNode = axisSketch();
+            const axisShape = axisNode.shape.unchecked() as any;
+            const axisEdge =
+                axisShape.shapeType === ShapeTypes.edge
+                    ? axisShape
+                    : axisShape.findSubShapes(ShapeTypes.edge)[0];
+            const body = bodyWith([revolveFeature()]);
+            expect(body.shape.isOk).toBe(true);
+            const profileSet = sketchProfiles(sketch);
+            expect(profileSet.isOk).toBe(true);
+            const profileFace = allProfiles(profileSet.value)[0];
+            doc.application.activeView = { document: doc } as any;
+            doc.selection = createMockSelection();
+            // The real picker's confirm SETTLES the pick's controller, and a settled
+            // controller replays its result to listeners registered later
+            // (`AsyncController.addListener`): a second pick on the SAME controller resolves
+            // before the user clicks, with the empty selection the first pick's teardown
+            // left — the reselect silently discards the confirmed profiles. Record whether
+            // each pick's controller was already settled when the pick started.
+            const settledAtCall: boolean[] = [];
+            doc.picker.pickShape = rs.fn((_prompt: I18nKeys, controller: AsyncController) => {
+                settledAtCall.push(controller.result !== undefined);
+                controller.success();
+                return Promise.resolve(
+                    settledAtCall.length === 1
+                        ? [{ shape: profileFace, indexes: [0], owner: { node: sketch } } as any]
+                        : [
+                              {
+                                  shape: axisEdge,
+                                  transform: Matrix4.identity(),
+                                  indexes: [0],
+                                  owner: { node: axisNode },
+                              } as any,
+                          ],
+                );
+            });
+
+            await body.reselectShapes("r1");
+
+            expect(settledAtCall).toEqual([false, false]);
+            const stored = body.features[0] as RevolveFeatureData;
+            expect(stored.axisSource?.nodeId).toBe(axisNode.id);
+        });
+
+        test("cancelling the axis pick discards the confirmed profiles too", async () => {
+            const body = bodyWith([revolveFeature()]);
+            expect(body.shape.isOk).toBe(true);
+            const profileSet = sketchProfiles(sketch);
+            expect(profileSet.isOk).toBe(true);
+            const profileFace = allProfiles(profileSet.value)[0];
+            doc.application.activeView = { document: doc } as any;
+            doc.selection = createMockSelection();
+            let picks = 0;
+            doc.picker.pickShape = rs.fn((_prompt: I18nKeys, controller: AsyncController) => {
+                picks++;
+                if (picks === 2) controller.cancel();
+                return Promise.resolve(
+                    picks === 1 ? [{ shape: profileFace, indexes: [0], owner: { node: sketch } } as any] : [],
+                );
+            });
+            const undoCount = doc.history.undoCount();
+
+            await body.reselectShapes("r1");
+
+            // The axis pick must actually RUN for its cancel to mean anything: an early bail
+            // after the profile pick leaves the same unchanged feature, but not by cancellation.
+            expect(picks).toBe(2);
+            const stored = body.features[0] as RevolveFeatureData;
+            expect(stored.profiles).toBeUndefined();
+            expect(stored.axisSource).toBeUndefined();
+            expect(stored.axis).toEqual(AXIS);
+            expect(doc.history.undoCount()).toBe(undoCount);
+        });
+
+        test("a failing profile preview surfaces the rebuild error during the pick", async () => {
+            const body = bodyWith([revolveFeature()]);
+            expect(body.shape.isOk).toBe(true);
+            const profileSet = sketchProfiles(sketch);
+            expect(profileSet.isOk).toBe(true);
+            const profileFace = allProfiles(profileSet.value)[0];
+            doc.application.activeView = { document: doc } as any;
+            const selection = createMockSelection();
+            doc.selection = selection;
+            let picks = 0;
+            let answerProfiles!: (picked: any[]) => void;
+            doc.picker.pickShape = rs.fn((_prompt: I18nKeys, controller: AsyncController) => {
+                picks++;
+                if (picks === 2) {
+                    controller.cancel();
+                    return Promise.resolve([]);
+                }
+                return new Promise<any[]>((resolve) => (answerProfiles = resolve));
+            });
+            // A failing preview keeps the last good shape on screen — indistinguishable from
+            // a healthy one — so the failure has to be SAID, and it is: the preview's rebuild
+            // goes through `ShapeNode.setShape`, whose error surface is `displayError`.
+            const onError = rs.fn();
+            PubSub.default.sub("displayError", onError);
+            try {
+                const run = body.reselectShapes("r1");
+                // Let the session open its pick before the selection changes.
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                // The same face twice: two refs claiming one face is ambiguous.
+                const pick = { shape: profileFace, indexes: [0], owner: { node: sketch } } as any;
+                selection.onShapeChanged.emit([pick, pick]);
+                // The preview is debounced.
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                expect(onError).toHaveBeenCalledWith("Sketch profile match is ambiguous after rebuild");
+                answerProfiles([]);
+                await run;
+            } finally {
+                PubSub.default.remove("displayError", onError);
+            }
+        });
+
+        test("a payload that fails the rehearsal is toasted and never committed", async () => {
+            const axisNode = axisSketch();
+            const axisShape = axisNode.shape.unchecked() as any;
+            const axisEdge =
+                axisShape.shapeType === ShapeTypes.edge
+                    ? axisShape
+                    : axisShape.findSubShapes(ShapeTypes.edge)[0];
+            const body = bodyWith([revolveFeature()]);
+            expect(body.shape.isOk).toBe(true);
+            const profileSet = sketchProfiles(sketch);
+            expect(profileSet.isOk).toBe(true);
+            const profileFace = allProfiles(profileSet.value)[0];
+            doc.application.activeView = { document: doc } as any;
+            doc.selection = createMockSelection();
+            let picks = 0;
+            doc.picker.pickShape = rs.fn((_prompt: I18nKeys, _controller: AsyncController) => {
+                picks++;
+                // The axis pick is a single click with no live preview, so the axis
+                // only takes part in a rebuild at commit. The ambiguous profile pair
+                // (the same face twice) makes that rebuild fail — the rehearsal toasts
+                // the failure against the pick instead of landing it on the row.
+                return Promise.resolve(
+                    picks === 1
+                        ? [
+                              { shape: profileFace, indexes: [0], owner: { node: sketch } } as any,
+                              { shape: profileFace, indexes: [0], owner: { node: sketch } } as any,
+                          ]
+                        : [
+                              {
+                                  shape: axisEdge,
+                                  transform: Matrix4.identity(),
+                                  indexes: [0],
+                                  owner: { node: axisNode },
+                              } as any,
+                          ],
+                );
+            });
+            const onToast = rs.fn();
+            PubSub.default.sub("showToast", onToast);
+            const undoCount = doc.history.undoCount();
+            try {
+                await body.reselectShapes("r1");
+            } finally {
+                PubSub.default.remove("showToast", onToast);
+            }
+
+            expect(onToast).toHaveBeenCalledWith(
+                "error.default:{0}",
+                "Sketch profile match is ambiguous after rebuild",
+            );
+            const stored = body.features[0] as RevolveFeatureData;
+            expect(stored.profiles).toBeUndefined();
+            expect(stored.axisSource).toBeUndefined();
+            expect(stored.axis).toEqual(AXIS);
+            expect(doc.history.undoCount()).toBe(undoCount);
+            expect(body.shape.isOk).toBe(true);
+        });
     });
 
     test("fillet re-matches edge refs against the rebuilt input", () => {

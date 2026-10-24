@@ -6,6 +6,7 @@ import {
     ConstraintKind,
     defaultNurbsSpec,
     entityPointCount,
+    isStructuralConstraint,
     pointRefKey,
     type SketchEntityData,
     type SketchEntityType,
@@ -34,6 +35,13 @@ import { centerRef, lineRefs } from "./solverEntities";
  * also what keeps a later drag from re-tying the pair: the auto-constraint a drag adds
  * when it lands on a point would otherwise supply exactly that coincidence, and the two
  * symmetries would collapse into one another after the fact.
+ *
+ * The same rule drops the structural constraints a copy is born with — an arc's
+ * `PointOnArc`, an ellipse family's `Perpendicular` (see `dropCopyStructuralConstraints`).
+ * Each names its own entity alone and is already implied by the symmetries, so keeping it
+ * leaves a row the sketch does not need; garlic reports it once the rank heuristic can see
+ * the dependency, which is not in every pose (a filleted corner mirrored about Y then X
+ * showed it only with the lines in one orientation).
  *
  * The op mirrors `cornerOps.ts` / `trimOps.ts`: pure geometry plus direct solver
  * mutation, all of it rolled back on any failure, with the caller solving and committing
@@ -307,6 +315,10 @@ export function mirrorEntities(
         plan,
         copyId: addCopy(solver, entity, plan),
     }));
+    dropCopyStructuralConstraints(
+        solver,
+        copies.map((copy) => copy.copyId),
+    );
     addTies(solver, copies, lineRefs(axisId));
 
     const outcome = solver.solve(true);
@@ -333,6 +345,35 @@ function addCopy(solver: SketchSolver, entity: SketchEntityData, plan: MirrorPla
     const copyId = solver.addEntityFromParams(plan.type, plan.params, nurbs);
     if (solver.isConstruction(entity.id)) solver.setConstruction(copyId, true);
     return copyId;
+}
+
+/**
+ * Drops the structural constraints a copy was born with — an arc's `PointOnArc`, an
+ * ellipse family's `Perpendicular`.
+ *
+ * Every constraint of that kind names its own entity alone and says something the source
+ * already satisfies, so the symmetries that tie the copy's points to the source's imply it
+ * outright. Left in, each one is a row the sketch does not need: the system is
+ * over-constrained by one per copy, and garlic reports it (measured: two lines filleted at
+ * their corner and mirrored about Y then X — one redundant group per copy, 11 constraints
+ * flagged). The DOF count falls with it, one per copy, which also hides the redundancy from
+ * any pose where the rank heuristic cannot see the dependency.
+ *
+ * Dropping them costs nothing the source does not already give: the copy is driven wholly
+ * by its symmetries, so it stays round (or perpendicular) for as long as they hold. A user
+ * who deletes a symmetry lets the copy go, exactly as any other tie would — and the arc
+ * still evaluates from its own centre, start and end.
+ */
+function dropCopyStructuralConstraints(solver: SketchSolver, copyIds: readonly number[]): void {
+    // The copies' own constraints only: `toData().constraints` would materialize every entity
+    // and external of the sketch for what is a handful of records, once per mirror gesture.
+    // (A structural constraint names its own entity alone, so this touching-filter catches
+    // exactly the set a `refs[0]` check would.)
+    for (const constraint of solver.constraintsOf(new Set(copyIds))) {
+        if (isStructuralConstraint(constraint)) {
+            solver.removeConstraint(constraint.id);
+        }
+    }
 }
 
 /** A source point and the copy point it reflects. */

@@ -37,6 +37,7 @@
 #include <BRepGProp.hxx>
 #include <BRepLProp_SLProps.hxx>
 #include <BRepLib.hxx>
+#include <BRepLib_MakeFace.hxx>
 #include <BRepOffsetAPI_DraftAngle.hxx>
 #include <BRepOffsetAPI_MakePipe.hxx>
 #include <BRepOffsetAPI_MakePipeShell.hxx>
@@ -69,11 +70,17 @@
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
+#include <Geom_ConicalSurface.hxx>
+#include <Geom_CylindricalSurface.hxx>
 #include <Geom_Circle.hxx>
 #include <Geom_Ellipse.hxx>
 #include <Geom_Hyperbola.hxx>
 #include <Geom_Line.hxx>
 #include <Geom_OffsetCurve.hxx>
+#include <Geom_RectangularTrimmedSurface.hxx>
+#include <Geom_SphericalSurface.hxx>
+#include <Geom_Surface.hxx>
+#include <Geom_ToroidalSurface.hxx>
 #include <Geom_Parabola.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <HelixBRep_BuilderHelix.hxx>
@@ -82,6 +89,7 @@
 #include <NCollection_IndexedDataMap.hxx>
 #include <NCollection_IndexedMap.hxx>
 #include <NCollection_List.hxx>
+#include <NCollection_Map.hxx>
 #include <Precision.hxx>
 #include <ShapeAnalysis_Edge.hxx>
 #include <ShapeFix_Face.hxx>
@@ -1832,6 +1840,114 @@ static bool faceIndices(const NCollection_IndexedMap<TopoDS_Shape, TopTools_Shap
     return true;
 }
 
+// ---------------------------------------------------------------- prism up to face --
+
+// A copy of `face`'s surface padded in UV by `margin` (millimetres; angular directions scale
+// by the radius), naturally restricted. BRepFeat_MakePrism takes its boolean path (rather than
+// the old gluer) only when the limit face is wire-free or naturally restricted
+// (TransformShapeFU), and only for plane/cylinder/cone surfaces — the padded copy is what
+// makes a trimmed solid face qualify, while the padding lets the limit cover a cross-section
+// slightly wider than the face itself. BRep_Tool::Surface already returns the surface moved
+// by the face's location, so the copy must NOT take the location again.
+//
+// Any other surface returns a null face: its padded copy would take the gluer path anyway (no
+// boolean path exists for it), and PADDING it is not even safe — Geom_RectangularTrimmedSurface
+// raises ConstructionError when a padded bound crosses a UV-BOUNDED surface's natural range
+// (a sphere's V, a B-spline's), which with exception catching disabled aborts the module. The
+// caller skips a null attempt, leaving the raw face to try the gluer path alone.
+static TopoDS_Face paddedLimitFace(const TopoDS_Face& face, double margin)
+{
+    Handle(Geom_Surface) surface = BRep_Tool::Surface(face);
+    while (auto trimmed = Handle(Geom_RectangularTrimmedSurface)::DownCast(surface)) {
+        surface = trimmed->BasisSurface();
+    }
+    if (!surface->IsKind(STANDARD_TYPE(Geom_Plane)) && !surface->IsKind(STANDARD_TYPE(Geom_CylindricalSurface))
+        && !surface->IsKind(STANDARD_TYPE(Geom_ConicalSurface))) {
+        return TopoDS_Face();
+    }
+    double u1, u2, v1, v2;
+    BRepTools::UVBounds(face, u1, u2, v1, v2);
+    double padU = margin;
+    double padV = margin;
+    if (auto cylinder = Handle(Geom_CylindricalSurface)::DownCast(surface)) {
+        padU = margin / cylinder->Radius();
+    } else if (auto cone = Handle(Geom_ConicalSurface)::DownCast(surface)) {
+        padU = margin / std::max(cone->RefRadius(), 1e-3);
+    }
+    u1 -= padU;
+    u2 += padU;
+    v1 -= padV;
+    v2 += padV;
+    // A periodic direction padded past its period overlaps itself — clamp to one full turn.
+    if (surface->IsUPeriodic() && u2 - u1 > surface->UPeriod()) {
+        const double middle = 0.5 * (u1 + u2);
+        u1 = middle - 0.5 * surface->UPeriod();
+        u2 = middle + 0.5 * surface->UPeriod();
+    }
+    if (surface->IsVPeriodic() && v2 - v1 > surface->VPeriod()) {
+        const double middle = 0.5 * (v1 + v2);
+        v1 = middle - 0.5 * surface->VPeriod();
+        v2 = middle + 0.5 * surface->VPeriod();
+    }
+    // The bounds ride a trimmed-surface wrapper and the face is built wire-free on it
+    // (BRepLib_MakeFace, as BRepFeat::FaceUntil does) — BRepFeat's boolean path requires a
+    // wire-free or naturally-restricted limit (TransformShapeFU), and a bounded MakeFace
+    // would materialize a boundary wire instead.
+    Handle(Geom_Surface) trimmed = new Geom_RectangularTrimmedSurface(surface, u1, u2, v1, v2);
+    BRepLib_MakeFace maker(trimmed, Precision::Confusion());
+    if (!maker.IsDone()) {
+        return TopoDS_Face();
+    }
+    return maker.Face();
+}
+
+// The result's termination faces ON the bounded limit face — found geometrically (booleans
+// may copy surfaces, so a handle comparison misses them): a face qualifies when the midpoint
+// of its own UV bounds lies within tolerance of the limit. There must be at least one (a
+// build that never limited the prism, or limited it past the face's boundary, qualifies
+// vacuously otherwise), and no vertex of a qualifying face may float off the limit — a cap
+// the padded copy produced past the real boundary reads as a vertex at a positive distance.
+//
+// With a base (join/cut) the qualifying face must also be NEW — not an unmodified face of the
+// base. The base's own face on the limit surface passes the geometric test as well, so
+// without the exclusion a prism that never reaches the limit at all (fused as a disconnected
+// lump off its side, the volume check satisfied by the added material) still finds its "cap":
+// the base's untouched until-side face.
+static bool capsOnLimitFace(const TopoDS_Shape& result, const TopoDS_Face& limit, const TopoDS_Shape& base)
+{
+    NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> baseFaces;
+    if (!base.IsNull()) {
+        for (TopExp_Explorer it(base, TopAbs_FACE); it.More(); it.Next()) {
+            baseFaces.Add(it.Current());
+        }
+    }
+    bool found = false;
+    for (TopExp_Explorer it(result, TopAbs_FACE); it.More(); it.Next()) {
+        const TopoDS_Face& face = TopoDS::Face(it.Current());
+        double u1, u2, v1, v2;
+        BRepTools::UVBounds(face, u1, u2, v1, v2);
+        TopLoc_Location location;
+        const Handle(Geom_Surface)& surface = BRep_Tool::Surface(face, location);
+        const gp_Pnt center = surface->Value(0.5 * (u1 + u2), 0.5 * (v1 + v2)).Transformed(location);
+        BRepBuilderAPI_MakeVertex makeCenter(center);
+        BRepExtrema_DistShapeShape onLimit(makeCenter.Vertex(), limit, Extrema_ExtFlag_MIN);
+        if (!onLimit.IsDone() || onLimit.Value() > 1e-4) {
+            continue;
+        }
+        if (baseFaces.Contains(face)) {
+            continue;
+        }
+        found = true;
+        for (TopExp_Explorer vertices(face, TopAbs_VERTEX); vertices.More(); vertices.Next()) {
+            BRepExtrema_DistShapeShape offLimit(vertices.Current(), limit, Extrema_ExtFlag_MIN);
+            if (!offLimit.IsDone() || offLimit.Value() > 1e-4) {
+                return false;
+            }
+        }
+    }
+    return found;
+}
+
 // The rounds the caller asked to keep that ARE rounds — a chamfer's `:f` faces are planes — and that
 // are not themselves being moved. The caller finds them by name (`edgeCorner.ts`); telling a round
 // from a flat is the surface's job.
@@ -2140,6 +2256,111 @@ public:
             edgeHistory(prism, profile, prism.Shape()), faceFromEdgeHistory(prism, profile, prism.Shape()) };
         result.capFaces = sweepCapFaces(prism, prism.Shape());
         return result;
+    }
+
+    // Extrudes the profile face up to the limit face, the end capped BY the limit surface
+    // itself (BRepFeat_MakePrism::Perform(Until)) instead of by a plane. `mode`: 0 = cut from
+    // `sbase`, 1 = fuse into `sbase`, 2 = the limited prism alone (BRepFeat's JustFeat —
+    // `sbase` then feeds only the internal length estimate, so the limit face itself is used).
+    //
+    // The limit handed to OCCT is a padded natural-restriction copy of `until`'s surface (see
+    // `paddedLimitFace`) — a trimmed solid face would take the gluer path, which a profile
+    // floating off the base body cannot survive — so every cap is checked against the real
+    // face afterwards (`capsOnLimitFace`): a cap past its boundary is a refusal, not a shape.
+    //
+    // Every guard runs BEFORE any OCCT call: Perform raises on a null or face-less limit and
+    // gp_Dir on a zero vector — with exception catching disabled (Release) a raise aborts the
+    // whole module. The history input mirrors the tracked boolean's [args, tools]: base first
+    // (mode 0/1), then the profile and the limit face — the limit slot holds the padded copy,
+    // whose single face index coincides with the original's for the caller's enumeration.
+    static TrackedShapeResult prismToFaceTracked(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase,
+        const TopoDS_Shape& until, const Vector3& direction, int mode)
+    {
+        if (pbase.ShapeType() != TopAbs_FACE) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Prism base must be a face", {}, {} };
+        }
+        if (until.IsNull() || until.ShapeType() != TopAbs_FACE) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "The limit must be a single face", {}, {} };
+        }
+        if (mode < 0 || mode > 2 || (mode != 2 && sbase.IsNull())) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "Invalid prism-to-face arguments", {}, {} };
+        }
+        gp_XYZ xyz = Vector3::toXYZ(direction);
+        if (xyz.Modulus() < 1e-9) {
+            return TrackedShapeResult { TopoDS_Shape(), false, "The direction is zero", {}, {} };
+        }
+        try {
+            // The padding margin spans everything involved: past the profile and past the
+            // base, so the copy covers wherever the sweep can cross the real face.
+            Bnd_Box span;
+            BRepBndLib::Add(pbase, span);
+            BRepBndLib::Add(until, span);
+            if (mode != 2) {
+                BRepBndLib::Add(sbase, span);
+            }
+            const double margin = 3.0 * std::sqrt(span.SquareExtent());
+            const TopoDS_Face& limit = TopoDS::Face(until);
+            TopoDS_Face padded = paddedLimitFace(limit, margin);
+            // The padded copy takes the boolean path (a floating profile survives it), the
+            // face as given the gluer path (a limit that IS a face of the base survives
+            // that); try the boolean first.
+            std::string error = "Failed to prism up to the face";
+            int attemptIndex = 0;
+            for (const TopoDS_Face& attempt : { padded, limit }) {
+                attemptIndex++;
+                if (attempt.IsNull()) {
+                    continue;
+                }
+                TrackedShapeResult built = prismToFaceAttempt(sbase, pbase, limit, attempt, xyz, mode);
+                if (built.isOk) {
+                    return built;
+                }
+                error += " | attempt " + std::to_string(attemptIndex) + ": " + built.error;
+            }
+            return TrackedShapeResult { TopoDS_Shape(), false, error, {}, {} };
+        } catch (const Standard_Failure& failure) {
+            const char* message = failure.GetMessageString();
+            return TrackedShapeResult { TopoDS_Shape(), false,
+                message != nullptr ? message : "Failed to prism up to the face", {}, {} };
+        }
+    }
+
+    // One BRepFeat attempt with `attempt` as the Until, validated against the REAL limit face:
+    // refused (with the kernel's status error worded in) unless every cap lies on the limit
+    // (`capsOnLimitFace`) and — for join/cut — the base's volume actually moved, which a
+    // silently empty build the gluer reports as success does not.
+    static TrackedShapeResult prismToFaceAttempt(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase,
+        const TopoDS_Face& limit, const TopoDS_Face& attempt, const gp_XYZ& direction, int mode)
+    {
+        const TopoDS_Shape& base = mode == 2 ? attempt : sbase;
+        BRepFeat_MakePrism prism(base, pbase, TopoDS::Face(pbase), gp_Dir(direction), mode, false);
+        prism.Perform(attempt);
+        // The gluer path can report success with an empty shape — refuse it like a failure.
+        if (!prism.IsDone() || prism.Shape().IsNull() || !TopExp_Explorer(prism.Shape(), TopAbs_FACE).More()) {
+            return TrackedShapeResult { TopoDS_Shape(), false,
+                "Failed to prism up to the face (status " + std::to_string(static_cast<int>(prism.CurrentStatusError())) + ")", {}, {} };
+        }
+        const TopoDS_Shape& result = prism.Shape();
+        if (!capsOnLimitFace(result, limit, mode == 2 ? TopoDS_Shape() : sbase)) {
+            return TrackedShapeResult { TopoDS_Shape(), false,
+                "The limit face does not cover the prism cross-section", {}, {} };
+        }
+        if (mode != 2) {
+            const double before = exactVolume(sbase);
+            const double after = exactVolume(result);
+            const double slack = 1e-6 * std::fabs(before) + 1e-9;
+            if (!(mode == 1 ? after > before + slack : after < before - slack)) {
+                return TrackedShapeResult { TopoDS_Shape(), false,
+                    "The prism did not reach the limit face", {}, {} };
+            }
+        }
+        TopoDS_Compound input = mode == 2 ? compoundOf({ pbase, attempt })
+                                          : compoundOf({ sbase, pbase, attempt });
+        TrackedShapeResult tracked { result, true, "", faceHistory(prism, input, result),
+            edgeHistory(prism, input, result) };
+        // The side faces are edge-generated from the profile, exactly like a plain prism's.
+        tracked.faceEdgeMap = faceFromEdgeHistory(prism, pbase, result);
+        return tracked;
     }
 
     static ShapeResult pushPull(const TopoDS_Shape& sbase, const TopoDS_Shape& pbase, const Vector3& vec)
@@ -4264,6 +4485,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("chamferTwoDist", &ShapeFactory::chamferTwoDist)
         .class_function("revolveTracked", &ShapeFactory::revolveTracked)
         .class_function("prismTracked", &ShapeFactory::prismTracked)
+        .class_function("prismToFaceTracked", &ShapeFactory::prismToFaceTracked)
         .class_function("loftTracked", &ShapeFactory::loftTracked)
         .class_function("booleanCommonTracked", &ShapeFactory::booleanCommonTracked)
         .class_function("booleanCutTracked", &ShapeFactory::booleanCutTracked)

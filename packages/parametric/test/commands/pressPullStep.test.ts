@@ -33,7 +33,7 @@ const shapeOf = (shapeType: ShapeType, normal: XYZ, overrides: Record<string, un
         boundingBox: () => BoundingBox.zero,
         area: () => 0,
         normal: () => [XYZ.zero, normal],
-        surface: () => ({ parameter: () => undefined }),
+        surface: () => ({ parameter: () => undefined, nearestPoint: () => undefined }),
         firstParameter: () => 0,
         lastParameter: () => 1,
         pointAt: () => XYZ.zero,
@@ -58,6 +58,52 @@ describe("gripOf", () => {
 
         expect(grip!.origin).toBe(at);
         expect(grip!.direction.dot(XYZ.unitZ)).toBeCloseTo(1, 6);
+    });
+
+    test("a curved face answers on the side the pointer landed, not the seam's", () => {
+        // A closed cylinder's (0, 0) parameter is its seam: the normal there can face straight
+        // away from the pick. The kernel also hands back the raw D1U×D1V, whose length follows
+        // the parametrization (a cylinder of radius r answers a vector of length r), so the
+        // grip must take the pick-side normal AND normalize it.
+        const seam = XYZ.unitX;
+        const atPick = new XYZ({ x: 0, y: -10, z: 3 });
+        const radial = new XYZ({ x: 0, y: -10, z: 0 });
+        const shape = shapeOf(ShapeTypes.face, seam, {
+            normal: (u: number) => (u === 0 ? [XYZ.zero, seam] : [atPick, radial]),
+            surface: () => ({ parameter: () => ({ u: Math.PI, v: 3 }) }),
+        });
+
+        const grip = gripOf(picked(body, shape, atPick));
+
+        expect(grip!.origin).toBe(atPick);
+        expect(grip!.direction.length()).toBeCloseTo(1, 6);
+        expect(grip!.direction.dot(XYZ.unitNY)).toBeCloseTo(1, 6);
+    });
+
+    test("a pick off the analytic surface (a mesh point) is projected before it is read", () => {
+        // A viewport pick lands on the tessellation, off the analytic surface by the mesh
+        // deflection — past the `parameter` tolerance. The grip must project it first, or it
+        // falls back to the seam normal on every curved face.
+        const seam = XYZ.unitX;
+        const atPick = new XYZ({ x: 0, y: -10.01, z: 3 });
+        const projected = new XYZ({ x: 0, y: -10, z: 3 });
+        const radial = new XYZ({ x: 0, y: -10, z: 0 });
+        const surface = {
+            parameter: (point: XYZ) => (point === atPick ? undefined : { u: Math.PI, v: 3 }),
+            nearestPoint: (point: XYZ) => {
+                expect(point).toBe(atPick);
+                return [projected, 0.01] as [XYZ, number];
+            },
+        };
+        const shape = shapeOf(ShapeTypes.face, seam, {
+            normal: (u: number) => (u === 0 ? [XYZ.zero, seam] : [projected, radial]),
+            surface: () => surface,
+        });
+
+        const grip = gripOf(picked(body, shape, atPick));
+
+        expect(grip!.origin).toBe(atPick);
+        expect(grip!.direction.dot(XYZ.unitNY)).toBeCloseTo(1, 6);
     });
 
     test("an edge drags out of the material: its two faces' outward normals summed", () => {

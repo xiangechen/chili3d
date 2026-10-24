@@ -20,7 +20,7 @@ import { matchEdgeIndexes, matchEdgesAnchored } from "./edgeMatcher";
 import { captureEdgeRef, type EdgeRef } from "./edgeRef";
 import type { ExtrudeEndCondition, ExtrudeFeatureData, FeatureContext, UnresolvedInputs } from "./feature";
 import { captureProfileRef, type ProfileRef } from "./profileRef";
-import { directionsParallel, plainVec } from "./refGeometry";
+import { plainVec } from "./refGeometry";
 import { matchSourceFaceIndexes, resolveSourceFaces } from "./sourceFaceMatcher";
 import { matchVertex, type VertexRef } from "./vertexRef";
 
@@ -45,11 +45,15 @@ import { matchVertex, type VertexRef } from "./vertexRef";
  *   target point: depth = n·(V − P0) / (n·dir) − startOffset + endOffset, exact for any
  *   direction (the n·dir quotient is the oblique reach along dir that advances one unit of
  *   plane distance).
- * - **upToFace** — a planar target parallel to the profile plane is exact (the same formula
- *   with any point of the target's plane); anything else — curved, or planar but tilted —
- *   terminates at the face's FARTHEST sampled point along the direction (wire vertices plus
- *   bounding-box corners), so the prism end clears the whole face and cuts separate cleanly.
- *   An exact curved-surface termination needs kernel `BRepFeat` support — out of scope here.
+ * - **upToFace** — the prism terminates at the face's NEAREST sampled point along the sweep
+ *   direction — stops AT the face's near side, for a cylinder the tangent line facing the
+ *   profile, instead of passing through to the far side. The samples all lie ON the surface
+ *   (wire vertices plus each boundary edge sampled along its parameter range), so a planar
+ *   target's linear reach is read exactly at the region's extreme vertices, and a curved
+ *   wall's extremum — which sits on its boundary rims — is caught within a fraction of a
+ *   degree. When the parameters admit it (`conformingEnd`) and the kernel offers
+ *   `prismToFaceTracked`, the prism is instead built TO the surface itself, capped by a
+ *   patch of it (`extrudeToFace.ts`).
  *
  * `startOffset` composes FIRST (it moves the prism's start off the profile plane); the
  * up-to/through depths are measured from the profile plane and subtract the offset's
@@ -58,33 +62,55 @@ import { matchVertex, type VertexRef } from "./vertexRef";
  * so with `reverse` set the start plane sits BEHIND the profile plane along the flipped
  * sweep — the signed offset negates and the subtraction becomes an addition.
  *
- * A target that computes to a non-positive depth lies behind the start plane and is a rebuild
- * error. A target that cannot be RESOLVED (node gone, face no longer matching, a rolled-back
- * source showing its session preview) does not fail the feature: the stored fingerprint
- * doubles as the frozen geometry (world capture makes that unambiguous — the node's frame
- * went with it), the blind `depth` stands in when even the fingerprint is unusable, and the
- * loss is reported through `ShapeTracking.unresolved` as the plan's `unresolved` — the caller
- * applies it after the profile resolution, so a lost profile keeps precedence over a lost
- * end target in the one-slot report.
+ * An up-to target strictly BEHIND the sweep direction does not fail: the sweep auto-reverses
+ * toward it (`upToAim`) — the picked target IS the intent, and reaching it beats honouring
+ * the direction that missed it. What still fails: a target lying ON or ACROSS the start
+ * plane (no direction reaches only a near side) and one the offsets pull the end back
+ * behind the start plane from. A target that cannot be RESOLVED (node gone, face no longer
+ * matching, a rolled-back source showing its session preview) does not fail the feature:
+ * the stored fingerprint doubles as the frozen geometry (world capture makes that
+ * unambiguous — the node's frame went with it), the blind `depth` stands in when even the
+ * fingerprint is unusable, and the loss is reported through `ShapeTracking.unresolved` as
+ * the plan's `unresolved` — the caller applies it after the profile resolution, so a lost
+ * profile keeps precedence over a lost end target in the one-slot report.
  *
  * `reverse` (Onshape's Opposite Direction) flips the direction the plan hands out: the sweep
  * vectors negate (order preserved, so the `:neg` half's ids stay put), and the up-to/through-all
- * depths measure along the flipped direction — a target on the natural side then computes to a
- * negative depth and fails as behind-the-start-plane, with the error naming the flip as the fix.
- * The start offset keeps the unflipped sense (see `ExtrudeFeatureData.reverse`).
+ * depths measure along the flipped direction. An up-to target OUTRANKS the flip — one lying
+ * behind the flipped direction auto-reverses back toward itself — so with a resolved up-to
+ * target the flag changes nothing; it still decides the blind/through-all sweeps and the
+ * lost-target fallback. The start offset keeps the unflipped sense (see
+ * `ExtrudeFeatureData.reverse`).
  */
 export interface ExtrudePlan {
     /**
      * The sweep vectors for a profile plane (`point`/`normal`, world): the forward vector
      * first, the backward one second when `symmetric`/`depth2` asks. The forward sense is
      * the direction override's, or the plane normal's without an override — negated as a
-     * whole when the feature's `reverse` is set.
+     * whole when the feature's `reverse` is set, and negated AGAIN toward an up-to target
+     * lying behind all of that (the target outranks every direction knob — see `upToAim`).
      */
     vecsOf(point: XYZ, normal: XYZ): Result<XYZ[]>;
     /** The start-offset vector for that plane, along its sweep direction. */
     offsetOf(normal: XYZ): XYZ;
     /** The pick this evaluation could not resolve, if any — applied by the caller. */
     readonly unresolved?: UnresolvedInputs;
+    /**
+     * The end condition admits a surface-conforming build (`extrudeToFace.ts`): `upToFace`
+     * with no start/end offset, no second depth and no symmetric half — the parameters the
+     * kernel's prism-to-face cannot express. The live face itself is resolved once HERE
+     * (`liveEndFace`); this flag says only that the parameters do not rule the build out.
+     */
+    readonly conformingEnd: boolean;
+    /**
+     * The live end-face resolution this evaluation already ran for the depth samples,
+     * kept alive for the conforming build (`extrudeToFace.ts`) so it does not enumerate
+     * and score the target body's faces a second time. Borrowed — owned by the plan,
+     * released by `dispose`.
+     */
+    readonly liveEndFace?: { face: IFace; id: string | undefined; owned: IShape[] };
+    /** Releases the stashed live end face. Called by the feature handler after the build. */
+    dispose(): void;
 }
 
 /**
@@ -113,14 +139,21 @@ interface ExtrudePlanState {
 }
 
 /**
- * How far one profile sweeps under this plan's end condition, measured along `dir` — the flipped
- * direction when `reverse` is set. A target the evaluation could not resolve degrades to the blind
- * depth rather than failing: the loss is reported separately, through the plan's `unresolved`.
+ * How far one profile sweeps under this plan's end condition, and along WHICH direction —
+ * the up-to conditions may auto-reverse `dir` toward a target lying behind it (see
+ * `upToAim`); the other conditions keep it. A target the evaluation could not resolve
+ * degrades to the blind depth rather than failing: the loss is reported separately,
+ * through the plan's `unresolved`.
  */
-function endConditionDepth(plan: ExtrudePlanState, point: XYZ, normal: XYZ, dir: XYZ): Result<number> {
+function endConditionSweep(
+    plan: ExtrudePlanState,
+    point: XYZ,
+    normal: XYZ,
+    dir: XYZ,
+): Result<{ dir: XYZ; depth: number }> {
     switch (plan.condition) {
-        case "throughAll":
-            return throughAllDepth(
+        case "throughAll": {
+            const depth = throughAllDepth(
                 plan.context.input!,
                 plan.context.host.worldTransform(),
                 point,
@@ -128,19 +161,21 @@ function endConditionDepth(plan: ExtrudePlanState, point: XYZ, normal: XYZ, dir:
                 plan.sweepStartOffset,
                 "Extrude",
             );
+            return depth.isOk ? Result.ok({ dir, depth: depth.value }) : Result.err(depth.error);
+        }
         case "upToFace":
         case "upToVertex":
             return plan.target.target.kind === "none"
-                ? Result.ok(plan.blindDepth)
-                : upToDepth(plan.target.target, point, normal, dir, plan.sweepStartOffset, plan.endOffset);
+                ? Result.ok({ dir, depth: plan.blindDepth })
+                : upToAim(plan.target.target, point, normal, dir, plan.sweepStartOffset, plan.endOffset);
         default:
-            return Result.ok(plan.blindDepth);
+            return Result.ok({ dir, depth: plan.blindDepth });
     }
 }
 
 /**
- * The vectors one profile sweeps along: the forward one, and the backward one when
- * `symmetric`/`depth2` asks.
+ * The vectors one profile sweeps along: the forward one (auto-reversed toward an up-to
+ * target behind it), and the backward one when `symmetric`/`depth2` asks.
  */
 function planVectorsOf(plan: ExtrudePlanState, point: XYZ, normal: XYZ): Result<XYZ[]> {
     // A direction override parallel to the profile plane sweeps a degenerate prism
@@ -150,12 +185,12 @@ function planVectorsOf(plan: ExtrudePlanState, point: XYZ, normal: XYZ): Result<
     }
     const base = plan.direction.dir ?? normal;
     const dir = plan.reverse ? base.multiply(-1) : base;
-    const depth = endConditionDepth(plan, point, normal, dir);
-    if (!depth.isOk) return Result.err(depth.error);
-    const forward = dir.multiply(depth.value);
+    const sweep = endConditionSweep(plan, point, normal, dir);
+    if (!sweep.isOk) return Result.err(sweep.error);
+    const forward = sweep.value.dir.multiply(sweep.value.depth);
     const backward =
         plan.depth2 !== undefined
-            ? dir.multiply(-plan.depth2)
+            ? sweep.value.dir.multiply(-plan.depth2)
             : plan.symmetric
               ? forward.multiply(-1)
               : undefined;
@@ -197,6 +232,14 @@ export function resolveExtrudePlan(
     };
     return Result.ok({
         unresolved: direction.lostKey ?? target.unresolved,
+        conformingEnd:
+            condition === "upToFace" &&
+            endOffset === 0 &&
+            startOffset === 0 &&
+            depth2 === undefined &&
+            feature.symmetric !== true,
+        liveEndFace: target.live,
+        dispose: () => target.live?.owned.forEach((x) => x.dispose()),
         offsetOf: (normal) => (direction.dir ?? normal).multiply(startOffset),
         vecsOf: (point, normal) => planVectorsOf(plan, point, normal),
     });
@@ -258,57 +301,83 @@ export function throughAllDepth(
     return Result.ok(depth);
 }
 
-/** The up-to depth: the reach to the target along `dir`, offset by the start and end offsets. */
-function upToDepth(
+/**
+ * The up-to depth AND the direction that earns it. A target strictly behind `dir`
+ * auto-reverses the sweep toward itself — the picked target IS the intent, and reaching
+ * it beats honouring the direction that missed it (`reverse`, a direction override). The
+ * flip re-measures the near side (the FARTHEST sample along `dir` is the nearest along
+ * −dir) and negates the start offset's sweep component, whose vector keeps the unflipped
+ * sense (see `ExtrudeFeatureData.reverse`). A target lying ON or CROSSING the start plane
+ * is reachable in neither direction and is a rebuild error, as is one the offsets pull
+ * the end back behind the start plane from.
+ */
+function upToAim(
     target: Exclude<EndTarget, { readonly kind: "none" }>,
     point: XYZ,
     normal: XYZ,
     dir: XYZ,
     sweepStartOffset: number,
     endOffset: number,
-): Result<number> {
+): Result<{ dir: XYZ; depth: number }> {
     const denominator = normal.dot(dir);
     if (Math.abs(denominator) < PARALLEL_DOT) {
         return Result.err("Extrude direction is parallel to the profile plane");
     }
     const reachOf = (p: XYZ) => normal.dot(p.sub(point)) / denominator;
-    // A planar target parallel to the profile plane is exact — any of its points gives the
-    // plane's reach; sampling would only add the bounding box's padding to it.
-    const reach =
-        target.kind === "vertex" || (target.kind === "face" && target.parallel(normal))
-            ? reachOf(target.point)
-            : Math.max(...target.samples.map(reachOf));
-    // `sweepStartOffset` is signed along `dir` (see `throughAllDepth`); `endOffset` overshoots
-    // along the sweep direction either way.
-    const depth = reach - sweepStartOffset + endOffset;
-    // Behind the plane along the CURRENT direction — with `reverse` set that is the flipped
-    // one, so the message names the flip either way: toggling it reaches the other side.
-    if (depth <= 0) {
-        return Result.err("Extrude target lies behind the start plane — flip reverse to reach it");
+    // Every sample lies ON the target surface (see `faceSamples`): the reach over a planar
+    // face is linear, so its extremum is read exactly at the boundary vertices; a curved
+    // wall's extremum sits on its boundary rims, which the edge samples cover. Off-surface
+    // stand-ins (bounding-box corners) would break the auto-reversal below — a corner can
+    // lie behind the start plane while the whole face lies ahead of it, and vice versa.
+    const reaches = target.kind === "vertex" ? [reachOf(target.point)] : target.samples.map(reachOf);
+    let reach = Math.min(...reaches);
+    let sweepDir = dir;
+    let startOffset = sweepStartOffset;
+    if (reach < 0) {
+        // Behind the start plane along `dir`: reverse toward the target — possible only
+        // when the WHOLE target is on that side (a face the plane crosses stays
+        // unreachable and reports below).
+        const reversed = -Math.max(...reaches);
+        if (reversed > 0) {
+            reach = reversed;
+            sweepDir = dir.multiply(-1);
+            startOffset = -sweepStartOffset;
+        }
     }
-    return Result.ok(depth);
+    // `startOffset` is signed along the sweep direction (see `throughAllDepth`);
+    // `endOffset` overshoots along it either way.
+    const depth = reach - startOffset + endOffset;
+    if (depth <= 0) {
+        return Result.err(
+            reach <= 0
+                ? "Extrude target lies on or crosses the start plane"
+                : "Extrude offsets place the end behind the start plane",
+        );
+    }
+    return Result.ok({ dir: sweepDir, depth });
 }
 
 /**
- * The reach to a picked up-to target, measured exactly as the rebuild will measure it —
+ * The aim at a picked up-to target, measured exactly as the rebuild will measure it —
  * the extrude command's live target preview reads it, so what the preview draws and what
- * the commit builds agree. `target` is in WORLD coordinates, beside `point`/`normal`.
- * `dir` is the sweep direction (flipped by the direction checkbox) and
- * `sweepStartOffset` is signed along it (see `upToDepth`).
+ * the commit builds agree. The auto-reversal is part of the answer: `dir` comes back
+ * flipped toward a target lying behind the given one. `target` is in WORLD coordinates,
+ * beside `point`/`normal`. `dir` is the sweep direction (flipped by the direction
+ * checkbox) and `sweepStartOffset` is signed along it (see `upToAim`).
  */
-export function upToTargetDepth(
+export function upToTargetAim(
     target: IShape,
     point: XYZ,
     normal: XYZ,
     dir: XYZ,
     sweepStartOffset: number,
     endOffset: number,
-): Result<number> {
+): Result<{ dir: XYZ; depth: number }> {
     const endTarget: Exclude<EndTarget, { readonly kind: "none" }> =
         target.shapeType === ShapeTypes.vertex
             ? { kind: "vertex", point: (target as IVertex).point() }
             : faceTarget(target as IFace);
-    return upToDepth(endTarget, point, normal, dir, sweepStartOffset, endOffset);
+    return upToAim(endTarget, point, normal, dir, sweepStartOffset, endOffset);
 }
 
 /** What an up-to condition terminates at, resolved once per rebuild (world coordinates). */
@@ -317,18 +386,15 @@ type EndTarget =
     | { readonly kind: "vertex"; readonly point: XYZ }
     | {
           readonly kind: "face";
-          /** The face's reference point — exact when the target plane is parallel to the profile's. */
-          readonly point: XYZ;
-          /** The target plane's normal (unit); drives the parallel check. */
-          readonly normal: XYZ;
-          /** Wire vertices and bounding-box corners of the face — the farthest one terminates. */
+          /** On-surface samples — the nearest one along the sweep terminates (see `faceSamples`). */
           readonly samples: XYZ[];
-          readonly parallel: (profileNormal: XYZ) => boolean;
       };
 
 interface ResolvedEndTarget {
     readonly target: EndTarget;
     readonly unresolved?: UnresolvedInputs;
+    /** The live end face, stashed on the plan for the conforming build (see `ExtrudePlan.liveEndFace`). */
+    readonly live?: { face: IFace; id: string | undefined; owned: IShape[] };
 }
 
 /**
@@ -354,6 +420,7 @@ function resolveEndTarget(feature: ExtrudeFeatureData, context: FeatureContext):
         return {
             target: resolved.target,
             unresolved: resolved.anchor === undefined ? unresolved : undefined,
+            live: resolved.live,
         };
     }
     if (condition === "upToVertex") {
@@ -374,58 +441,68 @@ function resolveEndTarget(feature: ExtrudeFeatureData, context: FeatureContext):
     return { target: { kind: "none" } };
 }
 
-/** The live end-face match, or undefined to fall back to the frozen fingerprint. */
+/**
+ * The live end-face match, or undefined to fall back to the frozen fingerprint. The live
+ * face is NOT disposed here: it rides the plan (`ExtrudePlan.liveEndFace`) so the
+ * conforming build reuses this very resolution instead of running it again, and the plan's
+ * `dispose` releases it after the build.
+ */
 function resolveEndFace(
     source: NonNullable<ExtrudeFeatureData["endFace"]>,
     context: FeatureContext,
-): { target: EndTarget; anchor?: ProfileRef } | undefined {
+):
+    | {
+          target: EndTarget;
+          anchor?: ProfileRef;
+          live?: { face: IFace; id: string | undefined; owned: IShape[] };
+      }
+    | undefined {
+    const live = resolveLiveEndFace(source, context);
+    if (live === undefined) return frozenEndFace(source.profile);
+    return {
+        target: faceTarget(live.face),
+        anchor: captureProfileRef(live.face, live.id, source.profile.splitPiece, true),
+        live,
+    };
+}
+
+/**
+ * The live end face of an `upToFace` target, in WORLD coordinates, with the source's own
+ * tracked id for it — stashed on the plan (`ExtrudePlan.liveEndFace`) as the conforming
+ * builder's (`extrudeToFace.ts`) raw material. Undefined when the target cannot resolve live
+ * this run; the caller then takes the planar path, which the frozen fingerprint still feeds.
+ * `owned` holds the disposables — the matched face itself included when it is a transformed
+ * copy — to dispose once the evaluation has read the face.
+ */
+function resolveLiveEndFace(
+    source: NonNullable<ExtrudeFeatureData["endFace"]>,
+    context: FeatureContext,
+): { face: IFace; id: string | undefined; owned: IShape[] } | undefined {
     // The press-pull contract: world faces, tracked ids, the host's input for a self-source —
-    // with every failure mode (node gone, rolled back, ambiguous) funnelled to the frozen
-    // fingerprint by the caller.
+    // with every failure mode (node gone, rolled back, ambiguous) funnelled to the caller's
+    // fallback (the frozen fingerprint for the plan, the planar path for the conforming build).
     const resolved = resolveSourceFaces({ nodeId: source.nodeId, profiles: [source.profile] }, context);
-    if (!resolved.isOk) return frozenEndFace(source.profile);
+    if (!resolved.isOk) return undefined;
     const { worldFaces, faceIds, owned } = resolved.value;
-    try {
-        const matched = matchSourceFaceIndexes(worldFaces, faceIds, [source.profile]);
-        if (!matched.isOk || matched.value.indexes.length === 0) return frozenEndFace(source.profile);
-        const index = matched.value.indexes[0];
-        const face = worldFaces[index];
-        return {
-            target: faceTarget(face),
-            anchor: captureProfileRef(face, faceIds?.[index], source.profile.splitPiece, true),
-        };
-    } finally {
+    const matched = matchSourceFaceIndexes(worldFaces, faceIds, [source.profile]);
+    if (!matched.isOk || matched.value.indexes.length === 0) {
         owned.forEach((x) => x.dispose());
+        return undefined;
     }
+    const index = matched.value.indexes[0];
+    // `owned` passes to the caller unfiltered — it already contains the matched face exactly
+    // when that face is a transformed copy (resolveSourceFaces' contract).
+    return { face: worldFaces[index], id: faceIds?.[index], owned };
 }
 
 /** The frozen fingerprint as the target, when the live face is gone. */
 function frozenEndFace(ref: ProfileRef): { target: EndTarget } | undefined {
     if (ref.center === undefined) return undefined;
-    const point = new XYZ(ref.center);
-    if (ref.normal === undefined) {
-        // No plane to be exact against — the fingerprint's own edge endpoints are the samples.
-        const normal = XYZ.unitZ;
-        return {
-            target: {
-                kind: "face",
-                point,
-                normal,
-                samples: [point, ...refSamples(ref)],
-                parallel: () => false,
-            },
-        };
-    }
-    const normal = new XYZ(ref.normal).normalize() ?? XYZ.unitZ;
-    return {
-        target: {
-            kind: "face",
-            point,
-            normal,
-            samples: [point, ...refSamples(ref)],
-            parallel: (profileNormal) => directionsParallel(normal, profileNormal),
-        },
-    };
+    // The fingerprint carries no surface to sample: its region center and edge reference
+    // points are the reach samples. That is exact while the face keeps its captured plane
+    // and degrades to the stored neighborhood when it does not — the frozen path only
+    // stands in until the user re-picks (the loss is reported separately).
+    return { target: { kind: "face", samples: [new XYZ(ref.center), ...refSamples(ref)] } };
 }
 
 /** The endpoints a stored profile fingerprint carries, as sample points. */
@@ -437,35 +514,42 @@ function refSamples(ref: ProfileRef): XYZ[] {
     });
 }
 
-/** A live face as the target: its reference point, plane, and the termination samples. */
+/** A live face as the target: on-surface samples the sweep's nearest reach is read from. */
 function faceTarget(face: IFace): EndTarget & { kind: "face" } {
-    const [point, rawNormal] = face.normal(0, 0);
-    const normal = rawNormal.normalize() ?? XYZ.unitZ;
-    const planar = face.surface().isPlanar();
-    const samples = faceSamples(face);
-    return {
-        kind: "face",
-        point,
-        normal,
-        samples: [point, ...samples],
-        parallel: (profileNormal) => planar && directionsParallel(normal, profileNormal),
-    };
+    const [point] = face.normal(0, 0);
+    return { kind: "face", samples: [point, ...faceSamples(face)] };
 }
 
-/** Wire vertices plus bounding-box corners — the farthest one along the direction terminates. */
+/**
+ * On-surface samples of the target face: every wire vertex, and each boundary edge sampled
+ * uniformly along its parameter range. The reach the caller minimizes is linear along the
+ * sweep, so over a planar face its extremum sits at a boundary vertex exactly; over a
+ * cylindrical or conical wall it sits on a boundary rim, which the edge samples cover to
+ * within half a percent of the radius. Bounding-box corners are NOT samples — they float
+ * off the surface, and an off-surface point can lie on the wrong side of the start plane
+ * while the whole face lies on the other, flipping the auto-reversal's near/far reading.
+ */
 function faceSamples(face: IFace): XYZ[] {
-    const vertices = face.findSubShapes(ShapeTypes.vertex) as IVertex[];
-    const points = vertices.map((vertex) => vertex.point());
-    const box = face.boundingBox();
-    for (const x of [box.min.x, box.max.x]) {
-        for (const y of [box.min.y, box.max.y]) {
-            for (const z of [box.min.z, box.max.z]) {
-                points.push(new XYZ(x, y, z));
+    const points: XYZ[] = [];
+    const edges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
+    for (const edge of edges) {
+        try {
+            const first = edge.firstParameter();
+            const last = edge.lastParameter();
+            for (let i = 0; i <= EDGE_SAMPLE_COUNT; i++) {
+                points.push(edge.pointAt(first + ((last - first) * i) / EDGE_SAMPLE_COUNT));
             }
+        } catch {
+            // A degenerate edge (a sphere's pole) has no curve to sample — its vertex is
+            // already among the wire vertices below.
         }
     }
-    return points;
+    const vertices = face.findSubShapes(ShapeTypes.vertex) as IVertex[];
+    return points.concat(vertices.map((vertex) => vertex.point()));
 }
+
+/** Per-edge sample count: a full rim sampled at this pitch misses its extremum by ≤ (1 − cos(π/N))·r. */
+const EDGE_SAMPLE_COUNT = 32;
 
 /** The live end-vertex match (world point plus the re-anchored ref), or the frozen point. */
 function resolveEndVertex(

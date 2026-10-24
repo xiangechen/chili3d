@@ -4,6 +4,7 @@
 import {
     AsyncController,
     Config,
+    CurveUtils,
     Dimensions,
     debounce,
     type I18nKeys,
@@ -42,6 +43,7 @@ import {
     type NeutralPlaneRef,
     type PatternLineSource,
     type PatternPathSource,
+    type RevolveFeatureData,
     type RibFeatureData,
     type ShapeTracking,
     type SweepFeatureData,
@@ -60,6 +62,7 @@ import type { VertexRef } from "../features/vertexRef";
 import { captureNeutralPlane, PlanePickHandler } from "../sketch/commands/planePickHandler";
 import { shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
+import { bridgedRound } from "./bridgedRound";
 import { capturePatternPathSource } from "./patternSources";
 import { LineEdgeFilter } from "./shapeFilters";
 
@@ -149,8 +152,11 @@ async function runReselectSession<TRef>(
         spec.setup?.();
         selection.onShapeChanged.sub(preview);
         spec.preselect?.();
-        controller.onCancelled(() => (cancelled = true));
-        const picked = await host.document.picker.pickShape(spec.prompt, controller, {
+        // A per-pick controller: two sessions can run off ONE caller controller (the
+        // sweep's profile pick, then its path pick) — see `bridgedRound`.
+        const round = bridgedRound(controller);
+        round.onCancelled(() => (cancelled = true));
+        const picked = await host.document.picker.pickShape(spec.prompt, round, {
             shapeType: spec.shapeType,
             multi: true,
             nodeFilter: { allow: (node) => node === spec.targetNode },
@@ -597,7 +603,10 @@ export class FaceReselectSession {
  * No rollback is needed here — unlike edge features, the picked faces live on the
  * sketch, whose shape does not depend on this feature. Every selection change rebuilds
  * the body with the currently selected faces (history disabled), so the result previews
- * live; the original list is restored in `finally`.
+ * live; the original list is restored in `finally`. A FAILED rebuild keeps the last good
+ * shape on screen — indistinguishable from "the pick is fine" — but says so itself: the
+ * rebuild goes through `ShapeNode.setShape`, whose error surface (`displayError`) reports
+ * it.
  */
 /**
  * The profile-carrying slice of an extrude or sweep feature — what a profile re-pick
@@ -829,14 +838,8 @@ export class DirectionReselectSession {
         try {
             document.selection.clearSelection();
             // A per-pick controller: `reselectPatternLines` picks direction and direction2 in
-            // sequence, and a settled controller replays its result to every listener
-            // registered later (see `AsyncController.addListener`) — a second pick on the
-            // caller's controller would resolve instantly with the selection the first pick's
-            // teardown left (the host node), returning nothing. No off() exists: the bridge
-            // lives as long as the caller's controller and fires into the settled round,
-            // doing nothing (the extrude command's stale-bridge arrangement, see `pickRound`).
-            const round = new AsyncController();
-            controller.onCancelled(() => round.cancel());
+            // sequence off ONE caller controller — see `bridgedRound`.
+            const round = bridgedRound(controller);
             const picked = await document.picker.pickShape("prompt.select.lineEdge", round, {
                 shapeType: ShapeTypes.edge,
                 shapeFilter: new LineEdgeFilter(),
@@ -855,6 +858,70 @@ export class DirectionReselectSession {
             return {
                 nodeId: node.id,
                 edge: captureEdgeRef(edge, edgeId, idIsShared(allEdgeIds(node), edgeId)),
+            };
+        } finally {
+            this.host.setRollbackIndex(undefined);
+            document.selection.setSelectedNodes([this.host], false);
+        }
+    }
+}
+
+/**
+ * Re-picks a revolve's axis — a single line edge on any body, the same pick the revolve
+ * command runs — and returns the replacement source, or undefined when the user cancels.
+ *
+ * The body is rolled back to just before the revolve for the whole pick, as with the
+ * direction session: an axis on the host itself names an edge of the revolve's INPUT on
+ * every rebuild (`axisFromInput` in features/revolve.ts), and only the rolled-back shape
+ * offers exactly that geometry.
+ *
+ * Beside the live `axisSource` ref the feature keeps a world-space snapshot as its
+ * fallback, so the pick answers BOTH — captured from the picked edge exactly as the
+ * revolve command captures it at creation. Left stale, deleting the new source would
+ * resurrect the axis the user just replaced.
+ */
+export class AxisReselectSession {
+    constructor(private readonly host: ReselectHost) {}
+
+    async pick(
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<{ nodeId: string; edge: EdgeRef; axis: RevolveFeatureData["axis"] } | undefined> {
+        const document = this.host.document;
+        // Deliberately ignores the boolean, as the edge session does: a failed rollback replay
+        // keeps the full chain displayed, so the pick simply proceeds against it.
+        this.host.setRollbackIndex(featureIndex);
+        try {
+            document.selection.clearSelection();
+            // A per-pick controller: `reselectRevolveRefs` runs the profile pick first, and
+            // its confirm settles the caller's controller — see `bridgedRound`.
+            const round = bridgedRound(controller);
+            const picked = await document.picker.pickShape("prompt.select.axis", round, {
+                shapeType: ShapeTypes.edge,
+                shapeFilter: new LineEdgeFilter(),
+                nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
+            });
+            const data = picked[0];
+            if (data === undefined) return undefined;
+            const node = data.owner.node;
+            if (!(node instanceof ShapeNode) || isReferenceGeometryNode(node)) return undefined;
+            const edge = data.shape as unknown as IEdge;
+            const basis = edge.curve.basisCurve;
+            // The LineEdgeFilter admits nothing else; this narrows the type.
+            if (!CurveUtils.isLine(basis)) return undefined;
+            const axis = {
+                point: plainVec(data.transform.ofPoint(edge.startPoint())),
+                direction: plainVec(data.transform.ofVector(basis.direction)),
+            };
+            if (!isBodyTrackingNode(node)) return { nodeId: node.id, edge: captureEdgeRef(edge), axis };
+            const edgeId = node.edgeIdAt(data.indexes[0]);
+            if (edgeId === undefined) {
+                reportSilentIdLoss(node, "edge", "a re-picked revolve axis edge has no tracked id");
+            }
+            return {
+                nodeId: node.id,
+                edge: captureEdgeRef(edge, edgeId, idIsShared(allEdgeIds(node), edgeId)),
+                axis,
             };
         } finally {
             this.host.setRollbackIndex(undefined);
@@ -1270,6 +1337,16 @@ function allFaceIds(node: ShapeNode): (string | undefined)[] {
  * tangent wall an Offset Face names no longer matches the fingerprint captured for it, and the
  * offset lands on whatever face scores nearest — measured, on a box, on the ROUND beside it, which
  * is a preview showing a shape the confirm would never build.
+ *
+ * What this deliberately does NOT replay of the real run (`ParametricBodyNode.evaluateChain`):
+ * `followReferencedSketches` (a sketch's external refs are NOT re-resolved against the in-flight
+ * timeline), `refreshConsumedTools` (a boolean tool derived from this body is read as its CURRENT
+ * shape, not re-solved mid-chain), and the per-feature cache. For a chain without those the answer
+ * is exact; with them it can diverge from the commit's rebuild in EITHER direction — a preview
+ * showing a shape the confirm would never build, or the revolve rehearsal
+ * (`reselectRevolveRefs`) vetoing a pick the commit would have accepted. The rehearsal is a
+ * gate, so that window is the price of keeping it cheap; the commit still rebuilds truthfully
+ * and reports on the feature row.
  */
 export function evaluateChainSnapshot(host: ReselectHost, features: FeatureData[]): Result<IShape> {
     let input: IShape | undefined;

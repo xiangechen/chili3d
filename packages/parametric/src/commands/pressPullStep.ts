@@ -414,15 +414,31 @@ export class PressPullStep implements IStep {
 export function gripOf(picked: VisualShapeData | undefined): PressPullGrip | undefined {
     if (picked === undefined) return undefined;
     const type = picked.shape.shapeType;
-    if (ShapeTypeUtils.hasFace(type)) {
-        // A face has a normal of its own: the plane through the pick, out along it. The arrow
-        // starts where the pointer landed, falling back to the plane's own point when a pick
-        // carries none.
-        const plane = planeOfPickedFace(picked);
-        return { origin: picked.point ?? plane.origin, direction: plane.normal };
-    }
+    if (ShapeTypeUtils.hasFace(type)) return faceGrip(picked);
     if (ShapeTypeUtils.hasEdge(type)) return edgeGrip(picked);
     return undefined;
+}
+
+/**
+ * A face's grip: the pick point, out along the face's outward normal AT THE PICK
+ * (`outwardNormalAt`) — not at the face's own (0, 0) parameter, which on a closed cylinder is
+ * its seam and on a sphere is arbitrary: anchored at the pick but aimed along the seam, the
+ * arrow can face straight into the material the pointer touched ("the cylinder should answer
+ * on the side the pointer is on"). A pick carrying no point falls back to the face's own
+ * plane frame.
+ */
+function faceGrip(picked: VisualShapeData): PressPullGrip {
+    if (picked.point !== undefined) {
+        const world = (picked.shape as IFace).transformedMul(picked.transform) as IFace;
+        try {
+            const direction = outwardNormalAt(world, picked.point);
+            if (direction !== undefined) return { origin: picked.point, direction };
+        } finally {
+            world.dispose();
+        }
+    }
+    const plane = planeOfPickedFace(picked);
+    return { origin: picked.point ?? plane.origin, direction: plane.normal };
 }
 
 /**

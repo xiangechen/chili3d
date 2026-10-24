@@ -137,7 +137,7 @@ const faceData = (node: unknown, index: number = 0): VisualShapeData => {
         shapeType: ShapeTypes.face,
         dispose: () => {},
         transformedMul: () => face,
-        surface: () => ({ parameter: () => undefined }),
+        surface: () => ({ parameter: () => undefined, nearestPoint: () => undefined }),
         normal: () => [XYZ.zero, XYZ.unitZ],
     };
     return {

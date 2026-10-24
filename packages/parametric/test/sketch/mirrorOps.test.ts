@@ -2,8 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane } from "@chili3d/core";
+import { rs } from "@rstest/core";
+import { applyCornerOps, findCorners } from "../../src/sketch/cornerOps";
 import { mirrorEntities, mirrorPreview, reflectPoint } from "../../src/sketch/mirrorOps";
-import { ConstraintKind, SKETCH_X_AXIS_ID, type SketchEntityData } from "../../src/sketch/sketchModel";
+import {
+    ConstraintKind,
+    SKETCH_X_AXIS_ID,
+    SKETCH_Y_AXIS_ID,
+    type SketchEntityData,
+} from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
 
@@ -105,6 +112,120 @@ describe("mirrorEntities", () => {
             const diagnostics = solver.diagnose();
             expect(diagnostics.conflicting).toEqual([]);
             expect(diagnostics.redundant).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("drops the copies' structural constraints without re-materializing the sketch", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const source = solver.addArc(1, 2, 4, 2, 1, -1);
+            // The one full read is the rollback snapshot's; the drop pass reads the copies'
+            // constraints directly (`constraintsOf`) instead of cloning the whole sketch
+            // again just to enumerate them.
+            const toData = rs.spyOn(solver, "toData");
+            const result = mirrorEntities(solver, [source], DATUM_AXIS, 1e-6);
+
+            expect(result.isOk).toBe(true);
+            expect(toData).toHaveBeenCalledTimes(1);
+            // …and the copy's born-with PointOnArc is still gone.
+            const [copy] = result.isOk ? result.value.createdEntityIds : [];
+            expect(kindsOn(solver, copy)).not.toContain(ConstraintKind.PointOnArc);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a mirrored arc takes no structural constraint of its own", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const source = solver.addArc(1, 2, 4, 2, 1, -1);
+            const dofsBefore = solver.diagnose().dofs;
+            const result = mirrorEntities(solver, [source], DATUM_AXIS, 1e-6);
+
+            expect(result.isOk).toBe(true);
+            const [copy] = result.isOk ? result.value.createdEntityIds : [];
+            // The source keeps its own; the copy's would only repeat what its three
+            // symmetries already say — the source is round, so its reflection is — and garlic
+            // reads the repetition as a row the sketch does not need.
+            const pointOnArc = (id: number) =>
+                solver
+                    .toData()
+                    .constraints.filter(
+                        (c) => c.kind === ConstraintKind.PointOnArc && c.refs[0].entityId === id,
+                    );
+            expect(pointOnArc(source)).toHaveLength(1);
+            expect(pointOnArc(copy)).toHaveLength(0);
+            // the copy costs the sketch no freedom either way: it is driven wholly by them
+            expect(solver.diagnose().dofs).toBe(dofsBefore);
+            expect(solver.diagnose().redundant).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a filleted corner mirrored about both axes stays redundant-free", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            // two perpendicular lines meeting at a corner, each with the orientation the
+            // app's auto-constraint would have left on it
+            const vertical = solver.addLine(-3, 6, -3, 2);
+            const horizontal = solver.addLine(-3, 2, 0, 2);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: vertical, pointIndex: 1 },
+                    { entityId: horizontal, pointIndex: 0 },
+                ],
+            });
+            solver.addConstraint({
+                kind: ConstraintKind.Vertical,
+                refs: [
+                    { entityId: vertical, pointIndex: 0 },
+                    { entityId: vertical, pointIndex: 1 },
+                ],
+            });
+            solver.addConstraint({
+                kind: ConstraintKind.Horizontal,
+                refs: [
+                    { entityId: horizontal, pointIndex: 0 },
+                    { entityId: horizontal, pointIndex: 1 },
+                ],
+            });
+            solver.solve(true);
+            const corners = findCorners(solver, [vertical, horizontal], 1e-6, "fillet");
+            expect(corners.isOk).toBe(true);
+            const fillet = applyCornerOps(solver, corners.isOk ? corners.value : [], {
+                method: "fillet",
+                radius: 0.5,
+            });
+            expect(fillet.isOk).toBe(true);
+            const dofs = solver.diagnose().dofs;
+
+            const aboutY = mirrorEntities(
+                solver,
+                solver.entities().map((e) => e.id),
+                SKETCH_Y_AXIS_ID,
+                1e-6,
+            );
+            expect(aboutY.isOk).toBe(true);
+            const aboutX = mirrorEntities(
+                solver,
+                solver.entities().map((e) => e.id),
+                SKETCH_X_AXIS_ID,
+                1e-6,
+            );
+            expect(aboutX.isOk).toBe(true);
+
+            const diagnostics = solver.diagnose();
+            expect(diagnostics.conflicting).toEqual([]);
+            // one per copy before the fix: each mirrored arc brought its own PointOnArc,
+            // which its symmetries had already implied
+            expect(diagnostics.redundant).toEqual([]);
+            // and the reflections are driven by their ties, so the sketch keeps exactly the
+            // freedom the filleted source had
+            expect(diagnostics.dofs).toBe(dofs);
         } finally {
             solver.dispose();
         }

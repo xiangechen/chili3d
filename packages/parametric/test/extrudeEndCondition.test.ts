@@ -341,7 +341,7 @@ describe("extrude end conditions", () => {
         expect(body.featureItems()[0].missingInputs?.[0].key).toBe("endVertex");
     });
 
-    test("an up-to-vertex target behind the start plane is a rebuild error", () => {
+    test("an up-to target behind the sweep direction auto-reverses to reach it", () => {
         const body = bodyWith([
             extrude({
                 endCondition: "upToVertex",
@@ -349,10 +349,43 @@ describe("extrude end conditions", () => {
             }),
         ]);
 
+        // No `reverse`, no error: the sweep flips toward the target by itself.
+        expect(body.shape.isOk).toBe(true);
+        expect(prismVec(0).z).toBeCloseTo(-10, 9);
+        expect(body.featureItems()[0].missingInputs?.[0].key).toBe("endVertex");
+    });
+
+    test("an up-to target crossing the start plane is a rebuild error", () => {
+        const body = bodyWith([
+            extrude({
+                endCondition: "upToFace",
+                // No plane normal: the fingerprint's own edge endpoints are the samples,
+                // and these straddle the profile plane — neither direction reaches a near side.
+                endFace: {
+                    nodeId: "deleted",
+                    profile: {
+                        center: { x: 0, y: 0, z: 5 },
+                        edges: [{ kind: "line", start: { x: 0, y: 0, z: -5 }, end: { x: 0, y: 0, z: 15 } }],
+                    },
+                },
+            }),
+        ]);
+
         expect(body.shape.isOk).toBe(false);
-        expect(body.shape.error).toBe(
-            "Extrude target lies behind the start plane — flip reverse to reach it",
-        );
+        expect(body.shape.error).toBe("Extrude target lies on or crosses the start plane");
+    });
+
+    test("offsets that pull an up-to end behind the start plane are a rebuild error", () => {
+        const body = bodyWith([
+            extrude({
+                startOffset: 40,
+                endCondition: "upToVertex",
+                endVertex: { nodeId: "deleted", vertex: { point: { x: 0, y: 0, z: 30 } } },
+            }),
+        ]);
+
+        expect(body.shape.isOk).toBe(false);
+        expect(body.shape.error).toBe("Extrude offsets place the end behind the start plane");
     });
 
     test("up-to-face: a lost node's frozen fingerprint drives the depth when it is parallel", () => {
@@ -555,7 +588,7 @@ describe("extrude end conditions", () => {
         expect(prismVec(0).z).toBeCloseTo(-10, 9);
     });
 
-    test("with reverse, a target on the natural side is the one behind the start plane", () => {
+    test("an up-to target outranks an explicit reverse", () => {
         const body = bodyWith([
             extrude({
                 endCondition: "upToVertex",
@@ -564,10 +597,9 @@ describe("extrude end conditions", () => {
             }),
         ]);
 
-        expect(body.shape.isOk).toBe(false);
-        expect(body.shape.error).toBe(
-            "Extrude target lies behind the start plane — flip reverse to reach it",
-        );
+        // The flipped direction misses the target, so the sweep auto-reverses back to it.
+        expect(body.shape.isOk).toBe(true);
+        expect(prismVec(0).z).toBeCloseTo(30, 9);
     });
 
     test("through-all with reverse measures toward the flipped far side", () => {

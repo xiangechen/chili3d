@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IFace, IView, ShapeMeshData, XY, XYZ } from "@chili3d/core";
+import type { IFace, ISurface, IView, ShapeMeshData, XY, XYZ } from "@chili3d/core";
 
 /**
  * The pixel-sized drag arrow both value handles draw: the extrude drag and the
@@ -109,7 +109,19 @@ export function pxSizedArrowLength(view: IView, anchor: XYZ, axis: XYZ): number 
  * pointer by the radius — which is exactly what a planar face, at length 1, hides.
  */
 export function outwardNormalAt(face: IFace, point: XYZ): XYZ | undefined {
-    const uv = face.surface().parameter(point, 1e-3);
+    const surface = face.surface();
+    // A viewport pick reports the MESH intersection, which sits off the analytic surface by
+    // the mesh deflection (0.5% of the bounding box — 0.011 mm measured on an r=10 cylinder),
+    // far past the 1e-3 `parameter` tolerance: asked directly, nearly every real pick falls
+    // back to the (0, 0) normal — on a cylinder, the seam's. Project first instead; the
+    // projected point meets the tolerance, and an already-exact point projects to itself.
+    const uv = surface.parameter(point, 1e-3) ?? projectedUV(surface, point);
     const normal = uv === undefined ? face.normal(0, 0)[1] : face.normal(uv.u, uv.v)[1];
     return normal.normalize();
+}
+
+/** `point`'s (u, v) read off its projection on `surface`, undefined when it will not project. */
+function projectedUV(surface: ISurface, point: XYZ) {
+    const nearest = surface.nearestPoint(point);
+    return nearest === undefined ? undefined : surface.parameter(nearest[0], 1e-3);
 }

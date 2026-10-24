@@ -33,10 +33,12 @@ import {
 } from "@chili3d/core";
 import { ReselectFeatureCommand } from "./commands/reselectCommand";
 import {
+    AxisReselectSession,
     DirectionReselectSession,
     EdgeReselectSession,
     EndFaceReselectSession,
     EndVertexReselectSession,
+    evaluateChainSnapshot,
     type FaceCaptureNode,
     type FacePickTarget,
     FaceReselectSession,
@@ -79,6 +81,7 @@ import {
     type PatternFeatureData,
     type PatternLineSource,
     type PrimitiveFeatureData,
+    type RevolveFeatureData,
     type RibFeatureData,
     type SweepFeatureData,
     suppressionOf,
@@ -694,6 +697,9 @@ export class ParametricBodyNode
         // A rib keeps its chain the way the sweep keeps its path: a run of sketch edges named by
         // entity, which an edit to the sketch can leave dangling.
         if (feature.type === "rib") return this.reselectRibChain(feature, controller);
+        // A revolve's references are its sketch profiles and its axis line edge — the sweep's
+        // pair of sequential picks.
+        if (feature.type === "revolve") return this.reselectRevolveRefs(feature, featureIndex, controller);
         // A mirror's one reference is its plane — re-picked with the command's own plane pick.
         if (feature.type === "mirror") return this.reselectMirrorPlane(feature, featureIndex, controller);
         // A pattern's references are its direction/axis line edges — one pick, two when a
@@ -1046,6 +1052,61 @@ export class ParametricBodyNode
                     ...(edges === undefined ? {} : { path: { ...x.path, edges } }),
                 };
             });
+            this.setFeaturesEmitShapeChanged(features);
+            this.document.selection.clearSelection();
+            this.document.visual.update();
+        });
+    }
+
+    /**
+     * Re-picks a revolve feature's references: the sketch profiles first, then the axis
+     * line edge — the sweep's pair of sequential picks. Cancelling either discards BOTH
+     * (each session's teardown has already restored its own preview), so the feature
+     * never keeps a half-updated pair. A missing sketch skips just the profile pick.
+     * The axis pick also refreshes the world-space snapshot the rebuild falls back to
+     * when the source ref can no longer resolve (see `AxisReselectSession`).
+     *
+     * The axis pick is a single click with no live preview, so the commit is the first
+     * rebuild the new axis takes part in. Rehearsing it first keeps a failing payload —
+     * an axis crossing the profile, a downstream feature losing its references — from
+     * landing as a surprise on the feature row: the failure is toasted against the pick
+     * and the feature keeps its previous refs instead.
+     */
+    private async reselectRevolveRefs(
+        feature: RevolveFeatureData,
+        featureIndex: number,
+        controller: AsyncController,
+    ): Promise<void> {
+        const sketch = findSketch(this.document, feature.sketchId);
+
+        let profiles: ProfileRef[] | undefined;
+        if (sketch !== undefined) {
+            const picked = await new ProfileReselectSession(this).pick(feature, sketch, controller);
+            if (picked === undefined) return;
+            profiles = picked;
+        }
+        const axis = await new AxisReselectSession(this).pick(featureIndex, controller);
+        if (axis === undefined) return;
+
+        const features = this.features.map((x) => {
+            if (x.id !== feature.id || x.type !== "revolve") return x;
+            return {
+                ...x,
+                // An empty profile confirmation means "revolve every profile", stored
+                // as no `profiles` at all — the extrude re-pick's contract.
+                ...(profiles === undefined ? {} : { profiles: profiles.length > 0 ? profiles : undefined }),
+                axis: axis.axis,
+                axisSource: { nodeId: axis.nodeId, edge: axis.edge },
+            };
+        });
+        const rehearsal = evaluateChainSnapshot(this, features);
+        if (!rehearsal.isOk) {
+            PubSub.default.pub("showToast", "error.default:{0}", rehearsal.error);
+            return;
+        }
+        rehearsal.value.dispose();
+
+        Transaction.execute(this.document, "reselect revolve references", () => {
             this.setFeaturesEmitShapeChanged(features);
             this.document.selection.clearSelection();
             this.document.visual.update();

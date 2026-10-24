@@ -45,6 +45,7 @@ import { combineIds, derivedId } from "./trackedId";
 const revolveHandler: FeatureHandler<RevolveFeatureData> = {
     display: "command.feature.revolve",
     icon: "icon-revolve",
+    reselectable: true,
 
     nodeIds: (feature) =>
         feature.axisSource === undefined || feature.axisSource.nodeId === feature.sketchId

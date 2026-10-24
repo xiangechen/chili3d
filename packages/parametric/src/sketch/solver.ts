@@ -2552,8 +2552,23 @@ export class SketchSolver implements ExternalEntityHost {
 
     /** Every constraint record, with the current datum parameter values folded back in. */
     private constraintsData(): SketchConstraintData[] {
-        return [...this.constraints.values()].map((record) => {
-            const data: SketchConstraintData = {
+        return this.constraintRecords(() => true);
+    }
+
+    /**
+     * The constraints touching any of `entityIds`, as data. Where `toData().constraints`
+     * would materialize every entity and external of the sketch just to read constraints,
+     * this copies only the matches.
+     */
+    constraintsOf(entityIds: ReadonlySet<number>): SketchConstraintData[] {
+        return this.constraintRecords((record) => record.refs.some((ref) => entityIds.has(ref.entityId)));
+    }
+
+    private constraintRecords(match: (record: ConstraintRecord) => boolean): SketchConstraintData[] {
+        const data: SketchConstraintData[] = [];
+        for (const record of this.constraints.values()) {
+            if (!match(record)) continue;
+            const item: SketchConstraintData = {
                 id: record.id,
                 kind: record.kind,
                 refs: record.refs.map((r) => ({ ...r })),
@@ -2561,16 +2576,17 @@ export class SketchSolver implements ExternalEntityHost {
             const sources = this.persistedDatums(record);
             if (sources !== undefined) {
                 if (sources.length === 1) {
-                    data.datum = sources[0];
+                    item.datum = sources[0];
                 } else {
-                    data.datums = sources;
+                    item.datums = sources;
                 }
             }
             // the reading is what the datum above means, so it travels with it
-            if (record.display !== undefined) data.display = record.display;
-            if (record.driven !== undefined) data.driven = record.driven;
-            return data;
-        });
+            if (record.display !== undefined) item.display = record.display;
+            if (record.driven !== undefined) item.driven = record.driven;
+            data.push(item);
+        }
+        return data;
     }
 
     /**

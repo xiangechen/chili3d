@@ -5,6 +5,7 @@ import {
     AsyncController,
     AUTO_TARGETS,
     BoundingBox,
+    CancelableCommand,
     type I18nKeys,
     type IShape,
     type IStep,
@@ -30,7 +31,7 @@ import {
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ExtrudeEndTargetStep, ExtrudeFeatureCommand } from "../../src/commands/extrudeCommand";
-import { ExtrudeDragHandler } from "../../src/commands/extrudeDragStep";
+import { dragPlaneOf, ExtrudeDragHandler } from "../../src/commands/extrudeDragStep";
 import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import type { ExtrudeFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
@@ -1237,9 +1238,13 @@ describe("ExtrudeFeatureCommand consumption", () => {
         return { restoreFactory, doc, body, topFace, cmd };
     }
 
-    test("a body face extrudes into a standalone body referencing the source node", () => {
+    test("a body face extrudes into a standalone body only when New Body is asked for", () => {
         const { restoreFactory, doc, body, cmd } = bodyFaceScenario();
         try {
+            // The prism of a face pick always meets the body it stands on, so the push-pull
+            // reading (here, at the commit) answers join — a standalone body is the explicit
+            // choice now, not the default.
+            cmd.operation = "option.command.operation.new";
             (cmd as any).executeMainTask();
 
             const created = doc.modelManager.findNode(
@@ -2351,16 +2356,22 @@ describe("ExtrudeFeatureCommand end condition commit", () => {
         ];
         const edges = corners.map(([x, y], index) => {
             const [x2, y2] = corners[(index + 1) % corners.length];
+            const start = new XYZ({ x, y, z: 20 });
+            const end = new XYZ({ x: x2, y: y2, z: 20 });
             return {
                 curve: { basisCurve: { direction: new XYZ({ x: x2 - x, y: y2 - y, z: 0 }).normalize() } },
-                startPoint: () => new XYZ({ x, y, z: 20 }),
-                endPoint: () => new XYZ({ x: x2, y: y2, z: 20 }),
+                startPoint: () => start,
+                endPoint: () => end,
+                firstParameter: () => 0,
+                lastParameter: () => 1,
+                pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
             };
         });
         return {
             shape: {
                 shapeType: ShapeTypes.face,
                 outerWire: () => ({ findSubShapes: () => edges }),
+                findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? edges : []),
                 normal: () => [new XYZ({ x: 0, y: 0, z: 20 }), XYZ.unitZ],
                 area: () => 100,
                 boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 20 }, { x: 10, y: 10, z: 20 }),
@@ -2725,6 +2736,64 @@ describe("ExtrudeFeatureCommand end condition commit", () => {
                 [target],
             );
             expect(target.shape.isOk).toBe(true);
+        } finally {
+            restoreFactory();
+        }
+    });
+
+    test("an intersect operation previews the plane-capped prism, not the conforming cap", () => {
+        // The commit maps only join/cut to the surface-conforming kernel path
+        // (`extrudeToFaceOperation`); an intersect sweeps to the plane depth and commons
+        // THAT prism. The hover preview must be the one the commit builds.
+        const prismToFace = rs.fn(() =>
+            Result.ok({ shape: { mesh: { faces: { range: [] } }, dispose: () => {} } }),
+        );
+        const prism = rs.fn((_face: unknown, vec: XYZ) =>
+            Result.ok({
+                shapeType: ShapeTypes.solid,
+                isEqual: () => false,
+                dispose: () => {},
+                boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: vec.z }),
+                mesh: { faces: { range: [] } },
+            }),
+        );
+        const restoreFactory = mockShapeFactory({ prism, prismToFaceTracked: prismToFace });
+        try {
+            const scenario = commitScenario("feature.extrude.endCondition.upToFace");
+            (scenario.cmd as any).stepDatas[0].shapes = [sweptProfile(scenario.sketch)];
+            // A curved target (a cylinder-side stand-in): the conforming path's material.
+            const arc = {
+                startPoint: () => new XYZ({ x: -5, y: 0, z: 20 }),
+                endPoint: () => new XYZ({ x: 5, y: 0, z: 20 }),
+                firstParameter: () => 0,
+                lastParameter: () => 1,
+                pointAt: (t: number) => new XYZ({ x: -5 + 10 * t, y: 0, z: 20 + 2 * Math.sin(Math.PI * t) }),
+            };
+            const curved = {
+                shape: {
+                    shapeType: ShapeTypes.face,
+                    normal: () => [new XYZ({ x: 0, y: 0, z: 21 }), XYZ.unitZ],
+                    surface: () => ({ isPlanar: () => false }),
+                    findSubShapes: (type: ShapeType) => (type === ShapeTypes.edge ? [arc] : []),
+                    boundingBox: () => new BoundingBox({ x: -5, y: 0, z: 20 }, { x: 5, y: 0, z: 22 }),
+                },
+                owner: { node: scenario.targetNode },
+                transform: Matrix4.identity(),
+                indexes: [0],
+            } as any;
+
+            scenario.cmd.operation = "option.command.operation.intersect";
+            const intersectPreview = scenario.cmd.upToTargetPreview(curved);
+            // No conforming cap is built for an intersect...
+            expect(prismToFace).not.toHaveBeenCalled();
+            // ...and the plane-capped prism previews instead.
+            expect(prism).toHaveBeenCalledTimes(1);
+            expect(intersectPreview).not.toBeUndefined();
+
+            scenario.cmd.operation = "option.command.operation.join";
+            const joinPreview = scenario.cmd.upToTargetPreview(curved);
+            expect(prismToFace).toHaveBeenCalledTimes(1);
+            expect(joinPreview).not.toBeUndefined();
         } finally {
             restoreFactory();
         }
@@ -3179,7 +3248,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const cmd = dragged(app, face);
 
         // The anchor is at z = 100; a -40 drag ends at z = 60, inside the body.
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.cut");
     });
@@ -3189,7 +3258,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         bodyAt(doc, () => false);
         const cmd = dragged(app, face);
 
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.join");
     });
@@ -3198,7 +3267,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const { app, face } = setup();
         const cmd = dragged(app, face);
 
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.new");
     });
@@ -3209,7 +3278,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const cmd = dragged(app, face);
         cmd.operation = "option.command.operation.intersect";
 
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.intersect");
     });
@@ -3221,7 +3290,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const cmd = dragged(app, face);
         cmd.endCondition = "feature.extrude.endCondition.throughAll";
 
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.new");
     });
@@ -3232,7 +3301,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const cmd = dragged(app, face);
         cmd.startOffset = 5;
 
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.new");
     });
@@ -3243,7 +3312,7 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const cmd = dragged(app, face);
         cmd.pressPull = false;
 
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.new");
     });
@@ -3254,12 +3323,12 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         const cmd = dragged(app, face);
 
         // Without the checkbox the -40 drag goes down, away from the body.
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
         expect(cmd.operation).toBe("option.command.operation.new");
 
         // Checked, the commit sweeps up instead — and that is where the body is.
         cmd.oppositeDirection = true;
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
         expect(cmd.operation).toBe("option.command.operation.cut");
     });
 
@@ -3270,8 +3339,268 @@ describe("ExtrudeFeatureCommand push-pull operation", () => {
         cmd.symmetric = true;
 
         // The drag goes down; symmetric lays the other half up into the body.
-        (cmd as any).syncPushedSketchOperation(-40);
+        (cmd as any).syncPushedOperation(-40);
 
         expect(cmd.operation).toBe("option.command.operation.cut");
+    });
+
+    test("an unsettled hand-off (a sketch picked as a node) is re-judged at the commit", () => {
+        const { app, doc, face } = setup();
+        bodyAt(doc, (point) => point.z <= 70);
+        const cmd = new ExtrudeFeatureCommand();
+        (cmd as any)._application = app;
+        // The whole-sketch hand-off marker WITHOUT `pickSettled`: its own depth drag ran
+        // here, and a gestureless confirm still gets the reading.
+        cmd.pressPull = true;
+        (cmd as any).stepDatas = [
+            { shapes: [face], nodes: [face.owner.node], type: "shape" },
+            {
+                shapes: [face],
+                nodes: [face.owner.node],
+                type: "input",
+                plane: dragPlaneOf(face.point, XYZ.unitZ),
+            },
+        ];
+
+        // The anchor is at z = 100; the -40 reach ends at z = 60, inside the body.
+        (cmd as any).syncCommittedOperation(face.owner.node, (cmd as any).stepDatas[1].plane, -40);
+
+        expect(cmd.operation).toBe("option.command.operation.cut");
+    });
+
+    describe("a solid face as the profile", () => {
+        /**
+         * A 10×10×10 plate and its own top face (z = 10) as the picked profile — the pick the
+         * Extrude command's face filter admits. No Press Pull marker: the plain command must
+         * read a solid face's drag by itself, or the prism it commits is embedded invisibly
+         * (a push in) or left unwelded across a slot (never joining the opposite wall).
+         */
+        function solidFaceSetup() {
+            const app = createMockApplication();
+            const doc = new TestDocument({ application: app });
+            (app as any).activeView = { document: doc };
+            const body = bodyAt(
+                doc,
+                (point) => point.z >= 0 && point.z <= 10,
+                new BoundingBox({ x: -5, y: -5, z: 0 }, { x: 5, y: 5, z: 10 }),
+            );
+            const face = {
+                shape: {
+                    shapeType: ShapeTypes.face,
+                    boundingBox: () => new BoundingBox({ x: -5, y: -5, z: 10 }, { x: 5, y: 5, z: 10 }),
+                },
+                owner: { node: body },
+                transform: Matrix4.identity(),
+                indexes: [0],
+                point: new XYZ({ x: 0, y: 0, z: 10 }),
+            };
+            return { app, face };
+        }
+
+        test("pushing a solid face into its body cuts, without any hand-off marker", () => {
+            const { app, face } = solidFaceSetup();
+            const cmd = dragged(app, face);
+            cmd.pressPull = false;
+
+            // The anchor is at z = 10; a -5 drag ends at z = 5, inside the plate.
+            (cmd as any).syncPushedOperation(-5);
+
+            expect(cmd.operation).toBe("option.command.operation.cut");
+        });
+
+        test("pulling a solid face out joins the body it stands on", () => {
+            const { app, face } = solidFaceSetup();
+            const cmd = dragged(app, face);
+            cmd.pressPull = false;
+
+            // The end at z = 15 is outside, but the prism still meets the plate.
+            (cmd as any).syncPushedOperation(5);
+
+            expect(cmd.operation).toBe("option.command.operation.join");
+        });
+
+        test("a confirm without a drag gesture is still judged, at the commit", () => {
+            const { app, face } = solidFaceSetup();
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.pressPull = false;
+            (cmd as any).stepDatas = [
+                { shapes: [face], nodes: [face.owner.node], type: "shape" },
+                { shapes: [face], nodes: [face.owner.node], type: "input" },
+            ];
+
+            // No `onDist` ever fired (a cached depth confirmed as-is): the commit reads the
+            // reach itself. The end at z = 5 is inside the plate. (The drag step reports its
+            // plane AT the anchor — `dragPlaneOf(face.point, …)` is what it would hand over.)
+            (cmd as any).syncCommittedOperation(face.owner.node, dragPlaneOf(face.point, XYZ.unitZ), -5);
+
+            expect(cmd.operation).toBe("option.command.operation.cut");
+        });
+
+        test("a settled hand-off is not re-read at the commit", () => {
+            const { app, face } = solidFaceSetup();
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.pressPull = true;
+            cmd.pickSettled = true;
+            (cmd as any).stepDatas = [
+                { shapes: [face], nodes: [face.owner.node], type: "shape" },
+                { shapes: [face], nodes: [face.owner.node], type: "input" },
+            ];
+
+            // Press Pull handed the operation over; re-reading would second-guess the hand-off.
+            (cmd as any).syncCommittedOperation(face.owner.node, dragPlaneOf(face.point, XYZ.unitZ), -5);
+
+            expect(cmd.operation).toBe("option.command.operation.new");
+        });
+
+        test("an operation the user set is not re-read at the commit either", () => {
+            const { app, face } = solidFaceSetup();
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            cmd.pressPull = false;
+            cmd.operation = "option.command.operation.new";
+            (cmd as any).stepDatas = [
+                { shapes: [face], nodes: [face.owner.node], type: "shape" },
+                { shapes: [face], nodes: [face.owner.node], type: "input" },
+            ];
+
+            (cmd as any).syncCommittedOperation(face.owner.node, dragPlaneOf(face.point, XYZ.unitZ), -5);
+
+            expect(cmd.operation).toBe("option.command.operation.new");
+        });
+
+        test("an operation the user set is not talked over, on a solid face either", () => {
+            const { app, face } = solidFaceSetup();
+            const cmd = dragged(app, face);
+            cmd.pressPull = false;
+            cmd.operation = "option.command.operation.intersect";
+
+            (cmd as any).syncPushedOperation(-5);
+
+            expect(cmd.operation).toBe("option.command.operation.intersect");
+        });
+
+        test("the commit judges from the drag's anchor, not the first picked face", () => {
+            const { app, face } = solidFaceSetup();
+            // A second picked profile OFF the plate. The drag moved its anchor to it (a
+            // shift-click follows the added profile), and from there the -5 reach ends in
+            // nothing — a join. Judged from `faces[0]` (over the plate) the same reach
+            // would read a cut, flipping the answer between preview and commit.
+            const offPlate = {
+                shape: {
+                    shapeType: ShapeTypes.face,
+                    boundingBox: () => new BoundingBox({ x: 15, y: 15, z: 10 }, { x: 25, y: 25, z: 10 }),
+                },
+                owner: face.owner,
+                transform: Matrix4.identity(),
+                indexes: [1],
+                point: new XYZ({ x: 20, y: 20, z: 10 }),
+            };
+            const cmd = new ExtrudeFeatureCommand();
+            (cmd as any)._application = app;
+            (cmd as any).stepDatas = [
+                { shapes: [face, offPlate], nodes: [face.owner.node], type: "shape" },
+                // The drag step reports its plane AT the anchor it ended on.
+                {
+                    shapes: [face, offPlate],
+                    nodes: [face.owner.node],
+                    type: "input",
+                    plane: dragPlaneOf(offPlate.point, XYZ.unitZ),
+                },
+            ];
+
+            (cmd as any).syncCommittedOperation(face.owner.node, (cmd as any).stepDatas[1].plane, -5);
+
+            expect(cmd.operation).toBe("option.command.operation.join");
+        });
+
+        test("an automatic operation is not left in the option cache", () => {
+            const { app, face } = solidFaceSetup();
+            // The user's own standing choice — `readProperties` restores it next run.
+            CancelableCommand.seedOptions("feature.extrude", { operation: "option.command.operation.join" });
+            try {
+                const cmd = dragged(app, face);
+                (cmd as any).beforeExecute();
+                expect(cmd.operation).toBe("option.command.operation.join");
+
+                // The drag's reading answers cut for THIS run…
+                (cmd as any).syncPushedOperation(-5);
+                expect(cmd.operation).toBe("option.command.operation.cut");
+                (cmd as any).afterExecute();
+
+                // …and the next run still opens on the user's choice, not the reading.
+                const next = new ExtrudeFeatureCommand();
+                (next as any)._application = app;
+                (next as any).beforeExecute();
+                expect(next.operation).toBe("option.command.operation.join");
+            } finally {
+                (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            }
+        });
+
+        test("a user override of the reading is the value the cache keeps", () => {
+            const { app, face } = solidFaceSetup();
+            (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            try {
+                const cmd = dragged(app, face);
+                (cmd as any).beforeExecute();
+                (cmd as any).syncPushedOperation(-5);
+                expect(cmd.operation).toBe("option.command.operation.cut");
+                // The panel wins over the reading — and it is the panel that sticks.
+                cmd.operation = "option.command.operation.join";
+                (cmd as any).afterExecute();
+
+                const next = new ExtrudeFeatureCommand();
+                (next as any)._application = app;
+                (next as any).beforeExecute();
+                expect(next.operation).toBe("option.command.operation.join");
+            } finally {
+                (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            }
+        });
+
+        test("a handed-off operation applies to the run but is never cached", () => {
+            const { app } = solidFaceSetup();
+            (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            try {
+                const cmd = new ExtrudeFeatureCommand();
+                (cmd as any)._application = app;
+                cmd.handoffOperation = "option.command.operation.cut";
+                (cmd as any).beforeExecute();
+
+                // Shown and effective for the run…
+                expect(cmd.operation).toBe("option.command.operation.cut");
+                expect(cmd.showTargets).toBe(true);
+                (cmd as any).afterExecute();
+
+                // …but it rode the instance, not the cache: the next plain extrude opens on New.
+                const next = new ExtrudeFeatureCommand();
+                (next as any)._application = app;
+                (next as any).beforeExecute();
+                expect(next.operation).toBe("option.command.operation.new");
+            } finally {
+                (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            }
+        });
+
+        test("an operation the user set still sticks for the next run", () => {
+            const { app } = solidFaceSetup();
+            (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            try {
+                const cmd = new ExtrudeFeatureCommand();
+                (cmd as any)._application = app;
+                (cmd as any).beforeExecute();
+                cmd.operation = "option.command.operation.intersect";
+                (cmd as any).afterExecute();
+
+                const next = new ExtrudeFeatureCommand();
+                (next as any)._application = app;
+                (next as any).beforeExecute();
+                expect(next.operation).toBe("option.command.operation.intersect");
+            } finally {
+                (CancelableCommand as any)._propertiesCache.delete("feature.extrude:operation");
+            }
+        });
     });
 });

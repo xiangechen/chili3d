@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type IEdge, type IFace, type IVertex, Matrix4, Plane, ShapeTypes } from "@chili3d/core";
+import { type IEdge, type IFace, type IVertex, Matrix4, Plane, ShapeTypes, XYZ } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
 import { captureEdgeRef, type EdgeRef } from "../src/features/edgeRef";
@@ -189,6 +189,154 @@ describe("extrude end conditions (real kernel)", () => {
         expect(boundsOf(body).max.z).toBeCloseTo(10, 1);
     });
 
+    /**
+     * A curved target has no plane to land on: the conforming build (`extrudeToFace.ts`,
+     * kernel `prismToFaceTracked`) caps the prism with a patch of the surface itself,
+     * stopping at its NEAR side along the sweep — and which side is near follows the
+     * sweep, so the same face reached downward caps onto its top half.
+     */
+    test("upToFace onto a cylindrical face caps with the surface, in whichever direction", () => {
+        const doc = scene();
+        // A cylinder along X: the sketch plane's local Y is world Z (normal X, xvec Y), so
+        // the circle at local (0, 30) centres the axis at (y=0, z=30); radius 10, extruded
+        // 30 along +X — its side face runs z∈[20,40].
+        const cylinderSketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY }),
+            data: circle(0, 30, 10),
+        });
+        doc.modelManager.addNode(cylinderSketch);
+        const cylinder = new ParametricBodyNode({
+            document: doc,
+            features: [{ id: "e1", type: "extrude", sketchId: cylinderSketch.id, depth: 30 }],
+        });
+        doc.modelManager.addNode(cylinder);
+        expect(cylinder.shape.isOk).toBe(true);
+
+        // The cylindrical SIDE face: the one non-planar face.
+        const cylinderFaces = facesOf(cylinder);
+        const sideIndex = cylinderFaces.findIndex((face) => !face.surface().isPlanar());
+        expect(sideIndex).toBeGreaterThanOrEqual(0);
+        const sideId = cylinder.faceIdAt(sideIndex);
+        const endFace = {
+            nodeId: cylinder.id,
+            profile: captureProfileRef(
+                cylinderFaces[sideIndex],
+                sideId,
+                cylinder.faceIdIsShared(sideId),
+                true,
+            ),
+        };
+
+        // Sweeping UP from z=0, the cap lies ON the surface: over the profile (x∈[5,15]
+        // along the axis, y∈[-5,5]) it reaches z = 30 - sqrt(100 - 25) ≈ 21.34 at the y=±5
+        // rims. The tangent plane (z=20) would be the sampled fallback; the far side (z=40)
+        // would mean the prism passed through the cylinder.
+        const fromBelow = plate(doc, rect(5, -5, 15, 5), 10, { endCondition: "upToFace", endFace });
+        expect(errors(fromBelow)).toEqual([undefined]);
+        expect(boundsOf(fromBelow).max.z).toBeCloseTo(30 - Math.sqrt(75), 1);
+        const belowCaps = (fromBelow.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[]).filter(
+            (face) => !face.surface().isPlanar(),
+        );
+        expect(belowCaps).toHaveLength(1);
+        // The cap patch: 10 along the axis over the arc y ∈ [-5, 5] — 100·2·asin(0.5) ≈ 104.72.
+        expect(belowCaps[0].area()).toBeCloseTo(100 * (2 * Math.asin(0.5)), 0);
+
+        // Sweeping DOWN from z=50 (reverse), the cap conforms to the cylinder's top half:
+        // z = 30 + sqrt(100 - 25) ≈ 38.66 at the rims.
+        const topSketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin: new XYZ({ x: 0, y: 0, z: 50 }), normal: XYZ.unitZ, xvec: XYZ.unitX }),
+            data: rect(5, -5, 15, 5),
+        });
+        doc.modelManager.addNode(topSketch);
+        const fromAbove = new ParametricBodyNode({
+            document: doc,
+            features: [
+                {
+                    id: "e1",
+                    type: "extrude",
+                    sketchId: topSketch.id,
+                    depth: 10,
+                    endCondition: "upToFace",
+                    endFace,
+                    reverse: true,
+                },
+            ],
+        });
+        doc.modelManager.addNode(fromAbove);
+        expect(errors(fromAbove)).toEqual([undefined]);
+        expect(boundsOf(fromAbove).min.z).toBeCloseTo(30 + Math.sqrt(75), 1);
+
+        // Joined onto the cylinder, the conforming cap meets the surface exactly: the fused
+        // volume adds the prism's whole column (a pass-through would overlap it away, a
+        // tangent plane would shave the corners under the surface).
+        const bossSketch = new SketchNode({ document: doc, plane: Plane.XY, data: rect(5, -5, 15, 5) });
+        doc.modelManager.addNode(bossSketch);
+        cylinder.setFeaturesEmitShapeChanged([
+            ...cylinder.features,
+            {
+                id: "e2",
+                type: "extrude",
+                sketchId: bossSketch.id,
+                depth: 10,
+                endCondition: "upToFace",
+                endFace,
+                operation: "fuse",
+            } as FeatureData,
+        ]);
+        expect(errors(cylinder)).toEqual([undefined, undefined]);
+        // The conforming prism is the tangent column (2000) plus the corners between the
+        // tangent plane and the surface (10·∫₋₅⁵(10−√(100−y²))dy ≈ 43.39) — all OUTSIDE the
+        // cylinder, meeting it exactly at the cap: the fuse adds the whole prism.
+        expect(cylinder.shape.unchecked()!.volume()).toBeCloseTo(Math.PI * 100 * 30 + 2043.39, 0);
+        // The fused body is still trackable: the prism's bottom and side faces take the
+        // boss sketch's seeds and the cylinder's own faces keep theirs. (The conforming
+        // cap itself is consumed — it is internal to the fused solid.)
+        const faceIds = facesOf(cylinder).map((_, index) => cylinder.faceIdAt(index));
+        expect(faceIds.filter((id) => id === undefined)).toEqual([]);
+        const bossPrefix = `sketch:${bossSketch.id}:`;
+        // Bottom + four sides of the prism.
+        expect(faceIds.filter((id) => id?.startsWith(bossPrefix))).toHaveLength(5);
+    });
+
+    /** The parameters the conforming build cannot express fall back to the tangent plane. */
+    test.each([
+        { name: "a nonzero endOffset", extra: { endOffset: 5 }, expectedTop: 25 },
+        // The end lands ON the target whatever the start offset — the tangent plane here.
+        { name: "a nonzero startOffset", extra: { startOffset: 2 }, expectedTop: 20 },
+        { name: "a symmetric sweep", extra: { symmetric: true }, expectedTop: 20 },
+        { name: "a draft", extra: { draftAngle: 3 }, expectedTop: 20 },
+    ])("upToFace onto a cylinder with $name stops at the near-side plane", ({ extra, expectedTop }) => {
+        const doc = scene();
+        const cylinderSketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY }),
+            data: circle(0, 30, 10),
+        });
+        doc.modelManager.addNode(cylinderSketch);
+        const cylinder = new ParametricBodyNode({
+            document: doc,
+            features: [{ id: "e1", type: "extrude", sketchId: cylinderSketch.id, depth: 30 }],
+        });
+        doc.modelManager.addNode(cylinder);
+        expect(cylinder.shape.isOk).toBe(true);
+        const side = facesOf(cylinder).find((face) => !face.surface().isPlanar())!;
+        const sideId = cylinder.faceIdAt(facesOf(cylinder).indexOf(side));
+        const endFace = {
+            nodeId: cylinder.id,
+            profile: captureProfileRef(side, sideId, cylinder.faceIdIsShared(sideId), true),
+        };
+        const body = plate(doc, rect(5, -5, 15, 5), 10, { endCondition: "upToFace", endFace, ...extra });
+        expect(errors(body)).toEqual([undefined]);
+        expect(boundsOf(body).max.z).toBeCloseTo(expectedTop, 1);
+        // The cap is the profile's own plane — no cylindrical patch anywhere.
+        const caps = (body.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[]).filter(
+            (face) => !face.surface().isPlanar(),
+        );
+        expect(caps).toHaveLength(0);
+    });
+
     test.each([
         { endOffset: undefined, expected: 20 },
         { endOffset: 5, expected: 25 },
@@ -208,17 +356,127 @@ describe("extrude end conditions (real kernel)", () => {
         expect(boundsOf(boss).max.z).toBeCloseTo(expected, 1);
     });
 
-    test("an up-to target behind the start plane fails the feature", () => {
+    test("an up-to target behind the start plane auto-reverses to reach it", () => {
         const doc = scene();
         const body = plate(doc, rect(0, 0, 10, 10), 10, {
             endCondition: "upToVertex",
             endVertex: { nodeId: "deleted-node", vertex: { point: { x: 5, y: 5, z: -10 } } },
         });
 
+        // No `reverse`, no error: the sweep flips toward the target by itself.
+        expect(errors(body)).toEqual([undefined]);
+        const bounds = boundsOf(body);
+        expect(bounds.min.z).toBeCloseTo(-10, 1);
+        expect(bounds.max.z).toBeCloseTo(0, 1);
+    });
+
+    test("upToFace onto a face the start plane crosses is a rebuild error", () => {
+        const doc = scene();
+        const { endFace } = axisCylinder(doc);
+
+        // The sketch plane (z=30) cuts through the cylinder's side (z∈[20,40]): no sweep
+        // direction reaches only a near side, and auto-reversal cannot pick one.
+        const sketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin: new XYZ({ x: 0, y: 0, z: 30 }), normal: XYZ.unitZ, xvec: XYZ.unitX }),
+            data: rect(5, -5, 15, 5),
+        });
+        doc.modelManager.addNode(sketch);
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                {
+                    id: "e1",
+                    type: "extrude",
+                    sketchId: sketch.id,
+                    depth: 10,
+                    endCondition: "upToFace",
+                    endFace,
+                },
+            ],
+        });
+        doc.modelManager.addNode(body);
+
         expect(body.shape.isOk).toBe(false);
-        expect(errors(body)).toEqual([
-            "Extrude target lies behind the start plane — flip reverse to reach it",
-        ]);
+        expect(errors(body)).toEqual(["Extrude target lies on or crosses the start plane"]);
+    });
+
+    test("upToFace with an oblique sweep reads the cylinder's own reach, not its box's", () => {
+        // The reach samples lie ON the surface. The side's bounding-box corner nearest the
+        // tilted start plane sits BEHIND it while the whole surface is ahead — box corners
+        // as samples reported a crossing that is not there.
+        const doc = scene();
+        const { endFace } = axisCylinder(doc);
+        const normal = new XYZ(1, 1, 1).normalize()!;
+        // n·P0 = 8: the side's true nearest reach along n is (30 − 10√2)/√3 − 8 ≈ 1.16
+        // ahead, while its bbox corner at (0, −10, 20) reaches 10/√3 − 8 ≈ −2.23 — behind.
+        const origin = new XYZ(0, 0, 8 * Math.sqrt(3));
+        const sketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin, normal, xvec: new XYZ(1, -1, 0).normalize()! }),
+            data: rect(-2, -2, 2, 2),
+        });
+        doc.modelManager.addNode(sketch);
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                {
+                    id: "e1",
+                    type: "extrude",
+                    sketchId: sketch.id,
+                    depth: 10,
+                    endCondition: "upToFace",
+                    endFace,
+                },
+            ],
+        });
+        doc.modelManager.addNode(body);
+
+        expect(errors(body)).toEqual([undefined]);
+        // The cap is parallel to the profile plane, so every vertex's reach along n tops
+        // out at the depth: the sampled near reach (true 1.156 + the rim-sampling slack).
+        const vertices = body.shape.unchecked()!.findSubShapes(ShapeTypes.vertex) as IVertex[];
+        const depth = Math.max(...vertices.map((v) => normal.dot(v.point().sub(origin))));
+        expect(depth).toBeGreaterThan(1.15);
+        expect(depth).toBeLessThan(1.3);
+    });
+
+    test("upToFace wholly behind an oblique start plane auto-reverses onto it", () => {
+        // The same reading from the other side: every surface point lies behind the plane
+        // along n, but a bbox corner reaches +1.19 ahead — corner samples read that as
+        // "crossing" and failed instead of reversing.
+        const doc = scene();
+        const { endFace } = axisCylinder(doc);
+        const normal = new XYZ(1, 1, 1).normalize()!;
+        // n·P0 = 45: the side's farthest reach along n is (60 + 10√2)/√3 − 45 ≈ −2.19.
+        const origin = new XYZ(0, 0, 45 * Math.sqrt(3));
+        const sketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin, normal, xvec: new XYZ(1, -1, 0).normalize()! }),
+            data: rect(-2, -2, 2, 2),
+        });
+        doc.modelManager.addNode(sketch);
+        const body = new ParametricBodyNode({
+            document: doc,
+            features: [
+                {
+                    id: "e1",
+                    type: "extrude",
+                    sketchId: sketch.id,
+                    depth: 10,
+                    endCondition: "upToFace",
+                    endFace,
+                },
+            ],
+        });
+        doc.modelManager.addNode(body);
+
+        expect(errors(body)).toEqual([undefined]);
+        // Auto-reversed: the cap leads the plane along −n by the sampled far reach.
+        const vertices = body.shape.unchecked()!.findSubShapes(ShapeTypes.vertex) as IVertex[];
+        const depth = Math.max(...vertices.map((v) => -normal.dot(v.point().sub(origin))));
+        expect(depth).toBeGreaterThan(2.18);
+        expect(depth).toBeLessThan(2.32);
     });
 
     test("reverse sweeps a blind extrude to the opposite side", () => {
@@ -246,7 +504,7 @@ describe("extrude end conditions (real kernel)", () => {
         expect(bounds.max.z).toBeCloseTo(0, 1);
     });
 
-    test("with reverse set, a target on the natural side lies behind", () => {
+    test("an up-to target outranks an explicit reverse", () => {
         const doc = scene();
         const body = plate(doc, rect(0, 0, 10, 10), 10, {
             endCondition: "upToVertex",
@@ -254,10 +512,52 @@ describe("extrude end conditions (real kernel)", () => {
             reverse: true,
         });
 
-        expect(body.shape.isOk).toBe(false);
-        expect(errors(body)).toEqual([
-            "Extrude target lies behind the start plane — flip reverse to reach it",
-        ]);
+        // The flipped direction misses the target, so the sweep auto-reverses back to it.
+        expect(errors(body)).toEqual([undefined]);
+        const bounds = boundsOf(body);
+        expect(bounds.min.z).toBeCloseTo(0, 1);
+        expect(bounds.max.z).toBeCloseTo(10, 1);
+    });
+
+    test("upToFace auto-reverses onto a cylinder from the far side, cap conforming", () => {
+        const doc = scene();
+        const { endFace } = axisCylinder(doc);
+
+        // From z=50 WITHOUT reverse: the natural direction misses the cylinder entirely,
+        // so the sweep auto-reverses and the cap conforms to the cylinder's top half —
+        // the build the `reverse` checkbox reaches in the direction test above.
+        const topSketch = new SketchNode({
+            document: doc,
+            plane: new Plane({ origin: new XYZ({ x: 0, y: 0, z: 50 }), normal: XYZ.unitZ, xvec: XYZ.unitX }),
+            data: rect(5, -5, 15, 5),
+        });
+        doc.modelManager.addNode(topSketch);
+        const fromAbove = new ParametricBodyNode({
+            document: doc,
+            features: [
+                {
+                    id: "e1",
+                    type: "extrude",
+                    sketchId: topSketch.id,
+                    depth: 10,
+                    endCondition: "upToFace",
+                    endFace,
+                },
+            ],
+        });
+        doc.modelManager.addNode(fromAbove);
+
+        expect(errors(fromAbove)).toEqual([undefined]);
+        expect(boundsOf(fromAbove).min.z).toBeCloseTo(30 + Math.sqrt(75), 1);
+        // The until surface's seam runs along the cylinder's TOP, so the cap patch straddles
+        // it and the boolean split it in two — together the halves are the same patch as the
+        // one-piece cap below (area 100·2·asin(0.5) ≈ 104.72), and the naming contract leaves
+        // both id-less rather than colliding on one `:top` (see `seedTopFace`).
+        const caps = (fromAbove.shape.unchecked()!.findSubShapes(ShapeTypes.face) as IFace[]).filter(
+            (face) => !face.surface().isPlanar(),
+        );
+        expect(caps).toHaveLength(2);
+        expect(caps[0].area() + caps[1].area()).toBeCloseTo(100 * (2 * Math.asin(0.5)), 0);
     });
 
     test("depth2 sweeps a second depth opposite the sweep direction", () => {
@@ -304,6 +604,37 @@ describe("extrude end conditions (real kernel)", () => {
         expect(errors(body)).toEqual(["Extrude direction is parallel to the profile plane"]);
     });
 });
+
+/**
+ * A radius-10 cylinder extruded 30 along +X, its axis at (y=0, z=30) (the sketch plane's
+ * local Y is world Z), plus its cylindrical SIDE face as an up-to-face pick.
+ */
+function axisCylinder(doc: TestDocument): {
+    cylinder: ParametricBodyNode;
+    endFace: { nodeId: string; profile: ProfileRef };
+} {
+    const cylinderSketch = new SketchNode({
+        document: doc,
+        plane: new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY }),
+        data: circle(0, 30, 10),
+    });
+    doc.modelManager.addNode(cylinderSketch);
+    const cylinder = new ParametricBodyNode({
+        document: doc,
+        features: [{ id: "e1", type: "extrude", sketchId: cylinderSketch.id, depth: 30 }],
+    });
+    doc.modelManager.addNode(cylinder);
+    expect(cylinder.shape.isOk).toBe(true);
+    const cylinderFaces = facesOf(cylinder);
+    const sideIndex = cylinderFaces.findIndex((face) => !face.surface().isPlanar());
+    expect(sideIndex).toBeGreaterThanOrEqual(0);
+    const sideId = cylinder.faceIdAt(sideIndex);
+    const endFace = {
+        nodeId: cylinder.id,
+        profile: captureProfileRef(cylinderFaces[sideIndex], sideId, cylinder.faceIdIsShared(sideId), true),
+    };
+    return { cylinder, endFace };
+}
 
 /** The axle's bottom edge running along +X (y = −1, z = 0), as the direction pick stores it. */
 function xEdgeRef(axle: ParametricBodyNode): EdgeRef {

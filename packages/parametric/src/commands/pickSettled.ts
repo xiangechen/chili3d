@@ -1,6 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import type { I18nKeys } from "@chili3d/core";
+
 /**
  * The protcol between a command that carries a pick of its own (Press Pull) and the command it
  * hands over to.
@@ -27,6 +29,13 @@ export interface PickSettledCommand {
  */
 export interface PressPullHandoffCommand {
     pressPull: boolean;
+    /**
+     * The boolean operation the hand-off's own drag already judged, where it made one (a
+     * sketch profile's push). Instance-side ON PURPOSE, not a seeded option: the option
+     * cache outlives the gesture, and a cached join/cut would keep deciding later, unrelated
+     * extrudes whose own reading never runs to correct it.
+     */
+    handoffOperation?: I18nKeys;
 }
 
 /** Whether `command` speaks the hand-off protocol. */

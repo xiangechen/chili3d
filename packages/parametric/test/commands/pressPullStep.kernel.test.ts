@@ -4,7 +4,15 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { AsyncController, Matrix4, Plane, type ShapeMeshData, ShapeTypes, XYZ } from "@chili3d/core";
+import {
+    AsyncController,
+    type IFace,
+    Matrix4,
+    Plane,
+    type ShapeMeshData,
+    ShapeTypes,
+    XYZ,
+} from "@chili3d/core";
 import {
     createHandlerMockView,
     createMockApplication,
@@ -12,7 +20,7 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
-import { PressPullHandler } from "../../src/commands/pressPullStep";
+import { gripOf, PressPullHandler } from "../../src/commands/pressPullStep";
 import type { SketchData } from "../../src/sketch/sketchModel";
 import { SketchNode } from "../../src/sketch/sketchNode";
 import "../sketch/setup";
@@ -93,5 +101,51 @@ describe("PressPullHandler's profile preview", () => {
         } finally {
             handler.dispose();
         }
+    });
+});
+
+describe("gripOf on a real cylinder wall", () => {
+    test("the arrow answers on the side the pointer landed, not the seam's", () => {
+        const rod = shapeFactory.cylinder({ x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }, 10, 30);
+        expect(rod.isOk).toBe(true);
+        const wall = (rod.value.findSubShapes(ShapeTypes.face) as IFace[]).find(
+            (face) => !face.surface().isPlanar(),
+        );
+        expect(wall).toBeDefined();
+        // A viewport pick reports the MESH intersection, off the analytic surface by the
+        // deflection (0.011 mm measured on this r=10 wall) — an analytically exact point
+        // like (-10, 0, 15) would take the direct `parameter` path and test nothing. Take
+        // the triangle centroid deepest on the -X side instead: past the 1e-3 tolerance,
+        // exactly what the viewport hands over. The seam sits at u = 0 (+X side).
+        const mesh = wall!.mesh.faces!;
+        let point: XYZ | undefined;
+        for (let t = 0; t + 2 < mesh.index.length; t += 3) {
+            const [a, b, c] = [mesh.index[t] * 3, mesh.index[t + 1] * 3, mesh.index[t + 2] * 3];
+            const centroid = new XYZ({
+                x: (mesh.position[a] + mesh.position[b] + mesh.position[c]) / 3,
+                y: (mesh.position[a + 1] + mesh.position[b + 1] + mesh.position[c + 1]) / 3,
+                z: (mesh.position[a + 2] + mesh.position[b + 2] + mesh.position[c + 2]) / 3,
+            });
+            if (point === undefined || centroid.x < point.x) point = centroid;
+        }
+        expect(point).toBeDefined();
+        expect(point!.x).toBeLessThan(-9.9);
+        // The premise: this pick does NOT meet the direct parameter tolerance.
+        expect(wall!.surface().parameter(point!, 1e-3)).toBeUndefined();
+
+        const grip = gripOf({
+            shape: wall!,
+            owner: {} as any,
+            transform: Matrix4.identity(),
+            indexes: [0],
+            point: point!,
+        });
+
+        expect(grip).toBeDefined();
+        expect(grip!.origin).toBe(point!);
+        expect(grip!.direction.length()).toBeCloseTo(1, 6);
+        // The radial at the pick, not the seam's (+1, 0, 0) — which would read dot ≈ -1 here.
+        const radial = new XYZ({ x: point!.x, y: point!.y, z: 0 }).normalize()!;
+        expect(grip!.direction.dot(radial)).toBeGreaterThan(0.99);
     });
 });

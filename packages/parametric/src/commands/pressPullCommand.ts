@@ -5,6 +5,7 @@ import {
     CancelableCommand,
     CommandStore,
     command,
+    type I18nKeys,
     type IDocument,
     type IStep,
     LENGTH_UNITS,
@@ -19,7 +20,7 @@ import {
 import { SketchNode } from "../sketch/sketchNode";
 import { END_CONDITION_BLIND } from "./extrudeCommand";
 import { cornerDragOf } from "./modifyCornerCommand";
-import { markPressPullHandoff, type PickSettledCommand } from "./pickSettled";
+import { isPressPullHandoff, markPressPullHandoff, type PickSettledCommand } from "./pickSettled";
 import { type PressPullHandler, PressPullStep } from "./pressPullStep";
 import { SELECTED_FACE_STATE } from "./selectedFaceState";
 import { SKETCH_OPERATIONS, sketchPressPullOperation } from "./sketchPressPull";
@@ -59,10 +60,18 @@ interface PressPullOpening {
     readonly field?: string;
     readonly value?: number;
     /**
-     * Option values the opened command needs besides its size — how a sketch profile's drag
-     * decides the extrusion's boolean operation. Seeded together with `field`/`value`.
+     * Option values the opened command needs besides its size — the gesture owns the
+     * direction, reach and shape options (`SKETCH_PUSH_OPTIONS`). Seeded together with
+     * `field`/`value`.
      */
     readonly seeds?: Record<string, unknown>;
+    /**
+     * The boolean operation the drag's end decided (a sketch profile's push). Handed to the
+     * target INSTANCE-side (`PressPullHandoffCommand.handoffOperation`), never seeded: the
+     * option cache outlives the gesture, and a cached join/cut would keep deciding later,
+     * unrelated extrudes whose own reading never runs to correct it.
+     */
+    readonly operation?: I18nKeys;
     /**
      * Whether this gesture's pick and confirm stand for the target's own, for a target that speaks
      * that protocol (`PickSettledCommand`). Left UNDEFINED for one that does not — an edge's Fillet
@@ -122,7 +131,8 @@ function openingOf(
                 field: "depth",
                 value: depth,
                 settled: true,
-                seeds: { ...SKETCH_PUSH_OPTIONS, ...(operation === undefined ? {} : { operation }) },
+                seeds: { ...SKETCH_PUSH_OPTIONS },
+                ...(operation === undefined ? {} : { operation }),
             };
         }
         return (
@@ -348,6 +358,12 @@ export class PressPullCommand extends MultistepCommand {
         // A target that runs its own size drag is still our push-pull: the end of that drag is
         // what decides its boolean (see `PressPullHandoffCommand`).
         markPressPullHandoff(opened);
+        // Instance-side, not seeded (see `PressPullOpening.operation`): the option cache
+        // outlives this gesture, and a cached join/cut would decide the target command's
+        // next UNRELATED run too.
+        if (opening.operation !== undefined && isPressPullHandoff(opened)) {
+            opened.handoffOperation = opening.operation;
+        }
 
         let keepGoing = false;
         this.application.executingCommand = opened;

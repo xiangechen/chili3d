@@ -3,7 +3,7 @@
 
 import {
     ANGLE_UNITS,
-    AsyncController,
+    type AsyncController,
     AUTO_TARGETS,
     BoundingBox,
     Combobox,
@@ -38,11 +38,12 @@ import {
     XYZ,
     type XYZLike,
 } from "@chili3d/core";
-import { throughAllDepth, upToTargetDepth } from "../features/extrudeEnd";
+import { throughAllDepth, upToTargetAim } from "../features/extrudeEnd";
 import type { BooleanOperation, ExtrudeEndCondition, ExtrudeFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { allProfiles, sketchProfiles } from "../features/profileBuilder";
 import { captureProfileRef } from "../features/profileRef";
+import { directionsParallel } from "../features/refGeometry";
 import { sweepFaces } from "../features/sweepGeometry";
 import { captureVertexRef } from "../features/vertexRef";
 import { ParametricBodyNode } from "../parametricBodyNode";
@@ -56,6 +57,7 @@ import {
     syncAutoTargets,
     targetCandidate,
 } from "./booleanTargets";
+import { bridgedRound } from "./bridgedRound";
 import {
     type ExtrudeDragHandler,
     type ExtrudeDragState,
@@ -67,6 +69,8 @@ import type { PickSettledCommand, PressPullHandoffCommand } from "./pickSettled"
 import { prioritizeSketchFaces } from "./profileFaceSort";
 import { SELECTED_FACE_STATE } from "./selectedFaceState";
 import {
+    type PressPullBody,
+    pressPullBodies,
     SKETCH_OPERATIONS,
     type SketchPressPullOperation,
     sketchPressPullOperation,
@@ -391,23 +395,18 @@ export class ExtrudeEndTargetStep implements IStep {
     }
 
     /**
-     * One pick round on a FRESH controller: a settled controller replays its result to
-     * every listener registered later (see `AsyncController.addListener`), so reusing the
-     * step's own controller for a re-pick would resolve instantly and spin the loop
-     * without ever picking again. The step controller only bridges cancel/fail into the
-     * round; success is the loop's own once a round picked something.
+     * One pick round on a FRESH controller (`bridgedRound`): a settled controller replays
+     * its result to later listeners, so reusing the step's own controller for a re-pick
+     * would resolve instantly and spin the loop without ever picking again. The step
+     * controller only bridges cancel/fail into the round; success is the loop's own once
+     * a round picked something.
      */
     private async pickRound(
         document: IDocument,
         controller: AsyncController,
         isFace: boolean,
     ): Promise<VisualShapeData[] | undefined> {
-        const round = new AsyncController();
-        // No off() exists: the bridges live as long as the step's controller, which the
-        // command disposes when the step ends — one stale bridge per re-pick, settled
-        // controllers all, so they fire into settled rounds and do nothing.
-        controller.onCancelled(() => round.cancel());
-        controller.onFailed(() => round.fail());
+        const round = bridgedRound(controller);
         /** The condition flipped: this round's pick belongs to the condition it replaced. */
         let settledForRepick = false;
         this._repickSettled = false;
@@ -485,9 +484,7 @@ export class ExtrudeEndTargetStep implements IStep {
         document: IDocument,
         controller: AsyncController,
     ): Promise<SnapResult | undefined> {
-        const round = new AsyncController();
-        controller.onCancelled(() => round.cancel());
-        controller.onFailed(() => round.fail());
+        const round = bridgedRound(controller);
         return this.command.runDepthDrag(document, round);
     }
 }
@@ -511,6 +508,15 @@ export class ExtrudeFeatureCommand
      * is still the push-pull, so its end decides the boolean.
      */
     pressPull = false;
+
+    /**
+     * The boolean operation Press Pull's drag already judged for this run, handed over
+     * INSTANCE-side rather than through the option cache: a cached join/cut would keep
+     * deciding later, unrelated extrudes whose own reading never runs to correct it
+     * (`booleanReadingApplies`). Applied in `beforeExecute` like the automatic reading —
+     * shown, effective, but not the user's pick.
+     */
+    handoffOperation?: I18nKeys;
 
     @property("option.command.operation", {
         combobox: Combobox.from([
@@ -637,7 +643,24 @@ export class ExtrudeFeatureCommand
         // decide this one. Its restored DEPTH is no gesture the user made in this run.
         this._depthGiven = false;
         this._operationGiven = false;
+        this._operationBeforeAuto = undefined;
+        this._judgeBodies = undefined;
         this.targets = AUTO_TARGETS;
+        // After the cache read in super: the hand-off's operation stands over a stale cached
+        // one, and being an automatic write it never reaches the cache itself.
+        if (this.handoffOperation !== undefined) this.writeAutoOperation(this.handoffOperation);
+    }
+
+    protected override afterExecute(): void {
+        // Put back the value the run opened with when the user never picked one:
+        // `saveProperties` would otherwise cache the automatic reading (or the hand-off's),
+        // and `readProperties` restores a cached operation with `_operationGiven` false —
+        // nothing would ever correct a stale cut on the next plain extrude of a sketch,
+        // whose own reading never runs (`booleanReadingApplies`).
+        if (!this._operationGiven && this._operationBeforeAuto !== undefined) {
+            this.setPrivateValue("operation", this._operationBeforeAuto);
+        }
+        super.afterExecute();
     }
 
     @property("option.command.symmetric")
@@ -810,6 +833,12 @@ export class ExtrudeFeatureCommand
     /** Whether the automatic push-pull reading is the one writing `operation` just now. */
     private _syncingOperation = false;
     /**
+     * The value `operation` held before this run's first automatic write (the push-pull
+     * reading or Press Pull's hand-off), so `afterExecute` can put it back: an operation
+     * nobody picked is this run's answer, not a preference the option cache should keep.
+     */
+    private _operationBeforeAuto: I18nKeys | undefined;
+    /**
      * The target step is one instance per command: the end-condition setter must reach the
      * in-flight pick to make it re-read the condition, and only the running step can.
      */
@@ -900,8 +929,10 @@ export class ExtrudeFeatureCommand
         const plane = node instanceof SketchNode ? node.plane : planeOfPickedFace(faces[0]);
         // The up-to conditions skip the drag, so the step stands this plane in as the drag
         // plane and the commit's target detection measures along it. Flip it with the sweep
-        // direction, or a reversed target sits behind the placeholder and is never detected.
-        // (The drag itself measures along the natural normal — see `oppositeDirection`.)
+        // direction: the detection's reach is measured along this normal, so a target the
+        // checkbox aimed at reads positive directly (one behind it relies on the signed
+        // auto-reversal fallback instead). (The drag itself measures along the natural
+        // normal — see `oppositeDirection`.)
         const flipPlaceholder = this.oppositeDirection && this.upToCondition;
         return {
             node,
@@ -925,61 +956,132 @@ export class ExtrudeFeatureCommand
                 this._syncingFromDrag = false;
                 // A real gesture: the user pulled the arrows off zero at least once.
                 if (Math.abs(dist) > Precision.Float) this._depthGiven = true;
-                this.syncPushedSketchOperation(dist);
+                this.syncPushedOperation(dist);
             },
         };
     };
 
     /**
-     * Press Pull's other entry: a sketch picked as a whole NODE opens Extrude, and the depth
-     * drag that follows is still the push-pull — so where it ENDS decides the boolean (see
-     * `sketchPressPullOperation`): into a body cuts, out of one joins, meeting none is a body
-     * of its own. Only for that hand-off (`pressPull`, not `pickSettled` — the pick may still be
-     * the target's own), only on a sketch's profile, and only while the user has not set the
-     * operation themselves this run.
+     * Where a push-pull drag ENDS decides the boolean (see `sketchPressPullOperation`): into a
+     * body cuts, out of one joins, meeting none is a body of its own. Which profiles get the
+     * reading:
      *
-     * The end is the drag anchor walked by the drag: the same point and axis the arrow is
-     * drawn from, so the answer matches what the preview shows.
+     * - a sketch's profiles, only on Press Pull's hand-off (`pressPull`, not `pickSettled` —
+     *   the pick may still be the target's own): the plain extrude of a sketch keeps its
+     *   explicit New Body default;
+     * - a SOLID face, always: its prism stands on the body the face was picked from, so an
+     *   unread drag pushes the prism INTO that body with no cut (an embedded, invisible new
+     *   body), or across a slot without ever joining the wall on the far side. The source
+     *   body answers both readings by itself — dragged in, the end is inside it (cut);
+     *   dragged out or across the void, the prism still meets it (join).
+     *
+     * Either way, only while the user has not set the operation themselves this run. The end
+     * is the drag anchor walked by the drag: the same point and axis the arrow is drawn from,
+     * so the answer matches what the preview shows.
      */
-    private syncPushedSketchOperation(distance: number): void {
-        if (!this.pressPull || this._operationGiven) return;
-        // The reading assumes the drag value IS the committed reach from the sketch plane: blind,
-        // no start offset, no draft. A whole-sketch hand-off runs the drag under whatever
-        // condition the option cache restored, and through-all measures its own reach while a
-        // start offset and a draft move/shape the prism — none of which the drag value describes.
+    private syncPushedOperation(distance: number): void {
+        const state = this._dragHandler?.state;
+        if (state === undefined || Math.abs(distance) < Precision.Float) return;
+        // The whole profile set, not `faces[0]`: the drag can add and remove profiles
+        // mid-gesture, and every one of them is part of the prism.
+        if (!this.booleanReadingApplies(state.node)) return;
+        this.judgeReach(state.faces, state.anchor, state.normal, distance);
+    }
+
+    /**
+     * The commit-side half of `syncPushedOperation`, for the confirm its `onDist` never saw:
+     * the reading lives on the drag's gestures, and there is none when a cached depth is
+     * confirmed as-is — a solid face then stands its prism up INSIDE the body it was picked
+     * from, as an embedded, invisible new body. Judge from the reach being committed. A
+     * SETTLED Press Pull hand-off is not re-read (its drag already judged, and handed the
+     * operation over with it), nor is the panel's operation, which is the user's. An
+     * UNSETTLED hand-off — a sketch picked as a whole node, whose depth drag runs here —
+     * is re-read like any other gestureless confirm.
+     *
+     * `plane` is the drag step's own, whose origin IS the anchor the drag ended on (see
+     * `ExtrudeDragStep`): shift-clicking another profile mid-gesture moves it, and judging
+     * the commit from `faces[0]` instead could flip the answer between preview and commit.
+     */
+    private syncCommittedOperation(node: SketchNode | ParametricBodyNode, plane: Plane, depth: number): void {
+        if (this.pickSettled) return;
+        if (!this.booleanReadingApplies(node)) return;
+        this.judgeReach(this.dragData.shapes, plane.origin, plane.normal, depth);
+    }
+
+    /**
+     * The policy both readings share. The depth only IS the committed reach from the profile
+     * plane when the sweep is blind, offset-free and draft-free: through-all measures its own
+     * reach while a start offset and a draft move or shape the prism — none of which the bare
+     * value describes. The read itself sweeps the opposite-direction net sign, both ways for
+     * a symmetric extrude (see `sweepVectorsOf`).
+     */
+    private judgeReach(faces: readonly VisualShapeData[], anchor: XYZ, normal: XYZ, depth: number): void {
+        if (this._operationGiven) return;
         if (this.endCondition !== END_CONDITION_BLIND) return;
         if (Math.abs(this.startOffsetValue) > Precision.Float) return;
         if (Math.abs(this.draftAngleValue ?? 0) > Precision.Float) return;
-        const state = this._dragHandler?.state;
-        if (state === undefined || Math.abs(distance) < Precision.Float) return;
-        // The whole profile set, not `faces[0]`: the drag can add and remove profiles mid-gesture,
-        // and every one of them is part of the prism.
-        if (!(state.node instanceof SketchNode) || state.faces.length === 0) return;
-
-        // The commit sweeps the opposite-direction net sign, and a symmetric sweep runs both
-        // ways — the reading has to follow those, not the raw drag (see `sweepVectorsOf`).
-        const signed = this.oppositeDirection ? -distance : distance;
+        if (faces.length === 0) return;
+        const signed = this.oppositeDirection ? -depth : depth;
         const ends = this.symmetric ? [signed, -signed] : [signed];
+        this.applyJudgedOperation(this.judgeOperation(faces, anchor, normal, ends));
+    }
+
+    /** The reading applies to Press Pull's sketch profiles, and to a solid face always. */
+    private booleanReadingApplies(node: INode): boolean {
+        if (node instanceof SketchNode) return this.pressPull;
+        return node instanceof ParametricBodyNode;
+    }
+
+    /** Cut where any end lands inside a body, else join where the prism meets one, else new. */
+    private judgeOperation(
+        faces: readonly VisualShapeData[],
+        anchor: XYZ,
+        normal: XYZ,
+        ends: readonly number[],
+    ): SketchPressPullOperation {
+        // The drag judges per pointer move (`onDist`), and the document's bodies cannot change
+        // mid-gesture — the candidate walk (placement, shape, world box per body) runs once
+        // per command run, not once per move.
+        this._judgeBodies ??= pressPullBodies(this.document);
         let operation: SketchPressPullOperation = "new";
         for (const end of ends) {
             const reading = sketchPressPullOperation(
                 this.document,
-                state.faces,
-                state.anchor,
-                state.normal,
+                faces,
+                anchor,
+                normal,
                 end,
+                this._judgeBodies,
             );
-            if (reading === "cut") {
-                operation = "cut";
-                break;
-            }
+            if (reading === "cut") return "cut";
             if (reading === "join") operation = "join";
         }
+        return operation;
+    }
 
-        if (this.operation === SKETCH_OPERATIONS[operation]) return;
+    /**
+     * The candidate-body descriptors the push-pull reading walks, resolved lazily and held
+     * for the run (see `judgeOperation`); `beforeExecute` drops them.
+     */
+    private _judgeBodies: PressPullBody[] | undefined;
+
+    /** Writes the judged operation — a reading, not the user's pick; see `writeAutoOperation`. */
+    private applyJudgedOperation(operation: SketchPressPullOperation): void {
+        this.writeAutoOperation(SKETCH_OPERATIONS[operation]);
+    }
+
+    /**
+     * An operation the run arrived at by itself — the push-pull reading, or Press Pull's
+     * hand-off — rather than one the user picked: shown and effective like any write, but
+     * not THEIR choice, so `_operationGiven` stays false and the value it replaced is
+     * remembered for `afterExecute` to keep this run's answer out of the option cache.
+     */
+    private writeAutoOperation(value: I18nKeys): void {
+        if (this.operation === value) return;
+        this._operationBeforeAuto ??= this.operation;
         this._syncingOperation = true;
         try {
-            this.operation = SKETCH_OPERATIONS[operation];
+            this.operation = value;
         } finally {
             this._syncingOperation = false;
         }
@@ -1194,8 +1296,9 @@ export class ExtrudeFeatureCommand
      * The prism an up-to target would make, in WORLD coordinates — the live preview shown
      * while the target pick is open. The prism ALONE, deliberately: a boolean result stands
      * in for (hides) the body it rewrites, and the body is the very thing the pointer is
-     * still aiming at. The reach is the feature's own (`upToTargetDepth`), including the
-     * start offset and the end offset, so the preview ends where the commit will.
+     * still aiming at. The aim is the feature's own (`upToTargetAim`), start offset, end
+     * offset AND auto-reversal included, so the preview ends where the commit will, on the
+     * side the commit builds.
      */
     upToTargetPreview(target: VisualShapeData): ExtrudePreview | undefined {
         const owned: IShape[] = [];
@@ -1213,18 +1316,12 @@ export class ExtrudeFeatureCommand
             const natural = plane.normal;
             const world = worldShape(target.shape as unknown as IFace | IVertex, target.transform, owned);
             // The up-to commit's direction is the checkbox alone (the hidden depth's sign
-            // is a leftover, see `executeMainTask`).
+            // is a leftover, see `executeMainTask`) — the aim then auto-reverses it toward
+            // a target lying behind, as the rebuild's plan will.
             const dir = this.oppositeDirection ? natural.multiply(-1) : natural;
             const startOffset = this.oppositeDirection ? -this.startOffsetValue : this.startOffsetValue;
-            const depth = upToTargetDepth(
-                world,
-                plane.origin,
-                natural,
-                dir,
-                startOffset,
-                this.endOffsetValue,
-            );
-            if (!depth.isOk || depth.value <= Precision.Float) return undefined;
+            const aim = upToTargetAim(world, plane.origin, natural, dir, startOffset, this.endOffsetValue);
+            if (!aim.isOk || aim.value.depth <= Precision.Float) return undefined;
 
             const state: ExtrudeDragState = {
                 node,
@@ -1232,24 +1329,34 @@ export class ExtrudeFeatureCommand
                 origin: plane.origin,
                 normal: natural,
                 anchor: picked[0]?.point ?? plane.origin,
-                dist: depth.value,
+                dist: aim.value.depth,
                 startOffset: this.startOffsetValue,
             };
             const faces = ExtrudeFeatureCommand.previewFaces(state, owned);
             if (faces === undefined) return undefined;
-            // A sketch's profiles share its plane, so one depth serves them all. A body's
-            // picked faces can lie on different planes and the feature measures the up-to
-            // reach from EACH face's own plane (see `extrudeFromSourceFaces`); the preview
-            // must do the same or it draws a prism the commit will not build.
-            const vecsOf =
-                node instanceof SketchNode
-                    ? this.sweepVectorsOf(node, natural, depth.value)
-                    : this.upToFaceVectors(faces, world, startOffset);
-            if (vecsOf === undefined) return undefined;
-            const offsetOf = this.offsetVectorOf(state.node, state.normal);
-            const built = ExtrudeFeatureCommand.buildPrisms(faces, vecsOf, offsetOf, this.draftAngleValue);
-            if (!built.isOk) return undefined;
-            const preview = ExtrudeFeatureCommand.prismPreview(built.value);
+            // The surface-conforming end previews itself when the commit would build it
+            // (extrudeToFace.ts); everything else draws the swept prism.
+            let preview = this.conformingToFacePreview(node, faces, world, natural, aim.value.dir);
+            if (preview === undefined) {
+                // A sketch's profiles share its plane, so one aim serves them all. A body's
+                // picked faces can lie on different planes and the feature measures the up-to
+                // reach from EACH face's own plane (see `extrudeFromSourceFaces`); the preview
+                // must do the same or it draws a prism the commit will not build.
+                const vecsOf =
+                    node instanceof SketchNode
+                        ? this.aimedSweepVectors(aim.value)
+                        : this.upToFaceVectors(faces, world, startOffset);
+                if (vecsOf === undefined) return undefined;
+                const offsetOf = this.offsetVectorOf(state.node, state.normal);
+                const built = ExtrudeFeatureCommand.buildPrisms(
+                    faces,
+                    vecsOf,
+                    offsetOf,
+                    this.draftAngleValue,
+                );
+                if (!built.isOk) return undefined;
+                preview = ExtrudeFeatureCommand.prismPreview(built.value);
+            }
             // A cut's ghost is what the commit REMOVES — red, like the drag preview's.
             if (FORM_FEATURE_OPERATIONS[this.operation] === "cut") {
                 for (const mesh of preview.meshes) mesh.color = CUT_TOOL_COLOR;
@@ -1263,7 +1370,18 @@ export class ExtrudeFeatureCommand
         }
     }
 
-    /** Per-face up-to vectors, measured from each face's own plane like the rebuild does. */
+    /**
+     * The sweep vectors of an up-to aim: along its direction (already auto-reversed toward
+     * the target — unlike `sweepVectorsOf` the direction checkbox has acted inside the
+     * aim's measurement, so no sign is applied here), mirrored for a symmetric sweep.
+     */
+    private aimedSweepVectors(aim: { readonly dir: XYZ; readonly depth: number }): (face: IFace) => XYZ[] {
+        const forward = aim.dir.multiply(aim.depth);
+        const vectors = this.symmetric ? [forward, forward.multiply(-1)] : [forward];
+        return () => vectors;
+    }
+
+    /** Per-face up-to vectors, aimed from each face's own plane like the rebuild does. */
     private upToFaceVectors(
         faces: readonly IFace[],
         target: IShape,
@@ -1273,11 +1391,45 @@ export class ExtrudeFeatureCommand
         for (const face of faces) {
             const [point, normal] = face.normal(0, 0);
             const dir = this.oppositeDirection ? normal.multiply(-1) : normal;
-            const depth = upToTargetDepth(target, point, normal, dir, startOffset, this.endOffsetValue);
-            if (!depth.isOk || depth.value <= Precision.Float) return undefined;
-            vectors.set(face, [dir.multiply(depth.value)]);
+            const aim = upToTargetAim(target, point, normal, dir, startOffset, this.endOffsetValue);
+            if (!aim.isOk || aim.value.depth <= Precision.Float) return undefined;
+            vectors.set(face, [aim.value.dir.multiply(aim.value.depth)]);
         }
         return (face) => vectors.get(face) ?? [];
+    }
+
+    /**
+     * The surface-conforming preview for an up-to-face target the commit will cap with the
+     * surface itself (`extrudeToFace.ts`, kernel `prismToFaceTracked`). Undefined — the swept
+     * prism previews instead — whenever the commit would not take that path: a press-pull
+     * (the conforming build covers sketch profiles only), several profiles, an offset, a
+     * symmetric sweep, a draft, an INTERSECT operation (the commit sweeps to the plane depth
+     * and commons that prism), a plane parallel to the profile's (the planar builder caps
+     * those exactly), or a kernel refusal.
+     */
+    private conformingToFacePreview(
+        node: INode,
+        faces: IFace[],
+        target: IShape,
+        profileNormal: XYZ,
+        dir: XYZ,
+    ): ExtrudePreview | undefined {
+        if (!(node instanceof SketchNode) || faces.length !== 1) return undefined;
+        if (target.shapeType !== ShapeTypes.face) return undefined;
+        if (this.startOffsetValue !== 0 || this.endOffsetValue !== 0) return undefined;
+        if (this.symmetric || this.draftAngleValue) return undefined;
+        if (shapeFactory.prismToFaceTracked === undefined) return undefined;
+        // Intersect never takes the conforming path (extrudeToFaceOperation maps only
+        // join/cut) — the commit sweeps to the plane depth and commons that. Preview the
+        // same prism, not a cap the commit will not build.
+        if (FORM_FEATURE_OPERATIONS[this.operation] === "common") return undefined;
+        const limit = target as IFace;
+        if (limit.surface().isPlanar()) {
+            const [, normal] = limit.normal(0, 0);
+            if (directionsParallel(normal.normalize(), profileNormal)) return undefined;
+        }
+        const built = shapeFactory.prismToFaceTracked(limit, faces[0], limit, dir, "new");
+        return built.isOk ? ExtrudeFeatureCommand.prismPreview(built.value.shape) : undefined;
     }
 
     /**
@@ -1436,6 +1588,9 @@ export class ExtrudeFeatureCommand
         const reverse = upTo ? this.oppositeDirection : this.oppositeDirection !== depth < 0;
         const storedDepth: ParameterValue =
             depth >= 0 ? this.depth : typeof this.depth === "string" ? `-(${this.depth})` : -depth;
+        // A confirm with no drag gesture (a cached depth) never fired `onDist`, so the
+        // push-pull reading never ran — judge the boolean from the committed reach now.
+        this.syncCommittedOperation(node, plane, depth);
 
         // Body-face fingerprints are captured in world coordinates (see the feature's
         // `source` contract); sketch profiles keep their raw faces.
@@ -1459,7 +1614,7 @@ export class ExtrudeFeatureCommand
                 this.commitFeature(
                     node,
                     feature,
-                    this.detectionDepth(endTarget, plane, depth, condition, node, worldFaces),
+                    this.detectionDepth(plane, depth, condition, node, worldFaces),
                     // The node's own normal: `sweepVectorsOf` applies the flip itself, and
                     // a skipped drag's placeholder normal may already carry it (press-pull
                     // never reads this — it sweeps each face's outward normal).
@@ -1567,17 +1722,18 @@ export class ExtrudeFeatureCommand
      * typed depth. An up-to condition skipped the drag, so the typed depth is usually
      * still 0 — and a zero-height prism's box meets nothing, which would leave a
      * cut/join standing alone as its own body instead of combining with the body the
-     * target belongs to. The captured target's own reach stands in: the farthest
-     * fingerprint sample along the sweep direction, measured from the drag plane (the
-     * same "farthest wins" the feature's `upToDepth` measures with). Pure fingerprint
-     * math — the capture already read the geometry. Through-all likewise measured its
-     * reach from the bodies in its path (the typed depth stays its blind fallback), in
-     * the sign `sweepVectorsOf` maps back onto the sweep direction. The typed depth
-     * stays the fallback for a capture without samples or a target behind the start
-     * plane (that one the rebuild reports; detection stays out of its way).
+     * target belongs to. The LIVE picked target's own reach stands in, measured by the
+     * same `upToTargetAim` the rebuild measures with — the same on-surface samples, the
+     * same auto-reversal — so the box covers the prism the commit builds, in whichever
+     * direction the sweep lands (a target strictly BEHIND the sweep direction
+     * auto-reverses the rebuild; the signed reach returned here points the tool box the
+     * same way). The typed depth stays the fallback for a target no direction reaches
+     * (the rebuild reports that one; detection stays out of its way). Through-all
+     * likewise measured its reach from the bodies in its path (the typed depth stays
+     * its blind fallback), in the sign `sweepVectorsOf` maps back onto the sweep
+     * direction.
      */
     private detectionDepth(
-        endTarget: Pick<ExtrudeFeatureData, "endFace" | "endVertex">,
         plane: Plane,
         fallback: number,
         condition: ExtrudeEndCondition,
@@ -1597,24 +1753,33 @@ export class ExtrudeFeatureCommand
                 sweepSign * this.startOffsetValue,
             );
             if (reach !== undefined) return (this.oppositeDirection ? -1 : 1) * sweepSign * reach;
+            return fallback;
         }
-        const samples: XYZLike[] = [];
-        if (endTarget.endVertex !== undefined) {
-            samples.push(endTarget.endVertex.vertex.point);
+        const picked = this.stepDatas[2]?.shapes[0];
+        if (picked === undefined) return fallback;
+        const owned: IShape[] = [];
+        try {
+            const target = worldShape(picked.shape, picked.transform, owned);
+            // Measured from the drag plane like the commit's own aim (see the picked-target
+            // preview): a sketch's profiles share its plane, and a body face's drag plane IS
+            // its own.
+            const natural = node instanceof SketchNode ? node.plane.normal : plane.normal;
+            const dir = this.oppositeDirection ? natural.multiply(-1) : natural;
+            const aim = upToTargetAim(
+                target,
+                plane.origin,
+                natural,
+                dir,
+                this.oppositeDirection ? -this.startOffsetValue : this.startOffsetValue,
+                this.endOffsetValue,
+            );
+            if (!aim.isOk) return fallback;
+            // `sweepVectorsOf` sweeps `dir × r` (the checkbox composes with the sign here),
+            // and the rebuild sweeps `aim.dir × aim.depth`: r carries the aim's flip.
+            return aim.value.dir.dot(dir) >= 0 ? aim.value.depth : -aim.value.depth;
+        } finally {
+            owned.forEach((x) => x.dispose());
         }
-        if (endTarget.endFace !== undefined) {
-            const profile = endTarget.endFace.profile;
-            if (profile.center !== undefined) samples.push(profile.center);
-            for (const edge of profile.edges) {
-                // One stand-in point per edge fingerprint, picked as `refSamples` picks them.
-                if (edge.kind === "line") samples.push(edge.start, edge.end);
-                else if (edge.kind === "circle") samples.push(edge.center);
-                else samples.push(edge.mid);
-            }
-        }
-        if (samples.length === 0) return fallback;
-        const reach = Math.max(...samples.map((p) => plane.normal.dot(new XYZ(p).sub(plane.origin))));
-        return reach > Precision.Float ? reach : fallback;
     }
 
     /**

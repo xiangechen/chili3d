@@ -197,6 +197,45 @@ describe("ExtrudeDragHandler", () => {
         handler.dispose();
     });
 
+    test("the step reports its plane at the drag anchor, not the profile origin", async () => {
+        doc.application.activeView = dragView();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const data = dragData([faceData(sketch)]);
+        doc.picker.pickAsync = rs.fn(async (handler: any) => {
+            // Mid-gesture the anchor moved to the face the user shift-clicked.
+            handler.state.anchor = new XYZ({ x: 9, y: -4, z: 0 });
+            handler.finishEarly();
+        }) as any;
+        try {
+            // data.origin is XYZ.zero while the anchor moved — the reported plane tells
+            // which one the commit's push-pull reading measures from (the anchor).
+            const step = new ExtrudeDragStep("prompt.dragToExtrude", () => data);
+            const result = await step.execute(doc, controller);
+
+            expect(result?.plane?.origin.x).toBeCloseTo(9);
+            expect(result?.plane?.origin.y).toBeCloseTo(-4);
+            expect(result?.plane?.normal.z).toBe(1);
+        } finally {
+            pub.mockRestore();
+        }
+    });
+
+    test("a skipped drag's placeholder plane sits at the anchor too", async () => {
+        doc.application.activeView = dragView();
+        const data = dragData([faceData(sketch)]);
+        const step = new ExtrudeDragStep(
+            "prompt.dragToExtrude",
+            () => data,
+            () => true,
+        );
+
+        const result = await step.execute(doc, controller);
+
+        // data.anchor is (1, 1, 0); data.origin is XYZ.zero.
+        expect(result?.plane?.origin.x).toBeCloseTo(1);
+        expect(result?.plane?.origin.y).toBeCloseTo(1);
+    });
+
     test("the arrow base includes the start offset", () => {
         const data = dragData();
         data.depth = 5;

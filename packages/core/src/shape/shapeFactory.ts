@@ -295,6 +295,27 @@ export interface IShapeFactory {
         requireRounds?: boolean,
     ): Result<TrackedShape, OffsetFaceProblem>;
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
+    /**
+     * Tracked prism terminated BY a face: the profile sweeps along `direction` until the
+     * limit face, the end capped by the limit SURFACE itself (a curved target gives a
+     * conforming cap) instead of by a plane — kernel `BRepFeat_MakePrism::Perform(Until)`.
+     *
+     * `mode` says what the prism is for: "cut"/"join" combine it with `sbase` (which must
+     * be the body `until` belongs to), "new" returns the limited prism alone (`sbase` is
+     * ignored, pass `until`). The history input enumerates [`sbase`, `pbase`, `until`] for
+     * "cut"/"join" and [`pbase`, `until`] for "new", as the tracked boolean's [args, tools].
+     *
+     * The kernel refuses (Result.err, never a raise) when `until` has no face, the profile
+     * is not a face, the direction is zero, or the sweep never meets the limit — the caller
+     * falls back to the planar-cap path.
+     */
+    prismToFaceTracked?(
+        sbase: IShape,
+        pbase: IFace,
+        until: IFace,
+        direction: XYZ,
+        mode: "cut" | "join" | "new",
+    ): Result<TrackedShape>;
     revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;
     /**
      * Tracked sweep: ONE profile per call along the whole spine (the TS side loops the

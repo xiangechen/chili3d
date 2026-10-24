@@ -5,6 +5,8 @@ import {
     BoundingBox,
     type I18nKeys,
     type IDocument,
+    type IShape,
+    type Matrix4,
     Precision,
     type VisualShapeData,
     type XYZ,
@@ -24,6 +26,37 @@ export const SKETCH_OPERATIONS: Record<SketchPressPullOperation, I18nKeys> = {
     join: "option.command.operation.join",
     new: "option.command.operation.new",
 };
+
+/**
+ * A candidate body as the reading reads it: shape, the world→local inverse for
+ * `containsPoint`, and the world box for the early-outs. Resolved once per gesture — the
+ * bodies cannot change mid-drag, while the reading runs per pointer move.
+ */
+export interface PressPullBody {
+    readonly shape: IShape;
+    readonly inverse: Matrix4 | undefined;
+    readonly box: BoundingBox;
+}
+
+/**
+ * The document's candidate bodies as reading descriptors — ONE walk of the model tree, each
+ * body's placement, shape and world box read once. Callers that judge repeatedly (a drag's
+ * `onDist` fires per pointer move) resolve once and pass the list in; a one-shot caller
+ * takes the default.
+ */
+export function pressPullBodies(document: IDocument): PressPullBody[] {
+    return candidateBodies(document)
+        .filter((body) => body.shape.isOk)
+        .map((body) => {
+            const world = body.worldTransform();
+            const shape = body.shape.value;
+            return {
+                shape,
+                inverse: world.invert(),
+                box: BoundingBox.transformed(shape.boundingBox(), world),
+            };
+        });
+}
 
 /**
  * The operation a sketch profile's push-pull carries, decided by where the drag ENDS —
@@ -49,21 +82,9 @@ export function sketchPressPullOperation(
     origin: XYZ,
     direction: XYZ,
     distance: number,
+    bodies: readonly PressPullBody[] = pressPullBodies(document),
 ): SketchPressPullOperation {
     const end = origin.add(direction.multiply(distance));
-    // One walk of the model tree; each body's placement, shape and world box are read once and
-    // shared by both readings below.
-    const bodies = candidateBodies(document)
-        .filter((body) => body.shape.isOk)
-        .map((body) => {
-            const world = body.worldTransform();
-            const shape = body.shape.value;
-            return {
-                shape,
-                inverse: world.invert(),
-                box: BoundingBox.transformed(shape.boundingBox(), world),
-            };
-        });
     // The box test is the cheap early-out: `containsPoint` crosses into WASM and is asked only of
     // a body whose box already holds the end, which on a drag is almost never more than one.
     if (

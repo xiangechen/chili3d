@@ -122,7 +122,8 @@ export class ExtrudeDragStep implements IStep {
                 shapes: data.faces,
                 nodes: [data.node as any],
                 type: "input",
-                plane: dragPlaneOf(data.origin, data.normal),
+                // At the anchor, as below: the commit's push-pull reading measures from it.
+                plane: dragPlaneOf(data.anchor, data.normal),
             };
         }
 
@@ -148,8 +149,12 @@ export class ExtrudeDragStep implements IStep {
             nodes: [state.node as any],
             type: "input",
             // The live drag plane (it changes when the user switches faces mid-drag),
-            // so the command can recover the signed length and direction.
-            plane: dragPlaneOf(state.origin, state.normal),
+            // so the command can recover the signed length and direction. Its origin is
+            // the ANCHOR — not `state.origin` — so the commit's push-pull reading measures
+            // from the very point the drag's own readings did (both shift with the last
+            // face the gesture touched; the reach math that also reads this plane is
+            // invariant to where on the plane the origin sits).
+            plane: dragPlaneOf(state.anchor, state.normal),
         };
     }
 }

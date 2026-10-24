@@ -14,6 +14,7 @@ import { SketchNode } from "../sketch/sketchNode";
 import { trackedBoolean } from "./boolean";
 import { resolveExtrudeDraft } from "./extrudeDraft";
 import { type ExtrudePlan, resolveExtrudePlan } from "./extrudeEnd";
+import { extrudeToFaceOperation, extrudeToFaceStandalone } from "./extrudeToFace";
 import {
     completeTrackedHistory,
     type ExtrudeEndCondition,
@@ -189,18 +190,24 @@ const extrudeHandler: FeatureHandler<ExtrudeFeatureData> = {
         if (!draft.isOk) return Result.err(draft.error);
         const plan = resolveExtrudePlan(feature, context);
         if (!plan.isOk) return Result.err(plan.error);
-        const result = evaluateWithPlan(feature, context, plan.value, draft.value);
-        // A lost end target or direction reports only when nothing louder did — a lost
-        // profile keeps precedence in the one-slot report.
-        if (
-            result.isOk &&
-            plan.value.unresolved !== undefined &&
-            context.tracking !== undefined &&
-            context.tracking.unresolved === undefined
-        ) {
-            context.tracking.unresolved = plan.value.unresolved;
+        try {
+            const result = evaluateWithPlan(feature, context, plan.value, draft.value);
+            // A lost end target or direction reports only when nothing louder did — a lost
+            // profile keeps precedence in the one-slot report.
+            if (
+                result.isOk &&
+                plan.value.unresolved !== undefined &&
+                context.tracking !== undefined &&
+                context.tracking.unresolved === undefined
+            ) {
+                context.tracking.unresolved = plan.value.unresolved;
+            }
+            return result;
+        } finally {
+            // The stashed live end face (the conforming build's borrowed target) goes with
+            // the evaluation.
+            plan.value.dispose();
         }
-        return result;
     },
 };
 
@@ -289,6 +296,9 @@ function extrudeFromSketch(
     const resolved = resolveSketchProfiles(feature, context);
     if (!resolved.isOk) return Result.err(resolved.error);
     const { sketch, profiles } = resolved.value;
+    // A surface-conforming up-to-face end builds without a computed depth (extrudeToFace.ts).
+    const conforming = extrudeToFaceStandalone(feature, context, plan, sketch, profiles, draftAngle);
+    if (conforming !== undefined) return conforming;
     const vecs = plan.vecsOf(sketch.plane.origin, sketch.plane.normal);
     if (!vecs.isOk) return Result.err(vecs.error);
     const offsetVec = plan.offsetOf(sketch.plane.normal);
@@ -461,6 +471,18 @@ function extrudeOperationTracked(
     }
     const resolved = resolveSketchProfiles(feature, context);
     if (!resolved.isOk) return Result.err(resolved.error);
+
+    // A surface-conforming up-to-face end sweeps AND applies the operation in one kernel
+    // step (extrudeToFace.ts); everything else sweeps, then booleans.
+    const conforming = extrudeToFaceOperation(
+        feature,
+        context,
+        plan,
+        resolved.value.sketch,
+        resolved.value.profiles,
+        draftAngle,
+    );
+    if (conforming !== undefined) return conforming;
 
     const vecs = plan.vecsOf(resolved.value.sketch.plane.origin, resolved.value.sketch.plane.normal);
     if (!vecs.isOk) return Result.err(vecs.error);

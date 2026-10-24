@@ -71,9 +71,10 @@ export function extrudeFromSourceFaces(
         // (see `sweepFaceTracked`).
         const ownEdgeIds = matched.value.indexes.map((index) => edgeIdsOf(index));
         // Each face's sweep vectors come from the plan evaluated at the face's OWN plane, so
-        // they differ per face — an end condition measures from that plane, and the direction
-        // is the face's outward normal unless the plan overrides it. Resolved up front, so a
-        // target behind one face's start plane fails before any kernel sweep runs.
+        // they differ per face — an end condition measures from that plane (auto-reversing
+        // toward an up-to target lying behind it), and the direction is the face's outward
+        // normal unless the plan overrides it. Resolved up front, so an unreachable target
+        // fails before any kernel sweep runs.
         const vecsByFace = new Map<IFace, XYZ[]>();
         for (const face of faces) {
             const [point, normal] = face.normal(0, 0);
