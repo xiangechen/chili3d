@@ -9,7 +9,8 @@ import { command, FolderNode, I18n, type IApplication, type ICommand, NodeUtils 
 })
 export class NewFolder implements ICommand {
     async execute(app: IApplication): Promise<void> {
-        const document = app.activeView?.document!;
+        const document = app.activeView?.document;
+        if (document === undefined) return;
         const name = NodeUtils.generateName(document, I18n.translate("command.create.folder"));
         const folder = new FolderNode({ document, name });
         document.modelManager.addNode(folder);

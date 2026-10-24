@@ -29,6 +29,16 @@ function materialIdsOf(materialId: string | string[] | undefined): readonly stri
     return Array.isArray(materialId) ? materialId : [materialId];
 }
 
+/** `node` itself or one below it — true when `ancestor` is on the parent chain. */
+function isSelfOrDescendant(node: INode, ancestor: INode): boolean {
+    let current: INode | undefined = node;
+    while (current !== undefined) {
+        if (current === ancestor) return true;
+        current = current.parent;
+    }
+    return false;
+}
+
 export class ModelManager extends Observable {
     private readonly _nodeChangedObservers = new Set<OnNodeChanged>();
     private _deserializing = false;
@@ -86,14 +96,42 @@ export class ModelManager extends Observable {
 
     notifyNodeChanged(records: NodeRecord[]) {
         if (this._deserializing) return;
+        this.resetDetachedCurrentNode(records);
         Transaction.add(this.document, new NodeLinkedListHistoryRecord(records));
         this._nodeChangedObservers.forEach((x) => {
             x(records);
         });
     }
 
+    /**
+     * The current folder is where the next node a command creates lands, so it must leave the
+     * document together with it. A detached folder that is never cleared is disposed by its
+     * history record later — `document` is nulled on dispose — and the next `addNode` would throw
+     * while notifying the change. Reset to the root instead, which is also where nodes the user
+     * swears they created used to vanish.
+     */
+    private resetDetachedCurrentNode(records: NodeRecord[]) {
+        const current = this._currentNode;
+        if (current === undefined) return;
+        const detached = records.some(
+            (record) =>
+                (record.action === "remove" || record.action === "transfer") &&
+                isSelfOrDescendant(current, record.node),
+        );
+        if (detached) this.currentNode = this.rootNode;
+    }
+
     addNode(...nodes: INode[]): void {
-        (this.currentNode ?? this.rootNode).add(...nodes);
+        const current = this.currentNode;
+        if (current === undefined || !isSelfOrDescendant(current, this.rootNode)) {
+            // No folder chosen, or one that left the tree (undone creation, deletion, a
+            // component): new nodes cannot go there — they would be invisible. Only a stale
+            // node is cleared; an absent one stays absent, so the root is not marked current.
+            if (current !== undefined) this.currentNode = this.rootNode;
+            this.rootNode.add(...nodes);
+            return;
+        }
+        current.add(...nodes);
     }
 
     findNode(predicate: (value: INode) => boolean) {

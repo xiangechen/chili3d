@@ -171,14 +171,24 @@ export class ConvertToSolid extends ConvertCommand {
     }
 
     protected override create(document: IDocument, models: ShapeNode[]): Result<GeometryNode> {
-        const faces = models.map((x) => x.shape.value.transformedMul(x.worldTransform())) as IShell[];
-        const shape = shapeFactory.solid(faces);
-        faces.forEach((x) => x.dispose());
+        const shells = models.map((x) => x.shape.value.transformedMul(x.worldTransform())) as IShell[];
+        // An imported shell often has gaps too small to see. The sew that closes them used to
+        // run on the built solid, but `solid` now refuses an open shell — repair first, then
+        // let the builder validate whatever the repair could not close.
+        const compound = shapeFactory.combine(shells);
+        shells.forEach((x) => x.dispose());
+        // `combine` reads well under real handles; this keeps a binding-level JS exception
+        // (which `convertShapeResult` reports as Result.err) from becoming a crash. A real
+        // OCCT raise aborts the release wasm outright, so it is not what this guards.
+        if (!compound.isOk) return Result.err(compound.error);
+
+        const repaired = repairShape(compound.value, 1e-7);
+        if (repaired !== compound.value) compound.value.dispose();
+        const shape = shapeFactory.solid(repaired.findSubShapes(ShapeTypes.shell) as IShell[]);
+        repaired.dispose();
         if (!shape.isOk) return Result.err(shape.error);
 
-        const repaired = repairShape(shape.value, 1e-7);
-        shape.value.dispose();
-        const solid = new EditableShapeNode({ document, name: "solid", shape: repaired });
+        const solid = new EditableShapeNode({ document, name: "solid", shape: shape.value });
         return Result.ok(solid);
     }
 }

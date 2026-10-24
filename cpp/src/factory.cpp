@@ -2530,12 +2530,23 @@ public:
         return ShapeResult { shell, true, "" };
     }
 
+    // BRepBuilderAPI_MakeSolid accepts anything it is handed: an OPEN shell, and any number of
+    // unrelated ones, each becomes a "solid" as soon as the builder is done. Downstream every
+    // boolean, offset and export takes that at face value, and all of them fail on a shell that
+    // never closes — the split/face tools used to pile exactly such shells up. A solid built
+    // here must at least be closed; several closed shells (a body with voids) remain valid.
     static ShapeResult solid(const ShellArray& shells)
     {
         std::vector<TopoDS_Shell> shellsVec = vecFromJSArray<TopoDS_Shell>(shells);
+        if (shellsVec.empty()) {
+            return ShapeResult { TopoDS_Shape(), false, "No shells provided" };
+        }
 
         BRepBuilderAPI_MakeSolid makeSolid;
         for (auto shell : shellsVec) {
+            if (shell.IsNull() || !BRep_Tool::IsClosed(shell)) {
+                return ShapeResult { TopoDS_Shape(), false, "Shell is not closed" };
+            }
             makeSolid.Add(shell);
         }
         if (!makeSolid.IsDone()) {
@@ -3627,15 +3638,32 @@ public:
         return explorer.More();
     }
 
-    // Rebuilds `shape` with the removals recorded in `reShape`. Wires whose parent face was
-    // removed are appended alongside the result, so their remaining edges are preserved.
+    // Rebuilds `shape` with the removals recorded in `reShape`. Wires and edges that must
+    // outlive their face are appended alongside the result, so their geometry is preserved.
+    // An edge can arrive both on its own (an orphan edge of an explicitly removed face) and
+    // inside a kept wire (a face dropped with a removed edge); it is appended once.
     static TopoDS_Shape applyKeepingWires(BRepTools_ReShape& reShape,
         const TopoDS_Shape& shape,
-        const NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& keptWires)
+        const NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& keptShapes)
     {
         auto result = reShape.Apply(shape);
-        if (keptWires.IsEmpty() && !result.IsNull()) {
+        if (keptShapes.IsEmpty() && !result.IsNull()) {
             return result;
+        }
+
+        std::vector<TopoDS_Shape> kept;
+        NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> wiredEdges;
+        for (NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>::Iterator it(keptShapes); it.More(); it.Next()) {
+            auto image = reShape.Apply(it.Value());
+            if (image.IsNull() || !hasAnySub(image, TopAbs_EDGE)) {
+                continue;
+            }
+            kept.push_back(image);
+            if (image.ShapeType() != TopAbs_EDGE) {
+                for (TopExp_Explorer explorer(image, TopAbs_EDGE); explorer.More(); explorer.Next()) {
+                    wiredEdges.Add(explorer.Current());
+                }
+            }
         }
 
         BRep_Builder builder;
@@ -3644,11 +3672,11 @@ public:
         if (!result.IsNull()) {
             builder.Add(compound, result);
         }
-        for (NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>::Iterator it(keptWires); it.More(); it.Next()) {
-            auto keptWire = reShape.Apply(it.Value());
-            if (!keptWire.IsNull() && hasAnySub(keptWire, TopAbs_EDGE)) {
-                builder.Add(compound, keptWire);
+        for (const auto& image : kept) {
+            if (image.ShapeType() == TopAbs_EDGE && wiredEdges.Contains(image)) {
+                continue;
             }
+            builder.Add(compound, image);
         }
         return compound;
     }
@@ -3701,7 +3729,7 @@ public:
         const NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>, TopTools_ShapeMapHasher>& mapEF,
         const TopoDS_Shape& edge,
         NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& removedFaces,
-        NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& keptWires)
+        NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& keptShapes)
     {
         if (!mapEF.Contains(edge)) {
             return;
@@ -3712,7 +3740,37 @@ public:
             }
             reShape.Remove(face);
             for (TopExp_Explorer explorer(face, TopAbs_WIRE); explorer.More(); explorer.Next()) {
-                keptWires.Add(explorer.Current());
+                keptShapes.Add(explorer.Current());
+            }
+        }
+    }
+
+    // Every edge of a removed face that no surviving face uses would vanish with the face —
+    // the outline of a standalone face, or the free boundary of an open shell. Keep those
+    // edges as free edges, as SketchUp and the edge-delete path above do, so the opening can
+    // still be redrawn and healed. Edges another face still uses stay with that face.
+    static void keepOrphanEdges(
+        const NCollection_List<TopoDS_Shape>& removedFaceList,
+        const NCollection_IndexedDataMap<TopoDS_Shape, NCollection_List<TopoDS_Shape>, TopTools_ShapeMapHasher>& mapEF,
+        const NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& removedFaces,
+        NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher>& keptShapes)
+    {
+        for (NCollection_List<TopoDS_Shape>::Iterator it(removedFaceList); it.More(); it.Next()) {
+            for (TopExp_Explorer explorer(it.Value(), TopAbs_EDGE); explorer.More(); explorer.Next()) {
+                const TopoDS_Shape& edge = explorer.Current();
+                if (!mapEF.Contains(edge)) {
+                    continue;
+                }
+                bool survivorUses = false;
+                for (const auto& face : mapEF.FindFromKey(edge)) {
+                    if (!removedFaces.Contains(face)) {
+                        survivorUses = true;
+                        break;
+                    }
+                }
+                if (!survivorUses) {
+                    keptShapes.Add(edge);
+                }
             }
         }
     }
@@ -3729,16 +3787,23 @@ public:
 
         BRepTools_ReShape reShape;
         NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> removedFaces; // dedupe faces dropped because one of their edges was removed
-        NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> keptWires;
+        NCollection_Map<TopoDS_Shape, TopTools_ShapeMapHasher> keptShapes;
+        NCollection_List<TopoDS_Shape> removedFaceList; // faces the caller removed on their own
         for (const auto& subShape : subShapesVector) {
             reShape.Remove(subShape);
+            if (subShape.ShapeType() == TopAbs_FACE) {
+                removedFaces.Add(subShape);
+                removedFaceList.Append(subShape);
+                continue;
+            }
             if (subShape.ShapeType() != TopAbs_EDGE) {
                 continue;
             }
-            removeFacesUsingEdge(reShape, mapEF, subShape, removedFaces, keptWires);
+            removeFacesUsingEdge(reShape, mapEF, subShape, removedFaces, keptShapes);
         }
+        keepOrphanEdges(removedFaceList, mapEF, removedFaces, keptShapes);
 
-        TopoDS_Shape result = applyKeepingWires(reShape, shape, keptWires);
+        TopoDS_Shape result = applyKeepingWires(reShape, shape, keptShapes);
         if (result.IsSame(shape)) {
             return ShapeResult { shape, false, "Not remove anything" };
         }
@@ -3790,23 +3855,95 @@ public:
         return ShapeResult { builder.Shape(), true, "" };
     }
 
+    // A sewing pass whose faces fall into several connected groups returns a COMPOUND, not a
+    // shell; taking only a top-level SHELL therefore lost every closed volume as soon as an
+    // unrelated loose face rode along with the body. Walk the result and upgrade each closed
+    // shell on its own, leaving open shells and free faces/edges exactly as sewn.
+    static TopoDS_Shape sewnToSolids(const TopoDS_Shape& shape)
+    {
+        if (shape.IsNull()) {
+            return shape;
+        }
+        if (shape.ShapeType() == TopAbs_SHELL) {
+            if (!BRep_Tool::IsClosed(shape)) {
+                return shape;
+            }
+            BRepCheck_Analyzer analyzer(shape);
+            if (!analyzer.IsValid()) {
+                return shape;
+            }
+            BRepBuilderAPI_MakeSolid mkSolid(TopoDS::Shell(shape));
+            return mkSolid.IsDone() ? TopoDS_Shape(mkSolid.Solid()) : shape;
+        }
+        if (shape.ShapeType() != TopAbs_COMPOUND) {
+            return shape;
+        }
+
+        TopoDS_Compound compound;
+        BRep_Builder builder;
+        builder.MakeCompound(compound);
+        bool changed = false;
+        for (TopoDS_Iterator it(shape); it.More(); it.Next()) {
+            TopoDS_Shape upgraded = sewnToSolids(it.Value());
+            changed = changed || !upgraded.IsSame(it.Value());
+            builder.Add(compound, upgraded);
+        }
+        return changed ? TopoDS_Shape(compound) : shape;
+    }
+
+    // A closed solid is already sewn. Folding a face onto it along one of its edges makes that
+    // edge non-manifold, and the sew collapses the whole connected set — solid included — into
+    // one open shell: a rectangle drawn against a box edge is the measured case, and it loses
+    // the box's solidity for nothing. Keep closed bodies out of the pass and put them back
+    // beside whatever the remaining faces/sewn shells formed.
+    static bool isClosedSolidBody(const TopoDS_Shape& shape)
+    {
+        if (shape.IsNull() || shape.ShapeType() != TopAbs_SOLID) {
+            return false;
+        }
+        for (TopExp_Explorer shell(shape, TopAbs_SHELL); shell.More(); shell.Next()) {
+            if (!BRep_Tool::IsClosed(shell.Current())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    static void partitionSewingInput(const TopoDS_Shape& shape, std::vector<TopoDS_Shape>& bodies,
+        std::vector<TopoDS_Shape>& rest)
+    {
+        if (shape.ShapeType() == TopAbs_COMPOUND || shape.ShapeType() == TopAbs_COMPSOLID) {
+            for (TopoDS_Iterator it(shape); it.More(); it.Next()) {
+                partitionSewingInput(it.Value(), bodies, rest);
+            }
+            return;
+        }
+        (isClosedSolidBody(shape) ? bodies : rest).push_back(shape);
+    }
+
     static ShapeResult sewing(const ShapeArray& shapes)
     {
         std::vector<TopoDS_Shape> shapeVector = emscripten::vecFromJSArray<TopoDS_Shape>(shapes);
-
-        BRepBuilderAPI_Sewing sewing;
+        std::vector<TopoDS_Shape> bodies;
+        std::vector<TopoDS_Shape> rest;
         for (auto& shape : shapeVector) {
-            sewing.Add(shape);
+            partitionSewingInput(shape, bodies, rest);
         }
-        sewing.Perform();
 
-        TopoDS_Shape result = sewing.SewedShape();
-        if (result.ShapeType() == TopAbs_SHELL) {
-            BRepCheck_Analyzer analyzer(result);
-            if (analyzer.IsValid()) {
-                BRepBuilderAPI_MakeSolid mkSolid(TopoDS::Shell(result));
-                if (mkSolid.IsDone())
-                    result = mkSolid.Solid();
+        TopoDS_Shape result;
+        if (rest.empty()) {
+            result = bodies.size() == 1 ? bodies.front() : TopoDS_Shape(compoundOf(bodies));
+        } else {
+            BRepBuilderAPI_Sewing sewing;
+            for (auto& shape : rest) {
+                sewing.Add(shape);
+            }
+            sewing.Perform();
+            result = sewnToSolids(sewing.SewedShape());
+            if (!bodies.empty()) {
+                std::vector<TopoDS_Shape> pieces { result };
+                pieces.insert(pieces.end(), bodies.begin(), bodies.end());
+                result = compoundOf(pieces);
             }
         }
 

@@ -63,4 +63,13 @@ describe("NewFolder", () => {
 
         expect(addedNode).toBeInstanceOf(FolderNode);
     });
+
+    test("should do nothing without an active view", async () => {
+        const app = createMockApplication();
+        app.activeView = undefined;
+
+        // No document to attach a folder to; building one anyway used to hand a document-less
+        // FolderNode to the model manager.
+        await expect(new NewFolder().execute(app)).resolves.toBeUndefined();
+    });
 });

@@ -1,7 +1,17 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, Matrix4, PubSub, type ShapeNode, ShapeTypes, type VisualNode } from "@chili3d/core";
+import {
+    type IDocument,
+    type IShape,
+    Matrix4,
+    PubSub,
+    Result,
+    type ShapeNode,
+    type ShapeType,
+    ShapeTypes,
+    type VisualNode,
+} from "@chili3d/core";
 import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { WireNode } from "../../../src/bodys/wire";
 import {
@@ -185,6 +195,68 @@ describe("ConvertToSolid", () => {
             const models = (cmd as any)._getSelectedModels(doc, filter);
             expect(models).toHaveLength(0);
         });
+    });
+
+    test("should sew the shells before asking for a solid", async () => {
+        // An imported shell with a tiny gap is not closed; the builder now refuses it, so the
+        // sew that closes it has to run first — the solid must be built from the repaired
+        // shells, not from the raw ones.
+        const previous = Object.getOwnPropertyDescriptor(globalThis, "app");
+        const calls: string[] = [];
+        const closedShell = mockShape({ shapeType: ShapeTypes.shell, isClosed: () => true });
+        const repaired = mockShape({
+            shapeType: ShapeTypes.compound,
+            findSubShapes: (type: ShapeType) => (type === ShapeTypes.shell ? [closedShell] : []),
+        });
+        const compound = mockShape({
+            shapeType: ShapeTypes.compound,
+            shellSewing: () => {
+                calls.push("shellSewing");
+                return repaired;
+            },
+        });
+        const solidCalls: IShape[][] = [];
+        const factory = {
+            combine: () => {
+                calls.push("combine");
+                return Result.ok(compound);
+            },
+            solid: (shells: IShape[]) => {
+                calls.push("solid");
+                solidCalls.push(shells);
+                return Result.ok(mockShape({ shapeType: ShapeTypes.solid }));
+            },
+        };
+        Object.defineProperty(globalThis, "app", {
+            configurable: true,
+            get: () => ({ shapeProvider: { factory, converter: {} } }),
+        });
+
+        const restoreTransaction = stubTransactionRun();
+        try {
+            const rawShell = mockShape({ shapeType: ShapeTypes.shell });
+            (rawShell as any).transformedMul = () => rawShell;
+            const cmd = new ConvertToSolid();
+            const { doc } = wireCommand(cmd);
+            stubDocumentSelection(doc, [
+                {
+                    id: "shell",
+                    name: "shell",
+                    shape: { value: rawShell },
+                    transform: Matrix4.identity(),
+                    worldTransform: () => Matrix4.identity(),
+                    parent: { remove: rs.fn() },
+                } as unknown as VisualNode,
+            ]);
+
+            await cmd.executeAsync();
+
+            expect(calls).toEqual(["combine", "shellSewing", "solid"]);
+            expect(solidCalls[0]).toEqual([closedShell]);
+        } finally {
+            restoreTransaction();
+            if (previous) Object.defineProperty(globalThis, "app", previous);
+        }
     });
 });
 

@@ -176,6 +176,7 @@ describe("ModelManager", () => {
     describe("addNode", () => {
         test("should add node to currentNode if set", () => {
             const currentNode = new FolderNode({ document: doc, name: "current" });
+            modelManager.addNode(currentNode);
             modelManager.currentNode = currentNode;
 
             const childNode = newNode("child");
@@ -185,12 +186,27 @@ describe("ModelManager", () => {
             expect(children).toContain(childNode);
         });
 
+        test("should fall back to the root when currentNode left the tree", () => {
+            const folder = new FolderNode({ document: doc, name: "stale" });
+            modelManager.addNode(folder);
+            modelManager.rootNode.remove(folder);
+            modelManager.currentNode = folder;
+
+            const childNode = newNode("child");
+            modelManager.addNode(childNode);
+
+            expect(getChildren(modelManager.rootNode)).toContain(childNode);
+            expect(modelManager.currentNode).toBe(modelManager.rootNode);
+        });
+
         test("should add node to rootNode if currentNode is not set", () => {
             const childNode = newNode("child");
             modelManager.addNode(childNode);
 
             const children = getChildren(modelManager.rootNode);
             expect(children).toContain(childNode);
+            // The root is a fallback, not a user choice: it must not become the current folder.
+            expect(modelManager.currentNode).toBeUndefined();
         });
 
         test("should add multiple nodes", () => {
@@ -201,6 +217,55 @@ describe("ModelManager", () => {
             const children = getChildren(modelManager.rootNode);
             expect(children).toContain(child1);
             expect(children).toContain(child2);
+        });
+    });
+
+    describe("currentNode lifecycle", () => {
+        test("should reset to the root when the current folder is removed", () => {
+            const folder = new FolderNode({ document: doc, name: "folder" });
+            modelManager.addNode(folder);
+            modelManager.currentNode = folder;
+
+            modelManager.rootNode.remove(folder);
+
+            expect(modelManager.currentNode).toBe(modelManager.rootNode);
+        });
+
+        test("should reset to the root when an ancestor of the current folder is removed", () => {
+            const outer = new FolderNode({ document: doc, name: "outer" });
+            modelManager.addNode(outer);
+            const inner = new FolderNode({ document: doc, name: "inner" });
+            outer.add(inner);
+            modelManager.currentNode = inner;
+
+            modelManager.rootNode.remove(outer);
+
+            expect(modelManager.currentNode).toBe(modelManager.rootNode);
+        });
+
+        test("should reset to the root when the current folder is transferred out", () => {
+            const folder = new FolderNode({ document: doc, name: "folder" });
+            modelManager.addNode(folder);
+            modelManager.currentNode = folder;
+
+            modelManager.rootNode.transfer(folder);
+
+            expect(modelManager.currentNode).toBe(modelManager.rootNode);
+        });
+
+        test("should keep creating nodes after an undone folder is disposed by the history", () => {
+            // The record of an undone add is disposed as soon as a new record clears the redo
+            // stack, which nulls the folder's document — adding through it used to throw.
+            const folder = new FolderNode({ document: doc, name: "folder" });
+            modelManager.addNode(folder);
+            modelManager.currentNode = folder;
+            doc.history.undo();
+            expect(modelManager.currentNode).toBe(modelManager.rootNode);
+
+            const child = new FolderNode({ document: doc, name: "child" });
+            modelManager.addNode(child);
+
+            expect(getChildren(modelManager.rootNode)).toContain(child);
         });
     });
 

@@ -303,6 +303,8 @@ export function mockShape(overrides: Partial<IShape> = {}): MockShape {
         setTolerance: track("setTolerance"),
         split: track("split"),
         findSubShapes: () => [],
+        directSubShapes: () => [],
+        isSame: () => false,
         ends: () => [XYZ.zero, XYZ.zero],
         containsPoint: () => false,
         isClosed: () => false,

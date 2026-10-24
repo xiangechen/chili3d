@@ -684,6 +684,44 @@ describe("ShapeFactory — faces, shells & solids", () => {
             expect(result.isOk).toBe(true);
             expect(result.value.shapeType).toBe(ShapeTypes.solid);
         });
+
+        test("should refuse a shell that is not closed", () => {
+            // Deleting one face leaves the shell open; MakeSolid would still wrap it.
+            const box = factory.box(plane, 10, 10, 10).value;
+            const top = (box.findSubShapes(ShapeTypes.face) as IFace[]).find((face) =>
+                face.containsPoint(new XYZ({ x: 5, y: 5, z: 10 }), true, 1e-4),
+            )!;
+            const open = factory.removeSubShape(box, [top]).value;
+            const shells = open.findSubShapes(ShapeTypes.shell);
+            expect(shells).toHaveLength(1);
+            expect(shells[0].isClosed()).toBe(false);
+
+            const result = factory.solid(shells);
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("Shell is not closed");
+        });
+
+        test("should refuse one open shell among closed ones", () => {
+            const box = factory.box(plane, 10, 10, 10).value;
+            const top = (box.findSubShapes(ShapeTypes.face) as IFace[]).find((face) =>
+                face.containsPoint(new XYZ({ x: 5, y: 5, z: 10 }), true, 1e-4),
+            )!;
+            const closed = box.findSubShapes(ShapeTypes.shell);
+            const open = factory.removeSubShape(box, [top]).value.findSubShapes(ShapeTypes.shell);
+
+            const result = factory.solid([...closed, ...open]);
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("Shell is not closed");
+        });
+
+        test("should return error when no shells are given", () => {
+            const result = factory.solid([]);
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("No shells provided");
+        });
     });
 });
 
@@ -1112,6 +1150,84 @@ describe("ShapeFactory — feature operations", () => {
             expect(shape.findSubShapes(ShapeTypes.wire).length).toBe(1);
             expect(shape.findSubShapes(ShapeTypes.edge).length).toBe(3);
         });
+
+        test("should keep a removed standalone face's outline as free edges", () => {
+            const face = unwrapOk(
+                factory.face([
+                    unwrapOk(
+                        factory.polygon([
+                            new XYZ({ x: 0, y: 0, z: 0 }),
+                            new XYZ({ x: 10, y: 0, z: 0 }),
+                            new XYZ({ x: 10, y: 10, z: 0 }),
+                            new XYZ({ x: 0, y: 10, z: 0 }),
+                            new XYZ({ x: 0, y: 0, z: 0 }),
+                        ]),
+                    ) as IWire,
+                ]),
+            );
+
+            const result = factory.removeSubShape(face, [face]);
+
+            // Nothing is left to hold the outline, so it must survive as free edges — that is
+            // what lets the face be redrawn over them.
+            expect(result.isOk).toBe(true);
+            expect(result.value.findSubShapes(ShapeTypes.face)).toHaveLength(0);
+            expect(result.value.findSubShapes(ShapeTypes.edge)).toHaveLength(4);
+        });
+
+        test("should keep an edge once when a wire and an orphan edge both carry it", () => {
+            // Two faces sewn along x = 0. Removing an edge of the right face drops that face
+            // and keeps its wire; removing the left face keeps its orphan edges. The seam is
+            // in both, and must come back once.
+            const square = (x: number, sign: number) =>
+                unwrapOk(
+                    factory.face([
+                        unwrapOk(
+                            factory.polygon([
+                                new XYZ({ x, y: 0, z: 0 }),
+                                new XYZ({ x: x + 10 * sign, y: 0, z: 0 }),
+                                new XYZ({ x: x + 10 * sign, y: 10, z: 0 }),
+                                new XYZ({ x, y: 10, z: 0 }),
+                                new XYZ({ x, y: 0, z: 0 }),
+                            ]),
+                        ) as IWire,
+                    ]),
+                );
+            const shell = unwrapOk(factory.sewing([square(0, 1), square(0, -1)]));
+            expect(shell.findSubShapes(ShapeTypes.face)).toHaveLength(2);
+            const bottomOfRight = (shell.findSubShapes(ShapeTypes.edge) as IEdge[]).find((e) => {
+                const [a, b] = e.ends();
+                return Math.abs(a.y) < 1e-4 && Math.abs(b.y) < 1e-4 && Math.min(a.x, b.x) >= -1e-4;
+            })!;
+            const leftFace = (shell.findSubShapes(ShapeTypes.face) as IFace[]).find((f) =>
+                f.containsPoint(new XYZ({ x: -5, y: 5, z: 0 }), true, 1e-4),
+            )!;
+
+            const result = factory.removeSubShape(shell, [bottomOfRight, leftFace]);
+
+            expect(result.isOk).toBe(true);
+            const seams = (result.value.findSubShapes(ShapeTypes.edge) as IEdge[]).filter((e) => {
+                const [a, b] = e.ends();
+                return Math.abs(a.x) < 1e-4 && Math.abs(b.x) < 1e-4;
+            });
+            expect(seams).toHaveLength(1);
+        });
+
+        test("should not add free edges when the removed face's edges stay with other faces", () => {
+            const box = factory.box(plane, 10, 10, 10).value;
+            const top = (box.findSubShapes(ShapeTypes.face) as IFace[]).find((face) => {
+                const bbox = face.boundingBox();
+                return bbox !== undefined && Math.abs(bbox.min.z - 10) < 0.1;
+            })!;
+
+            const result = factory.removeSubShape(box, [top]);
+
+            // Every edge of the top face is shared with a side face: the shell just opens, and
+            // no duplicate free edge is stacked beside the survivors.
+            expect(result.isOk).toBe(true);
+            expect(result.value.findSubShapes(ShapeTypes.face)).toHaveLength(5);
+            expect(result.value.findSubShapes(ShapeTypes.edge)).toHaveLength(12);
+        });
     });
 
     describe("replaceSubShape", () => {
@@ -1172,6 +1288,72 @@ describe("ShapeFactory — advanced operations", () => {
             const box2 = factory.box(shiftedPlane, 10, 10, 10).value;
             const sewResult = factory.sewing([box1, box2]);
             expect(sewResult.isOk).toBe(true);
+        });
+
+        test("should upgrade every closed component of a multi-group sew to a solid", () => {
+            // Two disjoint boxes sew into one compound with two shells, not a single shell —
+            // both components must still come back as solids, not be lost to the compound.
+            const box1 = factory.box(plane, 10, 10, 10).value;
+            const box2 = factory.box(shiftedPlane, 10, 10, 10).value;
+            const faces = [box1, box2].flatMap((shape) => shape.findSubShapes(ShapeTypes.face) as IFace[]);
+
+            const sewn = factory.sewing(faces).value;
+
+            expect(sewn.shapeType).toBe(ShapeTypes.compound);
+            expect(sewn.findSubShapes(ShapeTypes.solid)).toHaveLength(2);
+            expect(sewn.directSubShapes().every((x) => x.shapeType === ShapeTypes.solid)).toBe(true);
+        });
+
+        test("should keep a loose face beside a sealed body", () => {
+            const box = factory.box(plane, 10, 10, 10).value;
+            const floating = factory.face([
+                factory.wire([factory.circle(XYZ.unitZ, new XYZ({ x: 30, y: 0, z: 0 }), 2).value]).value,
+            ]).value;
+            const faces = [...box.findSubShapes(ShapeTypes.face), floating] as IFace[];
+
+            const sewn = factory.sewing(faces).value;
+
+            const leaves = sewn.shapeType === ShapeTypes.compound ? sewn.directSubShapes() : [sewn];
+            expect(leaves.map((x) => x.shapeType).sort()).toEqual([ShapeTypes.face, ShapeTypes.solid].sort());
+        });
+
+        test("should not fold a face attached to a solid edge into the solid", () => {
+            // The face shares the box's top-front edge. Sewing it in would make that edge
+            // non-manifold and collapse the box's closed shell into one open shell, so the
+            // solid must survive the pass untouched and the face stays a face beside it.
+            const box = factory.box(plane, 10, 10, 10).value;
+            const flange = factory.face([
+                factory.polygon([
+                    new XYZ({ x: 0, y: 0, z: 10 }),
+                    new XYZ({ x: 10, y: 0, z: 10 }),
+                    new XYZ({ x: 10, y: -10, z: 10 }),
+                    new XYZ({ x: 0, y: -10, z: 10 }),
+                    new XYZ({ x: 0, y: 0, z: 10 }),
+                ]).value,
+            ]).value;
+
+            const sewn = factory.sewing([box, flange]).value;
+
+            expect(sewn.shapeType).toBe(ShapeTypes.compound);
+            const leaves = sewn.directSubShapes();
+            expect(leaves.map((x) => x.shapeType).sort()).toEqual([ShapeTypes.face, ShapeTypes.solid].sort());
+            const solid = leaves.find((x) => x.shapeType === ShapeTypes.solid)!;
+            expect(solid.findSubShapes(ShapeTypes.shell).every((shell) => shell.isClosed())).toBe(true);
+        });
+
+        test("should still close an open solid when the missing face is sewn back", () => {
+            // The open body is not a closed solid, so it takes part in the sew and the patch
+            // closes it — the exclusion above must not stop repairs.
+            const box = factory.box(plane, 10, 10, 10).value;
+            const top = (box.findSubShapes(ShapeTypes.face) as IFace[]).find((face) =>
+                face.containsPoint(new XYZ({ x: 5, y: 5, z: 10 }), true, 1e-4),
+            )!;
+            const open = factory.removeSubShape(box, [top]).value;
+
+            const sewn = factory.sewing([open, top]).value;
+
+            expect(sewn.shapeType).toBe(ShapeTypes.solid);
+            expect(sewn.findSubShapes(ShapeTypes.shell).every((shell) => shell.isClosed())).toBe(true);
         });
     });
 
