@@ -413,8 +413,9 @@ export class SketchNode extends ParameterShapeNode {
     private sketchMesh(): IShapeMeshData {
         if (!this._showProfileFaces || !this.shape.isOk) return super.createMesh();
         const profiles = sketchProfiles(this);
-        // Outer profiles come with holes applied; inner loops are shown as solid faces
-        // so the hole region stays clickable (it selects the inner profile).
+        // Every profile comes with its holes applied — an inner loop is the region it bounds,
+        // its children cut out — so the hole region stays clickable and never selects a disc
+        // that swallows the loops inside it.
         const faces = profiles.isOk ? allProfiles(profiles.value) : [];
         if (faces.length === 0) return super.createMesh();
         const mesh = new MultiShapeMesh();

@@ -42,7 +42,12 @@ export interface SketchProfileSet {
      * loops as holes (`shapeFactory.face([outer, ...holes])`).
      */
     readonly outer: IFace[];
-    /** Hole loops as solid faces — selectable as profiles, but not extruded by default. */
+    /**
+     * Hole loops, built like the outer ones — the loop itself with its direct child loops
+     * as holes — so each is the region the loop bounds, its direct children cut out (a
+     * childless loop is the disc it encloses; one holding islands is a ring). Selectable as
+     * profiles, but not extruded by default.
+     */
     readonly inner: IFace[];
     /**
      * The sorted ids of the sketch entities bounding each `outer` profile — the
@@ -288,7 +293,13 @@ function buildWires(
     return Result.ok({ wires, polygons, wireEntities, wireEdges });
 }
 
-/** Even-depth loops become profiles with their direct child loops as holes; odd-depth loops stay solid faces. */
+/**
+ * Every loop becomes the region it bounds, with its direct child loops as holes — a
+ * filled (even-depth) loop among `outer`, a hole (odd-depth) loop among `inner`. So the
+ * rings of a concentric sketch each appear exactly once: three circles give the disc,
+ * the ring between the middle and the innermost, and the ring between the outermost and
+ * the middle — never a disc that swallows the loop it encloses.
+ */
 function buildFaces(
     wires: IWire[],
     wireEntities: number[][],
@@ -303,7 +314,9 @@ function buildFaces(
     const innerEntities: number[][] = [];
     for (const [index, wire] of wires.entries()) {
         const isHole = nesting.holes.includes(index);
-        const holeIndexes = isHole ? [] : nesting.children[index];
+        // A hole loop's own children are islands inside it — the hole region is bounded by
+        // the loop AND excludes them, so it takes them as holes too.
+        const holeIndexes = nesting.children[index];
         const face = shapeFactory.face([wire, ...holeIndexes.map((j) => wires[j])]);
         if (!face.isOk) return Result.err(face.error);
         // The outer wire's entities are the profile's identity; hole wires are incidental.
@@ -370,7 +383,8 @@ export interface ResolvedProfiles {
 /**
  * The profiles a feature should operate on: every outer profile (holes applied) when
  * `profiles` is undefined/empty, otherwise the profiles the stored refs re-match to
- * (see `matchProfileIndexes`) — an explicitly selected inner loop extrudes as a solid.
+ * (see `matchProfileIndexes`) — an explicitly selected inner loop extrudes the region
+ * it bounds, islands and all.
  *
  * A pick that is GONE is reported through `missing` rather than failing the whole
  * feature; a pick that is AMBIGUOUS still fails, because the group match would have to

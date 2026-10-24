@@ -96,6 +96,11 @@ function sketchWithIds(edges: IEdge[], ids: number[]): SketchNode {
     } as unknown as SketchNode;
 }
 
+/** Boundary edge counts of each face — a face with a hole lists both wires' edges. */
+function edgeCounts(faces: IFace[]): number[] {
+    return faces.map((face) => face.findSubShapes(ShapeTypes.edge).length);
+}
+
 function faceOf(edges: IEdge[]): IFace {
     return {
         shapeType: ShapeTypes.face,
@@ -224,10 +229,37 @@ describe("sketchProfiles", () => {
 
             expect(result.isOk).toBe(true);
             // Outer square (with the middle loop as its hole) and the island are both
-            // default profiles; the middle ring is only selectable.
+            // default profiles; the middle ring is only selectable — and it is the ring,
+            // not the disc: the island is its hole.
             expect(result.unchecked()!.outer.length).toBe(2);
             expect(result.unchecked()!.inner.length).toBe(1);
             expect(allProfiles(result.unchecked()!).length).toBe(3);
+            // Outer: the 10×10 square holed by the middle loop, then the island.
+            expect(edgeCounts(result.unchecked()!.outer)).toEqual([8, 4]);
+            // Inner: the middle ring — holed by the island, NOT a solid 8×8 disc.
+            expect(edgeCounts(result.unchecked()!.inner)).toEqual([8]);
+        } finally {
+            restore();
+        }
+    });
+
+    test("a hole loop holding several islands cuts every one of them out", () => {
+        const { restore } = setup();
+        try {
+            const result = sketchProfiles(
+                sketchWith([
+                    ...square(0, 0, 10, 10),
+                    ...square(2, 2, 8, 8),
+                    ...square(3, 3, 4, 4),
+                    ...square(5, 5, 6, 6),
+                ]),
+            );
+
+            expect(result.isOk).toBe(true);
+            // The middle ring is the 8×8 loop with BOTH islands as holes (12 boundary
+            // edges), while the outer square is holed by the middle loop only.
+            expect(edgeCounts(result.unchecked()!.outer)).toEqual([8, 4, 4]);
+            expect(edgeCounts(result.unchecked()!.inner)).toEqual([12]);
         } finally {
             restore();
         }
