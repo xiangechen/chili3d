@@ -63,11 +63,18 @@
 #include <ChFi2d_FilletAPI.hxx>
 #include <GProp_GProps.hxx>
 #include <Geom2d_Curve.hxx>
+#include <GeomAPI_ExtremaCurveCurve.hxx>
 #include <GeomAPI_ProjectPointOnCurve.hxx>
+#include <GeomFill_Gordon.hxx>
 #include <Geom_BSplineCurve.hxx>
+#include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
+#include <Geom_Circle.hxx>
+#include <Geom_Ellipse.hxx>
+#include <Geom_Hyperbola.hxx>
 #include <Geom_Line.hxx>
 #include <Geom_OffsetCurve.hxx>
+#include <Geom_Parabola.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <HelixBRep_BuilderHelix.hxx>
 #include <NCollection_Array1.hxx>
@@ -488,6 +495,125 @@ static Handle(Geom_Curve) basisCurve(const TopoDS_Edge& edge, double& first, dou
     if (auto trimmed = Handle(Geom_TrimmedCurve)::DownCast(curve))
         curve = trimmed->BasisCurve();
     return curve;
+}
+
+// The curve kinds the kernel's B-spline conversion knows. An OffsetCurve is deliberately
+// left out: GeomConvert turns it into a 1e-4 approximation, which would break Gordon's
+// exact-interpolation promise, and a failed approximation raises — a raise aborts the whole
+// module with exception catching disabled. Any other kind raises outright. Both are
+// rejected up front instead.
+static bool isGordonCurveKind(const Handle(Geom_Curve) & curve)
+{
+    return curve->IsKind(STANDARD_TYPE(Geom_Line)) || curve->IsKind(STANDARD_TYPE(Geom_Circle))
+        || curve->IsKind(STANDARD_TYPE(Geom_Ellipse)) || curve->IsKind(STANDARD_TYPE(Geom_Hyperbola))
+        || curve->IsKind(STANDARD_TYPE(Geom_Parabola)) || curve->IsKind(STANDARD_TYPE(Geom_BezierCurve))
+        || curve->IsKind(STANDARD_TYPE(Geom_BSplineCurve));
+}
+
+// The curve Gordon takes for one edge: the edge's own parameter window on an atomic basis
+// curve. Gordon reads FirstParameter/LastParameter off the curve it is handed, so a bare
+// basis curve would make it search the whole (possibly infinite) curve. The window is
+// checked against the basis before Geom_TrimmedCurve is built, because its constructor
+// raises on an empty or out-of-range window.
+static Handle(Geom_Curve) edgeCurveForGordon(const TopoDS_Edge& edge, std::string& error)
+{
+    if (edge.IsNull() || BRep_Tool::Degenerated(edge)) {
+        error = "Failed to create Gordon surface: an edge is null or degenerate";
+        return nullptr;
+    }
+
+    double first = 0.0;
+    double last = 0.0;
+    Handle(Geom_Curve) curve = BRep_Tool::Curve(edge, first, last);
+    if (curve.IsNull()) {
+        error = "Failed to create Gordon surface: an edge has no 3D curve";
+        return nullptr;
+    }
+
+    Handle(Geom_Curve) basis = curve;
+    while (auto trimmed = Handle(Geom_TrimmedCurve)::DownCast(basis)) {
+        basis = trimmed->BasisCurve();
+    }
+    if (!isGordonCurveKind(basis)) {
+        error = "Failed to create Gordon surface: an edge uses a curve type Gordon cannot "
+                "interpolate exactly (offset curves are not supported)";
+        return nullptr;
+    }
+
+    if (!basis->IsPeriodic()) {
+        first = std::max(first, basis->FirstParameter());
+        last = std::min(last, basis->LastParameter());
+    }
+    if (first > last) {
+        error = "Failed to create Gordon surface: an edge has a reversed parameter range";
+        return nullptr;
+    }
+    if (std::abs(last - first) <= Precision::PConfusion()) {
+        error = "Failed to create Gordon surface: an edge has an empty parameter range";
+        return nullptr;
+    }
+    return new Geom_TrimmedCurve(basis, first, last);
+}
+
+// Gordon's intersection pass is not defensive: when a profile has no contact with a guide
+// it aborts the module (a raise, and Release builds cannot catch it) instead of reporting
+// IntersectionFailed. Run the same extrema query the kernel would and refuse up front.
+static bool gordonNetworkMeets(const NCollection_Array1<Handle(Geom_Curve)>& profiles,
+    const NCollection_Array1<Handle(Geom_Curve)>& guides, double tolerance)
+{
+    for (int i = profiles.Lower(); i <= profiles.Upper(); i++) {
+        for (int j = guides.Lower(); j <= guides.Upper(); j++) {
+            GeomAPI_ExtremaCurveCurve extrema(profiles(i), guides(j));
+            if (extrema.NbExtrema() > 0) {
+                if (extrema.LowerDistance() > tolerance)
+                    return false;
+                continue;
+            }
+            gp_Pnt profilePoint;
+            gp_Pnt guidePoint;
+            if (!extrema.TotalNearestPoints(profilePoint, guidePoint)
+                || profilePoint.Distance(guidePoint) > tolerance)
+                return false;
+        }
+    }
+    return true;
+}
+
+// One line per failure family: the caller words the user-facing message per locale, so
+// the kernel's many statuses collapse to the ones a user can act on.
+static std::string mapGordonError(GeomFill_Gordon::ResultStatus status)
+{
+    const std::string prefix = "Failed to create Gordon surface: ";
+    switch (status) {
+    case GeomFill_Gordon::ResultStatus::InvalidInput:
+        return prefix + "at least 2 profile edges and 2 guide edges are required";
+    case GeomFill_Gordon::ResultStatus::ConversionFailed:
+        return prefix + "a curve could not be converted to a B-spline";
+    case GeomFill_Gordon::ResultStatus::IntersectionFailed:
+        return prefix + "every profile must intersect every guide";
+    case GeomFill_Gordon::ResultStatus::OrderingFailed:
+    case GeomFill_Gordon::ResultStatus::CompatibilityFailed:
+    case GeomFill_Gordon::ResultStatus::CurveCompatibilityFailed:
+        return prefix + "the curve network is not consistent";
+    case GeomFill_Gordon::ResultStatus::ReparametrizationFailed:
+    case GeomFill_Gordon::ResultStatus::RationalReparametrizationFailed:
+        return prefix + "the curves could not be made compatible";
+    case GeomFill_Gordon::ResultStatus::RationalDegreeOverflow:
+        return prefix + "the rational surface is too complex for the kernel";
+    case GeomFill_Gordon::ResultStatus::SkinningFailed:
+    case GeomFill_Gordon::ResultStatus::ReferenceSurfaceFailed:
+    case GeomFill_Gordon::ResultStatus::KnotAlignmentFailed:
+    case GeomFill_Gordon::ResultStatus::ConstructionFailed:
+        return prefix + "the exact surface construction failed";
+    case GeomFill_Gordon::ResultStatus::RationalConstructionFailed:
+        return prefix + "the rational surface could not be built";
+    case GeomFill_Gordon::ResultStatus::PeriodicityFailed:
+        return prefix + "the closed network could not be made periodic";
+    case GeomFill_Gordon::ResultStatus::ApproximationFailed:
+        return prefix + "the approximate fallback failed";
+    default:
+        return prefix + "unknown failure";
+    }
 }
 
 struct CornerPlane {
@@ -3631,6 +3757,73 @@ public:
         return result;
     }
 
+    // Transfinite interpolation over a curve network: every profile must meet every guide.
+    // Edges are converted to their atomic basis curves first, because Gordon reads the
+    // curve's own parameter range and the conversion it runs internally raises on curve
+    // kinds it does not know (a raise aborts the module in Release). The result is one
+    // face; the inputs are not consumed.
+    static ShapeResult gordon(const EdgeArray& profiles, const EdgeArray& guides, double tolerance,
+        bool approximate)
+    {
+        std::vector<TopoDS_Edge> profileEdges = vecFromJSArray<TopoDS_Edge>(profiles);
+        std::vector<TopoDS_Edge> guideEdges = vecFromJSArray<TopoDS_Edge>(guides);
+        if (profileEdges.size() < 2 || guideEdges.size() < 2) {
+            return ShapeResult { TopoDS_Shape(), false,
+                "Failed to create Gordon surface: at least 2 profile edges and 2 guide edges are required" };
+        }
+        if (!(tolerance > 0.0)) {
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create Gordon surface: invalid tolerance" };
+        }
+
+        std::string error;
+        NCollection_Array1<Handle(Geom_Curve)> profileCurves(1, static_cast<int>(profileEdges.size()));
+        for (size_t i = 0; i < profileEdges.size(); i++) {
+            Handle(Geom_Curve) curve = edgeCurveForGordon(profileEdges[i], error);
+            if (curve.IsNull())
+                return ShapeResult { TopoDS_Shape(), false, error };
+            profileCurves.SetValue(static_cast<int>(i) + 1, curve);
+        }
+
+        NCollection_Array1<Handle(Geom_Curve)> guideCurves(1, static_cast<int>(guideEdges.size()));
+        for (size_t i = 0; i < guideEdges.size(); i++) {
+            Handle(Geom_Curve) curve = edgeCurveForGordon(guideEdges[i], error);
+            if (curve.IsNull())
+                return ShapeResult { TopoDS_Shape(), false, error };
+            guideCurves.SetValue(static_cast<int>(i) + 1, curve);
+        }
+
+        if (!gordonNetworkMeets(profileCurves, guideCurves, tolerance))
+            return ShapeResult { TopoDS_Shape(), false,
+                "Failed to create Gordon surface: every profile must intersect every guide" };
+
+        GeomFill_Gordon gordon;
+        gordon.SetApproximationMode(approximate ? GeomFill_Gordon::ApproximationMode::AllowApproximateFallback
+                                                : GeomFill_Gordon::ApproximationMode::ExactOnly);
+        gordon.Init(profileCurves, guideCurves, tolerance);
+        gordon.Perform();
+        // Surface() raises StdFail_NotDone while the build has not succeeded — a raise
+        // aborts the module, so the status is checked first.
+        if (!gordon.IsDone())
+            return ShapeResult { TopoDS_Shape(), false, mapGordonError(gordon.Status()) };
+
+        Handle(Geom_Surface) surface = gordon.Surface();
+        if (surface.IsNull())
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create Gordon surface: the kernel returned no surface" };
+        BRepBuilderAPI_MakeFace makeFace(surface, Precision::Confusion());
+        if (!makeFace.IsDone())
+            return ShapeResult { TopoDS_Shape(), false, "Failed to create Gordon surface: could not build a face" };
+
+        // Perform() also fixes the orientation when needed (ShapeFix_Face::NeedFix), so an
+        // explicit FixOrientation() here would run the same pass twice.
+        ShapeFix_Face faceFix(makeFace.Face());
+        faceFix.Perform();
+        TopoDS_Face fixed = faceFix.Face();
+        if (fixed.IsNull())
+            return ShapeResult { TopoDS_Shape(), false,
+                "Failed to create Gordon surface: the face repair returned nothing" };
+        return ShapeResult { fixed, true, "" };
+    }
+
     static ShapeResult curveProjection(const TopoDS_Shape& curve, const TopoDS_Shape& targetFace, const gp_Dir& dir)
     {
         BRepProj_Projection curveProjection(curve, targetFace, dir);
@@ -4087,6 +4280,7 @@ EMSCRIPTEN_BINDINGS(ShapeFactory)
         .class_function("fixSmallFace", &ShapeFactory::fixSmallFace)
         .class_function("fixSolid", &ShapeFactory::fixSolid)
         .class_function("loft", &ShapeFactory::loft)
+        .class_function("gordon", &ShapeFactory::gordon)
         .class_function("curveProjection", &ShapeFactory::curveProjection)
         .class_function("removeFeature", &ShapeFactory::removeFeature)
         .class_function("removeFillet", &ShapeFactory::removeFillet)

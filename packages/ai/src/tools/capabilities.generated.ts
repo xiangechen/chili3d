@@ -415,6 +415,16 @@ export const shapeCapabilities: ShapeCapability[] = [
         ],
     },
     {
+        method: "gordon",
+        returnKind: "face",
+        params: [
+            { name: "profiles", kind: "refArray" },
+            { name: "guides", kind: "refArray" },
+            { name: "tolerance", kind: "number", required: false },
+            { name: "approximate", kind: "boolean", required: false },
+        ],
+    },
+    {
         method: "removeFeature",
         returnKind: "shape",
         params: [
@@ -2023,6 +2033,7 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   fillet2d(face: ref, edge1: ref, edge2: ref, radius: number) -> face
   chamfer2d(face: ref, edge1: ref, edge2: ref, distance: number) -> face
   loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: c0|g1|c1|g2|c2|c3|cn) -> shape
+  gordon(profiles: refArray, guides: refArray, tolerance: number?, approximate: boolean?) -> face
   removeFeature(shape: ref, faces: refArray) -> shape
   removeFillet(shape: ref, faces: refArray) -> shapeWithData
   removeSubShape(shape: ref, subShapes: refArray) -> shape

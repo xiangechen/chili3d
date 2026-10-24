@@ -863,6 +863,128 @@ describe("ShapeFactory — operations", () => {
         });
     });
 
+    describe("gordon", () => {
+        const makeLine = (x1: number, y1: number, x2: number, y2: number) =>
+            unwrapOk(factory.line(new XYZ({ x: x1, y: y1, z: 0 }), new XYZ({ x: x2, y: y2, z: 0 })));
+
+        test("should build a face over a 2x2 line network", () => {
+            const profiles = [makeLine(0, 0, 0, 10), makeLine(10, 0, 10, 10)];
+            const guides = [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)];
+
+            const result = factory.gordon(profiles, guides);
+
+            expect(result.isOk).toBe(true);
+            expect(result.value.shapeType).toBe(ShapeTypes.face);
+            expect(result.value.area()).toBeCloseTo(100, 3);
+            expect(result.value.containsPoint({ x: 5, y: 5, z: 0 }, false, 1e-3)).toBe(true);
+            expect(result.value.containsPoint({ x: 50, y: 50, z: 0 }, false, 1e-3)).toBe(false);
+        });
+
+        test("should build a face over a 3x3 network", () => {
+            const profiles = [makeLine(0, 0, 0, 10), makeLine(5, 0, 5, 10), makeLine(10, 0, 10, 10)];
+            const guides = [makeLine(0, 0, 10, 0), makeLine(0, 5, 10, 5), makeLine(0, 10, 10, 10)];
+
+            const result = factory.gordon(profiles, guides);
+
+            expect(result.isOk).toBe(true);
+            expect(result.value.shapeType).toBe(ShapeTypes.face);
+            expect(result.value.area()).toBeCloseTo(100, 3);
+        });
+
+        test("should accept the approximate flag on an exact network", () => {
+            const result = factory.gordon(
+                [makeLine(0, 0, 0, 10), makeLine(10, 0, 10, 10)],
+                [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)],
+                1e-7,
+                true,
+            );
+
+            expect(result.isOk).toBe(true);
+            expect(result.value.shapeType).toBe(ShapeTypes.face);
+        });
+
+        test("should build a curved face from bezier profiles", () => {
+            const profile = (x: number) =>
+                unwrapOk(
+                    factory.bezier([
+                        new XYZ({ x, y: 0, z: 0 }),
+                        new XYZ({ x: x + 2, y: 5, z: 0 }),
+                        new XYZ({ x, y: 10, z: 0 }),
+                    ]),
+                );
+
+            const result = factory.gordon(
+                [profile(0), profile(10)],
+                [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)],
+            );
+
+            expect(result.isOk).toBe(true);
+            expect(result.value.shapeType).toBe(ShapeTypes.face);
+            expect(result.value.area()).toBeGreaterThan(0);
+        });
+
+        test("should reject fewer than two edges in either group", () => {
+            const result = factory.gordon(
+                [makeLine(0, 0, 0, 10)],
+                [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)],
+            );
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toContain("at least 2");
+        });
+
+        test("should reject a non-positive tolerance", () => {
+            const result = factory.gordon(
+                [makeLine(0, 0, 0, 10), makeLine(10, 0, 10, 10)],
+                [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)],
+                0,
+            );
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("The tolerance must be positive.");
+        });
+
+        test("should throw when an edge is not an OccShape", () => {
+            const fakeEdge = new MockShape({ shapeType: ShapeTypes.edge }) as unknown as IEdge;
+
+            expect(() =>
+                factory.gordon(
+                    [fakeEdge, makeLine(10, 0, 10, 10)],
+                    [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)],
+                ),
+            ).toThrow("The OCC kernel only supports OCC geometries.");
+        });
+
+        test("should report a network whose profiles and guides do not meet", () => {
+            const result = factory.gordon(
+                [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)],
+                [makeLine(0, 20, 10, 20), makeLine(0, 30, 10, 30)],
+            );
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toContain("intersect");
+        });
+
+        test("should reject a contact just outside the tolerance", () => {
+            const result = factory.gordon(
+                [makeLine(0, 0, 0, 10), makeLine(10, 0, 10, 10)],
+                [makeLine(0, 0, 10, 0), makeLine(0, 10.0002, 10, 10.0002)],
+                1e-4,
+            );
+
+            expect(result.isOk).toBe(false);
+            expect(result.error).toContain("intersect");
+        });
+
+        test("should keep the input edges usable across calls", () => {
+            const profiles = [makeLine(0, 0, 0, 10), makeLine(10, 0, 10, 10)];
+            const guides = [makeLine(0, 0, 10, 0), makeLine(0, 10, 10, 10)];
+
+            expect(factory.gordon(profiles, guides).isOk).toBe(true);
+            expect(factory.gordon(profiles, guides).isOk).toBe(true);
+        });
+    });
+
     describe("fuse", () => {
         test("should fuse two shapes", () => {
             const box1 = factory.box(plane, 10, 10, 10).value;

@@ -352,6 +352,19 @@ export interface IShapeFactory {
         isRuled: boolean,
         continuity: Continuity,
     ): Result<IShape>;
+    /**
+     * A Gordon surface (transfinite interpolation) over a network of two edge groups:
+     * every profile must intersect every guide. The result is ONE face spanning the whole
+     * network — not a solid — and the input edges are not consumed.
+     *
+     * The order inside each group does not matter (the kernel sorts the network); swapping
+     * the two groups usually yields the same surface with U and V transposed. `tolerance` is
+     * the distance, in model units, within which a profile and a guide count as meeting
+     * (default `Precision.Distance`). With `approximate` the kernel may fall back to a
+     * sampled surface when the exact construction fails; that fallback does not interpolate
+     * the input curves exactly.
+     */
+    gordon(profiles: IEdge[], guides: IEdge[], tolerance?: number, approximate?: boolean): Result<IFace>;
     removeFeature(shape: IShape, faces: IFace[]): Result<IShape>;
     removeFillet(
         shape: IShape,

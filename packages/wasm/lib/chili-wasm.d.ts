@@ -697,6 +697,7 @@ interface EmbindModule {
     glueShapes(_0: Array<TopoDS_Shape>): ShapeResult;
     sewing(_0: Array<TopoDS_Shape>): ShapeResult;
     wire(_0: Array<TopoDS_Edge>): ShapeResult;
+    gordon(_0: Array<TopoDS_Edge>, _1: Array<TopoDS_Edge>, _2: number, _3: boolean): ShapeResult;
     shell(_0: Array<TopoDS_Face>): ShapeResult;
     face(_0: Array<TopoDS_Wire>): ShapeResult;
     faceFromSurface(_0: Array<TopoDS_Wire>, _1: TopoDS_Face): ShapeResult;

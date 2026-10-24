@@ -1156,6 +1156,36 @@ export class ShapeFactory implements IShapeFactory {
             }
         }
     }
+    /**
+     * A Gordon surface over a network of profiles and guides: every profile must meet every
+     * guide. The result is one face spanning the network; the input edges stay alive.
+     */
+    gordon(
+        profiles: IEdge[],
+        guides: IEdge[],
+        tolerance: number = Precision.Distance,
+        approximate: boolean = false,
+    ): Result<IFace> {
+        if (profiles.length < 2 || guides.length < 2) {
+            return Result.err(
+                "Failed to create Gordon surface: at least 2 profile edges and 2 guide edges are required",
+            );
+        }
+        if (
+            profiles.some((edge) => edge.shapeType !== ShapeTypes.edge) ||
+            guides.some((edge) => edge.shapeType !== ShapeTypes.edge)
+        ) {
+            return Result.err("Gordon surface inputs must be edges.");
+        }
+        if (!(tolerance > 0)) {
+            return Result.err("The tolerance must be positive.");
+        }
+        return convertShapeResult(
+            wasm.ShapeFactory.gordon,
+            [ensureOccShape(profiles), ensureOccShape(guides), tolerance, approximate],
+            "Gordon Error",
+        ) as Result<IFace>;
+    }
     curveProjection(curve: IEdge | IWire, targetFace: IFace, vec: XYZ): Result<IShape> {
         return convertShapeResult(
             wasm.ShapeFactory.curveProjection,

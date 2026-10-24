@@ -15,6 +15,7 @@ export * from "./curveProjection";
 export * from "./cylinder";
 export * from "./ellipse";
 export * from "./extrude";
+export * from "./gordon";
 export * from "./group";
 export * from "./helix";
 export * from "./line";
