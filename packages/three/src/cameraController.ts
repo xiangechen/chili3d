@@ -4,6 +4,7 @@
 import {
     type CameraTransitionOptions,
     type CameraType,
+    Config,
     type ICameraController,
     type IVisualObject,
     isReferenceGeometryNode,
@@ -257,12 +258,23 @@ export class CameraController extends Observable implements ICameraController {
     private getRotation(dx: number, dy: number) {
         const rotationDy = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), MathUtils.degToRad(-dy));
         const tmpRotation = this._camera.quaternion.clone().multiply(rotationDy);
-        const tmpRotationInv = tmpRotation.clone().invert();
         const rotationDx = new Quaternion().setFromAxisAngle(
-            new Vector3(0, 0, 1).applyQuaternion(tmpRotationInv),
+            this.yawAxis(tmpRotation),
             MathUtils.degToRad(-dx),
         );
         return tmpRotation.clone().multiply(rotationDx);
+    }
+
+    /**
+     * The axis a horizontal drag turns about, in the frame `tmpRotation` put the camera in —
+     * the world Z axis for a turntable, the camera's own up (its local Y) for a trackball.
+     * `Config.orbitMode` picks between them.
+     */
+    private yawAxis(tmpRotation: Quaternion) {
+        if (Config.instance.orbitMode === "trackball") {
+            return new Vector3(0, 1, 0);
+        }
+        return new Vector3(0, 0, 1).applyQuaternion(tmpRotation.clone().invert());
     }
 
     fitContent(options?: CameraTransitionOptions): void {

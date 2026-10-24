@@ -15,6 +15,9 @@
     flex-direction: column;
     flex: 0 0 300px;
     padding: 24px 20px;
+    /* Four settings rows plus the links do not fit a laptop-height window stacked, so let the
+       column scroll rather than clip its last row. */
+    overflow-y: auto;
     background-color: var(--background-color);
     border-right: 1px solid var(--border-color);
 
@@ -169,6 +172,12 @@
                     border-color: var(--primary-color);
                 }
             }
+        }
+
+        /* The orbit options name both the mode and what it does; the shared 108px clips
+           "轨迹球（自由旋转）" (117px of text). */
+        & .settingControl.wideControl select {
+            width: 160px;
         }
     }
 

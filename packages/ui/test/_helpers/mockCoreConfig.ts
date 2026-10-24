@@ -3,9 +3,11 @@
 
 // Registers the shared `@chili3d/core` mock for the home selector tests: mutable
 // Config/I18n stubs backed by the exported `configStub` / `languageList`, plus the
-// Localize stub. `Navigation3DTypes` stays the real array from core.
+// Localize stub. `Navigation3DTypes` and `OrbitModes` stay the real arrays from core.
 // Import this module BEFORE the module under test.
 
+// Type-only, so it is erased before the mock below registers and never loads the real module.
+import type { OrbitMode } from "@chili3d/core";
 import { rs } from "@rstest/core";
 
 /** Mutable Config stub — reset the fields between tests. */
@@ -13,6 +15,7 @@ export const configStub = rs.hoisted(() => ({
     language: "en",
     themeMode: "system" as "light" | "dark" | "system",
     navigation3D: "Chili3d",
+    orbitMode: "turntable" as OrbitMode,
 }));
 
 /** Mutable language list backing the I18n stub. */
@@ -27,9 +30,11 @@ rs.mock("@chili3d/core", () => {
     // `...actual` only contains real exports when the real core module was already
     // loaded — pull the real Navigation3DTypes directly so it always works.
     const { Navigation3DTypes } = rs.hoisted(() => require("@chili3d/core/src/navigation"));
+    const { OrbitModes } = rs.hoisted(() => require("@chili3d/core/src/config"));
     return {
         ...actual,
         Navigation3DTypes,
+        OrbitModes,
         Localize: LocalizeMock,
         Config: { instance: configStub },
         I18n: {

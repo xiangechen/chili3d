@@ -7,6 +7,19 @@ import type { Navigation3DType } from "./navigation";
 import { type SerializedData, Serializer, serialize } from "./serialize";
 import { type ObjectSnapType, ObjectSnapTypes, ObjectSnapTypeUtils } from "./snapType";
 
+/**
+ * How a drag turns the camera. A turntable yaws about the world Z axis, so the scene stays
+ * upright and a drag adds no roll; a trackball yaws about the camera's own up axis, so the
+ * view can tilt and roll freely. Same two names as FreeCAD and Blender's orbit style.
+ *
+ * A turntable drag only declines to add roll; it does not straighten a view a trackball
+ * already rolled. Changing the setting re-aims the drag, not the camera the user is looking
+ * at — a standard view (or the view gizmo) re-levels it in one click.
+ */
+export const OrbitModes = ["turntable", "trackball"] as const;
+
+export type OrbitMode = (typeof OrbitModes)[number];
+
 export const DefaultLightEdgeColor = 0x333333;
 export const DefaultDarkEdgeColor = 0xeeeeee;
 /** `DefaultLightEdgeColor` mixed halfway into the light theme's viewport background (#888888). */
@@ -129,6 +142,14 @@ export class Config extends Observable {
     }
     set dynamicWorkplane(value: boolean) {
         this.setProperty("dynamicWorkplane", value);
+    }
+
+    @serialize()
+    get orbitMode(): OrbitMode {
+        return this.getPrivateValue("orbitMode", "turntable");
+    }
+    set orbitMode(value: OrbitMode) {
+        this.setProperty("orbitMode", value);
     }
 
     @serialize()

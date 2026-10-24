@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IDocument } from "@chili3d/core";
+import { Config, type IDocument, type OrbitMode } from "@chili3d/core";
 import { createMockSelection } from "@chili3d/core/test-utils";
 import {
     BufferAttribute,
@@ -12,6 +12,7 @@ import {
     OrthographicCamera,
     PerspectiveCamera,
     Scene,
+    Vector3,
 } from "three";
 import { CameraController } from "../src/cameraController";
 import { Constants } from "../src/constants";
@@ -469,6 +470,84 @@ describe("CameraController — updateCameraPosionTarget", () => {
         const cc = new CameraController(view);
         cc.lookAt({ x: 200, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
         expect(cc.camera.position.x).toBeCloseTo(200);
+    });
+});
+
+// ============================================================================
+// CameraController — orbit mode
+// ============================================================================
+
+describe("CameraController — orbit mode", () => {
+    const originalOrbitMode = Config.instance.orbitMode;
+
+    afterEach(() => {
+        Config.instance.orbitMode = originalOrbitMode;
+    });
+
+    function withOrbitMode(mode: OrbitMode) {
+        Config.instance.orbitMode = mode;
+        const cc = new CameraController(createFakeView());
+        // Start from the pose the app opens on rather than the controller's un-oriented identity state.
+        cc.lookAt({ x: 1500, y: 1500, z: 1500 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
+        return cc;
+    }
+
+    function drag(cc: CameraController, times: number, dx: number, dy: number) {
+        for (let index = 0; index < times; index++) cc.rotate(dx, dy);
+    }
+
+    /** How far the world Z axis has rolled off the screen's vertical, in the camera's own frame. */
+    function roll(cc: CameraController) {
+        return new Vector3(0, 0, 1).applyQuaternion(cc.camera.quaternion.clone().invert()).x;
+    }
+
+    function horizontalDragAfterPitch(mode: OrbitMode) {
+        const cc = withOrbitMode(mode);
+        drag(cc, 7, 0, 25);
+        const pitched = { up: cc.cameraUp, position: cc.cameraPosition };
+        cc.rotate(30, 0);
+        return { pitched, up: cc.cameraUp, position: cc.cameraPosition };
+    }
+
+    test("a turntable drag cannot roll the view off the world's vertical", () => {
+        const cc = withOrbitMode("turntable");
+        drag(cc, 6, 40, 25);
+
+        // World Z stays in the plane the screen's vertical axis spans: the view never tilts sideways.
+        expect(roll(cc)).toBeCloseTo(0, 6);
+    });
+
+    test("a trackball drag rolls the view off the world's vertical", () => {
+        const cc = withOrbitMode("trackball");
+        drag(cc, 6, 40, 25);
+
+        expect(Math.abs(roll(cc))).toBeGreaterThan(0.5);
+    });
+
+    test("switching back to the turntable stops adding roll without straightening the view", () => {
+        const cc = withOrbitMode("trackball");
+        drag(cc, 6, 40, 25);
+        const rolled = roll(cc);
+        expect(Math.abs(rolled)).toBeGreaterThan(0.5);
+
+        // A settings change re-aims the drag, not the pose on screen: the view stays rolled,
+        // and the turntable's promise is only that its own drags add no further roll.
+        Config.instance.orbitMode = "turntable";
+        drag(cc, 6, 40, 25);
+        expect(roll(cc)).toBeCloseTo(rolled, 6);
+    });
+
+    test("a trackball yaw turns about the camera's own up, a turntable yaw about world Z", () => {
+        const trackball = horizontalDragAfterPitch("trackball");
+        // The drag did turn the camera around its target...
+        expect(trackball.position.x).not.toBeCloseTo(trackball.pitched.position.x);
+        // ...about its own up axis, which the turn therefore leaves where it was.
+        expect(trackball.up.x).toBeCloseTo(trackball.pitched.up.x);
+        expect(trackball.up.y).toBeCloseTo(trackball.pitched.up.y);
+        expect(trackball.up.z).toBeCloseTo(trackball.pitched.up.z);
+
+        const turntable = horizontalDragAfterPitch("turntable");
+        expect(turntable.up.x).not.toBeCloseTo(turntable.pitched.up.x);
     });
 });
 

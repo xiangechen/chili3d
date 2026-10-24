@@ -146,6 +146,21 @@ describe("Config", () => {
         });
     });
 
+    describe("orbitMode", () => {
+        afterEach(() => {
+            Config.instance.orbitMode = "turntable";
+        });
+
+        test("should default to the turntable, keeping Z up", () => {
+            expect(Config.instance.orbitMode).toBe("turntable");
+        });
+
+        test("should set orbit mode", () => {
+            Config.instance.orbitMode = "trackball";
+            expect(Config.instance.orbitMode).toBe("trackball");
+        });
+    });
+
     describe("themeMode", () => {
         test("should set light theme mode", () => {
             Config.instance.themeMode = "light";
