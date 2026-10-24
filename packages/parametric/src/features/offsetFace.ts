@@ -38,7 +38,10 @@ import { ID_COMPONENT_SEPARATOR } from "./trackedId";
  *
  * The kernel refuses more than it fails (see `offsetFacesTracked` in `shapeFactory.ts`), and the
  * failures it DOES report are classified rather than worded — the wording, with the "max ≈ this"
- * the kernel only knows by searching for it, is `problemMessage` below.
+ * the kernel only knows by searching for it, is `problemMessage` below. `keepRounds` is passed
+ * through as the kernel's REQUIREMENT flag: a round the move would re-radius is a refusal (status
+ * 7), never a quietly different body; a distance the plain path cannot take either keeps its own
+ * status (too far / a crease), so the message still names the real problem.
  */
 
 const offsetFaceHandler: FeatureHandler<OffsetFaceFeatureData> = {
@@ -150,7 +153,9 @@ function buildOffsetFace(
     const offset = shapeFactory.offsetFacesTracked;
     if (offset === undefined) return Result.err("The kernel cannot offset faces");
     const rounds = keepRounds ? roundFaces(input, context.tracking?.inputFaceIds) : [];
-    const built = offset(input, faces, distance, rounds);
+    // `keepRounds` is a REQUIREMENT, not a hint: a round the move would re-radius and the kernel
+    // cannot re-make is a refusal (status 7), not a body that comes back at another radius.
+    const built = offset(input, faces, distance, rounds, keepRounds);
     if (!built.isOk) return Result.err(problemMessage(built.error, distance));
 
     const tracking = context.tracking;
@@ -202,7 +207,7 @@ function formatLength(value: number): string {
 
 /**
  * What to tell the user about a failed offset, from the kernel's classification (see
- * `OffsetFaceProblem`). Worded here rather than in the kernel because two of the six need a
+ * `OffsetFaceProblem`). Worded here rather than in the kernel because two of the seven need a
  * number the kernel only reports, not a sentence.
  */
 function problemMessage(problem: OffsetFaceProblem, distance: number): string {
@@ -219,6 +224,8 @@ function problemMessage(problem: OffsetFaceProblem, distance: number): string {
             return "Offset Face: this body has a sealed cavity inside, which it can't handle yet. Offset the faces before hollowing the body closed, or open the cavity with a shell.";
         case 6:
             return "Offset Face: this body has rounded edges meeting at a sharp corner, which OCCT can't offset without corrupting its memory. Offset the faces before rounding the edges, or round every edge at the corner so they blend.";
+        case 7:
+            return "Offset Face: the rounds beside the moved face can't be re-made at their radius. Turn Keep rounds off, or move a face without rounds beside it.";
         default:
             return "Offset Face failed. Try a smaller distance, or other faces.";
     }

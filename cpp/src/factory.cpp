@@ -173,7 +173,9 @@ struct TrackedShapeResult {
     // `error` string cannot carry that: the caller words the message, per locale.
     // status: 1 too far (valueMilli = the largest distance that works, ×1000),
     // 2 no distance works, 3 not a solid, 4 a sealed void inside, 5 an OCCT failure,
-    // 6 rounded edges meet at a sharp corner inside one smooth chain.
+    // 6 rounded edges meet at a sharp corner inside one smooth chain, 7 the rounds beside a
+    // moving face cannot be kept (only on a `requireRounds` call, and only when the move itself
+    // would have worked — a distance the plain path also refuses keeps its own status).
     std::vector<int> offsetReport = {};
 };
 
@@ -1564,7 +1566,8 @@ static bool bindRemadeRounds(ReblendedOffset& made,
 
 static bool buildReblendedOffset(ReblendedOffset& made, const TopoDS_Shape& input,
     const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& faces, const std::vector<int>& picked,
-    const std::vector<int>& blends, double distance, TopoDS_Shape& result, bool everyRound = false)
+    const std::vector<int>& blends, double distance, TopoDS_Shape& result, bool everyRound = false,
+    bool* roundsAtRisk = nullptr)
 {
     try {
         // What has to move, and which rounds that drags in: every round the moving faces run into
@@ -1573,7 +1576,12 @@ static bool buildReblendedOffset(ReblendedOffset& made, const TopoDS_Shape& inpu
         // every round drags none of them in and leaves the crease that made it unusual in place.
         const std::vector<std::vector<int>> smooth = smoothAdjacency(input, faces);
         const std::vector<char> moves = movingWithoutRounds(picked, blends, smooth);
-        const std::vector<int> remake = everyRound ? blends : roundsToRemake(blends, moves, smooth);
+        // The rounds the move would otherwise re-radius — what `requireRounds` needs told apart
+        // from the rounds merely handed over (a body may carry rounds nowhere near the pick).
+        const std::vector<int> atRisk = roundsToRemake(blends, moves, smooth);
+        if (roundsAtRisk != nullptr)
+            *roundsAtRisk = !atRisk.empty();
+        const std::vector<int> remake = everyRound ? blends : atRisk;
         if (remake.empty())
             return false;
         std::vector<std::vector<int>> rails;
@@ -2784,11 +2792,13 @@ public:
 
     // The offset that keeps the rounds at their own radius, tried FIRST and only when the caller named
     // some: OCCT would move a round with the face it runs into and change its radius (see
-    // `buildReblendedOffset`). When this works the plain path never runs; when it does not, the plain
-    // path is exactly what it was.
+    // `buildReblendedOffset`). When this works the plain path never runs; when it does not, the
+    // caller still has to classify the failure — `roundsAtRisk` says whether a round was actually
+    // beside a moving face, which is what decides between "too far" (the plain path's own answer)
+    // and "the rounds cannot be kept".
     static TrackedShapeResult reblendedAttempt(const TopoDS_Shape& shape,
         const NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher>& faces, const std::vector<int>& picked,
-        const std::vector<int>& blends, double distance, bool everyRound = false)
+        const std::vector<int>& blends, double distance, bool everyRound = false, bool* roundsAtRisk = nullptr)
     {
         TopoDS_Shape copy;
         NCollection_IndexedMap<TopoDS_Shape, TopTools_ShapeMapHasher> copyFaces;
@@ -2796,7 +2806,8 @@ public:
             return noOffset();
         ReblendedOffset reblended;
         TopoDS_Shape result;
-        if (!buildReblendedOffset(reblended, copy, copyFaces, picked, blends, distance, result, everyRound))
+        if (!buildReblendedOffset(
+                reblended, copy, copyFaces, picked, blends, distance, result, everyRound, roundsAtRisk))
             return noOffset();
         return TrackedShapeResult { result, true, "", faceHistory(reblended, copy, result),
             edgeHistory(reblended, copy, result), {}, {}, {}, {} };
@@ -2897,8 +2908,15 @@ public:
     // message) and, where the failure needed a search to describe, an `offsetReport`. The three
     // guards before the build are the ones that must NOT reach OCCT — a trap is not catchable
     // under -sDISABLE_EXCEPTION_CATCHING=1, and the heap may already be corrupt.
+    //
+    // `requireRounds` turns the reblend's silent fallback into a refusal: when the plain path COULD
+    // do the move but only by re-radiusing the named rounds beside it, the answer is status 7
+    // instead of a body whose rounds quietly changed radius. The refusal is deliberately checked
+    // after the plain build: a distance that path refuses too is a genuine "too far" (1, with its
+    // bound) or a crease (6), not a rounding complaint. A named round nowhere near a moving face is
+    // not at risk and never causes a refusal.
     static TrackedShapeResult offsetFacesTracked(const TopoDS_Shape& shape, const ShapeArray& faces, double distance,
-        const ShapeArray& rounds)
+        const ShapeArray& rounds, bool requireRounds)
     {
         const std::vector<TopoDS_Face> pickedFaces = vecFromJSArray<TopoDS_Face>(faces);
         if (shape.IsNull() || pickedFaces.empty())
@@ -2921,13 +2939,23 @@ public:
                 return refused("Offset face: a face does not belong to the shape");
             }
             const std::vector<int> blends = blendIndices(facesMap, vecFromJSArray<TopoDS_Face>(rounds), picked);
+            // Whether a named round actually runs into a moving face; topology alone, so it says
+            // nothing about whether THIS distance works.
+            bool roundsAtRisk = false;
+            const auto tryReblend = [&](bool everyRound) {
+                return reblendedAttempt(
+                    shape, facesMap, picked, blends, distance, everyRound, &roundsAtRisk);
+            };
             // The reblend gets FIRST refusal, ahead of the smooth-chain guard below: taking the
             // rounds off is what makes a body whose chains carry a crease offsettable at all, and
             // the guard refuses every plain offset of one.
             if (!blends.empty()) {
-                const TrackedShapeResult reblended = reblendedAttempt(shape, facesMap, picked, blends, distance);
+                const TrackedShapeResult reblended = tryReblend(false);
                 if (reblended.isOk)
                     return reblended;
+                // Not a status 7 yet: whether the move is possible at all is decided below, and a
+                // distance the plain path refuses has a more accurate answer than "the rounds
+                // cannot be kept".
             }
             // The body OCCT's offset corrupts its own heap on: one smooth chain with a sharp edge
             // inside it (two fillets meeting at a corner with no blend). Refused for ANY offset of
@@ -2941,15 +2969,22 @@ public:
                 // crease still in the body. So take every round the caller named off instead: that
                 // is what the crease is made of.
                 if (!blends.empty()) {
-                    const TrackedShapeResult all = reblendedAttempt(shape, facesMap, picked, blends, distance, true);
+                    const TrackedShapeResult all = tryReblend(true);
                     if (all.isOk)
                         return all;
                 }
+                // There is no plain-offset alternative to withhold here — the guard forbids one —
+                // so the reblend's own reach is the answer: too far (with its bound), or 6.
                 return creaseRefusal(shape, facesMap, picked, blends, distance);
             }
             // OCCT moves a picked face's smooth neighbours with it, so those are checked too.
             const std::vector<int> moving = smoothClosure(chain, picked);
-            return plainThenDivided(shape, facesMap, picked, moving, distance);
+            const TrackedShapeResult plain = plainThenDivided(shape, facesMap, picked, moving, distance);
+            // The move works — but only by re-radiusing the rounds beside it, which is exactly
+            // what `requireRounds` refuses. No distance is given: a smaller one would not help.
+            if (plain.isOk && requireRounds && roundsAtRisk)
+                return refused("Offset face: the rounds beside the moved face cannot be kept", { 7, 0 });
+            return plain;
         } catch (...) {
             return refused("Offset face failed", { 5, 0 });
         }

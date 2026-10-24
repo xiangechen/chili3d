@@ -679,7 +679,7 @@ interface EmbindModule {
     sweep(_0: Array<TopoDS_Shape>, _1: TopoDS_Wire, _2: boolean, _3: boolean): ShapeResult;
     makeThickSolidByJoin(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: GeomAbs_JoinType, _4: BRepOffset_Mode, _5: boolean): ShapeResult;
     makeThickSolidByJoinTracked(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: GeomAbs_JoinType, _4: BRepOffset_Mode, _5: boolean): TrackedShapeResult;
-    offsetFacesTracked(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: Array<TopoDS_Shape>): TrackedShapeResult;
+    offsetFacesTracked(_0: TopoDS_Shape, _1: Array<TopoDS_Shape>, _2: number, _3: Array<TopoDS_Shape>, _4: boolean): TrackedShapeResult;
     simplifyShape(_0: TopoDS_Shape, _1: boolean, _2: boolean, _3: Array<TopoDS_Shape>, _4: number, _5: number): ShapeResult;
     booleanCommon(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;
     booleanCut(_0: Array<TopoDS_Shape>, _1: Array<TopoDS_Shape>): ShapeResult;

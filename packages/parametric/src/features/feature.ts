@@ -533,10 +533,17 @@ export interface OffsetFaceFeatureData extends FeatureBase {
      * made again at their own radius, so moving a wall neither re-radiuses them nor drags the
      * faces past them along (Fusion's behavior, and what an imported `.f3d` expects).
      *
+     * A REQUIREMENT, not a best effort. When the rounds beside a moving face cannot be re-made the
+     * offset is REFUSED (kernel status 7), the feature's error is worded, and the body keeps the
+     * shape it had — OCCT's own re-radiused body is never used as a silent fallback. A distance
+     * that is itself impossible keeps its own answer (too far, with the bound) instead.
+     *
      * ABSENT MEANS OFF, and that is deliberate rather than a defaulted-on convenience: an offset
      * saved before this option existed has no field, and reading it as ON would recompute it into a
      * different shape than the one it was saved as. A new offset written by the command sets it to
-     * whatever the panel shows (on, unless turned off).
+     * whatever the panel shows (on, unless turned off). This makes `true` a hard requirement for
+     * documents written AFTER the option existed: one that used to re-evaluate into a re-radiused
+     * body now fails instead. That is a deliberate, accepted behavior change.
      */
     readonly keepRounds?: boolean;
 }

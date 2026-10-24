@@ -100,8 +100,9 @@ export interface OffsetFaceProblem {
     /**
      * `1` the distance is too far (read `maxDistance`), `2` no distance works on these faces,
      * `3` the body is not a solid, `4` the body has a sealed void inside, `5` OCCT raised,
-     * `6` rounded edges meet at a sharp corner inside one smooth chain. `0` when the kernel
-     * gave no classification at all.
+     * `6` rounded edges meet at a sharp corner inside one smooth chain, `7` the rounds beside a
+     * moving face cannot be kept (only with `requireRounds`, and only when the move would
+     * otherwise have succeeded). `0` when the kernel gave no classification at all.
      */
     readonly status: number;
     /**
@@ -278,12 +279,20 @@ export interface IShapeFactory {
      * Omit them for OCCT's own, where a round is a smooth neighbour like any other and travels
      * with the face, growing or shrinking by the distance. Only a cylinder or a torus among the
      * faces given counts as a round; the rest are ignored.
+     *
+     * `requireRounds` makes keeping them a requirement rather than a preference: when the plain
+     * path could do the move but only by re-radiusing a named round beside a moving face, the
+     * call is refused (status 7) instead of returning that body silently. A distance or a body
+     * the plain path refuses too keeps its own classification (too far / a crease) — that is
+     * the answer the caller can act on. A named round nowhere near the moving faces is not at
+     * risk and never causes a refusal.
      */
     offsetFacesTracked?(
         shape: IShape,
         faces: IFace[],
         distance: number,
         rounds?: IFace[],
+        requireRounds?: boolean,
     ): Result<TrackedShape, OffsetFaceProblem>;
     prismTracked?(shape: IShape, vec: XYZ): Result<TrackedShape>;
     revolveTracked?(profile: IShape, axis: Line, angle: number): Result<TrackedShape>;

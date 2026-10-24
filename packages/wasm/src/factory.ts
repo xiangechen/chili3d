@@ -1085,6 +1085,7 @@ export class ShapeFactory implements IShapeFactory {
         faces: IFace[],
         distance: number,
         rounds: IFace[] = [],
+        requireRounds = false,
     ): Result<TrackedShape, OffsetFaceProblem> {
         // The feature checks both before calling; guarded here so the kernel is never asked to
         // move faces that are not there, or by nothing.
@@ -1098,6 +1099,7 @@ export class ShapeFactory implements IShapeFactory {
                 ensureOccShape(faces),
                 distance,
                 ensureOccShape(rounds),
+                requireRounds,
             );
         } catch {
             return Result.err({ status: 5, maxDistance: 0 });

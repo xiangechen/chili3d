@@ -4,9 +4,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type IEdge, type IFace, Plane, ShapeTypes, XYZ } from "@chili3d/core";
+import { type IEdge, type IFace, Matrix4, Plane, ShapeTypes, XYZ } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
+import { rs } from "@rstest/core";
+import { offsetPreview } from "../src/commands/offsetFaceCommand";
 import { captureEdgeRef } from "../src/features/edgeRef";
 import type { FeatureData, FilletFeatureData, OffsetFaceFeatureData } from "../src/features/feature";
 import { captureProfileRef } from "../src/features/profileRef";
@@ -225,6 +227,69 @@ describe("offset face — keepRounds", () => {
         // OCCT offsets a round with the face it runs into: it comes back 3 + 4 wide, pushing the
         // face it meets out by the same 4 mm.
         expect(body.shape.unchecked()!.boundingBox().max.y).toBeCloseTo(24, 1);
+    });
+
+    /** The plate with EVERY edge rounded R3 — the corner patches defeat the reblend. */
+    function allRoundedPlate() {
+        const made = plate(scene(rect(-20, -15, 20, 15)));
+        const edges = made.body.shape.unchecked()!.findSubShapes(ShapeTypes.edge) as IEdge[];
+        made.body.setFeaturesEmitShapeChanged([
+            ...made.body.features,
+            {
+                id: "f1",
+                type: "fillet",
+                radius: 3,
+                edges: edges.map((edge, index) => captureEdgeRef(edge, made.body.edgeIdAt(index))),
+            } satisfies FilletFeatureData,
+        ]);
+        const faces = facesOf(made.body);
+        const index = topIndex(faces);
+        return { body: made.body, top: { face: faces[index], id: made.body.faceIdAt(index) } };
+    }
+
+    test("a round it cannot keep is a refusal, not a body at another radius", () => {
+        const { body, top } = allRoundedPlate();
+
+        withOffset({ body, top }, -2.5, { keepRounds: true });
+
+        // The plain path would answer — with every 3 mm round turned into 0.5. `keepRounds` is a
+        // requirement now, so the feature reports the refusal instead of silently re-radiusing.
+        expect(errors(body)[2]).toContain("can't be re-made at their radius");
+    });
+
+    test("too far still reports the distance bound, not the rounds", () => {
+        const { body, top } = allRoundedPlate();
+
+        withOffset({ body, top }, -30, { keepRounds: true });
+
+        // The reblend fails here for a distance reason too, but so does the plain path — the
+        // actionable answer is the bound, and "turn Keep rounds off" would lead straight back.
+        expect(errors(body)[2]).toContain("max ≈");
+    });
+
+    test("the preview asks for the same rounds policy the feature commits with", () => {
+        const { body, wall } = roundedPlate();
+        const branch = shapeFactory.offsetFacesTracked!;
+        const spy = rs.fn((...args: Parameters<typeof branch>) => branch.apply(shapeFactory, args));
+        (shapeFactory as any).offsetFacesTracked = spy;
+        try {
+            const picked = [
+                {
+                    shape: wall,
+                    owner: { node: body },
+                    transform: Matrix4.identity(),
+                    indexes: [facesOf(body).indexOf(wall)],
+                },
+            ] as any;
+
+            expect(offsetPreview(body, picked, 4, true)).toBeDefined();
+            expect(offsetPreview(body, picked, 4, false)).toBeDefined();
+        } finally {
+            (shapeFactory as any).offsetFacesTracked = branch;
+        }
+
+        expect(spy.mock.calls[0][4]).toBe(true);
+        expect(spy.mock.calls[1][4]).toBe(false);
     });
 
     test("an offset saved before the option reads as off, and keeps its old shape", () => {

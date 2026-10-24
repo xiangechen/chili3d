@@ -278,6 +278,7 @@ export function offsetPreview(
         indexes.map((index) => faces[index]),
         distance,
         rounds,
+        keepRounds,
     );
     if (!result.isOk) return undefined;
 

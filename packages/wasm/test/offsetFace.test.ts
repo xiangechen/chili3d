@@ -162,4 +162,89 @@ describe("ShapeFactory — offset face", () => {
         expect(result.isOk).toBe(false);
         expect(result.isOk ? 0 : result.error.status).toBe(6);
     });
+
+    test("requires a named round to be kept instead of silently re-radiusing it", () => {
+        // Every edge rounded: the reblend cannot carry the corner patches, so OCCT's own path
+        // answers with every 3 mm round turned into 0.5. `requireRounds` makes that a refusal.
+        const solid = box(40, 30, 20);
+        const allEdges = solid.findSubShapes(ShapeTypes.edge).map((_, index) => index);
+        const rounded = unwrapOk(factory.fillet(solid, allEdges, 3));
+        const top = facing(rounded, XYZ.unitZ);
+        const faces = rounded.findSubShapes(ShapeTypes.face) as IFace[];
+        const radiiOf = (shape: IShape) =>
+            (shape.findSubShapes(ShapeTypes.face) as IFace[])
+                .map((face) => face.surface() as { radius?: number; minorRadius?: number })
+                .map((surface) => surface.radius ?? surface.minorRadius)
+                .filter((radius): radius is number => typeof radius === "number");
+
+        const plain = unwrapOffset(offsetFaces(rounded, [top], -2.5, faces));
+        expect(Math.min(...radiiOf(plain.shape))).toBeLessThan(1);
+
+        const required = factory.offsetFacesTracked!(rounded, [top], -2.5, faces, true);
+
+        expect(required.isOk).toBe(false);
+        expect(required.isOk ? 0 : required.error.status).toBe(7);
+    });
+
+    test("keeps the plain path's classification when the distance itself is the problem", () => {
+        // Same body as above, pushed through: the reblend cannot do it, but neither can the plain
+        // path, and "too far, max ≈ 2.7" is the answer the caller can act on — not a rounding
+        // complaint whose advice ("turn Keep rounds off") would lead straight back to status 1.
+        const solid = box(40, 30, 20);
+        const allEdges = solid.findSubShapes(ShapeTypes.edge).map((_, index) => index);
+        const rounded = unwrapOk(factory.fillet(solid, allEdges, 3));
+        const top = facing(rounded, XYZ.unitZ);
+        const faces = rounded.findSubShapes(ShapeTypes.face) as IFace[];
+
+        const plain = factory.offsetFacesTracked!(rounded, [top], -50, faces, false);
+        const required = factory.offsetFacesTracked!(rounded, [top], -50, faces, true);
+
+        expect(plain.isOk).toBe(false);
+        expect(required.isOk).toBe(false);
+        const plainProblem = plain.isOk ? undefined : plain.error;
+        const requiredProblem = required.isOk ? undefined : required.error;
+        expect(requiredProblem?.status).toBe(plainProblem?.status);
+        expect(requiredProblem?.status).toBe(1);
+        expect(requiredProblem?.maxDistance).toBeCloseTo(plainProblem!.maxDistance, 2);
+        expect(requiredProblem?.maxDistance).toBeGreaterThan(2);
+    });
+
+    test("never reports unkeepable rounds on a body whose plain path is unsafe", () => {
+        // Top edges rounded, vertical ones sharp: the crease guard refuses every plain offset of
+        // this body, so there is no re-radiused alternative to withhold — whatever the distance,
+        // the answer is the reblend's own (ok, too far, or the crease classification), never 7.
+        const solid = box(20, 30, 10);
+        const edges = solid.findSubShapes(ShapeTypes.edge);
+        const topEdges = edges
+            .map((_, index) => index)
+            .filter((index) => edges[index].boundingBox().min.z > 5);
+        const rounded = unwrapOk(factory.fillet(solid, topEdges, 3));
+        const top = facing(rounded, XYZ.unitZ);
+        const faces = rounded.findSubShapes(ShapeTypes.face) as IFace[];
+
+        for (const distance of [2, -5, -50]) {
+            const result = factory.offsetFacesTracked!(rounded, [top], distance, faces, true);
+            expect(result.isOk ? 0 : result.error.status).not.toBe(7);
+        }
+        // The reblend really is what carries this body: the plain path is refused above, this is not.
+        expect(factory.offsetFacesTracked!(rounded, [top], 2, faces, true).isOk).toBe(true);
+    });
+
+    test("does not refuse when the named rounds are nowhere near the moving faces", () => {
+        const solid = box(20, 30, 10);
+        // The rounds sit on the -x side; the +x wall is the one that moves, so none is at risk.
+        const edges = solid.findSubShapes(ShapeTypes.edge);
+        const leftVertical = edges
+            .map((_, index) => index)
+            .filter((index) => edges[index].boundingBox().max.x < 1)
+            .filter((index) => edges[index].boundingBox().max.z - edges[index].boundingBox().min.z > 5);
+        const rounded = unwrapOk(factory.fillet(solid, leftVertical, 2));
+        const rounds = (rounded.findSubShapes(ShapeTypes.face) as IFace[]).filter(
+            (face) => !face.surface().isPlanar(),
+        );
+
+        const result = factory.offsetFacesTracked!(rounded, [facing(rounded, XYZ.unitX)], 2, rounds, true);
+
+        expect(result.isOk).toBe(true);
+    });
 });
