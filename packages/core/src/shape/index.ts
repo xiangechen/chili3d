@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./curve";
+export * from "./faceGroups";
 export * from "./geometry";
 export * from "./geometryUtils";
 export * from "./lineType";
@@ -13,3 +14,4 @@ export * from "./shapeFactory";
 export * from "./shapeProvider";
 export * from "./shapeType";
 export * from "./surface";
+export * from "./thicken";

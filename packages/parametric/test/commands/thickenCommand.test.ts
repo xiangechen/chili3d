@@ -11,6 +11,7 @@ import {
     Matrix4,
     PropertyUtils,
     Result,
+    SELECTED_FACE_STATE,
     type ShapeType,
     ShapeTypes,
     VisualStates,
@@ -18,7 +19,6 @@ import {
 } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import { SelectThickenFacesStep, ThickenFeatureCommand } from "../../src/commands/thickenCommand";
 import type { ThickenFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
@@ -265,6 +265,7 @@ describe("ThickenFeatureCommand commit", () => {
             shapeType: ShapeTypes.solid,
             isEqual: () => false,
             dispose: rs.fn(),
+            transformedMul: () => slab,
             findSubShapes: () => [],
             boundingBox: () => new BoundingBox({ x: 0, y: 0, z: 1 }, { x: 1, y: 1, z: 2 }),
             mesh: { faces: { range: [] }, edges: { range: [] } },

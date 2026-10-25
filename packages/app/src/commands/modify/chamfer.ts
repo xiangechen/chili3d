@@ -15,7 +15,14 @@ export class ChamferCommand extends EdgeCornerCommand {
     }
 
     set length(value: number) {
-        this.setProperty("length", value);
+        this.setProperty("length", value, () => this.refreshCornerPreview());
+    }
+
+    protected override get cornerValue() {
+        return this.length;
+    }
+    protected override set cornerValue(value: number) {
+        this.length = value;
     }
 
     protected override applyToBody(shape: IShape, edgeIndexes: number[]): Result<IShape> {

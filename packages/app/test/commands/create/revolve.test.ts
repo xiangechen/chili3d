@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4, ShapeTypes, XYZ } from "@chili3d/core";
+import { Matrix4, ShapeTypes, VisualStates, XYZ } from "@chili3d/core";
 import { afterAll, beforeAll, describe, expect, test } from "@rstest/core";
 import { RevolvedNode } from "../../../src/bodys/revolve";
 import { Revolve } from "../../../src/commands/create/revolve";
@@ -139,20 +139,69 @@ describe("Revolve", () => {
         });
     });
 
-    describe("getSteps callbacks", () => {
-        test("the axis step should carry beforeSelection/afterSelection that update highlight state", () => {
+    describe("canExecute", () => {
+        const lineEdge = {
+            shapeType: ShapeTypes.edge,
+            curve: { basisCurve: { direction: XYZ.unitZ } },
+        };
+        function seed(axisShape: any, angle = 360) {
             const cmd = new Revolve();
-            const { doc } = wireCommand(cmd);
+            cmd.angle = angle;
+            wireCommand(cmd);
             seedStepDatas(cmd, [
                 shapeStepResult([{ shape: { shapeType: ShapeTypes.face }, point: XYZ.zero }]),
+                shapeStepResult([{ shape: axisShape, point: XYZ.zero }]),
+            ]);
+            return cmd;
+        }
+
+        test("accepts a straight edge as the axis", () => {
+            expect((seed(lineEdge) as any).canExecute()).toBe(true);
+        });
+
+        test("refuses the kept profile when confirming hands it back as the axis", () => {
+            // The axis step keeps the profile selected; Enter accepts the selection, so the
+            // profile itself can arrive as the step's answer.
+            const cmd = seed({
+                shapeType: ShapeTypes.face,
+                normal: () => [XYZ.zero, XYZ.unitZ],
+            });
+            expect((cmd as any).canExecute()).toBe(false);
+        });
+
+        test("refuses an edge whose basis curve is not a line", () => {
+            expect(
+                (seed({ shapeType: ShapeTypes.edge, curve: { basisCurve: {} } }) as any).canExecute(),
+            ).toBe(false);
+        });
+
+        test("refuses a zero angle", () => {
+            expect((seed(lineEdge, 0) as any).canExecute()).toBe(false);
+        });
+
+        test("refuses a straight-edge profile handed back as its own axis", () => {
+            const cmd = new Revolve();
+            wireCommand(cmd);
+            const node = {};
+            const shape = shapeData({ shape: lineEdge as any, node });
+            seedStepDatas(cmd, [
+                { type: "shape" as const, shapes: [shape] } as any,
+                { type: "shape" as const, shapes: [shape] } as any,
             ]);
 
-            const steps = (cmd as any).getSteps();
-            const opts = steps[1].options;
-            expect(() => opts.beforeSelection()).not.toThrow();
-            expect(() => opts.afterSelection()).not.toThrow();
-            expect((doc.visual.highlighter.addState as any).mock.calls.length).toBeGreaterThanOrEqual(1);
-            expect((doc.visual.highlighter.removeState as any).mock.calls.length).toBeGreaterThanOrEqual(1);
+            expect((cmd as any).canExecute()).toBe(false);
+        });
+    });
+
+    describe("getSteps", () => {
+        test("the axis step should keep the profile selected and carry its own states", () => {
+            const cmd = new Revolve();
+            wireCommand(cmd);
+
+            const opts = (cmd as any).getSteps()[1].options;
+            expect(opts.keepSelection).toBe(true);
+            expect(opts.highlightState).toBe(VisualStates.edgeHighlight);
+            expect(opts.selectedState).toBe(VisualStates.edgeSelected);
         });
     });
 });

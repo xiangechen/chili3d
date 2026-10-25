@@ -9,13 +9,13 @@ import {
     type INode,
     type INodeVisual,
     type IStep,
+    SELECTED_FACE_STATE,
     ShapeTypes,
     ShapeTypeUtils,
     type SnapResult,
     type VisualShapeData,
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 /**
  * The multi-face pick a face-consuming feature opens with: as ONE step that stays open until the

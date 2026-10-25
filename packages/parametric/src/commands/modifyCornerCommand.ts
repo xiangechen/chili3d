@@ -16,12 +16,17 @@ import {
     LENGTH_UNITS,
     type Matrix4,
     MultistepCommand,
+    outwardNormalAt,
     type ParameterValue,
     Precision,
     PubSub,
     property,
+    SELECTED_FACE_STATE,
     ShapeTypes,
     Transaction,
+    type ValueArrowData,
+    type ValueArrowPickHandler,
+    ValueArrowSelectStep,
     type VisualShapeData,
     VisualStates,
     type XYZ,
@@ -34,11 +39,8 @@ import {
 } from "../features/feature";
 import { idHasPrefix } from "../features/trackedId";
 import { ParametricBodyNode } from "../parametricBodyNode";
-import { outwardNormalAt } from "./arrowHandle";
 import type { PickSettledCommand } from "./pickSettled";
 import { evaluateChainSnapshot } from "./reselectSession";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
-import { type ValueArrowData, type ValueArrowPickHandler, ValueArrowSelectStep } from "./valueArrowPickStep";
 
 /** The corner features whose size this edits. */
 type CornerFeatureData = FilletFeatureData | ChamferFeatureData;

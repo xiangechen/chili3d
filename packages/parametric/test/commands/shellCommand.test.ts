@@ -9,13 +9,13 @@ import {
     Matrix4,
     PropertyUtils,
     Result,
+    SELECTED_FACE_STATE,
     ShapeTypes,
     VisualStates,
     XYZ,
 } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import { SelectShellFacesStep, ShellFeatureCommand } from "../../src/commands/shellCommand";
 import type { ShellFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";

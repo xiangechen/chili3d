@@ -10,10 +10,10 @@ import {
     type IFace,
     type JoinType,
     MultistepCommand,
-    type OffsetMode,
     PubSub,
     property,
     retargetInstanceSources,
+    SELECTED_FACE_STATE,
     SelectShapeStep,
     type ShapeNode,
     ShapeTypes,
@@ -38,28 +38,6 @@ export class ShellCommand extends MultistepCommand {
         this.setProperty("joinType", value, this.redisplayTempShape);
     }
 
-    @property("option.command.offsetMode", {
-        combobox: Combobox.from([
-            "option.command.offsetMode.skin",
-            "option.command.offsetMode.pipe",
-            "option.command.offsetMode.rectoVerso",
-        ]),
-    })
-    get offsetMode(): I18nKeys {
-        return this.getPrivateValue("offsetMode", "option.command.offsetMode.skin");
-    }
-    set offsetMode(value: I18nKeys) {
-        this.setProperty("offsetMode", value, this.redisplayTempShape);
-    }
-
-    @property("option.command.intersection")
-    get intersection() {
-        return this.getPrivateValue("intersection", false);
-    }
-    set intersection(value: boolean) {
-        this.setProperty("intersection", value, this.redisplayTempShape);
-    }
-
     @property("option.command.thickness")
     get thickness() {
         return this.getPrivateValue("thickness", 1);
@@ -69,13 +47,35 @@ export class ShellCommand extends MultistepCommand {
         this.setProperty("thickness", value, this.redisplayTempShape);
     }
 
+    /** Onshape's "Shell outward": the wall is added outside the boundary instead of carved out. */
+    @property("option.command.outward")
+    get outward() {
+        return this.getPrivateValue("outward", false);
+    }
+
+    set outward(value: boolean) {
+        this.setProperty("outward", value, this.redisplayTempShape);
+    }
+
     protected override executeMainTask() {
+        if (!(this.thickness > 0)) {
+            PubSub.default.pub("showToast", "error.default:{0}", "Invalid thickness");
+            return;
+        }
+        const faces = this.stepDatas.at(-1)!.shapes.map((x) => x.shape as IFace);
+        if (faces.length === 0) {
+            // The kernel answers an empty closing set with the shrunken solid rather than a
+            // hollow body, so a shell with nothing open is refused up front.
+            PubSub.default.pub("showToast", "error.default:{0}", "Select at least one face to open");
+            return;
+        }
+
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
-            const faces = this.stepDatas.at(-1)!.shapes.map((x) => x.shape as IFace);
             const shellShape = this.getShellShape(faces);
 
             if (!shellShape.isOk) {
+                PubSub.default.pub("displayError", shellShape.error);
                 return;
             }
 
@@ -96,14 +96,13 @@ export class ShellCommand extends MultistepCommand {
 
     private getShellShape(faces: IFace[]) {
         const node = this.stepDatas[0].shapes[0].owner.node as ShapeNode;
-        return shapeFactory.makeThickSolidByJoin(
-            node.shape.value,
-            faces,
-            this.thickness,
-            this.mapJoinType(),
-            this.mapOffsetMode(),
-            this.intersection,
-        );
+        // The kernel's sign: negative carves the wall out of the input, positive stands it
+        // outside. A shell is hollow by default, so `outward` flips the sign.
+        const thickness = this.outward ? this.thickness : -this.thickness;
+        // The offset mode and the intersection flag the kernel accepts change nothing on
+        // this thick-solid path (measured: three modes × both flags, identical output on a
+        // box, an L, a holed plate, a cylinder and a stepped block), so they are not exposed.
+        return shapeFactory.makeThickSolidByJoin(node.shape.value, faces, thickness, this.mapJoinType());
     }
 
     protected override getSteps() {
@@ -122,6 +121,14 @@ export class ShellCommand extends MultistepCommand {
             }),
             new SelectShapeStep(ShapeTypes.face, "prompt.select.openFaces", {
                 multiple: true,
+                // Translucent fill with the boundary outlined: an opaque selection hides the
+                // preview and the faces behind the ones already picked.
+                selectedState: SELECTED_FACE_STATE,
+                // The opening is one body's: faces of another body picked now would be handed
+                // to the kernel against the first one's shape.
+                nodeFilter: {
+                    allow: (node) => node === this.stepDatas.at(0)?.shapes.at(0)?.owner.node,
+                },
                 beforeSelection: () => {
                     this.addFirstSelectedState(VisualStates.faceTransparent);
                     this.document.selection.onShapeChanged.sub(this.onOpenFacesChanged);
@@ -129,14 +136,7 @@ export class ShellCommand extends MultistepCommand {
                 afterSelection: () => {
                     this.removeFirstSelectedState(VisualStates.faceTransparent);
                     this.document.selection.onShapeChanged.remove(this.onOpenFacesChanged);
-                    if (this.tempVisual) {
-                        this.document.visual.context.removeMesh(this.tempVisual);
-                        this.tempVisual = undefined;
-                    }
-                    const nodeVisual = this.stepDatas.at(0)?.shapes.at(0)?.owner;
-                    if (nodeVisual) {
-                        nodeVisual.visible = true;
-                    }
+                    this.clearTempShape();
                 },
             }),
         ];
@@ -148,31 +148,35 @@ export class ShellCommand extends MultistepCommand {
 
     private readonly redisplayTempShape = () => {
         const selected = this.document.selection.getSelectedShapes();
-        if (this.tempVisual) {
-            this.document.visual.context.removeMesh(this.tempVisual);
-            this.tempVisual = undefined;
-        }
-        const nodeVisual = this.stepDatas.at(0)?.shapes.at(0)?.owner;
-        if (!nodeVisual) return;
-        if (selected.length === 0) {
-            nodeVisual.visible = true;
-            return;
-        }
+        this.clearTempShape();
+        if (selected.length === 0) return;
 
         const shellShape = this.getShellShape(selected.map((x) => x.shape as IFace));
-        if (!shellShape.isOk) {
-            nodeVisual.visible = true;
-            PubSub.default.pub("showToast", "error.default:{0}", "shell failed");
-            return;
-        }
+        // A preview the kernel refuses is simply not shown: the user is still picking, and a
+        // toast per selection change would bury the picker.
+        if (!shellShape.isOk) return;
         this.disposeStack.add(shellShape.value);
-        nodeVisual.visible = false;
-        this.tempVisual = this.document.visual.context.displayMesh(
-            [shellShape.value.mesh.faces!, shellShape.value.mesh.edges!].filter((x) => x !== undefined),
-        );
+
+        // The kernel runs in the body's local space; the preview is drawn in world coordinates.
+        const world = shellShape.value.transformedMul(this.stepDatas[0].shapes[0].transform);
+        try {
+            const { faces, edges } = world.mesh;
+            if (faces === undefined) return;
+            this.tempVisual = this.document.visual.context.displayMesh(
+                [faces, edges].filter((x) => x !== undefined),
+            );
+        } finally {
+            world.dispose();
+        }
 
         this.document.visual.update();
     };
+
+    private clearTempShape() {
+        if (this.tempVisual === undefined) return;
+        this.document.visual.context.removeMesh(this.tempVisual);
+        this.tempVisual = undefined;
+    }
 
     readonly mapJoinType = (): JoinType => {
         switch (this.joinType) {
@@ -184,19 +188,6 @@ export class ShellCommand extends MultistepCommand {
                 return "tangent";
             default:
                 throw new Error("Unknow joinType");
-        }
-    };
-
-    readonly mapOffsetMode = (): OffsetMode => {
-        switch (this.offsetMode) {
-            case "option.command.offsetMode.skin":
-                return "skin";
-            case "option.command.offsetMode.pipe":
-                return "pipe";
-            case "option.command.offsetMode.rectoVerso":
-                return "rectoVerso";
-            default:
-                throw new Error("Unknow offsetMode");
         }
     };
 }

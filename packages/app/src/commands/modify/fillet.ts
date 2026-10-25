@@ -15,7 +15,14 @@ export class FilletCommand extends EdgeCornerCommand {
     }
 
     set radius(value: number) {
-        this.setProperty("radius", value);
+        this.setProperty("radius", value, () => this.refreshCornerPreview());
+    }
+
+    protected override get cornerValue() {
+        return this.radius;
+    }
+    protected override set cornerValue(value: number) {
+        this.radius = value;
     }
 
     protected override applyToBody(shape: IShape, edgeIndexes: number[]): Result<IShape> {

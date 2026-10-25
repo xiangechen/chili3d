@@ -1,10 +1,10 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Continuities, EditableShapeNode, PubSub, ShapeTypes } from "@chili3d/core";
+import { Continuities, EditableShapeNode, PubSub, ShapeTypes, XYZ } from "@chili3d/core";
 import { afterAll, beforeAll, describe, expect, rs, test } from "@rstest/core";
 import { LoftCommand } from "../../../src/commands/create/loft";
-import { ensureGlobalStubApp, mockShape, wireCommand } from "../commandTestUtils";
+import { ensureGlobalStubApp, mockShape, shapeStepResult, wireCommand } from "../commandTestUtils";
 
 let restoreApp: () => void;
 beforeAll(() => {
@@ -33,6 +33,52 @@ describe("LoftCommand", () => {
     test("continuity should default to the first continuity option", () => {
         const cmd = new LoftCommand();
         expect(cmd.continuity).toBe(Continuities[0]);
+    });
+
+    describe("section rules", () => {
+        const vertex = () => ({ shapeType: ShapeTypes.vertex, point: () => XYZ.zero }) as any;
+        const wire = () => ({ shapeType: ShapeTypes.wire }) as any;
+        const accept = (cmd: LoftCommand, shape: any) =>
+            (cmd as any).acceptSection(shapeStepResult([{ shape }]));
+
+        test("a vertex may open the loft, and more sections may follow", () => {
+            const cmd = new LoftCommand();
+            wireCommand(cmd);
+
+            expect(accept(cmd, vertex())).toBe(true);
+            expect(accept(cmd, wire())).toBe(true);
+            expect(accept(cmd, wire())).toBe(true);
+        });
+
+        test("a vertex may close the loft", () => {
+            const cmd = new LoftCommand();
+            wireCommand(cmd);
+
+            expect(accept(cmd, wire())).toBe(true);
+            expect(accept(cmd, vertex())).toBe(true);
+        });
+
+        test("a face without an outer boundary is refused instead of thrown", () => {
+            const cmd = new LoftCommand();
+            wireCommand(cmd);
+            const face = {
+                shapeType: ShapeTypes.face,
+                outerWire: () => {
+                    throw new Error("no outer boundary");
+                },
+            } as any;
+
+            expect(accept(cmd, face)).toBe(false);
+        });
+
+        test("nothing may follow a vertex that already has a section after it", () => {
+            const cmd = new LoftCommand();
+            wireCommand(cmd);
+
+            expect(accept(cmd, wire())).toBe(true);
+            expect(accept(cmd, vertex())).toBe(true);
+            expect(accept(cmd, wire())).toBe(false);
+        });
     });
 
     describe("property setters", () => {

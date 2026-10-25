@@ -2,26 +2,24 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_COLOR,
+    ARROW_HOVER_COLOR,
+    ARROW_HOVER_TOLERANCE,
+    ARROW_LENGTH,
     type AsyncController,
+    arrowMeshes,
+    distanceToSegment,
     type I18nKeys,
     type IDocument,
     type IView,
     Line,
     Precision,
     PubSub,
+    pxSizedArrowLength,
     Result,
     type ShapeMeshData,
     XYZ,
 } from "@chili3d/core";
-import {
-    ARROW_COLOR,
-    ARROW_HOVER_COLOR,
-    ARROW_HOVER_TOLERANCE,
-    ARROW_LENGTH,
-    arrowMeshes,
-    distanceToSegment,
-    pxSizedArrowLength,
-} from "./arrowHandle";
 import { PreviewConfirmHandler } from "./previewConfirmHandler";
 
 export type { DragPreview } from "./previewConfirmHandler";

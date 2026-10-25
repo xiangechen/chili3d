@@ -3,7 +3,7 @@
 
 import type { Matrix4 } from "./math";
 import { type INode, ShapeNode } from "./model";
-import type { IShape } from "./shape";
+import { CurveUtils, type IEdge, type IShape, ShapeTypes } from "./shape";
 
 export interface IShapeFilter {
     allow(shape: IShape, transform: Matrix4): boolean;
@@ -38,5 +38,25 @@ export class ShapeNodeFilter implements INodeFilter {
         }
 
         return false;
+    }
+}
+
+/** Admits only line edges — a revolve axis pick, a pattern direction/axis pick. */
+export class LineEdgeFilter implements IShapeFilter {
+    allow(shape: IShape): boolean {
+        if (shape.shapeType !== ShapeTypes.edge) return false;
+        return CurveUtils.isLine((shape as IEdge).curve.basisCurve);
+    }
+}
+
+/**
+ * Admits line and circular edges — a point-normal plane takes its normal from either a
+ * straight edge's direction or a circle's axis.
+ */
+export class LineOrCircleEdgeFilter implements IShapeFilter {
+    allow(shape: IShape): boolean {
+        if (shape.shapeType !== ShapeTypes.edge) return false;
+        const basis = (shape as IEdge).curve.basisCurve;
+        return CurveUtils.isLine(basis) || CurveUtils.isCircle(basis);
     }
 }

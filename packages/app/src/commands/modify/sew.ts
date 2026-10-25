@@ -4,12 +4,13 @@
 import {
     command,
     EditableShapeNode,
+    GetOrSelectShapeStep,
     type IStep,
     instanceSourcesInUse,
     isReferenceGeometryNode,
     MultistepCommand,
     PubSub,
-    SelectShapeStep,
+    property,
     ShapeNode,
     ShapeTypes,
     Transaction,
@@ -22,7 +23,21 @@ import { repairShape } from "./repair";
     icon: "icon-sew",
 })
 export class Sew extends MultistepCommand {
+    /** The repair pass's tolerance: how far apart two faces may be and still be stitched. */
+    @property("common.tolerance")
+    get tolerance() {
+        return this.getPrivateValue("tolerance", 1e-7);
+    }
+
+    set tolerance(value: number) {
+        this.setProperty("tolerance", value);
+    }
+
     protected override executeMainTask() {
+        if (!(this.tolerance > 0)) {
+            PubSub.default.pub("showToast", "error.default:{0}", "Invalid tolerance");
+            return;
+        }
         // One sewed node replaces every input, so there is no successor to retarget.
         const removed = this.stepDatas[0].nodes ?? [];
         if (instanceSourcesInUse(this.document, removed).size > 0) {
@@ -36,7 +51,7 @@ export class Sew extends MultistepCommand {
                 PubSub.default.pub("showToast", "error.default:{0}", result.error);
                 return;
             }
-            const repaired = repairShape(result.value, 1e-7);
+            const repaired = repairShape(result.value, this.tolerance);
             if (repaired !== result.value) result.value.dispose();
 
             const node = new EditableShapeNode({
@@ -54,7 +69,7 @@ export class Sew extends MultistepCommand {
 
     protected override getSteps(): IStep[] {
         return [
-            new SelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
+            new GetOrSelectShapeStep(ShapeTypes.shape, "prompt.select.shape", {
                 nodeFilter: { allow: (node) => node instanceof ShapeNode && !isReferenceGeometryNode(node) },
                 selectedState: VisualStates.faceTransparent,
                 multiple: true,

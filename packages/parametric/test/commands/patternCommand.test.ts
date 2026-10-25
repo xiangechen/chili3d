@@ -2,6 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_COLOR,
+    ARROW_HOVER_COLOR,
     AsyncController,
     BoundingBox,
     CancelableCommand,
@@ -31,7 +33,6 @@ import {
     TestDocument,
 } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { ARROW_COLOR, ARROW_HOVER_COLOR } from "../../src/commands/arrowHandle";
 import "../../src/features"; // registers all feature handlers
 import {
     CircularPatternFeatureCommand,

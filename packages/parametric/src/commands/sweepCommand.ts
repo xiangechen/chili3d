@@ -14,6 +14,7 @@ import {
     type IShape,
     type IStep,
     MultistepCommand,
+    PreviewVisual,
     property,
     Result,
     SelectShapeStep,
@@ -45,7 +46,6 @@ import {
     targetCandidate,
 } from "./booleanTargets";
 import { SelectSketchProfilesStep } from "./extrudeCommand";
-import { PreviewVisual } from "./previewVisual";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -220,7 +220,9 @@ export class SweepFeatureCommand extends MultistepCommand {
             return;
         }
         try {
-            this.preview.show(this.document, preview.value.meshes, preview.value.hidden);
+            this.preview.show(this.document, preview.value.meshes, {
+                standsInFor: preview.value.hidden,
+            });
         } finally {
             preview.value.shape.dispose();
         }

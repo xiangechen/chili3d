@@ -16,6 +16,7 @@ import {
     LENGTH_UNITS,
     MultistepCommand,
     type ParameterValue,
+    PreviewVisual,
     PubSub,
     property,
     Result,
@@ -25,13 +26,12 @@ import {
     type TargetCandidate,
     type TargetSelection,
     Transaction,
+    thickenFaces,
     type VisualShapeData,
-    VisualStates,
 } from "@chili3d/core";
 import type { ThickenFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { captureProfileRef } from "../features/profileRef";
-import { connectedFaceGroups } from "../features/thickenTracked";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { buildTargetPreview, worldShape } from "./booleanPreview";
 import {
@@ -204,8 +204,7 @@ export class ThickenFeatureCommand extends MultistepCommand {
 
     // ------------------------------------------------------------------ Preview
 
-    private previewId: number | undefined;
-    private previewOwner: INodeVisual | undefined;
+    private readonly preview = new PreviewVisual();
 
     protected override async executeAsync(): Promise<void> {
         this.document.selection.onShapeChanged.sub(this.updatePreview);
@@ -224,21 +223,14 @@ export class ThickenFeatureCommand extends MultistepCommand {
      * would hide a `cut` entirely. A preview that cannot be built simply shows nothing.
      */
     protected readonly updatePreview = () => {
-        this.removePreview();
         const measured = this.build();
         if (measured === undefined) return;
 
         const preview = this.withOperation(measured);
-        if (measured.owner !== undefined) {
-            this.previewOwner = measured.owner;
-            this.document.visual.highlighter.addState(
-                this.previewOwner,
-                VisualStates.faceTransparent,
-                ShapeTypes.shape,
-            );
-        }
-        this.previewId = this.document.visual.context.displayMesh(preview.meshes, { meshOpacity: 1 });
-        this.document.visual.update();
+        this.preview.show(this.document, preview.meshes, {
+            ghost: measured.owner === undefined ? [] : [measured.owner],
+            opacity: 1,
+        });
     };
 
     /** Stands the preview in for the bodies the feature will rewrite, when an operation is set. */
@@ -259,78 +251,18 @@ export class ThickenFeatureCommand extends MultistepCommand {
         const plan = this.planOf();
         if (picked.length === 0 || plan === undefined || plan.every((x) => x === 0)) return undefined;
 
-        const owned: IFace[] = [];
-        try {
-            const world = picked.map((x) => worldShape(x.shape as unknown as IFace, x.transform, owned));
-            const tool = this.thicken(world, plan);
-            if (tool === undefined) return undefined;
-            return { tool, owner: picked[0].owner };
-        } finally {
-            owned.forEach((x) => {
-                x.dispose();
-            });
-        }
-    }
-
-    /**
-     * The thickened solid of `world` faces. Each connected face set goes to the kernel as ONE
-     * shape (a shell, or the face itself when it is alone) — two disconnected faces handed over
-     * as one shell fail outright, and a connected set must go in together so the edges its faces
-     * share raise no wall between them. The sets are combined into one shape, exactly as a
-     * multi-profile sweep is.
-     */
-    private thicken(world: readonly IFace[], plan: readonly number[]): Result<IShape> | undefined {
-        const shapes: IShape[] = [];
-        const discard = () => {
-            shapes.forEach((x) => {
-                x.dispose();
-            });
-        };
-        for (const group of connectedFaceGroups(world)) {
-            // A lone face goes in as itself and belongs to `world`; anything larger is sewn
-            // into a shell here, and that shell is ours to free once the kernel has read it.
-            const source =
-                group.length === 1
-                    ? Result.ok<IShape>(world[group[0]])
-                    : shapeFactory.shell(group.map((k) => world[k]));
-            if (!source.isOk) {
-                discard();
-                return undefined;
-            }
-            for (const thickness of plan) {
-                const one = shapeFactory.makeThickSolidBySimple(source.value, thickness);
-                if (!one.isOk) {
-                    this.freeSource(source.value, group);
-                    discard();
-                    return undefined;
-                }
-                shapes.push(one.value);
-            }
-            this.freeSource(source.value, group);
-        }
-        const combined = shapeFactory.combine(shapes);
-        discard();
-        return combined.isOk ? combined : undefined;
-    }
-
-    /** Frees a component's kernel input, unless it is one of the caller's own faces. */
-    private freeSource(source: IShape, group: readonly number[]): void {
-        if (group.length > 1) source.dispose();
+        // Group in the body's own space: world-space copies break the edge identity the
+        // grouping relies on. Only the finished solid is placed in the world, for display.
+        const local = picked.map((x) => x.shape as unknown as IFace);
+        const tool = thickenFaces(local, plan);
+        if (!tool.isOk) return undefined;
+        const world = tool.value.transformedMul(picked[0].transform);
+        tool.value.dispose();
+        return { tool: Result.ok(world), owner: picked[0].owner };
     }
 
     private removePreview() {
-        if (this.previewOwner !== undefined) {
-            this.document.visual.highlighter.removeState(
-                this.previewOwner,
-                VisualStates.faceTransparent,
-                ShapeTypes.shape,
-            );
-            this.previewOwner = undefined;
-        }
-        if (this.previewId !== undefined) {
-            this.document.visual.context.removeMesh(this.previewId);
-            this.previewId = undefined;
-        }
+        this.preview.hide(this.document);
     }
 
     /**
@@ -450,19 +382,14 @@ export class ThickenFeatureCommand extends MultistepCommand {
      * bounds, and a tool that cannot be built at all leaves the feature standing on its own.
      */
     private toolBox(picked: readonly VisualShapeData[], plan: readonly number[]): BoundingBox | undefined {
-        const owned: IFace[] = [];
-        try {
-            const world = picked.map((x) => worldShape(x.shape as unknown as IFace, x.transform, owned));
-            const tool = this.thicken(world, plan);
-            if (tool === undefined) return undefined;
-            const box = tool.value.boundingBox();
-            tool.value.dispose();
-            return box;
-        } finally {
-            owned.forEach((x) => {
-                x.dispose();
-            });
-        }
+        const local = picked.map((x) => x.shape as unknown as IFace);
+        const tool = thickenFaces(local, plan);
+        if (!tool.isOk) return undefined;
+        const world = tool.value.transformedMul(picked[0].transform);
+        tool.value.dispose();
+        const box = world.boundingBox();
+        world.dispose();
+        return box;
     }
 }
 

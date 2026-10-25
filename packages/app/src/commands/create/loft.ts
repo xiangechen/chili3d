@@ -10,6 +10,7 @@ import {
     command,
     EditableShapeNode,
     type IEdge,
+    type IFace,
     type IShape,
     type IVertex,
     type IWire,
@@ -24,6 +25,7 @@ import {
     type SnapResult,
     Transaction,
     VisualConfig,
+    type VisualShapeData,
 } from "@chili3d/core";
 import { selectedWholeShapeNodes } from "../createCommand";
 
@@ -71,10 +73,7 @@ export class LoftCommand extends CancelableCommand {
         return this._continuity;
     }
     set continuity(value: Continuity) {
-        this.setProperty("continuity", value, () => {
-            console.log(value);
-            this.displayVisual();
-        });
+        this.setProperty("continuity", value, () => this.displayVisual());
     }
 
     @property("option.command.deleteObjects")
@@ -97,9 +96,7 @@ export class LoftCommand extends CancelableCommand {
                     }
                 }
 
-                this.shapes.push(data.shapes[0].shape.transformedMul(data.nodes![0].worldTransform()));
-                this.selectedDatas.push(data);
-                this.displayVisual();
+                if (this.acceptSection(data)) this.displayVisual();
             }
 
             this.commitLoft();
@@ -142,10 +139,70 @@ export class LoftCommand extends CancelableCommand {
         });
     }
 
+    /** Adds a section if it is a usable one; refusals publish their own reason. */
+    private acceptSection(data: SnapResult): boolean {
+        const previous = this.selectedDatas.at(-1)?.shapes.at(0);
+        // A vertex may open or close the loft, but not sit in the middle: once it has a
+        // section after it, nothing else may follow.
+        if (previous?.shape.shapeType === ShapeTypes.vertex && this.selectedDatas.length >= 2) {
+            PubSub.default.pub(
+                "showToast",
+                "error.default:{0}",
+                "Loft vertex sections must be first or last",
+            );
+            return false;
+        }
+        const picked = data.shapes[0];
+        if (this.isDuplicate(picked)) return false;
+
+        const section = this.sectionShape(picked);
+        if (!section.isOk) {
+            PubSub.default.pub("showToast", "error.default:{0}", section.error);
+            return false;
+        }
+        try {
+            this.shapes.push(section.value.transformedMul(data.shapes[0].transform));
+        } finally {
+            if (section.value !== picked.shape) section.value.dispose();
+        }
+        this.selectedDatas.push(data);
+        return true;
+    }
+
+    /** A face section lofts by its outer boundary; an edge section has to close on itself. */
+    private sectionShape(picked: VisualShapeData): Result<IShape> {
+        if (picked.shape.shapeType === ShapeTypes.face) {
+            // A face without an outer boundary throws rather than answering; report it the
+            // same way every other refusal here is reported.
+            try {
+                return Result.ok((picked.shape as unknown as IFace).outerWire());
+            } catch {
+                return Result.err("A loft section face has no outer boundary");
+            }
+        }
+        if (picked.shape.shapeType === ShapeTypes.edge && !(picked.shape as IEdge).isClosed()) {
+            return Result.err("A loft section edge must be closed");
+        }
+        return Result.ok(picked.shape);
+    }
+
+    /** Same node and same picked sub-shape (a vertex: same point) — picking twice adds nothing. */
+    private isDuplicate(picked: VisualShapeData): boolean {
+        const nodeId = picked.owner.node.id;
+        return this.selectedDatas.some((data) => {
+            const previous = data.shapes[0];
+            if (previous.owner.node.id !== nodeId) return false;
+            if (previous.shape.shapeType !== picked.shape.shapeType) return false;
+            return picked.shape.shapeType === ShapeTypes.vertex
+                ? (previous.shape as IVertex).point().isEqualTo((picked.shape as IVertex).point())
+                : previous.shape.isEqual(picked.shape);
+        });
+    }
+
     private async selectSection() {
         this.controller = new AsyncController();
         const step = new SelectShapeStep(
-            (ShapeTypes.vertex | ShapeTypes.wire | ShapeTypes.edge) as ShapeType,
+            (ShapeTypes.vertex | ShapeTypes.wire | ShapeTypes.edge | ShapeTypes.face) as ShapeType,
             "prompt.select.section",
             // A click accepts a section and completes the pick; the viewport bar's confirm
             // is what ends the section list (it resolves with nothing selected).

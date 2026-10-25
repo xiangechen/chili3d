@@ -1,10 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IFace, ISurface, IView, ShapeMeshData, XY, XYZ } from "@chili3d/core";
+import type { XY, XYZ } from "../math";
+import type { IFace, ISurface, ShapeMeshData } from "../shape";
+import type { IView } from "./view";
 
 /**
- * The pixel-sized drag arrow both value handles draw: the extrude drag and the
+ * The pixel-sized drag arrow value handles draw: the extrude drag and the
  * fillet/chamfer drag show the same handle, so its constants and its pure geometry
  * live here instead of in either step. What each handler does with the arrow — when to
  * show it, hover and drag state, camera tracking — stays in the handler.

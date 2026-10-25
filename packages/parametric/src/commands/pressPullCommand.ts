@@ -14,6 +14,7 @@ import {
     type Plane,
     PubSub,
     property,
+    SELECTED_FACE_STATE,
     ShapeTypeUtils,
     type VisualShapeData,
 } from "@chili3d/core";
@@ -22,7 +23,6 @@ import { END_CONDITION_BLIND } from "./extrudeCommand";
 import { cornerDragOf } from "./modifyCornerCommand";
 import { isPressPullHandoff, markPressPullHandoff, type PickSettledCommand } from "./pickSettled";
 import { type PressPullHandler, PressPullStep } from "./pressPullStep";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
 import { SKETCH_OPERATIONS, sketchPressPullOperation } from "./sketchPressPull";
 
 /**

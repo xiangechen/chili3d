@@ -2,15 +2,19 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_COLOR,
+    ARROW_HOVER_COLOR,
     AsyncController,
     Combobox,
     command,
+    distanceToSegment,
     type EdgeMeshData,
     type I18nKeys,
     type IDocument,
     type IEventHandler,
     type IView,
     MeshDataUtils,
+    nearestHandle,
     type ParameterValue,
     type Plane,
     Precision,
@@ -20,7 +24,6 @@ import {
     VisualConfig,
     XYZ,
 } from "@chili3d/core";
-import { ARROW_COLOR, ARROW_HOVER_COLOR, distanceToSegment, nearestHandle } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import {
     type ArrayDraft,

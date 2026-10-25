@@ -27,6 +27,7 @@ import {
     PubSub,
     property,
     type Result,
+    SELECTED_FACE_STATE,
     type ShapeMeshData,
     ShapeTypes,
     ShapeTypeUtils,
@@ -67,7 +68,6 @@ import {
 } from "./extrudeDragStep";
 import type { PickSettledCommand, PressPullHandoffCommand } from "./pickSettled";
 import { prioritizeSketchFaces } from "./profileFaceSort";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
 import {
     type PressPullBody,
     pressPullBodies,

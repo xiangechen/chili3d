@@ -14,6 +14,7 @@ import {
     type IFace,
     type IShape,
     Matrix4,
+    outwardNormalAt,
     Plane,
     ShapeTypes,
     type VisualShapeData,
@@ -23,7 +24,6 @@ import {
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
 import { rs } from "@rstest/core";
-import { outwardNormalAt } from "../src/commands/arrowHandle";
 import {
     cornerDragOf,
     cornerFeatureOf,

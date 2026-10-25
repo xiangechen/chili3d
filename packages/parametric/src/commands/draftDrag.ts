@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_LENGTH,
     type AsyncController,
     BoundingBox,
     type I18nKeys,
@@ -14,6 +15,7 @@ import {
     NOT_REFERENCE_GEOMETRY_FILTER,
     type Plane,
     Precision,
+    SELECTED_FACE_STATE,
     ShapeTypes,
     type SnapResult,
     type VisualShapeData,
@@ -21,9 +23,7 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
-import { ARROW_LENGTH } from "./arrowHandle";
 import { AxisDragHandler, type DragPreview } from "./axisDragHandler";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 /**
  * Where the draft's angle handle sits, and what its drag measures.

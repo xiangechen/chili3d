@@ -17,6 +17,8 @@ import {
     type IVertex,
     isReferenceGeometryNode,
     LENGTH_UNITS,
+    LineEdgeFilter,
+    LineOrCircleEdgeFilter,
     MultistepCommand,
     type ParameterValue,
     type PickShapeOptions,
@@ -54,7 +56,6 @@ import {
 import { datumQuadAt } from "../sketch/commands/planePreview";
 import { worldShape } from "./booleanPreview";
 import { type DragPreview, PreviewConfirmHandler } from "./previewConfirmHandler";
-import { LineEdgeFilter, LineOrCircleEdgeFilter } from "./shapeFilters";
 
 const PLANE_TYPES = [
     "feature.plane.offset",

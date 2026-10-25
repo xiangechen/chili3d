@@ -10,6 +10,7 @@ import {
     Plane,
     PubSub,
     Ray,
+    SELECTED_FACE_STATE,
     type ShapeMeshData,
     ShapeTypes,
     VisualStates,
@@ -31,7 +32,6 @@ import {
     ExtrudeDragHandler,
     ExtrudeDragStep,
 } from "../../src/commands/extrudeDragStep";
-import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import { SketchNode } from "../../src/sketch/sketchNode";
 

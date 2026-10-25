@@ -19,6 +19,9 @@ import {
     type ShapeMeshData,
     ShapeTypes,
     Transaction,
+    type ValueArrowData,
+    type ValueArrowPickHandler,
+    ValueArrowSelectStep,
     type VisualShapeData,
     VisualStates,
     XYZ,
@@ -28,7 +31,6 @@ import { captureEdgeRef, type EdgeRef } from "../features/edgeRef";
 import type { ChamferFeatureData, FilletFeatureData } from "../features/feature";
 import { reportSilentIdLoss } from "../features/idDiagnostics";
 import { ParametricBodyNode } from "../parametricBodyNode";
-import { type ValueArrowData, type ValueArrowPickHandler, ValueArrowSelectStep } from "./valueArrowPickStep";
 
 /** Shared flow for fillet/chamfer: pick edges of a parametric body, enter the value. */
 abstract class EdgeCornerFeatureCommand extends MultistepCommand {
@@ -186,7 +188,12 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
     protected override getSteps(): IStep[] {
         return [
             new ValueArrowSelectStep(
-                { shapeType: ShapeTypes.edge },
+                {
+                    shapeType: ShapeTypes.edge,
+                    // The picked edges seed the gesture, but the default radius is not the
+                    // user's answer: Onshape opens the fillet for preview and confirmation.
+                    preselectionAnswers: false,
+                },
                 { allow: (node: INode) => this.allowNode(node) },
                 { arrowData: this.arrowData, setValue: this.setValueFromArrow },
                 (handler) => (this.activeHandler = handler),

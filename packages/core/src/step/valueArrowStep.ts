@@ -1,24 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import {
-    type AsyncController,
-    type I18nKeys,
-    type IDocument,
-    type INodeFilter,
-    type IStep,
-    type IView,
-    Line,
-    PubSub,
-    type ShapeType,
-    ShapeTypeUtils,
-    type SnapResult,
-    SubshapeSelectionHandler,
-    type VisualShapeData,
-    type VisualState,
-    VisualStates,
-    type XYZ,
-} from "@chili3d/core";
+import type { IDocument } from "../document";
+import { SubshapeSelectionHandler } from "../eventHandlers/shapeSelectionEventHandler";
+import type { AsyncController } from "../foundation";
+import { PubSub } from "../foundation";
+import type { I18nKeys } from "../i18n";
+import { Line, type XYZ } from "../math";
+import { type INodeFilter, type IShapeFilter, isReferenceGeometryNode } from "../selectionFilter";
+import type { ShapeType } from "../shape";
+import { ShapeTypeUtils } from "../shape";
+import type { SnapResult } from "../snap";
 import {
     ARROW_COLOR,
     ARROW_HOVER_COLOR,
@@ -27,7 +19,11 @@ import {
     arrowMeshes,
     distanceToSegment,
     pxSizedArrowLength,
-} from "./arrowHandle";
+} from "../visual/arrowHandle";
+import type { VisualShapeData } from "../visual/detectedData";
+import type { IView } from "../visual/view";
+import { type VisualState, VisualStates } from "../visual/visualShape";
+import type { IStep } from "./step";
 
 /** Smallest value the drag can produce; zero-radius fillets/chamfers are invalid. */
 const MIN_DRAG_VALUE = 0.1;
@@ -56,6 +52,12 @@ export interface ValueArrowPickCallbacks {
 export interface ValueArrowPickOptions {
     readonly shapeType: ShapeType;
     /**
+     * Let reference geometry (a datum plane) answer the pick. Off by default, exactly as
+     * `SelectShapeStep` treats it: a reference node is not modeling geometry, and a command
+     * that replaced one would dangle every sketch/feature referencing it.
+     */
+    readonly allowReferenceGeometry?: boolean;
+    /**
      * Each click REPLACES the selection instead of toggling into it, so exactly one sub-shape
      * is ever selected and the arrow always describes that one. Toggling (the default) is what
      * a fillet's multi-edge pick wants: several edges, one radius.
@@ -68,6 +70,10 @@ export interface ValueArrowPickOptions {
      * the shape alone, so it cannot look an id up on the body the shape came from).
      */
     readonly admitDetected?: (detected: VisualShapeData[]) => VisualShapeData[];
+    /** Narrows what the pointer may detect by the shape itself (sub-shape kind, curve type, …). */
+    readonly shapeFilter?: IShapeFilter;
+    /** In multiple mode, finish the pick automatically once this returns true. */
+    readonly canFinish?: (selected: VisualShapeData[]) => boolean;
     /** How a detected sub-shape is tinted. Defaults to the edge states the base class carries. */
     readonly highlightState?: VisualState;
     readonly selectedState?: VisualState;
@@ -76,14 +82,16 @@ export interface ValueArrowPickOptions {
      * whose value the command already holds — a fillet to append has its radius ready, and the
      * preselected edges are the whole answer. False for a pick that still has to be dragged and
      * confirmed: the selection is only what the gesture starts from, so the pick stays open.
+     * A predicate answers per selection, for a pick that is only complete once it holds enough
+     * (a 2D corner needs exactly the two edges of one face).
      */
-    readonly preselectionAnswers?: boolean;
+    readonly preselectionAnswers?: boolean | ((selected: VisualShapeData[]) => boolean);
 }
 
 /**
  * Sub-shape picking with a draggable value arrow: behaves like the standard subshape
- * multi-pick, but a press on the arrow starts a drag that projects the mouse ray onto
- * the arrow axis and reports the distance as the new value (clamped to MIN_DRAG_VALUE).
+ * multi-pick, but a press on the arrow starts a drag that projects the mouse ray onto the
+ * arrow axis and reports the distance as the new value (clamped to MIN_DRAG_VALUE).
  * The arrow renders on top at a fixed pixel size, anchored at `anchor + direction * value`.
  *
  * The pick itself stays multi wherever `replaceSelection` is unset: a single-shape pick
@@ -106,8 +114,9 @@ export class ValueArrowPickHandler extends SubshapeSelectionHandler {
         nodeFilter: INodeFilter,
         private readonly callbacks: ValueArrowPickCallbacks,
     ) {
-        super(document, options.shapeType, true, controller, undefined, nodeFilter);
+        super(document, options.shapeType, true, controller, options.shapeFilter, nodeFilter);
         if (options.admitDetected !== undefined) this.sortDetected = options.admitDetected;
+        if (options.canFinish !== undefined) this.canFinish = options.canFinish;
         if (options.highlightState !== undefined) this.highlightState = options.highlightState;
         if (options.selectedState !== undefined) this.selectedState = options.selectedState;
         // No box-select on a pick that can only ever hold one sub-shape.
@@ -262,7 +271,7 @@ export class ValueArrowSelectStep implements IStep {
 
     async execute(document: IDocument, controller: AsyncController): Promise<SnapResult | undefined> {
         const preselected = this.preselected(document);
-        if (preselected.length > 0 && this.options.preselectionAnswers !== false) {
+        if (preselected.length > 0 && this.answersFromPreselection(preselected)) {
             controller.success();
             return toSnapResult(document, preselected);
         }
@@ -280,7 +289,7 @@ export class ValueArrowSelectStep implements IStep {
             document,
             controller,
             this.options,
-            this.nodeFilter,
+            valueArrowNodeFilter(this.options, this.nodeFilter),
             this.callbacks,
         );
         this.onHandler(handler);
@@ -299,21 +308,43 @@ export class ValueArrowSelectStep implements IStep {
         return shapes.length === 0 ? undefined : toSnapResult(document, shapes);
     }
 
+    /** Whether what is already selected is the whole answer, per the options. */
+    private answersFromPreselection(selected: VisualShapeData[]): boolean {
+        const answers = this.options.preselectionAnswers;
+        if (typeof answers === "function") return answers(selected);
+        return answers !== false;
+    }
+
     /**
      * What the selection already holds and this gesture would accept, put through the same
      * admission rule the pointer runs against — a preselection the pick would not have allowed
      * must not answer the step for the user.
      */
     private preselected(document: IDocument): VisualShapeData[] {
+        const nodeFilter = valueArrowNodeFilter(this.options, this.nodeFilter);
         const candidates = document.selection
             .getSelectedShapes()
             .filter(
                 (x) =>
                     ShapeTypeUtils.contains(this.options.shapeType, x.shape.shapeType) &&
-                    (this.nodeFilter.allow?.(x.owner.node) ?? true),
+                    (nodeFilter.allow?.(x.owner.node) ?? true) &&
+                    (this.options.shapeFilter?.allow(x.shape, x.transform) ?? true),
             );
         return this.options.admitDetected?.(candidates) ?? candidates;
     }
+}
+
+/**
+ * The caller's node gate composed with the reference-geometry exclusion, exactly as
+ * `SelectShapeStep` composes it: a reference node is not modeling geometry, and a command
+ * that replaced one would dangle every sketch/feature referencing it. `allowReferenceGeometry`
+ * is the opt-out, for a tool that genuinely targets one.
+ */
+export function valueArrowNodeFilter(options: ValueArrowPickOptions, nodeFilter: INodeFilter): INodeFilter {
+    if (options.allowReferenceGeometry === true) return nodeFilter;
+    return {
+        allow: (node) => !isReferenceGeometryNode(node) && (nodeFilter.allow?.(node) ?? true),
+    };
 }
 
 function toSnapResult(document: IDocument, shapes: VisualShapeData[]): SnapResult {

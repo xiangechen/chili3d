@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_LENGTH,
     type AsyncController,
     type I18nKeys,
     type IDocument,
@@ -13,6 +14,7 @@ import {
     NOT_REFERENCE_GEOMETRY_FILTER,
     Plane,
     Precision,
+    SELECTED_FACE_STATE,
     ShapeTypes,
     type SnapResult,
     type VisualShapeData,
@@ -22,10 +24,8 @@ import {
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { planeOfFace } from "../sketch/planeRef";
 import { SketchNode } from "../sketch/sketchNode";
-import { ARROW_LENGTH } from "./arrowHandle";
 import { AxisDragHandler, type DragPreview } from "./axisDragHandler";
 import { prioritizeSketchFaces } from "./profileFaceSort";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 /**
  * Mutable state of a drag session. The handler updates it when the user drags the

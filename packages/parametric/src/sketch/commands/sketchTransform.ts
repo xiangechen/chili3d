@@ -3,14 +3,17 @@
 
 import {
     ANGLE_UNITS,
+    ARROW_LENGTH,
     AsyncController,
     command,
+    distanceToSegment,
     type EdgeMeshData,
     type IDocument,
     type IEventHandler,
     type IView,
     LENGTH_UNITS,
     MeshDataUtils,
+    nearestHandle,
     type ParameterValue,
     Precision,
     PubSub,
@@ -18,7 +21,6 @@ import {
     UNITLESS,
     XYZ,
 } from "@chili3d/core";
-import { ARROW_LENGTH, distanceToSegment, nearestHandle } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import { type DragSnap, snapConstraintKind, snapPosition } from "../autoConstraints";
 import { applyConstraintIcon, badgeSymbol } from "../editor/sketchAnnotations";

@@ -14,6 +14,7 @@ import {
     PropertyUtils,
     PubSub,
     Result,
+    SELECTED_FACE_STATE,
     type ShapeType,
     ShapeTypes,
     type TargetSelection,
@@ -32,7 +33,6 @@ import {
 import { rs } from "@rstest/core";
 import { ExtrudeEndTargetStep, ExtrudeFeatureCommand } from "../../src/commands/extrudeCommand";
 import { dragPlaneOf, ExtrudeDragHandler } from "../../src/commands/extrudeDragStep";
-import { SELECTED_FACE_STATE } from "../../src/commands/selectedFaceState";
 import type { ExtrudeFeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
 import type { SketchData } from "../../src/sketch/sketchModel";

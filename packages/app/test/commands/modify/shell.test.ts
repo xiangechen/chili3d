@@ -111,27 +111,6 @@ describe("ShellCommand", () => {
         expect(cmd.thickness).toBe(5);
     });
 
-    test("offsetMode should default to skin and intersection to false", () => {
-        const cmd = new ShellCommand();
-        expect(cmd.offsetMode).toBe("option.command.offsetMode.skin");
-        expect(cmd.intersection).toBe(false);
-    });
-
-    test("mapOffsetMode should map each option to its OffsetMode", () => {
-        const cmd = new ShellCommand();
-        wireCommand(cmd);
-        cmd.offsetMode = "option.command.offsetMode.skin";
-        expect(cmd.mapOffsetMode()).toBe("skin");
-        cmd.offsetMode = "option.command.offsetMode.pipe";
-        expect(cmd.mapOffsetMode()).toBe("pipe");
-        cmd.offsetMode = "option.command.offsetMode.rectoVerso";
-        expect(cmd.mapOffsetMode()).toBe("rectoVerso");
-        expect(() => {
-            cmd.offsetMode = "option.command.offsetMode.unknown" as any;
-            cmd.mapOffsetMode();
-        }).toThrow("Unknow offsetMode");
-    });
-
     test("getSteps should return two steps", () => {
         const cmd = new ShellCommand();
         const steps = (cmd as any).getSteps();
@@ -178,8 +157,6 @@ describe("ShellCommand", () => {
         test("should pass the selected faces and thickness to shapeFactory.makeThickSolidByJoin", () => {
             const { cmd, shape } = buildShellCommand(3);
             cmd.thickness = 2.5;
-            cmd.offsetMode = "option.command.offsetMode.pipe";
-            cmd.intersection = true;
 
             const calls: any[] = [];
             const restoreFactory = stubShapeFactory((args) => {
@@ -192,13 +169,49 @@ describe("ShellCommand", () => {
                 expect(calls).toHaveLength(1);
                 expect(calls[0][0]).toBe(shape); // the original solid
                 expect(calls[0][1]).toHaveLength(3); // the selected open faces
-                expect(calls[0][2]).toBe(2.5); // thickness is the 3rd arg
+                // Negative carves inward: that is what a shell means, and the kernel's sign.
+                expect(calls[0][2]).toBe(-2.5);
                 expect(calls[0][3]).toBe("arc"); // joinType is the 4th arg
-                expect(calls[0][4]).toBe("pipe"); // offset mode is the 5th arg
-                expect(calls[0][5]).toBe(true); // intersection is the 6th arg
+                // The dead offset-mode / intersection arguments are no longer passed.
+                expect(calls[0][4]).toBeUndefined();
+                expect(calls[0][5]).toBeUndefined();
                 expect(calls[0][1].map((x: any) => x.id)).toEqual(["face-0", "face-1", "face-2"]);
             } finally {
                 restoreFactory();
+            }
+        });
+
+        test("outward stands the wall outside the body instead of carving it out", () => {
+            const { cmd } = buildShellCommand(2);
+            cmd.thickness = 2.5;
+            cmd.outward = true;
+
+            const calls: any[] = [];
+            const restoreFactory = stubShapeFactory((args) => {
+                calls.push(args);
+                return mockShape();
+            });
+
+            try {
+                (cmd as any).executeMainTask();
+                expect(calls).toHaveLength(1);
+                expect(calls[0][2]).toBe(2.5);
+            } finally {
+                restoreFactory();
+            }
+        });
+
+        test("should refuse a thickness that is not positive", () => {
+            const { cmd, parent } = buildShellCommand(2);
+            cmd.thickness = 0;
+            const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+
+            try {
+                (cmd as any).executeMainTask();
+                expect(parent.added).toHaveLength(0);
+                expect(pubSpy).toHaveBeenCalledWith("showToast", "error.default:{0}", "Invalid thickness");
+            } finally {
+                pubSpy.mockRestore();
             }
         });
 
@@ -229,7 +242,6 @@ describe("ShellCommand", () => {
 
             options.afterSelection();
             expect(doc.selection.onShapeChanged.remove).toHaveBeenCalledWith((cmd as any).onOpenFacesChanged);
-            expect((cmd as any).stepDatas[0].shapes[0].owner.visible).toBe(true);
         });
 
         test("should show a debounced preview with the selected open faces", () => {
@@ -237,13 +249,13 @@ describe("ShellCommand", () => {
             const { cmd, shape, faces, doc } = buildShellCommand(2);
 
             const calls: any[] = [];
+            const previewShape = mockShape({ mesh: { faces: {}, edges: {} } as any });
             const restoreFactory = stubShapeFactory((args) => {
                 calls.push(args);
-                return Result.ok(mockShape());
+                return Result.ok(previewShape);
             });
 
             try {
-                const step0Owner = (cmd as any).stepDatas[0].shapes[0].owner;
                 // The handler ignores event args and reads the selection itself
                 stubSelectedFaces(doc, faces);
                 (cmd as any).onOpenFacesChanged();
@@ -255,8 +267,11 @@ describe("ShellCommand", () => {
                 expect(calls).toHaveLength(1);
                 expect(calls[0][0]).toBe(shape); // the original solid
                 expect(calls[0][1].map((x: any) => x.id)).toEqual(["face-0", "face-1"]);
-                // the original visual is hidden and a temp preview mesh is shown
-                expect(step0Owner.visible).toBe(false);
+                // The kernel runs in the body's local space; the preview is placed in the
+                // world by the picked body's transform.
+                const bodyTransform = (cmd as any).stepDatas[0].shapes[0].transform;
+                expect(previewShape.calls.get("transformedMul")?.[0]?.[0]).toBe(bodyTransform);
+                // the result is previewed; the original stays visible through the pick
                 expect(doc.visual.context.displayMesh).toHaveBeenCalled();
                 expect(doc.visual.update).toHaveBeenCalled();
             } finally {
@@ -265,24 +280,21 @@ describe("ShellCommand", () => {
             }
         });
 
-        test("should restore visibility without a preview when the selection is cleared", () => {
+        test("should show no preview when the selection is cleared", () => {
             rs.useFakeTimers();
             try {
                 const { cmd, doc } = buildShellCommand(1);
-                const step0Owner = (cmd as any).stepDatas[0].shapes[0].owner;
-                step0Owner.visible = false;
 
                 (cmd as any).onOpenFacesChanged();
                 rs.advanceTimersByTime(25);
 
-                expect(step0Owner.visible).toBe(true);
                 expect(doc.visual.context.displayMesh).not.toHaveBeenCalled();
             } finally {
                 rs.useRealTimers();
             }
         });
 
-        test("should publish a toast and restore visibility when the preview fails", () => {
+        test("should show nothing and publish no toast when the preview fails", () => {
             rs.useFakeTimers();
             const pubSpy = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
             const { cmd, faces, doc } = buildShellCommand(1);
@@ -290,13 +302,12 @@ describe("ShellCommand", () => {
             const restoreFactory = stubShapeFactory(() => Result.err("shell failed"));
 
             try {
-                const step0Owner = (cmd as any).stepDatas[0].shapes[0].owner;
                 stubSelectedFaces(doc, faces);
                 (cmd as any).onOpenFacesChanged();
                 rs.advanceTimersByTime(25);
 
-                expect(step0Owner.visible).toBe(true);
-                expect(pubSpy).toHaveBeenCalledWith("showToast", "error.default:{0}", "shell failed");
+                expect(doc.visual.context.displayMesh).not.toHaveBeenCalled();
+                expect(pubSpy).not.toHaveBeenCalledWith("showToast", "error.default:{0}", "shell failed");
             } finally {
                 restoreFactory();
                 pubSpy.mockRestore();

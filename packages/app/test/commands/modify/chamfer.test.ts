@@ -196,8 +196,8 @@ describe("ChamferCommand", () => {
         const cmd = new ChamferCommand();
         const steps = (cmd as any).getSteps();
         expect(steps.length).toBe(1);
-        expect(steps[0].snapeType).toBe(ShapeTypes.edge);
-        expect(steps[0].options.multiple).toBe(true);
+        expect(steps[0].options.shapeType).toBe(ShapeTypes.edge);
+        expect(steps[0].options.shapeFilter).toBe((cmd as any)._edgeFilter);
     });
 
     describe("edgeFilter", () => {

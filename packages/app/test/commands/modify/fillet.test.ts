@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4, PubSub, Result, type ShapeType, ShapeTypes } from "@chili3d/core";
+import { Matrix4, PubSub, Result, type ShapeType, ShapeTypes, VisualStates } from "@chili3d/core";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "@rstest/core";
 import { FilletCommand } from "../../../src/commands/modify/fillet";
 import {
@@ -202,8 +202,57 @@ describe("FilletCommand", () => {
         const cmd = new FilletCommand();
         const steps = (cmd as any).getSteps();
         expect(steps.length).toBe(1);
-        expect(steps[0].snapeType).toBe(ShapeTypes.edge);
-        expect(steps[0].options.multiple).toBe(true);
+        expect(steps[0].options.shapeType).toBe(ShapeTypes.edge);
+        expect(steps[0].options.shapeFilter).toBe((cmd as any)._edgeFilter);
+    });
+
+    test("a preselection seeds the pick but does not answer it", () => {
+        const cmd = new FilletCommand();
+        wireCommand(cmd);
+
+        const opts = (cmd as any).getSteps()[0].options;
+        expect(opts.preselectionAnswers).toBe(false);
+    });
+
+    describe("preview", () => {
+        /** Two picked edges on one solid, with the kernel call stubbed for the preview. */
+        function previewScene(applyToBody: () => Result<any>) {
+            const { cmd, doc, solidNode } = buildFilletCommand([0, 1]);
+            const body = typedParent(ShapeTypes.solid);
+            const edge = (index: number) => ({
+                shape: { shapeType: ShapeTypes.edge, index, parent: body },
+                owner: { node: solidNode },
+                transform: Matrix4.identity(),
+            });
+            (doc.selection as any).getSelectedShapes = () => [edge(0), edge(1)];
+            (solidNode as any).shape = { value: mockShape(), isOk: true };
+            (cmd as any).applyToBody = applyToBody;
+            (cmd as any).previewActive = true;
+            return { cmd, doc };
+        }
+
+        test("the picked edges and value build a preview over the ghosted body", () => {
+            const { cmd, doc } = previewScene(() =>
+                Result.ok(mockShape({ mesh: { faces: {}, edges: {} } as any })),
+            );
+
+            (cmd as any).updatePreview();
+
+            expect(doc.visual.context.displayMesh).toHaveBeenCalled();
+            expect(doc.visual.highlighter.addState).toHaveBeenCalledWith(
+                expect.anything(),
+                VisualStates.faceTransparent,
+                ShapeTypes.shape,
+            );
+        });
+
+        test("a value the kernel refuses shows nothing", () => {
+            const { cmd, doc } = previewScene(() => Result.err("bad radius"));
+
+            (cmd as any).updatePreview();
+
+            expect(doc.visual.context.displayMesh).not.toHaveBeenCalled();
+        });
     });
 
     describe("edgeFilter", () => {

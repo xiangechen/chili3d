@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IEdge, type IFace, type IShape, Result, ShapeTypes, type TrackedShape } from "@chili3d/core";
+import {
+    connectedFaceGroups,
+    type IEdge,
+    type IFace,
+    type IShape,
+    Result,
+    ShapeTypes,
+    safeEdges,
+    type TrackedShape,
+} from "@chili3d/core";
 import { type CompletedTrackedHistory, completeTrackedHistory, trackedFaceIds, trackedIds } from "./feature";
 import { distance, MATCH_TOLERANCE } from "./refGeometry";
 import { combineShapes } from "./sweepGeometry";
@@ -128,41 +137,6 @@ function inputEdgeIds(
         }
         return undefined;
     });
-}
-
-/**
- * Faces grouped by edge adjacency — one group per connected surface, the components
- * `thickenInputsOf` thickens as separate solids (and the command previews the same way).
- */
-export function connectedFaceGroups(faces: readonly IFace[]): number[][] {
-    const edges = faces.map((face) => safeEdges(face));
-    const parent = faces.map((_, index) => index);
-    const find = (index: number): number => {
-        let root = index;
-        while (parent[root] !== root) root = parent[root];
-        return root;
-    };
-    for (let a = 0; a < faces.length; a++) {
-        for (let b = a + 1; b < faces.length; b++) {
-            if (!edges[a].some((edge) => edges[b].some((other) => edge.isSame(other)))) continue;
-            parent[find(a)] = find(b);
-        }
-    }
-    const groups = new Map<number, number[]>();
-    for (let index = 0; index < faces.length; index++) {
-        const root = find(index);
-        groups.set(root, [...(groups.get(root) ?? []), index]);
-    }
-    return [...groups.values()];
-}
-
-/** A face's (or shell's) edges; a degenerate one contributes none rather than throwing. */
-function safeEdges(shape: IShape): IEdge[] {
-    try {
-        return shape.findSubShapes(ShapeTypes.edge) as IEdge[];
-    } catch {
-        return [];
-    }
 }
 
 /** The index of the shape `isSame` as `target`, or -1 — a degenerate candidate is skipped. */

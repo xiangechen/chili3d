@@ -16,6 +16,7 @@ import {
     type IShape,
     type IVertex,
     isReferenceGeometryNode,
+    LineEdgeFilter,
     Matrix4,
     type Plane,
     PointOnPlaneStep,
@@ -64,7 +65,6 @@ import { shapeEntityIds } from "../sketch/sketchModel";
 import type { SketchNode } from "../sketch/sketchNode";
 import { bridgedRound } from "./bridgedRound";
 import { capturePatternPathSource } from "./patternSources";
-import { LineEdgeFilter } from "./shapeFilters";
 
 /**
  * The re-pick sessions behind `ParametricBodyNode.reselectShapes`: a feature row's

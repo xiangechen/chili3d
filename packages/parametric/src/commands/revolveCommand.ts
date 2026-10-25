@@ -15,6 +15,7 @@ import {
     type IStep,
     isReferenceGeometryNode,
     Line,
+    LineEdgeFilter,
     MultistepCommand,
     type ParameterValue,
     PubSub,
@@ -42,7 +43,6 @@ import {
     targetCandidate,
 } from "./booleanTargets";
 import { SelectSketchProfilesStep } from "./extrudeCommand";
-import { LineEdgeFilter } from "./shapeFilters";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 

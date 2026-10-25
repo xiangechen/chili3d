@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_LENGTH,
     type AsyncController,
     type I18nKeys,
     type IDocument,
@@ -14,7 +15,6 @@ import {
     type SnapResult,
     type XYZ,
 } from "@chili3d/core";
-import { ARROW_LENGTH } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import { DATUM_PREVIEW_SIZE, datumQuadAt, datumQuadCenter } from "./planePreview";
 

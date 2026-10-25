@@ -19,6 +19,7 @@ import {
     type IWire,
     isReferenceGeometryNode,
     Matrix4,
+    PreviewVisual,
     PubSub,
     property,
     Result,
@@ -50,7 +51,6 @@ import {
     syncAutoTargets,
     targetCandidate,
 } from "./booleanTargets";
-import { PreviewVisual } from "./previewVisual";
 
 const OPERATION_NEW: I18nKeys = "option.command.operation.new";
 
@@ -232,7 +232,9 @@ export class LoftFeatureCommand extends CancelableCommand {
     }
 
     private acceptSection(data: VisualShapeData): boolean {
-        if (this.sections.at(-1)?.kind === "vertex") {
+        // A vertex may open or close the loft, but not sit in the middle: once it has a
+        // section after it, nothing else may follow.
+        if (this.sections.at(-1)?.kind === "vertex" && this.sections.length >= 2) {
             PubSub.default.pub(
                 "showToast",
                 "error.default:{0}",
@@ -367,7 +369,7 @@ export class LoftFeatureCommand extends CancelableCommand {
                 }
             }
         }
-        this.preview.show(this.document, meshes, hidden);
+        this.preview.show(this.document, meshes, { standsInFor: hidden });
     }
 
     private loftShape(): Result<IShape> {

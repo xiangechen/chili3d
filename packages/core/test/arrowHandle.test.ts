@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { describe, expect, test } from "@rstest/core";
-import { nearestHandle } from "../../src/commands/arrowHandle";
+import { nearestHandle } from "../src";
 
 describe("nearestHandle", () => {
     const handles = [{ role: "first" as const }, { role: "second" as const }];

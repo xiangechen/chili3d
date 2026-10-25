@@ -2,6 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_COLOR,
+    ARROW_HOVER_COLOR,
     type AsyncController,
     CommandStore,
     type I18nKeys,
@@ -14,7 +16,6 @@ import {
 } from "@chili3d/core";
 import { createMockDocument, setupShapeFactoryMock } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
-import { ARROW_COLOR, ARROW_HOVER_COLOR } from "../../src/commands/arrowHandle";
 import { SketchOffsetCommand, type SketchOffsetSession } from "../../src/sketch/commands/sketchOffset";
 import { SketchEditor } from "../../src/sketch/editor/sketchEditor";
 import { ConstraintKind, type SketchEntityData } from "../../src/sketch/sketchModel";

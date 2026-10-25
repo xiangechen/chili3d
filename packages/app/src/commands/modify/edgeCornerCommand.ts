@@ -2,6 +2,8 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    BoundingBox,
+    CurveUtils,
     EditableShapeNode,
     I18n,
     type IEdge,
@@ -10,15 +12,19 @@ import {
     type IShapeFilter,
     type ISubEdgeShape,
     MultistepCommand,
+    PreviewVisual,
     PubSub,
     Result,
     retargetInstanceSources,
-    SelectShapeStep,
     type ShapeNode,
     type ShapeType,
     ShapeTypes,
     Transaction,
+    type ValueArrowData,
+    type ValueArrowPickHandler,
+    ValueArrowSelectStep,
     type VisualShapeData,
+    XYZ,
 } from "@chili3d/core";
 
 const SOLID_PARENT_TYPES: ShapeType[] = [ShapeTypes.solid, ShapeTypes.compound, ShapeTypes.compoundSolid];
@@ -128,7 +134,137 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
     /** Trim two adjacent edges and return [trimmed1, cornerEdge, trimmed2]. */
     protected abstract applyToEdgePair(edge1: IEdge, edge2: IEdge): Result<IEdge[]>;
 
+    /** The radius/length the corner is built with, as the preview and the arrow see it. */
+    protected abstract get cornerValue(): number;
+    protected abstract set cornerValue(value: number);
+
+    private readonly preview = new PreviewVisual();
+    private activeHandler: ValueArrowPickHandler | undefined;
+    /** Only a running command has an application to preview into. */
+    private previewActive = false;
+
+    /**
+     * Live preview of the corner on the picked body: the same kernel call the commit makes,
+     * so what is shown is what will be built. The body is ghosted (faceTransparent) while the
+     * preview is up — a rounded/chamfered surface is recessed into the solid and an opaque
+     * original would hide it. A value or edge set the kernel refuses simply shows nothing.
+     */
+    private readonly updatePreview = () => {
+        this.activeHandler?.refreshArrow();
+        const picked = this.pickedBodyEdges();
+        if (picked === undefined) return;
+        const value = this.cornerValue;
+        if (!Number.isFinite(value) || value <= 0) return;
+
+        const node = picked.edges[0].owner.node as ShapeNode;
+        if (!node.shape.isOk) return;
+        const indexes = picked.edges.map((x) => (x.shape as ISubEdgeShape).index);
+        const result = this.applyToBody(node.shape.value, indexes);
+        if (!result.isOk) return;
+
+        const world = result.value.transformedMul(picked.edges[0].transform);
+        result.value.dispose();
+        const { faces, edges } = world.mesh;
+        world.dispose();
+        if (faces === undefined) return;
+
+        this.preview.show(
+            this.document,
+            [faces, edges].filter((x) => x !== undefined),
+            { ghost: [picked.edges[0].owner], opacity: 1 },
+        );
+    };
+
+    /** The selected edges of one 3D body (a planar parent is a 2D corner, which has no arrow). */
+    private pickedBodyEdges(): { edges: VisualShapeData[] } | undefined {
+        const selected = this.document.selection.getSelectedShapes();
+        const firstParent = (selected.at(0)?.shape as ISubEdgeShape | undefined)?.parent;
+        if (firstParent === undefined || isPlanarParent(firstParent)) return undefined;
+
+        const node = selected[0].owner.node;
+        const edges = selected.filter(
+            (x) =>
+                x.shape.shapeType === ShapeTypes.edge &&
+                x.owner.node === node &&
+                ((x.shape as ISubEdgeShape).parent?.isPartner(firstParent) ?? false),
+        );
+        return edges.length === 0 ? undefined : { edges };
+    }
+
+    private removePreview() {
+        this.preview.hide(this.document);
+    }
+
+    /** Subclasses call this when their value changes so the preview and arrow follow it. */
+    protected refreshCornerPreview() {
+        if (!this.previewActive) return;
+        this.updatePreview();
+    }
+
+    /**
+     * Arrow placement for the value drag: anchored at the first picked edge's midpoint,
+     * pointing out of the body — radially for circular edges, otherwise along the
+     * edge-midpoint-to-body-center direction projected perpendicular to the tangent.
+     */
+    private readonly arrowData = (): ValueArrowData | undefined => {
+        const value = this.cornerValue;
+        const picked = this.pickedBodyEdges();
+        if (!Number.isFinite(value) || picked === undefined) return undefined;
+
+        const world = (picked.edges[0].shape as IEdge).transformedMul(picked.edges[0].transform) as IEdge;
+        try {
+            const midParam = (world.firstParameter() + world.lastParameter()) / 2;
+            const direction = this.arrowDirection(world, midParam, picked.edges[0]);
+            if (direction === undefined) return undefined;
+            return { anchor: world.pointAt(midParam), direction, value: Math.max(value, 0) };
+        } finally {
+            world.dispose();
+        }
+    };
+
+    private arrowDirection(edge: IEdge, midParam: number, data: VisualShapeData): XYZ | undefined {
+        const basis = edge.curve.basisCurve;
+        if (CurveUtils.isCircle(basis)) {
+            return edge.pointAt(midParam).sub(basis.center).normalize();
+        }
+
+        const tangent = edge.curve.d1(midParam).vec.normalize();
+        const node = data.owner.node as ShapeNode;
+        if (tangent === undefined || !node.shape.isOk) return undefined;
+
+        const center = data.transform.ofPoint(BoundingBox.center(node.shape.value.boundingBox()));
+        const outward = edge.pointAt(midParam).sub(center);
+        const perpendicular = outward.sub(tangent.multiply(outward.dot(tangent))).normalize();
+        if (perpendicular !== undefined) return perpendicular;
+
+        // Degenerate (the midpoint-to-center line runs along the edge): any perpendicular.
+        const side = Math.abs(tangent.dot(XYZ.unitZ)) < 0.9 ? XYZ.unitZ : XYZ.unitX;
+        return tangent.cross(side).normalize();
+    }
+
+    private readonly setValueFromArrow = (value: number) => {
+        this.cornerValue = value;
+    };
+
+    protected override async executeAsync(): Promise<void> {
+        this.previewActive = true;
+        this.document.selection.onShapeChanged.sub(this.updatePreview);
+        try {
+            await super.executeAsync();
+        } finally {
+            this.document.selection.onShapeChanged.remove(this.updatePreview);
+            this.removePreview();
+            this.previewActive = false;
+        }
+    }
+
     protected override executeMainTask() {
+        const value = this.cornerValue;
+        if (!Number.isFinite(value) || value <= 0) {
+            PubSub.default.pub("showToast", "error.input.invalidNumber");
+            return;
+        }
+
         Transaction.execute(this.document, `excute ${Object.getPrototypeOf(this).data.name}`, () => {
             const shapes = this.stepDatas[0].shapes;
             const parent = (shapes[0].shape as ISubEdgeShape).parent;
@@ -282,11 +418,22 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
 
     protected override getSteps() {
         return [
-            new SelectShapeStep(ShapeTypes.edge, "prompt.select.edges", {
-                multiple: true,
-                shapeFilter: this._edgeFilter,
-                canFinish: this._canFinish,
-            }),
+            new ValueArrowSelectStep(
+                {
+                    shapeType: ShapeTypes.edge,
+                    shapeFilter: this._edgeFilter,
+                    canFinish: this._canFinish,
+                    // A preselection seeds the pick — the edges are kept and the arrow is
+                    // available — but it does not answer it: the value is still the command's
+                    // default, and Onshape opens the fillet for confirmation rather than
+                    // committing a radius the user never saw.
+                    preselectionAnswers: false,
+                },
+                { allow: () => true },
+                { arrowData: this.arrowData, setValue: this.setValueFromArrow },
+                (handler) => (this.activeHandler = handler),
+                "prompt.select.edges",
+            ),
         ];
     }
 

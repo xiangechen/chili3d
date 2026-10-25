@@ -3,9 +3,12 @@
 
 import {
     ANGLE_UNITS,
+    ARROW_COLOR,
+    ARROW_HOVER_COLOR,
     type AsyncController,
     BoundingBox,
     type CursorType,
+    distanceToSegment,
     formatMeasurement,
     I18n,
     type I18nKeys,
@@ -17,8 +20,10 @@ import {
     type IView,
     MathUtils,
     Matrix4,
+    nearestHandle,
     type ParameterValue,
     Precision,
+    pxSizedArrowLength,
     Result,
     type ShapeMeshData,
     type SnapResult,
@@ -32,13 +37,6 @@ import { circularPlacements, curvePlacements, linearPlacements } from "../featur
 import { measuredPath, orderPathEdges, type PatternPathFrames } from "../features/patternPath";
 import type { ParametricBodyNode } from "../parametricBodyNode";
 import { promptDatum } from "../sketch/editor/datumPrompt";
-import {
-    ARROW_COLOR,
-    ARROW_HOVER_COLOR,
-    distanceToSegment,
-    nearestHandle,
-    pxSizedArrowLength,
-} from "./arrowHandle";
 import { AxisDragHandler } from "./axisDragHandler";
 import style from "./patternSession.module.css";
 import type { DragPreview } from "./previewConfirmHandler";

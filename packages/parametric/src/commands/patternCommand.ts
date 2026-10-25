@@ -18,6 +18,7 @@ import {
     isReferenceGeometryNode,
     isSameShapeData,
     LENGTH_UNITS,
+    LineEdgeFilter,
     MultistepCommand,
     type ParameterValue,
     Precision,
@@ -59,7 +60,6 @@ import {
     pathFramesFromPicks,
 } from "./patternSession";
 import { capturePatternLineSource, capturePatternPathSource } from "./patternSources";
-import { LineEdgeFilter } from "./shapeFilters";
 
 /**
  * The shared flow of the three pattern commands: pick the parametric body (or take the selected

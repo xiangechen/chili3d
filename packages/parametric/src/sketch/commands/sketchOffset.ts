@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_LENGTH,
     AsyncController,
     command,
     type EdgeMeshData,
@@ -17,7 +18,6 @@ import {
     property,
     XYZ,
 } from "@chili3d/core";
-import { ARROW_LENGTH } from "../../commands/arrowHandle";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
 import { SketchEditor } from "../editor/sketchEditor";
 import { additivePick, sketchEntityMesh } from "../editor/sketchEventHandler";

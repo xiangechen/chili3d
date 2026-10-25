@@ -11,6 +11,7 @@ import {
     type Plane,
     PointStep,
     Precision,
+    PubSub,
     property,
     type SnapLengthAtPlaneData,
     type XYZ,
@@ -76,7 +77,9 @@ export class Helix extends CreateCommand {
     };
 
     private readonly previewHelix = (end: XYZ | undefined) => {
-        if (!end) {
+        // The swept angle divides by the pitch: with no usable pitch there is no coil to
+        // show, so the committed circle stands in (the same guard the commit makes).
+        if (!end || Math.abs(this.pitch) <= Precision.Distance) {
             return this.radiusPreview(this.stepDatas[1].point);
         }
 
@@ -92,6 +95,21 @@ export class Helix extends CreateCommand {
         const mesh = this.meshCreatedShape("helix", center, dir, xDir, radius, Math.abs(this.pitch), angle);
         return mesh ? [mesh] : [];
     };
+
+    /** The swept angle divides by the pitch, and the coil degenerates at zero radius/length. */
+    protected override canExecute(): boolean {
+        if (!(Math.abs(this.pitch) > Precision.Distance)) {
+            PubSub.default.pub("showToast", "error.default:{0}", "The pitch must be non-zero");
+            return false;
+        }
+        const plane = this.stepDatas[1]?.plane;
+        if (plane === undefined) return false;
+        const radius = plane.projectDistance(this.stepDatas[0].point!, this.stepDatas[1].point!);
+        const height = this.getHeight(plane, this.stepDatas[2].point!);
+        if (radius > Precision.Distance && Math.abs(height) > Precision.Distance) return true;
+        PubSub.default.pub("showToast", "error.default:{0}", "Helix radius and length must be positive");
+        return false;
+    }
 
     protected override geometryNode(): GeometryNode {
         const plane = this.stepDatas[1].plane!;

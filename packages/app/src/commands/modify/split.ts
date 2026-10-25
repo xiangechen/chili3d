@@ -10,6 +10,7 @@ import {
     instanceSourcesInUse,
     MultistepCommand,
     PubSub,
+    SELECTED_FACE_STATE,
     SelectShapeStep,
     type ShapeType,
     ShapeTypes,
@@ -90,6 +91,9 @@ export class Split extends MultistepCommand {
                 "prompt.select.shape",
                 {
                     multiple: true,
+                    // A face used as the cutting tool is drawn translucent with its boundary
+                    // outlined, so it does not hide the body it is cutting.
+                    selectedState: SELECTED_FACE_STATE,
                     beforeSelection: () => this.addFirstSelectedState(VisualStates.faceTransparent),
                     afterSelection: () => this.removeFirstSelectedState(VisualStates.faceTransparent),
                 },

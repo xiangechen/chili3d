@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    ARROW_LENGTH,
     type AsyncController,
     type IDocument,
     type IEdge,
@@ -13,10 +14,12 @@ import {
     type IView,
     LENGTH_UNITS,
     NOT_REFERENCE_GEOMETRY_FILTER,
+    outwardNormalAt,
     type Plane,
     Precision,
     PubSub,
     resolveUnitSpec,
+    SELECTED_FACE_STATE,
     ShapeTypes,
     ShapeTypeUtils,
     type SnapResult,
@@ -26,7 +29,6 @@ import {
 } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { SketchNode } from "../sketch/sketchNode";
-import { ARROW_LENGTH, outwardNormalAt } from "./arrowHandle";
 import { AxisDragHandler, type DragPreview } from "./axisDragHandler";
 import { cornerPreview } from "./edgeCornerCommand";
 import { ExtrudeFeatureCommand } from "./extrudeCommand";
@@ -34,7 +36,6 @@ import { dragPlaneOf, planeOfPickedFace } from "./extrudeDragStep";
 import { cornerDragOf, cornerRebuilt } from "./modifyCornerCommand";
 import { offsetPreview } from "./offsetFaceCommand";
 import { prioritizeSketchFaces } from "./profileFaceSort";
-import { SELECTED_FACE_STATE } from "./selectedFaceState";
 
 /** Where the arrow stands and which way it points, in WORLD coordinates. */
 export interface PressPullGrip {

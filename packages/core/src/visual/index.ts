@@ -2,12 +2,14 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./act";
+export * from "./arrowHandle";
 export * from "./cameraController";
 export * from "./cursorType";
 export * from "./detectedData";
 export * from "./eventHandler";
 export * from "./highlighter";
 export * from "./meshExporter";
+export * from "./previewVisual";
 export * from "./view";
 export * from "./viewGizmo";
 export * from "./viewport";
