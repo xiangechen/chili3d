@@ -52,6 +52,12 @@ export interface ValueArrowPickCallbacks {
 export interface ValueArrowPickOptions {
     readonly shapeType: ShapeType;
     /**
+     * The caller's node gate, composed with the reference-geometry exclusion exactly as
+     * `SelectShapeOptions.nodeFilter` is — never substituted for it. A command narrowed to the
+     * node being edited, or to one kind of body, passes it here.
+     */
+    readonly nodeFilter?: INodeFilter;
+    /**
      * Let reference geometry (a datum plane) answer the pick. Off by default, exactly as
      * `SelectShapeStep` treats it: a reference node is not modeling geometry, and a command
      * that replaced one would dangle every sketch/feature referencing it.
@@ -262,8 +268,7 @@ export class ValueArrowPickHandler extends SubshapeSelectionHandler {
  */
 export class ValueArrowSelectStep implements IStep {
     constructor(
-        private readonly options: ValueArrowPickOptions,
-        private readonly nodeFilter: INodeFilter,
+        readonly options: ValueArrowPickOptions,
         private readonly callbacks: ValueArrowPickCallbacks,
         private readonly onHandler: (handler: ValueArrowPickHandler | undefined) => void,
         private readonly prompt: I18nKeys = "prompt.select.edges",
@@ -289,7 +294,7 @@ export class ValueArrowSelectStep implements IStep {
             document,
             controller,
             this.options,
-            valueArrowNodeFilter(this.options, this.nodeFilter),
+            valueArrowNodeFilter(this.options),
             this.callbacks,
         );
         this.onHandler(handler);
@@ -321,7 +326,7 @@ export class ValueArrowSelectStep implements IStep {
      * must not answer the step for the user.
      */
     private preselected(document: IDocument): VisualShapeData[] {
-        const nodeFilter = valueArrowNodeFilter(this.options, this.nodeFilter);
+        const nodeFilter = valueArrowNodeFilter(this.options);
         const candidates = document.selection
             .getSelectedShapes()
             .filter(
@@ -340,10 +345,11 @@ export class ValueArrowSelectStep implements IStep {
  * that replaced one would dangle every sketch/feature referencing it. `allowReferenceGeometry`
  * is the opt-out, for a tool that genuinely targets one.
  */
-export function valueArrowNodeFilter(options: ValueArrowPickOptions, nodeFilter: INodeFilter): INodeFilter {
-    if (options.allowReferenceGeometry === true) return nodeFilter;
+export function valueArrowNodeFilter(options: ValueArrowPickOptions): INodeFilter {
+    const caller = options.nodeFilter;
+    if (options.allowReferenceGeometry === true) return caller ?? { allow: () => true };
     return {
-        allow: (node) => !isReferenceGeometryNode(node) && (nodeFilter.allow?.(node) ?? true),
+        allow: (node) => !isReferenceGeometryNode(node) && (caller?.allow(node) ?? true),
     };
 }
 

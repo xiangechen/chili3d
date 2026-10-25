@@ -416,6 +416,7 @@ abstract class ModifyCornerFeatureCommand extends MultistepCommand implements Pi
             new ValueArrowSelectStep(
                 {
                     shapeType: ShapeTypes.face,
+                    nodeFilter: { allow: (node: INode) => node instanceof ParametricBodyNode },
                     // One target at a time: the arrow follows the face just clicked, and clicking
                     // another one retargets instead of accumulating.
                     replaceSelection: true,
@@ -427,7 +428,6 @@ abstract class ModifyCornerFeatureCommand extends MultistepCommand implements Pi
                     highlightState: VisualStates.faceHighlight,
                     selectedState: SELECTED_FACE_STATE,
                 },
-                { allow: (node: INode) => node instanceof ParametricBodyNode },
                 { arrowData: this.arrowData, setValue: this.setValueFromArrow },
                 (handler) => (this.activeHandler = handler),
                 "prompt.select.cornerFaces",

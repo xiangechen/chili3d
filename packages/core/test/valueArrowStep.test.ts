@@ -17,19 +17,26 @@ const body = {} as unknown as INode;
 
 describe("valueArrowNodeFilter", () => {
     test("excludes reference geometry, like SelectShapeStep", () => {
-        const filter = valueArrowNodeFilter(options, allowAll);
+        const filter = valueArrowNodeFilter(options);
         expect(filter.allow(reference)).toBe(false);
         expect(filter.allow(body)).toBe(true);
     });
 
     test("composes the caller's own gate instead of replacing it", () => {
-        const filter = valueArrowNodeFilter(options, { allow: (node) => node !== body });
+        const filter = valueArrowNodeFilter({
+            ...options,
+            nodeFilter: { allow: (node: INode) => node !== body },
+        });
         expect(filter.allow(body)).toBe(false);
         expect(filter.allow({} as unknown as INode)).toBe(true);
     });
 
     test("allowReferenceGeometry opts out of the exclusion", () => {
-        const filter = valueArrowNodeFilter({ ...options, allowReferenceGeometry: true }, allowAll);
+        const filter = valueArrowNodeFilter({
+            ...options,
+            nodeFilter: allowAll,
+            allowReferenceGeometry: true,
+        });
         expect(filter.allow(reference)).toBe(true);
     });
 });

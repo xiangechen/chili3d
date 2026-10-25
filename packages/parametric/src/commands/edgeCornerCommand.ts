@@ -190,11 +190,11 @@ abstract class EdgeCornerFeatureCommand extends MultistepCommand {
             new ValueArrowSelectStep(
                 {
                     shapeType: ShapeTypes.edge,
+                    nodeFilter: { allow: (node: INode) => this.allowNode(node) },
                     // The picked edges seed the gesture, but the default radius is not the
                     // user's answer: Onshape opens the fillet for preview and confirmation.
                     preselectionAnswers: false,
                 },
-                { allow: (node: INode) => this.allowNode(node) },
                 { arrowData: this.arrowData, setValue: this.setValueFromArrow },
                 (handler) => (this.activeHandler = handler),
             ),

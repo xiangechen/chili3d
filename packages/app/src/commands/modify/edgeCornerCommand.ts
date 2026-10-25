@@ -429,7 +429,6 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
                     // committing a radius the user never saw.
                     preselectionAnswers: false,
                 },
-                { allow: () => true },
                 { arrowData: this.arrowData, setValue: this.setValueFromArrow },
                 (handler) => (this.activeHandler = handler),
                 "prompt.select.edges",
