@@ -51,6 +51,8 @@ click_view "hits": [] — nothing of that shapeType at the pixel. Retake capture
 
 The highlight in a click_view screenshot is on the wrong shape — the pixel missed, or several shapes overlap there. Re-click using the hit list's point (it names the world position you actually hit) or switch to shape.findSubShapes on the node and pick indices by geometry. Never operate on a selection you have not seen highlighted.
 
+A capture shows the area you need to check covered by the highlight — a highlighted face is drawn as an opaque fill over the face, so its shading, texture and edges are not in that picture. Clear the selection (select_nodes []) and retake; re-select afterwards if the user should see the result.
+
 click_view "x and y must be numbers in [0,1]" — the coordinates were missing or outside the image; both are normalized fractions of the screenshot (x: 0=left/1=right, y: 0=top/1=bottom).
 
 'query op "x" requires an id' / 'requires a target' — a query op is missing the "id" it reports its value under, or the "target" it inspects. Add the missing field; nothing else in the program is affected.

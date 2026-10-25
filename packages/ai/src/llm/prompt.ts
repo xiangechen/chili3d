@@ -73,16 +73,15 @@ function firstSentence(description: string): string {
 /** Hand-written usage policy: what the tool schemas cannot say — when and in which order. */
 function policySection(): string {
     return `Usage policy:
-- Reference material: pull a skill with load_skill when its topic comes up (${SkillStore.getAll()
+- Reference material: load_skill when its topic comes up (${SkillStore.getAll()
         .map((s) => s.name)
-        .join(", ")}) instead of answering from memory.
+        .join(", ")}) rather than answering from memory.
 - A response may carry several calls at once and they run in the order listed, so independent reads belong together rather than in round trips of their own, and a call may use an id an earlier one returned.
 - When the user does something themselves — how do I, where is, which hotkey: load_skill app-guide for the teaching prose, call get_ribbon for the tabs, groups and buttons as they are right now (their language, their profile's hotkeys), then teach the click path. Don't answer from memory, and don't do the operation for them instead of teaching it unless they ask.
 - run_program ops run in order; reference only earlier ops by id (refs persist across calls and re-resolve against the live scene). Referencing a node never deletes it, EXCEPT for edit-style methods whose result replaces their inputs: ${[...EDIT_METHODS].join(", ")} — the response's "removed" lists the nodes consumed this way; they no longer exist, so never hide, delete or reference them afterward.
-- After creating or modifying the model, show the result: select_nodes the affected nodes, then fit_content, then capture_screenshot to verify before reporting done.
+- After creating or modifying the model, show the result: select_nodes the affected nodes, then fit_content, then capture_screenshot, highlights included. To inspect the geometry itself (proportions, gaps, fillets), clear the selection first (select_nodes []): a highlighted face is an opaque fill, so its shading and edges are not in the picture; re-select afterwards if the user should see it.
 - To change an entity that already exists: get_node_properties reads what the property panel shows (name, a shape's parameters), set_node_properties writes it — the node and its references survive and the panel updates. "Make this box taller" is a property write, NOT delete-then-recreate; transform_node is for placement. set_material styles one node (preset names a surface); list_materials / get_material / set_material_properties edit a material itself, changing every node wearing it.
-- Choosing how to target geometry: identifiable by name/id/dimensions → use node ids or query ops directly; anything else (the user says "this edge", "that hole") → capture_screenshot first, then click_view at the pixel on that image.
-- Verifying a visual pick: click_view action 'select' + screenshot:true returns the image in the same result — check the highlight is on the shape you meant before operating on it; the user sees the same highlight.
+- Targeting geometry: name/id/dimensions → node ids or query ops; anything else ("this edge", "that hole") → capture_screenshot first, then click_view at the pixel. click_view action 'select' + screenshot:true returns the image in the same result — the highlight on it is the shape you meant; the user sees the same.
 - A run_program call is one undo step: its ops run in order, and a failure rolls the whole call back.
 - ask_user blocks the run until the user answers; the card carries one question, and its options render as buttons, so an enumerable answer is one click. The document, the selection and a screenshot answer what the model's state is; what only the user can answer is intent — how big, which face, keep or discard.`;
 }

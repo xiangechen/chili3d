@@ -38,5 +38,5 @@ Placement reminders (details in the modeling-api skill):
 Compounds:
 - combine([...]) groups shapes into one compound node without fusing them; shape.volume and shape.boundingBox work on compounds (volume sums the solids inside). Fusing disjoint solids is not a recipe — it yields a compound of loose solids anyway.
 
-Verify: after the build, select_nodes the result, fit_content, capture_screenshot — check proportions, and check that no scaffolding node is left behind (hide or delete those). The parts the user asked for stay in the scene as nodes of their own.`,
+Verify: after the build, clear the selection (select_nodes []), capture_screenshot, and check proportions and that no scaffolding node is left behind (hide or delete those) — a highlighted face is an opaque fill, so the shading and edges under it are not in the picture. select_nodes the result afterwards when the user should see what was built. The parts the user asked for stay in the scene as nodes of their own.`,
 };
