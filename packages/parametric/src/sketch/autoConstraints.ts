@@ -867,9 +867,9 @@ function alignToAxis(
 ): void {
     const kinds = solver.constraintKindsOn(p1.entityId);
     if (kinds.includes(ConstraintKind.Horizontal) || kinds.includes(ConstraintKind.Vertical)) return;
-    // both endpoints pinned onto the same line (or axis) leave the line collinear
+    // both endpoints standing on the same line (or axis) leave the line collinear
     // with it — Horizontal/Vertical would only restate that
-    if (pinnedCollinear(solver, p1, p2, added)) return;
+    if (pinnedCollinear(solver, p1, p2)) return;
 
     const [x1, y1] = solver.pointOf(p1);
     const [x2, y2] = solver.pointOf(p2);
@@ -893,54 +893,52 @@ function alignToAxis(
 }
 
 /**
- * Whether the snaps just added pin both endpoints onto the same line or axis:
- * the new line is then collinear with it by construction. An endpoint counts as
- * pinned onto a line through a PointOnLine onto it or through a coincidence with
- * one of its endpoints; the datum origin counts as a point of both axes.
+ * Whether both endpoints stand on one common line or axis: the new line is then
+ * collinear with it by construction.
  */
-function pinnedCollinear(
-    solver: SketchSolver,
-    p1: SketchPointRef,
-    p2: SketchPointRef,
-    added: Omit<SketchConstraintData, "id">[],
-): boolean {
-    const targets = lineTargetsOf(solver, p1, added);
-    for (const target of lineTargetsOf(solver, p2, added)) {
+function pinnedCollinear(solver: SketchSolver, p1: SketchPointRef, p2: SketchPointRef): boolean {
+    const targets = lineTargetsOf(solver, p1);
+    for (const target of lineTargetsOf(solver, p2)) {
         if (targets.has(target)) return true;
     }
     return false;
 }
 
-/** Ids of the lines/axes `ref` was just snapped onto (see `pinnedCollinear`). */
-function lineTargetsOf(
-    solver: SketchSolver,
-    ref: SketchPointRef,
-    added: Omit<SketchConstraintData, "id">[],
-): Set<number> {
-    const key = pointRefKey(ref);
+/** The rows that hold a point on a line: the line itself, or its middle (same refs layout). */
+const ON_LINE_KINDS: readonly ConstraintKind[] = [ConstraintKind.PointOnLine, ConstraintKind.Midpoint];
+
+/**
+ * Ids of the lines/axes `ref` stands on (see `pinnedCollinear`). The whole coincidence
+ * component is read rather than the ref alone: a point fused onto another stands wherever
+ * that one does, so a partner that is a line's endpoint, the datum origin, or itself held
+ * on a line puts `ref` there too.
+ *
+ * The rows are read off the solver, not off this pass's `added` list. The snaps are
+ * already in it, and so is what the sketch carried before: an endpoint fused onto a point
+ * a `PointOnLine` pinned onto a line earlier is on that line — the row sits on the partner,
+ * not on the ref, and reading only the new rows misses it, which leaves the exact
+ * Horizontal/Vertical this guard exists to withhold (the new line is then collinear by
+ * construction, and the row only adds a rank deficiency garlic cannot attribute).
+ */
+function lineTargetsOf(solver: SketchSolver, ref: SketchPointRef): Set<number> {
     const ids = new Set<number>();
-    for (const constraint of added) {
-        if (constraint.kind === ConstraintKind.PointOnLine && pointRefKey(constraint.refs[0]) === key) {
-            ids.add(constraint.refs[1].entityId);
-        } else if (constraint.kind === ConstraintKind.P2PCoincident) {
-            const other = coincidentPartner(constraint.refs, key);
-            if (other === undefined) continue;
-            if (other.entityId === SKETCH_ORIGIN_ID) {
+    for (const member of solver.coincidentPeers(ref)) {
+        // the point's own entity says nothing here: every point of the new line is on
+        // that line, and taking it for a target would suppress every Horizontal/Vertical
+        if (member.entityId !== ref.entityId) {
+            if (member.entityId === SKETCH_ORIGIN_ID) {
                 ids.add(SKETCH_X_AXIS_ID);
                 ids.add(SKETCH_Y_AXIS_ID);
-            } else if (solver.entity(other.entityId)?.type === "line") {
-                ids.add(other.entityId);
+                continue;
             }
+            // every point a line exposes is on that line — its endpoints are all it has
+            if (solver.entity(member.entityId)?.type === "line") ids.add(member.entityId);
+        }
+        for (const constraint of solver.constraintsOnPoint(member, ON_LINE_KINDS)) {
+            ids.add(constraint.refs[1].entityId);
         }
     }
     return ids;
-}
-
-/** The other ref of a two-ref coincidence, or undefined when `key` is not part of it. */
-function coincidentPartner(refs: SketchPointRef[], key: string): SketchPointRef | undefined {
-    if (pointRefKey(refs[0]) === key) return refs[1];
-    if (pointRefKey(refs[1]) === key) return refs[0];
-    return undefined;
 }
 
 /**

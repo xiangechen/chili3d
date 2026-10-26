@@ -183,6 +183,95 @@ describe("applyAutoConstraints", () => {
         solver.dispose();
     });
 
+    test("adds no Horizontal to a line from a line's end to a point held on that line", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const base = solver.addLine(0, 10, 20, 10);
+        solver.addConstraint({
+            kind: ConstraintKind.Horizontal,
+            refs: [
+                { entityId: base, pointIndex: 0 },
+                { entityId: base, pointIndex: 1 },
+            ],
+        });
+        // the stub's start is held on the base before the new line is drawn: the row
+        // sits on the partner point, not on either endpoint of the new line
+        const stub = solver.addLine(5, 10.1, 5, 20);
+        solver.addConstraint({
+            kind: ConstraintKind.PointOnLine,
+            refs: [
+                { entityId: stub, pointIndex: 0 },
+                { entityId: base, pointIndex: 0 },
+                { entityId: base, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+        const id = solver.addLine(20.1, 10.1, 5.1, 10.15);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added.map((x) => x.kind)).toEqual([
+            ConstraintKind.P2PCoincident,
+            ConstraintKind.P2PCoincident,
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("adds no Horizontal to a line from a line's end to its midpoint", () => {
+        const solver = new SketchSolver(Plane.XY);
+        const base = solver.addLine(0, 10, 20, 10);
+        solver.addConstraint({
+            kind: ConstraintKind.Horizontal,
+            refs: [
+                { entityId: base, pointIndex: 0 },
+                { entityId: base, pointIndex: 1 },
+            ],
+        });
+        const mid = solver.addPoint(10, 10.2);
+        solver.addConstraint({
+            kind: ConstraintKind.Midpoint,
+            refs: [
+                { entityId: mid, pointIndex: 0 },
+                { entityId: base, pointIndex: 0 },
+                { entityId: base, pointIndex: 1 },
+            ],
+        });
+        solver.solve(true);
+        const id = solver.addLine(20.1, 10.1, 10.05, 10.1);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        expect(added.map((x) => x.kind)).toEqual([
+            ConstraintKind.P2PCoincident,
+            ConstraintKind.P2PCoincident,
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
+    test("adds Horizontal when both endpoints are coincident but stand on different lines", () => {
+        const solver = new SketchSolver(Plane.XY);
+        solver.addLine(0, 5, 10, 5);
+        solver.addLine(20, 5, 30, 5);
+        solver.solve(true);
+        const id = solver.addLine(10.1, 5.2, 19.9, 5.3);
+
+        const added = applyAutoConstraints(solver, id, { pointTolerance: 0.5 });
+        solver.solve(true);
+
+        // coincidence couples the new line's ends to two different lines; it says
+        // nothing about their direction, so Horizontal is a genuine constraint
+        expect(added.map((x) => x.kind)).toEqual([
+            ConstraintKind.P2PCoincident,
+            ConstraintKind.P2PCoincident,
+            ConstraintKind.Horizontal,
+        ]);
+        expect(solver.diagnose().redundant).toEqual([]);
+        solver.dispose();
+    });
+
     test("snaps a circle center onto a nearby point", () => {
         const solver = new SketchSolver(Plane.XY);
         solver.addLine(5, 5, 15, 5);
