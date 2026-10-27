@@ -14,6 +14,7 @@ import {
     type IShape,
     type IShapeFilter,
     type ISubShape,
+    type IVertex,
     type IView,
     type IViewGizmo,
     type IVisualObject,
@@ -29,6 +30,7 @@ import {
     type ShapeType,
     ShapeTypes,
     ShapeTypeUtils,
+    screenDistance,
     type ToImageOptions,
     type ViewMode,
     type VisualNode,
@@ -92,6 +94,25 @@ function wantedContainers(shapeType: ShapeType, subType: ShapeType): ShapeType[]
         wanted.push(ShapeTypes.wire);
     }
     return wanted;
+}
+
+/**
+ * A point's raycast threshold is a world distance while `SnapDistance` counts screen
+ * pixels (`initRaycaster` feeds it to `Points` as well as to `Line2`). On a body smaller
+ * than that threshold every point qualifies on every ray, so a pick that also takes
+ * vertices would answer a click over the middle of a face with one of its corners and
+ * never the face or edge under the pointer. A vertex is judged the way an edge is: by
+ * how close it lands to the pointer on screen.
+ */
+function dropFarVertices(view: IView, mx: number, my: number, shapes: VisualShapeData[]): VisualShapeData[] {
+    return shapes.filter((x) => {
+        if (x.shape.shapeType !== ShapeTypes.vertex) return true;
+        // `point` on a point-mesh hit is the closest point on the RAY, not the vertex —
+        // it would always measure zero. The vertex's own position is what the pointer
+        // has to be near.
+        const position = x.transform.ofPoint((x.shape as IVertex).point());
+        return screenDistance(view, mx, my, position) < Config.instance.SnapDistance;
+    });
 }
 
 /** Whether the sub-shape itself is what a pick with no applicable container asked for. */
@@ -1008,7 +1029,12 @@ export class ThreeView extends Observable implements IView {
         if (ShapeTypeUtils.isWhole(shapeType) && shapeType !== ShapeTypes.vertex) {
             return this.detectThreeShapes(intersections, shapeFilter, nodeFilter);
         }
-        const subs = this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter);
+        const subs = dropFarVertices(
+            this,
+            mx,
+            my,
+            this.detectSubShapes(shapeType, intersections, shapeFilter, nodeFilter),
+        );
         // When an edge is on a face, the face will be snapped first,
         // so the nearest edge needs to be placed at the beginning of the array.
         if (subs.length > 1 && subs[0].shape.shapeType === ShapeTypes.face) {

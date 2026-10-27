@@ -443,6 +443,35 @@ describe("ThreeView detect — positive hits with real geometry", () => {
         expect(view.detectShapes(ShapeTypes.edge, corner.x, corner.y).length).toBe(0);
     });
 
+    test("a pick that also allows vertices still lands on the face away from its corners", () => {
+        const { view, near } = createSceneWithPanels();
+        // Zoom in until the corners sit farther than SnapDistance pixels from the
+        // pointer while still inside the world-space radius the point mesh raycasts
+        // with — the state a small body is in at the default framing.
+        view.camera.position.set(0, 0, 30);
+        view.camera.lookAt(0, 0, 0);
+        view.camera.updateProjectionMatrix();
+        view.camera.updateMatrixWorld(true);
+        const center = view.worldToScreen(XYZ.zero);
+        const mask = (ShapeTypes.vertex | ShapeTypes.edge | ShapeTypes.face) as ShapeType;
+
+        const subs = view.detectShapes(mask, center.x, center.y);
+
+        expect(subs.length).toBeGreaterThan(0);
+        expect(subs[0].shape).toBe(near.panel.face);
+    });
+
+    test("a pick that allows vertices keeps one the pointer is on", () => {
+        const { view, near } = createSceneWithPanels();
+        const corner = view.worldToScreen(new XYZ(NEAR_POINTS[0]));
+        const mask = (ShapeTypes.vertex | ShapeTypes.edge | ShapeTypes.face) as ShapeType;
+
+        const subs = view.detectShapes(mask, corner.x, corner.y);
+
+        expect(subs.length).toBeGreaterThan(0);
+        expect(subs[0].shape).toBe(near.panel.vertices[0]);
+    });
+
     test("the points of a body are built on first vertex pick and stay undrawn", () => {
         const { view, visual, near } = createSceneWithPanels();
         const geometry = visual.context.getVisual(near) as unknown as {
