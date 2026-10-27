@@ -5,6 +5,7 @@ import type { Tool } from "../llm/types";
 import { buildSkillTool } from "../skills";
 import { buildAskUserTool } from "./askUser";
 import { buildCapabilityTools } from "./capabilityEngine";
+import { buildDocumentTools } from "./documentTools";
 import { buildFileTools } from "./fileTools";
 import { buildMaterialTools } from "./materialTools";
 import { buildNodeTools } from "./nodeTools";
@@ -35,5 +36,7 @@ export function buildTools(): Tool[] {
         buildAskUserTool(),
         ...buildMaterialTools(),
         buildCaptureViewsTool(),
+        // Appended last for the same reason: a newly added tool must not shift the cached prefix.
+        ...buildDocumentTools(),
     ];
 }

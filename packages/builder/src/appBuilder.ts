@@ -136,10 +136,28 @@ export class AppBuilder {
         const app = this.createApp();
         await this._window?.init(app);
         await this.loadDefaultPlugins(app);
+        await this.connectBridge();
 
         Logger.info("Application build completed");
 
         return app;
+    }
+
+    /**
+     * `?bridge=<port>` asks this page to connect back to a local bridge process, which an external
+     * agent drives the document through (see the `@chili3d/mcp` package). The parameter is
+     * checked before the import, so a page that did not ask for it never loads the client.
+     */
+    protected async connectBridge(): Promise<void> {
+        if (!new URLSearchParams(window.location.search).has("bridge")) return;
+        const { bridgePortFromUrl, connectBridge } = await import("@chili3d/ai");
+        const port = bridgePortFromUrl(window.location.search);
+        if (port === undefined) {
+            // A typo in the parameter would otherwise look like "the bridge is not running".
+            Logger.warn("ignoring an invalid ?bridge value; it must be a port number");
+            return;
+        }
+        connectBridge(port);
     }
 
     protected async loadDefaultPlugins(app: IApplication) {

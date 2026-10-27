@@ -28,9 +28,10 @@ describe("buildSystemPrompt", () => {
         // resident half from ~11.9k to ~7k. This bound guards against creeping back — it is a
         // guard and not a target, so the one policy line that earned its place since (batched
         // calls, which is what the run's step budget spends) raised it rather than being written
-        // to fit under it.
+        // to fit under it. `new_document` is the second: a page opened from scratch has no
+        // document, and an external agent has no one to click New for it.
         const { stable, volatile } = buildSystemPrompt();
-        expect(stable.length + volatile.length).toBeLessThan(8300);
+        expect(stable.length + volatile.length).toBeLessThan(8400);
     });
 
     test("keeps the creation-method catalog out of the resident half", () => {

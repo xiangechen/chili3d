@@ -33,7 +33,7 @@ web ──> builder ──> app ──> core
 - **`element`** — Custom reactive DOM elements (radio groups, expanders, data converters)
 - **`ui`** — App chrome: main window, ribbon, property panels, project tree, dialogs, toast, status bar
 - **`app`** — `Application`, body nodes (`bodys/`), command implementations, `CommandService`, `HotkeyService`
-- **`ai`** — The in-app assistant: the chat panel, the tools it acts through, the skills it loads on demand, and the capability engine that runs its `run_program` modeling ops
+- **`ai`** — The in-app assistant: the chat panel, the tools it acts through, the skills it loads on demand, and the capability engine that runs its `run_program` modeling ops; also the `?bridge=<port>` client (`src/bridge/`) that hands the same tool registry to a local process over a WebSocket, driven by the separate `@chili3d/mcp` package
 - **`builder`** — `AppBuilder` fluent chain (`.useIndexedDB().useWasmOcc().useParametric().useThree().useUI().build()`), default ribbon layout; `mergeRibbonProfiles` merges module contributions (`SketchRibbonProfiles` from `@chili3d/parametric`, `ParametricRibbonProfiles` from builder's own `ribbon.ts`) into `DefaultRibbon`
 - **`i18n`** / **`storage`** / **`web`** — Locale data (en, zh-cn, pt-br) / IndexedDB persistence / entry point (loading screen, `?plugin=`/`?url=`/`?model=` params)
 
