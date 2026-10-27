@@ -210,11 +210,29 @@ describe("SaveDocumentToFile callback", () => {
         URL.createObjectURL = (_blob: Blob) => "blob:mock-url";
         URL.revokeObjectURL = (_url: string) => {};
 
+        // Record the file name the download is for; the click itself does nothing here.
+        const originalCreateElement = document.createElement.bind(document);
+        document.createElement = ((tagName: string, options?: ElementCreationOptions) => {
+            const el = originalCreateElement(tagName, options);
+            if (tagName.toLowerCase() === "a") {
+                Object.defineProperty(el, "download", {
+                    set: (value: string) => {
+                        state.downloadFileName = value;
+                    },
+                    get: () => state.downloadFileName ?? "",
+                    configurable: true,
+                });
+                (el as HTMLElement).click = () => {};
+            }
+            return el;
+        }) as typeof document.createElement;
+
         const restore = () => {
             PubSub.default.pub = originalPub;
             rs.useRealTimers();
             URL.createObjectURL = originalCreateObjectURL;
             URL.revokeObjectURL = originalRevokeObjectURL;
+            document.createElement = originalCreateElement;
         };
 
         return { state, app, restore };
@@ -258,6 +276,66 @@ describe("SaveDocumentToFile callback", () => {
             expect(state.toastCalled).toBe(true);
         } finally {
             restore();
+        }
+    });
+
+    test("should download the document that was active when the command ran", async () => {
+        const { state, app, restore } = setupCallbackTest();
+        const otherDoc = createMockDocument({ name: "other-document" });
+
+        try {
+            const cmd = new SaveDocumentToFile();
+            await cmd.execute(app);
+
+            // The user switches views while the spinner paints; the click's document is the
+            // one the download is for.
+            app.activeView = { document: otherDoc } as any;
+            await runCallback(state);
+
+            expect(state.downloadFileName).toContain("test-document");
+        } finally {
+            restore();
+        }
+    });
+
+    test("should ignore a second download while the first is still running", async () => {
+        const callbacks: Array<() => Promise<void>> = [];
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, ...args: any[]) => {
+            if (channel === "showPermanent") callbacks.push(args[0] as () => Promise<void>);
+        }) as any;
+        rs.useFakeTimers();
+        const originalCreateObjectURL = URL.createObjectURL;
+        const originalRevokeObjectURL = URL.revokeObjectURL;
+        URL.createObjectURL = () => "blob:mock-url";
+        URL.revokeObjectURL = () => {};
+
+        try {
+            const doc = createMockDocument({ name: "test-document" });
+            doc.serialize = () => ({}) as any;
+            const app = createMockApplication();
+            app.activeView = { document: doc } as any;
+
+            await new SaveDocumentToFile().execute(app);
+            // The work starts when `Permanent` runs the callback, and is still inside its
+            // 100ms paint delay when the second click arrives — the guard must cover that.
+            const first = callbacks[0]();
+            await rs.advanceTimersByTimeAsync(20);
+
+            await new SaveDocumentToFile().execute(app);
+            expect(callbacks.length).toBe(1);
+
+            await rs.advanceTimersByTimeAsync(100);
+            await first;
+
+            // Once the work is done, the next download goes through.
+            await new SaveDocumentToFile().execute(app);
+            expect(callbacks.length).toBe(2);
+        } finally {
+            PubSub.default.pub = originalPub;
+            rs.useRealTimers();
+            URL.createObjectURL = originalCreateObjectURL;
+            URL.revokeObjectURL = originalRevokeObjectURL;
         }
     });
 

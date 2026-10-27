@@ -816,6 +816,7 @@ export default {
         "toast.text.fontFailed": "The text font could not be loaded",
         "toast.text.fontUnavailable": "The font could not be applied to every object",
         "toast.document.noActivated": "No document activated",
+        "toast.document.saveFailed{0}": "Save failed: {0}. Use “Save To File” to keep your work.",
         "toast.document.saved": "Document saved",
         "toast.downloading": "Downloading",
         "toast.excuting{0}": "Excuting {0}",

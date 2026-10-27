@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { rs } from "@rstest/core";
 import { download } from "../src";
 
 describe("download function", () => {
@@ -10,11 +11,13 @@ describe("download function", () => {
     let createdObjectUrls: string[];
     let revokedObjectUrls: string[];
     let clickCalled: boolean;
+    let anchorInDocumentAtClick: boolean;
     let anchorHref: string;
     let anchorDownload: string;
     let anchorVisibility: string;
 
     beforeEach(() => {
+        rs.useFakeTimers();
         originalCreateObjectURL = URL.createObjectURL;
         originalRevokeObjectURL = URL.revokeObjectURL;
         originalCreateElement = document.createElement;
@@ -22,6 +25,7 @@ describe("download function", () => {
         createdObjectUrls = [];
         revokedObjectUrls = [];
         clickCalled = false;
+        anchorInDocumentAtClick = false;
         anchorHref = "";
         anchorDownload = "";
         anchorVisibility = "";
@@ -40,7 +44,6 @@ describe("download function", () => {
             const el = originalCreateElement.call(document, tagName, _options);
             if (tagName === "a") {
                 const htmlEl = el as HTMLElement & { href: string; download: string };
-                const originalClick = el.click;
                 Object.defineProperty(htmlEl, "href", {
                     set(value: string) {
                         anchorHref = value;
@@ -67,7 +70,7 @@ describe("download function", () => {
                 });
                 el.click = () => {
                     clickCalled = true;
-                    originalClick.call(el);
+                    anchorInDocumentAtClick = document.body.contains(el);
                 };
             }
             return el;
@@ -78,13 +81,13 @@ describe("download function", () => {
         URL.createObjectURL = originalCreateObjectURL;
         URL.revokeObjectURL = originalRevokeObjectURL;
         document.createElement = originalCreateElement;
+        rs.useRealTimers();
     });
 
-    test("should create a Blob, object URL, trigger click, and revoke URL", () => {
+    test("should create a Blob, object URL, and trigger click", () => {
         download(["test content"], "test-file.txt");
 
         expect(createdObjectUrls.length).toBe(1);
-        expect(revokedObjectUrls.length).toBe(1);
         expect(clickCalled).toBe(true);
     });
 
@@ -103,39 +106,62 @@ describe("download function", () => {
         expect(anchorVisibility).toBe("hidden");
     });
 
-    test("should revoke object URL even if click throws", () => {
-        // Override click to throw for this test
+    test("should attach the anchor to the document before clicking it", () => {
+        download(["data"], "file.txt");
+        expect(anchorInDocumentAtClick).toBe(true);
+    });
+
+    test("should put the anchor inside the open dialog, where the click is not inert", () => {
+        const dialog = document.createElement("dialog");
+        dialog.setAttribute("open", "");
+        document.body.appendChild(dialog);
+
+        let parentAtClick: Element | null = null;
+        const baseCreateElement = document.createElement.bind(document);
+        document.createElement = ((tagName: string, options?: ElementCreationOptions) => {
+            const el = baseCreateElement(tagName, options);
+            if (tagName === "a") {
+                el.click = () => {
+                    parentAtClick = el.parentElement;
+                };
+            }
+            return el;
+        }) as typeof document.createElement;
+
+        try {
+            download(["data"], "file.txt");
+            expect(parentAtClick).toBe(dialog);
+        } finally {
+            dialog.remove();
+        }
+    });
+
+    test("should keep the object URL alive across the click and revoke it later", () => {
+        download(["data"], "file.txt");
+
+        // Revoking in the same tick cancels the download in Safari/Firefox.
+        expect(revokedObjectUrls).toEqual([]);
+
+        rs.advanceTimersByTime(10_000);
+        expect(revokedObjectUrls).toEqual(["blob:mock-0"]);
+    });
+
+    test("should still revoke the object URL when the click throws", () => {
         document.createElement = ((tagName: string, _options?: ElementCreationOptions) => {
             const el = originalCreateElement.call(document, tagName, _options);
             if (tagName === "a") {
-                const htmlEl = el as HTMLElement & { href: string; download: string };
-                Object.defineProperty(htmlEl.style, "visibility", {
-                    set() {},
-                    get() {
-                        return "hidden";
-                    },
-                });
-                el.click = () => {
+                (el as HTMLAnchorElement).click = () => {
                     throw new Error("click failed");
                 };
-                Object.defineProperty(htmlEl, "href", {
-                    set() {},
-                    get() {
-                        return "";
-                    },
-                });
-                Object.defineProperty(htmlEl, "download", {
-                    set() {},
-                    get() {
-                        return "";
-                    },
-                });
+                Object.defineProperty(el, "href", { set() {}, get: () => "" });
+                Object.defineProperty(el, "download", { set() {}, get: () => "" });
             }
             return el;
         }) as typeof document.createElement;
 
         expect(() => download(["data"], "file.txt")).toThrow("click failed");
-        // revokeObjectURL should still be called via finally block
+
+        rs.advanceTimersByTime(10_000);
         expect(revokedObjectUrls.length).toBe(1);
     });
 
@@ -154,6 +180,8 @@ describe("download function", () => {
     test("should handle special characters in filename", () => {
         download(["data"], "文件名-测试.step");
         expect(clickCalled).toBe(true);
+
+        rs.advanceTimersByTime(10_000);
         expect(revokedObjectUrls.length).toBe(1);
     });
 

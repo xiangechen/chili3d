@@ -1,8 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { CommandData, CommandKeys, IApplication, ICommand, IDocument, IView } from "@chili3d/core";
-import { CommandStore, PubSub } from "@chili3d/core";
+import type {
+    CommandData,
+    CommandKeys,
+    I18nKeys,
+    IApplication,
+    ICommand,
+    IDocument,
+    IView,
+} from "@chili3d/core";
+import { CommandStore, I18n, PubSub } from "@chili3d/core";
 import { createMockApplication, createMockDocument } from "@chili3d/core/test-utils";
 import { afterEach, beforeEach, describe, expect, rs, test } from "@rstest/core";
 import { CommandService } from "../../src/services/commandService";
@@ -39,6 +47,10 @@ class ThrowingCommand implements ICommand {
     }
 }
 
+class RunningCommand implements ICommand {
+    async execute(_application: IApplication): Promise<void> {}
+}
+
 class TestCancelableCommand implements ICommand {
     cancelCalls = 0;
 
@@ -56,13 +68,34 @@ class TestCancelableCommand implements ICommand {
     }
 }
 
+class ThrowingCancelCommand extends TestCancelableCommand {
+    override async cancel(): Promise<void> {
+        await super.cancel();
+        throw new Error("cancel failed");
+    }
+}
+
+class UrgentTestCommand implements ICommand {
+    static calls = 0;
+
+    async execute(_application: IApplication): Promise<void> {
+        UrgentTestCommand.calls++;
+    }
+}
+
 // ── helpers ───────────────────────────────────────────────────────────
 
-function registerCommand(key: string, Ctor: new () => ICommand = TestCommand, isAppCommand = false) {
+function registerCommand(
+    key: string,
+    Ctor: new () => ICommand = TestCommand,
+    isAppCommand = false,
+    alwaysAvailable = false,
+) {
     CommandStore.registerCommand(Ctor, {
         key: key as CommandKeys,
         icon: "test-icon",
         isApplicationCommand: isAppCommand,
+        alwaysAvailable,
     } as Omit<CommandData, "key"> & { key: string });
 }
 
@@ -112,6 +145,8 @@ describe("CommandService", () => {
         unregisterCommand("test.cancelable");
         unregisterCommand("test.error");
         unregisterCommand("test.error2");
+        unregisterCommand("test.urgent");
+        unregisterCommand("test.running");
         PubSub.default.removeAll("executeCommand");
         PubSub.default.removeAll("activeViewChanged");
     });
@@ -268,6 +303,96 @@ describe("CommandService", () => {
             PubSub.default.pub("executeCommand", "test.box" as CommandKeys);
             await waitForCommandCompleted(app, "test.box");
         });
+
+        test("should say which command is in the way when it cannot be interrupted", async () => {
+            registerCommand("test.running", RunningCommand);
+            registerCommand("test.box");
+            app.executingCommand = new RunningCommand();
+
+            const toasts: any[][] = [];
+            const listener = (...args: any[]) => toasts.push(args);
+            PubSub.default.sub("showToast", listener as any);
+
+            try {
+                PubSub.default.pub("executeCommand", "test.box" as CommandKeys);
+                await rs.waitFor(() => {
+                    expect(toasts.length).toBe(1);
+                });
+                await Promise.resolve();
+
+                // A silent refusal here is what made a command click look broken.
+                expect(toasts[0]).toEqual([
+                    "toast.command.{0}excuting",
+                    I18n.translate("command.test.running" as I18nKeys),
+                ]);
+                expect(app.lastCommand).toBeUndefined();
+            } finally {
+                PubSub.default.remove("showToast", listener as any);
+            }
+        });
+    });
+
+    // ── alwaysAvailable commands ───────────────────────────────────
+
+    describe("alwaysAvailable commands", () => {
+        beforeEach(() => {
+            service.register(app);
+            service.start();
+            UrgentTestCommand.calls = 0;
+        });
+
+        test("should run while another command is executing", async () => {
+            registerCommand("test.urgent", UrgentTestCommand, true, true);
+            const running = new TestCommand();
+            app.executingCommand = running;
+
+            PubSub.default.pub("executeCommand", "test.urgent" as CommandKeys);
+            await waitForCommandCompleted(app, "test.urgent");
+
+            expect(UrgentTestCommand.calls).toBe(1);
+            // The running command still owns the slot, so its own cancel/finish path works.
+            expect(app.executingCommand).toBe(running);
+        });
+
+        test("should leave the command in flight alone (no cancel, no property panel reset)", async () => {
+            registerCommand("test.urgent", UrgentTestCommand, true, true);
+            const running = new TestCancelableCommand();
+            app.executingCommand = running;
+
+            const showProperties = rs.fn();
+            PubSub.default.sub("showProperties", showProperties as any);
+
+            try {
+                PubSub.default.pub("executeCommand", "test.urgent" as CommandKeys);
+                await waitForCommandCompleted(app, "test.urgent");
+
+                expect(running.cancelCalls).toBe(0);
+                expect(showProperties).not.toHaveBeenCalled();
+            } finally {
+                PubSub.default.remove("showProperties", showProperties as any);
+            }
+        });
+
+        test("should still run when the executing command refuses to cancel", async () => {
+            registerCommand("test.urgent", UrgentTestCommand, true, true);
+            const running = new ThrowingCancelCommand();
+            app.executingCommand = running;
+
+            PubSub.default.pub("executeCommand", "test.urgent" as CommandKeys);
+            await waitForCommandCompleted(app, "test.urgent");
+
+            expect(UrgentTestCommand.calls).toBe(1);
+        });
+
+        test("should run without an active view (the command handles the missing document)", async () => {
+            registerCommand("test.urgent", UrgentTestCommand, false, true);
+            app.activeView = undefined;
+
+            PubSub.default.pub("executeCommand", "test.urgent" as CommandKeys);
+            await waitForCommandCompleted(app, "test.urgent");
+
+            expect(UrgentTestCommand.calls).toBe(1);
+        });
     });
 
     // ── error handling ─────────────────────────────────────────────
@@ -287,6 +412,28 @@ describe("CommandService", () => {
             // execute throws, so executingCommand must already be cleared.
             await waitForCommandCompleted(app, "test.error");
             expect(app.executingCommand).toBeUndefined();
+        });
+
+        test("should keep running commands after the check itself throws", async () => {
+            registerCommand("test.box");
+            const errors: string[] = [];
+            const listener = (message: string) => errors.push(message);
+            PubSub.default.sub("displayError", listener);
+            app.executingCommand = new ThrowingCancelCommand();
+
+            try {
+                PubSub.default.pub("executeCommand", "test.box" as CommandKeys);
+                await rs.waitFor(() => {
+                    expect(errors).toEqual(["cancel failed"]);
+                });
+
+                // A stuck check flag would silently refuse everything from here on.
+                app.executingCommand = undefined;
+                PubSub.default.pub("executeCommand", "test.box" as CommandKeys);
+                await waitForCommandCompleted(app, "test.box");
+            } finally {
+                PubSub.default.remove("displayError", listener);
+            }
         });
 
         test("should still set lastCommand even when command throws", async () => {

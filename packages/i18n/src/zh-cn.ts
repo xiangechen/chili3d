@@ -781,6 +781,7 @@ export default {
         "toast.text.fontFailed": "文字字体加载失败",
         "toast.text.fontUnavailable": "字体未能应用到全部对象",
         "toast.document.noActivated": "未打开任何文档",
+        "toast.document.saveFailed{0}": "保存失败：{0}。请使用“保存到文件”备份当前工作。",
         "toast.document.saved": "文档已保存",
         "toast.downloading": "正在下载",
         "toast.excuting{0}": "正在执行{0}",

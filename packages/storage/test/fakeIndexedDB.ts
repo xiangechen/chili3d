@@ -83,9 +83,16 @@ class FakeCursor {
 class FakeObjectStore {
     name: string;
     records: Map<IDBValidKey, Value> = new Map();
+    /** The transaction currently handing requests out of this store (see `bind`). */
+    private transaction: FakeTransaction | undefined;
 
     constructor(name: string) {
         this.name = name;
+    }
+
+    /** Stores are shared per database; the transaction that is using one binds itself. */
+    bind(transaction: FakeTransaction): void {
+        this.transaction = transaction;
     }
 
     get(key: IDBValidKey): FakeRequest<Value> {
@@ -96,18 +103,22 @@ class FakeObjectStore {
 
     put(value: Value, key: IDBValidKey): FakeRequest<IDBValidKey> {
         const request = new FakeRequest<IDBValidKey>();
+        const transaction = this.transaction;
         queueMicrotask(() => {
             this.records.set(key, value);
             request.succeed(key);
+            transaction?.requestFinished();
         });
         return request;
     }
 
     delete(key: IDBValidKey): FakeRequest<undefined> {
         const request = new FakeRequest<undefined>();
+        const transaction = this.transaction;
         queueMicrotask(() => {
             this.records.delete(key);
             request.succeed(undefined);
+            transaction?.requestFinished();
         });
         return request;
     }
@@ -132,10 +143,18 @@ class FakeObjectStore {
 
 class FakeTransaction {
     stores: Map<string, FakeObjectStore> = new Map();
+    error: unknown = null;
+    oncomplete: ((event: { target: FakeTransaction }) => void) | null = null;
+    onabort: ((event: { target: FakeTransaction }) => void) | null = null;
+    private aborted = false;
+    private completion: ReturnType<typeof setTimeout> | undefined;
 
-    constructor(names: string[], db: FakeDatabase) {
+    constructor(
+        names: string[],
+        private readonly database: FakeDatabase,
+    ) {
         for (const name of names) {
-            const store = db.stores.get(name);
+            const store = database.stores.get(name);
             if (store) {
                 this.stores.set(name, store);
             }
@@ -147,7 +166,41 @@ class FakeTransaction {
         if (!store) {
             throw new Error(`objectStore "${name}" not found`);
         }
+        store.bind(this);
         return store;
+    }
+
+    /** A write request has reported; the fake commits (or honours a late abort) after it. */
+    requestFinished(): void {
+        const lateAbort = this.database.takeLateAbort();
+        if (lateAbort !== undefined) {
+            this.abort(lateAbort);
+            return;
+        }
+        this.scheduleComplete();
+    }
+
+    /**
+     * Commits on a macrotask: a real transaction commits after the microtasks its request
+     * callbacks are queued on have run.
+     */
+    private scheduleComplete(): void {
+        if (this.aborted || this.completion !== undefined) return;
+        this.completion = setTimeout(() => this.oncomplete?.({ target: this }), 0);
+    }
+
+    /**
+     * Aborts like a full quota does: the transaction reports it, and no request ever
+     * errors — the shape that used to leave the storage's promise pending forever.
+     */
+    abort(reason: unknown): void {
+        this.aborted = true;
+        this.error = reason;
+        if (this.completion !== undefined) {
+            clearTimeout(this.completion);
+            this.completion = undefined;
+        }
+        queueMicrotask(() => this.onabort?.({ target: this }));
     }
 }
 
@@ -159,14 +212,31 @@ class FakeDatabase {
         contains: (name: string) => this.stores.has(name),
     };
     closed = false;
+    /** Aborts the next transaction this database hands out, with this reason. */
+    abortNextTransaction: unknown;
+    /** Lets the next write request succeed, then aborts — the commit-time quota failure. */
+    abortNextTransactionAfterRequest: unknown;
 
     constructor(name: string, version = 1) {
         this.name = name;
         this.version = version;
     }
 
+    /** One-shot read of the late-abort reason, consumed by the transaction that sees it. */
+    takeLateAbort(): unknown {
+        const reason = this.abortNextTransactionAfterRequest;
+        this.abortNextTransactionAfterRequest = undefined;
+        return reason;
+    }
+
     transaction(names: string[], _mode: string): FakeTransaction {
-        return new FakeTransaction(names, this);
+        const transaction = new FakeTransaction(names, this);
+        const reason = this.abortNextTransaction;
+        if (reason !== undefined) {
+            this.abortNextTransaction = undefined;
+            transaction.abort(reason);
+        }
+        return transaction;
     }
 
     createObjectStore(name: string): FakeObjectStore {

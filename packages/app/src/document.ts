@@ -94,13 +94,21 @@ export class Document extends Observable implements IDocument {
     async save() {
         const data = this.serialize();
         await this.application.storage.put(Constants.DBName, Constants.DocumentTable, this.id, data);
-        const image = this.application.activeView?.toImage();
-        await this.application.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
-            id: this.id,
-            name: this.name,
-            date: Date.now(),
-            image,
-        });
+
+        // The document is saved at this point. The thumbnail and the recents entry are a
+        // courtesy — a view that cannot be captured, or a store that refuses the write,
+        // must not turn a written document into a failed save (and a missing success toast).
+        try {
+            const image = this.application.activeView?.toImage();
+            await this.application.storage.put(Constants.DBName, Constants.RecentTable, this.id, {
+                id: this.id,
+                name: this.name,
+                date: Date.now(),
+                image,
+            });
+        } catch (error) {
+            Logger.warn(`document "${this.name}" saved, but its recent entry could not be written`, error);
+        }
     }
 
     async close() {

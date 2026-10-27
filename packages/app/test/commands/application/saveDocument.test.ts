@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { PubSub } from "@chili3d/core";
+import { I18n, PubSub } from "@chili3d/core";
 import { createMockApplication, createMockDocument } from "@chili3d/core/test-utils";
 import { describe, expect, test } from "@rstest/core";
 import { SaveDocument } from "../../../src/commands/application/saveDocument";
@@ -14,9 +14,9 @@ describe("SaveDocument", () => {
         expect(data.icon).toBe("icon-save");
     });
 
-    test("should have isApplicationCommand flag", () => {
+    test("should be marked alwaysAvailable (no view, no queue)", () => {
         const data = (SaveDocument as any).prototype.data;
-        expect(data.isApplicationCommand).toBe(true);
+        expect(data.alwaysAvailable).toBe(true);
     });
 
     test("should do nothing when no active document", async () => {
@@ -209,6 +209,94 @@ describe("SaveDocument callback", () => {
             expect(state.toastChannel).toBe("showToast");
         } finally {
             restore();
+        }
+    });
+
+    test("should ignore a second save while the first is still running", async () => {
+        const callbacks: Array<() => Promise<void>> = [];
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, ...args: any[]) => {
+            if (channel === "showPermanent") callbacks.push(args[0] as () => Promise<void>);
+        }) as any;
+
+        try {
+            const doc = createMockDocument();
+            let release!: () => void;
+            doc.save = () =>
+                new Promise<void>((resolve) => {
+                    release = resolve;
+                });
+            const app = createMockApplication();
+            app.activeView = { document: doc } as any;
+
+            await new SaveDocument().execute(app);
+            // What `Permanent` does with the published callback; the work runs here, and the
+            // command call itself has already returned.
+            const first = callbacks[0]();
+            await Promise.resolve();
+
+            // A real second click/keypress arrives in a later task.
+            await new SaveDocument().execute(app);
+            expect(callbacks.length).toBe(1);
+
+            release();
+            await first;
+
+            // Once the work is done, the next save goes through.
+            await new SaveDocument().execute(app);
+            expect(callbacks.length).toBe(2);
+        } finally {
+            PubSub.default.pub = originalPub;
+        }
+    });
+
+    test("should report a failed save instead of claiming it worked", async () => {
+        const events: any[][] = [];
+        let callback: (() => Promise<void>) | undefined;
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, ...args: any[]) => {
+            events.push([channel, ...args]);
+            if (channel === "showPermanent") {
+                callback = args[0] as () => Promise<void>;
+            }
+        }) as any;
+
+        try {
+            const doc = createMockDocument();
+            doc.save = async () => {
+                throw new Error("quota exceeded");
+            };
+            const app = createMockApplication();
+            app.activeView = { document: doc } as any;
+
+            await new SaveDocument().execute(app);
+            await callback!();
+
+            expect(events.filter(([channel]) => channel === "showToast")).toEqual([]);
+            expect(events.find(([channel]) => channel === "displayError")?.[1]).toBe(
+                I18n.translate("toast.document.saveFailed{0}", "quota exceeded"),
+            );
+        } finally {
+            PubSub.default.pub = originalPub;
+        }
+    });
+
+    test("should tell the user when there is no document to save", async () => {
+        const events: any[][] = [];
+        const originalPub = PubSub.default.pub;
+        PubSub.default.pub = ((channel: string, ...args: any[]) => {
+            events.push([channel, ...args]);
+        }) as any;
+
+        try {
+            const app = createMockApplication();
+            app.activeView = undefined;
+
+            await new SaveDocument().execute(app);
+
+            expect(events).toEqual([["showToast", "toast.document.noActivated"]]);
+        } finally {
+            PubSub.default.pub = originalPub;
         }
     });
 

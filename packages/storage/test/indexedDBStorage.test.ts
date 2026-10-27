@@ -203,5 +203,26 @@ describe("IndexedDBStorage", () => {
                 new Error("cannot init"),
             );
         });
+
+        test("should reject put when the transaction aborts without a request error", async () => {
+            fake.databases.get(DB)!.abortNextTransaction = new Error("quota exceeded");
+
+            // A pending promise here is the saving spinner that never closes.
+            await expect(storage.put(DB, TABLE, "id1", { a: 1 })).rejects.toThrow("quota exceeded");
+        });
+
+        test("should reject delete when the transaction aborts without a request error", async () => {
+            fake.databases.get(DB)!.abortNextTransaction = new Error("disk gone");
+
+            await expect(storage.delete(DB, TABLE, "id1")).rejects.toThrow("disk gone");
+        });
+
+        test("should reject put when the transaction aborts after the request succeeded", async () => {
+            // The request lands in the transaction's buffer; the commit then fails. Resolving
+            // on request success would report a save that was rolled back.
+            fake.databases.get(DB)!.abortNextTransactionAfterRequest = new Error("quota at commit");
+
+            await expect(storage.put(DB, TABLE, "id1", { a: 1 })).rejects.toThrow("quota at commit");
+        });
     });
 });

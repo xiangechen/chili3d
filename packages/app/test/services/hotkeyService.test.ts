@@ -5,6 +5,8 @@ import type { CommandKeys, IApplication, IView } from "@chili3d/core";
 import { PubSub } from "@chili3d/core";
 import { createMockApplication } from "@chili3d/core/test-utils";
 import { afterEach, beforeEach, describe, expect, test } from "@rstest/core";
+// Registers the `doc.save` command (and its `alwaysAvailable` flag) with the CommandStore.
+import "../../src/commands/application/saveDocument";
 import { type HotkeyMap, HotkeyService } from "../../src/services/hotkeyService";
 
 describe("HotkeyService", () => {
@@ -131,6 +133,12 @@ describe("HotkeyService", () => {
 
             const result = service.getCommand(event);
             expect(result).toBe(expected);
+        });
+
+        test("should match ctrl+shift+z (redo) in the profile's modifier order", () => {
+            // The profile spells it "ctrl+shift+z"; the chord builder must not produce
+            // "shift+ctrl+z", which would leave Cmd+Shift+Z dead on macOS.
+            expect(service.getCommand({ key: "z", ctrlKey: true, shiftKey: true })).toBe("edit.redo");
         });
 
         test("should match multi-key sequences", () => {
@@ -311,6 +319,39 @@ describe("HotkeyService", () => {
             window.dispatchEvent(event);
 
             expect(publishedCommands.length).toBe(0);
+        });
+
+        test("should still save (ctrl+s) from inside a text input", () => {
+            const publishedCommands: CommandKeys[] = [];
+            PubSub.default.sub("executeCommand", (cmd: CommandKeys) => {
+                publishedCommands.push(cmd);
+            });
+
+            const event = new KeyboardEvent("keydown", { key: "s", ctrlKey: true });
+            Object.defineProperty(event, "target", {
+                value: document.createElement("input"),
+                writable: false,
+            });
+            window.dispatchEvent(event);
+
+            expect(publishedCommands).toEqual(["doc.save"]);
+        });
+
+        test("should keep other shortcuts from firing inside a text input", () => {
+            const publishedCommands: CommandKeys[] = [];
+            PubSub.default.sub("executeCommand", (cmd: CommandKeys) => {
+                publishedCommands.push(cmd);
+            });
+
+            // edit.undo belongs to the text box's own undo while it has the focus.
+            const event = new KeyboardEvent("keydown", { key: "z", ctrlKey: true });
+            Object.defineProperty(event, "target", {
+                value: document.createElement("input"),
+                writable: false,
+            });
+            window.dispatchEvent(event);
+
+            expect(publishedCommands).toEqual([]);
         });
     });
 

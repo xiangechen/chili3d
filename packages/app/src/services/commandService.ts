@@ -4,6 +4,9 @@
 import {
     type CommandKeys,
     CommandStore,
+    errorText,
+    I18n,
+    type I18nKeys,
     type IApplication,
     type IService,
     type IView,
@@ -12,6 +15,11 @@ import {
     PubSub,
     pendingWork,
 } from "@chili3d/core";
+
+/** The name a command shows in the UI, for a message that has to name it. */
+function commandLabel(key: string): string {
+    return I18n.translate(`command.${key}` as I18nKeys);
+}
 
 export class CommandService implements IService {
     private _checking: boolean = false;
@@ -53,6 +61,11 @@ export class CommandService implements IService {
         const released = pendingWork.begin();
         try {
             await this.runCommand(commandName);
+        } catch (error) {
+            // Reaches here when the check itself failed — a cancel that rejects, say —
+            // rather than the command's own run, which `executeAsync` reports.
+            PubSub.default.pub("displayError", errorText(error));
+            Logger.error(error);
         } finally {
             released();
         }
@@ -72,27 +85,47 @@ export class CommandService implements IService {
             return;
         }
 
+        // An `alwaysAvailable` command (save, download) runs BESIDE whatever is in flight
+        // rather than taking its place: it neither claims `executingCommand` — the running
+        // command still owns that slot, and clearing it here would strand its cancel path —
+        // nor clears the property panel the running command is using. A command that must not
+        // run twice at once guards that itself: its `execute` often only starts a spinner and
+        // returns, so "in flight" is longer than this call (see `SaveDocument`).
+        const alwaysAvailable = CommandStore.getComandData(commandName)?.alwaysAvailable === true;
+
         const command = new commandCtor();
-        this.app.executingCommand = command;
-        PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
+        if (!alwaysAvailable) {
+            this.app.executingCommand = command;
+            PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
+        }
 
         await Promise.try(command.execute.bind(command), this.app)
             .catch((err) => {
-                PubSub.default.pub("displayError", err as string);
+                PubSub.default.pub("displayError", errorText(err));
                 Logger.error(err);
             })
             .finally(() => {
                 this.app.lastCommand = commandName;
-                this.app.executingCommand = undefined;
+                if (!alwaysAvailable) this.app.executingCommand = undefined;
             });
     }
 
     private async canExecute(commandName: CommandKeys) {
+        // An `alwaysAvailable` command neither queues nor needs a view: the queue below can
+        // wait on a cancel that never settles, and a refused command is silent — a save click
+        // during another command used to do nothing at all. It runs now, and handles a
+        // missing document itself (see `CommandData.alwaysAvailable`).
+        if (CommandStore.getComandData(commandName)?.alwaysAvailable === true) return true;
+
         if (this._checking) return false;
         this._checking = true;
-        const result = await this.checking(commandName);
-        this._checking = false;
-        return result;
+        try {
+            return await this.checking(commandName);
+        } finally {
+            // A throwing check (e.g. a `cancel()` that rejects) used to leave the flag set,
+            // which silently refused every later command for the rest of the session.
+            this._checking = false;
+        }
     }
 
     private async checking(commandName: CommandKeys) {
@@ -104,14 +137,19 @@ export class CommandService implements IService {
         if (!this.app.executingCommand) {
             return true;
         }
-        if (CommandStore.getComandData(this.app.executingCommand)?.key === commandName) {
-            PubSub.default.pub("showToast", "toast.command.{0}excuting", commandName);
+        const runningCommand = this.app.executingCommand;
+        const runningKey = CommandStore.getComandData(runningCommand)?.key;
+        if (runningKey === commandName) {
+            PubSub.default.pub("showToast", "toast.command.{0}excuting", commandLabel(commandName));
             return false;
         }
-        if (isCancelableCommand(this.app.executingCommand)) {
-            await this.app.executingCommand.cancel();
+        if (isCancelableCommand(runningCommand)) {
+            await runningCommand.cancel();
             return true;
         }
+        // A non-cancelable command cannot be interrupted, and refusing to start a command on
+        // top of it used to happen without a word — indistinguishable from a broken button.
+        PubSub.default.pub("showToast", "toast.command.{0}excuting", commandLabel(runningKey ?? commandName));
         return false;
     }
 }

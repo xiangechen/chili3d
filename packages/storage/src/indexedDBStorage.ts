@@ -144,9 +144,14 @@ export class IndexedDBStorage implements IStorage {
     }
 
     private static delete(db: IDBDatabase, storeName: string, key: string): Promise<boolean> {
-        const request = db.transaction([storeName], "readwrite").objectStore(storeName).delete(key);
+        const transaction = db.transaction([storeName], "readwrite");
+        const request = transaction.objectStore(storeName).delete(key);
         return new Promise((resolve, reject) => {
-            request.onsuccess = () => {
+            // A request succeeding only means the value reached the transaction's buffer —
+            // the write is real when the transaction commits. Resolving on `onsuccess` would
+            // report a save that a commit-time quota failure then rolls back (that failure
+            // arrives as an abort, with no request error at all).
+            transaction.oncomplete = () => {
                 Logger.info(`${storeName} store delete object success`);
                 resolve(true);
             };
@@ -154,19 +159,32 @@ export class IndexedDBStorage implements IStorage {
                 Logger.error(`${storeName} store delete object error`);
                 reject(e);
             };
+            // Without this an abort the requests never report — a full quota is the usual one
+            // — leaves the promise pending forever, which is the saving spinner that never
+            // closes and the save that is never reported.
+            transaction.onabort = () => {
+                Logger.error(`${storeName} store delete transaction aborted`);
+                reject(transaction.error ?? new Error(`delete from "${storeName}" was aborted`));
+            };
         });
     }
 
     private static put(db: IDBDatabase, storeName: string, key: IDBValidKey, value: any): Promise<boolean> {
-        const request = db.transaction([storeName], "readwrite").objectStore(storeName).put(value, key);
+        const transaction = db.transaction([storeName], "readwrite");
+        const request = transaction.objectStore(storeName).put(value, key);
         return new Promise((resolve, reject) => {
-            request.onsuccess = () => {
+            // Committed is what "saved" means — see `delete` above.
+            transaction.oncomplete = () => {
                 Logger.info(`${storeName} store put object success`);
                 resolve(true);
             };
             request.onerror = (e) => {
                 Logger.error(`${storeName} store put object error`);
                 reject(e);
+            };
+            transaction.onabort = () => {
+                Logger.error(`${storeName} store put transaction aborted`);
+                reject(transaction.error ?? new Error(`put into "${storeName}" was aborted`));
             };
         });
     }

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Constants,
     History,
     type IApplication,
     InternalClassName,
@@ -117,6 +118,43 @@ describe("Document", () => {
             await document.save();
             expect(saved).toBe(true);
             mockApp.storage.put = originalPut;
+        });
+
+        test("should reject when the document itself cannot be written", async () => {
+            mockApp.storage.put = async () => {
+                throw new Error("disk full");
+            };
+
+            await expect(document.save()).rejects.toThrow("disk full");
+        });
+
+        test("should still save when the recents entry cannot be written", async () => {
+            const written: string[] = [];
+            mockApp.storage.put = async (_db, table) => {
+                written.push(table);
+                if (table === Constants.RecentTable) throw new Error("quota exceeded");
+                return true;
+            };
+
+            await expect(document.save()).resolves.toBeUndefined();
+            expect(written).toEqual([Constants.DocumentTable, Constants.RecentTable]);
+        });
+
+        test("should still save when the view cannot be captured for the recents entry", async () => {
+            const written: string[] = [];
+            mockApp.storage.put = async (_db, table) => {
+                written.push(table);
+                return true;
+            };
+            mockApp.activeView = {
+                document,
+                toImage: () => {
+                    throw new Error("canvas is tainted");
+                },
+            } as unknown as IApplication["activeView"];
+
+            await expect(document.save()).resolves.toBeUndefined();
+            expect(written).toEqual([Constants.DocumentTable]);
         });
     });
 

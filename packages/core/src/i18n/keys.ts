@@ -767,6 +767,7 @@ export const I18N_KEYS = [
     "toast.text.fontFailed",
     "toast.text.fontUnavailable",
     "toast.document.noActivated",
+    "toast.document.saveFailed{0}",
     "toast.document.saved",
     "toast.downloading",
     "toast.excuting{0}",

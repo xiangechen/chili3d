@@ -651,6 +651,8 @@ export default {
         "toast.delete{0}Objects": "Удалено {0} объектов",
         "toast.dimension.parallelEdges": "Две конечности параллельны — угол не измерить",
         "toast.document.noActivated": "Нет активного документа",
+        "toast.document.saveFailed{0}":
+            "Не удалось сохранить: {0}. Используйте «Сохранить в файл», чтобы не потерять работу.",
         "toast.document.saved": "Документ сохранен",
         "toast.downloading": "Загрузка",
         "toast.excuting{0}": "Выполнение {0}",

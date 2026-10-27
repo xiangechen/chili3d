@@ -3,6 +3,7 @@
 
 import {
     type CommandKeys,
+    CommandStore,
     Config,
     type IApplication,
     type IService,
@@ -20,6 +21,20 @@ export interface Keys {
 
 export interface HotkeyMap {
     [key: string]: CommandKeys;
+}
+
+/**
+ * The map key for a key sequence with modifiers, e.g. "ctrl+shift+s". Modifiers go in the
+ * order `ShortcutProfiles` writes them — ctrl, shift, alt — or a shortcut spelled
+ * "ctrl+shift+z" would never match the "shift+ctrl+z" this built. Both lookups below must
+ * spell it the same way, or a shortcut silently stops matching in one path only.
+ */
+function formatChord(key: string, modifiers: Omit<Keys, "key">): string {
+    let prefix = "";
+    if (modifiers.ctrlKey) prefix += "ctrl+";
+    if (modifiers.shiftKey) prefix += "shift+";
+    if (modifiers.altKey) prefix += "alt+";
+    return prefix + key;
 }
 
 export class HotkeyService implements IService {
@@ -86,6 +101,24 @@ export class HotkeyService implements IService {
         return true;
     }
 
+    /**
+     * The command one chord maps to, read without the key-sequence bookkeeping `getCommand`
+     * does — a key typed into a text box must not become part of a multi-key shortcut.
+     */
+    private chordCommand(e: KeyboardEvent): CommandKeys | undefined {
+        const chord = formatChord(e.key.toLowerCase(), {
+            ctrlKey: e.ctrlKey || e.metaKey,
+            shiftKey: e.shiftKey,
+            altKey: e.altKey,
+        });
+        return this._keyMap.get(chord);
+    }
+
+    private isAlwaysAvailableChord(e: KeyboardEvent): boolean {
+        const command = this.chordCommand(e);
+        return command !== undefined && CommandStore.getComandData(command)?.alwaysAvailable === true;
+    }
+
     private readonly eventHandlerKeyDown = (e: KeyboardEvent) => {
         if (!this.canHandleKey(e)) return;
 
@@ -98,7 +131,9 @@ export class HotkeyService implements IService {
     };
 
     private readonly commandKeyDown = (e: KeyboardEvent) => {
-        if (!this.canHandleKey(e)) return;
+        // A focused text box keeps every shortcut a text box can use (Ctrl+Z and friends),
+        // but saving has no meaning there: Ctrl+S must save wherever the caret is.
+        if (!this.canHandleKey(e) && !this.isAlwaysAvailableChord(e)) return;
 
         const keys: Keys = {
             key: e.key.toLowerCase(),
@@ -124,10 +159,7 @@ export class HotkeyService implements IService {
         this.keys.push(keys.key);
 
         for (let i = 0; i < this.keys.length; i++) {
-            let key = this.keys.slice(i).join("+");
-            if (keys.ctrlKey) key = `ctrl+${key}`;
-            if (keys.shiftKey) key = `shift+${key}`;
-            if (keys.altKey) key = `alt+${key}`;
+            const key = formatChord(this.keys.slice(i).join("+"), keys);
             if (this._keyMap.has(key)) {
                 return this._keyMap.get(key);
             }
