@@ -11,6 +11,7 @@
 #include <BRepAlgoAPI_Splitter.hxx>
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
+#include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
@@ -114,6 +115,38 @@ public:
     {
         BRepBuilderAPI_Transform transform(trsf);
         transform.Perform(shape, true);
+        return transform.Shape();
+    }
+
+    /**
+     * General affine transform — what `transformed` cannot do. `gp_Trsf` is a similarity
+     * transform (rotation, uniform scale, mirror, translation), so a body carrying a
+     * non-uniform scale is silently misplaced by it. `gp_GTrsf` takes any invertible affine
+     * matrix and `BRepBuilderAPI_GTransform` rebuilds the geometry through it (a circle
+     * becomes an ellipse), which is what a general placement needs.
+     *
+     * The twelve values are the affine matrix row by row: (a11, a12, a13, a14) is the first
+     * row, translation in the fourth column.
+     */
+    static TopoDS_Shape transformedGeneral(const TopoDS_Shape& shape, double a11, double a12, double a13,
+        double a14, double a21, double a22, double a23, double a24, double a31, double a32, double a33,
+        double a34)
+    {
+        if (shape.IsNull()) {
+            return TopoDS_Shape();
+        }
+        // A singular matrix has no image to build, and GTransform raises on it — with exception
+        // catching disabled that would abort the module, so it is checked up front. The test is
+        // exact: a uniformly small scale is invertible and must still be transformed, so no
+        // absolute epsilon can stand in for "no inverse".
+        gp_Mat matrix(a11, a12, a13, a21, a22, a23, a31, a32, a33);
+        if (matrix.Determinant() == 0.0) {
+            return TopoDS_Shape();
+        }
+        BRepBuilderAPI_GTransform transform(shape, gp_GTrsf(matrix, gp_XYZ(a14, a24, a34)), true);
+        if (!transform.IsDone()) {
+            return TopoDS_Shape();
+        }
         return transform.Shape();
     }
 
@@ -899,6 +932,7 @@ EMSCRIPTEN_BINDINGS(Shape)
         .class_function("clean", &Shape::clean)
         .class_function("clone", &Shape::clone)
         .class_function("transformed", &Shape::transformed)
+        .class_function("transformedGeneral", &Shape::transformedGeneral)
         .class_function("findAncestor", &Shape::findAncestor)
         .class_function("findSubShapes", &Shape::findSubShapes)
         .class_function("getDirectSubShapes", &Shape::getDirectSubShapes)

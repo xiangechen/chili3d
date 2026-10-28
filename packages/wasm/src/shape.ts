@@ -95,6 +95,22 @@ function occShapeDeserialize(properties: Serialized) {
     ) as OccShape;
 }
 
+/**
+ * Rebuild `shape` through an affine matrix `gp_Trsf` cannot carry (a non-uniform scale, a
+ * shear): OCCT's GTransform rebuilds the geometry, turning a circle into its ellipse. The
+ * matrix is column-major, so a row of the affine map is every fourth entry.
+ */
+function transformGeneral(shape: TopoDS_Shape, matrix: Matrix4): TopoDS_Shape {
+    const m = matrix.toArray();
+    // one row of the 3×4 affine map per line: x, y, z, translation
+    const rows = [m[0], m[4], m[8], m[12], m[1], m[5], m[9], m[13], m[2], m[6], m[10], m[14]] as const;
+    const result = wasm.Shape.transformedGeneral(shape, ...rows);
+    if (result.isNull()) {
+        throw new Error("Shape transform: the affine matrix produced no shape (singular?)");
+    }
+    return result;
+}
+
 @serializable({
     deserialize: occShapeDeserialize,
     serialize: occShapeSerialize,
@@ -210,6 +226,10 @@ export class OccShape implements IShape {
 
     transformed(matrix: Matrix4): IShape {
         return gc((c) => {
+            // A non-similarity matrix cannot be a location; rebuild the geometry instead.
+            if (!matrix.isSimilarity()) {
+                return OccShape.wrap(transformGeneral(this._shape, matrix));
+            }
             const location = c(new wasm.TopLoc_Location(c(convertFromMatrix(matrix))));
             const shape = this._shape.located(location, false); // TODO: check if this is correct
             return OccShape.wrap(shape);
@@ -218,6 +238,9 @@ export class OccShape implements IShape {
 
     transformedMul(matrix: Matrix4): IShape {
         return gc((c) => {
+            if (!matrix.isSimilarity()) {
+                return OccShape.wrap(transformGeneral(this._shape, matrix));
+            }
             return OccShape.wrap(wasm.Shape.transformed(this._shape, c(convertFromMatrix(matrix))));
         });
     }

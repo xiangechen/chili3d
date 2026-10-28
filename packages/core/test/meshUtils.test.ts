@@ -1,11 +1,67 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { Matrix4 } from "../src/math";
+import { Matrix4, XYZ } from "../src/math";
 import { type EdgeMeshData, type FaceMeshData, Mesh } from "../src/shape";
 import { MeshUtils } from "../src/shape/meshUtils";
 
+function faceMeshWith(normal: number[]): FaceMeshData {
+    return {
+        position: new Float32Array([0, 0, 0]),
+        normal: new Float32Array(normal),
+        uv: new Float32Array(2),
+        index: new Uint32Array([0]),
+        range: [],
+        color: 0xfff,
+        groups: [],
+    };
+}
+
+/** A normal is only meaningful up to length here; the view normalizes it per fragment. */
+function directionOf(normal: ArrayLike<number>) {
+    return new XYZ({ x: normal[0], y: normal[1], z: normal[2] }).normalize()!;
+}
+
 describe("MeshUtils", () => {
+    describe("transformMesh", () => {
+        test("maps a face normal by the inverse-transpose, not the position matrix", () => {
+            const mapped = MeshUtils.transformMesh(faceMeshWith([1, 0, 1]), Matrix4.fromScale(1, 1, 2.5));
+
+            // the position matrix would give (1,0,2.5); the surface normal is (1,0,0.4)
+            expect(directionOf(mapped.normal).isEqualTo(directionOf([1, 0, 0.4]))).toBe(true);
+        });
+
+        test("leaves a similarity's normal direction alone", () => {
+            const mapped = MeshUtils.transformMesh(
+                faceMeshWith([1, 0, 1]),
+                Matrix4.fromScale(2, 2, 2).multiply(Matrix4.fromTranslation(1, 2, 3)),
+            );
+
+            expect(directionOf(mapped.normal).isEqualTo(directionOf([1, 0, 1]))).toBe(true);
+            // the position still moves
+            expect(mapped.position[0]).toBeCloseTo(1);
+        });
+
+        test("merging another mesh maps its normals the same way", () => {
+            const data = faceMeshWith([0, 0, 1]);
+            // room for the merged vertex after the existing one
+            data.position = new Float32Array(6);
+            data.normal = new Float32Array(6);
+            data.normal.set([0, 0, 1]);
+            data.uv = new Float32Array(4);
+            data.index = new Uint32Array(2);
+
+            MeshUtils.setFaceMeshData(data, faceMeshWith([1, 0, 1]), Matrix4.fromScale(1, 1, 2.5), {
+                facePosition: 1,
+                faceIndex: 1,
+            });
+
+            // the merged vertex takes the inverse-transpose; the existing one is untouched
+            expect(directionOf(data.normal.subarray(3, 6)).isEqualTo(directionOf([1, 0, 0.4]))).toBe(true);
+            expect(directionOf(data.normal.subarray(0, 3)).isEqualTo(directionOf([0, 0, 1]))).toBe(true);
+        });
+    });
+
     describe("setFaceMeshData", () => {
         test("should return early if other is undefined", () => {
             const data: FaceMeshData = {

@@ -154,7 +154,7 @@ export function seedStepDatas<C>(cmd: C, datas: SnapResult[]): void {
  * A fake IShape that satisfies the small slice node constructors and preview
  * callbacks touch: edgesMeshPosition / toFace / mesh.edges / dispose.
  */
-const fakeMesh = { edges: { type: "edges", position: new Float32Array(), lineWidth: 0, color: 0 } };
+const fakeMesh = { edges: { type: "edges", position: new Float32Array(), lineType: "solid", lineWidth: 0, color: 0 } };
 const fakeShape = {
     // The field is `position`, as `EdgeMeshData` has it — a stub that renames it
     // hides whatever the real one would have shown.

@@ -3,7 +3,7 @@
 
 import { rs } from "@rstest/core";
 import { Config, type ObjectSnapType, ObjectSnapTypes } from "../src";
-import { Plane, Ray, XYZ } from "../src/math";
+import { Matrix4, Plane, Ray, XYZ } from "../src/math";
 import { AxisSnap } from "../src/snap/snaps/axisSnap";
 import { PlaneSnap, WorkplaneSnap } from "../src/snap/snaps/planeSnap";
 import { PointOnCurveSnap } from "../src/snap/snaps/pointOnCurveSnap";
@@ -223,14 +223,13 @@ describe("SurfaceSnap", () => {
     });
 
     function createMockFaceShape(projectedPoint: XYZ) {
+        // No `transformedMul`: the projection must run in the face's own frame, and a snap that
+        // transformed the face into world space would fail here instead of landing elsewhere.
         return {
             surface: () => ({
                 project: () => [projectedPoint],
             }),
             shapeType: 4,
-            transformedMul: function () {
-                return this;
-            },
         };
     }
 
@@ -239,7 +238,10 @@ describe("SurfaceSnap", () => {
         return {
             shape: face,
             owner: { node: { document: {} } } as never,
-            transform: { ofPoint: (p: XYZ) => p, invert: () => null } as never,
+            transform: {
+                ofPoint: (p: XYZ) => p,
+                invert: () => ({ ofPoint: (p: XYZ) => p }),
+            } as never,
             indexes: [],
             point: new XYZ({ x: 15, y: 25, z: 0 }),
             ...overrides,
@@ -260,6 +262,30 @@ describe("SurfaceSnap", () => {
         expect(result).not.toBeNull();
         expect(result!.type).toBe("onSurface");
         expect(result!.shapes.length).toBe(1);
+    });
+
+    test("projects the pick in the face's own frame under a non-uniform scale", () => {
+        Config.instance.snapType = ObjectSnapTypes.onSurface;
+
+        // A placement `gp_Trsf` cannot represent: the body is squeezed 2.5× in z.
+        const transform = Matrix4.fromScale(1, 1, 2.5).multiply(Matrix4.fromTranslation(0, 0, -1125));
+        const local = new XYZ({ x: 2, y: 3, z: 4 });
+        const project = rs.fn((_point: XYZ) => [local]);
+        const shapeData = {
+            shape: { surface: () => ({ project }), shapeType: 4 },
+            owner: { node: { document: {} } } as never,
+            transform,
+            indexes: [],
+            point: transform.ofPoint(local),
+        } as unknown as VisualShapeData;
+        const view = createSnapTestView({ detectShapes: () => [shapeData] });
+
+        const result = new SurfaceSnap().snap(createMouseAndDetected(view));
+
+        // the projection was asked in the shape's frame ...
+        expect(project.mock.calls[0][0].isEqualTo(local)).toBe(true);
+        // ... and its answer placed through the same matrix the mesh is drawn with
+        expect(result!.point!.isEqualTo(transform.ofPoint(local))).toBe(true);
     });
 
     test("should return undefined when snap type does not include onSurface", () => {

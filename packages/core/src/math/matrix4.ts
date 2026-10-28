@@ -211,6 +211,45 @@ export class Matrix4 {
         ]);
     }
 
+    /**
+     * Whether the linear part is a similarity — the three axes the same length and mutually
+     * perpendicular. Those are exactly the matrices a placement can be: OCCT's `gp_Trsf`
+     * (a node's `TopLoc_Location`, `Shape.transformed`) is one, so any other matrix — a
+     * non-uniform scale, a shear — silently loses its difference there and has to take the
+     * general affine path instead.
+     */
+    public isSimilarity(tolerance = 1e-6): boolean {
+        const [m00, m01, m02] = [this._array[0], this._array[1], this._array[2]];
+        const [m10, m11, m12] = [this._array[4], this._array[5], this._array[6]];
+        const [m20, m21, m22] = [this._array[8], this._array[9], this._array[10]];
+        const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        const x = [m00, m01, m02];
+        const y = [m10, m11, m12];
+        const z = [m20, m21, m22];
+        const length = Math.sqrt(dot(x, x));
+        // A collapsed axis is not a similarity (the map has no inverse); every check after this
+        // one is relative to the first axis, so any scale — however small — compares fairly.
+        if (length === 0) return false;
+        const scale = length * length * tolerance;
+        return (
+            MathUtils.almostEqual(Math.sqrt(dot(y, y)), length, length * tolerance) &&
+            MathUtils.almostEqual(Math.sqrt(dot(z, z)), length, length * tolerance) &&
+            Math.abs(dot(x, y)) <= scale &&
+            Math.abs(dot(x, z)) <= scale &&
+            Math.abs(dot(y, z)) <= scale
+        );
+    }
+
+    /**
+     * How a surface normal maps through this affine transform: by the inverse-transpose of the
+     * linear part. A normal is perpendicular to its surface, not dragged along with it, so
+     * `ofVector` — right for points and directions — tilts it as soon as the matrix is not a
+     * similarity (a non-uniform scale, a shear). Translation is ignored, as for a direction.
+     */
+    public normalOf(vector: XYZLike): XYZ | undefined {
+        return this.invert()?.transpose().ofVector(vector);
+    }
+
     public transpose(): Matrix4 {
         const result = new Array(16);
         result[0] = this._array[0];

@@ -77,6 +77,22 @@ describe("Plane", () => {
         expect(transformed.normal.isEqualTo(XYZ.unitZ)).toBe(true);
     });
 
+    test("maps the normal by the inverse-transpose under a non-uniform scale", () => {
+        const plane = new Plane({
+            origin: XYZ.zero,
+            normal: new XYZ({ x: 1, y: 0, z: 1 }),
+            xvec: new XYZ({ x: 1, y: 0, z: -1 }),
+        });
+
+        const transformed = plane.transformed(Matrix4.fromScale(1, 1, 2.5));
+
+        // the geometry is stretched in z, so its normal is squeezed: (1, 0, 2.5) → (1, 0, 0.4)
+        expect(transformed.normal.isEqualTo(new XYZ({ x: 1, y: 0, z: 0.4 }).normalize()!)).toBe(true);
+        // a direction in the plane follows the body itself
+        expect(transformed.xvec.isEqualTo(new XYZ({ x: 1, y: 0, z: -2.5 }).normalize()!)).toBe(true);
+        expect(transformed.normal.isPerpendicularTo(transformed.xvec)).toBe(true);
+    });
+
     test("should return the line point when it lies on the plane", () => {
         // Line starts exactly on the plane — vec.isEqualTo(XYZ.zero)
         const plane = new Plane({ origin: XYZ.zero, normal: XYZ.unitZ, xvec: XYZ.unitX });

@@ -66,8 +66,10 @@ export class Plane {
 
     transformed(matrix: Matrix4) {
         const location = matrix.ofPoint(this.origin);
+        // A direction in the plane goes with the transform; the normal goes by the
+        // inverse-transpose, or it stops being perpendicular once the map is not a similarity.
         const x = matrix.ofVector(this.xvec);
-        const normal = matrix.ofVector(this.normal);
+        const normal = matrix.normalOf(this.normal) ?? matrix.ofVector(this.normal);
         return new Plane({ origin: location, normal, xvec: x });
     }
 

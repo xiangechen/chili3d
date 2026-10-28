@@ -37,6 +37,54 @@ describe("Matrix4", () => {
         expect(t6!.ofPoint(new XYZ({ x: -1, y: 10, z: 0 })).isEqualTo(XYZ.unitY)).toBe(true);
     });
 
+    test("isSimilarity tells what a placement can carry", () => {
+        // rigid and uniform-scale placements are similarities
+        expect(Matrix4.identity().isSimilarity()).toBe(true);
+        expect(Matrix4.fromTranslation(1, 2, 3).isSimilarity()).toBe(true);
+        expect(Matrix4.fromEuler(0.3, 0.4, 0.5).isSimilarity()).toBe(true);
+        expect(Matrix4.fromScale(2, 2, 2).isSimilarity()).toBe(true);
+        // however small: a uniform scale is still a similarity (a placement can carry it)
+        expect(Matrix4.fromScale(1e-7, 1e-7, 1e-7).isSimilarity()).toBe(true);
+        expect(
+            Matrix4.createMirrorWithPlane(
+                new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY }),
+            ).isSimilarity(),
+        ).toBe(true);
+        expect(
+            Matrix4.fromEuler(0.3, 0.4, 0.5)
+                .multiply(Matrix4.fromScale(2, 2, 2))
+                .multiply(Matrix4.fromTranslation(1, 2, 3))
+                .isSimilarity(),
+        ).toBe(true);
+
+        // a non-uniform scale, a shear, and a collapsed map are not
+        expect(Matrix4.fromScale(1, 1, 2.5).isSimilarity()).toBe(false);
+        expect(Matrix4.fromArray([1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]).isSimilarity()).toBe(
+            false,
+        );
+        expect(Matrix4.fromScale(1, 1, 0).isSimilarity()).toBe(false);
+    });
+
+    test("normalOf maps a normal by the inverse-transpose", () => {
+        // a similarity maps normals like directions (up to scale, dropped by normalize)
+        const rotation = Matrix4.fromEuler(0.3, 0.4, 0.5);
+        const normal = new XYZ({ x: 0, y: 0, z: 1 });
+        expect(
+            rotation.normalOf(normal)!.normalize()!.isEqualTo(rotation.ofVector(normal).normalize()!),
+        ).toBe(true);
+
+        // a non-uniform scale does not: z is stretched in the geometry, so its normal is
+        // squeezed by the inverse — the 45° normal stays perpendicular to the transformed plane
+        const scale = Matrix4.fromScale(1, 1, 2.5);
+        const mapped = scale.normalOf(new XYZ({ x: 1, y: 0, z: 1 }))!;
+        expect(mapped.normalize()!.isEqualTo(new XYZ({ x: 1, y: 0, z: 0.4 }).normalize()!)).toBe(true);
+        const inPlane = new XYZ({ x: 1, y: 0, z: -1 });
+        expect(scale.ofVector(inPlane).dot(mapped)).toBeCloseTo(0);
+
+        // a singular map has no normal transform
+        expect(Matrix4.fromScale(1, 1, 0).normalOf(normal)).toBeUndefined();
+    });
+
     test("should create mirror matrix with plane", () => {
         let mirror = Matrix4.createMirrorWithPlane(
             new Plane({ origin: XYZ.zero, normal: XYZ.unitX, xvec: XYZ.unitY }),

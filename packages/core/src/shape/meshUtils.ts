@@ -6,6 +6,15 @@ import type { EdgeMeshData, FaceMeshData, Mesh, ShapeMeshData, VertexMeshData } 
 import { concatTypedArrays, MeshDataUtils } from "./meshData";
 
 export class MeshUtils {
+    /**
+     * The matrix normals go through: the inverse-transpose of the linear part. The position
+     * matrix would tilt a normal off the surface as soon as the map is not a similarity (a
+     * non-uniform scale, a shear); a singular map has no normal matrix, so it falls back.
+     */
+    static normalMatrix(matrix: Matrix4): Matrix4 {
+        return matrix.invert()?.transpose() ?? matrix;
+    }
+
     static transformMesh<T extends ShapeMeshData>(data: T, matrix: Matrix4): T {
         if (MeshDataUtils.isVertexMesh(data)) {
             return {
@@ -21,7 +30,7 @@ export class MeshUtils {
             return {
                 ...data,
                 position: new Float32Array(matrix.ofPoints(data.position)),
-                normal: new Float32Array(matrix.ofVectors(data.normal)),
+                normal: new Float32Array(MeshUtils.normalMatrix(matrix).ofVectors(data.normal)),
             };
         }
 
@@ -53,7 +62,7 @@ export class MeshUtils {
             offset.faceIndex,
         );
         data.position.set(matrix.ofPoints(other.position), offset.facePosition * 3);
-        data.normal.set(matrix.ofVectors(other.normal), offset.facePosition * 3);
+        data.normal.set(MeshUtils.normalMatrix(matrix).ofVectors(other.normal), offset.facePosition * 3);
         data.uv.set(other.uv, offset.facePosition * 2);
     }
 
@@ -81,7 +90,7 @@ export class MeshUtils {
             data.position.set(matrix.ofPoints(other.position), offset.meshPosition * 3);
         }
         if (data.normal && other.normal) {
-            data.normal.set(matrix.ofVectors(other.normal), offset.meshPosition * 3);
+            data.normal.set(MeshUtils.normalMatrix(matrix).ofVectors(other.normal), offset.meshPosition * 3);
         }
         if (data.uv && other.uv) {
             data.uv.set(other.uv, offset.meshPosition * 2);
@@ -105,7 +114,10 @@ export class MeshUtils {
         );
         data.index = concatTypedArrays([data.index, other.index.map((x) => x + data.position.length / 3)]);
         data.position = MeshUtils.concatFloat32Array(data.position, matrix.ofPoints(other.position));
-        data.normal = MeshUtils.concatFloat32Array(data.normal, matrix.ofVectors(other.normal));
+        data.normal = MeshUtils.concatFloat32Array(
+            data.normal,
+            MeshUtils.normalMatrix(matrix).ofVectors(other.normal),
+        );
         data.uv = MeshUtils.concatFloat32Array(data.uv, other.uv);
     }
 

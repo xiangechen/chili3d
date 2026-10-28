@@ -233,7 +233,14 @@ describe("FilletCommand", () => {
 
         test("the picked edges and value build a preview over the ghosted body", () => {
             const { cmd, doc } = previewScene(() =>
-                Result.ok(mockShape({ mesh: { faces: {}, edges: {} } as any })),
+                Result.ok(
+                    mockShape({
+                        mesh: {
+                            faces: { index: new Uint32Array(), position: new Float32Array(), normal: new Float32Array() },
+                            edges: { lineType: "solid", position: new Float32Array() },
+                        } as any,
+                    }),
+                ),
             );
 
             (cmd as any).updatePreview();

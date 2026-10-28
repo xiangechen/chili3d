@@ -870,6 +870,7 @@ interface EmbindModule {
     clean(_0: TopoDS_Shape): void;
     clone(_0: TopoDS_Shape): TopoDS_Shape;
     transformed(_0: TopoDS_Shape, _1: gp_Trsf): TopoDS_Shape;
+    transformedGeneral(_0: TopoDS_Shape, _1: number, _2: number, _3: number, _4: number, _5: number, _6: number, _7: number, _8: number, _9: number, _10: number, _11: number, _12: number): TopoDS_Shape;
     sectionSS(_0: TopoDS_Shape, _1: TopoDS_Shape): TopoDS_Shape;
     isClosed(_0: TopoDS_Shape): boolean;
     check(_0: TopoDS_Shape): boolean;

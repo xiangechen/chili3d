@@ -11,6 +11,7 @@ import {
     type IShape,
     type IShapeFilter,
     type ISubEdgeShape,
+    MeshUtils,
     MultistepCommand,
     PreviewVisual,
     PubSub,
@@ -162,11 +163,19 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
         const result = this.applyToBody(node.shape.value, indexes);
         if (!result.isOk) return;
 
-        const world = result.value.transformedMul(picked.edges[0].transform);
+        // The result is in the body's own frame: the mesh — not the shape — is placed by the
+        // detection's matrix. `transformedMul` goes through OCCT's `gp_Trsf`, a similarity
+        // transform that cannot hold a non-uniform scale, and the preview would land elsewhere.
+        const matrix = picked.edges[0].transform;
+        // Both parts are taken before the shape is released: the mesher reads the kernel shape,
+        // and `mesh` only hands out the (lazy) mesher itself.
+        const local = result.value.mesh;
+        const localFaces = local.faces;
+        const localEdges = local.edges;
         result.value.dispose();
-        const { faces, edges } = world.mesh;
-        world.dispose();
-        if (faces === undefined) return;
+        if (localFaces === undefined) return;
+        const faces = MeshUtils.transformMesh(localFaces, matrix);
+        const edges = localEdges === undefined ? undefined : MeshUtils.transformMesh(localEdges, matrix);
 
         this.preview.show(
             this.document,
@@ -211,15 +220,19 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
         const picked = this.pickedBodyEdges();
         if (!Number.isFinite(value) || picked === undefined) return undefined;
 
-        const world = (picked.edges[0].shape as IEdge).transformedMul(picked.edges[0].transform) as IEdge;
-        try {
-            const midParam = (world.firstParameter() + world.lastParameter()) / 2;
-            const direction = this.arrowDirection(world, midParam, picked.edges[0]);
-            if (direction === undefined) return undefined;
-            return { anchor: world.pointAt(midParam), direction, value: Math.max(value, 0) };
-        } finally {
-            world.dispose();
-        }
+        // Everything is computed in the edge's own frame and only the answer is placed in the
+        // world: a world-space copy of the edge goes through `gp_Trsf`, which drops a
+        // non-uniform scale and would anchor the arrow somewhere else.
+        const edge = picked.edges[0].shape as IEdge;
+        const transform = picked.edges[0].transform;
+        const midParam = (edge.firstParameter() + edge.lastParameter()) / 2;
+        const local = this.arrowDirection(edge, midParam, picked.edges[0]);
+        if (local === undefined) return undefined;
+        return {
+            anchor: transform.ofPoint(edge.pointAt(midParam)),
+            direction: transform.ofVector(local).normalize() ?? local,
+            value: Math.max(value, 0),
+        };
     };
 
     private arrowDirection(edge: IEdge, midParam: number, data: VisualShapeData): XYZ | undefined {
@@ -232,7 +245,7 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
         const node = data.owner.node as ShapeNode;
         if (tangent === undefined || !node.shape.isOk) return undefined;
 
-        const center = data.transform.ofPoint(BoundingBox.center(node.shape.value.boundingBox()));
+        const center = BoundingBox.center(node.shape.value.boundingBox());
         const outward = edge.pointAt(midParam).sub(center);
         const perpendicular = outward.sub(tangent.multiply(outward.dot(tangent))).normalize();
         if (perpendicular !== undefined) return perpendicular;
