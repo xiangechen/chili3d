@@ -4,6 +4,7 @@
 import { Precision, Result } from "@chili3d/core";
 import { nurbsWeights, sampleEntity } from "./curveEval";
 import { isBroken } from "./entityEditOps";
+import { type SketchOperationResult, SketchSolveError } from "./sketchError";
 import {
     arcAngles,
     ConstraintKind,
@@ -394,7 +395,7 @@ function reconcile(
     solver: SketchSolver,
     snapshot: SketchData,
     baseline: ReconcileBaseline,
-): Result<number[]> {
+): SketchOperationResult<number[]> {
     const dropped: number[] = [];
     let result = solver.solve(true).result;
     for (let pass = 0; pass < MAX_CONFLICT_PASSES && isBroken(result); pass++) {
@@ -410,7 +411,7 @@ function reconcile(
     }
     if (isBroken(result) && !isBroken(baseline.result)) {
         solver.reset(snapshot);
-        return Result.err(`The sketch could not solve after the transform (${result})`);
+        return Result.err(new SketchSolveError(`The sketch could not solve after the transform (${result})`));
     }
     return Result.ok(dropped);
 }
@@ -444,7 +445,7 @@ export function transformEntities(
     ids: readonly number[],
     base: readonly [number, number],
     transform: SketchTransform,
-): Result<TransformOutcome> {
+): SketchOperationResult<TransformOutcome> {
     // a negative scale is a reflection: its arcs would need the mirror's start/end swap,
     // so it is refused here rather than silently turning the geometry inside out
     if (transform.scale <= Precision.Float) return Result.err("The scale must be positive");

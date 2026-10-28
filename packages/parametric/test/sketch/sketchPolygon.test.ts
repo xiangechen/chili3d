@@ -445,7 +445,7 @@ describe("SketchPolygonCommand", () => {
         try {
             runCommand(new SketchPolygonCommand(), editor, [CENTER, [Precision.Distance / 2, 0]]);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.solver.entities()).toEqual([]);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {

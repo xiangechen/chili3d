@@ -19,10 +19,44 @@
 
 .right {
     flex: 0 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bridge {
+    font-size: 12px;
+    white-space: nowrap;
+    user-select: none;
+
+    &[data-status="connected"] {
+        color: var(--bridge-connected-color);
+    }
+
+    &[data-status="retrying"] {
+        color: var(--bridge-retrying-color);
+    }
+
+    &[data-status="blocked"],
+    &[data-status="replaced"],
+    &[data-status="closed"] {
+        color: var(--bridge-muted-color);
+    }
+}
+
+:global(chili3d-main-window:has(> chili-home)) .bridge {
+    position: fixed;
+    right: 8px;
+    bottom: 6px;
+    z-index: 10000;
 }
 
 @media (max-width: 680px) {
-    .right {
+    .panel {
+        justify-content: flex-end;
+    }
+
+    .left {
         display: none;
     }
 }

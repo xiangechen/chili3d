@@ -309,7 +309,7 @@ export class GeometryState {
         }
 
         const lineGeometry = new LineSegmentsGeometry();
-        lineGeometry.setPositions(points);
+        ThreeGeometryFactory.setLineSegmentsPositions(lineGeometry, points);
         const segment = new LineSegments2(lineGeometry);
         this.highlighter.container.add(segment);
         segment.applyMatrix4(this.visual.matrixWorld);

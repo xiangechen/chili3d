@@ -1722,7 +1722,7 @@ describe("extendEntity on an offset copy", () => {
             const source = solver.addBezier([0, 0, 4, 0, 8, 0, 12, 0]);
             solver.solve(true);
             const offset = offsetEntities(solver, [source], 1, TOLERANCE);
-            if (!offset.isOk) throw new Error(offset.error);
+            if (!offset.isOk) throw new Error(String(offset.error));
             return { solver, source, copy: offset.value.createdEntityIds[0] };
         } catch (error) {
             solver.dispose();
@@ -1847,7 +1847,7 @@ describe("extendEntity on an offset copy", () => {
             const arc = solver.addEllipseArc(0, 0, 6, 0, 0, 3, 6, 0, -6, 0);
             solver.solve(true);
             const offset = offsetEntities(solver, [arc], -1, TOLERANCE);
-            if (!offset.isOk) throw new Error(offset.error);
+            if (!offset.isOk) throw new Error(String(offset.error));
             const copy = offset.value.createdEntityIds[0];
 
             // the copy's own far end, and a boundary just past it that its support reaches
@@ -1866,7 +1866,7 @@ describe("extendEntity on an offset copy", () => {
             };
             const result = extendEntity(solver, options);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             expect(result.value.entityIds).toContain(copy);
             // the copy reaches the corner now: its drawn window runs past where it stopped
             const gained = drawnWindow(solver, copy);
@@ -1882,7 +1882,7 @@ describe("extendEntity on an offset copy", () => {
             const ellipse = solver.addEllipse(0, 0, 10, 0, 0, 5);
             solver.solve(true);
             const offset = offsetEntities(solver, [ellipse], 1, TOLERANCE);
-            if (!offset.isOk) throw new Error(offset.error);
+            if (!offset.isOk) throw new Error(String(offset.error));
             const copy = offset.value.createdEntityIds[0];
             const boundary = solver.addLine(20, 0, 20, 10);
             solver.solve(true);

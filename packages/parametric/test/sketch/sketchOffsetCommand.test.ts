@@ -460,6 +460,7 @@ describe("SketchOffsetCommand", () => {
 
     test("ends after a refused offset too, leaving the sketch alone", async () => {
         const editor = fakeEditor();
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         try {
             const line = editor.solver.addLine(0, 0, 10, 0);
             // 2 away from it: an offset of 2 lands on that line and is refused
@@ -469,10 +470,12 @@ describe("SketchOffsetCommand", () => {
 
             await runCommand(command, editor);
 
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.commit).not.toHaveBeenCalled();
             expect(editor.sessions).toHaveLength(1);
             expect(editor.solver.entities()).toHaveLength(2);
         } finally {
+            pub.mockRestore();
             editor.solver.dispose();
         }
     });

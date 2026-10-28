@@ -4,6 +4,7 @@
 import { AsyncController, command, PubSub } from "@chili3d/core";
 import type { SketchEditor } from "../editor/sketchEditor";
 import { mirrorEntities, mirrorPreview } from "../mirrorOps";
+import { displaySketchError } from "../sketchError";
 import { isConstraintTarget } from "../solverEntities";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
@@ -88,7 +89,7 @@ export class SketchMirrorCommand extends SketchConstraintCommand {
     private applyMirror(editor: SketchEditor, sources: readonly number[], axisId: number): void {
         const result = mirrorEntities(editor.solver, sources, axisId, editor.screenTolerance());
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return;
         }
         const { createdEntityIds, skippedSelfMirror } = result.value;

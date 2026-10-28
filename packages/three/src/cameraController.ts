@@ -200,24 +200,21 @@ export class CameraController extends Observable implements ICameraController {
         const shape = this.view.detectVisual(x, y).at(0);
         if (shape instanceof ThreeVisualObject) {
             const box = new Box3();
-            box.setFromObject(shape);
-            this._rotateCenter = box.getCenter(new Vector3());
+            this.expandValidBox(box, shape);
+            if (!box.isEmpty()) this._rotateCenter = box.getCenter(new Vector3());
         }
     }
 
     private selectedNodesCenter() {
         const box = new Box3();
         const nodes = this.view.document.selection.getSelectedNodes();
-        if (nodes.length > 0) {
-            for (const node of nodes) {
-                const shape = this.view.document.visual.context.getVisual(node);
-                if (shape instanceof Object3D) {
-                    box.expandByObject(shape);
-                }
+        for (const node of nodes) {
+            const shape = this.view.document.visual.context.getVisual(node);
+            if (shape instanceof Object3D) {
+                this.expandValidBox(box, shape);
             }
-            return box.getCenter(new Vector3());
         }
-        return undefined;
+        return box.isEmpty() ? undefined : box.getCenter(new Vector3());
     }
 
     setRotateCenterToSelected() {
@@ -317,7 +314,7 @@ export class CameraController extends Observable implements ICameraController {
                 const node = context.getNode(object as unknown as IVisualObject);
                 if (node !== undefined && isReferenceGeometryNode(node)) return;
                 if (object.children.length === 0) {
-                    box.expandByObject(object);
+                    this.expandValidBox(box, object);
                     return;
                 }
                 for (const child of object.children) visit(child);
@@ -325,11 +322,7 @@ export class CameraController extends Observable implements ICameraController {
             for (const child of context.visualShapes.children) visit(child);
         } else {
             for (const shape of shapes) {
-                const threeGeometry = context.getVisual(shape) as ThreeGeometry;
-                const boundingBox = new Box3().setFromObject(threeGeometry);
-                if (boundingBox) {
-                    box.union(boundingBox);
-                }
+                this.expandValidBox(box, context.getVisual(shape) as ThreeGeometry);
             }
         }
 
@@ -339,6 +332,19 @@ export class CameraController extends Observable implements ICameraController {
             sphere.radius = SHAPE_EMPTY_SIZE;
         }
         return sphere;
+    }
+
+    private expandValidBox(target: Box3, object: Object3D) {
+        const candidate = new Box3().setFromObject(object);
+        if (this.isFiniteBox(candidate)) {
+            target.union(candidate);
+            return;
+        }
+        for (const child of object.children) this.expandValidBox(target, child);
+    }
+
+    private isFiniteBox(box: Box3) {
+        return !box.isEmpty() && [...box.min.toArray(), ...box.max.toArray()].every(Number.isFinite);
     }
 
     zoom(x: number, y: number, delta: number): void {

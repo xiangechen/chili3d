@@ -9,12 +9,17 @@ rs.mock("../src/statusbar/statusbar.module.css", () => ({
     tip: "sb-tip",
     left: "sb-left",
     right: "sb-right",
+    bridge: "sb-bridge",
 }));
 
 // SnapConfig pulls in the whole snap checkbox stack — replace it with a plain stub;
 // it has its own test file (snapConfig.test.ts).
 rs.mock("../src/statusbar/snapConfig", () => ({
     SnapConfig: class {},
+}));
+
+rs.mock("../src/statusbar/errorStatus", () => ({
+    ErrorStatus: class {},
 }));
 
 // Recorded collaborators for the core mock. Factories may only reference
@@ -147,6 +152,46 @@ describe("Statusbar", () => {
             configChanged.emit("language");
 
             expect(i18nSetMock).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("bridge status", () => {
+        test("should not render a bridge indicator without a status event", () => {
+            const bar = new Statusbar("test-bar");
+
+            expect(bar.querySelector(".sb-bridge")).toBeNull();
+        });
+
+        test("should render and update the published status and title", () => {
+            const bar = new Statusbar("test-bar");
+            const handler = pubSubRecorder.handlers.get("bridgeStatusChanged");
+            expect(handler).toBeDefined();
+
+            handler!("retrying", "Reconnecting to the local bridge");
+
+            const bridge = mustQuery(bar, ".sb-bridge");
+            expect(bridge.textContent).toBe("○ AI bridge");
+            expect(bridge.title).toBe("Reconnecting to the local bridge");
+            expect(bridge.dataset["status"]).toBe("retrying");
+
+            handler!("connected", "Connected to the local bridge on 127.0.0.1:17373");
+
+            expect(mustQuery(bar, ".sb-bridge")).toBe(bridge);
+            expect(bridge.textContent).toBe("● AI bridge");
+            expect(bridge.title).toBe("Connected to the local bridge on 127.0.0.1:17373");
+            expect(bridge.dataset["status"]).toBe("connected");
+        });
+
+        test("should remove the indicator when the bridge stops", () => {
+            const bar = new Statusbar("test-bar");
+            const handler = pubSubRecorder.handlers.get("bridgeStatusChanged");
+            expect(handler).toBeDefined();
+            handler!("connected", "Connected");
+            mustQuery(bar, ".sb-bridge");
+
+            handler!(undefined);
+
+            expect(bar.querySelector(".sb-bridge")).toBeNull();
         });
     });
 });

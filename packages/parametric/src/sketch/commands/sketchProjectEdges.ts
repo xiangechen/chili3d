@@ -137,7 +137,7 @@ export class ProjectSketchEdges extends SketchConstraintCommand {
             if (projectEdge(editor, plane, x, role, existing)) added++;
         }
         if (added === 0) {
-            PubSub.default.pub("displayError", I18n.translate("sketch.noProjectableEdges"));
+            PubSub.default.pub("displayValidation", I18n.translate("sketch.noProjectableEdges"));
             return;
         }
         editor.refreshExternalDisplay();

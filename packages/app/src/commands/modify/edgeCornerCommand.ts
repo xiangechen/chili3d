@@ -341,7 +341,7 @@ export abstract class EdgeCornerCommand extends MultistepCommand {
     /** Apply the corner between two standalone edge bodies, keeping them as separate edges. */
     private modifyStandaloneEdges(shapes: VisualShapeData[]) {
         if (shapes.length !== 2) {
-            PubSub.default.pub("displayError", I18n.translate("error.select.twoEdges"));
+            PubSub.default.pub("displayValidation", I18n.translate("error.select.twoEdges"));
             return;
         }
 

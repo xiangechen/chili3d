@@ -489,7 +489,7 @@ describe("an offset curve's distance on the canvas", () => {
         editor.solve(true);
         const result = offsetEntities(editor.solver, [ellipse], 1, 1e-6);
         expect(result.isOk).toBe(true);
-        if (!result.isOk) throw new Error(result.error);
+        if (!result.isOk) throw new Error(String(result.error));
         const copy = result.value.createdEntityIds[0];
         editor.solve(true);
         return { ...ctx, editor, node, ellipse, copy, ...captureDialog() };

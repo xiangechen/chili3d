@@ -83,7 +83,7 @@ describe("a sketch offset over a curve", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [straight], 1, 0.01);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
 
             const copy = solver.entity(result.value.createdEntityIds[0])!;
             const drawn = evaluateEntity(copy, entityDomain(copy)[0]);
@@ -119,7 +119,7 @@ describe("a sketch offset over a curve", () => {
 
             const result = offsetEntities(solver, sources, 1, 0.01);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             solver.solve(true);
 
             const sketch = sketchNode(solver);
@@ -172,7 +172,7 @@ describe("a sketch offset copy that has been edited", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [source], 1, 0.01);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = result.value.createdEntityIds[0];
             // the parameter of x = 3 on a cubic drawn at an even rate is 0.25, and x = 9 is 0.75
             expect(solver.setOffsetWindow(copy, [0.25, 0.75]).isOk).toBe(true);
@@ -197,7 +197,7 @@ describe("a sketch offset copy that has been edited", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [ellipse], 1, 0.01);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = result.value.createdEntityIds[0];
             // from t = π round the seam to t = 2π, which the source's own edge does not cover
             expect(solver.setOffsetWindow(copy, [Math.PI * 1.5, Math.PI * 2.5]).isOk).toBe(true);
@@ -226,7 +226,7 @@ describe("a sketch offset copy that has been edited", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [source], 1, 0.01);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = result.value.createdEntityIds[0];
             const boundary = solver.addLine(15, 0, 15, 3);
             solver.solve(true);
@@ -240,7 +240,7 @@ describe("a sketch offset copy that has been edited", () => {
                 tolerance: 0.01,
             });
             expect(extended.isOk).toBe(true);
-            if (!extended.isOk) throw new Error(extended.error);
+            if (!extended.isOk) throw new Error(String(extended.error));
 
             const sketch = sketchNode(solver);
             expect(sketch.shape.isOk).toBe(true);

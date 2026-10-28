@@ -22,6 +22,7 @@ import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandle
 import { SketchEditor } from "../editor/sketchEditor";
 import { additivePick, sketchEntityMesh } from "../editor/sketchEventHandler";
 import { curveOffsetAnchor, type OffsetOutcome, offsetEntities, offsetPreview } from "../offsetOps";
+import { displaySketchError } from "../sketchError";
 import { type DimensionAnchor, type SketchEntityData, toWorld } from "../sketchModel";
 import type { SketchSolver } from "../solver";
 import { SketchConstraintCommand } from "./sketchConstraints";
@@ -452,7 +453,7 @@ export class SketchOffsetCommand extends SketchConstraintCommand {
     private applyOffset(editor: SketchEditor, sourceIds: readonly number[], distance: number): boolean {
         const result = offsetEntities(editor.solver, sourceIds, distance, editor.screenTolerance());
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return false;
         }
         const { dimensions, branched, noJoin } = result.value;

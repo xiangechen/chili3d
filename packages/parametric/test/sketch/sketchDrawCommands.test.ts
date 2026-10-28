@@ -225,7 +225,7 @@ describe("SketchArcCommand", () => {
                 [0, 0],
             ]);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.solver.entities()).toEqual([]);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {
@@ -244,7 +244,7 @@ describe("SketchArcCommand", () => {
             runCommand(new SketchArcCommand(), editor, [[0, 0], [10, 0], end]);
 
             expect(pub).toHaveBeenCalledWith(
-                "displayError",
+                "displayValidation",
                 "Arc end point is on the start ray (zero sweep)",
             );
             expect(editor.solver.entities()).toEqual([]);
@@ -318,7 +318,7 @@ describe("SketchRectangleCommand", () => {
                 [0, 5],
             ]);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.solver.entities()).toEqual([]);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {

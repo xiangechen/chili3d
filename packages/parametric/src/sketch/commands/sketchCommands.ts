@@ -311,7 +311,7 @@ export class CreateSketch extends MultistepCommand {
         // Closing any live session up front: the new sketch takes the view.
         SketchEditor.exit();
         if (this.application.activeView?.document === undefined) {
-            PubSub.default.pub("displayError", "No active view");
+            PubSub.default.pub("displayValidation", "No active view");
             return false;
         }
         return true;
@@ -391,7 +391,7 @@ export class EnterSketch extends CancelableCommand {
 
         const document = this.application.activeView?.document;
         if (document === undefined) {
-            PubSub.default.pub("displayError", "No active view");
+            PubSub.default.pub("displayValidation", "No active view");
             return;
         }
         this.controller = new AsyncController();

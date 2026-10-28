@@ -213,13 +213,17 @@ describe("PointOnCurveSnap", () => {
 
 describe("SurfaceSnap", () => {
     let originalSnapType: ObjectSnapType;
+    let originalEnableSnap: boolean;
 
     beforeEach(() => {
         originalSnapType = Config.instance.snapType;
+        originalEnableSnap = Config.instance.enableSnap;
+        Config.instance.enableSnap = true;
     });
 
     afterEach(() => {
         Config.instance.snapType = originalSnapType;
+        Config.instance.enableSnap = originalEnableSnap;
     });
 
     function createMockFaceShape(projectedPoint: XYZ) {
@@ -286,6 +290,20 @@ describe("SurfaceSnap", () => {
         expect(project.mock.calls[0][0].isEqualTo(local)).toBe(true);
         // ... and its answer placed through the same matrix the mesh is drawn with
         expect(result!.point!.isEqualTo(transform.ofPoint(local))).toBe(true);
+    });
+
+    test("should return undefined without detecting faces when snap is globally disabled", () => {
+        Config.instance.enableSnap = false;
+        Config.instance.snapType = ObjectSnapTypes.onSurface;
+        const detectShapes = rs.fn(() => []);
+        const view = createSnapTestView({ detectShapes });
+        const snap = new SurfaceSnap();
+        const data = createMouseAndDetected(view);
+
+        const result = snap.snap(data);
+
+        expect(result).toBeUndefined();
+        expect(detectShapes).not.toHaveBeenCalled();
     });
 
     test("should return undefined when snap type does not include onSurface", () => {

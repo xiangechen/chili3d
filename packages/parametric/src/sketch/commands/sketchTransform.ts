@@ -27,6 +27,7 @@ import { applyConstraintIcon, badgeSymbol } from "../editor/sketchAnnotations";
 import badgeStyle from "../editor/sketchAnnotations.module.css";
 import { SketchEditor } from "../editor/sketchEditor";
 import { additivePick, sketchEntityMesh } from "../editor/sketchEventHandler";
+import { displaySketchError } from "../sketchError";
 import { ConstraintKind, toStorageDatum, toUV, toWorld } from "../sketchModel";
 import {
     isIdentityTransform,
@@ -1703,7 +1704,7 @@ export class SketchTransformCommand extends SketchConstraintCommand {
     ): void {
         const result = transformEntities(editor.solver, sources, base, transform);
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return;
         }
         const { removedConstraintIds } = result.value;

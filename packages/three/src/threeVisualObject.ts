@@ -17,16 +17,7 @@ import {
     ShapeTypeUtils,
     type VisualNode,
 } from "@chili3d/core";
-import {
-    BufferAttribute,
-    BufferGeometry,
-    DoubleSide,
-    Group,
-    type Material,
-    Mesh,
-    Object3D,
-    type Points,
-} from "three";
+import { DoubleSide, Group, type Material, Mesh, Object3D, type Points } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
@@ -232,14 +223,17 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
     };
 
     private newMesh() {
-        const buff = new BufferGeometry();
-        buff.setAttribute("position", new BufferAttribute(this.meshNode.mesh.position!, 3));
-        if (this.meshNode.mesh.normal)
-            buff.setAttribute("normal", new BufferAttribute(this.meshNode.mesh.normal, 3));
-        if (this.meshNode.mesh.uv) buff.setAttribute("uv", new BufferAttribute(this.meshNode.mesh.uv, 2));
-        if (this.meshNode.mesh.index) buff.setIndex(new BufferAttribute(this.meshNode.mesh.index, 1));
-        if (this.meshNode.mesh.groups.length > 1) buff.groups = this.meshNode.mesh.groups;
-        buff.computeBoundingBox();
+        const data = this.meshNode.mesh;
+        const buff = ThreeGeometryFactory.createFaceBufferGeometry({
+            position: data.position!,
+            normal: data.normal ?? new Float32Array(),
+            uv: data.uv ?? new Float32Array(),
+            index: data.index ?? new Uint32Array(),
+            color: data.color,
+        });
+        if (!data.normal) buff.deleteAttribute("normal");
+        if (!data.uv) buff.deleteAttribute("uv");
+        if (data.groups.length > 1) buff.groups = data.groups;
         const mesh = new Mesh(buff, this.context.getMaterial(this.meshNode.materialId));
         mesh.layers.set(Constants.Layers.Solid);
         return mesh;
@@ -252,7 +246,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
             side: DoubleSide,
         });
         const buff = new LineSegmentsGeometry();
-        buff.setPositions(this.meshNode.mesh.position!);
+        ThreeGeometryFactory.setLineSegmentsPositions(buff, this.meshNode.mesh.position!);
         buff.computeBoundingBox();
         const line = new LineSegments2(buff, material);
         line.layers.set(Constants.Layers.Wireframe);
@@ -457,7 +451,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
         }
 
         const buff = new LineSegmentsGeometry();
-        buff.setPositions(data.position!);
+        ThreeGeometryFactory.setLineSegmentsPositions(buff, data.position!);
         buff.computeBoundingBox();
         this._linesegments = new LineSegments2(buff, defaultEdgeMaterial);
         this._linesegments.layers.set(Constants.Layers.Wireframe);
@@ -476,7 +470,7 @@ export class ThreeComponentObject extends ThreeVisualObject implements IHighligh
             }
 
             const geometry = new LineSegmentsGeometry();
-            geometry.setPositions(BoundingBox.wireframe(box).position);
+            ThreeGeometryFactory.setLineSegmentsPositions(geometry, BoundingBox.wireframe(box).position);
             this._boundbox = new LineSegments2(geometry, hilightEdgeMaterial);
             this.add(this._boundbox);
         }

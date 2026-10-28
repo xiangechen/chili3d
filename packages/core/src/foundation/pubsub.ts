@@ -33,8 +33,13 @@ export interface ShowInputOptions {
     onClose?: () => void;
 }
 
+export type BridgeStatus = "connected" | "retrying" | "blocked" | "replaced" | "closed";
+
 export interface PubSubEventMap {
     activeViewChanged: (view: IView | undefined) => void;
+    applicationError: (message: unknown, optionalParams: unknown[]) => void;
+    applicationErrorReady: () => void;
+    bridgeStatusChanged: (status: BridgeStatus | undefined, title?: string) => void;
     /** Hide the standalone confirm bar (see `showConfirmControl`). */
     clearConfirmControl: () => void;
     clearFloatTip: () => void;
@@ -43,12 +48,16 @@ export interface PubSubEventMap {
     clearStatusBarTip: () => void;
     closeFloatPanel: (content: HTMLElement) => void;
     closeCommandContext: () => void;
+    /** Shows an operational failure and records it in the error log. */
     displayError: (message: string) => void;
     displayHome: (show: boolean) => void;
+    /** Shows retryable input or selection feedback without recording it in the error log. */
+    displayValidation: (message: string) => void;
     documentClosed: (document: IDocument) => void;
     editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
     editVariables: (document: IDocument, onApplied: () => void) => void;
     executeCommand: (commandName: CommandKeys) => void;
+    loggerError: (message: unknown, optionalParams: unknown[]) => void;
     modelUpdate: (model: INode) => void;
     nodeDoubleClicked: (node: INode) => void;
     openCommandContext: (command: ICommand) => void;

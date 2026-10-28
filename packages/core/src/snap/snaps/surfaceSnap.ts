@@ -29,6 +29,7 @@ function projectOntoWorldSurface(data: VisualShapeData): XYZ | undefined {
 
 export class SurfaceSnap implements ISnap {
     snap(data: MouseAndDetected): SnapResult | undefined {
+        if (!Config.instance.enableSnap) return undefined;
         if (!ObjectSnapTypeUtils.hasType(Config.instance.snapType, ObjectSnapTypes.onSurface))
             return undefined;
 

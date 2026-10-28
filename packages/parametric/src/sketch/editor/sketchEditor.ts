@@ -38,6 +38,7 @@ import {
     withField,
 } from "../arrayOps";
 import type { SketchPreviewAt } from "../previewTypes";
+import { displaySketchError } from "../sketchError";
 import {
     ConstraintKind,
     datumIsSigned,
@@ -517,12 +518,12 @@ export class SketchEditor implements IDisposable {
     private applyOffsetDistance(entityId: number, value: ParameterValue): boolean {
         const resolved = resolveUnitSpec(value, this.variableScope(), LENGTH_UNITS);
         if (!resolved.isOk) {
-            PubSub.default.pub("displayError", resolved.error);
+            displaySketchError(resolved.error);
             return false;
         }
         const result = this.solver.setOffsetDistance(entityId, resolved.value);
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return false;
         }
         return true;
@@ -617,7 +618,7 @@ export class SketchEditor implements IDisposable {
     /** Writes one number into an array's record, reporting a pattern the solver will not take. */
     private applyArrayPatch(arrayId: number, patch: ArrayPatch): void {
         const result = this.solver.updateArray(arrayId, patch);
-        if (!result.isOk) PubSub.default.pub("displayError", result.error);
+        if (!result.isOk) displaySketchError(result.error);
     }
 
     private readonly onActiveViewChanged = (view: IView | undefined) => {
@@ -1145,7 +1146,7 @@ export class SketchEditor implements IDisposable {
      */
     writeDatum(constraintId: number, value: ParameterValue, index = 0): void {
         const written = this.solver.setDatumSource(constraintId, value, index);
-        if (!written.isOk) PubSub.default.pub("displayError", written.error);
+        if (!written.isOk) displaySketchError(written.error);
     }
 
     /** What a confirmed datum does to the session, whatever the dialog looked like. */

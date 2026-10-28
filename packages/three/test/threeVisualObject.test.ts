@@ -325,6 +325,19 @@ describe("ThreeMeshObject", () => {
         expect(obj.visible).toBe(true);
     });
 
+    test("surface meshes sanitize invalid positions without changing the index count", () => {
+        const node = createTestMeshNode({ meshType: "surface" });
+        node.mesh.position = new Float32Array([0, 0, 0, Number.NaN, 0, 0, 0, 1, 0]);
+
+        const obj = new ThreeMeshObject(context, node);
+        const mesh = obj.mesh as Mesh;
+
+        expect(mesh.geometry.index!.count).toBe(3);
+        expect(Array.from(mesh.geometry.index!.array)).toEqual([0, 0, 0]);
+        expect(Array.from(mesh.geometry.getAttribute("position").array).every(Number.isFinite)).toBe(true);
+        expect(mesh.geometry.boundingBox!.isEmpty()).toBe(false);
+    });
+
     test("creates ThreeMeshObject with linesegments mesh type", () => {
         const node = createTestMeshNode({ meshType: "linesegments" });
         const obj = new ThreeMeshObject(context, node);

@@ -3,11 +3,11 @@
 
 import { rs } from "@rstest/core";
 import type { LoggerLevel } from "../src";
-import { Logger } from "../src";
+import { Logger, PubSub } from "../src";
 
-// In non-production builds logger.ts replaces Logger.debug/info/warn/error with the
-// corresponding console methods at module load time, so the level filter does not
-// apply in this test environment.
+// In non-production builds logger.ts replaces Logger.debug/info/warn with the corresponding
+// console methods at module load time, so their level filter does not apply here. Logger.error
+// remains a method because it also publishes the error for the statusbar.
 const originalDebug = Logger.debug;
 const originalInfo = Logger.info;
 const originalWarn = Logger.warn;
@@ -52,15 +52,10 @@ describe("Logger class", () => {
         test("warn should be the console.warn function", () => {
             expect(Logger.warn).toBe(console.warn);
         });
-
-        test("error should be the console.error function", () => {
-            expect(Logger.error).toBe(console.error);
-        });
     });
 
-    // Logger.* hold the console references captured at module load, so spying on
-    // console afterwards cannot intercept them; re-wire the same way logger.ts does
-    // at startup to route the calls through the spies.
+    // The other Logger methods hold console references captured at module load, so spying on
+    // console afterwards cannot intercept them; re-wire those methods through the spies.
     describe("console output", () => {
         test("debug should forward all arguments to console.debug", () => {
             const spy = rs.spyOn(console, "debug").mockImplementation(() => {});
@@ -96,16 +91,23 @@ describe("Logger class", () => {
             spy.mockRestore();
         });
 
-        test("error should forward all arguments to console.error", () => {
+        test("error should publish and forward all arguments", () => {
             const spy = rs.spyOn(console, "error").mockImplementation(() => {});
-            Logger.error = console.error;
-
+            const listener = rs.fn((_message: unknown, _params: unknown[]) => {});
+            PubSub.default.sub("loggerError", listener);
+            Logger.error = originalError;
             const err = new Error("test");
-            Logger.error("failed", err);
 
-            expect(spy).toHaveBeenCalledTimes(1);
-            expect(spy).toHaveBeenCalledWith("failed", err);
-            spy.mockRestore();
+            try {
+                Logger.error("failed", err);
+
+                expect(spy).toHaveBeenCalledTimes(1);
+                expect(spy).toHaveBeenCalledWith("failed", err);
+                expect(listener).toHaveBeenCalledWith("failed", [err]);
+            } finally {
+                PubSub.default.remove("loggerError", listener);
+                spy.mockRestore();
+            }
         });
     });
 
@@ -144,7 +146,7 @@ describe("Logger class", () => {
 
         test("error should still write to console when a lower level is set", () => {
             const spy = rs.spyOn(console, "error").mockImplementation(() => {});
-            Logger.error = console.error;
+            Logger.error = originalError;
             Logger.level = "debug";
 
             Logger.error("still logged");

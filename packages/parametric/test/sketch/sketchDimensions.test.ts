@@ -1048,7 +1048,7 @@ describe("the datum write", () => {
             try {
                 editor.writeDatum(id, 40);
 
-                expect(pub).toHaveBeenCalledWith("displayError", expect.stringContaining("driven"));
+                expect(pub).toHaveBeenCalledWith("displayValidation", expect.stringContaining("driven"));
             } finally {
                 pub.mockRestore();
             }

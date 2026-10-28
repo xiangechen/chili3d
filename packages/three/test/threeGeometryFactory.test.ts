@@ -2,7 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import type { FaceMeshData } from "@chili3d/core";
-import { BufferGeometry, Mesh, MeshBasicMaterial, MeshLambertMaterial, Points, PointsMaterial } from "three";
+import {
+    BufferGeometry,
+    type InterleavedBufferAttribute,
+    Mesh,
+    MeshBasicMaterial,
+    MeshLambertMaterial,
+    Points,
+    PointsMaterial,
+} from "three";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
@@ -48,6 +56,56 @@ describe("ThreeGeometryFactory", () => {
             expect(buff).toBeInstanceOf(BufferGeometry);
             expect(buff.index).toBeNull();
             expect(buff.boundingBox).not.toBeNull();
+            expect(buff.getAttribute("position").array).toBe(data.position);
+        });
+
+        test("degenerates only invalid non-indexed triangles", () => {
+            const buff = ThreeGeometryFactory.createFaceBufferGeometry({
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, Number.NaN, 2, 0, 3, 0, 0, 4, 0, 0]),
+                normal: new Float32Array(18),
+                uv: new Float32Array(12),
+                index: new Uint32Array(),
+            });
+
+            expect(Array.from(buff.getAttribute("position").array)).toEqual([
+                0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            ]);
+            expect(
+                [...buff.boundingBox!.min.toArray(), ...buff.boundingBox!.max.toArray()].every(
+                    Number.isFinite,
+                ),
+            ).toBe(true);
+        });
+
+        test("keeps indexed face ranges while degenerating invalid triangles", () => {
+            const buff = ThreeGeometryFactory.createFaceBufferGeometry({
+                position: new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, Number.NaN, 2, 0, 3, 0, 0, 4, 0, 0]),
+                normal: new Float32Array(18),
+                uv: new Float32Array(12),
+                index: new Uint32Array([0, 1, 2, 3, 4, 5]),
+            });
+
+            expect(buff.index!.count).toBe(6);
+            expect(Array.from(buff.index!.array)).toEqual([0, 1, 2, 0, 0, 0]);
+            expect(Array.from(buff.getAttribute("position").array).every(Number.isFinite)).toBe(true);
+            expect(
+                [...buff.boundingBox!.min.toArray(), ...buff.boundingBox!.max.toArray()].every(
+                    Number.isFinite,
+                ),
+            ).toBe(true);
+        });
+
+        test("uses an empty face geometry when every vertex is invalid", () => {
+            const buff = ThreeGeometryFactory.createFaceBufferGeometry({
+                position: new Float32Array([Number.NaN, 0, 0, Infinity, 0, 0, 0, 0, Number.NaN]),
+                normal: new Float32Array(9),
+                uv: new Float32Array(6),
+                index: new Uint32Array([0, 1, 2]),
+            });
+
+            expect(buff.getAttribute("position").count).toBe(0);
+            expect(buff.index).toBeNull();
+            expect(buff.boundingBox!.isEmpty()).toBe(true);
         });
     });
 
@@ -66,6 +124,68 @@ describe("ThreeGeometryFactory", () => {
             expect(buff).toBeInstanceOf(LineSegmentsGeometry);
             expect(buff.boundingBox).not.toBeNull();
         });
+
+        test("replaces invalid segments without changing their indices or the valid segments", () => {
+            const error = rs.spyOn(console, "error").mockImplementation(() => {});
+            try {
+                const buff = ThreeGeometryFactory.createEdgeBufferGeometry({
+                    position: new Float32Array([
+                        0,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0,
+                        Number.NaN,
+                        2,
+                        0,
+                        3,
+                        0,
+                        0,
+                        4,
+                        0,
+                        0,
+                        5,
+                        0,
+                        0,
+                    ]),
+                    color: 0xff0000,
+                    lineType: "solid",
+                    range: [],
+                });
+
+                const positions = (buff.getAttribute("instanceStart") as InterleavedBufferAttribute).data
+                    .array;
+                expect(buff.instanceCount).toBe(3);
+                expect(positions.length).toBe(18);
+                expect(Array.from(positions).every(Number.isFinite)).toBe(true);
+                expect(Array.from(positions.slice(0, 6))).toEqual([0, 0, 0, 1, 0, 0]);
+                expect(Array.from(positions.slice(6, 12))).toEqual([0, 0, 0, 0, 0, 0]);
+                expect(Array.from(positions.slice(12, 18))).toEqual([4, 0, 0, 5, 0, 0]);
+                expect(buff.boundingSphere?.radius).toBeGreaterThan(0);
+                expect(error).not.toHaveBeenCalled();
+            } finally {
+                error.mockRestore();
+            }
+        });
+
+        test("uses empty geometry when every segment is invalid", () => {
+            const error = rs.spyOn(console, "error").mockImplementation(() => {});
+            try {
+                const buff = ThreeGeometryFactory.createEdgeBufferGeometry({
+                    position: new Float32Array([Number.NaN, Infinity, -Infinity, Number.NaN, 0, 0]),
+                    color: 0xff0000,
+                    lineType: "solid",
+                    range: [],
+                });
+
+                expect(buff.instanceCount).toBe(0);
+                expect(buff.boundingSphere?.radius).toBe(0);
+                expect(error).not.toHaveBeenCalled();
+            } finally {
+                error.mockRestore();
+            }
+        });
     });
 
     describe("createVertexBufferGeometry", () => {
@@ -82,6 +202,30 @@ describe("ThreeGeometryFactory", () => {
             expect(buff).toBeInstanceOf(BufferGeometry);
             expect(buff.getAttribute("position").count).toBe(2);
             expect(buff.boundingBox).not.toBeNull();
+            expect(buff.getAttribute("position").array).toBe(data.position);
+        });
+
+        test("replaces invalid points without changing point indices", () => {
+            const buff = ThreeGeometryFactory.createVertexBufferGeometry({
+                position: new Float32Array([0, 0, 0, Number.NaN, 2, 0, 4, 0, Infinity]),
+                size: 3,
+                range: [],
+            });
+
+            expect(buff.getAttribute("position").count).toBe(3);
+            expect(Array.from(buff.getAttribute("position").array)).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0]);
+            expect(buff.boundingBox!.isEmpty()).toBe(false);
+        });
+
+        test("uses empty point geometry when every point is invalid", () => {
+            const buff = ThreeGeometryFactory.createVertexBufferGeometry({
+                position: new Float32Array([Number.NaN, 0, 0, 0, Infinity, 0]),
+                size: 3,
+                range: [],
+            });
+
+            expect(buff.getAttribute("position").count).toBe(0);
+            expect(buff.boundingBox!.isEmpty()).toBe(true);
         });
     });
 

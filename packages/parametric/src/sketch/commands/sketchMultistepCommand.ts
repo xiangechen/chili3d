@@ -46,7 +46,7 @@ export abstract class SketchMultistepCommand extends MultistepCommand {
 
     protected override canExcute(): Promise<boolean> {
         if (SketchEditor.getActive() === undefined) {
-            PubSub.default.pub("displayError", "No active sketch editor");
+            PubSub.default.pub("displayValidation", "No active sketch editor");
             return Promise.resolve(false);
         }
         return Promise.resolve(true);

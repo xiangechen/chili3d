@@ -500,7 +500,7 @@ describe("ChamferCommand", () => {
             try {
                 (cmd as any).executeMainTask();
 
-                expect(pubsub.pubs.some((args) => args[0] === "displayError")).toBe(true);
+                expect(pubsub.pubs.some((args) => args[0] === "displayValidation")).toBe(true);
                 expect(parent.added).toHaveLength(0);
                 expect(parent.removed).toHaveLength(0);
             } finally {

@@ -39,6 +39,7 @@ import {
 import { snapPosition } from "../autoConstraints";
 import { SketchEditor } from "../editor/sketchEditor";
 import { additivePick, sketchEntityMesh } from "../editor/sketchEventHandler";
+import { displaySketchError } from "../sketchError";
 import {
     originRef,
     type SketchArrayAxis,
@@ -1229,7 +1230,7 @@ export class SketchArrayCommand extends SketchConstraintCommand {
                 ? editor.solver.addArray(pattern, sources)
                 : editor.solver.updateArray(this._arrayId, { pattern, sourceIds: sources });
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return;
         }
         editor.solve(true);

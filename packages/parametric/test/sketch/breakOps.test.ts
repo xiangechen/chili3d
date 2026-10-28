@@ -4,6 +4,7 @@
 import { Plane } from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { type BreakOutcome, breakEntity, breakPreview } from "../../src/sketch/breakOps";
+import { SketchSolveError } from "../../src/sketch/sketchError";
 import {
     arcAngles,
     ConstraintKind,
@@ -25,7 +26,7 @@ function breakAt(solver: SketchSolver, entityId: number, uvs: [number, number][]
     return result.value;
 }
 
-function refusal(solver: SketchSolver, entityId: number, uvs: [number, number][]): string {
+function refusal(solver: SketchSolver, entityId: number, uvs: [number, number][]): string | SketchSolveError {
     const result = breakEntity(solver, entityId, uvs, TOLERANCE);
     if (result.isOk) throw new Error("the break was expected to be refused");
     return result.error;
@@ -209,7 +210,9 @@ describe("breakEntity constraints", () => {
                 return ++calls === 1 ? outcome : { ...outcome, result: "Conflicting" };
             });
             try {
-                expect(refusal(solver, line, [[4, 0]])).toMatch(/could not solve after the break/);
+                const error = refusal(solver, line, [[4, 0]]);
+                expect(error).toBeInstanceOf(SketchSolveError);
+                expect(String(error)).toMatch(/could not solve after the break/);
             } finally {
                 spy.mockRestore();
             }

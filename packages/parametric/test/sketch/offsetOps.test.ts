@@ -725,7 +725,7 @@ describe("offsetEntities on the numeric curve families", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [source], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
 
             const copy = entity(solver, result.value.createdEntityIds[0]);
             expect(copy.type).toBe("offsetCurve");
@@ -759,7 +759,7 @@ describe("offsetEntities on the numeric curve families", () => {
             const result = offsetEntities(solver, [source], 1, TOLERANCE);
 
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = entity(solver, result.value.createdEntityIds[0]);
             // the copy really is crossed by the line — the two meet, they do not coincide
             expect(intersectCurves(copy, entity(solver, 2), false).length).toBe(2);
@@ -775,7 +775,7 @@ describe("offsetEntities on the numeric curve families", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [ellipse], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copyId = result.value.createdEntityIds[0];
 
             // nothing of it is a point, which is the whole of "no more handles than its source"
@@ -814,7 +814,7 @@ describe("offsetEntities on the numeric curve families", () => {
 
             const result = offsetEntities(solver, [line, bezier], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
 
             // the line copy is still tied and stitched as it always was; the curve copy is not
             // a party to any of it — the caller is told, not left to notice
@@ -837,7 +837,7 @@ describe("offsetEntities on the numeric curve families", () => {
             expect(preview).toHaveLength(1);
             const result = offsetEntities(solver, [bezier], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
 
             const built = entity(solver, result.value.createdEntityIds[0]);
             expect(preview[0].type).toBe("offsetCurve");
@@ -855,7 +855,7 @@ describe("offsetEntities on the numeric curve families", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [conic], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
 
             const data = solver.toData();
             const reloaded = new SketchSolver(Plane.XY, data);
@@ -902,7 +902,7 @@ describe("offsetEntities' copies and their source", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [bezier], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = result.value.createdEntityIds[0];
 
             solver.removeEntity(bezier);
@@ -923,7 +923,7 @@ describe("offsetEntities' copies and their source", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [ellipse], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = result.value.createdEntityIds[0];
 
             // the Y axis cuts the ellipse twice, so a click short of the seam trims it into an
@@ -948,7 +948,7 @@ describe("offsetEntities' copies and their source", () => {
             solver.solve(true);
             const result = offsetEntities(solver, [ellipse], 1, TOLERANCE);
             expect(result.isOk).toBe(true);
-            if (!result.isOk) throw new Error(result.error);
+            if (!result.isOk) throw new Error(String(result.error));
             const copy = result.value.createdEntityIds[0];
             // the copy's distance off the ellipse, read as the unit-ellipse radius of each sample:
             // a parallel curve outside it is above 1 everywhere, one inside it below

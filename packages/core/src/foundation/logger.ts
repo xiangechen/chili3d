@@ -1,6 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { PubSub } from "./pubsub";
+
 export type LoggerLevel = "debug" | "info" | "warn" | "error";
 
 const LEVEL_PRIORITY: Record<LoggerLevel, number> = {
@@ -37,6 +39,7 @@ export class Logger {
 
     static error(message?: any, ...optionalParams: any[]) {
         if (Logger.isEnabled("error")) {
+            PubSub.default.pub("loggerError", message, optionalParams);
             console.error(message, ...optionalParams);
         }
     }
@@ -47,5 +50,4 @@ if (!__IS_PRODUCTION__) {
     Logger.debug = console.debug;
     Logger.info = console.log;
     Logger.warn = console.warn;
-    Logger.error = console.error;
 }

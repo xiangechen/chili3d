@@ -236,7 +236,11 @@ describe("FilletCommand", () => {
                 Result.ok(
                     mockShape({
                         mesh: {
-                            faces: { index: new Uint32Array(), position: new Float32Array(), normal: new Float32Array() },
+                            faces: {
+                                index: new Uint32Array(),
+                                position: new Float32Array(),
+                                normal: new Float32Array(),
+                            },
                             edges: { lineType: "solid", position: new Float32Array() },
                         } as any,
                     }),
@@ -579,7 +583,7 @@ describe("FilletCommand", () => {
             try {
                 (cmd as any).executeMainTask();
 
-                expect(pubsub.pubs.some((args) => args[0] === "displayError")).toBe(true);
+                expect(pubsub.pubs.some((args) => args[0] === "displayValidation")).toBe(true);
                 expect(parent.added).toHaveLength(0);
                 expect(parent.removed).toHaveLength(0);
             } finally {

@@ -17,6 +17,7 @@ import {
 } from "./curveEval";
 import { entityEndIndices } from "./curveGeometry";
 import { pointLineReading } from "./editor/dimensionLayout";
+import { type SketchOperationResult, SketchSolveError } from "./sketchError";
 import {
     ConstraintKind,
     entityRadius,
@@ -1068,7 +1069,7 @@ export function offsetEntities(
     sourceIds: readonly number[],
     distance: number,
     tolerance: number,
-): Result<OffsetOutcome> {
+): SketchOperationResult<OffsetOutcome> {
     const tol = Math.max(tolerance, 1e-6);
     if (Math.abs(distance) <= Precision.Distance) {
         return Result.err("The offset distance is too small");
@@ -1096,7 +1097,9 @@ export function offsetEntities(
     const outcome = solver.solve(true);
     if (outcome.result === "Conflicting" || outcome.result === "Diverged" || outcome.result === "Stalled") {
         solver.reset(snapshot);
-        return Result.err(`The sketch could not solve after the offset (${outcome.result})`);
+        return Result.err(
+            new SketchSolveError(`The sketch could not solve after the offset (${outcome.result})`),
+        );
     }
     return Result.ok({
         createdEntityIds: copyIds,

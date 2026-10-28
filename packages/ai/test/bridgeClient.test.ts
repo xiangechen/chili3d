@@ -1,6 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { type BridgeStatus, PubSub } from "@chili3d/core";
 import { rs } from "@rstest/core";
 import { connectBridge } from "../src/bridge";
 
@@ -31,7 +32,6 @@ class FakeSocket {
         this.serverClose(code);
     }
 
-    // --- what the browser would do -------------------------------------------------------------
     open(): void {
         this.readyState = FakeSocket.OPEN;
         this.emit("open", {});
@@ -62,10 +62,11 @@ class BlockedSocket {
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function badgeText(): string | undefined {
-    return document.querySelector(".chili3d-bridge-badge")?.textContent ?? undefined;
-}
+const statusEvents: [BridgeStatus | undefined, string?][] = [];
+const recordStatus = (status: BridgeStatus | undefined, title?: string) => {
+    statusEvents.push([status, title]);
+};
+const lastStatus = () => statusEvents.at(-1)?.[0];
 
 async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
@@ -79,19 +80,26 @@ async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
 describe("bridge client", () => {
     beforeEach(() => {
         FakeSocket.instances = [];
+        statusEvents.length = 0;
+        PubSub.default.sub("bridgeStatusChanged", recordStatus);
         rs.stubGlobal("WebSocket", FakeSocket);
     });
 
     afterEach(() => {
+        PubSub.default.remove("bridgeStatusChanged", recordStatus);
         rs.unstubAllGlobals();
-        document.body.replaceChildren();
     });
 
-    test("sends hello with the page's tool list on open", () => {
+    test("publishes connecting and connected states, then sends the tool list", () => {
         const stop = connectBridge(17999);
         try {
+            expect(lastStatus()).toBe("retrying");
             const socket = FakeSocket.instances[0];
             socket.open();
+            expect(statusEvents.at(-1)).toEqual([
+                "connected",
+                "Connected to the local bridge on 127.0.0.1:17999",
+            ]);
             const hello = JSON.parse(socket.sent[0]);
             expect(hello.type).toBe("hello");
             expect(hello.protocol).toBe(1);
@@ -124,7 +132,10 @@ describe("bridge client", () => {
         try {
             FakeSocket.instances[0].open();
             FakeSocket.instances[0].serverClose(4002);
-            expect(badgeText()).toBe("○ AI bridge (taken over)");
+            expect(statusEvents.at(-1)).toEqual([
+                "replaced",
+                "Another tab took over the bridge. Reload this page to take it back.",
+            ]);
             await delay(700);
             expect(FakeSocket.instances.length).toBe(1);
         } finally {
@@ -137,7 +148,8 @@ describe("bridge client", () => {
         try {
             FakeSocket.instances[0].open();
             FakeSocket.instances[0].serverClose(4003);
-            expect(badgeText()).toBe("○ AI bridge (closed)");
+            expect(lastStatus()).toBe("closed");
+            expect(statusEvents.at(-1)?.[1]).toContain("The bridge closed this session");
             await delay(700);
             expect(FakeSocket.instances.length).toBe(1);
         } finally {
@@ -149,7 +161,10 @@ describe("bridge client", () => {
         rs.stubGlobal("WebSocket", BlockedSocket);
         const stop = connectBridge(17999);
         try {
-            expect(badgeText()).toBe("○ AI bridge (blocked)");
+            expect(statusEvents.at(-1)).toEqual([
+                "blocked",
+                "The browser blocked the local WebSocket (mixed content or a security policy).",
+            ]);
         } finally {
             stop();
         }
@@ -160,23 +175,26 @@ describe("bridge client", () => {
         try {
             FakeSocket.instances[0].open();
             FakeSocket.instances[0].serverClose(1006);
+            expect(lastStatus()).toBe("retrying");
             await waitFor(() => FakeSocket.instances.length === 2);
         } finally {
             stop();
         }
     });
 
-    test("stop removes the badge and a late close does not bring it back", async () => {
+    test("stop clears the status and a late close does not restore it", async () => {
         const stop = connectBridge(17999);
         const socket = FakeSocket.instances[0];
         socket.open();
-        expect(document.querySelectorAll(".chili3d-bridge-badge").length).toBe(1);
+        expect(lastStatus()).toBe("connected");
 
         stop();
-        expect(document.querySelectorAll(".chili3d-bridge-badge").length).toBe(0);
+        expect(lastStatus()).toBeUndefined();
+        const eventCount = statusEvents.length;
 
         socket.serverClose(1006);
         await delay(20);
-        expect(document.querySelectorAll(".chili3d-bridge-badge").length).toBe(0);
+        expect(statusEvents.length).toBe(eventCount);
+        expect(lastStatus()).toBeUndefined();
     });
 });

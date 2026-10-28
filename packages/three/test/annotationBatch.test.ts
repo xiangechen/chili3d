@@ -131,6 +131,22 @@ describe("AnnotationBatch", () => {
         expect(Array.from(linePositions(batch))).not.toEqual(before);
     });
 
+    test("hides lines when sanitation removes every segment", async () => {
+        const { context } = createContext();
+        const batch = new AnnotationBatch(context, () => {});
+        batch.register(
+            writerOf({
+                buildLineSegments: (target) => target.push(NaN, 0, 0, Infinity, 1, 1),
+            }),
+        );
+        await flush();
+
+        expect(linePositions(batch).length).toBe(0);
+        expect(linesOf(batch).geometry.instanceCount).toBe(0);
+        expect(linesOf(batch).visible).toBe(false);
+        expect(textsOf(batch).visible).toBe(true);
+    });
+
     test("prunes itself once the last writer unregisters", async () => {
         const { context } = createContext();
         const onEmpty = rs.fn();

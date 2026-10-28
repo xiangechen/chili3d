@@ -33,6 +33,7 @@ import {
     splitCurveEntity,
 } from "./entityEditOps";
 import { windowParameterAt } from "./offsetOps";
+import type { SketchOperationResult } from "./sketchError";
 import type { SketchEntityData, SketchPointRef } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
@@ -87,7 +88,7 @@ export function trimEntity(
     entityId: number,
     uv: [number, number],
     tolerance: number,
-): Result<TrimOutcome> {
+): SketchOperationResult<TrimOutcome> {
     const tol = Math.max(tolerance, 1e-6);
     // the plan only reads the sketch, so a refusal needs no rollback — the guard is
     // opened around the mutation alone

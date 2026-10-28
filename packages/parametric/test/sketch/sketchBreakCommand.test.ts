@@ -138,7 +138,7 @@ describe("SketchBreakCommand", () => {
                 await runCommand(new SketchBreakCommand(), editor);
 
                 expect(pub).toHaveBeenCalledWith(
-                    "displayError",
+                    "displayValidation",
                     "Pick a point along the entity, not one of its ends",
                 );
                 expect(editor.solver.entities()).toHaveLength(3);

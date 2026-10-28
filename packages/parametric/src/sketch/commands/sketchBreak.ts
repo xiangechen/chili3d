@@ -6,6 +6,7 @@ import { breakEntity, breakPreview } from "../breakOps";
 import { isClosedCurveType } from "../curveEval";
 import type { SketchEditor, SketchEntityPick } from "../editor/sketchEditor";
 import type { SketchPreviewAt } from "../previewTypes";
+import { displaySketchError } from "../sketchError";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /**
@@ -81,7 +82,7 @@ export class SketchBreakCommand extends SketchConstraintCommand {
     private applyBreak(editor: SketchEditor, entityId: number, uvs: readonly [number, number][]): void {
         const result = breakEntity(editor.solver, entityId, uvs, editor.screenTolerance());
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return;
         }
         // a circle retyped into an arc drops the constraints an arc cannot carry; a stale

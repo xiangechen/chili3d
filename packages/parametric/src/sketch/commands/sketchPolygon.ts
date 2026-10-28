@@ -202,7 +202,7 @@ export class SketchPolygonCommand extends SketchMultistepCommand {
     protected executeMainTask(): void {
         const layout = regularPolygonLayout(this.uvOf(0), this.uvOf(1), this.sides, this.circumscribed);
         if (layout.circumradius < Precision.Distance) {
-            PubSub.default.pub("displayError", "Polygon is too small to place");
+            PubSub.default.pub("displayValidation", "Polygon is too small to place");
             return;
         }
 

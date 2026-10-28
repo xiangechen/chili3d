@@ -9,6 +9,7 @@ import {
     extendEntity,
     extendPreview,
 } from "../../src/sketch/extendOps";
+import { SketchSolveError } from "../../src/sketch/sketchError";
 import {
     ConstraintKind,
     type ExternalRefData,
@@ -40,7 +41,7 @@ function extend(solver: SketchSolver, overrides: Partial<ExtendOptions> = {}): E
     return result.value;
 }
 
-function refusal(solver: SketchSolver, overrides: Partial<ExtendOptions> = {}): string {
+function refusal(solver: SketchSolver, overrides: Partial<ExtendOptions> = {}): string | SketchSolveError {
     const result = extendEntity(solver, options(overrides));
     if (result.isOk) throw new Error("the extend was expected to be refused");
     return result.error;
@@ -368,9 +369,9 @@ describe("extendEntity refusals", () => {
                 return ++calls === 1 ? outcome : { ...outcome, result: "Conflicting" };
             });
             try {
-                expect(refusal(solver, { targetId: target, boundaryId: boundary })).toMatch(
-                    /could not solve after the extend/,
-                );
+                const error = refusal(solver, { targetId: target, boundaryId: boundary });
+                expect(error).toBeInstanceOf(SketchSolveError);
+                expect(String(error)).toMatch(/could not solve after the extend/);
             } finally {
                 spy.mockRestore();
             }

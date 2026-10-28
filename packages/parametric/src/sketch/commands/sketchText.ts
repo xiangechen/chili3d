@@ -185,11 +185,11 @@ export class SketchTextCommand extends SketchMultistepCommand {
         }
         const size = this.resolveParameter(this.size, LENGTH_UNITS);
         if (!size.isOk) {
-            PubSub.default.pub("displayError", size.error);
+            PubSub.default.pub("displayValidation", size.error);
             return undefined;
         }
         if (size.value <= 0) {
-            PubSub.default.pub("displayError", "The text height must be positive");
+            PubSub.default.pub("displayValidation", "The text height must be positive");
             return undefined;
         }
         return { sizeMm: size.value, angle: 0 };

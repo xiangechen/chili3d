@@ -3,8 +3,11 @@
 
 import { AppBuilder } from "@chili3d/builder";
 import { type IApplication, Logger, PubSub, pendingWork, quietFrames } from "@chili3d/core";
+import { installApplicationErrorCapture } from "./errorCapture";
 import { Loading } from "./loading";
 import { parseStartupParams } from "./startupParams";
+
+installApplicationErrorCapture();
 
 const loading = new Loading();
 document.body.appendChild(loading);

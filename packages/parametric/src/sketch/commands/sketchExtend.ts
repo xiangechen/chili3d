@@ -5,6 +5,7 @@ import { command, PubSub, property } from "@chili3d/core";
 import type { SketchEditor, SketchEntityPick } from "../editor/sketchEditor";
 import { type ExtendOptions, extendEntity, extendPreview } from "../extendOps";
 import type { SketchPreviewAt } from "../previewTypes";
+import { displaySketchError } from "../sketchError";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /**
@@ -85,7 +86,7 @@ export class SketchExtendCommand extends SketchConstraintCommand {
     private applyExtend(editor: SketchEditor, target: SketchEntityPick, boundary: SketchEntityPick): void {
         const result = extendEntity(editor.solver, this.optionsOf(editor, target, boundary));
         if (!result.isOk) {
-            PubSub.default.pub("displayError", result.error);
+            displaySketchError(result.error);
             return;
         }
         // the extend removed these behind the editor's back; a stale anchor would be

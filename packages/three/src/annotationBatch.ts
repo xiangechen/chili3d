@@ -16,6 +16,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { Constants } from "./constants";
+import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import type { ThreeVisualContext } from "./threeVisualContext";
 
 /** One annotation's contribution to the batch of its parent. */
@@ -153,9 +154,9 @@ export class AnnotationBatch extends Object3D {
     private setLineGeometry(positions: number[], colors: number[]): void {
         const geometry = this._lines.geometry;
         geometry.dispose();
-        geometry.setPositions(positions);
+        ThreeGeometryFactory.setLineSegmentsPositions(geometry, positions);
         geometry.setColors(colors);
-        this._lines.visible = positions.length > 0;
+        this._lines.visible = geometry.instanceCount > 0;
         if (this._lines.visible) geometry.computeBoundingSphere();
     }
 

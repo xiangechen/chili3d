@@ -100,7 +100,10 @@ describe("SketchTrimCommand", () => {
             try {
                 await runCommand(new SketchTrimCommand(), editor);
 
-                expect(pub).toHaveBeenCalledWith("displayError", "Pick the piece to remove, not a crossing");
+                expect(pub).toHaveBeenCalledWith(
+                    "displayValidation",
+                    "Pick the piece to remove, not a crossing",
+                );
                 expect(editor.commit).not.toHaveBeenCalled();
             } finally {
                 pub.mockRestore();

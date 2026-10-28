@@ -1,0 +1,53 @@
+.button {
+    padding: 2px 4px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: var(--statusbar-foreground-color);
+    font-size: 12px;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--hover-background-color);
+    }
+}
+
+:global(chili3d-main-window:has(> chili-home)) .button:not([data-count="0"]) {
+    position: fixed;
+    left: 8px;
+    bottom: 6px;
+    z-index: 10000;
+}
+
+.log {
+    width: min(720px, 75vw);
+    min-height: min(300px, 40vh);
+    max-height: min(480px, 60vh);
+    overflow-y: auto;
+}
+
+.entry {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
+}
+
+.entry + .entry {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.time {
+    color: var(--foreground-secondary-color);
+    font-size: 11px;
+}
+
+.message {
+    margin: 4px 0 0;
+    color: var(--foreground-color);
+    font: 12px / 1.5 monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+}

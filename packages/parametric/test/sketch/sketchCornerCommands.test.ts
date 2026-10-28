@@ -278,7 +278,7 @@ describe("SketchFilletCommand", () => {
 
             await runCommand(fillet(20), editor);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(JSON.stringify(editor.solver.toData())).toBe(before);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {
@@ -297,7 +297,7 @@ describe("SketchFilletCommand", () => {
 
             await runCommand(fillet(1), editor);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(arcsOf(editor).length).toBe(0);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {

@@ -567,7 +567,7 @@ describe("trimEntity on an offset copy", () => {
         const source = solver.addBezier([0, 0, 4, 0, 8, 0, 12, 0]);
         solver.solve(true);
         const offset = offsetEntities(solver, [source], 1, TOLERANCE);
-        if (!offset.isOk) throw new Error(offset.error);
+        if (!offset.isOk) throw new Error(String(offset.error));
         const copy = offset.value.createdEntityIds[0];
         return { solver, source, copy };
     }
@@ -583,7 +583,7 @@ describe("trimEntity on an offset copy", () => {
             const source = solver.addEllipse(0, 0, 10, 0, 0, 5);
             solver.solve(true);
             const offset = offsetEntities(solver, [source], 1, TOLERANCE);
-            if (!offset.isOk) throw new Error(offset.error);
+            if (!offset.isOk) throw new Error(String(offset.error));
             const copy = offset.value.createdEntityIds[0];
             // a window straddling the source's seam: the copy is drawn from 5.5 to 7.5
             solver.setOffsetWindow(copy, [5.5, 7.5]);
@@ -706,7 +706,7 @@ describe("trimEntity on an offset copy", () => {
         const ellipse = solver.addEllipse(0, 0, 10, 0, 0, 5);
         solver.solve(true);
         const offset = offsetEntities(solver, [ellipse], 1, TOLERANCE);
-        if (!offset.isOk) throw new Error(offset.error);
+        if (!offset.isOk) throw new Error(String(offset.error));
         return { solver, ellipse, copy: offset.value.createdEntityIds[0] };
     }
 

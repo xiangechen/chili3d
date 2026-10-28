@@ -135,13 +135,44 @@ export class ThreeGeometryFactory {
     }
 
     static createFaceBufferGeometry(data: MeshLike) {
+        const { position, index } = ThreeGeometryFactory.validFaceGeometry(data);
         const buff = new BufferGeometry();
-        buff.setAttribute("position", new BufferAttribute(data.position, 3));
+        buff.setAttribute("position", new BufferAttribute(position, 3));
         buff.setAttribute("normal", new BufferAttribute(data.normal, 3));
         buff.setAttribute("uv", new BufferAttribute(data.uv, 2));
-        if (data.index && data.index.length > 0) buff.setIndex(new BufferAttribute(data.index, 1));
+        if (index.length > 0) buff.setIndex(new BufferAttribute(index, 1));
         buff.computeBoundingBox();
         return buff;
+    }
+
+    private static validFaceGeometry(data: MeshLike) {
+        const indexed = data.index.length > 0;
+        const position = ThreeGeometryFactory.validPrimitivePositions(
+            data.position,
+            indexed ? 1 : 3,
+        ) as Float32Array;
+        if (!indexed || position === data.position || position.length === 0) {
+            return { position, index: position.length === 0 ? new Uint32Array() : data.index };
+        }
+
+        let fallback = 0;
+        while (!ThreeGeometryFactory.isFinitePoint(data.position, fallback)) fallback += 3;
+        let index: Uint32Array | undefined;
+        for (let i = 0; i < data.index.length; i += 3) {
+            const a = data.index[i] * 3;
+            const b = data.index[i + 1] * 3;
+            const c = data.index[i + 2] * 3;
+            if (
+                ThreeGeometryFactory.isFinitePoint(data.position, a) &&
+                ThreeGeometryFactory.isFinitePoint(data.position, b) &&
+                ThreeGeometryFactory.isFinitePoint(data.position, c)
+            ) {
+                continue;
+            }
+            index ??= new Uint32Array(data.index);
+            index[i] = index[i + 1] = index[i + 2] = fallback / 3;
+        }
+        return { position, index: index ?? data.index };
     }
 
     static createEdgeGeometry(data: EdgeMeshData, meshOption?: MeshOption) {
@@ -179,14 +210,59 @@ export class ThreeGeometryFactory {
 
     static createEdgeBufferGeometry(data: EdgeMeshData) {
         const buff = new LineSegmentsGeometry();
-        buff.setPositions(data.position);
+        ThreeGeometryFactory.setLineSegmentsPositions(buff, data.position);
         buff.computeBoundingBox();
         return buff;
     }
 
+    static setLineSegmentsPositions(geometry: LineSegmentsGeometry, positions: number[] | Float32Array) {
+        geometry.setPositions(ThreeGeometryFactory.validPrimitivePositions(positions, 2));
+    }
+
+    /** Degenerate replacements keep primitive indices aligned with the source mesh for picking. */
+    private static validPrimitivePositions(positions: number[] | Float32Array, pointsPerPrimitive: number) {
+        let fallback = -1;
+        let hasInvalidPoint = false;
+        for (let i = 0; i < positions.length; i += 3) {
+            if (ThreeGeometryFactory.isFinitePoint(positions, i)) {
+                if (fallback < 0) fallback = i;
+            } else {
+                hasInvalidPoint = true;
+            }
+        }
+        if (!hasInvalidPoint) return positions;
+        if (fallback < 0) return new Float32Array();
+
+        const result = new Float32Array(positions);
+        const stride = pointsPerPrimitive * 3;
+        for (let i = 0; i < result.length; i += stride) {
+            let valid = true;
+            for (let j = 0; j < stride; j += 3) {
+                if (!ThreeGeometryFactory.isFinitePoint(positions, i + j)) {
+                    valid = false;
+                    break;
+                }
+            }
+            if (valid) continue;
+            for (let j = 0; j < stride && i + j < result.length; j++) {
+                result[i + j] = positions[fallback + (j % 3)];
+            }
+        }
+        return result;
+    }
+
+    private static isFinitePoint(positions: number[] | Float32Array, offset: number) {
+        return (
+            Number.isFinite(positions[offset]) &&
+            Number.isFinite(positions[offset + 1]) &&
+            Number.isFinite(positions[offset + 2])
+        );
+    }
+
     static createVertexBufferGeometry(data: VertexMeshData) {
         const buff = new BufferGeometry();
-        buff.setAttribute("position", new BufferAttribute(data.position, 3));
+        const position = ThreeGeometryFactory.validPrimitivePositions(data.position, 1) as Float32Array;
+        buff.setAttribute("position", new BufferAttribute(position, 3));
         buff.computeBoundingBox();
         return buff;
     }

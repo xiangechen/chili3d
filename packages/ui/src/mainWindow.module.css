@@ -88,6 +88,9 @@ chili3d-main-window {
     --title-checked: #ffffff;
     --statusbar-foreground-color: #333;
     --statusbar-background-color: #eeeeee;
+    --bridge-connected-color: #187a2e;
+    --bridge-retrying-color: #8a5700;
+    --bridge-muted-color: #59636e;
     --viewport-background-color: #888;
     --input-background-color: #ffffff;
     --input-border-color: #dddddd;
@@ -126,6 +129,9 @@ chili3d-main-window {
     --title-checked: rgba(255, 255, 255, 0.3);
     --statusbar-foreground-color: #ffffff;
     --statusbar-background-color: #1a1a1a;
+    --bridge-connected-color: #3fb950;
+    --bridge-retrying-color: #d29922;
+    --bridge-muted-color: #8b949e;
     --viewport-background-color: #242424;
     --input-background-color: #1e1e1e;
     --input-border-color: #404040;

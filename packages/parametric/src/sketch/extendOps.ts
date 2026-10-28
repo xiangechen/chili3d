@@ -35,6 +35,7 @@ import { dropBrokenConstraints, type EditOutcome, guardedEdit, pinCut, reshapeCu
 // the window reading the extend and the handles both take: where a point sits on the copy
 import { windowParameterAt } from "./offsetOps";
 import type { PreviewPiece } from "./previewTypes";
+import type { SketchOperationResult } from "./sketchError";
 import type { NurbsSpec, SketchEntityData, SketchPointRef } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
@@ -120,7 +121,10 @@ export type ExtendOutcome = EditOutcome;
  * `targetUv` is the one that moves; the boundary is picked separately and, with
  * `modifyBoundary`, moved to the corner too.
  */
-export function extendEntity(solver: SketchSolver, options: ExtendOptions): Result<ExtendOutcome> {
+export function extendEntity(
+    solver: SketchSolver,
+    options: ExtendOptions,
+): SketchOperationResult<ExtendOutcome> {
     // floored once and handed to both halves: the plan and its application have to read
     // the same tolerance, or the pin can disagree with the move that earned it
     const tolerance = sketchTolerance(options.tolerance);

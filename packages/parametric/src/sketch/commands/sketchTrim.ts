@@ -4,6 +4,7 @@
 import { AsyncController, command, PubSub } from "@chili3d/core";
 import type { SketchEditor } from "../editor/sketchEditor";
 import type { SketchPreviewAt } from "../previewTypes";
+import { displaySketchError } from "../sketchError";
 import { trimEntity, trimPreview } from "../trimOps";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
@@ -46,7 +47,7 @@ export class SketchTrimCommand extends SketchConstraintCommand {
 
             const result = trimEntity(editor.solver, pick.entityId, pick.uv, editor.screenTolerance());
             if (!result.isOk) {
-                PubSub.default.pub("displayError", result.error);
+                displaySketchError(result.error);
                 continue;
             }
             // the trim removed these behind the editor's back; a stale anchor would be

@@ -183,7 +183,7 @@ describe("SketchExtendCommand", () => {
                 await runCommand(new SketchExtendCommand(), editor);
 
                 expect(pub).toHaveBeenCalledWith(
-                    "displayError",
+                    "displayValidation",
                     "The two entities do not meet when extended",
                 );
                 expect(editor.commit).not.toHaveBeenCalled();

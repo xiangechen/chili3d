@@ -19,6 +19,8 @@ import { Constants } from "../src/constants";
 import type { ThreeHighlighter } from "../src/threeHighlighter";
 import type { ThreeView } from "../src/threeView";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
+import { ThreeMeshObject } from "../src/threeVisualObject";
+import { createTestMeshNode, createThreeMockVisualContext } from "./mocks";
 
 /**
  * Create a minimal fake ThreeView that CameraController needs for its operations.
@@ -282,6 +284,49 @@ describe("CameraController — startRotate", () => {
         expect(cc.target.y).toBeCloseTo(0);
         expect(cc.target.z).toBeCloseTo(0);
     });
+
+    test("selected geometry ignores invalid children when choosing the rotate center", () => {
+        const shape = new Object3D();
+        const validGeometry = new BufferGeometry();
+        validGeometry.setAttribute(
+            "position",
+            new BufferAttribute(new Float32Array([10, 10, 10, 20, 20, 20]), 3),
+        );
+        const invalidGeometry = new BufferGeometry();
+        invalidGeometry.setAttribute("position", new BufferAttribute(new Float32Array([0, 0, 0]), 3));
+        invalidGeometry.computeBoundingBox();
+        invalidGeometry.boundingBox!.min.set(Number.NaN, Number.NaN, Number.NaN);
+        invalidGeometry.boundingBox!.max.set(Number.NaN, Number.NaN, Number.NaN);
+        shape.add(new Mesh(validGeometry, new MeshBasicMaterial()));
+        shape.add(new Mesh(invalidGeometry, new MeshBasicMaterial()));
+
+        const node = {};
+        const selection = { ...createMockSelection(), getSelectedNodes: () => [node] };
+        const document = {
+            selection,
+            visual: { context: { getVisual: () => shape } },
+        } as unknown as IDocument;
+        const cc = new CameraController(createFakeView({ document }));
+
+        cc.startRotate(0, 0);
+        expect((cc as any)._rotateCenter.toArray()).toEqual([15, 15, 15]);
+        cc.rotate(20, 10);
+        expect([...cc.cameraPosition.toArray(), ...cc.target.toArray()].every(Number.isFinite)).toBe(true);
+    });
+
+    test("detected geometry without a valid box leaves the camera finite", () => {
+        const visual = new ThreeMeshObject(createThreeMockVisualContext(), createTestMeshNode());
+        const geometry = (visual.mesh as Mesh).geometry;
+        geometry.boundingBox!.min.set(Number.NaN, Number.NaN, Number.NaN);
+        geometry.boundingBox!.max.set(Number.NaN, Number.NaN, Number.NaN);
+        const view = createFakeView({ detectVisual: () => [visual] });
+        const cc = new CameraController(view);
+
+        cc.startRotate(0, 0);
+        expect((cc as any)._rotateCenter).toBeUndefined();
+        cc.rotate(20, 10);
+        expect([...cc.cameraPosition.toArray(), ...cc.target.toArray()].every(Number.isFinite)).toBe(true);
+    });
 });
 
 // ============================================================================
@@ -384,6 +429,29 @@ describe("CameraController — fitContent", () => {
         expect(cc.target.y).toBeCloseTo(0);
         expect(cc.target.z).toBeCloseTo(0);
         expect(cc.cameraPosition.distanceTo(cc.cameraTarget)).toBeCloseTo(expectedDistance);
+    });
+
+    test("fitContent ignores invalid geometry and completes the camera transition", () => {
+        const view = createFakeView();
+        addBoxMesh(view, 10);
+        const invalidGeometry = new BufferGeometry();
+        invalidGeometry.setAttribute("position", new BufferAttribute(new Float32Array([0, 0, 0]), 3));
+        invalidGeometry.computeBoundingBox();
+        invalidGeometry.boundingBox?.min.set(Number.NaN, Number.NaN, Number.NaN);
+        invalidGeometry.boundingBox?.max.set(Number.NaN, Number.NaN, Number.NaN);
+        (view.content.visualShapes as Object3D).add(new Mesh(invalidGeometry, new MeshBasicMaterial()));
+        const cc = new CameraController(view);
+
+        cc.fitContent({ duration: 300 });
+        cc.tick(100);
+        cc.tick(100);
+        cc.tick(100);
+
+        const position = cc.cameraPosition;
+        expect([position.x, position.y, position.z].every(Number.isFinite)).toBe(true);
+        expect(position.distanceTo(cc.cameraTarget)).toBeCloseTo(
+            Math.sqrt(3 * 10 * 10) / Math.sin((25 * Math.PI) / 180),
+        );
     });
 
     test("fitContent ignores reference geometry (datum plane display squares)", () => {

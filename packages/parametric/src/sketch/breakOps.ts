@@ -21,6 +21,7 @@ import {
     migrateConstraints,
     splitCurveEntity,
 } from "./entityEditOps";
+import type { SketchOperationResult } from "./sketchError";
 import { ConstraintKind, type SketchEntityData } from "./sketchModel";
 import type { SketchSolver } from "./solver";
 
@@ -38,7 +39,7 @@ export function breakEntity(
     entityId: number,
     uvs: readonly [number, number][],
     tolerance: number,
-): Result<BreakOutcome> {
+): SketchOperationResult<BreakOutcome> {
     const tol = Math.max(tolerance, 1e-6);
     const entity = solver.entity(entityId);
     if (entity === undefined) return Result.err("Unknown sketch entity");

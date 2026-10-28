@@ -35,7 +35,7 @@ function sessionWithCopy() {
     const editor = SketchEditor.enter(node);
     const source = editor.solver.addBezier([0, 0, 4, 0, 8, 0, 12, 0]);
     const offset = offsetEntities(editor.solver, [source], 20, TOLERANCE);
-    if (!offset.isOk) throw new Error(offset.error);
+    if (!offset.isOk) throw new Error(String(offset.error));
     const copy = offset.value.createdEntityIds[0];
     (ctx.doc.visual.eventHandler as SketchEventHandler).refreshEntityPoints();
     return { ...ctx, editor, source, copy };
@@ -185,7 +185,7 @@ describe("an offset copy's end handles", () => {
         try {
             const ellipse = editor.solver.addEllipse(0, 40, 10, 40, 0, 45);
             const offset = offsetEntities(editor.solver, [ellipse], 5, TOLERANCE);
-            if (!offset.isOk) throw new Error(offset.error);
+            if (!offset.isOk) throw new Error(String(offset.error));
             const copy = offset.value.createdEntityIds[0];
             (ctx.doc.visual.eventHandler as SketchEventHandler).refreshEntityPoints();
 

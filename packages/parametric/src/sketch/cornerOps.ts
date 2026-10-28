@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision, Result, XY } from "@chili3d/core";
+import { type SketchOperationResult, SketchSolveError } from "./sketchError";
 import {
     arcAngles,
     ConstraintKind,
@@ -279,7 +280,7 @@ export function applyCornerOps(
     solver: SketchSolver,
     corners: readonly SketchCorner[],
     options: CornerOptions,
-): Result<CornerLabel[]> {
+): SketchOperationResult<CornerLabel[]> {
     const snapshot = solver.toData();
     const labels: CornerLabel[] = [];
     for (const corner of corners) {
@@ -296,7 +297,9 @@ export function applyCornerOps(
     const outcome = solver.solve(true);
     if (outcome.result === "Conflicting" || outcome.result === "Diverged" || outcome.result === "Stalled") {
         solver.reset(snapshot);
-        return Result.err(`The sketch could not solve after the change (${outcome.result})`);
+        return Result.err(
+            new SketchSolveError(`The sketch could not solve after the change (${outcome.result})`),
+        );
     }
     return Result.ok(labels);
 }

@@ -326,7 +326,7 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         if (!positions) return undefined;
 
         const buff = new LineSegmentsGeometry();
-        buff.setPositions(positions);
+        ThreeGeometryFactory.setLineSegmentsPositions(buff, positions);
         buff.applyMatrix4(this.matrixWorld);
 
         return new LineSegments2(buff, defaultEdgeMaterial);

@@ -46,14 +46,14 @@ export class SketchArcCommand extends SketchMultistepCommand {
     protected executeMainTask(): void {
         const params = arcParams(this.uvOf(0), this.uvOf(1), this.uvOf(2));
         if (params === undefined) {
-            PubSub.default.pub("displayError", "Arc end point is too close to the center");
+            PubSub.default.pub("displayValidation", "Arc end point is too close to the center");
             return;
         }
         // an end on the start ray (within angular tolerance, end = start included)
         // fixes no sweep direction — the preview shows "no arc" there, so reject
         // with feedback instead of committing an arc generateShape would refuse
         if (Math.abs(rawArcSweep(params)) <= Precision.Angle) {
-            PubSub.default.pub("displayError", "Arc end point is on the start ray (zero sweep)");
+            PubSub.default.pub("displayValidation", "Arc end point is on the start ray (zero sweep)");
             return;
         }
         this.commitNewEntity(this.editor.solver.addArc(...params));

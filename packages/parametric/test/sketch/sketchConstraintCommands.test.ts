@@ -229,7 +229,7 @@ describe("EqualConstraintCommand", () => {
 
             await runCommand(new EqualConstraintCommand(), editor);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.solver.toData().constraints).toEqual([]);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {
@@ -266,7 +266,7 @@ describe("EqualConstraintCommand", () => {
 
             await runCommand(new EqualConstraintCommand(), editor);
 
-            expect(pub).toHaveBeenCalledWith("displayError", "Equal applies to lines, circles and arcs");
+            expect(pub).toHaveBeenCalledWith("displayValidation", "Equal applies to lines, circles and arcs");
             expect(editor.solver.toData().constraints.filter((c) => EQUAL_KINDS.includes(c.kind))).toEqual(
                 [],
             );
@@ -286,7 +286,7 @@ describe("EqualConstraintCommand", () => {
 
             await runCommand(new EqualConstraintCommand(), editor);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.solver.toData().constraints).toEqual([]);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {
@@ -386,7 +386,7 @@ describe("TangentConstraintCommand", () => {
 
             await runCommand(new TangentConstraintCommand(), editor);
 
-            expect(pub).toHaveBeenCalledWith("displayError", expect.any(String));
+            expect(pub).toHaveBeenCalledWith("displayValidation", expect.any(String));
             expect(editor.solver.toData().constraints).toEqual([]);
             expect(editor.commit).not.toHaveBeenCalled();
         } finally {

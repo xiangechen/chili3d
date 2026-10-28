@@ -2598,7 +2598,7 @@ describe("ProjectSketchEdges command", () => {
         try {
             await runProject(editor);
             // mockRestore clears the recorded calls — assert before restoring
-            expect(pub).toHaveBeenCalledWith("displayError", "sketch.noProjectableEdges");
+            expect(pub).toHaveBeenCalledWith("displayValidation", "sketch.noProjectableEdges");
         } finally {
             pub.mockRestore();
             editor.solver.dispose();

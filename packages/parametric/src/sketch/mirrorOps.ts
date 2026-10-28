@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Precision, Result } from "@chili3d/core";
+import { type SketchOperationResult, SketchSolveError } from "./sketchError";
 import {
     ConstraintKind,
     defaultNurbsSpec,
@@ -298,7 +299,7 @@ export function mirrorEntities(
     sourceIds: readonly number[],
     axisId: number,
     tolerance: number,
-): Result<MirrorOutcome> {
+): SketchOperationResult<MirrorOutcome> {
     const axis = axisOf(solver, axisId);
     if (!axis.isOk) return Result.err(axis.error);
 
@@ -324,7 +325,9 @@ export function mirrorEntities(
     const outcome = solver.solve(true);
     if (outcome.result === "Conflicting" || outcome.result === "Diverged" || outcome.result === "Stalled") {
         solver.reset(snapshot);
-        return Result.err(`The sketch could not solve after the mirror (${outcome.result})`);
+        return Result.err(
+            new SketchSolveError(`The sketch could not solve after the mirror (${outcome.result})`),
+        );
     }
     return Result.ok({ createdEntityIds: copies.map((copy) => copy.copyId), skippedSelfMirror });
 }

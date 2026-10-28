@@ -12,6 +12,7 @@ import {
 } from "@chili3d/core";
 import { applyCornerOps, type CornerOptions, findCorners, type SketchCorner } from "../cornerOps";
 import type { SketchEditor } from "../editor/sketchEditor";
+import { displaySketchError } from "../sketchError";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /**
@@ -45,11 +46,11 @@ abstract class SketchCornerCommand extends SketchConstraintCommand {
     private cornersOf(editor: SketchEditor, lineIds: readonly number[]): SketchCorner[] | undefined {
         const found = findCorners(editor.solver, lineIds, cornerTolerance(editor), this.method);
         if (!found.isOk) {
-            PubSub.default.pub("displayError", found.error);
+            PubSub.default.pub("displayValidation", found.error);
             return undefined;
         }
         if (found.value.length === 0) {
-            PubSub.default.pub("displayError", "The picked lines do not share an endpoint");
+            PubSub.default.pub("displayValidation", "The picked lines do not share an endpoint");
             return undefined;
         }
         return found.value;
@@ -69,7 +70,7 @@ abstract class SketchCornerCommand extends SketchConstraintCommand {
         }
         const applied = applyCornerOps(editor.solver, corners, this.optionsFor(value.value));
         if (!applied.isOk) {
-            PubSub.default.pub("displayError", applied.error);
+            displaySketchError(applied.error);
             return;
         }
         // a radius label goes on its own corner's outside; without an anchor every one

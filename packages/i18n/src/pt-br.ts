@@ -443,5 +443,9 @@ export default {
         "home.recent.empty": "Nenhum documento recente. Crie ou abra um documento para começar.",
         "home.videos": "Vídeos da comunidade",
         "home.welcome.subtitle": "Projete e modele em 3D diretamente no navegador.",
+        "statusBar.clearErrors": "Limpar erros",
+        "statusBar.errorLog": "Registro de erros",
+        "statusBar.errors{0}": "Erros: {0}",
+        "statusBar.viewErrors": "Ver erros",
     },
 } satisfies Locale;

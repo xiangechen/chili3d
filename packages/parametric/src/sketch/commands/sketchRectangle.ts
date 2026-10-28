@@ -35,7 +35,7 @@ export class SketchRectangleCommand extends SketchMultistepCommand {
         const [u1, v1] = toUV(plane, this.stepDatas[0].point!);
         const [u2, v2] = toUV(plane, this.stepDatas[1].point!);
         if (Math.abs(u2 - u1) < Precision.Distance || Math.abs(v2 - v1) < Precision.Distance) {
-            PubSub.default.pub("displayError", "Rectangle sides are too small");
+            PubSub.default.pub("displayValidation", "Rectangle sides are too small");
             return;
         }
 

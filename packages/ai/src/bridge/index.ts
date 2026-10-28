@@ -12,6 +12,7 @@
  * is the server and the page is the client.
  */
 
+import { type BridgeStatus, PubSub } from "@chili3d/core";
 import { createToolHost } from "../tools/host";
 
 export const DEFAULT_BRIDGE_PORT = 17373;
@@ -25,7 +26,6 @@ const RETRY_DELAYS = [500, 1000, 2000, 4000, 8000];
 const TERMINAL_CODES = new Set([4002, 4003]);
 
 type ServerMessage = { type: "call"; id: string; name: string; args?: Record<string, unknown> };
-type BridgeStatus = "connected" | "retrying" | "blocked" | "replaced" | "closed";
 
 /** A mixed-content block is thrown synchronously by the `WebSocket` constructor. */
 function isSecurityError(error: unknown): boolean {
@@ -75,7 +75,6 @@ class BridgeClient {
     private retry?: ReturnType<typeof setTimeout>;
     private attempts = 0;
     private stopped = false;
-    private badge?: HTMLElement;
     /**
      * The daemon already sends one call at a time; this keeps the page correct for any sender and
      * keeps a rejected `receive` from escaping as an unhandled rejection.
@@ -85,6 +84,7 @@ class BridgeClient {
     constructor(private readonly port: number) {}
 
     start(): void {
+        this.setStatus("retrying");
         this.connect();
     }
 
@@ -92,8 +92,7 @@ class BridgeClient {
         this.stopped = true;
         clearTimeout(this.retry);
         this.socket?.close();
-        this.badge?.remove();
-        this.badge = undefined;
+        PubSub.default.pub("bridgeStatusChanged", undefined);
     }
 
     private connect(): void {
@@ -119,7 +118,6 @@ class BridgeClient {
             this.queue = this.queue.then(() => this.receive(String(event.data))).catch(() => undefined);
         });
         socket.addEventListener("close", (event) => {
-            // `stop()` closes the socket too; its close event must not draw the badge back.
             if (this.stopped) return;
             if (TERMINAL_CODES.has(event.code)) {
                 this.setStatus(event.code === 4002 ? "replaced" : "closed", event.reason);
@@ -163,41 +161,7 @@ class BridgeClient {
     }
 
     private setStatus(status: BridgeStatus, detail?: string): void {
-        // `stop()` removed the badge on purpose; nothing may bring it back afterwards.
         if (this.stopped) return;
-        this.badge ??= this.createBadge();
-        const badge = this.badge;
-        // The badge is a diagnostic for a `?bridge` session, and its brand word is English; the
-        // states stay English rather than shipping a half-translated label.
-        const labels: Record<BridgeStatus, string> = {
-            connected: "● AI bridge",
-            retrying: "○ AI bridge",
-            blocked: "○ AI bridge (blocked)",
-            replaced: "○ AI bridge (taken over)",
-            closed: "○ AI bridge (closed)",
-        };
-        badge.textContent = labels[status];
-        badge.style.color =
-            status === "connected" ? "#7ee787" : status === "retrying" ? "#d29922" : "#8b949e";
-        badge.title = titleOf(status, this.port, detail);
-    }
-
-    private createBadge(): HTMLElement {
-        const badge = document.createElement("div");
-        badge.className = "chili3d-bridge-badge";
-        badge.style.cssText = [
-            "position:fixed",
-            "right:12px",
-            "bottom:12px",
-            "z-index:2147483647",
-            "padding:4px 8px",
-            "border-radius:6px",
-            "background:rgba(0,0,0,.65)",
-            "font:12px/1.2 system-ui,sans-serif",
-            "pointer-events:none",
-            "user-select:none",
-        ].join(";");
-        document.body.append(badge);
-        return badge;
+        PubSub.default.pub("bridgeStatusChanged", status, titleOf(status, this.port, detail));
     }
 }

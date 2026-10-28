@@ -4,6 +4,7 @@
 import { Precision, Result } from "@chili3d/core";
 import { curveControlPoints, nurbsSpec, nurbsWeights, subBezier, subConic, subNurbs } from "./curveEval";
 import { type CurveCrossing, entityEndIndices, farEnd } from "./curveGeometry";
+import { type SketchOperationResult, SketchSolveError } from "./sketchError";
 import {
     ConstraintKind,
     entityPointCount,
@@ -54,7 +55,11 @@ export interface EditOutcome {
  * A sketch whose constraints already conflict is not this op's doing, so only a solve the
  * edit itself broke is worth rolling back.
  */
-export function guardedEdit<T>(solver: SketchSolver, label: string, work: () => Result<T>): Result<T> {
+export function guardedEdit<T>(
+    solver: SketchSolver,
+    label: string,
+    work: () => Result<T>,
+): SketchOperationResult<T> {
     const baseline = solver.solve(true).result;
     const snapshot = solver.toData();
     const outcome = work();
@@ -65,7 +70,9 @@ export function guardedEdit<T>(solver: SketchSolver, label: string, work: () => 
     const solved = solver.solve(true);
     if (isBroken(solved.result) && !isBroken(baseline)) {
         solver.reset(snapshot);
-        return Result.err(`The sketch could not solve after ${label} (${solved.result})`);
+        return Result.err(
+            new SketchSolveError(`The sketch could not solve after ${label} (${solved.result})`),
+        );
     }
     return outcome;
 }
