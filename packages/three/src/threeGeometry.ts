@@ -70,8 +70,12 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
     }
 
     changeFaceMaterial(material: Material | Material[]) {
-        if (this._faces) {
-            this._faceMaterial = material;
+        this._faceMaterial = material;
+        if (!this._faces) return;
+
+        if (this.locked) {
+            this._faces.userData["oldMaterial"] = material;
+        } else {
             this._faces.material = material;
         }
     }

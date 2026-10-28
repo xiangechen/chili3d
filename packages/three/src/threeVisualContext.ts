@@ -299,8 +299,19 @@ export class ThreeVisualContext implements IVisualContext {
     }
 
     redrawNode(models: INode[]) {
+        const lockedStates = new Map<INode, boolean>();
+        for (const node of models) {
+            const visual = this.getVisual(node);
+            if (visual) lockedStates.set(node, visual.locked);
+        }
+
         this.removeNode(models);
         this.addNode(models);
+
+        for (const [node, locked] of lockedStates) {
+            const visual = this.getVisual(node);
+            if (visual) visual.locked = locked;
+        }
     }
 
     get shapeCount() {

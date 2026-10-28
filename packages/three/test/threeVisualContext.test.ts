@@ -2,11 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    Mesh as CoreMesh,
     type IDocument,
     type IVisual,
     type IVisualObject,
     Material,
     type Matrix4,
+    MeshNode,
     ShapeTypes,
     type VisualNode,
     VisualStates,
@@ -406,6 +408,24 @@ describe("ThreeVisualContext (real instance)", () => {
             context.setVisible(node as any, false);
             expect(context.getVisual(node as any)).toBeUndefined();
             expect(context.shapeCount).toBe(0);
+        });
+
+        test("redrawNode preserves the node's locked state", () => {
+            const node = new MeshNode({
+                document: visual.document,
+                mesh: CoreMesh.createSurface(3, 3),
+                name: "mesh",
+                materialId: "mat-1",
+            });
+            context.addNode([node]);
+            const original = context.getVisual(node)!;
+            original.locked = true;
+
+            context.redrawNode([node]);
+
+            const redrawn = context.getVisual(node)!;
+            expect(redrawn).not.toBe(original);
+            expect(redrawn.locked).toBe(true);
         });
 
         test("redrawNode on duck-typed node creates no visual", () => {

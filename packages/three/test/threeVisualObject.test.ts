@@ -5,7 +5,12 @@ import type { IShape, ISubShape, Matrix4, ShapeMeshRange, ShapeType } from "@chi
 import { Matrix4 as CoreMatrix4 } from "@chili3d/core";
 import { Group, Mesh, MeshBasicMaterial, type Points } from "three";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
-import { highlightFaceMaterial, hilightEdgeMaterial, lockFaceMaterial } from "../src/materials";
+import {
+    highlightFaceMaterial,
+    hilightEdgeMaterial,
+    lockFaceMaterial,
+    lockLineMaterial,
+} from "../src/materials";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
 import {
     GroupVisualObject,
@@ -107,6 +112,23 @@ describe("GroupVisualObject", () => {
         expect(gvo.locked).toBe(false);
         expect(childMesh.material).toBe(originalMaterial);
         expect(childMesh.userData["oldMaterial"]).toBeUndefined();
+    });
+
+    test("children added to a locked group inherit and later release the lock", () => {
+        const gvo = new GroupVisualObject(createTestGroupNode());
+        const child = new Mesh();
+        child.material = new MeshBasicMaterial();
+        const originalMaterial = child.material;
+        createdMeshes.push(child);
+        gvo.locked = true;
+
+        gvo.add(child);
+
+        expect(child.material).toBe(lockFaceMaterial);
+        expect(child.userData["oldMaterial"]).toBe(originalMaterial);
+
+        gvo.locked = false;
+        expect(child.material).toBe(originalMaterial);
     });
 
     test("setting locked to same value is a no-op", () => {
@@ -242,6 +264,23 @@ describe("ThreeVisualObject base class", () => {
         expect(child.userData["oldMaterial"]).toBeUndefined();
     });
 
+    test("children added while locked inherit and later release the lock material", () => {
+        const obj = new TestableVisualObject(createTestVisualNode());
+        const child = new Mesh();
+        child.material = new MeshBasicMaterial();
+        const originalMaterial = child.material;
+        createdMeshes.push(child);
+        obj.locked = true;
+
+        obj.add(child);
+
+        expect(child.material).toBe(lockFaceMaterial);
+        expect(child.userData["oldMaterial"]).toBe(originalMaterial);
+
+        obj.locked = false;
+        expect(child.material).toBe(originalMaterial);
+    });
+
     test("matrixAutoUpdate is false after construction", () => {
         const node = createTestVisualNode();
         const obj = new TestableVisualObject(node);
@@ -371,6 +410,21 @@ describe("ThreeMeshObject", () => {
         expect(obj.children).toContain(obj.mesh);
     });
 
+    test("mesh property change preserves the lock and original material", () => {
+        const node = createTestMeshNode({ meshType: "surface" });
+        const obj = new ThreeMeshObject(context, node);
+        obj.locked = true;
+
+        node._notify("mesh");
+
+        const originalMaterial = obj.mesh.userData["oldMaterial"];
+        expect(obj.mesh.material).toBe(lockFaceMaterial);
+        expect(originalMaterial).not.toBe(lockFaceMaterial);
+
+        obj.locked = false;
+        expect(obj.mesh.material).toBe(originalMaterial);
+    });
+
     test("materialId change replaces the mesh material", () => {
         const node = createTestMeshNode({ meshType: "surface", materialId: "mat-1" });
         const obj = new ThreeMeshObject(context, node);
@@ -380,6 +434,52 @@ describe("ThreeMeshObject", () => {
 
         // The mock context returns a new material instance per getMaterial call
         expect(obj.mesh.material).not.toBe(oldMaterial);
+    });
+
+    test("materialId change keeps the latest material while locked", () => {
+        const node = createTestMeshNode({ meshType: "surface", materialId: "mat-1" });
+        const obj = new ThreeMeshObject(context, node);
+        obj.locked = true;
+        const oldMaterial = obj.mesh.userData["oldMaterial"];
+
+        node._notify("materialId");
+
+        const updatedMaterial = obj.mesh.userData["oldMaterial"];
+        expect(obj.mesh.material).toBe(lockFaceMaterial);
+        expect(updatedMaterial).not.toBe(oldMaterial);
+
+        obj.locked = false;
+        expect(obj.mesh.material).toBe(updatedMaterial);
+    });
+
+    test("locked linesegments dispose only their own material on rebuild and dispose", () => {
+        const node = createTestMeshNode({ meshType: "linesegments" });
+        const obj = new ThreeMeshObject(context, node);
+        let sharedDisposeCount = 0;
+        const onSharedDispose = () => sharedDisposeCount++;
+        lockLineMaterial.addEventListener("dispose", onSharedDispose);
+
+        try {
+            obj.locked = true;
+            const firstMaterial = obj.mesh.userData["oldMaterial"];
+            let firstDisposed = false;
+            firstMaterial.addEventListener("dispose", () => (firstDisposed = true));
+
+            node._notify("mesh");
+
+            expect(firstDisposed).toBe(true);
+            expect(sharedDisposeCount).toBe(0);
+
+            const secondMaterial = obj.mesh.userData["oldMaterial"];
+            let secondDisposed = false;
+            secondMaterial.addEventListener("dispose", () => (secondDisposed = true));
+            obj.dispose();
+
+            expect(secondDisposed).toBe(true);
+            expect(sharedDisposeCount).toBe(0);
+        } finally {
+            lockLineMaterial.removeEventListener("dispose", onSharedDispose);
+        }
     });
 
     test("dispose disposes the mesh geometry and detaches handlers", () => {

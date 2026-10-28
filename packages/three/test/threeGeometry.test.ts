@@ -5,7 +5,12 @@ import { type EdgeMeshData, ShapeTypes, XYZ } from "@chili3d/core";
 import { Box3, Mesh, MeshBasicMaterial, Points } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
-import { defaultEdgeMaterial, edgeMaterialOfWidth } from "../src/materials";
+import {
+    defaultEdgeMaterial,
+    edgeMaterialOfWidth,
+    lockFaceMaterial,
+    lockLineMaterial,
+} from "../src/materials";
 import { ThreeGeometry } from "../src/threeGeometry";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
 import { createTestGeometryNode, createThreeMockVisualContext } from "./mocks";
@@ -140,6 +145,19 @@ describe("ThreeGeometry", () => {
             const geo = new ThreeGeometry(node, context);
             const newMat = new MeshBasicMaterial({ color: 0xff00ff });
             geo.changeFaceMaterial(newMat);
+            expect(geo.faces()?.material).toBe(newMat);
+        });
+
+        test("keeps the lock material and restores the updated material on unlock", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            const newMat = new MeshBasicMaterial({ color: 0xff00ff });
+            geo.locked = true;
+
+            geo.changeFaceMaterial(newMat);
+
+            expect(geo.faces()?.material).toBe(lockFaceMaterial);
+            geo.locked = false;
             expect(geo.faces()?.material).toBe(newMat);
         });
 
@@ -511,6 +529,28 @@ describe("ThreeGeometry", () => {
             node._notify("materialId");
             // The mock context returns a new material instance per getMaterial call
             expect(geo.faces()?.material).not.toBe(originalFaceMat);
+        });
+
+        test("shape changes keep rebuilt meshes locked without losing their materials", () => {
+            const node = createTestGeometryNode();
+            const geo = new ThreeGeometry(node, context);
+            geo.locked = true;
+
+            node._notify("shape");
+            node._notify("shape");
+
+            const face = geo.faces()!;
+            const edge = geo.edges()!;
+            const faceMaterial = face.userData["oldMaterial"];
+            const edgeMaterial = edge.userData["oldMaterial"];
+            expect(face.material).toBe(lockFaceMaterial);
+            expect(edge.material).toBe(lockLineMaterial);
+            expect(faceMaterial).not.toBe(lockFaceMaterial);
+            expect(edgeMaterial).not.toBe(lockLineMaterial);
+
+            geo.locked = false;
+            expect(face.material).toBe(faceMaterial);
+            expect(edge.material).toBe(edgeMaterial);
         });
     });
 

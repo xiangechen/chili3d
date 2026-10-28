@@ -50,10 +50,10 @@ function setLocked(obj: Object3D, isLocked: boolean) {
     if (isLocked) {
         obj.traverse((x) => {
             if (x instanceof LineSegments2 || x instanceof Line2) {
-                x.userData["oldMaterial"] = x.material;
+                if (x.userData["oldMaterial"] === undefined) x.userData["oldMaterial"] = x.material;
                 x.material = lockLineMaterial;
             } else if (x instanceof Mesh) {
-                x.userData["oldMaterial"] = x.material;
+                if (x.userData["oldMaterial"] === undefined) x.userData["oldMaterial"] = x.material;
                 x.material = lockFaceMaterial;
             }
         });
@@ -90,6 +90,14 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
 
         this._locked = value;
         setLocked(this, value);
+    }
+
+    override add(...objects: Object3D[]): this {
+        super.add(...objects);
+        if (this.locked) {
+            for (const object of objects) setLocked(object, true);
+        }
+        return this;
     }
 
     worldTransform(): Matrix4 {
@@ -211,10 +219,15 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
         if (property === "mesh") {
             this.disposeMesh();
             this._mesh = this.createMesh();
+            this.material = this._mesh.material;
             this.add(this._mesh);
         } else if (property === "materialId" && this._mesh instanceof Mesh) {
             this.material = this.context.getMaterial(this.meshNode.materialId);
-            this._mesh.material = this.material;
+            if (this.locked) {
+                this._mesh.userData["oldMaterial"] = this.material;
+            } else {
+                this._mesh.material = this.material;
+            }
         }
     };
 
@@ -266,7 +279,7 @@ export class ThreeMeshObject extends ThreeVisualObject implements IHighlightable
 
     private disposeMesh() {
         if (this._mesh instanceof LineSegments2 || this._mesh instanceof Line2) {
-            this._mesh.material.dispose();
+            (this.material as LineMaterial).dispose();
         }
         this._mesh.geometry?.dispose();
     }
@@ -301,6 +314,14 @@ export class GroupVisualObject extends Group implements IVisualObject {
 
         this._locked = value;
         setLocked(this, value);
+    }
+
+    override add(...objects: Object3D[]): this {
+        super.add(...objects);
+        if (this.locked) {
+            for (const object of objects) setLocked(object, true);
+        }
+        return this;
     }
 
     constructor(private readonly groupNode: GroupNode) {
