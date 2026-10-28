@@ -79,7 +79,7 @@ describe("i18n locales", () => {
         });
 
         test("should contain ribbon tab keys", () => {
-            expect(en.translation["ribbon.tab.model"]).toBeDefined();
+            expect(en.translation["ribbon.tab.basic"]).toBeDefined();
             expect(en.translation["ribbon.tab.manager"]).toBeDefined();
         });
 

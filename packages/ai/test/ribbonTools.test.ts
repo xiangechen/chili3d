@@ -36,7 +36,7 @@ function buildRibbon(): Ribbon {
     const modify = new RibbonGroup("ribbon.group.modify" as RibbonGroupKeys, [
         "modify.fillet" as CommandKeys,
     ]);
-    const model = new RibbonTab("ribbon.tab.model" as RibbonTabKeys, draw, modify);
+    const model = new RibbonTab("ribbon.tab.basic" as RibbonTabKeys, draw, modify);
     const sketch = new RibbonTab("ribbon.tab.sketch" as RibbonTabKeys);
     sketch.contextual = true;
     sketch.visible = false;
@@ -69,12 +69,12 @@ describe("get_ribbon tool", () => {
         const result = JSON.parse((await getTool("get_ribbon").handler({})) as string);
 
         expect(result.available).toBe(true);
-        expect(result.activeTab).toBe("ribbon.tab.model");
+        expect(result.activeTab).toBe("ribbon.tab.basic");
         expect(result.quickCommands).toEqual([
             { label: "command.doc.save", command: "doc.save", hotkey: "Ctrl+S" },
         ]);
         expect(result.tabs.map((tab: { name: string }) => tab.name)).toEqual([
-            "ribbon.tab.model",
+            "ribbon.tab.basic",
             "ribbon.tab.sketch",
         ]);
 
@@ -107,7 +107,7 @@ describe("get_ribbon tool", () => {
         const testLocale = {
             display: "Test",
             language: "test-locale",
-            translation: { "ribbon.tab.model": "MODELL", "command.create.line": "LINIE" },
+            translation: { "ribbon.tab.basic": "MODELL", "command.create.line": "LINIE" },
         } as unknown as Locale;
         try {
             I18n.addLanguage(testLocale);

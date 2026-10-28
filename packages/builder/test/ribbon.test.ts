@@ -35,7 +35,7 @@ describe("DefaultRibbon", () => {
     });
 
     test("first tab should be model tab", () => {
-        expect(DefaultRibbon[0].tabName).toBe("ribbon.tab.model");
+        expect(DefaultRibbon[0].tabName).toBe("ribbon.tab.basic");
     });
 
     test("second tab should be manager tab", () => {
@@ -296,7 +296,7 @@ describe("mergeRibbonProfiles", () => {
         const tabNames = merged.map((t) => t.tabName);
 
         expect(tabNames).toEqual([
-            "ribbon.tab.model",
+            "ribbon.tab.basic",
             "ribbon.tab.parametric",
             "ribbon.tab.manager",
             "ribbon.tab.sketch",
@@ -306,7 +306,7 @@ describe("mergeRibbonProfiles", () => {
     test("should not add sketch commands to the model tab", () => {
         const merged = mergeRibbonProfiles(DefaultRibbon, SketchRibbonProfiles);
         const drawGroup = merged
-            .find((t) => t.tabName === "ribbon.tab.model")!
+            .find((t) => t.tabName === "ribbon.tab.basic")!
             .groups.find((g) => g.groupName === "ribbon.group.draw")!;
 
         expect(flattenItems(drawGroup.items).some((x) => x.startsWith("sketch."))).toBe(false);
@@ -334,7 +334,7 @@ describe("mergeRibbonProfiles", () => {
     test("an extra group merged into an existing group is not grown by the merge", () => {
         const extras: RibbonProfileExtra[] = [
             {
-                tabName: "ribbon.tab.model",
+                tabName: "ribbon.tab.basic",
                 groups: [
                     {
                         groupName: "ribbon.group.draw",

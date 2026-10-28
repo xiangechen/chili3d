@@ -14,7 +14,7 @@ import {
 
 export const DefaultRibbon: RibbonTabProfile[] = [
     {
-        tabName: "ribbon.tab.model",
+        tabName: "ribbon.tab.basic",
         groups: [
             {
                 groupName: "ribbon.group.draw",

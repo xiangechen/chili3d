@@ -673,7 +673,7 @@ export const I18N_KEYS = [
     "ribbon.tab.edit",
     "ribbon.tab.file",
     "ribbon.tab.manager",
-    "ribbon.tab.model",
+    "ribbon.tab.basic",
     "ribbon.tab.parametric",
     "ribbon.tab.plugin",
     "ribbon.tab.sketch",

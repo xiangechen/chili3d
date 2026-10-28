@@ -210,7 +210,7 @@ describe("AppBuilder", () => {
             const tabs = await builder.getRibbonTabs();
             expect(Array.isArray(tabs)).toBe(true);
             expect(tabs.length).toBeGreaterThan(0);
-            expect(tabs[0].tabName).toBe("ribbon.tab.model");
+            expect(tabs[0].tabName).toBe("ribbon.tab.basic");
         });
     });
 

@@ -126,20 +126,20 @@ describe("RibbonTab", () => {
             const group1 = new RibbonGroup("ribbon.group.sketch" as any, []);
             const group2 = new RibbonGroup("ribbon.group.model" as any, []);
 
-            const tab = new RibbonTab("ribbon.tab.model" as any, group1, group2);
+            const tab = new RibbonTab("ribbon.tab.basic" as any, group1, group2);
 
-            expect(tab.tabName).toBe("ribbon.tab.model");
+            expect(tab.tabName).toBe("ribbon.tab.basic");
             expect(tab.groups.length).toBe(2);
         });
 
         test("should create with no groups", () => {
-            const tab = new RibbonTab("ribbon.tab.model" as any);
+            const tab = new RibbonTab("ribbon.tab.basic" as any);
 
             expect(tab.groups.length).toBe(0);
         });
 
         test("should set tabName via setter", () => {
-            const tab = new RibbonTab("ribbon.tab.model" as any);
+            const tab = new RibbonTab("ribbon.tab.basic" as any);
 
             tab.tabName = "ribbon.tab.sketch" as any;
 
@@ -149,7 +149,7 @@ describe("RibbonTab", () => {
 
     describe("groups", () => {
         test("should be an ObservableCollection", () => {
-            const tab = new RibbonTab("ribbon.tab.model" as any);
+            const tab = new RibbonTab("ribbon.tab.basic" as any);
 
             expect(tab.groups).not.toBeNull();
             expect(typeof tab.groups.push).toBe("function");
@@ -159,7 +159,7 @@ describe("RibbonTab", () => {
     describe("fromProfile", () => {
         test("should create tab from profile with groups", () => {
             const profile = {
-                tabName: "ribbon.tab.model" as any,
+                tabName: "ribbon.tab.basic" as any,
                 groups: [
                     {
                         groupName: "ribbon.group.sketch" as any,
@@ -174,7 +174,7 @@ describe("RibbonTab", () => {
 
             const tab = RibbonTab.fromProfile(profile);
 
-            expect(tab.tabName).toBe("ribbon.tab.model");
+            expect(tab.tabName).toBe("ribbon.tab.basic");
             expect(tab.groups.length).toBe(2);
         });
 
@@ -190,7 +190,7 @@ describe("RibbonTab", () => {
         });
 
         test("non-contextual tab should be visible by default", () => {
-            const tab = RibbonTab.fromProfile({ tabName: "ribbon.tab.model" as any, groups: [] });
+            const tab = RibbonTab.fromProfile({ tabName: "ribbon.tab.basic" as any, groups: [] });
 
             expect(tab.contextual).toBe(false);
             expect(tab.visible).toBe(true);
@@ -204,7 +204,7 @@ describe("Ribbon", () => {
 
     beforeEach(() => {
         tab1 = new RibbonTab(
-            "ribbon.tab.model" as any,
+            "ribbon.tab.basic" as any,
             new RibbonGroup("ribbon.group.sketch" as any, ["command.create.box" as any]),
         );
         tab2 = new RibbonTab(
@@ -347,7 +347,7 @@ describe("Ribbon", () => {
             const ribbon = new Ribbon([], [tab1]);
 
             ribbon.addRibbonCommand(
-                "ribbon.tab.model" as any,
+                "ribbon.tab.basic" as any,
                 "ribbon.group.sketch" as any,
                 "command.create.sphere" as any,
             );
@@ -375,7 +375,7 @@ describe("Ribbon", () => {
 
             expect(() => {
                 ribbon.addRibbonCommand(
-                    "ribbon.tab.model" as any,
+                    "ribbon.tab.basic" as any,
                     "ribbon.group.nonexistent" as any,
                     "command.create.sphere" as any,
                 );
