@@ -287,7 +287,7 @@ describe("BodyInstanceNode", () => {
         expect(instance.shapeType).toBe(body.shapeType);
     });
 
-    test("still resolves a source moved into a Component definition", () => {
+    test("keeps following a live source moved into a Component definition", () => {
         const doc = newDoc();
         const body = boxBody(doc, 10);
         const instance = body.cloneForCopy(Matrix4.fromTranslation(100, 0, 0)) as BodyInstanceNode;
@@ -300,6 +300,13 @@ describe("BodyInstanceNode", () => {
 
         expect(instance.source).toBe(body);
         expect(extent(instance)).toEqual([100, 0, 0, 110, 10, 10]);
+
+        Transaction.execute(doc, "edit grouped source depth", () => {
+            body.setFeaturesEmitShapeChanged(
+                body.features.map((feature) => (feature.id === "e1" ? { ...feature, depth: 20 } : feature)),
+            );
+        });
+        expect(extent(instance)).toEqual([100, 0, 0, 110, 10, 20]);
     });
 
     test("the instance never owns the source shape", () => {

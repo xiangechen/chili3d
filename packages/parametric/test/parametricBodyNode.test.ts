@@ -5,7 +5,10 @@ import {
     ANGLE_UNITS,
     type AsyncController,
     BoundingBox,
+    Component,
+    ComponentNode,
     type FeatureParameter,
+    FolderNode,
     I18n,
     type I18nKeys,
     type INode,
@@ -22,7 +25,7 @@ import {
     Signal,
     Transaction,
     VisualStates,
-    type XYZ,
+    XYZ,
 } from "@chili3d/core";
 import {
     createMockApplication,
@@ -63,6 +66,16 @@ const SQUARE: SketchData = {
         { id: 2, type: "line", params: [1, 0, 1, 1] },
         { id: 3, type: "line", params: [1, 1, 0, 1] },
         { id: 4, type: "line", params: [0, 1, 0, 0] },
+    ],
+    constraints: [],
+};
+
+const EDITED_SQUARE: SketchData = {
+    entities: [
+        { id: 1, type: "line", params: [0, 0, 2, 0] },
+        { id: 2, type: "line", params: [2, 0, 2, 2] },
+        { id: 3, type: "line", params: [2, 2, 0, 2] },
+        { id: 4, type: "line", params: [0, 2, 0, 0] },
     ],
     constraints: [],
 };
@@ -158,6 +171,11 @@ function extrudeFeature(sketchId: string, depth = 5): ExtrudeFeatureData {
     return { id: "f1", type: "extrude", sketchId, depth };
 }
 
+type BodyEvaluationSpyTarget = {
+    generateShape: () => unknown;
+    evaluateChain: () => unknown;
+};
+
 describe("ParametricBodyNode", () => {
     let doc: TestDocument;
     let sketch: SketchNode;
@@ -216,6 +234,175 @@ describe("ParametricBodyNode", () => {
         });
 
         expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("stays dormant after removal and refreshes once when undo restores it", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        Transaction.execute(doc, "remove body", () => body.parent?.remove(body));
+        mocks.prism.mockClear();
+
+        Transaction.execute(doc, "edit sketch", () => {
+            sketch.setDataEmitShapeChanged({
+                entities: [
+                    { id: 1, type: "line", params: [0, 0, 2, 0] },
+                    { id: 2, type: "line", params: [2, 0, 2, 2] },
+                    { id: 3, type: "line", params: [2, 2, 0, 2] },
+                    { id: 4, type: "line", params: [0, 2, 0, 0] },
+                ],
+                constraints: [],
+            });
+        });
+        expect(mocks.prism).not.toHaveBeenCalled();
+
+        doc.history.undo();
+        expect(mocks.prism).not.toHaveBeenCalled();
+        doc.history.undo();
+
+        expect(body.parent).toBe(doc.modelManager.rootNode);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("ignores referenced node records while removed and catches up when re-added", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        body.parent?.remove(body);
+        sketch.parent?.remove(sketch);
+
+        expect(body.featureItems()[0].error).toBeUndefined();
+
+        doc.modelManager.addNode(body);
+        expect(body.featureItems()[0].error).toBe("Sketch not found");
+    });
+
+    test("does not evaluate when a removed body is restored without upstream changes", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        const generate = rs.spyOn(body as unknown as BodyEvaluationSpyTarget, "generateShape");
+        try {
+            body.parent?.remove(body);
+            doc.modelManager.rootNode.add(body);
+
+            expect(generate).not.toHaveBeenCalled();
+        } finally {
+            generate.mockRestore();
+        }
+    });
+
+    test("stays dormant when an ancestor folder is removed and catches up on restore", () => {
+        const folder = new FolderNode({ document: doc, name: "folder" });
+        doc.modelManager.rootNode.add(folder);
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        body.parent?.move(body, folder);
+        expect(body.parent).toBe(folder);
+        expect(body.shape.isOk).toBe(true);
+        folder.parent?.remove(folder);
+        mocks.prism.mockClear();
+
+        sketch.setDataEmitShapeChanged(EDITED_SQUARE);
+        expect(mocks.prism).not.toHaveBeenCalled();
+
+        doc.modelManager.rootNode.add(folder);
+        expect(body.parent).toBe(folder);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("allows a Component member's first evaluation, then stays dormant until restored", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        body.parent?.transfer(body);
+        const component = new Component({
+            name: "frozen",
+            nodes: [body],
+            origin: XYZ.zero,
+        });
+        doc.modelManager.components.push(component);
+        const componentNode = new ComponentNode({
+            document: doc,
+            name: "frozen",
+            componentId: component.id,
+            insert: component.origin,
+        });
+        doc.modelManager.rootNode.add(componentNode);
+
+        expect(body.shape.isOk).toBe(true);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+        mocks.prism.mockClear();
+        sketch.setDataEmitShapeChanged(EDITED_SQUARE);
+        expect(mocks.prism).not.toHaveBeenCalled();
+
+        componentNode.parent?.remove(componentNode);
+        doc.modelManager.components.remove(component);
+        doc.modelManager.rootNode.add(body);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("keeps a transferred source active while a root-tree instance reads it", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        const instance = body.cloneForCopy(Matrix4.identity());
+        doc.modelManager.rootNode.add(instance);
+        body.parent?.transfer(body);
+        doc.modelManager.components.push(new Component({ name: "frozen", nodes: [body], origin: XYZ.zero }));
+        mocks.prism.mockClear();
+
+        sketch.setDataEmitShapeChanged(EDITED_SQUARE);
+
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+    });
+
+    test("catches up variable changes made while removed", () => {
+        const setDepth = (expression: string) => {
+            doc.variables.setItems([{ id: "v1", name: "w", type: "length", expression }]);
+        };
+        setDepth("5");
+        const body = bodyWith([{ id: "f1", type: "extrude", sketchId: sketch.id, depth: "w" }]);
+        expect(body.shape.isOk).toBe(true);
+        body.parent?.remove(body);
+        mocks.prism.mockClear();
+
+        setDepth("9");
+        expect(mocks.prism).not.toHaveBeenCalled();
+
+        doc.modelManager.rootNode.add(body);
+        expect(mocks.prism).toHaveBeenCalledTimes(1);
+        const vector = (mocks.prism.mock.calls[0] as unknown as [unknown, XYZ])[1];
+        expect(vector.z).toBe(9);
+    });
+
+    test("defers direct feature edits while dormant", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        const evaluate = rs.spyOn(body as unknown as BodyEvaluationSpyTarget, "evaluateChain");
+        try {
+            body.parent?.remove(body);
+            body.setFeatureParameter("f1", "depth", 9);
+
+            expect(body.features[0]).toMatchObject({ depth: 9 });
+            expect(evaluate).not.toHaveBeenCalled();
+
+            doc.modelManager.rootNode.add(body);
+            expect(evaluate).toHaveBeenCalledTimes(1);
+        } finally {
+            evaluate.mockRestore();
+        }
+    });
+
+    test("defers rollback evaluation while dormant", () => {
+        const body = bodyWith([extrudeFeature(sketch.id)]);
+        expect(body.shape.isOk).toBe(true);
+        const evaluate = rs.spyOn(body as unknown as BodyEvaluationSpyTarget, "evaluateChain");
+        try {
+            body.parent?.remove(body);
+
+            expect(body.setRollbackIndex(0)).toBe(false);
+            body.setRollbackIndex(undefined);
+            expect(evaluate).not.toHaveBeenCalled();
+
+            doc.modelManager.rootNode.add(body);
+            expect(evaluate).toHaveBeenCalledTimes(1);
+        } finally {
+            evaluate.mockRestore();
+        }
     });
 
     test("follows a sketch referenced by several features only once per chain run", () => {

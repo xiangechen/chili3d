@@ -16,6 +16,7 @@ import {
     type INode,
     type INodeLinkedList,
     type IShape,
+    isInstanceNode,
     isPropertyChanged,
     Matrix4,
     NodeChildList,
@@ -100,6 +101,8 @@ import { ensureVariableSync } from "./variableSync";
  * `rollbackBarIndex`, the persisted rollback-bar position. No shape is ever
  * stored; every rebuild re-runs the list from the top, which is what makes an upstream edit (move
  * a line in a sketch) propagate: the chain re-evaluates and everything downstream follows.
+ * A body detached from the root tree sleeps unless a live root-tree instance reads it;
+ * upstream changes coalesce into one catch-up when it resumes.
  *
  * One run of `evaluateChain`:
  *
@@ -328,6 +331,14 @@ export class ParametricBodyNode
     private readonly _timeline = new BodyTimeline();
     /** Guards against re-entrant evaluation when a watched node generates mid-evaluation. */
     private _evaluating = false;
+    /** Whether the root tree or a Component has owned this body; distinguishes a new detached node. */
+    private _hasBeenInDocument = false;
+    /** Detached bodies sleep unless a root-tree instance still reads their shape. */
+    private _dormant = false;
+    /** Coalesces changes received while dormant into one catch-up evaluation on resume. */
+    private _rebuildPending = false;
+    /** The variable revision used by the last completed evaluation. */
+    private _evaluatedVariableRevision: number | undefined;
     /**
      * True while `syncConsumedTools` moves tool nodes in or out. A move emits a node
      * record for a watched tool, but its SHAPE did not change — rebuilding mid-move would
@@ -356,15 +367,19 @@ export class ParametricBodyNode
 
     /**
      * Truncates the feature replay at `index` (undefined restores the full chain) and
-     * re-evaluates. Returns false when the replay failed: the last good shape is kept
-     * (the same policy as watched-node rebuilds), so the displayed geometry is NOT
-     * the requested timeline position — the caller should revert the rollback rather
-     * than let plane/external-reference resolution read it as one.
+     * re-evaluates. Returns false when the replay failed or the body is dormant: the last
+     * good shape is kept (the same policy as watched-node rebuilds), so the displayed
+     * geometry is NOT the requested timeline position — the caller should revert the
+     * rollback rather than let plane/external-reference resolution read it as one.
      */
     setRollbackIndex(index: number | undefined): boolean {
         const clamped = index === undefined ? undefined : Math.max(0, Math.min(index, this.features.length));
         if (this._rollbackIndex === clamped) return true;
         this._rollbackIndex = clamped;
+        if (this._dormant) {
+            this._rebuildPending = true;
+            return false;
+        }
         const result = this.generateShape();
         if (!result.isOk) return false;
         this.shape = result;
@@ -1160,13 +1175,19 @@ export class ParametricBodyNode
      * watched-node changes already re-evaluate eagerly, so the getter retries only
      * when never evaluated yet, or when a reference that was missing at evaluation
      * time appears later (document load order) — detected by a growing watch set.
+     * A dormant evaluated body returns its last result. A never-evaluated one may still
+     * build on an explicit read, such as when a new Component freezes its mesh.
      */
     override get shape(): Result<IShape> {
         // A mid-chain read (e.g. a consumed sketch's external-ref resolution reading
         // this node as its source) gets the previous result as-is: recomputing here
         // would re-enter generateShape.
         if (this._evaluating) return this._shape;
-        if (!this._isDisposed && !this._shape.isOk && (!this._evaluated || this.hasNewReferences())) {
+        if (
+            !this._isDisposed &&
+            !this._shape.isOk &&
+            (!this._evaluated || (!this._dormant && this.hasNewReferences()))
+        ) {
             this._shape = this.generateShape();
         }
         return this._shape;
@@ -1182,6 +1203,12 @@ export class ParametricBodyNode
     }
 
     protected generateShape(): Result<IShape> {
+        if (this._dormant && this._evaluated) {
+            this._rebuildPending = true;
+            return this._shape;
+        }
+        const variableRevision = this.document.variables.revision;
+        this._rebuildPending = false;
         this._evaluated = true;
         this.syncWatchedNodes();
         this._featureErrors.clear();
@@ -1190,7 +1217,9 @@ export class ParametricBodyNode
         this._variableSuppressed.clear();
         this._evaluating = true;
         try {
-            return this.evaluateChain();
+            const result = this.evaluateChain();
+            this._evaluatedVariableRevision = variableRevision;
+            return result;
         } finally {
             this._evaluating = false;
         }
@@ -1390,6 +1419,35 @@ export class ParametricBodyNode
         );
     }
 
+    private isInRootTree(): boolean {
+        let current: INode | undefined = this;
+        while (current !== undefined) {
+            if (current === this.document.modelManager.rootNode) return true;
+            current = current.parent;
+        }
+        return false;
+    }
+
+    private hasLiveInstance(): boolean {
+        return (
+            this.document.modelManager.findNode(
+                (node) => isInstanceNode(node) && node.sourceId === this.id,
+            ) !== undefined
+        );
+    }
+
+    private updateDormancy(): void {
+        const inRootTree = this.isInRootTree();
+        if (inRootTree) this._hasBeenInDocument = true;
+        if (
+            !this._hasBeenInDocument &&
+            this.document.modelManager.findNodeDeep((node) => node === this) === this
+        ) {
+            this._hasBeenInDocument = true;
+        }
+        this._dormant = this._hasBeenInDocument && !inRootTree && !this.hasLiveInstance();
+    }
+
     /**
      * A node this body's features read entering or leaving the document: a sketch or a
      * boolean tool deleted, or either coming back through undo.
@@ -1398,11 +1456,36 @@ export class ParametricBodyNode
      * node emits none — so without this the features would report nothing and keep the
      * stale shape (a deleted tool's geometry still fused into the result), and the user
      * would have no way to tell the reference had gone.
+     *
+     * Node records carry the final parent pointers, so root-tree membership also catches
+     * an ancestor's removal and transfers into a frozen Component. The first attachment
+     * is not a resume; a body with a live root-tree instance remains active off-tree.
      */
     private readonly handleReferencedNodeChanged = (records: NodeRecord[]) => {
+        const wasDormant = this._dormant;
+        this.updateDormancy();
+        const resumed = wasDormant && !this._dormant;
         if (this._evaluating || this._syncingTools) return;
+        if (
+            resumed &&
+            (this._rebuildPending || this._evaluatedVariableRevision !== this.document.variables.revision)
+        ) {
+            this.rebuildFromUpstream();
+            return;
+        }
+        if (this._dormant) {
+            const wanted = this.referencedIds();
+            if (records.some((record) => record.node !== this && wanted.has(record.node.id))) {
+                this._rebuildPending = true;
+            }
+            return;
+        }
+
         const wanted = this.referencedIds();
-        if (!records.some((record) => wanted.has(record.node.id))) return;
+        const relevant = records.some(
+            (record) => wanted.has(record.node.id) && (!resumed || record.node !== this),
+        );
+        if (!relevant) return;
 
         const result = this.generateShape();
         if (result.isOk) this.shape = result;
@@ -1785,12 +1868,16 @@ export class ParametricBodyNode
      * Re-derives the shape because something upstream changed — a watched node's
      * geometry, or the document's parameter table (`applyVariables`, dispatched by
      * `variableSync.ts`). A failed rebuild keeps the last good shape silently; the
-     * feature panel carries the error.
+     * feature panel carries the error. Dormant bodies record the change for resume.
      */
     private rebuildFromUpstream(): void {
         // Skip while evaluating: a referenced node (e.g. the sketch) may generate its
         // shape lazily mid-evaluation and notify — the in-flight pass reads it fresh.
         if (this._evaluating) return;
+        if (this._dormant) {
+            this._rebuildPending = true;
+            return;
+        }
         // A rolled-back source (a sketch-session preview) must not re-evaluate
         // bystanders: the preview hides later features' geometry, the rebuilt shape
         // would be wrong, and the run would re-anchor refs onto the preview and

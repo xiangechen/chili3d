@@ -27,7 +27,7 @@ web ──> builder ──> app ──> core
 ```
 
 - **`core`** — Everything abstract: shape interfaces, math, document model, reactive data (`Observable`, `Binding`, `PubSub`), `Result<T,E>`, undo, commands, serialization, plugins, services, UI abstractions
-- **`parametric`** — Parametric feature-list bodies (Onshape-style) plus the 2D sketch module (`src/sketch/`, wrapping the garlic constraint solver). A body stores no shapes — only an ordered feature list replayed through `registerFeature` handlers, so any upstream edit re-evaluates the chain; the bulk of the module is stable identity for sub-shapes across rebuilds (kernel history → tracked ids → stored `EdgeRef`/`ProfileRef`) and the timeline rules for which shape a reference resolves against.
+- **`parametric`** — Parametric feature-list bodies (Onshape-style) plus the 2D sketch module (`src/sketch/`, wrapping the garlic constraint solver). A body stores no shapes — only an ordered feature list replayed through `registerFeature` handlers, so any upstream edit re-evaluates an active body's chain, while a dormant off-tree body catches up when it resumes; the bulk of the module is stable identity for sub-shapes across rebuilds (kernel history → tracked ids → stored `EdgeRef`/`ProfileRef`) and the timeline rules for which shape a reference resolves against.
 - **`wasm`** — Concrete `ShapeFactory` → OCCT via Emscripten; exports `initWasm()`
 - **`three`** — Three.js viewport, camera controller, visuals, highlighter, gizmo, mesh export
 - **`element`** — Custom reactive DOM elements (radio groups, expanders, data converters)
