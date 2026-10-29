@@ -1,0 +1,18 @@
+{
+    "name": "tower-planner",
+    "version": "0.1.0",
+    "description": "Tower crane planner plugin for DGOC Crane Planner (T4: parametric crane solid)",
+    "main": "extension.js",
+    "type": "module",
+    "scripts": {
+        "build": "rspack build",
+        "preview": "npm run build && echo 'Debug URL: http://localhost:8080?plugin=http://localhost:8688' && npx servitsy -p 8688 --cors"
+    },
+    "keywords": [
+        "chili3d",
+        "plugin",
+        "crane",
+        "tower-crane"
+    ],
+    "author": "DGOC Crane Planner"
+}

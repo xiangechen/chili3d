@@ -1,0 +1,13 @@
+{
+    "name": "Tower Crane Planner",
+    "version": "0.1.0",
+    "description": "Parametric tower crane solid from catalogue data (T4)",
+    "main": "dist/main.js",
+    "author": {
+        "name": "DGOC Crane Planner"
+    },
+    "engines": {
+        "chili3d": ">=0.7"
+    },
+    "importmap": "importmap.json"
+}
