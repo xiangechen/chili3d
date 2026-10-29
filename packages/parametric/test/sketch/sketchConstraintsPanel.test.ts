@@ -305,11 +305,11 @@ describe("SketchEditor constraint diagnostics", () => {
             expect(rowOf(readAsDiameter)?.querySelector(`.${style.name}`)?.textContent).toBe(
                 `#${readAsDiameter} ${I18n.translate("dimension.diameter")}`,
             );
-            expect(rowOf(readAsDiameter)?.querySelector(`.${style.value}`)?.textContent).toBe("Ø60.00");
+            expect(rowOf(readAsDiameter)?.querySelector(`.${style.value}`)?.textContent).toBe("Ø60");
             expect(rowOf(readAsRadius)?.querySelector(`.${style.name}`)?.textContent).toBe(
                 `#${readAsRadius} ${I18n.translate("command.dimension.radius")}`,
             );
-            expect(rowOf(readAsRadius)?.querySelector(`.${style.value}`)?.textContent).toBe("R20.00");
+            expect(rowOf(readAsRadius)?.querySelector(`.${style.value}`)?.textContent).toBe("R20");
         } finally {
             ctx.cleanup();
         }
@@ -336,7 +336,7 @@ describe("SketchEditor constraint diagnostics", () => {
             expect(row).toBeDefined();
 
             // the same parentheses the canvas badge carries, from the same formatter
-            expect(row?.querySelector(`.${style.value}`)?.textContent).toBe("(100.00)");
+            expect(row?.querySelector(`.${style.value}`)?.textContent).toBe("(100)");
             expect(row?.classList.contains(style.driven)).toBe(true);
             // a reference is not a fault, so it takes no issue tint and no issue chip
             expect(row?.classList.contains(style.conflicting)).toBe(false);

@@ -132,8 +132,8 @@ describe("AnnotateAngleDimension", () => {
         (cmd as any).getPositionData().beforeExecute();
 
         const data = (cmd as any).getPositionData();
-        expect(data.prompt(pointStepResult({ point: new XYZ({ x: 2, y: 2, z: 0 }) }))).toBe("90.0°");
-        expect(data.prompt(pointStepResult({ point: new XYZ({ x: -2, y: -2, z: 0 }) }))).toBe("270.0°");
+        expect(data.prompt(pointStepResult({ point: new XYZ({ x: 2, y: 2, z: 0 }) }))).toBe("90°");
+        expect(data.prompt(pointStepResult({ point: new XYZ({ x: -2, y: -2, z: 0 }) }))).toBe("270°");
 
         (cmd as any).afterExecute();
     });
@@ -184,7 +184,7 @@ describe("AnnotateAngleDimension", () => {
         expect(annotation.centerPoint?.isEqualTo(XYZ.zero)).toBe(true);
         expect(annotation.textPoint.isEqualTo(POSITION)).toBe(true);
         expect(annotation.value).toBeCloseTo(90);
-        expect(annotation.formattedValue()).toBe("90.0°");
+        expect(annotation.formattedValue()).toBe("90°");
         expect((cmd as any).repeatOperation).toBe(true);
     });
 

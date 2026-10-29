@@ -124,7 +124,7 @@ describe("SketchEditor constraint badge interaction", () => {
             expect(lastBadge(badges, "H").options.onDoubleClick).toBeUndefined();
             // and the datum has no badge at all — its value is drawn as mesh glyphs, and the
             // pointer reaches it through the plane hit-test
-            expect(badges.findLast((b) => b.text === "100.00")).toBeUndefined();
+            expect(badges.findLast((b) => b.text === "100")).toBeUndefined();
             expect(editor.annotations.labelAt(50, 41.5)).toBe(dimension);
             editor.exit();
         } finally {
@@ -846,7 +846,8 @@ describe("SketchEditor dimension label dragging", () => {
             editor.solve(true);
             (ctx.view as any).dom = document.createElement("div");
 
-            press(editor, 400, 300);
+            expect(editor.annotations.labelAt(50, 50)).toBe(1);
+            press(editor, 450, 250);
             // offset (520, 300) -> uv (120, 0): vector (100, -10) from the center (20, 10)
             move(520, 300);
             release(520, 300);
@@ -880,7 +881,7 @@ describe("SketchEditor dimension reading", () => {
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(-100);
             const laid = laidTexts(() => editor.solve(true));
             // the label is mesh glyphs, so what it *reads* is what the font was asked to lay out
-            expect(laid).toContain("100.00");
+            expect(laid).toContain("100");
             expect(laid.filter((text) => text.startsWith("-"))).toEqual([]);
 
             // the arrowheads and the glyphs are faces, and a shaded face draws a different colour
@@ -999,12 +1000,12 @@ describe("SketchEditor dimension preview", () => {
             const meshesBefore = displayed.length;
             handler.pointerMove(view, pointerEvent(450, 250));
             // the preview text draws as mesh glyphs, not as a badge
-            expect(live()).not.toContain("100.00");
+            expect(live()).not.toContain("100");
             expect(displayed.length).toBe(meshesBefore + 1);
-            // face channel = 2 arrowheads (6 corners) + the preview text "100.00"
-            // (6 glyphs × 1 triangle of the test font)
+            // face channel = 2 arrowheads (6 corners) + the preview text "100"
+            // (3 glyphs × 1 triangle of the test font)
             const face = displayed[displayed.length - 1].datas.find((d) => "index" in d);
-            expect(face?.position.length).toBe(24 * 3);
+            expect(face?.position.length).toBe(15 * 3);
 
             // moving rebuilds the preview mesh instead of stacking overlays
             handler.pointerMove(view, pointerEvent(450, 200));
@@ -1012,7 +1013,7 @@ describe("SketchEditor dimension preview", () => {
             expect(removeMesh).toHaveBeenCalledWith(displayed[meshesBefore].id);
 
             editor.annotations.setDimensionPreview(undefined);
-            expect(live()).not.toContain("100.00");
+            expect(live()).not.toContain("100");
 
             editor.cancelPick();
             await expect(pick).resolves.toBeUndefined();
@@ -1040,16 +1041,16 @@ describe("SketchEditor dimension preview", () => {
                 ),
             );
             handler.pointerMove(view, pointerEvent(500, 300));
-            expect(live()).not.toContain("R30.00");
-            // face channel = 1 arrowhead (3 corners) + the preview text "R30.00"
-            // (6 glyphs × 1 triangle of the test font)
+            expect(live()).not.toContain("R30");
+            // face channel = 1 arrowhead (3 corners) + the preview text "R30"
+            // (3 glyphs × 1 triangle of the test font)
             const face = displayed[displayed.length - 1].datas.find((d) => "index" in d);
-            expect(face?.position.length).toBe(21 * 3);
+            expect(face?.position.length).toBe(12 * 3);
 
             editor.cancelPick();
             await expect(pick).resolves.toBeUndefined();
             editor.annotations.setDimensionPreview(undefined);
-            expect(live()).not.toContain("R30.00");
+            expect(live()).not.toContain("R30");
             editor.exit();
         } finally {
             restoreFactory();
@@ -1091,8 +1092,8 @@ describe("SketchEditor dimension preview", () => {
 
     /**
      * A preview's text is mesh glyphs, and the test font draws one triangle per character, so
-     * the mesh size is the text's length — which is how a sign shows up here at all: "-30.00" is
-     * one glyph longer than "30.00".
+     * the mesh size is the text's length — which is how a sign shows up here at all: "-30" is
+     * one glyph longer than "30".
      */
     test("an axis preview reads positive whichever way its two points run", () => {
         const { doc, displayed, restoreFactory } = setup();
@@ -1114,7 +1115,7 @@ describe("SketchEditor dimension preview", () => {
 
             const forwards = faceSize([0, 0], [100, 0]);
             const backwards = faceSize([100, 0], [0, 0]);
-            // the same span either way: "100.00" both times, never "-100.00"
+            // the same span either way: "100" both times, never "-100"
             expect(backwards).toBe(forwards);
             editor.annotations.setDimensionPreview(undefined);
             editor.exit();
@@ -1294,12 +1295,12 @@ describe("SketchEditor conflicting constraint display", () => {
             handler.pointerDown(view, pointerEvent(450, 300));
             handler.pointerUp(view, pointerEvent(450, 300));
 
-            // deleting the "50.00" dimension leaves the vertical/dimension conflict
+            // deleting the "50" dimension leaves the vertical/dimension conflict
             editor.deleteConstraints([ids.conflictId]);
             expect([...editor.diagnostics.conflicting].sort((a, b) => a - b)).toEqual(
                 [ids.verticalId, ids.distanceId].sort((a, b) => a - b),
             );
-            expect(badges.findLast((b) => b.text === "50.00" && !b.disposed)).toBeUndefined();
+            expect(badges.findLast((b) => b.text === "50" && !b.disposed)).toBeUndefined();
             // the horizontal and the vertical share one chip now: the vertical's conflict
             // shows on the chip, while the horizontal inside it stays normal
             const chip = liveChip(badges, "H");
@@ -1364,7 +1365,7 @@ describe("SketchEditor driven dimension display", () => {
         try {
             // the parentheses are the text's own signal — they survive a screenshot and a
             // colour vision deficiency, which the grey does not
-            expect(laidTexts(() => editor.solve(true))).toContain("(100.00)");
+            expect(laidTexts(() => editor.solve(true))).toContain("(100)");
 
             // the value is drawn in the driven grey, and nothing is left in the normal blue
             const entry = displayed.findLast((d) => d.colors.some((c) => c === VisualConfig.drivenColor));
@@ -1422,8 +1423,8 @@ describe("SketchEditor driven dimension display", () => {
 
             // one label each, and only the reference is parenthesised
             const laid = laidTexts(() => editor.solve(true));
-            expect(laid).toContain("(100.00)");
-            expect(laid).toContain("100.00");
+            expect(laid).toContain("(100)");
+            expect(laid).toContain("100");
             editor.exit();
         } finally {
             restoreFactory();

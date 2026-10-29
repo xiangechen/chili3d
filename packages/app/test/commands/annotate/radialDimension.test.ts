@@ -153,12 +153,12 @@ describe("AnnotateRadialDimension", () => {
     test("prompt shows the radius, or the diameter for the diameter command", () => {
         const radial = radialCommand(new TestDocument(), () => new AnnotateRadialDimension());
         (radial as any).getPositionData().beforeExecute();
-        expect((radial as any).dimensionPrompt()).toBe("R10.00");
+        expect((radial as any).dimensionPrompt()).toBe("R10");
         (radial as any).afterExecute();
 
         const diameter = radialCommand(new TestDocument(), () => new AnnotateDiameterDimension());
         (diameter as any).getPositionData().beforeExecute();
-        expect((diameter as any).dimensionPrompt()).toBe("Ø20.00");
+        expect((diameter as any).dimensionPrompt()).toBe("Ø20");
         (diameter as any).afterExecute();
     });
 

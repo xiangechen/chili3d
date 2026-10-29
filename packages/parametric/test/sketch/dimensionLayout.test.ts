@@ -66,15 +66,15 @@ describe("toDisplayDatum / toStorageDatum", () => {
 describe("formatDatum", () => {
     test("a literal reads as its display value, with the affix its kind carries", () => {
         expect(formatDatum(ConstraintKind.P2PDistance, 12.345)).toBe("12.35");
-        expect(formatDatum(ConstraintKind.HorizontalDistance, 80)).toBe("80.00");
+        expect(formatDatum(ConstraintKind.HorizontalDistance, 80)).toBe("80");
         // the radius prefix and the degree sign belong to the datum, not to the caller
-        expect(formatDatum(ConstraintKind.Radius, 30)).toBe("R30.00");
-        // the datum is stored in radians and displayed in degrees, to one place
-        expect(formatDatum(ConstraintKind.Angle, Math.PI / 6)).toBe("30.0°");
+        expect(formatDatum(ConstraintKind.Radius, 30)).toBe("R30");
+        // the datum is stored in radians and displayed in degrees, with up to one place
+        expect(formatDatum(ConstraintKind.Angle, Math.PI / 6)).toBe("30°");
         // a side-carrying distance reads positive on either side — the drawing says which side
-        expect(formatDatum(ConstraintKind.P2LDistance, -30)).toBe("30.00");
-        expect(formatDatum(ConstraintKind.P2LDistance, 30)).toBe("30.00");
-        expect(formatDatum(ConstraintKind.HorizontalDistance, -80)).toBe("80.00");
+        expect(formatDatum(ConstraintKind.P2LDistance, -30)).toBe("30");
+        expect(formatDatum(ConstraintKind.P2LDistance, 30)).toBe("30");
+        expect(formatDatum(ConstraintKind.HorizontalDistance, -80)).toBe("80");
     });
 
     test("an expression reads as written — that name is the user's intent", () => {
@@ -83,8 +83,8 @@ describe("formatDatum", () => {
     });
 
     test("a diameter reads with the Ø over twice the stored radius", () => {
-        expect(formatDatum(ConstraintKind.Radius, 30, "diameter")).toBe("Ø60.00");
-        expect(formatDatum(ConstraintKind.Radius, 30)).toBe("R30.00");
+        expect(formatDatum(ConstraintKind.Radius, 30, "diameter")).toBe("Ø60");
+        expect(formatDatum(ConstraintKind.Radius, 30)).toBe("R30");
     });
 
     test("a diameter expression reads as written, not as the radius it stores", () => {

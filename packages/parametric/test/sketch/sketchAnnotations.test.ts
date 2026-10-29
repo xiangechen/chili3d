@@ -203,7 +203,7 @@ describe("SketchAnnotations visibility", () => {
                 datum: 10,
             });
             editor.solve(true);
-            expect(laidTexts(() => editor.solve(true))).toContain("10.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("10");
             editor.exit();
         } finally {
             restoreFactory();
@@ -224,7 +224,7 @@ describe("SketchAnnotations visibility", () => {
             editor.solve(true);
 
             // the `R` is the dimension's own affix (see `dimensionText`), not the caller's
-            expect(laidTexts(() => editor.solve(true))).toContain("R30.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("R30");
             editor.exit();
         } finally {
             restoreFactory();
@@ -252,7 +252,7 @@ describe("SketchAnnotations visibility", () => {
             });
             editor.dimensionAnchors.set(id, { kind: "vector", dx: 0, dy: 50 });
             editor.solve(true);
-            expect(laidTexts(() => editor.solve(true))).toContain("135.0°");
+            expect(laidTexts(() => editor.solve(true))).toContain("135°");
             editor.exit();
         } finally {
             restoreFactory();
@@ -431,21 +431,21 @@ describe("SketchAnnotationManager mesh text", () => {
             });
             editor.solve(true);
 
-            // face mesh = 2 arrowheads (6 corners) + the text "10.00"
-            // (5 glyphs × 1 triangle of the test font)
+            // face mesh = 2 arrowheads (6 corners) + the text "10"
+            // (2 glyphs × 1 triangle of the test font)
             const face = faceMeshOf(calls);
             expect(face).toBeDefined();
-            expect(face?.position.length).toBe((6 + 15) * 3);
+            expect(face?.position.length).toBe((6 + 6) * 3);
 
             // px = 1 in the mock view: the clamped offset puts the dimension line at
             // y = 14, the anchor half a text height above it; the first glyph corner
-            // (-2.5, -0.5) ems lands at (5 - 2.5·em, 14) — the em lift cancels out
+            // (-1, -0.5) ems lands at (5 - em, 14) — the em lift cancels out
             const em = SKETCH_TEXT_HEIGHT_PX;
             const position = Array.from(face?.position ?? []);
             const hit = position.some(
                 (_, i) =>
                     i % 3 === 0 &&
-                    Math.abs(position[i] - (5 - 2.5 * em)) < 1e-6 &&
+                    Math.abs(position[i] - (5 - em)) < 1e-6 &&
                     Math.abs(position[i + 1] - 14) < 1e-6 &&
                     Math.abs(position[i + 2]) < 1e-6,
             );
@@ -478,14 +478,14 @@ describe("SketchAnnotationManager mesh text", () => {
             editor.dimensionAnchors.set(id, { kind: "offset", offset: 14, along: 2.5 });
             editor.solve(true);
 
-            // px = 1, so the first glyph corner (-2.5, -0.5) ems sits on the dimension
+            // px = 1, so the first glyph corner (-1, -0.5) ems sits on the dimension
             // line at x = 2.5 instead of the segment's middle
             const em = SKETCH_TEXT_HEIGHT_PX;
             const position = Array.from(faceMeshOf(calls)?.position ?? []);
             const hit = position.some(
                 (_, i) =>
                     i % 3 === 0 &&
-                    Math.abs(position[i] - (2.5 - 2.5 * em)) < 1e-6 &&
+                    Math.abs(position[i] - (2.5 - em)) < 1e-6 &&
                     Math.abs(position[i + 1] - 14) < 1e-6,
             );
             expect(hit).toBe(true);

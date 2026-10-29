@@ -512,7 +512,7 @@ export class DimensionAnnotation extends Annotation {
 
     /**
      * Text shown instead of the measured value — a `<>` inside it expands to that
-     * value, so "Ø<>" draws as "Ø10.00". Empty (the default) shows the measurement
+     * value, so "Ø<>" draws as "Ø10". Empty (the default) shows the measurement
      * with the dimension kind's affix (R / Ø / °).
      */
     @serialize()
@@ -559,7 +559,7 @@ export class DimensionAnnotation extends Annotation {
 
     /**
      * The dimension text: the override as written (with `<>` expanded to the digits), or
-     * the measured value with its kind's affix — `R12.00`, `Ø24.00`, `45.0°`. The digits
+     * the measured value with its kind's affix — `R12`, `Ø24`, `45°`. The digits
      * and affixes are the ones every dimension reads with; see `dimensionText`.
      */
     formattedValue(digits?: number): string {

@@ -3,9 +3,9 @@
 
 /**
  * How a measured value reads. The digits and the affixes are one rule wherever a
- * dimension shows a number — a length to two places, an angle to one with its degree
- * sign, a radius prefixed `R`, a diameter `Ø` — so they live here, and the three places
- * that draw a value (the annotation's own read, the command previews, the sketch
+ * dimension shows a number — a length to two places and an angle to one, with a zero
+ * fraction omitted, a radius prefixed `R`, a diameter `Ø` — so they live here, and the
+ * three places that draw a value (the annotation's own read, the command previews, the sketch
  * editor's datum text) ask this module instead of each writing `toFixed` and a prefix.
  *
  * What differs between systems is only *which* tag means what: a 3D annotation carries a
@@ -21,13 +21,16 @@ export type DimensionMeasurement = "length" | "angle" | "radius" | "diameter" | 
  * affixes itself; a plain read is the three joined.
  */
 export interface MeasurementText {
-    /** The value, to the measurement's own number of places. */
+    /** The value, to the measurement's own number of places, unless its fraction is zero. */
     readonly value: string;
     readonly prefix: string;
     readonly suffix: string;
 }
 
-/** How many places a measurement reads to: angles to one, the rest to two. */
+/**
+ * How many places a measurement rounds to before a zero fraction is omitted:
+ * angles to one, the rest to two.
+ */
 export function measurementDecimals(measurement: DimensionMeasurement): number {
     return measurement === "angle" ? 1 : 2;
 }
@@ -48,14 +51,19 @@ export function measurementAffixes(measurement: DimensionMeasurement): { prefix:
     }
 }
 
-/** `value` as it reads for `measurement`; `decimals` overrides the kind's own count. */
+/**
+ * `value` as it reads for `measurement`; `decimals` overrides the rounding
+ * precision before a zero fraction is omitted.
+ */
 export function measurementText(
     measurement: DimensionMeasurement,
     value: number,
     decimals?: number,
 ): MeasurementText {
     const places = decimals ?? measurementDecimals(measurement);
-    return { value: value.toFixed(places), ...measurementAffixes(measurement) };
+    const text = value.toFixed(places);
+    const digits = text.replace(/\.0+$/, "").replace(/^-0$/, "0");
+    return { value: digits, ...measurementAffixes(measurement) };
 }
 
 /** `value` as one string: the digits with their affixes. */

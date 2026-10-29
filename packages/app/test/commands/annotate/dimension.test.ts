@@ -107,7 +107,7 @@ describe("AnnotateDimension", () => {
             const cmd = dimensionCommand(new TestDocument());
             const data = (cmd as any).getThirdPointData();
 
-            expect(data.prompt(pointStepResult({ point: p3() }))).toBe("10.00");
+            expect(data.prompt(pointStepResult({ point: p3() }))).toBe("10");
         });
 
         test("preview renders only the two measured points as markers", () => {

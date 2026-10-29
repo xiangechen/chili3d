@@ -411,11 +411,11 @@ describe("ThreeDimensionAnnotation", () => {
 
         const layout = expectLayout(annotation);
         expectPositionsClose(linePositions(lines), layout.segments);
-        // the solid arrowheads lead the triangle mesh, then the five square
-        // glyphs of "10.00" at two triangles each
+        // the solid arrowheads lead the triangle mesh, then the two square
+        // glyphs of "10" at two triangles each
         const positions = textPositions(texts);
         expectPositionsClose(positions.slice(0, layout.triangles.length), layout.triangles);
-        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 5 * 2 * 3);
+        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 2 * 2 * 3);
         expect(texts.visible).toBe(true);
         expect(visual.locked).toBe(false);
         expect(visual.transform.equals(Matrix4.identity())).toBe(true);
@@ -532,7 +532,7 @@ describe("ThreeDimensionAnnotation", () => {
         expect(textPositions(texts)).toBe(before);
     });
 
-    /** The centre x of the first glyph of "10.00" in the batch's text mesh. */
+    /** The centre x of the first glyph of "10" in the batch's text mesh. */
     function firstGlyphCenterX(texts: Mesh, layout: DimensionLayout): number {
         const glyph = textPositions(texts).slice(layout.triangles.length, layout.triangles.length + 18);
         let minX = Infinity;
@@ -582,15 +582,15 @@ describe("ThreeDimensionAnnotation", () => {
     test("updates the text when the measured value changes", async () => {
         const annotation = createDimension();
         const { texts } = await createVisual(annotation);
-        // two arrowhead triangles, then five glyph quads
-        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 5 * 6);
+        // two arrowhead triangles, then two glyph quads
+        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 2 * 6);
         const before = Array.from(textPositions(texts));
 
         annotation.endPoint = new XYZ(20, 0, 0);
         await flush();
 
-        // "20.00" — still five glyphs, but re-laid out around the new midpoint
-        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 5 * 6);
+        // "20" — still two glyphs, but re-laid out around the new midpoint
+        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 2 * 6);
         expect(Array.from(textPositions(texts))).not.toEqual(before);
     });
 
@@ -602,7 +602,7 @@ describe("ThreeDimensionAnnotation", () => {
         annotation.textOverride = "Ø<>";
         await flush();
 
-        // "Ø10.00" — one glyph more
+        // "Ø10" — one glyph more
         expect(texts.geometry.getAttribute("position").count).toBe(before + 6);
     });
 
@@ -620,7 +620,7 @@ describe("ThreeDimensionAnnotation", () => {
         await flush();
 
         expect(texts.visible).toBe(true);
-        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 5 * 6);
+        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 2 * 6);
     });
 
     test("highlight and unhighlight recolor the batch slices", async () => {
@@ -866,8 +866,8 @@ describe("ThreeDimensionAnnotation", () => {
             dimensionLayoutScale(annotation.textHeight),
         );
         expectPositionsClose(linePositions(lines), layout!.segments);
-        // "R10.00" — six glyphs at two triangles each, after the one arrowhead
-        expect(texts.geometry.getAttribute("position").count).toBe(1 * 3 + 6 * 2 * 3);
+        // "R10" — three glyphs at two triangles each, after the one arrowhead
+        expect(texts.geometry.getAttribute("position").count).toBe(1 * 3 + 3 * 2 * 3);
     });
 
     test("lays out a diameter dimension across the center", async () => {
@@ -889,8 +889,8 @@ describe("ThreeDimensionAnnotation", () => {
             dimensionLayoutScale(annotation.textHeight),
         );
         expectPositionsClose(linePositions(lines), layout!.segments);
-        // "Ø20.00" — six glyphs at two triangles each, after the two arrowheads
-        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 6 * 2 * 3);
+        // "Ø20" — three glyphs at two triangles each, after the two arrowheads
+        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 3 * 2 * 3);
     });
 
     test("lays out an angular dimension and grips the vertex too", async () => {
@@ -910,8 +910,8 @@ describe("ThreeDimensionAnnotation", () => {
             dimensionLayoutScale(annotation.textHeight),
         );
         expectPositionsClose(linePositions(lines), layout!.segments);
-        // "90.0°" — five glyphs at two triangles each, after the two arrowheads
-        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 5 * 2 * 3);
+        // "90°" — three glyphs at two triangles each, after the two arrowheads
+        expect(texts.geometry.getAttribute("position").count).toBe(2 * 3 + 3 * 2 * 3);
 
         // grips at start, end, vertex and text
         const [handles] = visual.wholeVisual() as [Points];

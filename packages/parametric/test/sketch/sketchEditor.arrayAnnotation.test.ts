@@ -99,7 +99,7 @@ describe("an array's numbers on the canvas", () => {
     test("draws the step it takes and the run it takes it along", () => {
         const ctx = setupPattern();
         try {
-            const spacing = badgeFaced(ctx.badges, "20.00");
+            const spacing = badgeFaced(ctx.badges, "20");
             expect(spacing.position.x).toBeCloseTo(15, 6);
             // neither number is drawn on the run: that line is where the tool's handle arrow
             // lies, so both stand off it — the spacing to one side, the count to the other. The
@@ -108,7 +108,7 @@ describe("an array's numbers on the canvas", () => {
             const px = ViewUtils.viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
             expect(px).toBeGreaterThan(0);
             expect(spacing.position.y).toBeCloseTo(-26 * px, 6);
-            expect(spacing.element.title).toContain("20.00");
+            expect(spacing.element.title).toContain("20");
 
             const count = badgeFaced(ctx.badges, "×3");
             // the count names the whole run, so it sits where the last instance landed
@@ -158,7 +158,7 @@ describe("an array's numbers on the canvas", () => {
             const px = ViewUtils.viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
             expect(px).toBeGreaterThan(0);
 
-            const spacing = badgeFaced(ctx.badges, "20.00");
+            const spacing = badgeFaced(ctx.badges, "20");
             expect(spacing.position.y).toBeCloseTo(10, 6);
             expect(spacing.position.x).toBeCloseTo(5 + 26 * px, 6);
 
@@ -187,7 +187,7 @@ describe("an array's numbers on the canvas", () => {
             const px = ViewUtils.viewPixelSize(ctx.view, ctx.editor.solver.plane.origin) ?? 0;
             expect(px).toBeGreaterThan(0);
 
-            const spacing = badgeFaced(ctx.badges, "90.0°");
+            const spacing = badgeFaced(ctx.badges, "90°");
             const count = badgeFaced(ctx.badges, "×3");
             expect(spacing.position.x).toBeCloseTo(5, 6);
             expect(count.position.x).toBeCloseTo(5, 6);
@@ -208,7 +208,7 @@ describe("an array's numbers on the canvas", () => {
             equalSpacing: false,
         });
         try {
-            expect(badgeFaced(ctx.badges, "90.0°").element.title).toContain("90.0°");
+            expect(badgeFaced(ctx.badges, "90°").element.title).toContain("90°");
             expect(badgeFaced(ctx.badges, "×3")).toBeDefined();
         } finally {
             ctx.restorePub();
@@ -219,9 +219,9 @@ describe("an array's numbers on the canvas", () => {
     test("opens the spacing for editing when its annotation is double-clicked", () => {
         const ctx = setupPattern();
         try {
-            badgeFaced(ctx.badges, "20.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            badgeFaced(ctx.badges, "20").element.dispatchEvent(new MouseEvent("dblclick"));
             expect(ctx.dialog.title).toBe("sketch.arraySpacingX");
-            // the box opens on the number as a dimension's does: two places, the reading's own
+            // the badge omits a zero fraction; the edit box keeps two places, as dimension editors do
             expect((ctx.dialog.content?.querySelector("input") as HTMLInputElement).value).toBe("20.00");
 
             expect(confirmDialog(ctx.dialog, "30")).toBe(true);
@@ -253,7 +253,7 @@ describe("an array's numbers on the canvas", () => {
         // options bar already does.
         const ctx = setupPattern();
         try {
-            badgeFaced(ctx.badges, "20.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            badgeFaced(ctx.badges, "20").element.dispatchEvent(new MouseEvent("dblclick"));
 
             expect(confirmDialog(ctx.dialog, "-30")).toBe(true);
 
@@ -359,11 +359,11 @@ describe("an array's numbers on the canvas", () => {
 
             // the numbers the user is about to place are already on the canvas, readable and
             // doubled like those of a pattern that is finished
-            expect(badgeFaced(ctx.badges, "25.00")).toBeDefined();
+            expect(badgeFaced(ctx.badges, "25")).toBeDefined();
             expect(badgeFaced(ctx.badges, "×4")).toBeDefined();
 
             const { dialog, restorePub } = captureDialog();
-            badgeFaced(ctx.badges, "25.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            badgeFaced(ctx.badges, "25").element.dispatchEvent(new MouseEvent("dblclick"));
             // and doubling one writes into the tool rather than into a record that is not there
             expect(confirmDialog(dialog, "40")).toBe(true);
             expect(editor.arrayDraft.set).toHaveBeenCalledWith("spacingX", 40);
@@ -383,14 +383,14 @@ describe("an array's numbers on the canvas", () => {
         // while a handle is live: a number nobody is reaching past is still doubled to edit.
         const ctx = setupPattern();
         try {
-            const rest = badgeFaced(ctx.badges, "20.00");
+            const rest = badgeFaced(ctx.badges, "20");
             expect(rest.element.classList.contains(style.inert)).toBe(false);
 
             ctx.editor.annotations.inertConstraintSymbols = true;
 
             // the same element, restyled: `drawBadge` keeps a badge whose key has not changed,
             // and a press that is under way has to survive the repaint
-            expect(badgeFaced(ctx.badges, "20.00").element).toBe(rest.element);
+            expect(badgeFaced(ctx.badges, "20").element).toBe(rest.element);
             expect(rest.element.classList.contains(style.inert)).toBe(true);
 
             // And a number the drag *changes* is a new badge — its key carries the value — so
@@ -402,7 +402,7 @@ describe("an array's numbers on the canvas", () => {
             });
             ctx.editor.solve(true);
 
-            const dragged = badgeFaced(ctx.badges, "30.00");
+            const dragged = badgeFaced(ctx.badges, "30");
             expect(dragged.element).not.toBe(rest.element);
             expect(dragged.element.classList.contains(style.inert)).toBe(true);
 
@@ -441,7 +441,7 @@ describe("an array's numbers on the canvas", () => {
         try {
             const ids = [ctx.source, ...liveInstanceIds(ctx.editor.solver.arrays()[0])];
             const highlight = rs.spyOn(ctx.doc.visual.eventHandler as never, "highlightConstraintEntities");
-            for (const text of ["20.00", "×3"]) {
+            for (const text of ["20", "×3"]) {
                 badgeFaced(ctx.badges, text).element.dispatchEvent(new Event("mouseenter"));
                 expect(highlight).toHaveBeenLastCalledWith(ids);
             }
@@ -462,15 +462,13 @@ describe("an array's numbers on the canvas", () => {
             const curve = editor.solver.addLine(0, 0, 100, 0);
             editor.solver.addArray({ type: "curve", curveId: curve, count: 3, spacing: 20 }, [source]);
             editor.solve(true);
-            expect(ctx.badges.filter((b) => !b.disposed).map((b) => b.element.textContent)).toContain(
-                "20.00",
-            );
+            expect(ctx.badges.filter((b) => !b.disposed).map((b) => b.element.textContent)).toContain("20");
 
             editor.solver.setPointPosition({ entityId: curve, pointIndex: 1 }, 0, 0);
             editor.solve(true);
 
             const faces = ctx.badges.filter((b) => !b.disposed).map((b) => b.element.textContent);
-            expect(faces).not.toContain("20.00");
+            expect(faces).not.toContain("20");
             expect(faces).not.toContain("×3");
             editor.exit();
         } finally {
@@ -498,7 +496,7 @@ describe("an offset curve's distance on the canvas", () => {
     test("draws the distance the copy runs at, beside the copy", () => {
         const ctx = setupOffset();
         try {
-            const badge = badgeFaced(ctx.badges, "1.00");
+            const badge = badgeFaced(ctx.badges, "1");
             // the number is the distance the entity holds, which is the whole of what the user
             // decides about a copy that has no geometry of its own
             expect(ctx.editor.solver.entity(ctx.copy)?.offset?.distance).toBe(1);
@@ -514,7 +512,7 @@ describe("an offset curve's distance on the canvas", () => {
     test("follows the geometry it reads, as a pattern's number does", () => {
         const ctx = setupOffset();
         try {
-            const before = badgeFaced(ctx.badges, "1.00").position.x;
+            const before = badgeFaced(ctx.badges, "1").position.x;
             const drawn = ctx.badges.length;
 
             // widen the ellipse: the copy rides out with it, and the number goes with the copy
@@ -526,7 +524,7 @@ describe("an offset curve's distance on the canvas", () => {
             // key already has without drawing it again, so the key has to name where the number
             // sits — the same reason a pattern's key carries its run's anchor.
             expect(ctx.badges.length).toBeGreaterThan(drawn);
-            expect(badgeFaced(ctx.badges, "1.00").position.x).toBeLessThan(before);
+            expect(badgeFaced(ctx.badges, "1").position.x).toBeLessThan(before);
         } finally {
             ctx.restorePub();
             ctx.restoreFactory();
@@ -536,7 +534,7 @@ describe("an offset curve's distance on the canvas", () => {
     test("opens the distance for editing when its number is double-clicked", () => {
         const ctx = setupOffset();
         try {
-            badgeFaced(ctx.badges, "1.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            badgeFaced(ctx.badges, "1").element.dispatchEvent(new MouseEvent("dblclick"));
             expect(ctx.dialog.title).toBe("sketch.offsetDistance");
             expect((ctx.dialog.content?.querySelector("input") as HTMLInputElement).value).toBe("1.00");
 
@@ -556,7 +554,7 @@ describe("an offset curve's distance on the canvas", () => {
     test("refuses a distance the source cannot carry, leaving the copy where it was", () => {
         const ctx = setupOffset();
         try {
-            badgeFaced(ctx.badges, "1.00").element.dispatchEvent(new MouseEvent("dblclick"));
+            badgeFaced(ctx.badges, "1").element.dispatchEvent(new MouseEvent("dblclick"));
             // the (6, 3) ellipse turns on a radius of 1.5 at the ends of its major axis, so an
             // inward offset past that folds the parallel curve through itself
             expect(confirmDialog(ctx.dialog, "-2")).toBe(true);

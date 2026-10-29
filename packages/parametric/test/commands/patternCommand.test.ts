@@ -876,7 +876,7 @@ describe("circular pattern session badges", () => {
         openSession(doc, cmd);
 
         expect(badges).toHaveLength(2);
-        expect(badges[0].text).toBe("360.0°");
+        expect(badges[0].text).toBe("360°");
         // the rim point (5,5,2.5) swung half of 360° about the +Z axis through the origin
         expectPoint(badges[0].position, -5, -5, 2.5);
         expect(badges[1].text).toBe("×3");
@@ -901,7 +901,7 @@ describe("circular pattern session badges", () => {
         expect(badges).toHaveLength(4);
         expect(badges[0].disposed).toBe(true);
         expect(badges[1].disposed).toBe(true);
-        expect(badges[2].text).toBe("180.0°");
+        expect(badges[2].text).toBe("180°");
         expectPoint(badges[2].position, -5, 5, 2.5); // the rim point swung half of 180°
         expect(badges[3].text).toBe("×3");
         expectPoint(badges[3].position, -6.8301, 1.8301, 2.5); // the even spread's last at 120°

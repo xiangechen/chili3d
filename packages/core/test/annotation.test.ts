@@ -389,13 +389,13 @@ describe("DimensionAnnotation", () => {
             annotationType: "dimension",
             name: "test-dimension",
             startPoint: XYZ.zero,
-            endPoint: new XYZ({ x: 3, y: 4, z: 0 }),
+            endPoint: new XYZ({ x: 5.25, y: 0, z: 0 }),
             textPoint: XYZ.zero,
         });
 
-        expect(anno.value).toBeCloseTo(5);
-        expect(anno.formattedValue()).toBe("5.00");
-        expect(anno.formattedValue(1)).toBe("5.0");
+        expect(anno.value).toBeCloseTo(5.25);
+        expect(anno.formattedValue()).toBe("5.25");
+        expect(anno.formattedValue(1)).toBe("5.3");
     });
 
     test("should set and get points", () => {
@@ -493,16 +493,16 @@ describe("DimensionAnnotation", () => {
         });
 
         expect(anno.textOverride).toBe("");
-        expect(anno.formattedValue()).toBe("5.00");
+        expect(anno.formattedValue()).toBe("5");
 
         anno.textOverride = "custom";
         expect(anno.formattedValue()).toBe("custom");
 
         anno.textOverride = "Ø<> ±0.1";
-        expect(anno.formattedValue()).toBe("Ø5.00 ±0.1");
+        expect(anno.formattedValue()).toBe("Ø5 ±0.1");
 
         anno.textOverride = "";
-        expect(anno.formattedValue()).toBe("5.00");
+        expect(anno.formattedValue()).toBe("5");
     });
 
     test("textOverride can be given at construction and survives serialization", () => {
@@ -517,14 +517,14 @@ describe("DimensionAnnotation", () => {
         });
 
         expect(anno.textOverride).toBe("Ø<>");
-        expect(anno.formattedValue()).toBe("Ø5.00");
+        expect(anno.formattedValue()).toBe("Ø5");
 
         const restored = Serializer.deserializeObject(
             doc,
             Serializer.serializeObject(anno),
         ) as DimensionAnnotation;
         expect(restored.textOverride).toBe("Ø<>");
-        expect(restored.formattedValue()).toBe("Ø5.00");
+        expect(restored.formattedValue()).toBe("Ø5");
     });
 
     test("should survive a serialization roundtrip", () => {
@@ -564,7 +564,7 @@ describe("DimensionAnnotation", () => {
             textPoint: new XYZ({ x: 8, y: 4, z: 0 }),
         });
         expect(radial.value).toBeCloseTo(5);
-        expect(radial.formattedValue()).toBe("R5.00");
+        expect(radial.formattedValue()).toBe("R5");
 
         const diameter = new DimensionAnnotation({
             document: doc,
@@ -576,11 +576,11 @@ describe("DimensionAnnotation", () => {
             textPoint: new XYZ({ x: 12, y: 4, z: 0 }),
         });
         expect(diameter.value).toBeCloseTo(10);
-        expect(diameter.formattedValue()).toBe("Ø10.00");
+        expect(diameter.formattedValue()).toBe("Ø10");
 
         // the override stays the full text — no affixes added
         radial.textOverride = "drill <>";
-        expect(radial.formattedValue()).toBe("drill 5.00");
+        expect(radial.formattedValue()).toBe("drill 5");
     });
 
     test("an angular dimension reports the drawn sweep in degrees, reflex included", () => {
@@ -596,12 +596,12 @@ describe("DimensionAnnotation", () => {
         });
 
         expect(anno.value).toBeCloseTo(90);
-        expect(anno.formattedValue()).toBe("90.0°");
+        expect(anno.formattedValue()).toBe("90°");
 
         // dragging the text to the far side draws (and reports) the reflex angle
         anno.textPoint = new XYZ({ x: -2, y: -2, z: 0 });
         expect(anno.value).toBeCloseTo(270);
-        expect(anno.formattedValue()).toBe("270.0°");
+        expect(anno.formattedValue()).toBe("270°");
     });
 
     test("an angular dimension without a vertex falls back to the point distance", () => {

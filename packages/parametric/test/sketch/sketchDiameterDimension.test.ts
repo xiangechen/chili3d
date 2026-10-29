@@ -148,7 +148,7 @@ describe("a diameter dimension", () => {
     test("reads as Ø over a radius constraint", () => {
         const { editor, restore } = setup("diameter");
         try {
-            expect(laidTexts(() => editor.solve(true))).toContain("Ø60.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("Ø60");
             expect(editor.solver.toData().constraints[0].kind).toBe(ConstraintKind.Radius);
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(30);
             editor.exit();
@@ -163,8 +163,8 @@ describe("a diameter dimension", () => {
         const { badges, editor, restore } = setup();
         try {
             const laid = laidTexts(() => editor.solve(true));
-            expect(laid).toContain("R30.00");
-            expect(laid).not.toContain("Ø60.00");
+            expect(laid).toContain("R30");
+            expect(laid).not.toContain("Ø60");
             expect(editor.solver.toData().constraints[0].datum).toBeCloseTo(30);
             editor.exit();
         } finally {
@@ -196,7 +196,7 @@ describe("a diameter dimension", () => {
             expect(editor.dimensionAnchors.get(id)).toEqual({ kind: "vector", dx: 50, dy: 100 });
             expect(node.data.anchors).toEqual([{ id, anchor: { kind: "vector", dx: 50, dy: 100 } }]);
             expect(editor.solver.toData().constraints[0].display).toBe("diameter");
-            expect(laidTexts(() => editor.solve(true))).toContain("Ø60.00");
+            expect(laidTexts(() => editor.solve(true))).toContain("Ø60");
             editor.exit();
         } finally {
             restore();

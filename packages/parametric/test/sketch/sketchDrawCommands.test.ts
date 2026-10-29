@@ -130,12 +130,12 @@ function promptOf(command: object, points: [number, number][], index: number, pr
 
 describe("step readouts", () => {
     test("the rectangle's is its two sides, not the diagonal to the first corner", () => {
-        expect(promptOf(new SketchRectangleCommand(), [[0, 0]], 1, [10, 5])).toBe("10.00, 5.00");
+        expect(promptOf(new SketchRectangleCommand(), [[0, 0]], 1, [10, 5])).toBe("10, 5");
     });
 
     test("the rectangle's reads the sides the same either way round", () => {
         // a corner picked up and to the left of the first: both offsets are negative
-        expect(promptOf(new SketchRectangleCommand(), [[10, 5]], 1, [0, 0])).toBe("10.00, 5.00");
+        expect(promptOf(new SketchRectangleCommand(), [[10, 5]], 1, [0, 0])).toBe("10, 5");
     });
 
     test("the rectangle's falls back while there is no point to read", () => {
