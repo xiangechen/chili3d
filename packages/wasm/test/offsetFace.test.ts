@@ -1,6 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
     type IFace,
     type IShape,
@@ -13,7 +15,7 @@ import {
     XYZ,
 } from "@chili3d/core";
 import type { ShapeFactory } from "../src/factory";
-import { createTestFactory, unwrapOk } from "./helpers";
+import { createTestConverter, createTestFactory, unwrapOk } from "./helpers";
 import "./setup";
 
 let factory: ShapeFactory;
@@ -104,6 +106,27 @@ describe("ShapeFactory — offset face", () => {
 
         expect(result.isOk).toBe(false);
         expect(result.isOk ? 0 : result.error.status).toBe(3);
+    });
+
+    test("reports 'nothing works' with the probe that proved it, without searching", () => {
+        // A body OCCT can build an answer for but our checks refuse at every distance: this one
+        // returns a valid-looking body whose moved face never arrives. Its second face is the
+        // one that refuses; the point of the case is the report, not the face.
+        const brep = readFileSync(
+            path.resolve(import.meta.dirname, "models", "simplifySolid.brep"),
+            "utf-8",
+        );
+        const imported = unwrapOk(createTestConverter().convertFromBrep(brep));
+        const solid = imported.findSubShapes(ShapeTypes.solid)[0];
+        const faces = solid.findSubShapes(ShapeTypes.face) as IFace[];
+
+        const result = offsetFaces(solid, [faces[1]], 1);
+
+        expect(result.isOk).toBe(false);
+        expect(result.isOk ? 0 : result.error.status).toBe(2);
+        // The probe the fast path asks at, in millimetres: the bound a caller may cache, and the
+        // reason the drag does not pay the seven-step bisection on a body like this one.
+        expect(result.isOk ? 0 : result.error.maxDistance).toBeCloseTo(0.001, 6);
     });
 
     test("classifies a distance too far for the body, and finds how far it goes", () => {

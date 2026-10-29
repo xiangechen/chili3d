@@ -187,7 +187,9 @@ struct TrackedShapeResult {
     // how far the body would have taken, which OCCT only gives by bisecting. The generic
     // `error` string cannot carry that: the caller words the message, per locale.
     // status: 1 too far (valueMilli = the largest distance that works, ×1000),
-    // 2 no distance works, 3 not a solid, 4 a sealed void inside, 5 an OCCT failure,
+    // 2 no distance works (valueMilli = the smallest distance known to fail — the probe the
+    // answer rests on; 0 when the request was too small to probe), 3 not a solid,
+    // 4 a sealed void inside, 5 an OCCT failure,
     // 6 rounded edges meet at a sharp corner inside one smooth chain, 7 the rounds beside a
     // moving face cannot be kept (only on a `requireRounds` call, and only when the move itself
     // would have worked — a distance the plain path also refuses keeps its own status).
@@ -1798,8 +1800,19 @@ static std::vector<int> explainOffset(const TopoDS_Shape& input, const std::vect
     const std::vector<int>& moving, double distance)
 {
     const double sign = distance < 0 ? -1.0 : 1.0;
+    const double magnitude = std::fabs(distance);
+    // Whether even a hair-thin offset builds decides between "too far" (1, with a bound) and
+    // "nothing works" (2) without paying the seven bisection builds. The probe is a fixed 1e-3 mm
+    // rather than |d|/128: below the build's own 1e-4 tolerance OCCT refuses offsets that work a
+    // little further out (measured: 2e-4 mm builds, 8e-5 does not), and a probe that fails for
+    // THAT reason would report an offsettable body as unoffsettable. A body OCCT cannot offset at
+    // all is the common refusal, and a drag asks this per pick — one build instead of eight.
+    // The probe's distance rides back in the report as the smallest distance known to fail.
+    const double probe = 1e-3;
+    if (magnitude > probe && !offsetWorks(input, picked, moving, sign * probe))
+        return { 2, static_cast<int>(std::lround(probe * 1000.0)) };
     const double largest = largestThatWorks([&](double m) { return offsetWorks(input, picked, moving, sign * m); },
-        std::fabs(distance));
+        magnitude);
     const int status = largest > 0 ? 1 : 2;
     return { status, static_cast<int>(std::lround(largest * 1000.0)) };
 }

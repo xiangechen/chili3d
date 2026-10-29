@@ -107,7 +107,9 @@ export interface OffsetFaceProblem {
     readonly status: number;
     /**
      * With status 1, the largest distance OF THE SAME SIGN that does work, in millimetres —
-     * the "max ≈ this" of the message. 0 with every other status.
+     * the "max ≈ this" of the message. With status 2, the smallest distance known to fail: the
+     * probe the kernel answered without a search, which a caller may cache as a lower bound for
+     * THIS direction only. 0 when the kernel knows of no such distance.
      */
     readonly maxDistance: number;
 }
