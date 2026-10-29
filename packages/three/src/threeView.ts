@@ -1229,7 +1229,7 @@ export class ThreeView extends Observable implements IView {
     private initIntersectableShapes(shapeType: ShapeType) {
         let shapes: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
-            if (x instanceof ThreeVisualObject && x.node.visible && x.node.parentVisible) {
+            if (x instanceof ThreeVisualObject && x.visible && x.node.visible && x.node.parentVisible) {
                 shapes.push(...x.subShapeVisual(shapeType));
             }
         });

@@ -403,6 +403,17 @@ describe("ThreeView detect — positive hits with real geometry", () => {
         expect(subs[0].point!.z).toBeGreaterThan(subs[1].point!.z);
     });
 
+    test("detectShapes skips a visual hidden without hiding its model node", () => {
+        const { view, visual, near, far, center } = createSceneWithPanels();
+        const nearVisual = visual.context.getVisual(near)!;
+        nearVisual.visible = false;
+
+        const subs = view.detectShapes(ShapeTypes.face, center.x, center.y);
+
+        expect(subs.length).toBe(1);
+        expect(subs[0].shape).toBe(far.panel.face);
+    });
+
     test("detectShapes returns empty when the ray hits nothing", () => {
         const { view, empty } = createSceneWithPanels();
 
