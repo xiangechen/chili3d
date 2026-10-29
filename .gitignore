@@ -10,3 +10,5 @@ types
 
 # a scenario run's screenshots (/test/scenarios/<name>/*.png)
 /test/scenarios
+
+/docs/manual/book/

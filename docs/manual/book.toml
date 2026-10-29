@@ -1,0 +1,31 @@
+[book]
+title = "Chili3D / Chili3D Pro 操作手册"
+language = "zh-CN"
+src = "."
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+additional-css = ["print.css"]
+
+[output.html.print]
+enable = true
+
+[output.pdf]
+landscape = false
+display-header-footer = true
+print-background = true
+scale = 1.0
+paper-width = 8.27
+paper-height = 11.69
+margin-top = 0.65
+margin-bottom = 0.65
+margin-left = 0.65
+margin-right = 0.65
+prefer-css-page-size = false
+generate-document-outline = true
+generate-tagged-pdf = true
+header-template = "<div style='font-size:8px; width:100%; padding:0 12mm; color:#666;'>Chili3D / Chili3D Pro 操作手册</div>"
+footer-template = "<div style='font-size:8px; width:100%; padding:0 12mm; text-align:right; color:#666;'><span class='pageNumber'></span> / <span class='totalPages'></span></div>"
