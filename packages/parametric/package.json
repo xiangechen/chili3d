@@ -1,6 +1,6 @@
 {
     "name": "@chili3d/parametric",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "Parametric feature-list bodies (extrude/revolve from sketches, then fillet/chamfer etc.)",
     "main": "src/index.ts",
     "type": "module",

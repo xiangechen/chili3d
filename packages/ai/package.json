@@ -1,6 +1,6 @@
 {
     "name": "@chili3d/ai",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "description": "In-app AI chat assistant for Chili3D (zero-relay, browser-direct)",
     "main": "src/index.ts",
     "devDependencies": {
