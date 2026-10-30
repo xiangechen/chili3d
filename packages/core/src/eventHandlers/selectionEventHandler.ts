@@ -130,16 +130,21 @@ export abstract class SelectionHandler implements IEventHandler {
         event.preventDefault();
 
         if (this.mouse.isDown && event.isPrimary) {
-            this.mouse.isDown = false;
-            this.removeRect(view);
-            const count = this.select(view, event);
-            this.cleanHighlights();
-            view.update();
-            if (count > 0 && (this.canFinishSelection() || (!this.multiMode && this.finishOnClick))) {
-                this.controller?.success();
-            }
+            this.completeSelection(view, event);
         }
         this.pointerEventMap.delete(event.pointerId);
+    }
+
+    protected completeSelection(view: IView, event: PointerEvent): number {
+        this.mouse.isDown = false;
+        this.removeRect(view);
+        const count = this.select(view, event);
+        this.cleanHighlights();
+        view.update();
+        if (count > 0 && (this.canFinishSelection() || (!this.multiMode && this.finishOnClick))) {
+            this.controller?.success();
+        }
+        return count;
     }
 
     protected removeRect(view: IView) {

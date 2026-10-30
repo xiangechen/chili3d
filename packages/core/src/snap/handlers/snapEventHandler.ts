@@ -167,8 +167,16 @@ export abstract class SnapEventHandler<D extends SnapData = SnapData> implements
             event.offsetY,
             this.data.filter,
             NOT_REFERENCE_GEOMETRY_FILTER,
+            this.data.includeHiddenVisuals,
         );
-        return { shapes, view, mx: event.offsetX, my: event.offsetY };
+        return {
+            shapes,
+            view,
+            mx: event.offsetX,
+            my: event.offsetY,
+            filter: this.data.filter,
+            includeHiddenVisuals: this.data.includeHiddenVisuals,
+        };
     }
 
     protected clearSnapPrompt() {

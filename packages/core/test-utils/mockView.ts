@@ -39,7 +39,7 @@ export function createMockView(overrides?: Partial<IView>): IView {
         unisolate: () => {},
         resize: () => {},
         setDom: () => {},
-        htmlText: () => ({ dispose: () => {} }),
+        htmlText: () => ({ dispose: () => {}, update: () => {} }),
         close: () => {},
         detectVisual: () => [],
         detectVisualRect: () => [],

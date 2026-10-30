@@ -35,6 +35,8 @@ export interface SnapData {
         when?: () => boolean;
     }[];
     beforeExecute?: () => void;
+    /** Ignore visual rendering visibility, but still respect node.visible and node.parentVisible. */
+    includeHiddenVisuals?: boolean;
     afterExecute?: () => void;
     onKeyDown?: (key: KeyboardEvent) => void;
 }
@@ -81,6 +83,9 @@ export interface MouseAndDetected {
     mx: number;
     my: number;
     shapes: VisualShapeData[];
+    filter?: IShapeFilter;
+    /** Ignore visual rendering visibility, but still respect node.visible and node.parentVisible. */
+    includeHiddenVisuals?: boolean;
 }
 
 export interface ISnap {

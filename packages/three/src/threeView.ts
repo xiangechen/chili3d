@@ -6,9 +6,9 @@ import {
     Config,
     debounce,
     type HtmlTextOptions,
-    type IDisposable,
     type IDocument,
     type IFace,
+    type IHtmlText,
     type INode,
     type INodeFilter,
     type IShape,
@@ -351,17 +351,25 @@ export class ThreeView extends Observable implements IView {
         this.cameraController.updateCameraPosionTarget();
     }
 
-    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable {
+    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IHtmlText {
         const dispose = () => {
             options?.onDispose?.();
             this.content.cssObjects.remove(cssObject);
             cssObject.element.remove();
         };
         const cssObject = new CSS2DObject(this.htmlElement(text, dispose, options));
+        const textElement = cssObject.element.querySelector("span");
         cssObject.position.set(point.x, point.y, point.z);
         if (options?.center) cssObject.center.set(options.center.x, options.center.y);
         this.content.cssObjects.add(cssObject);
-        return { dispose };
+        return {
+            dispose,
+            update: (value, position) => {
+                if (textElement) textElement.textContent = value;
+                cssObject.position.set(position.x, position.y, position.z);
+                this.update();
+            },
+        };
     }
 
     private htmlElement(text: string, dispose: () => void, options?: HtmlTextOptions): HTMLElement {
@@ -1022,8 +1030,9 @@ export class ThreeView extends Observable implements IView {
         my: number,
         shapeFilter?: IShapeFilter,
         nodeFilter?: INodeFilter,
+        includeHiddenVisuals = false,
     ): VisualShapeData[] {
-        const intersections = this.findIntersectedShapes(shapeType, mx, my);
+        const intersections = this.findIntersectedShapes(shapeType, mx, my, includeHiddenVisuals);
         // A vertex pick asks for the vertex ITSELF, wherever it lives: vertex is otherwise
         // "whole" (a point node picked as one shape), but here the sub-shape is the answer.
         if (ShapeTypeUtils.isWhole(shapeType) && shapeType !== ShapeTypes.vertex) {
@@ -1220,16 +1229,22 @@ export class ThreeView extends Observable implements IView {
         return this.initRaycaster(mx, my).intersectObjects(visuals, false);
     }
 
-    private findIntersectedShapes(shapeType: ShapeType, mx: number, my: number) {
+    private findIntersectedShapes(
+        shapeType: ShapeType,
+        mx: number,
+        my: number,
+        includeHiddenVisuals: boolean,
+    ) {
         const raycaster = this.initRaycaster(mx, my);
-        const shapes = this.initIntersectableShapes(shapeType);
+        const shapes = this.initIntersectableShapes(shapeType, includeHiddenVisuals);
         return raycaster.intersectObjects(shapes, false);
     }
 
-    private initIntersectableShapes(shapeType: ShapeType) {
+    private initIntersectableShapes(shapeType: ShapeType, includeHiddenVisuals: boolean) {
         let shapes: Object3D[] = [];
         this.document.visual.context.visuals().forEach((x) => {
-            if (x instanceof ThreeVisualObject && x.visible && x.node.visible && x.node.parentVisible) {
+            const pickable = includeHiddenVisuals || x.visible;
+            if (x instanceof ThreeVisualObject && pickable && x.node.visible && x.node.parentVisible) {
                 shapes.push(...x.subShapeVisual(shapeType));
             }
         });

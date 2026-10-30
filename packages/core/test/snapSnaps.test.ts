@@ -292,6 +292,19 @@ describe("SurfaceSnap", () => {
         expect(result!.point!.isEqualTo(transform.ofPoint(local))).toBe(true);
     });
 
+    test("passes the shape filter and hidden visual option to face detection", () => {
+        Config.instance.snapType = ObjectSnapTypes.onSurface;
+        const detectShapes = rs.fn((..._args: unknown[]) => []);
+        const view = createSnapTestView({ detectShapes });
+        const filter = { allow: () => true };
+
+        new SurfaceSnap().snap(createMouseAndDetected(view, { filter, includeHiddenVisuals: true }));
+
+        expect(detectShapes).toHaveBeenCalledTimes(1);
+        expect(detectShapes.mock.calls[0][3]).toBe(filter);
+        expect(detectShapes.mock.calls[0][5]).toBe(true);
+    });
+
     test("should return undefined without detecting faces when snap is globally disabled", () => {
         Config.instance.enableSnap = false;
         Config.instance.snapType = ObjectSnapTypes.onSurface;

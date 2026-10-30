@@ -51,6 +51,21 @@ describe("SnapEventHandler — base class behaviour", () => {
             expect(handler.state).toBe("snapping");
         });
 
+        test("passes shape filter and includeHiddenVisuals to every shape detection", () => {
+            const detectShapes = rs.fn((..._args: unknown[]) => []);
+            const filter = { allow: () => true };
+            const handler = new PointSnapEventHandler(document, controller, {
+                filter,
+                includeHiddenVisuals: true,
+            });
+
+            handler.pointerMove(createHandlerMockView({ detectShapes } as any), createPointerEvent());
+
+            expect(detectShapes).toHaveBeenCalled();
+            expect(detectShapes.mock.calls.every((call) => call[3] === filter)).toBe(true);
+            expect(detectShapes.mock.calls.every((call) => call[5] === true)).toBe(true);
+        });
+
         test("requests vertices only when vertex snapping is enabled", () => {
             const previous = Config.instance.snapType;
             try {

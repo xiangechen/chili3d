@@ -491,6 +491,23 @@ describe("ThreeView — htmlText", () => {
         expect(context.cssObjects.children.length).toBe(before);
     });
 
+    test("htmlText update reuses the css object and changes its text and position", () => {
+        const { view, context } = createTestView();
+        const result = view.htmlText("Before", XYZ.zero);
+        const cssObject = context.cssObjects.children.at(-1) as any;
+        const updateView = rs.spyOn(view, "update");
+
+        result.update("After", new XYZ({ x: 10, y: 20, z: 30 }));
+
+        expect(updateView).toHaveBeenCalledTimes(1);
+        expect(context.cssObjects.children.at(-1)).toBe(cssObject);
+        expect(cssObject.element.querySelector("span")?.textContent).toBe("After");
+        expect(cssObject.position.x).toBe(10);
+        expect(cssObject.position.y).toBe(20);
+        expect(cssObject.position.z).toBe(30);
+        result.dispose();
+    });
+
     test("htmlText with className option applies the class", () => {
         const { view, context } = createTestView();
         const result = view.htmlText("Test", new XYZ({ x: 10, y: 20, z: 30 }), {

@@ -414,6 +414,28 @@ describe("ThreeView detect — positive hits with real geometry", () => {
         expect(subs[0].shape).toBe(far.panel.face);
     });
 
+    test("includeHiddenVisuals detects preview-hidden geometry but not model-hidden nodes", () => {
+        const { view, visual, near, far, center } = createSceneWithPanels();
+        const nearVisual = visual.context.getVisual(near)!;
+        nearVisual.visible = false;
+
+        const included = view.detectShapes(ShapeTypes.face, center.x, center.y, undefined, undefined, true);
+        expect(included.length).toBe(2);
+        expect(included[0].shape).toBe(near.panel.face);
+
+        near.visible = false;
+        const modelHidden = view.detectShapes(
+            ShapeTypes.face,
+            center.x,
+            center.y,
+            undefined,
+            undefined,
+            true,
+        );
+        expect(modelHidden.length).toBe(1);
+        expect(modelHidden[0].shape).toBe(far.panel.face);
+    });
+
     test("detectShapes returns empty when the ray hits nothing", () => {
         const { view, empty } = createSceneWithPanels();
 

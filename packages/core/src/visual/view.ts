@@ -39,6 +39,11 @@ export type HtmlTextOptions = {
     onCreated?: (element: HTMLElement) => void;
 };
 
+export interface IHtmlText extends IDisposable {
+    /** Updates the existing label and requests a render of its view. */
+    update(text: string, point: XYZLike): void;
+}
+
 /** How `toImage` encodes the frame; with no options the full-size PNG is returned as before. */
 export interface ToImageOptions {
     /** Cap on the long edge in pixels; a larger frame is downscaled to fit. */
@@ -82,7 +87,7 @@ export interface IView extends IPropertyChanged, IDisposable {
     unisolate(): void;
     resize(width: number, heigth: number): void;
     setDom(element: HTMLElement): void;
-    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IDisposable;
+    htmlText(text: string, point: XYZLike, options?: HtmlTextOptions): IHtmlText;
     close(): void;
     detectVisual(x: number, y: number, nodeFilter?: INodeFilter): IVisualObject[];
     detectVisualRect(
@@ -92,12 +97,17 @@ export interface IView extends IPropertyChanged, IDisposable {
         y2: number,
         nodeFilter?: INodeFilter,
     ): IVisualObject[];
+    /**
+     * `includeHiddenVisuals` ignores rendering visibility on the visual object itself;
+     * `node.visible` and `node.parentVisible` still apply.
+     */
     detectShapes(
         shapeType: ShapeType,
         x: number,
         y: number,
         shapeFilter?: IShapeFilter,
         nodeFilter?: INodeFilter,
+        includeHiddenVisuals?: boolean,
     ): VisualShapeData[];
     detectShapesRect(
         shapeType: ShapeType,

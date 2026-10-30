@@ -37,8 +37,9 @@ export class SurfaceSnap implements ISnap {
             ShapeTypes.face,
             data.mx,
             data.my,
-            undefined,
+            data.filter,
             NOT_REFERENCE_GEOMETRY_FILTER,
+            data.includeHiddenVisuals,
         );
         if (shapes.length === 0) {
             return undefined;
