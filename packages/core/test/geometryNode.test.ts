@@ -1,10 +1,12 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { rs } from "@rstest/core";
 import type { IDocument } from "../src/document";
-import { Id } from "../src/foundation";
+import { Id, Transaction } from "../src/foundation";
 import type { I18nKeys } from "../src/i18n";
 import { FaceMaterialPair, GeometryNode } from "../src/model/geometryNode";
+import type { INode } from "../src/model/node";
 import type { IShapeMeshData } from "../src/shape";
 import { TestDocument } from "../test-utils";
 
@@ -195,6 +197,130 @@ describe("GeometryNode", () => {
             const node = new TestGeometryNode({ document: doc, name: "test", materialId: ["mat1", "mat2"] });
             node.faceMaterialPair = [new FaceMaterialPair({ faceIndex: 1, materialIndex: 1 })];
             node.removeFaceMaterial([1]);
+            expect(node.materialId).toBe("mat1");
+            expect(node.faceMaterialPair).toEqual([]);
+        });
+    });
+
+    describe("repainting a node", () => {
+        /** A mesh whose `range` lists `count` faces of one triangle each. */
+        function faceMesh(count: number) {
+            const position: number[] = [];
+            const normal: number[] = [];
+            const uv: number[] = [];
+            const index: number[] = [];
+            const range: { start: number; count: number; shape: undefined }[] = [];
+            for (let face = 0; face < count; face++) {
+                const base = face * 3;
+                position.push(base, 0, 0, base + 1, 0, 0, base, 1, 0);
+                normal.push(0, 0, 1, 0, 0, 1, 0, 0, 1);
+                uv.push(0, 0, 1, 0, 0, 1);
+                range.push({ start: index.length, count: 3, shape: undefined });
+                index.push(base, base + 1, base + 2);
+            }
+            return {
+                position: new Float32Array(position),
+                normal: new Float32Array(normal),
+                uv: new Float32Array(uv),
+                index: new Uint32Array(index),
+                range,
+                groups: [],
+            };
+        }
+
+        function preparedNode(count = 1): { node: TestGeometryNode; redraw: ReturnType<typeof rs.fn> } {
+            const node = new TestGeometryNode({ document: doc, name: "test", materialId: "mat1" });
+            // `updateVisual` merges the raw faces `createMesh` captured; building them through
+            // the real kernel is not what these tests are about.
+            const mesh = faceMesh(count);
+            (node as any)._originFaceMesh = mesh;
+            (node as any)._mesh = { faces: mesh };
+            const context = (doc as any).visual.context;
+            const redraw = rs.fn((_nodes: INode[]) => {});
+            context.redrawNode = redraw;
+            return { node, redraw };
+        }
+
+        test("rebuilds the display of a node that has a visual", () => {
+            const { node, redraw } = preparedNode();
+            (doc as any).visual.context.getVisual = () => ({});
+
+            node.faceMaterialPair = [new FaceMaterialPair({ faceIndex: 0, materialIndex: 0 })];
+
+            expect(redraw).toHaveBeenCalledTimes(1);
+            expect(redraw.mock.calls[0][0]).toEqual([node]);
+        });
+
+        test("merges the paint into the cached mesh but adds no visual to a removed node", () => {
+            const { node, redraw } = preparedNode();
+            // What the history leaves behind after its removal record: no visual any more.
+            (doc as any).visual.context.getVisual = () => undefined;
+
+            node.faceMaterialPair = [new FaceMaterialPair({ faceIndex: 0, materialIndex: 0 })];
+
+            // The merged mesh is what a re-insert (redo) displays, so it must still happen.
+            expect(node.mesh.faces?.groups).toEqual([{ start: 0, count: 3, materialIndex: 0 }]);
+            expect(node.materialId).toBe("mat1");
+            expect(redraw).not.toHaveBeenCalled();
+        });
+
+        test("does not write into a mesh a refresh dropped", () => {
+            const { node } = preparedNode();
+            (doc as any).visual.context.getVisual = () => undefined;
+            node.refreshMesh();
+            expect((node as any)._mesh).toBeUndefined();
+
+            // Nothing to merge into — the next `createMesh` merges from the raw faces instead.
+            node.faceMaterialPair = [new FaceMaterialPair({ faceIndex: 0, materialIndex: 0 })];
+
+            expect(node.faceMaterialPair).toHaveLength(1);
+        });
+
+        test("keeps a material id that removeFaceMaterial already collapsed to a string", () => {
+            const { node } = preparedNode(2);
+            (doc as any).visual.context.getVisual = () => undefined;
+
+            node.addFaceMaterial([{ faceIndex: 1, materialId: "mat2" }]);
+            node.addFaceMaterial([{ faceIndex: 0, materialId: "mat1" }]);
+            // The last paint goes: one material left, so the palette collapses to a string.
+            node.removeFaceMaterial([1]);
+
+            expect(node.faceMaterialPair).toEqual([new FaceMaterialPair({ faceIndex: 0, materialIndex: 0 })]);
+            expect(node.materialId).toBe("mat1");
+        });
+
+        test("re-points the surviving pairs at the last material when the palette collapses", () => {
+            const { node } = preparedNode(2);
+            (doc as any).visual.context.getVisual = () => undefined;
+            node.addFaceMaterial([{ faceIndex: 0, materialId: "mat2" }]);
+            node.addFaceMaterial([{ faceIndex: 1, materialId: "mat1" }]);
+            expect(node.materialId).toEqual(["mat1", "mat2"]);
+            expect(node.faceMaterialPair).toEqual([
+                new FaceMaterialPair({ faceIndex: 0, materialIndex: 1 }),
+                new FaceMaterialPair({ faceIndex: 1, materialIndex: 0 }),
+            ]);
+
+            // mat1 (index 0) goes, so the survivor must not stay on index 1 — that points past
+            // a palette which now holds a single entry.
+            node.removeFaceMaterial([1]);
+
+            expect(node.materialId).toBe("mat2");
+            expect(node.faceMaterialPair).toEqual([new FaceMaterialPair({ faceIndex: 0, materialIndex: 0 })]);
+        });
+
+        test("records the paint, so it stays undoable, when there is no mesh to merge into", () => {
+            const { node } = preparedNode();
+            (doc as any).visual.context.getVisual = () => undefined;
+            node.refreshMesh();
+            expect((node as any)._mesh).toBeUndefined();
+
+            Transaction.execute(doc, "paint", () => {
+                node.addFaceMaterial([{ faceIndex: 0, materialId: "mat2" }]);
+            });
+            expect(node.materialId).toEqual(["mat1", "mat2"]);
+
+            doc.history.undo();
+
             expect(node.materialId).toBe("mat1");
             expect(node.faceMaterialPair).toEqual([]);
         });

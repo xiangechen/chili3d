@@ -9,6 +9,7 @@ import {
     FaceMaterialPair,
     type IFace,
     type INode,
+    type IVisualObject,
     Matrix4,
     Mesh,
     MeshInstanceNode,
@@ -435,6 +436,63 @@ describe("DetachCommand", () => {
         detach(app, doc, instance);
 
         expect(doc.modelManager.findNode((x) => x.id === instance.id)).toBe(instance);
+    });
+
+    test("undo puts the instance back, and the copy's paint does not bring its visual back", () => {
+        const { app, doc, body, instance } = scene();
+        // The instance is painted, so the detached copy inherits a paint the detach records on
+        // the copy. Restoring that record on undo used to rebuild the copy's display — after the
+        // copy had left the tree — and the viewport kept showing what undo had removed.
+        Transaction.execute(doc, "paint instance", () => {
+            instance.materialId = ["instance-material"];
+            instance.faceMaterialPair = [new FaceMaterialPair({ faceIndex: 0, materialIndex: 0 })];
+        });
+        const context = doc.visual.context;
+        const redraw = rs.fn((_nodes: INode[]) => {});
+        context.redrawNode = redraw;
+
+        const before = doc.history.undoCount();
+
+        detach(app, doc, instance);
+
+        expect(doc.history.undoCount()).toBe(before + 1);
+        const found = doc.modelManager.findNode((x) => x instanceof ParametricBodyNode && x.id !== body.id);
+        expect(found).toBeInstanceOf(ParametricBodyNode);
+        const copy = found as ParametricBodyNode;
+        // The real view builds the copy's mesh when it first displays it; only then does the
+        // restored paint reach `updateVisual`, which is the path that made the ghost.
+        copy.mesh;
+        // The real context answers for DISPLAYED nodes only; the mock has no map of its own.
+        context.getVisual = (node: INode) =>
+            node === copy && node.parent !== undefined ? ({} as IVisualObject) : undefined;
+
+        doc.history.undo();
+
+        expect(doc.modelManager.findNode((x) => x.id === instance.id)).toBe(instance);
+        expect(doc.modelManager.findNode((x) => x.id === copy.id)).toBeUndefined();
+        expect(redraw.mock.calls.some(([nodes]) => nodes.includes(copy))).toBe(false);
+    });
+
+    test("undo after copy-then-detach unwinds both steps", () => {
+        const { app, doc, body } = scene();
+        const copied = body.cloneForCopy(Matrix4.fromTranslation(-100, 0, 0)) as BodyInstanceNode;
+        Transaction.execute(doc, "copy", () => {
+            body.parent?.insertAfter(body, copied);
+        });
+        expect(doc.modelManager.findNode((x) => x.id === copied.id)).toBe(copied);
+
+        detach(app, doc, copied);
+        const found = doc.modelManager.findNode((x) => x instanceof ParametricBodyNode && x.id !== body.id);
+        expect(found).toBeInstanceOf(ParametricBodyNode);
+        const copy = found as ParametricBodyNode;
+
+        doc.history.undo();
+        expect(doc.modelManager.findNode((x) => x.id === copied.id)).toBe(copied);
+        expect(doc.modelManager.findNode((x) => x.id === copy.id)).toBeUndefined();
+
+        doc.history.undo();
+        expect(doc.modelManager.findNode((x) => x.id === copied.id)).toBeUndefined();
+        expect(doc.modelManager.findNode((x) => x.id === body.id)).toBe(body);
     });
 
     test("the source body stays in the document", () => {

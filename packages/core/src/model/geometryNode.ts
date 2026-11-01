@@ -116,9 +116,20 @@ export abstract class GeometryNode extends VisualNode {
      */
     refreshMesh(): void {
         this._mesh = undefined;
-        if (!this._isDisposed && this.document.visual.context.getVisual(this) !== undefined) {
-            this.document.visual.context.redrawNode([this]);
-        }
+        this.redrawIfDisplayed();
+    }
+
+    /**
+     * Rebuild the display of a node the scene still shows. A node with no visual — one still
+     * being constructed, or one the history has removed — must not get one: `redrawNode` removes
+     * and re-adds, so redrawing it would PUT BACK a visual of a node that belongs to no document.
+     * That is exactly what an undo hit: a detach's records undo in reverse, so the copy's insert
+     * (taking it out of the tree) is undone BEFORE the paint records that preceded it, and the
+     * viewport kept showing what undo had removed.
+     */
+    private redrawIfDisplayed(): void {
+        if (this._isDisposed || this.document.visual.context.getVisual(this) === undefined) return;
+        this.document.visual.context.redrawNode([this]);
     }
 
     override boundingBox(): BoundingBox | undefined {
@@ -191,6 +202,11 @@ export abstract class GeometryNode extends VisualNode {
             this.materialId.splice(pair.materialIndex, 1);
             if (this.materialId.length === 1) {
                 this.setPrivateValue("materialId", this.materialId[0]);
+                // One material left: every surviving pair now names it, at index 0 — leaving
+                // them on their old index points past the collapsed palette.
+                this.faceMaterialPair.forEach((x) => {
+                    x.materialIndex = 0;
+                });
             } else if (this.materialId.length > 1) {
                 this.faceMaterialPair.forEach((x) => {
                     if (x.materialIndex > pair.materialIndex) {
@@ -215,16 +231,27 @@ export abstract class GeometryNode extends VisualNode {
     }
 
     private readonly updateVisual = (oldMaterisl: string | string[], oldFacePair: FaceMaterialPair[]) => {
-        if (!this._originFaceMesh) return;
-        if (this.faceMaterialPair.length === 0) {
-            this._mesh!.faces = this._originFaceMesh;
-        } else {
-            this._mesh!.faces = MeshUtils.mergeFaceMesh(
-                this._originFaceMesh,
-                this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex] as [number, number]),
-            );
-            if (this._mesh!.faces.groups.length === 1) {
-                this.setPrivateValue("materialId", this.materialId[this.faceMaterialPair[0].materialIndex]);
+        // Only the merge needs a mesh to write into. No raw faces yet, or a mesh a `refreshMesh`
+        // dropped, means nothing to merge: the next `createMesh` merges from `_originFaceMesh`
+        // with the pairs as they stand, so the paint is not lost — writing into a missing `_mesh`
+        // would throw instead. The bookkeeping below still has to run: the change itself happened.
+        if (this._originFaceMesh && this._mesh) {
+            if (this.faceMaterialPair.length === 0) {
+                this._mesh.faces = this._originFaceMesh;
+            } else {
+                this._mesh.faces = MeshUtils.mergeFaceMesh(
+                    this._originFaceMesh,
+                    this.faceMaterialPair.map((x) => [x.faceIndex, x.materialIndex] as [number, number]),
+                );
+                // One group means one material left; collapse the palette. Only a palette: a
+                // `removeFaceMaterial` that dropped to one material already collapsed it to a
+                // string, and indexing THAT would take its first character.
+                if (this._mesh.faces.groups.length === 1 && Array.isArray(this.materialId)) {
+                    this.setPrivateValue(
+                        "materialId",
+                        this.materialId[this.faceMaterialPair[0].materialIndex],
+                    );
+                }
             }
         }
 
@@ -240,7 +267,7 @@ export abstract class GeometryNode extends VisualNode {
             new PropertyHistoryRecord(this, "faceMaterialPair", oldFacePair, [...this.faceMaterialPair]),
         );
 
-        this.document.visual.context.redrawNode([this]);
+        this.redrawIfDisplayed();
     };
 
     protected abstract createMesh(): IShapeMeshData;
