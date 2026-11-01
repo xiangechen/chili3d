@@ -11,5 +11,8 @@
     },
     "dependencies": {
         "@chili3d/core": "*"
+    },
+    "devDependencies": {
+        "@chili3d/wasm": "*"
     }
 }

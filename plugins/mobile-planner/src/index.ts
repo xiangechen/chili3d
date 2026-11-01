@@ -5,6 +5,8 @@ import type { CommandKeys, Locale, Plugin, RibbonGroupKeys, RibbonTabKeys } from
 import { ShowCraneCommand } from "./commands/showCrane";
 import { KIT } from "./modules/craneModel";
 
+export * from "./clearance/distance";
+
 const MobilePlannerPlugin: Plugin = {
     commands: [ShowCraneCommand],
     ribbons: [
