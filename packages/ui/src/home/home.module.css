@@ -235,10 +235,9 @@
         display: flex;
         flex-direction: column;
         flex: 1;
-        max-width: 1120px;
         height: 100%;
         margin: 0 auto;
-        padding: 48px 44px 56px;
+        padding: 48px 44px 56px 56px;
         box-sizing: border-box;
         overflow: hidden;
     }
