@@ -9,6 +9,7 @@ import {
     projectPoint,
     sampleEntity,
 } from "./curveEval";
+import { isBroken } from "./entityEditOps";
 import {
     arcAngles,
     axisLineRefs,
@@ -27,7 +28,7 @@ import {
     type SketchEntityType,
     type SketchPointRef,
 } from "./sketchModel";
-import type { SketchSolver } from "./solver";
+import type { SketchDiagnostics, SketchSolver, SolveOutcome } from "./solver";
 import {
     arcStartRef,
     centerRef,
@@ -51,27 +52,61 @@ export interface AutoConstraintOptions {
 }
 
 /**
- * Every point key `ref`'s own mirror already speaks for: the points it is mirrored with,
- * the axis they are mirrored about, and whatever that mirror's coincidences join to them —
- * walked outwards until no symmetry or coincidence of the mirror reaches further. A
- * symmetry names both sides, so one hop from `ref` covers the source as well as the copy,
+ * Every point key the mirror that answers for `ref` already speaks for: the points it is
+ * mirrored with, the axis they are mirrored about, and whatever that mirror's coincidences
+ * join to them — walked outwards until no symmetry or coincidence of the mirror reaches
+ * further. A symmetry names both sides, so one hop covers the source as well as the copy,
  * and the walk re-enters only through the mirror's own ties.
  *
- * A drag of `ref` must not infer onto any of them. Those relations are the mirror's own,
- * and restating one is exactly how a coincidence folds two symmetric rows into a
- * duplicate: garlic removes a coincidence by substituting its two parameters for one, so
- * tying a pair the symmetry already answers for makes their rows identical.
+ * The walk starts at the *mirror*, not at `ref`: the drag only decides which mirror answers
+ * for it — the row its own entity and coincident ties reach — and then only that mirror's
+ * targets are shut. Starting at `ref` instead hands the whole connected drawing to the set:
+ * a chain of lines joined by coincidences walks from one segment to the next through their
+ * entities and their shared corners, so a drag of its last end would find every other line
+ * and point already excluded and infer nothing onto the chain it belongs to.
+ *
+ * A drag of `ref` must not infer onto the mirror's targets. Those relations are the
+ * mirror's own, and restating one is exactly how a coincidence folds two symmetric rows
+ * into a duplicate: garlic removes a coincidence by substituting its two parameters for
+ * one, so tying a pair the symmetry already answers for makes their rows identical.
  *
  * Walking the relations, rather than collecting every symmetry that shares an axis, is
  * what keeps a second mirror about the same line out: it holds no tie this walk reaches,
  * so its points stay ordinary targets. Geometry outside the mirror is left alone for the
  * same reason — dragging mirrored geometry onto something unrelated is still a real
- * inference, and only a mirror's own targets are shut.
+ * inference, and only a mirror's own targets are shut. The walk stops at the entities a
+ * symmetry names: a coincidence may put the corner it shares with such an entity in
+ * reach, but not the neighbour entity's other points.
  */
 export function mirrorPeers(solver: SketchSolver, ref: SketchPointRef): Set<string> {
     const symmetries = solver.toData().constraints.filter((c) => c.kind === ConstraintKind.Symmetric);
     const peers = new Set<string>();
-    const work: SketchPointRef[] = [ref, ...solver.coincidentGroup(ref)];
+    // a sketch with no mirror at all shuts nothing, however its geometry is joined up
+    if (symmetries.length === 0) return peers;
+
+    // The entities a symmetry names are the ones the mirrors tie whole. A coincidence that
+    // joins one of them to the rest of the drawing puts its corner in reach, but not the
+    // neighbour's other points: a chain a mirrored segment happens to sit in is not the
+    // mirror's own geometry, and its own drag inference must stay open.
+    const mirroredEntities = new Set<number>();
+    for (const symmetry of symmetries) {
+        const [first, second] = symmetry.refs;
+        mirroredEntities.add(first.entityId);
+        mirroredEntities.add(second.entityId);
+    }
+
+    // The closure the drag's own geometry reaches — its entity's other points and its
+    // coincidences, walked outwards. It picks out the mirrors that answer for this drag; it
+    // is not itself what those mirrors speak for.
+    const dragged = dragReach(solver, ref);
+    const work: SketchPointRef[] = [];
+    for (const symmetry of symmetries) {
+        const [first, second, ...axis] = symmetry.refs;
+        if (!dragged.has(pointRefKey(first)) && !dragged.has(pointRefKey(second))) continue;
+        for (const axisRef of axis) peers.add(pointRefKey(axisRef));
+        work.push(first, second);
+    }
+
     for (let point = work.pop(); point !== undefined; point = work.pop()) {
         const key = pointRefKey(point);
         if (peers.has(key)) continue;
@@ -87,12 +122,30 @@ export function mirrorPeers(solver: SketchSolver, ref: SketchPointRef): Set<stri
         // a mirror ties whole entities, not single points, so one point of a copy puts its
         // siblings in reach — the corner a mirror wrote no symmetry of its own for, and
         // the line/arc/circle the snap would otherwise land on
-        work.push(...ownPointRefs(solver, point));
+        if (mirroredEntities.has(point.entityId)) work.push(...ownPointRefs(solver, point));
         // a shared corner is one point on the constraint graph but several refs, and a
         // snap can land on any of them
         work.push(...solver.coincidentGroup(point));
     }
     return peers;
+}
+
+/**
+ * The points `ref` is tied to by its own entity and its coincidences, walked outwards —
+ * the geometry that moves with it or answers for it as one piece. Only used to pick out the
+ * mirrors a drag belongs to (see `mirrorPeers`); being in this set shuts nothing on its own.
+ */
+function dragReach(solver: SketchSolver, ref: SketchPointRef): Set<string> {
+    const reached = new Set<string>();
+    const work: SketchPointRef[] = [ref, ...solver.coincidentGroup(ref)];
+    for (let point = work.pop(); point !== undefined; point = work.pop()) {
+        const key = pointRefKey(point);
+        if (reached.has(key)) continue;
+        reached.add(key);
+        work.push(...ownPointRefs(solver, point));
+        work.push(...solver.coincidentGroup(point));
+    }
+    return reached;
 }
 
 /**
@@ -324,13 +377,64 @@ const TENTATIVE_ENTITY_ID = 0;
  * point onto it. Snapping onto a point of the very entity an existing incidence
  * pins the point to fuses it there instead: the coincidence replaces the now
  * redundant incidence. Returns the added constraints. Call `solve` afterwards.
+ *
+ * A row the drop earns must leave the sketch as consistent as it found it. The drag's
+ * own geometry can be joined to the target by rows already in the sketch, and the new
+ * relation then forces one of those entities to collapse — a chain whose two horizontal
+ * segments meet a vertical one through coincidences has no length left for the vertical
+ * once its free end is held at the other horizontal's height. The row is then taken back
+ * and the whole sketch goes back to where the drag left it (`guardedEdit`'s rule: only a
+ * solve the row itself broke is worth undoing).
+ *
+ * The sketch is expected solved when this is called — the drag's `endDrag` is what leaves
+ * it that way. Garlic reads the constraint set as the last solve left it, which is what the
+ * baseline below is read from.
  */
 export function applyDragAutoConstraints(
     solver: SketchSolver,
     ref: SketchPointRef,
     options: AutoConstraintOptions,
+    /**
+     * The release's own settle — `endDrag`'s result. A sketch the drag already could not
+     * settle is not the row's doing (`guardedEdit`'s baseline rule), so nothing is judged
+     * against it; without one, the row is judged on its own.
+     */
+    settled?: SolveOutcome["result"],
 ): Omit<SketchConstraintData, "id">[] {
-    return applyPointAutoConstraints(solver, [ref], [ref.entityId], options);
+    // The same probe `applyPointAutoConstraints` runs below, repeated here rather than
+    // threaded through: it is what decides whether the snapshot and the trial solve are
+    // worth paying for at all, and a release in empty space should pay neither.
+    const offered = findPointSnap(
+        solver,
+        ref,
+        solver.pointOf(ref),
+        new Set([ref.entityId]),
+        options,
+        mirrorPeers(solver, ref),
+    );
+    if (offered === undefined) return [];
+
+    const alreadyBroken = settled !== undefined && isBroken(settled);
+    const broken = brokenConstraintIds(solver.diagnose());
+    const snapshot = solver.toData();
+    let refused = false;
+    const added = applyPointAutoConstraints(solver, [ref], [ref.entityId], options, () => {
+        const trial = solver.solve(true);
+        const now = brokenConstraintIds(solver.diagnose());
+        const broke = !alreadyBroken && (isBroken(trial.result) || [...now].some((id) => !broken.has(id)));
+        if (broke) refused = true;
+        return broke;
+    });
+    if (!refused) return added;
+    // the trial solve carried the rest of the drawing toward the row being taken back, so
+    // undoing the row and the point's move is not enough to put the sketch where it was
+    solver.reset(snapshot);
+    return [];
+}
+
+/** The constraints garlic holds responsible for a broken solve (guard conflicts are a subset). */
+function brokenConstraintIds(report: SketchDiagnostics): Set<number> {
+    return new Set(report.conflicting);
 }
 
 /**
@@ -339,12 +443,18 @@ export function applyDragAutoConstraints(
  * corners, the polygon's centre and first vertex). `excludeEntityIds` lists the
  * shape's own entities so its corners never snap onto each other's edges. Returns
  * the added constraints. Call `solve` afterwards.
+ *
+ * `refuse` is asked after a row is added, with its id, and takes the row and the point's
+ * move back when it answers true — the hook the drag uses to drop a relation the sketch
+ * cannot hold (`applyDragAutoConstraints`). Rows a fuse would restate are dropped only
+ * once the fuse is known to be kept.
  */
 export function applyPointAutoConstraints(
     solver: SketchSolver,
     refs: SketchPointRef[],
     excludeEntityIds: number[],
     options: AutoConstraintOptions,
+    refuse?: (constraintId: number) => boolean,
 ): Omit<SketchConstraintData, "id">[] {
     const excluded = new Set(excludeEntityIds);
     const added: Omit<SketchConstraintData, "id">[] = [];
@@ -375,19 +485,25 @@ export function applyPointAutoConstraints(
         // folds it onto itself. `excludeEntityIds` cannot catch every such target: the
         // datum origin is not an entity, and it lies exactly under a polygon drawn at
         // the origin — the very placement that pass exists to pin down.
-        if (collapsesOntoShapePoint(solver, refs, ref, snap.position)) continue;
+        if (collapsesOntoPoint(solver, refs, ref, snap.position)) continue;
 
         const constraint = snapConstraint(ref, snap);
-        solver.setPointPosition(ref, snap.position[0], snap.position[1]);
         // fusing the point onto a point the entity it stands on owns makes that row
         // redundant — the coincidence replaces it. Partners count as much as the point
         // itself: the snap fuses whoever stands at `ref` onto the entity's own point, so a
         // partner standing there is pinned onto that entity too whatever holds it there —
-        // a projected edge's end included, which the drag-reading group drops.
-        if (snap.kind === "point") {
-            for (const id of subsumedIncidenceIds(solver, ref, snap.point)) solver.removeConstraint(id);
+        // a projected edge's end included, which the drag-reading group drops. Read before
+        // the fuse joins the groups; dropped only once the fuse is kept.
+        const subsumed = snap.kind === "point" ? subsumedIncidenceIds(solver, ref, snap.point) : [];
+        const [wasU, wasV] = solver.pointOf(ref);
+        solver.setPointPosition(ref, snap.position[0], snap.position[1]);
+        const id = solver.addConstraint(constraint);
+        if (refuse?.(id) === true) {
+            solver.removeConstraint(id);
+            solver.setPointPosition(ref, wasU, wasV);
+            continue;
         }
-        solver.addConstraint(constraint);
+        for (const subsumedId of subsumed) solver.removeConstraint(subsumedId);
         added.push(constraint);
     }
     return added;
@@ -395,8 +511,11 @@ export function applyPointAutoConstraints(
 
 /**
  * Nearest snap for a dragged point (its own entity excluded), or undefined. The mirror's
- * own targets are off limits here exactly as they are at the settle: the preview must not
- * promise a snap the released pointer would then refuse.
+ * own targets are off limits here exactly as they are at the settle, so the preview does
+ * not lure the pointer onto a spot the release would ignore. What it promises is the
+ * geometry the point lands on, not the row that holds it there: whether that row survives
+ * is the settle's call (`applyDragAutoConstraints` drops one the solve cannot take), so a
+ * conflict the preview cannot foresee still reads as "it snapped, then sprang back".
  */
 function findDragSnap(
     solver: SketchSolver,
@@ -424,6 +543,10 @@ function findPointSnap(
     // one enumeration per probe (per pointer event during a drag): the helpers
     // below only read the table, and positions are read live via solver.pointOf
     const entities = snapTargetEntities(solver);
+    // every point the snap would put on the probe's spot: the dragged point's own entity
+    // and the entities its coincident group joins to it move together, so a sibling of any
+    // of them landing there collapses that entity (a zero-length line, a zero-sweep arc)
+    const siblings = groupSiblingRefs(solver, ref);
     if (options.pointTolerance > 0) {
         const snap = nearestPointSnap(
             solver,
@@ -435,10 +558,10 @@ function findPointSnap(
             offLimits,
         );
         if (snap !== undefined) {
-            // fusing the point onto a spot a sibling point of its own entity sits
-            // on — directly or through a coincident link — would collapse the
-            // entity (a zero-length line, a zero-sweep arc), so no snap applies
-            if (collapsesOntoSibling(solver, ownPointRefs(solver, ref), ref, snap.position)) return undefined;
+            // a fuse that would fold an entity is refused entire: the line through the same
+            // spot is a different target than the point the pointer is aimed at, and the
+            // structural rows an arc or circle carries can collapse it just as surely
+            if (collapsesOntoPoint(solver, siblings, ref, snap.position)) return undefined;
             return { kind: "point", point: snap.ref, position: snap.position };
         }
     }
@@ -447,8 +570,15 @@ function findPointSnap(
     if (curveTolerance <= 0 || hasIncidence(solver, ref)) return undefined;
     const excluded = curveSnapExclusions(solver, ref, excludeEntityIds);
     const line = nearestLineOrAxisSnap(solver, entities, excluded, probe, curveTolerance, offLimits);
-    if (line !== undefined) return { kind: "line", lineRefs: line.lineRefs, position: line.position };
-    return nearestCurveSnap(entities, excluded, probe, curveTolerance);
+    const snap: DragSnap | undefined =
+        line !== undefined
+            ? { kind: "line", lineRefs: line.lineRefs, position: line.position }
+            : nearestCurveSnap(entities, excluded, probe, curveTolerance);
+    // the same collapse the fuse is refused for, read at the projected spot: a drag that
+    // slides a group onto where one of its own entities' remaining points stands folds
+    // that entity, whatever constraint put it on the curve
+    if (snap !== undefined && collapsesOntoPoint(solver, siblings, ref, snap.position)) return undefined;
+    return snap;
 }
 
 /**
@@ -476,6 +606,30 @@ function ownPointRefs(solver: SketchSolver, ref: SketchPointRef): SketchPointRef
     return snappablePointIndices(entity).map((pointIndex) => ({ entityId: ref.entityId, pointIndex }));
 }
 
+/**
+ * Every point of every entity the dragged point stands with: its own entity's points and
+ * those of the entities its coincident group joins to it. They all travel to the snap's
+ * spot together, so a sibling among them found sitting there means the snap folds an
+ * entity — the neighbour an end-to-end chain joins as much as the dragged line itself.
+ */
+function groupSiblingRefs(solver: SketchSolver, ref: SketchPointRef): SketchPointRef[] {
+    const group = solver.coincidentGroup(ref);
+    // the group is one point on the graph: its members already stand together wherever the
+    // drag puts them, so they are what the snap fuses rather than what it can fold
+    const groupKeys = new Set(group.map(pointRefKey));
+    const refs: SketchPointRef[] = [];
+    const seen = new Set<string>();
+    for (const member of group) {
+        for (const sibling of ownPointRefs(solver, member)) {
+            const key = pointRefKey(sibling);
+            if (groupKeys.has(key) || seen.has(key)) continue;
+            seen.add(key);
+            refs.push(sibling);
+        }
+    }
+    return refs;
+}
+
 interface SnapCandidate {
     ref: SketchPointRef;
     position: [number, number];
@@ -492,7 +646,7 @@ function snapToExistingPoints(
 
     for (const ref of refs) {
         const nearest = nearestCandidate(candidates, solver.pointOf(ref), tolerance);
-        if (nearest === undefined || collapsesOntoSibling(solver, refs, ref, nearest.position)) continue;
+        if (nearest === undefined || collapsesOntoPoint(solver, refs, ref, nearest.position)) continue;
 
         solver.setPointPosition(ref, nearest.position[0], nearest.position[1]);
         const constraint = { kind: ConstraintKind.P2PCoincident, refs: [ref, nearest.ref] };
@@ -554,7 +708,7 @@ function snapToExistingCurves(
         }
         const snap = nearestCurveSnap(entities, new Set([ref.entityId]), solver.pointOf(ref), tolerance);
         // a point landing where a sibling point already sits would collapse the entity
-        if (snap === undefined || collapsesOntoSibling(solver, refs, ref, snap.position)) continue;
+        if (snap === undefined || collapsesOntoPoint(solver, refs, ref, snap.position)) continue;
 
         solver.setPointPosition(ref, snap.position[0], snap.position[1]);
         const constraint = snapConstraint(ref, snap);
@@ -820,31 +974,15 @@ function nearestCandidate(
 }
 
 /**
- * Snapping a point onto the spot another point of the same entity already
- * occupies would collapse it — a zero-length line, a zero-radius or zero-sweep
- * arc — so the snap is skipped.
+ * Whether `target` is where one of the refs already stands, the ref itself aside: landing
+ * a point on its own geometry's spot folds it — a zero-length line, a zero-radius or
+ * zero-sweep arc — so the snap is skipped. `refs` is the set that moves or is placed as
+ * one piece: a shape's own points, or the dragged point's entity and the entities its
+ * coincident group joins to it. Points are matched by ref, not by index, because the set
+ * spans entities (a line's `p1` beside its neighbour's `p0`). Positions are read live, so
+ * a point snapped into place earlier in the same pass counts.
  */
-function collapsesOntoSibling(
-    solver: SketchSolver,
-    refs: SketchPointRef[],
-    ref: SketchPointRef,
-    target: [number, number],
-): boolean {
-    for (const other of refs) {
-        if (other.pointIndex === ref.pointIndex) continue;
-        const [ou, ov] = solver.pointOf(other);
-        if (Math.hypot(target[0] - ou, target[1] - ov) < Precision.Distance) return true;
-    }
-    return false;
-}
-
-/**
- * Whether `target` is where another point of the shape being placed already is. The
- * multi-entity twin of `collapsesOntoSibling`: a shape's points belong to different
- * entities, so they are matched by ref rather than by index. Positions are read live,
- * so a point snapped into place earlier in the same pass counts.
- */
-function collapsesOntoShapePoint(
+function collapsesOntoPoint(
     solver: SketchSolver,
     refs: readonly SketchPointRef[],
     ref: SketchPointRef,

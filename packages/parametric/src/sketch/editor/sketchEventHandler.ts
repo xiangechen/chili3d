@@ -820,14 +820,18 @@ export class SketchEventHandler implements IEventHandler {
         this.draggingRef = undefined;
         this.clearDragPreview(view);
         this.clearSnapFeedback();
-        this.editor.solver.endDrag();
+        // the release's own settle also tells the auto constraint what the drag left behind:
+        // a sketch this solve could not settle is not a row's doing
+        const settled = this.editor.solver.endDrag();
         // the drag is over: add an auto-constraint now, only if the point still
         // satisfies a snap condition
         const tolerance = this.editor.screenTolerance();
-        applyDragAutoConstraints(this.editor.solver, ref, {
-            pointTolerance: tolerance,
-            lineTolerance: tolerance,
-        });
+        applyDragAutoConstraints(
+            this.editor.solver,
+            ref,
+            { pointTolerance: tolerance, lineTolerance: tolerance },
+            settled.result,
+        );
         this.syncAnnotationHighlights();
         this.editor.commit();
         this.editor.solve(true);

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { Plane, Precision } from "@chili3d/core";
+import { rs } from "@rstest/core";
 import {
     applyAutoConstraints,
     applyDragAutoConstraints,
@@ -18,6 +19,7 @@ import {
     originRef,
     SKETCH_X_AXIS_ID,
     SKETCH_Y_AXIS_ID,
+    type SketchPointRef,
 } from "../../src/sketch/sketchModel";
 import { SketchSolver } from "../../src/sketch/solver";
 import "./setup";
@@ -1931,6 +1933,286 @@ describe("mirror-aware drag inference", () => {
             ]);
             expect(solver.diagnose().redundant).toEqual([]);
             expect(solver.pointOf(dragged)).toEqual(solver.pointOf({ entityId: second, pointIndex: 0 }));
+        } finally {
+            solver.dispose();
+        }
+    });
+});
+
+describe("drag inference along a coincident-connected chain", () => {
+    const OPTIONS = { pointTolerance: 2, lineTolerance: 2 };
+    const draggedEnd = (entityId: number) => ({ entityId, pointIndex: 1 });
+
+    /**
+     * Three lines joined end to end the way the line tool leaves them — every segment goes
+     * through its own auto-constraint pass, so the chain carries exactly the rows the tool
+     * writes. The picks are off-axis, so that pass adds no Horizontal/Vertical: those make a
+     * chain rigid enough that some drops have no non-degenerate answer at all (see the U in
+     * "a drop that would leave the chain in conflict").
+     */
+    function chain() {
+        const solver = new SketchSolver(Plane.XY);
+        const endpoints: [number, number][] = [
+            [10, 10],
+            [70, 20],
+            [60, 80],
+            [20, 70],
+        ];
+        const lines: number[] = [];
+        for (let index = 0; index < endpoints.length - 1; index++) {
+            const [start, end] = [endpoints[index], endpoints[index + 1]];
+            const id = solver.addLine(start[0], start[1], end[0], end[1]);
+            applyAutoConstraints(solver, id, OPTIONS);
+            lines.push(id);
+        }
+        solver.solve(true);
+        return { solver, first: lines[0], second: lines[1], third: lines[2] };
+    }
+
+    /** A whole drag: hold the point, move it with the live snap, release, settle. */
+    function drag(solver: SketchSolver, dragged: SketchPointRef, target: [number, number]) {
+        solver.beginDrag(solver.coincidentGroup(dragged));
+        const preview = dragSnapPosition(solver, dragged, target, OPTIONS);
+        solver.dragTo(dragged, preview.position[0], preview.position[1]);
+        solver.endDrag();
+        const added = applyDragAutoConstraints(solver, dragged, OPTIONS);
+        solver.solve(true);
+        return { preview, added };
+    }
+
+    test("the preview still snaps onto another line of the chain", () => {
+        const { solver, first, third } = chain();
+        try {
+            const preview = dragSnapPosition(solver, draggedEnd(third), [40, 15.4], OPTIONS);
+
+            expect(preview.snap?.kind).toBe("line");
+            expect(preview.snap).toMatchObject({
+                lineRefs: [
+                    { entityId: first, pointIndex: 0 },
+                    { entityId: first, pointIndex: 1 },
+                ],
+            });
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("the settle adds point-on-line onto another line of the chain", () => {
+        const { solver, first, third } = chain();
+        try {
+            const dragged = draggedEnd(third);
+            const { added } = drag(solver, dragged, [40, 15.4]);
+
+            expect(added).toEqual([
+                {
+                    kind: ConstraintKind.PointOnLine,
+                    refs: [dragged, { entityId: first, pointIndex: 0 }, { entityId: first, pointIndex: 1 }],
+                },
+            ]);
+            const [u, v] = solver.pointOf(dragged);
+            const [x1, y1] = solver.pointOf({ entityId: first, pointIndex: 0 });
+            const [x2, y2] = solver.pointOf({ entityId: first, pointIndex: 1 });
+            expect(Math.abs((v - y1) * (x2 - x1) - (u - x1) * (y2 - y1))).toBeLessThan(Precision.Distance);
+            expect(solver.diagnose()).toMatchObject({ conflicting: [], guardConflicts: [] });
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a chain point still takes a coincidence with another chain point", () => {
+        const { solver, first, third } = chain();
+        try {
+            const dragged = draggedEnd(third);
+            const { added } = drag(solver, dragged, [10.2, 10.2]);
+
+            expect(added).toEqual([
+                {
+                    kind: ConstraintKind.P2PCoincident,
+                    refs: [dragged, { entityId: first, pointIndex: 0 }],
+                },
+            ]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a drop that would leave the chain in conflict adds nothing", () => {
+        // The U the line tool draws from axis-aligned picks: two horizontals joined by a
+        // vertical through coincidences. Tying the free end's height to the first line's
+        // forces the vertical segment to zero length, so the drop earns no row — and must
+        // not leave the sketch reporting the conflict it would have written.
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const ids: number[] = [];
+            for (const [start, end] of [
+                [
+                    [10, 10],
+                    [70, 10],
+                ],
+                [
+                    [70, 10],
+                    [70, 70],
+                ],
+                [
+                    [70, 70],
+                    [10, 70],
+                ],
+            ] as [[number, number], [number, number]][]) {
+                const id = solver.addLine(start[0], start[1], end[0], end[1]);
+                applyAutoConstraints(solver, id, OPTIONS);
+                ids.push(id);
+            }
+            solver.solve(true);
+            expect(solver.diagnose()).toMatchObject({ conflicting: [], guardConflicts: [] });
+            expect(solver.constraintKindsOn(ids[1])).toEqual(
+                expect.arrayContaining([ConstraintKind.Vertical]),
+            );
+
+            // driven by hand rather than through `drag` so the release's own settle can be
+            // read back: the refused row must not leave the trial solve's geometry behind
+            const dragged = draggedEnd(ids[2]);
+            solver.beginDrag(solver.coincidentGroup(dragged));
+            const preview = dragSnapPosition(solver, dragged, [40, 10.4], OPTIONS);
+            solver.dragTo(dragged, preview.position[0], preview.position[1]);
+            const settle = solver.endDrag();
+            const settled = JSON.stringify(solver.toData().entities);
+            const reset = rs.spyOn(solver, "reset");
+
+            const added = applyDragAutoConstraints(solver, dragged, OPTIONS, settle.result);
+            solver.solve(true);
+
+            expect(added).toEqual([]);
+            expect(solver.diagnose()).toMatchObject({ conflicting: [], guardConflicts: [] });
+            expect(JSON.stringify(solver.toData().entities)).toBe(settled);
+            // the whole sketch is put back, not just the point and the row
+            expect(reset).toHaveBeenCalledTimes(1);
+            reset.mockRestore();
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a release the solver could not settle is not blamed on the row", () => {
+        // `guardedEdit`'s rule: only a solve the edit broke is worth undoing. A drop on a
+        // sketch the drag itself left Stalled keeps the row it earned rather than answering
+        // for a breakage that was already there.
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const ids: number[] = [];
+            for (const [start, end] of [
+                [
+                    [10, 10],
+                    [70, 10],
+                ],
+                [
+                    [70, 10],
+                    [70, 70],
+                ],
+                [
+                    [70, 70],
+                    [10, 70],
+                ],
+            ] as [[number, number], [number, number]][]) {
+                const id = solver.addLine(start[0], start[1], end[0], end[1]);
+                applyAutoConstraints(solver, id, OPTIONS);
+                ids.push(id);
+            }
+            solver.solve(true);
+            const dragged = draggedEnd(ids[2]);
+            solver.beginDrag(solver.coincidentGroup(dragged));
+            const preview = dragSnapPosition(solver, dragged, [40, 10.4], OPTIONS);
+            solver.dragTo(dragged, preview.position[0], preview.position[1]);
+            solver.endDrag();
+            const reset = rs.spyOn(solver, "reset");
+
+            const added = applyDragAutoConstraints(solver, dragged, OPTIONS, "Stalled");
+
+            expect(added).toHaveLength(1);
+            expect(added[0].kind).toBe(ConstraintKind.PointOnLine);
+            expect(reset).not.toHaveBeenCalled();
+            reset.mockRestore();
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a fuse onto a coincident neighbour's far end is refused", () => {
+        // L1's end coincides with L2's start; dropping it on L2's far end would take L2's
+        // two ends with it, which the coincident link turns into a zero-length line
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const first = solver.addLine(0, 10, 20, 10);
+            const second = solver.addLine(20, 10, 22, 8);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [
+                    { entityId: first, pointIndex: 1 },
+                    { entityId: second, pointIndex: 0 },
+                ],
+            });
+            solver.solve(true);
+            const dragged = { entityId: first, pointIndex: 1 };
+
+            // the far end really is within point tolerance of where the drop lands, so the
+            // refusal below is the guard's and not the tolerance's
+            solver.beginDrag(solver.coincidentGroup(dragged));
+            const preview = dragSnapPosition(solver, dragged, [22, 8], OPTIONS);
+            solver.dragTo(dragged, preview.position[0], preview.position[1]);
+            solver.endDrag();
+            const [u, v] = solver.pointOf(dragged);
+            expect(Math.hypot(u - 22, v - 8)).toBeLessThan(OPTIONS.pointTolerance);
+
+            const added = applyDragAutoConstraints(solver, dragged, OPTIONS);
+
+            expect(preview.snap).toBeUndefined();
+            expect(added).toEqual([]);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a mirror attached to the chain leaves the chain's own lines open", () => {
+        // The mirrored segment is part of the chain, but the rows it answers for are its
+        // own: the neighbour segments are not the mirror's targets.
+        const { solver, first, second, third } = chain();
+        try {
+            const mirrored = mirrorEntities(solver, [second], SKETCH_Y_AXIS_ID, 1e-6);
+            expect(mirrored.isOk).toBe(true);
+            solver.solve(true);
+
+            const preview = dragSnapPosition(solver, draggedEnd(third), [40, 15.4], OPTIONS);
+
+            expect(preview.snap?.kind).toBe("line");
+            expect(preview.snap).toMatchObject({
+                lineRefs: [
+                    { entityId: first, pointIndex: 0 },
+                    { entityId: first, pointIndex: 1 },
+                ],
+            });
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("a mirror elsewhere in the sketch leaves the chain's targets open", () => {
+        const { solver, first, third } = chain();
+        try {
+            // a mirror that answers to nothing the drag touches: its rows must not shut the
+            // chain those lines happen to share a sketch with
+            const apart = solver.addLine(200, 40, 280, 40);
+            const mirrored = mirrorEntities(solver, [apart], SKETCH_X_AXIS_ID, 1e-6);
+            expect(mirrored.isOk).toBe(true);
+            solver.solve(true);
+
+            const preview = dragSnapPosition(solver, draggedEnd(third), [40, 15.4], OPTIONS);
+
+            expect(preview.snap?.kind).toBe("line");
+            expect(preview.snap).toMatchObject({
+                lineRefs: [
+                    { entityId: first, pointIndex: 0 },
+                    { entityId: first, pointIndex: 1 },
+                ],
+            });
         } finally {
             solver.dispose();
         }
