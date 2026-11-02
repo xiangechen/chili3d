@@ -1,11 +1,13 @@
 # Chili3D
 
-An AI-native CAD for parametric and direct modeling — entirely in your browser.
-
-**Try it now:** **[chili3d.com](https://chili3d.com)** — official site; a [Cloudflare mirror](https://chili3d.pages.dev) is available as a backup.
+An open-source, browser-based 3D CAD for AI-assisted, parametric and direct modeling.
 
 <p align="center">
   <img src="./screenshots/screenshot.png" alt="Chili3D in the browser: a parametric part in the 3D viewport, with its feature list and properties panel beside it" width="100%">
+</p>
+
+<p align="center">
+  <strong>Try it now:</strong> <a href="https://chili3d.com"><strong>chili3d.com</strong></a> — official site; a <a href="https://chili3d.pages.dev">Cloudflare mirror</a> is available as a backup.
 </p>
 
 ## Overview
