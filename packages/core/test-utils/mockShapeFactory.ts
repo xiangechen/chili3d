@@ -26,8 +26,17 @@ class FactoryShape extends MockShape {
     }
 }
 
-/** A minimal mock IShape, for a test that needs something a factory can return. */
-export function createMockShape(overrides: Record<string, unknown> = {}) {
+/**
+ * A minimal mock IShape, for a test that needs something a factory can return.
+ *
+ * The return type is spelled as `MockShape` rather than left inferred: `FactoryShape` is
+ * private to this module, so a caller that re-exports a function returning it would make
+ * declaration emit fail with TS4094 (the type cannot be named, and `MockShape`'s private
+ * fields cannot be represented structurally).
+ */
+export function createMockShape(
+    overrides: Record<string, unknown> = {},
+): MockShape & Record<string, unknown> {
     return Object.assign(new FactoryShape({ shapeType: ShapeTypes.shape }), overrides);
 }
 
