@@ -15,7 +15,22 @@ import { getCraneById, MCT88, TOWER_CRANES } from "./catalogue";
 import { PLANNING_DISCLAIMER } from "./disclaimer";
 import type { TowerI18nKey } from "./i18n/keys";
 import { t } from "./i18n/translate";
-import { evaluateCrane, type Pick, type PickStatus } from "./pickEngine";
+import {
+    type CraneEvaluation,
+    evaluateCrane,
+    type Pick,
+    type PickEvaluation,
+    type PickPoint,
+    type PickRadiusSource,
+    type PickStatus,
+} from "./pickEngine";
+import { loadSampleSitePicks } from "./sampleSite";
+import {
+    buildSelectionMatrix,
+    type SelectionMatrix,
+    type SelectionReason,
+    selectionReason,
+} from "./selectionMatrix";
 import type { SourceDocument, TowerCrane } from "./types";
 
 const OVERVIEW_SOURCE_ID = "datasheetOverview";
@@ -82,41 +97,99 @@ const STATUS_I18N: Record<PickStatus, TowerI18nKey> = {
     INVALID: "tower.status.invalid",
 };
 
+const GOVERNING_I18N: Record<PickRadiusSource, TowerI18nKey> = {
+    supply: "tower.dialog.governingSupply",
+    drop: "tower.dialog.governingDrop",
+    legacy: "tower.dialog.governingLegacy",
+};
+
+const REASON_I18N: Record<SelectionReason, TowerI18nKey> = {
+    "invalid-load": "tower.reason.invalidLoad",
+    "invalid-wind": "tower.reason.invalidWind",
+    "invalid-coordinate": "tower.reason.invalidCoordinate",
+    "missing-coordinate": "tower.reason.missingCoordinate",
+    "missing-location": "tower.reason.missingLocation",
+    "invalid-mast": "tower.reason.invalidMast",
+    "invalid-radius": "tower.reason.invalidRadius",
+    "jib-outside-published-range": "tower.reason.jibOutsideRange",
+    "invalid-capacity": "tower.reason.invalidCapacity",
+    "over-capacity": "tower.reason.overCapacity",
+    "out-of-range": "tower.reason.outOfRange",
+};
+
+function statusColor(status: PickStatus): string {
+    return status === "PASS" ? "#1b7f3a" : status === "FAIL" ? "#b42318" : "#8a5a00";
+}
+
 type PickRowControls = {
+    label: string;
     load: HTMLInputElement;
-    radius: HTMLInputElement;
+    supplyX: HTMLInputElement;
+    supplyY: HTMLInputElement;
+    dropX: HTMLInputElement;
+    dropY: HTMLInputElement;
+    supplyRadius: HTMLTableCellElement;
+    dropRadius: HTMLTableCellElement;
+    governingRadius: HTMLTableCellElement;
     capacity: HTMLTableCellElement;
     utilisation: HTMLTableCellElement;
     status: HTMLTableCellElement;
 };
 
-function createCell(tag: "td" | "th", text = ""): HTMLTableCellElement {
+type MatrixRowControls = {
+    craneId: string;
+    pickCells: HTMLTableCellElement[];
+    overall: HTMLTableCellElement;
+};
+
+function createCell(tag: "td" | "th", text = "", role?: string): HTMLTableCellElement {
     const cell = document.createElement(tag);
     cell.textContent = text;
     cell.style.padding = "4px 6px";
     cell.style.borderBottom = "1px solid #d8dde5";
     cell.style.textAlign = "left";
+    if (role !== undefined) cell.setAttribute("data-role", role);
     return cell;
 }
 
-function createInput(value: string, step: string, min = "0"): HTMLInputElement {
-    const element = input({ type: "number", value, step, min });
-    element.style.width = "76px";
+function createInput(
+    value: string,
+    step: string,
+    role: string,
+    width = "76px",
+    min?: string,
+): HTMLInputElement {
+    const element = input({ type: "number", value, step });
+    if (min !== undefined) element.min = min;
+    element.setAttribute("data-role", role);
+    element.style.width = width;
     return element;
 }
 
 /**
- * Sample picks are worked out by hand in the test comment:
- *   M = 2.70 t × 30 m = 81 t·m; corner radius = 81 / 5 = 16.2 m.
- *   2.5 t @ 20 m -> capacity 4.05 t -> 61.7 %, PASS
- *   3.0 t @ 25 m -> capacity 3.24 t -> 92.6 %, PASS
- *   4.0 t @ 30 m -> capacity 2.70 t -> 148.1 %, FAIL
+ * Read a numeric input without turning a blank field into zero. Chromium
+ * reports a malformed entry such as "1e" as an empty value with `badInput`
+ * set; both blank and bad input stay invalid.
  */
-export const SAMPLE_PICKS: readonly Pick[] = [
-    { label: "1", loadT: 2.5, radiusM: 20 },
-    { label: "2", loadT: 3.0, radiusM: 25 },
-    { label: "3", loadT: 4.0, radiusM: 30 },
-];
+function readNumber(element: HTMLInputElement): number {
+    if (element.validity.badInput) return Number.NaN;
+    const text = element.value.trim();
+    return text === "" ? Number.NaN : Number(text);
+}
+
+function formatRadius(radiusM: number | null): string {
+    return radiusM === null ? "-" : `${radiusM.toFixed(2)} m`;
+}
+
+function formatGoverningRadius(radiusM: number | null, governing: PickRadiusSource | null): string {
+    if (radiusM === null) return "-";
+    if (governing === null) return formatRadius(radiusM);
+    return t("tower.dialog.governingValue", radiusM.toFixed(2), t(GOVERNING_I18N[governing]));
+}
+
+function pointValue(point: PickPoint | undefined, axis: "x" | "y"): string {
+    return point === undefined ? "" : String(point[axis]);
+}
 
 @command({
     key: "tower.pick" as CommandKeys,
@@ -131,7 +204,7 @@ export class TowerPickCheckCommand implements ICommand {
         const content = div();
         content.style.display = "grid";
         content.style.gap = "10px";
-        content.style.minWidth = "680px";
+        content.style.minWidth = "1040px";
 
         const disclaimer = p(PLANNING_DISCLAIMER);
         disclaimer.style.fontWeight = "700";
@@ -139,6 +212,21 @@ export class TowerPickCheckCommand implements ICommand {
 
         const intro = p(t("tower.dialog.intro"));
         intro.style.margin = "0";
+
+        const sampleSite = loadSampleSitePicks();
+        if (!sampleSite.ok) {
+            const detail = sampleSite.issues.map((issue) => `${issue.path}: ${issue.message}`).join("; ");
+            const error = p(t("tower.dialog.sampleSiteError", detail));
+            error.style.margin = "0";
+            error.style.fontWeight = "600";
+            error.style.color = "#b42318";
+
+            content.append(disclaimer, intro, error);
+            PubSub.default.pub("showDialog", "tower.dialog.title" as I18nKeys, content, [
+                { content: "tower.dialog.close" as I18nKeys },
+            ]);
+            return Promise.resolve();
+        }
 
         const controls = div();
         controls.style.display = "flex";
@@ -159,30 +247,46 @@ export class TowerPickCheckCommand implements ICommand {
         craneField.style.display = "grid";
         craneField.append(craneSelect);
 
-        const jibInput = createInput(String(MCT88.defaultJibM.value), "0.1");
+        const jibInput = createInput(String(MCT88.defaultJibM.value), "0.1", "jib", "76px", "0");
         const jibField = label(t("tower.dialog.jib"));
         jibField.style.display = "grid";
         jibField.append(jibInput);
 
-        const windInput = createInput("", "1");
+        const mastXInput = createInput("", "0.1", "mast-x");
+        mastXInput.placeholder = t("tower.dialog.mastHint");
+        const mastXField = label(t("tower.dialog.mastX"));
+        mastXField.style.display = "grid";
+        mastXField.append(mastXInput);
+
+        const mastYInput = createInput("", "0.1", "mast-y");
+        mastYInput.placeholder = t("tower.dialog.mastHint");
+        const mastYField = label(t("tower.dialog.mastY"));
+        mastYField.style.display = "grid";
+        mastYField.append(mastYInput);
+
+        const windInput = createInput("", "1", "wind", "76px", "0");
         windInput.placeholder = t("tower.dialog.windHint");
         const windField = label(t("tower.dialog.wind"));
         windField.style.display = "grid";
         windField.append(windInput);
 
-        controls.append(craneField, jibField, windField);
+        controls.append(craneField, jibField, mastXField, mastYField, windField);
 
         const table = document.createElement("table");
         table.style.width = "100%";
         table.style.borderCollapse = "collapse";
-        table.style.fontSize = "13px";
+        table.style.fontSize = "12px";
 
         const header = document.createElement("thead");
         const headerRow = document.createElement("tr");
         for (const key of [
             "tower.dialog.pick",
             "tower.dialog.load",
-            "tower.dialog.radius",
+            "tower.dialog.supply",
+            "tower.dialog.drop",
+            "tower.dialog.supplyRadius",
+            "tower.dialog.dropRadius",
+            "tower.dialog.governingRadius",
             "tower.dialog.capacity",
             "tower.dialog.utilisation",
             "tower.dialog.status",
@@ -194,22 +298,59 @@ export class TowerPickCheckCommand implements ICommand {
         const body = document.createElement("tbody");
         const rows: PickRowControls[] = [];
 
-        for (const pick of SAMPLE_PICKS) {
+        for (const pick of sampleSite.picks) {
             const row = document.createElement("tr");
-            const load = createInput(String(pick.loadT), "0.1");
-            const radius = createInput(String(pick.radiusM), "0.1");
-            const capacity = createCell("td", "-");
-            const utilisation = createCell("td", "-");
-            const status = createCell("td", "-");
+            row.setAttribute("data-pick", pick.label ?? "");
 
-            const labelCell = createCell("td", pick.label ?? "");
+            const load = createInput(String(pick.loadT), "0.1", "load", "64px", "0");
+            const supplyX = createInput(pointValue(pick.supply, "x"), "0.1", "supply-x", "58px");
+            const supplyY = createInput(pointValue(pick.supply, "y"), "0.1", "supply-y", "58px");
+            const dropX = createInput(pointValue(pick.drop, "x"), "0.1", "drop-x", "58px");
+            const dropY = createInput(pointValue(pick.drop, "y"), "0.1", "drop-y", "58px");
+            supplyY.style.marginLeft = "4px";
+            dropY.style.marginLeft = "4px";
+
+            const supplyRadius = createCell("td", "-", "supply-radius");
+            const dropRadius = createCell("td", "-", "drop-radius");
+            const governingRadius = createCell("td", "-", "governing-radius");
+            const capacity = createCell("td", "-", "capacity");
+            const utilisation = createCell("td", "-", "utilisation");
+            const status = createCell("td", "-", "status");
+
+            const supplyCell = createCell("td");
+            const dropCell = createCell("td");
             const loadCell = createCell("td");
-            const radiusCell = createCell("td");
+            supplyCell.append(supplyX, supplyY);
+            dropCell.append(dropX, dropY);
             loadCell.append(load);
-            radiusCell.append(radius);
-            row.append(labelCell, loadCell, radiusCell, capacity, utilisation, status);
+
+            row.append(
+                createCell("td", pick.label ?? ""),
+                loadCell,
+                supplyCell,
+                dropCell,
+                supplyRadius,
+                dropRadius,
+                governingRadius,
+                capacity,
+                utilisation,
+                status,
+            );
             body.append(row);
-            rows.push({ load, radius, capacity, utilisation, status });
+            rows.push({
+                label: pick.label ?? "",
+                load,
+                supplyX,
+                supplyY,
+                dropX,
+                dropY,
+                supplyRadius,
+                dropRadius,
+                governingRadius,
+                capacity,
+                utilisation,
+                status,
+            });
         }
 
         table.append(header, body);
@@ -217,6 +358,85 @@ export class TowerPickCheckCommand implements ICommand {
         const summary = p();
         summary.style.fontWeight = "600";
         summary.style.margin = "0";
+
+        const matrixTitle = p(t("tower.matrix.title"));
+        matrixTitle.style.fontWeight = "700";
+        matrixTitle.style.margin = "0";
+
+        const matrixHint = p(t("tower.matrix.hint"));
+        matrixHint.style.margin = "0";
+        matrixHint.style.fontSize = "12px";
+
+        const matrixSummary = p();
+        matrixSummary.style.margin = "0";
+        matrixSummary.style.fontWeight = "600";
+        matrixSummary.setAttribute("data-role", "matrix-summary");
+
+        const matrixWrapper = div();
+        matrixWrapper.style.overflowX = "auto";
+
+        const matrixTable = document.createElement("table");
+        matrixTable.style.width = "100%";
+        matrixTable.style.borderCollapse = "collapse";
+        matrixTable.style.fontSize = "12px";
+        matrixTable.style.minWidth = "1100px";
+
+        const matrixHeader = document.createElement("thead");
+        const matrixHeaderRow = document.createElement("tr");
+        matrixHeaderRow.append(
+            createCell("th", t("tower.matrix.crane")),
+            createCell("th", t("tower.matrix.jib")),
+        );
+        for (const pick of sampleSite.picks) {
+            const cell = createCell("th", pick.label ?? "");
+            cell.setAttribute("data-pick-column", pick.label ?? "");
+            matrixHeaderRow.append(cell);
+        }
+        matrixHeaderRow.append(createCell("th", t("tower.matrix.overall")));
+        matrixHeader.append(matrixHeaderRow);
+
+        const matrixBody = document.createElement("tbody");
+        const matrixRows: MatrixRowControls[] = [];
+
+        for (const crane of TOWER_CRANES) {
+            const row = document.createElement("tr");
+            row.setAttribute("data-crane", crane.id);
+
+            const nameCell = createCell("td", crane.name);
+            nameCell.style.whiteSpace = "nowrap";
+            nameCell.style.verticalAlign = "top";
+
+            const jibKind =
+                crane.defaultJibM.provenance.kind === "indicative"
+                    ? t("tower.matrix.indicative")
+                    : t("tower.matrix.source");
+            const jibCell = createCell("td", `${crane.defaultJibM.value} m (${jibKind})`);
+            jibCell.setAttribute("data-jib-provenance", crane.defaultJibM.provenance.kind);
+            jibCell.style.whiteSpace = "nowrap";
+            jibCell.style.verticalAlign = "top";
+
+            const pickCells: HTMLTableCellElement[] = [];
+            for (const pick of sampleSite.picks) {
+                const cell = createCell("td", "-");
+                cell.setAttribute("data-role", "matrix-cell");
+                cell.setAttribute("data-pick-cell", pick.label ?? "");
+                cell.style.verticalAlign = "top";
+                cell.style.minWidth = "132px";
+                pickCells.push(cell);
+            }
+
+            const overall = createCell("td", "-");
+            overall.setAttribute("data-role", "matrix-overall");
+            overall.style.verticalAlign = "top";
+            overall.style.minWidth = "150px";
+
+            row.append(nameCell, jibCell, ...pickCells, overall);
+            matrixBody.append(row);
+            matrixRows.push({ craneId: crane.id, pickCells, overall });
+        }
+
+        matrixTable.append(matrixHeader, matrixBody);
+        matrixWrapper.append(matrixTable);
 
         const source = p();
         source.style.margin = "0";
@@ -276,16 +496,134 @@ export class TowerPickCheckCommand implements ICommand {
         }
 
         function readPicks(): Pick[] {
-            return rows.map((row, index) => ({
-                label: SAMPLE_PICKS[index].label,
-                loadT: Number(row.load.value),
-                radiusM: Number(row.radius.value),
+            return rows.map((row) => ({
+                label: row.label,
+                loadT: readNumber(row.load),
+                supply: { x: readNumber(row.supplyX), y: readNumber(row.supplyY) },
+                drop: { x: readNumber(row.dropX), y: readNumber(row.dropY) },
             }));
+        }
+
+        function readMast(): PickPoint | undefined {
+            const x = readNumber(mastXInput);
+            const y = readNumber(mastYInput);
+            return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+        }
+
+        function renderMatrixCell(cell: HTMLTableCellElement, result: PickEvaluation): void {
+            cell.replaceChildren();
+
+            const status = document.createElement("div");
+            status.textContent = t(STATUS_I18N[result.status]);
+            status.style.fontWeight = "600";
+            status.style.color = statusColor(result.status);
+
+            const measures = document.createElement("div");
+            const capacity = result.capacityT === null ? "-" : `${result.capacityT.toFixed(2)} t`;
+            const utilisation =
+                result.utilisationPct === null ? "-" : `${result.utilisationPct.toFixed(1)} %`;
+            measures.textContent = `${capacity} · ${utilisation}`;
+
+            const radius = document.createElement("div");
+            radius.textContent = formatGoverningRadius(result.radiusM, result.governing);
+
+            cell.append(status, measures, radius);
+
+            const reason = selectionReason(result);
+            if (reason !== undefined) {
+                const reasonLine = document.createElement("div");
+                reasonLine.textContent = t(REASON_I18N[reason]);
+                reasonLine.style.fontSize = "11px";
+                reasonLine.style.color = "#8a5a00";
+                cell.append(reasonLine);
+            }
+
+            cell.setAttribute("data-matrix-status", result.status);
+            cell.setAttribute("data-matrix-issue", result.issue ?? "");
+            cell.setAttribute(
+                "data-matrix-capacity",
+                result.capacityT === null ? "" : result.capacityT.toFixed(2),
+            );
+            cell.setAttribute(
+                "data-matrix-utilisation",
+                result.utilisationPct === null ? "" : result.utilisationPct.toFixed(1),
+            );
+            cell.setAttribute("data-matrix-radius", result.radiusM === null ? "" : result.radiusM.toFixed(2));
+            cell.setAttribute("data-matrix-governing", result.governing ?? "");
+            cell.setAttribute("data-matrix-reason", reason ?? "");
+        }
+
+        function renderMatrixRow(controls: MatrixRowControls, evaluation: CraneEvaluation): void {
+            evaluation.picks.forEach((result, index) => {
+                const cell = controls.pickCells[index];
+                if (cell !== undefined) renderMatrixCell(cell, result);
+            });
+
+            const total = evaluation.picks.length;
+            const passing = evaluation.picks.filter((result) => result.status === "PASS").length;
+            const invalid = evaluation.picks.filter((result) => result.status === "INVALID").length;
+            const allInvalid = total > 0 && invalid === total;
+
+            if (total === 0) {
+                controls.overall.textContent = t("tower.matrix.rowNoPicks");
+            } else if (evaluation.allPass) {
+                controls.overall.textContent = t("tower.matrix.rowPass", passing, total);
+            } else if (allInvalid) {
+                controls.overall.textContent = t("tower.matrix.rowInvalid", passing, total, invalid);
+            } else {
+                controls.overall.textContent = t("tower.matrix.rowFail", passing, total);
+            }
+            controls.overall.style.fontWeight = "600";
+            controls.overall.style.color = evaluation.allPass ? "#1b7f3a" : "#8a5a00";
+            controls.overall.setAttribute("data-matrix-all-pass", String(evaluation.allPass));
+            controls.overall.setAttribute("data-matrix-passing", String(passing));
+            controls.overall.setAttribute("data-matrix-total", String(total));
+        }
+
+        function renderMatrix(matrix: SelectionMatrix): void {
+            const rowsById = new Map(matrix.rows.map((row) => [row.craneId, row]));
+            for (const controls of matrixRows) {
+                const evaluation = rowsById.get(controls.craneId);
+                if (evaluation !== undefined) renderMatrixRow(controls, evaluation);
+            }
+
+            matrixSummary.setAttribute("data-state", matrix.state);
+            matrixSummary.setAttribute("data-passing-cranes", String(matrix.passingCraneCount));
+            matrixSummary.setAttribute("data-crane-count", String(matrix.craneCount));
+            matrixSummary.style.color =
+                matrix.state === "cranes-pass"
+                    ? "#1b7f3a"
+                    : matrix.state === "no-crane-passes"
+                      ? "#b42318"
+                      : "#8a5a00";
+
+            switch (matrix.state) {
+                case "no-picks":
+                    matrixSummary.textContent = t("tower.matrix.noPicks");
+                    break;
+                case "invalid-picks":
+                    matrixSummary.textContent = t("tower.matrix.invalidPicks");
+                    break;
+                case "missing-mast":
+                    matrixSummary.textContent = t("tower.matrix.missingMast");
+                    break;
+                case "no-crane-passes":
+                    matrixSummary.textContent = t("tower.matrix.noCranePasses", matrix.craneCount);
+                    break;
+                case "cranes-pass":
+                    matrixSummary.textContent = t(
+                        "tower.matrix.cranesPass",
+                        matrix.passingCraneCount,
+                        matrix.craneCount,
+                        matrix.allPassCraneNames.join(", "),
+                    );
+                    break;
+            }
         }
 
         function recalculate(): void {
             const crane = selectedCrane();
-            const jibM = Number(jibInput.value);
+            const jibM = readNumber(jibInput);
             const windText = windInput.value.trim();
             // Chromium reports malformed or incomplete numeric entries such as
             // "1e" as an empty value with badInput set. That is invalid wind,
@@ -296,24 +634,39 @@ export class TowerPickCheckCommand implements ICommand {
             } else {
                 windKmh = windText === "" ? null : Number(windText);
             }
-            const evaluation = evaluateCrane(crane, readPicks(), { jibM, windKmh });
+            const picks = readPicks();
+            const mast = readMast();
+            const evaluation = evaluateCrane(crane, picks, {
+                jibM,
+                windKmh,
+                mast,
+            });
 
             evaluation.picks.forEach((result, index) => {
                 const row = rows[index];
+                row.supplyRadius.textContent = formatRadius(result.supplyRadiusM);
+                row.dropRadius.textContent = formatRadius(result.dropRadiusM);
+                row.governingRadius.textContent = formatGoverningRadius(result.radiusM, result.governing);
+                row.governingRadius.setAttribute("data-governing", result.governing ?? "none");
                 row.capacity.textContent =
                     result.capacityT === null ? "-" : `${result.capacityT.toFixed(2)} t`;
                 row.utilisation.textContent =
                     result.utilisationPct === null ? "-" : `${result.utilisationPct.toFixed(1)} %`;
                 row.status.textContent = t(STATUS_I18N[result.status]);
                 row.status.setAttribute("data-status", result.status);
+                row.status.setAttribute("data-issue", result.issue ?? "");
                 row.status.style.fontWeight = "600";
-                row.status.style.color =
-                    result.status === "PASS" ? "#1b7f3a" : result.status === "FAIL" ? "#b42318" : "#8a5a00";
+                row.status.style.color = statusColor(result.status);
             });
 
             const passing = evaluation.picks.filter((result) => result.status === "PASS").length;
             summary.textContent = t("tower.dialog.summary", passing, evaluation.picks.length);
             summary.setAttribute("data-all-pass", String(evaluation.allPass));
+
+            // The catalogue matrix compares every crane at its own default jib;
+            // the selected-crane jib input above only drives the detail table.
+            const matrix = buildSelectionMatrix(TOWER_CRANES, picks, { windKmh, mast });
+            renderMatrix(matrix);
         }
 
         craneSelect.addEventListener("change", () => {
@@ -323,11 +676,13 @@ export class TowerPickCheckCommand implements ICommand {
             recalculate();
         });
         for (const row of rows) {
-            row.load.addEventListener("input", recalculate);
-            row.radius.addEventListener("input", recalculate);
+            for (const element of [row.load, row.supplyX, row.supplyY, row.dropX, row.dropY]) {
+                element.addEventListener("input", recalculate);
+            }
         }
-        jibInput.addEventListener("input", recalculate);
-        windInput.addEventListener("input", recalculate);
+        for (const element of [jibInput, mastXInput, mastYInput, windInput]) {
+            element.addEventListener("input", recalculate);
+        }
 
         updateCraneNotes(selectedCrane());
         recalculate();
@@ -338,6 +693,10 @@ export class TowerPickCheckCommand implements ICommand {
             controls,
             table,
             summary,
+            matrixTitle,
+            matrixHint,
+            matrixSummary,
+            matrixWrapper,
             source,
             jibProvenance,
             capacityMethod,
