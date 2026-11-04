@@ -6,6 +6,8 @@ import { REQUIRED_DISCLAIMER } from "./types";
 
 export * from "./dxfParser";
 export * from "./extrusion";
+export * from "./imageUnderlay";
+export * from "./polygonEditor";
 export * from "./schema";
 export * from "./types";
 
@@ -13,7 +15,7 @@ const SiteModelPlugin: Plugin = {
     guide: [
         {
             name: "DGOC Site Model",
-            content: `Shared site model plugin for DGOC Crane Planner. Parses DXF site plans, extrudes 3D buildings, and manages hazards. ${REQUIRED_DISCLAIMER}`,
+            content: `Shared site model plugin for DGOC Crane Planner. Parses DXF site plans, extrudes 3D buildings, calibrates image underlays, edits site polygons, and manages hazards. ${REQUIRED_DISCLAIMER}`,
         },
     ],
     i18nResources: [
@@ -23,6 +25,8 @@ const SiteModelPlugin: Plugin = {
             translation: {
                 "site.model.name": "Site Model",
                 "site.model.disclaimer": REQUIRED_DISCLAIMER,
+                "site.model.underlay": "Image Underlay",
+                "site.model.drawPolygon": "Draw Polygon",
             },
         } as any,
     ],
