@@ -51,6 +51,7 @@
     },
     "dependencies": {
         "@types/jszip": "^3.4.0",
+        "dxf-parser": "^1.1.2",
         "jszip": "^3.10.1"
     }
 }

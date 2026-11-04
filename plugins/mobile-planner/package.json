@@ -1,0 +1,18 @@
+{
+    "name": "@chili3d-crane/mobile-planner",
+    "version": "0.1.0",
+    "description": "Mobile Crane Lift Planner plugin for Chili3D",
+    "main": "dist/main.js",
+    "type": "module",
+    "scripts": {
+        "build": "rspack build",
+        "test": "rstest",
+        "package": "npm run build && node ../scripts/package-plugin.mjs dist/mobile-planner.chiliplugin manifest.json importmap.json dist icons"
+    },
+    "dependencies": {
+        "@chili3d/core": "*"
+    },
+    "devDependencies": {
+        "@chili3d/wasm": "*"
+    }
+}

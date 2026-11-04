@@ -1,0 +1,12 @@
+{
+    "name": "Site Model",
+    "version": "1.0.0",
+    "description": "Shared site model plugin: DXF import, 3D building extrusion, site hazards and JSON schema",
+    "main": "dist/main.js",
+    "author": {
+        "name": "Ajit"
+    },
+    "engines": {
+        "chili3d": ">=0.6"
+    }
+}

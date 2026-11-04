@@ -1,0 +1,12 @@
+{
+    "name": "Mobile Crane Planner",
+    "version": "0.1.0",
+    "description": "Mobile crane load-chart and lift-planning aid",
+    "main": "dist/main.js",
+    "author": {
+        "name": "DGOC Crane Planner"
+    },
+    "engines": {
+        "chili3d": ">=0.6"
+    }
+}

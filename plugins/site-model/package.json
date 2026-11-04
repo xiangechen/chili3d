@@ -1,0 +1,15 @@
+{
+    "name": "site-model",
+    "version": "1.0.0",
+    "description": "Shared site model plugin for DGOC Crane Planner",
+    "main": "dist/main.js",
+    "type": "module",
+    "scripts": {
+        "build": "rspack build",
+        "preview": "npm run build && echo 'Debug URL: http://localhost:8080?plugin=http://localhost:8686' && npx servitsy -p 8686 --cors"
+    },
+    "dependencies": {
+        "dxf-parser": "^1.1.2"
+    },
+    "author": "Ajit"
+}

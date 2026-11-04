@@ -1,4 +1,4 @@
-{
+﻿{
     "schemaVersion": 1,
     "cranes": [
         {
@@ -35,17 +35,11 @@
             },
             "maxCapacityT": {
                 "value": 5,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "maxJibLengthM": {
                 "value": 52,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "defaultJibM": {
                 "value": 30,
@@ -58,170 +52,107 @@
                 {
                     "jibM": {
                         "value": 20,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 3.95,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 25,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 3.0,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 30,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 35,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 2.27,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 40,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.95,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 45,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 50,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.45,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 52,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.15,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 }
             ],
             "dimensions": {
                 "mastWidthM": {
                     "value": 1.2,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetOverview"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                 },
                 "counterJibLengthM": {
                     "value": 11.9,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetDimensions"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetDimensions" }
                 },
                 "baseWidthM": {
                     "value": 3.8,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetMastReactions"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetMastReactions" }
                 },
                 "counterJibRadiusM": {
                     "value": 13.7,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetOverview"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                 }
             },
             "heaviestErectionComponent": {
                 "name": "Counter-jib",
                 "massT": {
                     "value": 4.38,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetDimensions"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetDimensions" }
                 },
                 "note": "Heaviest single component listed in the p. 6 dimensions and weight table: 4380 kg for variant A; variant B is 4250 kg. The counter-jib structural length is 11.9 m for both variants. The table is a component-weight table, not an erection-sequence plan. Confirm the actual heaviest lift against the erection manual before use."
             },
@@ -231,10 +162,7 @@
             "configuration": "52 m jib",
             "heightUnderHookM": {
                 "value": 43.1,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetMastReactions"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetMastReactions" }
             },
             "freestandingHeightM": {
                 "kind": "notStated",
@@ -273,17 +201,11 @@
             },
             "maxCapacityT": {
                 "value": 5,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "maxJibLengthM": {
                 "value": 52,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "defaultJibM": {
                 "value": 30,
@@ -296,129 +218,81 @@
                 {
                     "jibM": {
                         "value": 20,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 3.95,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 25,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 3.0,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 30,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 2.5,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 35,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 2.22,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 40,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.9,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 45,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.65,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 50,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.4,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 },
                 {
                     "jibM": {
                         "value": 52,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     },
                     "tipT": {
                         "value": 1.1,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetOverview"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                     }
                 }
             ],
@@ -426,65 +300,41 @@
                 {
                     "jibM": {
                         "value": 20,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 16.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.95,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -492,97 +342,61 @@
                 {
                     "jibM": {
                         "value": 25,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 16.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.02,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -590,145 +404,91 @@
                 {
                     "jibM": {
                         "value": 30,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 16.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.0,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 27,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.75,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 29,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 30,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -736,177 +496,111 @@
                 {
                     "jibM": {
                         "value": 35,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 16.4,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.0,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 27,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.75,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 29.1,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 31.6,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 32,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -914,209 +608,131 @@
                 {
                     "jibM": {
                         "value": 40,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 16.4,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.0,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 27,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.75,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 29.1,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 31.6,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 32,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.2,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 37,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.1,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 40,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -1124,241 +740,151 @@
                 {
                     "jibM": {
                         "value": 45,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 16.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.0,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 27,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.75,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 29.1,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 31.6,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 32,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.2,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 37,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.1,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 40,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 42,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.65,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -1366,273 +892,171 @@
                 {
                     "jibM": {
                         "value": 50,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 15.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.6,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.4,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 27,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.65,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 28.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 30.7,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 32,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.4,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.15,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 37,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.0,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 40,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.85,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 42,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.75,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.6,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 47,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 50,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.4,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -1640,305 +1064,191 @@
                 {
                     "jibM": {
                         "value": 52,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 2.7,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 13.7,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 15,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 17,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.9,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 20,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.2,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 22,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.85,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 24.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 26.4,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.5,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 27,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 30,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.15,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 32,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.0,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.8,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 37,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.7,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 40,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.55,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 42,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 45,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.3,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 47,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.25,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 50,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.15,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 52,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 1.1,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -1947,41 +1257,26 @@
             "dimensions": {
                 "mastWidthM": {
                     "value": 1.2,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetOverview"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                 },
                 "counterJibLengthM": {
                     "value": 14.6,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetDimensions"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetDimensions" }
                 },
                 "baseWidthM": {
                     "value": 3.8,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetMastReactions"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetMastReactions" }
                 },
                 "counterJibRadiusM": {
                     "value": 13.7,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetOverview"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
                 }
             },
             "heaviestErectionComponent": {
                 "name": "Counter-jib (variant A, with grab rail and platform)",
                 "massT": {
                     "value": 4.38,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "datasheetDimensions"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "datasheetDimensions" }
                 },
                 "note": "The p. 5 component-weight table lists 4380 kg for variant A and 4250 kg for variant B; variant A is the heavier and longer counter-jib. The table is a component-weight table, not an erection-sequence plan. The p. 1 drawing labels the counter-jib radius as 13.7 m (A) / 11.3 m (B), which is a different dimension from the table's structural length. Confirm the actual heaviest lift against the erection manual before use."
             },
@@ -1991,10 +1286,7 @@
             "configuration": "52 m jib",
             "heightUnderHookM": {
                 "value": 41.6,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetMastReactions"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetMastReactions" }
             },
             "freestandingHeightM": {
                 "kind": "notStated",
@@ -2031,17 +1323,11 @@
             },
             "maxCapacityT": {
                 "value": 16.011810661,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetLoadCharts"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
             },
             "maxJibLengthM": {
                 "value": 64.92240000000001,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "defaultJibM": {
                 "value": 64.92240000000001,
@@ -2054,17 +1340,11 @@
                 {
                     "jibM": {
                         "value": 64.92240000000001,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "tipT": {
                         "value": 3.4019427749999998,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     }
                 }
             ],
@@ -2072,161 +1352,101 @@
                 {
                     "jibM": {
                         "value": 64.92240000000001,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 24.9936,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 24.9936,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 16.011810661,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 29.8704,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 16.011810661,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35.052,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 15.195344395,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 39.9288,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 12.020197805,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 45.110400000000006,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 9.616158244,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 49.9872,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 7.6203518159999994,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 54.864000000000004,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5.987419284,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 60.0456,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.581282937,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 64.92240000000001,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 3.4019427749999998,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -2238,10 +1458,7 @@
             },
             "freestandingHeightM": {
                 "value": 72.2376,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "dimensions": {
                 "mastWidthM": {
@@ -2269,10 +1486,7 @@
                 "name": "Counter-jib + luffing mechanisms + reeving block + auxiliary jib",
                 "massT": {
                     "value": 20.5522702847,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "packingList"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "packingList" }
                 },
                 "note": "Packing-list line P/W 45310 lb on p. 6, converted to 20.5523 t. It is a combined transport package, not an individual erection component; do not use it as the heaviest erection lift."
             }
@@ -2307,17 +1521,11 @@
             },
             "maxCapacityT": {
                 "value": 18.007617089,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetLoadCharts"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
             },
             "maxJibLengthM": {
                 "value": 64.92240000000001,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "defaultJibM": {
                 "value": 64.92240000000001,
@@ -2330,17 +1538,11 @@
                 {
                     "jibM": {
                         "value": 64.92240000000001,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "tipT": {
                         "value": 2.993709642,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     }
                 }
             ],
@@ -2348,161 +1550,101 @@
                 {
                     "jibM": {
                         "value": 64.92240000000001,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "minRadiusM": {
                         "value": 24.9936,
-                        "provenance": {
-                            "kind": "source",
-                            "sourceId": "datasheetLoadCharts"
-                        }
+                        "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                     },
                     "points": [
                         {
                             "radiusM": {
                                 "value": 24.9936,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 18.007617089,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 29.8704,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 18.007617089,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 35.052,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 14.787111262,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 39.9288,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 11.702683146,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 45.110400000000006,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 9.207925111,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 49.9872,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 7.212118683,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 54.864000000000004,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 5.579186151,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 60.0456,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 4.218409041,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         },
                         {
                             "radiusM": {
                                 "value": 64.92240000000001,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             },
                             "capacityT": {
                                 "value": 2.993709642,
-                                "provenance": {
-                                    "kind": "source",
-                                    "sourceId": "datasheetLoadCharts"
-                                }
+                                "provenance": { "kind": "source", "sourceId": "datasheetLoadCharts" }
                             }
                         }
                     ]
@@ -2514,10 +1656,7 @@
             },
             "freestandingHeightM": {
                 "value": 72.2376,
-                "provenance": {
-                    "kind": "source",
-                    "sourceId": "datasheetOverview"
-                }
+                "provenance": { "kind": "source", "sourceId": "datasheetOverview" }
             },
             "dimensions": {
                 "mastWidthM": {
@@ -2545,10 +1684,7 @@
                 "name": "Counter-jib + luffing mechanisms + reeving block + auxiliary jib",
                 "massT": {
                     "value": 20.5522702847,
-                    "provenance": {
-                        "kind": "source",
-                        "sourceId": "packingList"
-                    }
+                    "provenance": { "kind": "source", "sourceId": "packingList" }
                 },
                 "note": "Packing-list line P/W 45310 lb on p. 6, converted to 20.5523 t. It is a combined transport package, not an individual erection component; do not use it as the heaviest erection lift."
             }
