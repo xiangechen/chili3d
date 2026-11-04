@@ -25,6 +25,12 @@
                     "page": 6,
                     "section": "Dimensions and weight",
                     "note": "Page 6 of the 8-page reference PDF (held outside this repository). Slewing crane part table: counter-jib L = 11.9 m for both variants A and B; mass 4380 kg (variant A) / 4250 kg (variant B); cab 1100 kg. The p. 1 drawing labels the counter-jib radius as 13.7 m (A) / 11.3 m (B), which is a different dimension; the catalogue uses the p. 6 structural length."
+                },
+                "datasheetMastReactions": {
+                    "document": "Potain MCT 88 Data Sheet, FEM 1.001-A3 (Manitowoc, Code 09-003-.5M-0610)",
+                    "page": 2,
+                    "section": "Mast - reactions / P12D",
+                    "note": "Page 2 of the 8-page reference PDF (held outside this repository). The P12D mast table gives a height under hook of 43.1 m and a 3.8 m base width. The height under hook is not a freestanding-height limit; no freestanding height is stated in the inspected datasheet."
                 }
             },
             "maxCapacityT": {
@@ -192,6 +198,20 @@
                         "kind": "source",
                         "sourceId": "datasheetDimensions"
                     }
+                },
+                "baseWidthM": {
+                    "value": 3.8,
+                    "provenance": {
+                        "kind": "source",
+                        "sourceId": "datasheetMastReactions"
+                    }
+                },
+                "counterJibRadiusM": {
+                    "value": 13.7,
+                    "provenance": {
+                        "kind": "source",
+                        "sourceId": "datasheetOverview"
+                    }
                 }
             },
             "heaviestErectionComponent": {
@@ -204,6 +224,21 @@
                     }
                 },
                 "note": "Heaviest single component listed in the p. 6 dimensions and weight table: 4380 kg for variant A; variant B is 4250 kg. The counter-jib structural length is 11.9 m for both variants. The table is a component-weight table, not an erection-sequence plan. Confirm the actual heaviest lift against the erection manual before use."
+            },
+            "craneType": "trolley-jib",
+            "modelId": "potain-mct-88",
+            "modelName": "Potain MCT 88",
+            "configuration": "52 m jib",
+            "heightUnderHookM": {
+                "value": 43.1,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetMastReactions"
+                }
+            },
+            "freestandingHeightM": {
+                "kind": "notStated",
+                "reason": "The inspected MCT 88 datasheet does not label a freestanding-height limit. The p. 2 P12D table's 43.1 m is a height under hook, recorded separately in heightUnderHookM; no freestanding height is inferred from it."
             }
         },
         {
@@ -228,6 +263,12 @@
                     "page": 5,
                     "section": "Dimensions and weight - slewing crane part",
                     "note": "PDF page 5. Counter-jib variant A: 14.6 m, 4380 kg; variant B: 11.9 m, 4250 kg. The p. 1 drawing labels the counter-jib radius as 13.7 m (A) / 11.3 m (B); the table's L is the structural length. The catalogue uses variant A (longer, heavier) for the counter-jib length and heaviest component."
+                },
+                "datasheetMastReactions": {
+                    "document": "Potain MCT 85 F5 Data Sheet, FEM 1.001-A3 (Manitowoc, Ref. 02D_FEM1001mt_MCT85F5_2026_05-0)",
+                    "page": 2,
+                    "section": "Mast - reactions / P12D",
+                    "note": "PDF page 2. The P12D mast table gives a height under hook of 41.6 m for jib lengths 20-40 m and 40.1 m for 45-52 m; the catalogue's 30 m default jib uses 41.6 m. The same drawing labels a 3.8 m base width. The height under hook is not a freestanding-height limit; no freestanding height is stated in the inspected datasheet."
                 }
             },
             "maxCapacityT": {
@@ -1917,6 +1958,20 @@
                         "kind": "source",
                         "sourceId": "datasheetDimensions"
                     }
+                },
+                "baseWidthM": {
+                    "value": 3.8,
+                    "provenance": {
+                        "kind": "source",
+                        "sourceId": "datasheetMastReactions"
+                    }
+                },
+                "counterJibRadiusM": {
+                    "value": 13.7,
+                    "provenance": {
+                        "kind": "source",
+                        "sourceId": "datasheetOverview"
+                    }
                 }
             },
             "heaviestErectionComponent": {
@@ -1929,7 +1984,575 @@
                     }
                 },
                 "note": "The p. 5 component-weight table lists 4380 kg for variant A and 4250 kg for variant B; variant A is the heavier and longer counter-jib. The table is a component-weight table, not an erection-sequence plan. The p. 1 drawing labels the counter-jib radius as 13.7 m (A) / 11.3 m (B), which is a different dimension from the table's structural length. Confirm the actual heaviest lift against the erection manual before use."
+            },
+            "craneType": "trolley-jib",
+            "modelId": "potain-mct-85-f5",
+            "modelName": "Potain MCT 85 F5",
+            "configuration": "52 m jib",
+            "heightUnderHookM": {
+                "value": 41.6,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetMastReactions"
+                }
+            },
+            "freestandingHeightM": {
+                "kind": "notStated",
+                "reason": "The inspected MCT 85 F5 datasheet does not label a freestanding-height limit. The p. 2 P12D table's 41.6 m is a height under hook for the 30 m default jib, recorded separately in heightUnderHookM; no freestanding height is inferred from it."
+            }
+        },
+        {
+            "id": "jaso-j438pa-2r-td-213",
+            "name": "JASO J438PA.2R (213 ft TD)",
+            "craneType": "luffing-jib",
+            "modelId": "jaso-j438pa-2r",
+            "modelName": "JASO J438PA.2R",
+            "configuration": "213 ft TD",
+            "standard": "EN 14439 C25 (FEM 1005-C25)",
+            "sources": {
+                "datasheetOverview": {
+                    "document": "JASO J438PA.2R Data Sheet, EN 14439 C25 (JASO, 30/05/2025)",
+                    "page": 1,
+                    "section": "J438PA.2R overview - jib lengths, heights and out-of-service distances",
+                    "note": "PDF page 1. Local source PDF: plugins/tower-planner/docs/J438PA.2R_EN-14439-C25_LB-FT_HT21201101.pdf, 7 pages, dated 30/05/2025. Shows jib lengths 98-213 ft and the H column 'Maximum height under hook without fastening' (237 ft for the 213 ft jib). The catalogue selects the 213 ft configuration; the datasheet also publishes shorter jibs, so that selection is a project assumption. The drawing does not state a mast width, base width or counter-jib structural length."
+                },
+                "datasheetLoadCharts": {
+                    "document": "JASO J438PA.2R Data Sheet, EN 14439 C25 (JASO, 30/05/2025)",
+                    "page": 2,
+                    "section": "Loads J438PA.2R - TD 35300 lb and 2R 39700 lb charts",
+                    "note": "PDF page 2. Local source PDF: plugins/tower-planner/docs/J438PA.2R_EN-14439-C25_LB-FT_HT21201101.pdf. TD chart (35300 lb maximum) row for the 213 ft jib: 82 ft 35300 lb, 98 ft 35300 lb, 115 ft 33500 lb, 131 ft 26500 lb, 148 ft 21200 lb, 164 ft 16800 lb, 180 ft 13200 lb, 197 ft 10100 lb, 213 ft 7500 lb. 2R chart (39700 lb maximum) row for the 213 ft jib: 82 ft 39700 lb, 98 ft 39700 lb, 115 ft 32600 lb, 131 ft 25800 lb, 148 ft 20300 lb, 164 ft 15900 lb, 180 ft 12300 lb, 197 ft 9300 lb, 213 ft 6600 lb. The imperial labels are the source; catalogue values are converted to metres and tonnes."
+                },
+                "packingList": {
+                    "document": "JASO J438PA.2R Data Sheet, EN 14439 C25 (JASO, 30/05/2025)",
+                    "page": 6,
+                    "section": "Packing list",
+                    "note": "PDF page 6 (the packing list continues on p. 7). Local source PDF: plugins/tower-planner/docs/J438PA.2R_EN-14439-C25_LB-FT_HT21201101.pdf. The 'Counterjib + Luffing mechanisms + Reeving block + Auxiliary jib' line has L 21.7 ft, A 7.8 ft, H 9.1 ft and P/W 45310 lb. It is a combined transport package, not an individual erection component; it is recorded in combinedTransportPackage and is not used as the heaviest erection lift."
+                }
+            },
+            "maxCapacityT": {
+                "value": 16.011810661,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetLoadCharts"
+                }
+            },
+            "maxJibLengthM": {
+                "value": 64.92240000000001,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetOverview"
+                }
+            },
+            "defaultJibM": {
+                "value": 64.92240000000001,
+                "provenance": {
+                    "kind": "indicative",
+                    "basis": "The 213 ft jib is a published JASO J438PA.2R configuration (p. 1 and p. 2), but selecting it as this catalogue entry's default is a project assumption; the datasheet also publishes 98-197 ft configurations."
+                }
+            },
+            "tipLoadByJib": [
+                {
+                    "jibM": {
+                        "value": 64.92240000000001,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    },
+                    "tipT": {
+                        "value": 3.4019427749999998,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    }
+                }
+            ],
+            "loadChart": [
+                {
+                    "jibM": {
+                        "value": 64.92240000000001,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    },
+                    "minRadiusM": {
+                        "value": 24.9936,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    },
+                    "points": [
+                        {
+                            "radiusM": {
+                                "value": 24.9936,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 16.011810661,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 29.8704,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 16.011810661,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 35.052,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 15.195344395,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 39.9288,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 12.020197805,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 45.110400000000006,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 9.616158244,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 49.9872,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 7.6203518159999994,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 54.864000000000004,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 5.987419284,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 60.0456,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 4.581282937,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 64.92240000000001,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 3.4019427749999998,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            "heightUnderHookM": {
+                "kind": "notStated",
+                "reason": "The inspected JASO datasheet publishes H = maximum height under hook without fastening (237 ft for the 213 ft jib), which is recorded in freestandingHeightM. It does not state a separate overall height under hook, so no value is entered here."
+            },
+            "freestandingHeightM": {
+                "value": 72.2376,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetOverview"
+                }
+            },
+            "dimensions": {
+                "mastWidthM": {
+                    "kind": "notStated",
+                    "reason": "The inspected JASO J438PA.2R datasheet does not state the mast section width; the p. 1 drawing labels jib sections and heights but no mast width."
+                },
+                "baseWidthM": {
+                    "kind": "notStated",
+                    "reason": "The inspected JASO J438PA.2R datasheet does not state a foundation/base width. The p. 1 out-of-service distances are not base dimensions."
+                },
+                "counterJibLengthM": {
+                    "kind": "notStated",
+                    "reason": "The p. 6 packing list gives a 21.7 ft (6.614 m) combined counter-jib + mechanisms + reeving block + auxiliary jib package length, not a bare counter-jib structural length. No structural counter-jib length is stated, so none is recorded."
+                },
+                "counterJibRadiusM": {
+                    "kind": "notStated",
+                    "reason": "The inspected JASO J438PA.2R datasheet does not state the counter-jib radius from the slewing centre."
+                }
+            },
+            "heaviestErectionComponent": {
+                "kind": "notStated",
+                "reason": "The pp. 6-7 packing list gives transport package masses, not an erection-component schedule. The heaviest line is the 45310 lb (20.5523 t) combined counter-jib + luffing mechanisms + reeving block + auxiliary jib package, which is recorded separately as a combined transport package. No individual component mass is published, so the heaviest erection lift cannot be derived from this document."
+            },
+            "combinedTransportPackage": {
+                "name": "Counter-jib + luffing mechanisms + reeving block + auxiliary jib",
+                "massT": {
+                    "value": 20.5522702847,
+                    "provenance": {
+                        "kind": "source",
+                        "sourceId": "packingList"
+                    }
+                },
+                "note": "Packing-list line P/W 45310 lb on p. 6, converted to 20.5523 t. It is a combined transport package, not an individual erection component; do not use it as the heaviest erection lift."
+            }
+        },
+        {
+            "id": "jaso-j438pa-2r-2r-213",
+            "name": "JASO J438PA.2R (213 ft 2R)",
+            "craneType": "luffing-jib",
+            "modelId": "jaso-j438pa-2r",
+            "modelName": "JASO J438PA.2R",
+            "configuration": "213 ft 2R",
+            "standard": "EN 14439 C25 (FEM 1005-C25)",
+            "sources": {
+                "datasheetOverview": {
+                    "document": "JASO J438PA.2R Data Sheet, EN 14439 C25 (JASO, 30/05/2025)",
+                    "page": 1,
+                    "section": "J438PA.2R overview - jib lengths, heights and out-of-service distances",
+                    "note": "PDF page 1. Local source PDF: plugins/tower-planner/docs/J438PA.2R_EN-14439-C25_LB-FT_HT21201101.pdf, 7 pages, dated 30/05/2025. Shows jib lengths 98-213 ft and the H column 'Maximum height under hook without fastening' (237 ft for the 213 ft jib). The catalogue selects the 213 ft configuration; the datasheet also publishes shorter jibs, so that selection is a project assumption. The drawing does not state a mast width, base width or counter-jib structural length."
+                },
+                "datasheetLoadCharts": {
+                    "document": "JASO J438PA.2R Data Sheet, EN 14439 C25 (JASO, 30/05/2025)",
+                    "page": 2,
+                    "section": "Loads J438PA.2R - TD 35300 lb and 2R 39700 lb charts",
+                    "note": "PDF page 2. Local source PDF: plugins/tower-planner/docs/J438PA.2R_EN-14439-C25_LB-FT_HT21201101.pdf. TD chart (35300 lb maximum) row for the 213 ft jib: 82 ft 35300 lb, 98 ft 35300 lb, 115 ft 33500 lb, 131 ft 26500 lb, 148 ft 21200 lb, 164 ft 16800 lb, 180 ft 13200 lb, 197 ft 10100 lb, 213 ft 7500 lb. 2R chart (39700 lb maximum) row for the 213 ft jib: 82 ft 39700 lb, 98 ft 39700 lb, 115 ft 32600 lb, 131 ft 25800 lb, 148 ft 20300 lb, 164 ft 15900 lb, 180 ft 12300 lb, 197 ft 9300 lb, 213 ft 6600 lb. The imperial labels are the source; catalogue values are converted to metres and tonnes."
+                },
+                "packingList": {
+                    "document": "JASO J438PA.2R Data Sheet, EN 14439 C25 (JASO, 30/05/2025)",
+                    "page": 6,
+                    "section": "Packing list",
+                    "note": "PDF page 6 (the packing list continues on p. 7). Local source PDF: plugins/tower-planner/docs/J438PA.2R_EN-14439-C25_LB-FT_HT21201101.pdf. The 'Counterjib + Luffing mechanisms + Reeving block + Auxiliary jib' line has L 21.7 ft, A 7.8 ft, H 9.1 ft and P/W 45310 lb. It is a combined transport package, not an individual erection component; it is recorded in combinedTransportPackage and is not used as the heaviest erection lift."
+                }
+            },
+            "maxCapacityT": {
+                "value": 18.007617089,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetLoadCharts"
+                }
+            },
+            "maxJibLengthM": {
+                "value": 64.92240000000001,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetOverview"
+                }
+            },
+            "defaultJibM": {
+                "value": 64.92240000000001,
+                "provenance": {
+                    "kind": "indicative",
+                    "basis": "The 213 ft jib is a published JASO J438PA.2R configuration (p. 1 and p. 2), but selecting it as this catalogue entry's default is a project assumption; the datasheet also publishes 98-197 ft configurations."
+                }
+            },
+            "tipLoadByJib": [
+                {
+                    "jibM": {
+                        "value": 64.92240000000001,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    },
+                    "tipT": {
+                        "value": 2.993709642,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    }
+                }
+            ],
+            "loadChart": [
+                {
+                    "jibM": {
+                        "value": 64.92240000000001,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    },
+                    "minRadiusM": {
+                        "value": 24.9936,
+                        "provenance": {
+                            "kind": "source",
+                            "sourceId": "datasheetLoadCharts"
+                        }
+                    },
+                    "points": [
+                        {
+                            "radiusM": {
+                                "value": 24.9936,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 18.007617089,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 29.8704,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 18.007617089,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 35.052,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 14.787111262,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 39.9288,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 11.702683146,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 45.110400000000006,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 9.207925111,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 49.9872,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 7.212118683,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 54.864000000000004,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 5.579186151,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 60.0456,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 4.218409041,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        },
+                        {
+                            "radiusM": {
+                                "value": 64.92240000000001,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            },
+                            "capacityT": {
+                                "value": 2.993709642,
+                                "provenance": {
+                                    "kind": "source",
+                                    "sourceId": "datasheetLoadCharts"
+                                }
+                            }
+                        }
+                    ]
+                }
+            ],
+            "heightUnderHookM": {
+                "kind": "notStated",
+                "reason": "The inspected JASO datasheet publishes H = maximum height under hook without fastening (237 ft for the 213 ft jib), which is recorded in freestandingHeightM. It does not state a separate overall height under hook, so no value is entered here."
+            },
+            "freestandingHeightM": {
+                "value": 72.2376,
+                "provenance": {
+                    "kind": "source",
+                    "sourceId": "datasheetOverview"
+                }
+            },
+            "dimensions": {
+                "mastWidthM": {
+                    "kind": "notStated",
+                    "reason": "The inspected JASO J438PA.2R datasheet does not state the mast section width; the p. 1 drawing labels jib sections and heights but no mast width."
+                },
+                "baseWidthM": {
+                    "kind": "notStated",
+                    "reason": "The inspected JASO J438PA.2R datasheet does not state a foundation/base width. The p. 1 out-of-service distances are not base dimensions."
+                },
+                "counterJibLengthM": {
+                    "kind": "notStated",
+                    "reason": "The p. 6 packing list gives a 21.7 ft (6.614 m) combined counter-jib + mechanisms + reeving block + auxiliary jib package length, not a bare counter-jib structural length. No structural counter-jib length is stated, so none is recorded."
+                },
+                "counterJibRadiusM": {
+                    "kind": "notStated",
+                    "reason": "The inspected JASO J438PA.2R datasheet does not state the counter-jib radius from the slewing centre."
+                }
+            },
+            "heaviestErectionComponent": {
+                "kind": "notStated",
+                "reason": "The pp. 6-7 packing list gives transport package masses, not an erection-component schedule. The heaviest line is the 45310 lb (20.5523 t) combined counter-jib + luffing mechanisms + reeving block + auxiliary jib package, which is recorded separately as a combined transport package. No individual component mass is published, so the heaviest erection lift cannot be derived from this document."
+            },
+            "combinedTransportPackage": {
+                "name": "Counter-jib + luffing mechanisms + reeving block + auxiliary jib",
+                "massT": {
+                    "value": 20.5522702847,
+                    "provenance": {
+                        "kind": "source",
+                        "sourceId": "packingList"
+                    }
+                },
+                "note": "Packing-list line P/W 45310 lb on p. 6, converted to 20.5523 t. It is a combined transport package, not an individual erection component; do not use it as the heaviest erection lift."
             }
         }
-    ]
+    ],
+    "defaultCraneId": "potain-mct-88"
 }

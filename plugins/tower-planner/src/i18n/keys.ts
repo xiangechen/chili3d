@@ -47,7 +47,11 @@ export const TOWER_I18N_KEYS = [
     "tower.matrix.rowPass",
     "tower.matrix.rowFail",
     "tower.matrix.rowInvalid",
+    "tower.matrix.rowUnsupported",
     "tower.matrix.rowNoPicks",
+    "tower.matrix.noSupportedCranes",
+    "tower.matrix.noCranePassesUnsupported",
+    "tower.matrix.cranesPassUnsupported",
     "tower.reason.invalidLoad",
     "tower.reason.invalidWind",
     "tower.reason.invalidCoordinate",
@@ -57,6 +61,7 @@ export const TOWER_I18N_KEYS = [
     "tower.reason.invalidRadius",
     "tower.reason.jibOutsideRange",
     "tower.reason.invalidCapacity",
+    "tower.reason.unsupportedCraneType",
     "tower.reason.overCapacity",
     "tower.reason.outOfRange",
     "tower.dialog.sourceLine",
@@ -64,7 +69,10 @@ export const TOWER_I18N_KEYS = [
     "tower.dialog.sourceJib",
     "tower.dialog.capacityMethodChart",
     "tower.dialog.capacityMethodTipLoad",
+    "tower.dialog.capacityMethodUnsupported",
     "tower.dialog.capacitySourceLine",
+    "tower.dialog.capacitySourceUnsupported",
+    "tower.dialog.summaryUnsupported",
     "tower.dialog.windRule",
     "tower.dialog.invalidHint",
     "tower.dialog.sampleSiteError",
@@ -73,6 +81,7 @@ export const TOWER_I18N_KEYS = [
     "tower.status.fail",
     "tower.status.outOfRange",
     "tower.status.invalid",
+    "tower.status.unsupported",
 ] as const;
 
 export type TowerI18nKey = (typeof TOWER_I18N_KEYS)[number];

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MCT88, TOWER_CRANES } from "../src/catalogue";
+import { JASO_2R, JASO_TD, MCT88, TOWER_CRANES } from "../src/catalogue";
 import { findCranesPassingAllPicks, type Pick } from "../src/pickEngine";
 import { loadSampleSitePicks } from "../src/sampleSite";
 import { buildSelectionMatrix, selectionReason } from "../src/selectionMatrix";
@@ -28,12 +28,23 @@ describe("buildSelectionMatrix", () => {
             mast: { x: 44, y: 17 },
         });
 
-        expect(matrix.rows).toHaveLength(2);
-        expect(matrix.rows.map((row) => row.craneId)).toEqual(["potain-mct-88", "potain-mct-85-f5"]);
-        expect(matrix.rows.map((row) => row.jibM)).toEqual([30, 30]);
+        expect(matrix.rows).toHaveLength(4);
+        expect(matrix.rows.map((row) => row.craneId)).toEqual([
+            "potain-mct-88",
+            "potain-mct-85-f5",
+            "jaso-j438pa-2r-td-213",
+            "jaso-j438pa-2r-2r-213",
+        ]);
+        expect(matrix.rows.map((row) => row.jibM).slice(0, 2)).toEqual([30, 30]);
+        // 213 ft x 0.3048 m/ft = 64.9224 m, but the catalogue stores the
+        // converted float, so compare the JASO rows numerically.
+        expect(matrix.rows[2].jibM).toBeCloseTo(64.9224, 4);
+        expect(matrix.rows[3].jibM).toBeCloseTo(64.9224, 4);
         expect(matrix.rows.every((row) => row.picks.length === 5)).toBe(true);
         expect(matrix.pickCount).toBe(5);
-        expect(matrix.craneCount).toBe(2);
+        expect(matrix.craneCount).toBe(4);
+        expect(matrix.evaluatedCraneCount).toBe(2);
+        expect(matrix.unsupportedCraneCount).toBe(2);
     });
 
     test("reports hand-worked status, capacity and utilisation for every cell", () => {
@@ -89,10 +100,16 @@ describe("buildSelectionMatrix", () => {
         expect(matrix.state).toBe("cranes-pass");
         expect(matrix.allPassCraneIds).toEqual(["potain-mct-88"]);
         expect(matrix.passingCraneCount).toBe(1);
+        expect(matrix.evaluatedCraneCount).toBe(2);
+        expect(matrix.unsupportedCraneCount).toBe(2);
         expect(matrix.rows[0].allPass).toBe(true);
         expect(matrix.rows[0].failedCount).toBe(0);
         expect(matrix.rows[1].allPass).toBe(false);
         expect(matrix.rows[1].failedCount).toBe(5);
+        expect(matrix.rows[2].unsupported).toBe(true);
+        expect(matrix.rows[2].allPass).toBe(false);
+        expect(matrix.rows[3].unsupported).toBe(true);
+        expect(matrix.rows[3].allPass).toBe(false);
     });
 
     test("reports honestly when no catalogue crane passes every sample pick", () => {
@@ -103,7 +120,9 @@ describe("buildSelectionMatrix", () => {
         expect(matrix.state).toBe("no-crane-passes");
         expect(matrix.allPassCraneIds).toEqual([]);
         expect(matrix.passingCraneCount).toBe(0);
-        expect(matrix.rows.map((row) => row.failedCount)).toEqual([3, 3]);
+        expect(matrix.evaluatedCraneCount).toBe(2);
+        expect(matrix.unsupportedCraneCount).toBe(2);
+        expect(matrix.rows.map((row) => row.failedCount)).toEqual([3, 3, 5, 5]);
     });
 
     test("reports a missing mast instead of inventing a position", () => {
@@ -113,11 +132,24 @@ describe("buildSelectionMatrix", () => {
         expect(matrix.missingMastPickCount).toBe(5);
         expect(matrix.invalidPickCount).toBe(0);
         expect(
-            matrix.rows.every((row) =>
-                row.picks.every((pick) => pick.status === "INVALID" && pick.issue === "invalid-mast"),
-            ),
+            matrix.rows
+                .slice(0, 2)
+                .every((row) =>
+                    row.picks.every((pick) => pick.status === "INVALID" && pick.issue === "invalid-mast"),
+                ),
+        ).toBe(true);
+        expect(
+            matrix.rows
+                .slice(2)
+                .every((row) =>
+                    row.picks.every(
+                        (pick) => pick.status === "UNSUPPORTED" && pick.issue === "unsupported-crane-type",
+                    ),
+                ),
         ).toBe(true);
         expect(matrix.passingCraneCount).toBe(0);
+        expect(matrix.evaluatedCraneCount).toBe(2);
+        expect(matrix.unsupportedCraneCount).toBe(2);
     });
 
     test("reports invalid pick coordinates as invalid input, not a capacity result", () => {
@@ -136,10 +168,15 @@ describe("buildSelectionMatrix", () => {
         expect(matrix.invalidPickCount).toBe(1);
         expect(matrix.missingMastPickCount).toBe(0);
         expect(
-            matrix.rows.every(
-                (row) => row.picks[0].status === "INVALID" && row.picks[0].issue === "invalid-coordinate",
-            ),
+            matrix.rows
+                .slice(0, 2)
+                .every(
+                    (row) => row.picks[0].status === "INVALID" && row.picks[0].issue === "invalid-coordinate",
+                ),
         ).toBe(true);
+        expect(matrix.rows.slice(2).every((row) => row.picks[0].status === "UNSUPPORTED")).toBe(true);
+        expect(matrix.evaluatedCraneCount).toBe(2);
+        expect(matrix.unsupportedCraneCount).toBe(2);
     });
 
     test("reports an invalid load as invalid pick data", () => {
@@ -165,7 +202,10 @@ describe("buildSelectionMatrix", () => {
         expect(matrix.state).toBe("no-picks");
         expect(matrix.pickCount).toBe(0);
         expect(matrix.passingCraneCount).toBe(0);
+        expect(matrix.evaluatedCraneCount).toBe(2);
+        expect(matrix.unsupportedCraneCount).toBe(2);
         expect(matrix.rows.every((row) => row.picks.length === 0 && !row.allPass)).toBe(true);
+        expect(matrix.rows.slice(2).every((row) => row.unsupported)).toBe(true);
     });
 
     test("applies the shared wind derate to every crane row", () => {
@@ -182,6 +222,27 @@ describe("buildSelectionMatrix", () => {
         expect(windy.state).toBe("no-crane-passes");
     });
 
+    test("reports no-supported-cranes when every entry is luffing-jib", () => {
+        const matrix = buildSelectionMatrix([JASO_TD, JASO_2R], [{ loadT: 2, radiusM: 30 }]);
+
+        expect(matrix.state).toBe("no-supported-cranes");
+        expect(matrix.evaluatedCraneCount).toBe(0);
+        expect(matrix.unsupportedCraneCount).toBe(2);
+        expect(matrix.passingCraneCount).toBe(0);
+        expect(matrix.rows.every((row) => row.unsupported)).toBe(true);
+        expect(matrix.rows.every((row) => row.picks[0].status === "UNSUPPORTED")).toBe(true);
+    });
+
+    test("does not count unsupported cranes in the evaluated denominator", () => {
+        const matrix = buildSelectionMatrix([MCT88, JASO_TD], [{ loadT: 2.5, radiusM: 20 }]);
+
+        expect(matrix.state).toBe("cranes-pass");
+        expect(matrix.evaluatedCraneCount).toBe(1);
+        expect(matrix.unsupportedCraneCount).toBe(1);
+        expect(matrix.passingCraneCount).toBe(1);
+        expect(matrix.allPassCraneIds).toEqual(["potain-mct-88"]);
+    });
+
     test("agrees with findCranesPassingAllPicks", () => {
         const picks = samplePicks();
         const options = { mast: { x: 44, y: 17 } };
@@ -195,7 +256,7 @@ describe("buildSelectionMatrix", () => {
 });
 
 describe("selectionReason", () => {
-    test("maps PASS, FAIL, OUT_OF_RANGE and INVALID to a reason", () => {
+    test("maps PASS, FAIL, OUT_OF_RANGE, INVALID and UNSUPPORTED to a reason", () => {
         const pass = buildSelectionMatrix([MCT88], [{ loadT: 1, radiusM: 20 }]);
         expect(selectionReason(pass.rows[0].picks[0])).toBeUndefined();
 
@@ -210,5 +271,8 @@ describe("selectionReason", () => {
             [{ loadT: 1, supply: { x: 0, y: 0 }, drop: { x: 10, y: 0 } }],
         );
         expect(selectionReason(invalid.rows[0].picks[0])).toBe("invalid-mast");
+
+        const unsupported = buildSelectionMatrix([JASO_TD], [{ loadT: 1, radiusM: 20 }]);
+        expect(selectionReason(unsupported.rows[0].picks[0])).toBe("unsupported-crane-type");
     });
 });

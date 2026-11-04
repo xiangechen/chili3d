@@ -35,6 +35,22 @@ export type SourcedNumber = {
     provenance: FieldProvenance;
 };
 
+/**
+ * A catalogue field the inspected documents genuinely do not state. This is
+ * deliberately distinct from a zero, a blank or a guessed value: the reason is
+ * mandatory so the UI and the validator can explain the absence.
+ */
+export type NotStated = {
+    kind: "notStated";
+    reason: string;
+};
+
+/** A catalogue number that may be explicitly undocumented. */
+export type CatalogueNumber = SourcedNumber | NotStated;
+
+/** The jib/reeving family. Luffing-jib geometry is not modelled by this engine. */
+export type CraneType = "trolley-jib" | "luffing-jib";
+
 export type TipLoadRow = {
     jibM: SourcedNumber;
     tipT: SourcedNumber;
@@ -68,11 +84,29 @@ export type JibLoadChart = {
 };
 
 export type CraneDimensions = {
-    mastWidthM: SourcedNumber;
-    counterJibLengthM: SourcedNumber;
+    mastWidthM: CatalogueNumber;
+    /** Foundation/base width, distinct from the mast section width. */
+    baseWidthM: CatalogueNumber;
+    /** Counter-jib structural length (the p. 6 table's L), not its radius. */
+    counterJibLengthM: CatalogueNumber;
+    /** Counter-jib radius from the slewing centre, distinct from its structural length. */
+    counterJibRadiusM: CatalogueNumber;
 };
 
-export type HeaviestErectionComponent = {
+export type HeaviestErectionComponent =
+    | {
+          name: string;
+          massT: SourcedNumber;
+          note?: string;
+      }
+    | NotStated;
+
+/**
+ * A combined transport package. It is recorded separately because a packing
+ * list line is not evidence of an individual erection component or of the
+ * heaviest erection lift.
+ */
+export type CombinedTransportPackage = {
     name: string;
     massT: SourcedNumber;
     note?: string;
@@ -86,6 +120,12 @@ export type HeaviestErectionComponent = {
 export type CapacityModel = {
     id: string;
     name: string;
+    /**
+     * Optional on the narrow engine type so clearly synthetic test fixtures can
+     * omit it. A catalogue entry always declares it. `capacityAt` refuses to
+     * evaluate a luffing-jib model with the trolley-jib capacity rules.
+     */
+    craneType?: CraneType;
     maxCapacityT: SourcedNumber;
     defaultJibM: SourcedNumber;
     tipLoadByJib: readonly TipLoadRow[];
@@ -106,14 +146,30 @@ export type CapacityModel = {
 };
 
 export type TowerCrane = CapacityModel & {
+    craneType: CraneType;
+    /** Groups configurations of one physical model; `id` identifies the entry. */
+    modelId: string;
+    modelName: string;
+    /** Configuration label within `modelId`, e.g. "213 ft TD". */
+    configuration: string;
     standard: string;
     sources: Record<string, SourceDocument>;
     maxJibLengthM: SourcedNumber;
+    /**
+     * Manufacturer's height under hook. This is not a freestanding-height
+     * limit; that is stored separately in `freestandingHeightM`.
+     */
+    heightUnderHookM: CatalogueNumber;
+    freestandingHeightM: CatalogueNumber;
     dimensions: CraneDimensions;
     heaviestErectionComponent: HeaviestErectionComponent;
+    /** Packing-list mass for a combined package, not an erection component. */
+    combinedTransportPackage?: CombinedTransportPackage;
 };
 
 export type CraneCatalogue = {
     schemaVersion: number;
+    /** Must name the first entry; the MCT 88 is the default catalogue crane. */
+    defaultCraneId: string;
     cranes: TowerCrane[];
 };

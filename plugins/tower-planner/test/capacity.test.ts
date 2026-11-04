@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { capacityAt, cornerRadiusAt, momentAt, tipLoadAt, WIND_DERATE_RULE } from "../src/capacity";
-import { MCT85F5, MCT88 } from "../src/catalogue";
+import { JASO_2R, JASO_TD, MCT85F5, MCT88 } from "../src/catalogue";
 import type { CapacityModel, SourcedNumber } from "../src/types";
 
 function indicative(value: number): SourcedNumber {
@@ -290,6 +290,30 @@ describe("Cycle 2 imperial chart comparison", () => {
 
         const errorPct = (Math.abs(capacityT - referenceT) / referenceT) * 100;
         expect(errorPct).toBeLessThanOrEqual(10);
+    });
+});
+
+describe("luffing-jib entries", () => {
+    // The JASO entries publish a 213 ft (64.9224 m) load chart, but a luffing
+    // jib changes radius by luffing rather than by a trolley. The trolley-jib
+    // capacity rules do not describe that geometry, so capacityAt must refuse
+    // even a jib/radius pair that appears in the published table.
+    test.each([
+        { crane: JASO_TD, name: "JASO TD" },
+        { crane: JASO_2R, name: "JASO 2R" },
+    ])("capacityAt refuses the $name luffing-jib model", ({ crane }) => {
+        expect(capacityAt(crane, 64.9224, 24.9936)).toBeNull();
+        expect(capacityAt(crane, 64.9224, 30)).toBeNull();
+        expect(capacityAt(crane, 64.9224, 64.9224)).toBeNull();
+        expect(capacityAt(crane, 64.9224, 24.9936, 20)).toBeNull();
+    });
+
+    test("does not use the luffing-jib chart even when the jib is in range", () => {
+        // Sanity check that the chart is present: the guard, not missing data,
+        // is what produces the null result.
+        expect(JASO_TD.loadChart?.[0].points).toHaveLength(9);
+        expect(JASO_TD.craneType).toBe("luffing-jib");
+        expect(capacityAt(JASO_TD, JASO_TD.defaultJibM.value, 30)).toBeNull();
     });
 });
 

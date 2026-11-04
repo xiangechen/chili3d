@@ -78,9 +78,10 @@ export type PickIssue =
     | "invalid-load"
     | "invalid-wind"
     | "jib-outside-published-range"
-    | "invalid-capacity";
+    | "invalid-capacity"
+    | "unsupported-crane-type";
 
-export type PickStatus = "PASS" | "FAIL" | "OUT_OF_RANGE" | "INVALID";
+export type PickStatus = "PASS" | "FAIL" | "OUT_OF_RANGE" | "INVALID" | "UNSUPPORTED";
 
 export type PickEvaluation = {
     craneId: string;
@@ -108,6 +109,8 @@ export type CraneEvaluation = {
     picks: PickEvaluation[];
     allPass: boolean;
     failedCount: number;
+    /** True when the crane type is outside this engine (luffing-jib). */
+    unsupported: boolean;
 };
 
 export type FindCranesOptions = PickEvaluationOptions & {
@@ -239,6 +242,19 @@ export function evaluatePick(
         windKmh,
     } as const;
 
+    // The crane type is checked before the pick values: a luffing-jib entry is
+    // outside this engine regardless of whether the individual pick is valid,
+    // and the UI must not show a capacity result for it.
+    if (crane.craneType === "luffing-jib") {
+        return {
+            ...base,
+            capacityT: null,
+            utilisationPct: null,
+            status: "UNSUPPORTED",
+            issue: "unsupported-crane-type",
+        };
+    }
+
     if (!Number.isFinite(pick.loadT) || pick.loadT <= 0) {
         return {
             ...base,
@@ -336,6 +352,7 @@ export function evaluateCrane(
         picks: evaluations,
         allPass: evaluations.length > 0 && failedCount === 0,
         failedCount,
+        unsupported: crane.craneType === "luffing-jib",
     };
 }
 

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { MCT85F5, MCT88 } from "../src/catalogue";
+import { JASO_2R, JASO_TD, MCT85F5, MCT88 } from "../src/catalogue";
 import {
     evaluateCrane,
     evaluatePick,
@@ -625,6 +625,54 @@ describe("MCT 85 F5 pick evaluation", () => {
         expect(windy.capacityT).toBeCloseTo(2.0, 10);
         expect(windy.status).toBe("FAIL");
         expect(windy.utilisationPct).toBeCloseTo(110, 10);
+    });
+});
+
+describe("luffing-jib crane evaluation", () => {
+    test.each([
+        { crane: JASO_TD, name: "JASO TD" },
+        { crane: JASO_2R, name: "JASO 2R" },
+    ])("$name is UNSUPPORTED with no capacity or utilisation", ({ crane }) => {
+        const result = evaluatePick(crane, { label: "P1", loadT: 5, radiusM: 30 });
+
+        expect(result.status).toBe("UNSUPPORTED");
+        expect(result.issue).toBe("unsupported-crane-type");
+        expect(result.capacityT).toBeNull();
+        expect(result.utilisationPct).toBeNull();
+        expect(result.radiusM).toBe(30);
+    });
+
+    test("checks the crane type before the pick values", () => {
+        // An invalid load would normally be INVALID, but a luffing-jib crane is
+        // outside this engine regardless of the pick data.
+        const result = evaluatePick(JASO_TD, { loadT: -1, radiusM: 30 });
+
+        expect(result.status).toBe("UNSUPPORTED");
+        expect(result.issue).toBe("unsupported-crane-type");
+    });
+
+    test("evaluateCrane marks the whole row unsupported and never all-pass", () => {
+        const evaluation = evaluateCrane(JASO_TD, SAMPLE_PICKS);
+
+        expect(evaluation.unsupported).toBe(true);
+        expect(evaluation.allPass).toBe(false);
+        expect(evaluation.failedCount).toBe(SAMPLE_PICKS.length);
+        expect(evaluation.picks.every((pick) => pick.status === "UNSUPPORTED")).toBe(true);
+    });
+
+    test("an empty pick list on an unsupported crane is not a pass", () => {
+        const evaluation = evaluateCrane(JASO_2R, []);
+
+        expect(evaluation.unsupported).toBe(true);
+        expect(evaluation.allPass).toBe(false);
+    });
+
+    test("findCranesPassingAllPicks excludes luffing-jib entries", () => {
+        const picks: Pick[] = [{ loadT: 2.5, radiusM: 20 }];
+
+        const passing = findCranesPassingAllPicks([MCT88, JASO_TD, JASO_2R], picks);
+
+        expect(passing.map((row) => row.craneId)).toEqual(["potain-mct-88"]);
     });
 });
 

@@ -189,6 +189,103 @@ function readNumberField(
     return value as unknown as SourcedNumber;
 }
 
+function isNotStated(value: unknown): value is { kind: "notStated"; reason: string } {
+    return isRecord(value) && field(value, "kind") === "notStated";
+}
+
+/**
+ * A dimension or height may be a sourced/INDICATIVE number or an explicit
+ * `notStated` object with a reason. A zero, a blank or a bare number is not an
+ * acceptable substitute for an undocumented value.
+ */
+function validateCatalogueNumber(
+    value: unknown,
+    path: string,
+    context: ValidationContext,
+    label: string,
+): void {
+    if (isNotStated(value)) {
+        if ("value" in value) {
+            addError(context, path, `${label} cannot be both not stated and numeric.`);
+        }
+        if (!isNonEmptyString(field(value, "reason"))) {
+            addError(context, `${path}.reason`, `${label} must explain why it is not stated.`);
+        }
+        return;
+    }
+
+    const number = readNumberField(value, path, context);
+    if (number && number.value <= 0) {
+        addError(context, `${path}.value`, `${label} must be greater than zero.`);
+    }
+}
+
+function validateHeaviestComponent(value: unknown, path: string, context: ValidationContext): void {
+    if (isNotStated(value)) {
+        if ("name" in value || "massT" in value) {
+            addError(context, path, "A not-stated heaviest component cannot also carry a name or mass.");
+        }
+        if (!isNonEmptyString(field(value, "reason"))) {
+            addError(
+                context,
+                `${path}.reason`,
+                "A not-stated heaviest component must explain why it is not stated.",
+            );
+        }
+        return;
+    }
+
+    if (!isRecord(value)) {
+        addError(context, path, "Heaviest erection component must be an object or a notStated value.");
+        return;
+    }
+
+    if (!isNonEmptyString(field(value, "name"))) {
+        addError(context, `${path}.name`, "Heaviest erection component must have a name.");
+    }
+
+    const mass = readNumberField(field(value, "massT"), `${path}.massT`, context);
+    if (mass && mass.value <= 0) {
+        addError(
+            context,
+            `${path}.massT.value`,
+            "Heaviest erection component mass must be greater than zero.",
+        );
+    }
+
+    const note = field(value, "note");
+    if (note !== undefined && typeof note !== "string") {
+        addError(context, `${path}.note`, "Optional component note must be a string.");
+    }
+}
+
+function validateCombinedPackage(value: unknown, path: string, context: ValidationContext): void {
+    if (value === undefined) return;
+
+    if (!isRecord(value)) {
+        addError(context, path, "Combined transport package must be an object.");
+        return;
+    }
+
+    if (!isNonEmptyString(field(value, "name"))) {
+        addError(context, `${path}.name`, "Combined transport package must have a name.");
+    }
+
+    const mass = readNumberField(field(value, "massT"), `${path}.massT`, context);
+    if (mass && mass.value <= 0) {
+        addError(
+            context,
+            `${path}.massT.value`,
+            "Combined transport package mass must be greater than zero.",
+        );
+    }
+
+    const note = field(value, "note");
+    if (note !== undefined && typeof note !== "string") {
+        addError(context, `${path}.note`, "Optional package note must be a string.");
+    }
+}
+
 /**
  * Tip loads are transcribed decimal labels, not independently rounded
  * calculations. Only floating-point noise is tolerated: a larger tolerance
@@ -437,6 +534,60 @@ function validateLoadChart(
     }
 }
 
+function validateModelGrouping(cranes: readonly unknown[], context: ValidationContext): void {
+    const models = new Map<string, { modelName: string; configurations: Set<string>; firstIndex: number }>();
+
+    for (let index = 0; index < cranes.length; index++) {
+        const crane = cranes[index];
+        if (!isRecord(crane)) continue;
+
+        const modelId = field(crane, "modelId");
+        const modelName = field(crane, "modelName");
+        const configuration = field(crane, "configuration");
+        if (!isNonEmptyString(modelId) || !isNonEmptyString(modelName) || !isNonEmptyString(configuration)) {
+            continue;
+        }
+
+        const existing = models.get(modelId);
+        if (existing === undefined) {
+            models.set(modelId, {
+                modelName,
+                configurations: new Set([configuration]),
+                firstIndex: index,
+            });
+            continue;
+        }
+
+        if (existing.modelName !== modelName) {
+            addError(
+                context,
+                `cranes[${index}].modelName`,
+                `Model "${modelId}" must use the same modelName as cranes[${existing.firstIndex}].`,
+            );
+        }
+        if (existing.configurations.has(configuration)) {
+            addError(
+                context,
+                `cranes[${index}].configuration`,
+                `Configuration "${configuration}" is duplicated for model "${modelId}".`,
+            );
+        } else {
+            existing.configurations.add(configuration);
+        }
+    }
+
+    const jaso = models.get(JASO_MODEL_ID);
+    if (jaso === undefined) {
+        addError(context, "cranes", `Catalogue must contain the ${JASO_MODEL_ID} model.`);
+    } else if (jaso.configurations.size !== 2) {
+        addError(
+            context,
+            "cranes",
+            `The ${JASO_MODEL_ID} model must be represented by exactly two configurations.`,
+        );
+    }
+}
+
 function validateCrane(crane: unknown, index: number, context: ValidationContext): void {
     const path = `cranes[${index}]`;
     if (!isRecord(crane)) {
@@ -452,6 +603,23 @@ function validateCrane(crane: unknown, index: number, context: ValidationContext
     }
     if (!isNonEmptyString(field(crane, "standard"))) {
         addError(context, `${path}.standard`, "Crane standard must be a non-empty string.");
+    }
+    if (!isNonEmptyString(field(crane, "modelId"))) {
+        addError(context, `${path}.modelId`, "Crane modelId must be a non-empty string.");
+    }
+    if (!isNonEmptyString(field(crane, "modelName"))) {
+        addError(context, `${path}.modelName`, "Crane modelName must be a non-empty string.");
+    }
+    if (!isNonEmptyString(field(crane, "configuration"))) {
+        addError(context, `${path}.configuration`, "Crane configuration must be a non-empty string.");
+    }
+
+    const craneType = field(crane, "craneType");
+    if (craneType !== "trolley-jib" && craneType !== "luffing-jib") {
+        addError(context, `${path}.craneType`, 'Crane type must be "trolley-jib" or "luffing-jib".');
+    }
+    if (field(crane, "modelId") === JASO_MODEL_ID && craneType !== "luffing-jib") {
+        addError(context, `${path}.craneType`, `The ${JASO_MODEL_ID} model must be a luffing-jib crane.`);
     }
 
     const sources = validateSources(field(crane, "sources"), `${path}.sources`, context);
@@ -512,69 +680,59 @@ function validateCrane(crane: unknown, index: number, context: ValidationContext
         }
     }
 
+    validateCatalogueNumber(
+        field(crane, "heightUnderHookM"),
+        `${path}.heightUnderHookM`,
+        numericContext,
+        "Height under hook",
+    );
+    validateCatalogueNumber(
+        field(crane, "freestandingHeightM"),
+        `${path}.freestandingHeightM`,
+        numericContext,
+        "Freestanding height",
+    );
+
     const dimensions = field(crane, "dimensions");
     if (!isRecord(dimensions)) {
         addError(context, `${path}.dimensions`, "Crane dimensions must be an object.");
     } else {
-        const mastWidth = readNumberField(
+        validateCatalogueNumber(
             field(dimensions, "mastWidthM"),
             `${path}.dimensions.mastWidthM`,
             numericContext,
+            "Mast width",
         );
-        if (mastWidth && mastWidth.value <= 0) {
-            addError(context, `${path}.dimensions.mastWidthM.value`, "Mast width must be greater than zero.");
-        }
-
-        const counterJibLength = readNumberField(
+        validateCatalogueNumber(
+            field(dimensions, "baseWidthM"),
+            `${path}.dimensions.baseWidthM`,
+            numericContext,
+            "Base width",
+        );
+        validateCatalogueNumber(
             field(dimensions, "counterJibLengthM"),
             `${path}.dimensions.counterJibLengthM`,
             numericContext,
+            "Counter-jib length",
         );
-        if (counterJibLength && counterJibLength.value <= 0) {
-            addError(
-                context,
-                `${path}.dimensions.counterJibLengthM.value`,
-                "Counter-jib length must be greater than zero.",
-            );
-        }
+        validateCatalogueNumber(
+            field(dimensions, "counterJibRadiusM"),
+            `${path}.dimensions.counterJibRadiusM`,
+            numericContext,
+            "Counter-jib radius",
+        );
     }
 
-    const component = field(crane, "heaviestErectionComponent");
-    if (!isRecord(component)) {
-        addError(
-            context,
-            `${path}.heaviestErectionComponent`,
-            "Heaviest erection component must be an object.",
-        );
-    } else {
-        if (!isNonEmptyString(field(component, "name"))) {
-            addError(
-                context,
-                `${path}.heaviestErectionComponent.name`,
-                "Heaviest erection component must have a name.",
-            );
-        }
-        const mass = readNumberField(
-            field(component, "massT"),
-            `${path}.heaviestErectionComponent.massT`,
-            numericContext,
-        );
-        if (mass && mass.value <= 0) {
-            addError(
-                context,
-                `${path}.heaviestErectionComponent.massT.value`,
-                "Heaviest erection component mass must be greater than zero.",
-            );
-        }
-        const note = field(component, "note");
-        if (note !== undefined && typeof note !== "string") {
-            addError(
-                context,
-                `${path}.heaviestErectionComponent.note`,
-                "Optional component note must be a string.",
-            );
-        }
-    }
+    validateHeaviestComponent(
+        field(crane, "heaviestErectionComponent"),
+        `${path}.heaviestErectionComponent`,
+        numericContext,
+    );
+    validateCombinedPackage(
+        field(crane, "combinedTransportPackage"),
+        `${path}.combinedTransportPackage`,
+        numericContext,
+    );
 
     validateNumericNode(crane, path, numericContext);
 }
@@ -602,6 +760,11 @@ function collectCraneIds(cranes: readonly unknown[], context: ValidationContext)
  * value in a crane entry must be a `SourcedNumber` whose provenance is either a
  * defined, documented source with a page, or an explicit INDICATIVE basis.
  */
+const MIN_CRANE_COUNT = 4;
+const MAX_CRANE_COUNT = 6;
+const DEFAULT_CRANE_ID = "potain-mct-88";
+const JASO_MODEL_ID = "jaso-j438pa-2r";
+
 export function validateCatalogue(raw: unknown): CatalogueValidationResult {
     const errors: CatalogueValidationIssue[] = [];
     if (!isRecord(raw)) {
@@ -618,8 +781,43 @@ export function validateCatalogue(raw: unknown): CatalogueValidationResult {
         return { ok: false, errors };
     }
 
+    if (cranes.length < MIN_CRANE_COUNT || cranes.length > MAX_CRANE_COUNT) {
+        errors.push({
+            path: "cranes",
+            message: `Catalogue must contain between ${MIN_CRANE_COUNT} and ${MAX_CRANE_COUNT} crane entries.`,
+        });
+    }
+
+    const defaultCraneId = field(raw, "defaultCraneId");
+    if (!isNonEmptyString(defaultCraneId)) {
+        errors.push({ path: "defaultCraneId", message: "Catalogue must declare a defaultCraneId." });
+    } else if (defaultCraneId !== DEFAULT_CRANE_ID) {
+        errors.push({
+            path: "defaultCraneId",
+            message: `The default crane must be "${DEFAULT_CRANE_ID}".`,
+        });
+    }
+
+    const firstCrane = cranes[0];
+    if (isRecord(firstCrane)) {
+        const firstId = field(firstCrane, "id");
+        if (firstId !== DEFAULT_CRANE_ID) {
+            errors.push({
+                path: "cranes[0].id",
+                message: `The first catalogue entry must be "${DEFAULT_CRANE_ID}".`,
+            });
+        }
+        if (isNonEmptyString(defaultCraneId) && defaultCraneId !== firstId) {
+            errors.push({
+                path: "defaultCraneId",
+                message: "The default crane must be the first catalogue entry.",
+            });
+        }
+    }
+
     const context: ValidationContext = { sources: {}, errors };
     collectCraneIds(cranes, context);
+    validateModelGrouping(cranes, context);
     cranes.forEach((crane, index) => {
         validateCrane(crane, index, context);
     });

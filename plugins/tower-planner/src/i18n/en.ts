@@ -42,7 +42,7 @@ export const en = {
         "tower.dialog.summary": "{0} of {1} picks pass.",
         "tower.matrix.title": "Catalogue selection matrix",
         "tower.matrix.hint":
-            "Each catalogued crane is evaluated at its own catalogue default jib using the mast, pick and wind values above. Capacities use the same sourced catalogue data and capacity method as the selected-crane detail. Only a crane that passes every pick is reported as passing. This matrix is not a certified lift plan.",
+            "Each catalogued crane is evaluated at its own catalogue default jib using the mast, pick and wind values above. Capacities use the same sourced catalogue data and capacity method as the selected-crane detail. Luffing-jib entries are listed but not evaluated by the trolley-jib capacity engine. Only a crane that passes every pick is reported as passing. This matrix is not a certified lift plan.",
         "tower.matrix.crane": "Crane",
         "tower.matrix.jib": "Jib (m)",
         "tower.matrix.indicative": "INDICATIVE",
@@ -58,7 +58,14 @@ export const en = {
         "tower.matrix.rowPass": "{0} of {1} picks pass - passes every pick.",
         "tower.matrix.rowFail": "{0} of {1} picks pass - does not pass every pick.",
         "tower.matrix.rowInvalid": "{0} of {1} picks pass ({2} invalid) - not evaluated.",
+        "tower.matrix.rowUnsupported": "Not evaluated: luffing-jib capacity is not supported by this engine.",
         "tower.matrix.rowNoPicks": "No picks loaded - not evaluated.",
+        "tower.matrix.noSupportedCranes":
+            "No catalogued crane can be evaluated by the trolley-jib capacity engine.",
+        "tower.matrix.noCranePassesUnsupported":
+            "None of the {0} evaluated catalogued cranes passes every pick. {1} luffing-jib crane(s) were not evaluated.",
+        "tower.matrix.cranesPassUnsupported":
+            "{0} of {1} evaluated catalogued cranes pass every pick: {2}. {3} luffing-jib crane(s) were not evaluated.",
         "tower.reason.invalidLoad": "Load must be a positive number.",
         "tower.reason.invalidWind": "Wind must be zero or a positive number.",
         "tower.reason.invalidCoordinate": "Supply and drop coordinates must be finite numbers.",
@@ -68,6 +75,8 @@ export const en = {
         "tower.reason.invalidRadius": "Supply and drop must not both sit at the mast.",
         "tower.reason.jibOutsideRange": "This jib length is not published for the crane.",
         "tower.reason.invalidCapacity": "Published data did not give a usable capacity.",
+        "tower.reason.unsupportedCraneType":
+            "Luffing-jib capacity is not evaluated by the trolley-jib engine.",
         "tower.reason.overCapacity": "Load exceeds capacity at the governing radius.",
         "tower.reason.outOfRange": "Governing radius is outside this crane's published range.",
         "tower.dialog.sourceLine": "Selected crane source: {0}, p. {1}.",
@@ -77,7 +86,13 @@ export const en = {
             "Capacity method: published per-radius load chart; between chart points the next larger radius is used, and no extrapolation is allowed.",
         "tower.dialog.capacityMethodTipLoad":
             "Capacity method: idealised tip-load model (tip load x jib / radius). Application calculation, not a manufacturer chart.",
+        "tower.dialog.capacityMethodUnsupported":
+            "Capacity method: not evaluated - this catalogue entry is a luffing-jib crane; the trolley-jib capacity engine does not apply.",
         "tower.dialog.capacitySourceLine": "Capacity source: {0}, p. {1}.",
+        "tower.dialog.capacitySourceUnsupported":
+            "Capacity source: not applicable - luffing-jib entry not evaluated.",
+        "tower.dialog.summaryUnsupported":
+            "Selected crane is not evaluated: luffing-jib capacity is outside the trolley-jib engine.",
         "tower.dialog.windRule":
             "Wind derate: SIMULATED product rule (x{0} at {1} km/h or above); not a verified manufacturer rule.",
         "tower.dialog.invalidHint":
@@ -88,5 +103,6 @@ export const en = {
         "tower.status.fail": "FAIL",
         "tower.status.outOfRange": "OUT OF RANGE",
         "tower.status.invalid": "INVALID",
+        "tower.status.unsupported": "NOT EVALUATED",
     } satisfies Record<TowerI18nKey, string>,
 } as unknown as Locale;

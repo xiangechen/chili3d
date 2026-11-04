@@ -40,6 +40,26 @@ if (!mct85f5) {
 /** The second sourced crane; its capacity comes from the published per-radius chart. */
 export const MCT85F5: TowerCrane = mct85f5;
 
+const JASO_TD_ID = "jaso-j438pa-2r-td-213";
+const jasoJd = TOWER_CRANES.find((crane) => crane.id === JASO_TD_ID);
+
+if (!jasoJd) {
+    throw new Error(`Crane catalogue is missing the required ${JASO_TD_ID} entry.`);
+}
+
+/** JASO J438PA.2R, 213 ft jib, TD reeving. Luffing-jib: not evaluated by the trolley engine. */
+export const JASO_TD: TowerCrane = jasoJd;
+
+const JASO_2R_ID = "jaso-j438pa-2r-2r-213";
+const jaso2r = TOWER_CRANES.find((crane) => crane.id === JASO_2R_ID);
+
+if (!jaso2r) {
+    throw new Error(`Crane catalogue is missing the required ${JASO_2R_ID} entry.`);
+}
+
+/** JASO J438PA.2R, 213 ft jib, 2R reeving. Luffing-jib: not evaluated by the trolley engine. */
+export const JASO_2R: TowerCrane = jaso2r;
+
 export function getCraneById(id: string): TowerCrane | undefined {
     return TOWER_CRANES.find((crane) => crane.id === id);
 }

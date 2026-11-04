@@ -162,6 +162,8 @@ function chartCapacityAt(chart: JibLoadChart, radiusM: number): number | null {
  * also returns null instead of a NaN, so callers cannot accidentally render a
  * numeric capacity. A jib above the model's published maximum (or above its
  * last published tip-load/chart row) returns `null` before any interpolation.
+ * A model marked `craneType: "luffing-jib"` returns `null` immediately: the
+ * trolley-jib rules below do not describe luffing geometry.
  */
 export function capacityAt(
     model: CapacityModel,
@@ -169,6 +171,11 @@ export function capacityAt(
     radiusM: number,
     windKmh?: number | null,
 ): number | null {
+    // Luffing-jib geometry (variable radius at a fixed luff angle) is not the
+    // trolley-jib model this engine implements. Refuse rather than returning a
+    // plausible but wrong capacity.
+    if (model.craneType === "luffing-jib") return null;
+
     if (!Number.isFinite(jibM) || jibM <= 0) return null;
 
     const maxJibM = publishedMaxJibM(model);

@@ -26,6 +26,7 @@ export type SelectionState =
     | "no-picks"
     | "invalid-picks"
     | "missing-mast"
+    | "no-supported-cranes"
     | "no-crane-passes"
     | "cranes-pass";
 
@@ -35,6 +36,10 @@ export type SelectionMatrix = {
     state: SelectionState;
     pickCount: number;
     craneCount: number;
+    /** Cranes whose type is supported by this engine (trolley-jib). */
+    evaluatedCraneCount: number;
+    /** Cranes listed but not evaluated, currently luffing-jib entries. */
+    unsupportedCraneCount: number;
     passingCraneCount: number;
     allPassCraneIds: string[];
     allPassCraneNames: string[];
@@ -64,6 +69,7 @@ export function selectionReason(evaluation: PickEvaluation): SelectionReason | u
     if (evaluation.status === "PASS") return undefined;
     if (evaluation.status === "FAIL") return "over-capacity";
     if (evaluation.status === "OUT_OF_RANGE") return "out-of-range";
+    if (evaluation.status === "UNSUPPORTED") return "unsupported-crane-type";
     return evaluation.issue;
 }
 
@@ -77,7 +83,9 @@ export function selectionReason(evaluation: PickEvaluation): SelectionReason | u
  *
  * A crane is only counted in `allPassCraneIds` when every pick passes. An empty
  * pick list is not a pass: it reports `no-picks` and no crane is marked as
- * suitable for the (empty) work.
+ * suitable for the (empty) work. Luffing-jib entries are listed but reported as
+ * unsupported; they are never counted as passing and do not inflate the
+ * evaluated-crane denominator.
  */
 export function buildSelectionMatrix(
     cranes: readonly CapacityModel[],
@@ -86,6 +94,8 @@ export function buildSelectionMatrix(
 ): SelectionMatrix {
     const rows = evaluateCranes(cranes, picks, options);
     const allPass = rows.filter((row) => row.allPass);
+    const evaluatedCraneCount = rows.filter((row) => !row.unsupported).length;
+    const unsupportedCraneCount = rows.length - evaluatedCraneCount;
 
     // Pick-level input issues are independent of the crane, so the first row
     // can classify them. With no cranes there is no evaluation to inspect.
@@ -102,6 +112,8 @@ export function buildSelectionMatrix(
         state = "invalid-picks";
     } else if (missingMastPickCount > 0) {
         state = "missing-mast";
+    } else if (evaluatedCraneCount === 0) {
+        state = "no-supported-cranes";
     } else if (allPass.length > 0) {
         state = "cranes-pass";
     } else {
@@ -113,6 +125,8 @@ export function buildSelectionMatrix(
         state,
         pickCount: picks.length,
         craneCount: cranes.length,
+        evaluatedCraneCount,
+        unsupportedCraneCount,
         passingCraneCount: allPass.length,
         allPassCraneIds: allPass.map((row) => row.craneId),
         allPassCraneNames: allPass.map((row) => row.craneName),

@@ -10,6 +10,7 @@ import {
 
 type MutableCatalogue = {
     schemaVersion: number;
+    defaultCraneId: string;
     // biome-ignore lint/suspicious/noExplicitAny: these tests deliberately corrupt arbitrary catalogue fields
     cranes: Array<Record<string, any>>;
 };
@@ -28,23 +29,32 @@ function findError(errors: readonly CatalogueValidationIssue[], pathPart: string
 }
 
 describe("validateCatalogue", () => {
-    test("accepts the shipped two-crane catalogue, including both INDICATIVE default jibs", () => {
+    test("accepts the shipped four-entry catalogue with the MCT 88 as default", () => {
         const result = validateCatalogue(cloneCatalogue());
 
         expect(result.ok).toBe(true);
         if (!result.ok) throw new Error("Shipped catalogue should validate.");
 
+        expect(result.catalogue.defaultCraneId).toBe("potain-mct-88");
         expect(result.catalogue.cranes.map((crane) => crane.id)).toEqual([
             "potain-mct-88",
             "potain-mct-85-f5",
+            "jaso-j438pa-2r-td-213",
+            "jaso-j438pa-2r-2r-213",
         ]);
 
-        const [mct88, mct85] = result.catalogue.cranes;
+        const [mct88, mct85, jasoTd, jaso2r] = result.catalogue.cranes;
         expect(mct88.defaultJibM.provenance.kind).toBe("indicative");
         expect(mct88.maxCapacityT.provenance).toEqual({
             kind: "source",
             sourceId: "datasheetOverview",
         });
+        expect(mct88.craneType).toBe("trolley-jib");
+        expect(mct88.modelId).toBe("potain-mct-88");
+        expect(mct88.heightUnderHookM).toMatchObject({ value: 43.1 });
+        expect(mct88.freestandingHeightM).toMatchObject({ kind: "notStated" });
+        expect(mct88.dimensions.baseWidthM).toMatchObject({ value: 3.8 });
+        expect(mct88.dimensions.counterJibRadiusM).toMatchObject({ value: 13.7 });
 
         // MCT 85 F5: 5 t maximum, 52 m maximum working jib, and 8 published
         // chart rows / 86 points from PDF p. 3.
@@ -66,6 +76,30 @@ describe("validateCatalogue", () => {
             value: 5,
             provenance: { kind: "source", sourceId: "datasheetLoadCharts" },
         });
+
+        // The two JASO entries are configurations of one luffing-jib model, not
+        // two separate crane models.
+        expect(jasoTd.modelId).toBe("jaso-j438pa-2r");
+        expect(jaso2r.modelId).toBe("jaso-j438pa-2r");
+        expect(jasoTd.modelName).toBe("JASO J438PA.2R");
+        expect(jaso2r.modelName).toBe("JASO J438PA.2R");
+        expect(jasoTd.configuration).toBe("213 ft TD");
+        expect(jaso2r.configuration).toBe("213 ft 2R");
+        expect(jasoTd.craneType).toBe("luffing-jib");
+        expect(jaso2r.craneType).toBe("luffing-jib");
+        expect(jasoTd.maxCapacityT.value).toBeCloseTo(16.0118, 4);
+        expect(jaso2r.maxCapacityT.value).toBeCloseTo(18.0076, 4);
+        expect(jasoTd.maxJibLengthM.value).toBeCloseTo(64.9224, 4);
+        expect(jasoTd.freestandingHeightM).toMatchObject({ value: 72.2376 });
+        expect(jasoTd.heightUnderHookM).toMatchObject({ kind: "notStated" });
+        expect(jasoTd.dimensions.mastWidthM).toMatchObject({ kind: "notStated" });
+        expect(jasoTd.dimensions.baseWidthM).toMatchObject({ kind: "notStated" });
+        expect(jasoTd.dimensions.counterJibLengthM).toMatchObject({ kind: "notStated" });
+        expect(jasoTd.dimensions.counterJibRadiusM).toMatchObject({ kind: "notStated" });
+        expect(jasoTd.heaviestErectionComponent).toMatchObject({ kind: "notStated" });
+        expect(jasoTd.combinedTransportPackage?.massT.value).toBeCloseTo(20.5523, 4);
+        expect(jasoTd.loadChart?.[0].points).toHaveLength(9);
+        expect(jaso2r.loadChart?.[0].points).toHaveLength(9);
     });
 
     test("rejects a numeric field with no provenance", () => {
@@ -389,7 +423,12 @@ describe("validateCatalogue", () => {
         expect(errors.some((error) => error.path === `cranes[0].${field}`)).toBe(true);
     });
 
-    test.each(["mastWidthM", "counterJibLengthM"])("rejects a non-positive %s", (field) => {
+    test.each([
+        "mastWidthM",
+        "baseWidthM",
+        "counterJibLengthM",
+        "counterJibRadiusM",
+    ])("rejects a non-positive %s", (field) => {
         const catalogue = cloneCatalogue();
         catalogue.cranes[0].dimensions[field].value = 0;
 
@@ -729,9 +768,233 @@ describe("validateCatalogue", () => {
 
         expect(
             errors.some(
-                (error) => error.path === "cranes[2].id" && error.message.includes("Duplicate crane id"),
+                (error) => error.path === "cranes[4].id" && error.message.includes("Duplicate crane id"),
             ),
         ).toBe(true);
+    });
+
+    test("rejects a catalogue with fewer than four entries", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes.splice(1, 1);
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes",
+            message: "Catalogue must contain between 4 and 6 crane entries.",
+        });
+    });
+
+    test("rejects a catalogue with more than six entries", () => {
+        const catalogue = cloneCatalogue();
+        for (let index = 0; index < 3; index++) {
+            const extra = JSON.parse(JSON.stringify(catalogue.cranes[0]));
+            extra.id = `extra-${index}`;
+            extra.modelId = `extra-model-${index}`;
+            extra.modelName = `Extra Model ${index}`;
+            extra.configuration = "extra";
+            catalogue.cranes.push(extra);
+        }
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes",
+            message: "Catalogue must contain between 4 and 6 crane entries.",
+        });
+    });
+
+    test("requires the MCT 88 to be the declared default and first entry", () => {
+        const wrongDefault = cloneCatalogue();
+        wrongDefault.defaultCraneId = "potain-mct-85-f5";
+
+        const defaultErrors = expectErrors(validateCatalogue(wrongDefault));
+        expect(defaultErrors).toContainEqual({
+            path: "defaultCraneId",
+            message: 'The default crane must be "potain-mct-88".',
+        });
+        expect(defaultErrors).toContainEqual({
+            path: "defaultCraneId",
+            message: "The default crane must be the first catalogue entry.",
+        });
+
+        const wrongOrder = cloneCatalogue();
+        [wrongOrder.cranes[0], wrongOrder.cranes[1]] = [wrongOrder.cranes[1], wrongOrder.cranes[0]];
+
+        const orderErrors = expectErrors(validateCatalogue(wrongOrder));
+        expect(orderErrors).toContainEqual({
+            path: "cranes[0].id",
+            message: 'The first catalogue entry must be "potain-mct-88".',
+        });
+        expect(orderErrors).toContainEqual({
+            path: "defaultCraneId",
+            message: "The default crane must be the first catalogue entry.",
+        });
+    });
+
+    test.each([
+        "craneType",
+        "modelId",
+        "modelName",
+        "configuration",
+    ])("rejects a crane without the %s metadata field", (field) => {
+        const catalogue = cloneCatalogue();
+        delete catalogue.cranes[0][field];
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors.some((error) => error.path === `cranes[0].${field}`)).toBe(true);
+    });
+
+    test("requires the JASO model to be luffing-jib", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[2].craneType = "trolley-jib";
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[2].craneType",
+            message: "The jaso-j438pa-2r model must be a luffing-jib crane.",
+        });
+    });
+
+    test("requires exactly two configurations of the JASO model", () => {
+        const catalogue = cloneCatalogue();
+        const third = JSON.parse(JSON.stringify(catalogue.cranes[2]));
+        third.id = "jaso-j438pa-2r-180-td";
+        third.configuration = "180 ft TD";
+        catalogue.cranes.push(third);
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes",
+            message: "The jaso-j438pa-2r model must be represented by exactly two configurations.",
+        });
+    });
+
+    test("requires the JASO model in the catalogue", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[2].modelId = "other-model";
+        catalogue.cranes[2].modelName = "Other Model";
+        catalogue.cranes[3].modelId = "other-model";
+        catalogue.cranes[3].modelName = "Other Model";
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes",
+            message: "Catalogue must contain the jaso-j438pa-2r model.",
+        });
+    });
+
+    test("rejects a model group with inconsistent modelName", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[3].modelName = "JASO J438PA.2R (typo)";
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[3].modelName",
+            message: 'Model "jaso-j438pa-2r" must use the same modelName as cranes[2].',
+        });
+    });
+
+    test("rejects a duplicate JASO configuration", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[3].configuration = "213 ft TD";
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[3].configuration",
+            message: 'Configuration "213 ft TD" is duplicated for model "jaso-j438pa-2r".',
+        });
+    });
+
+    test("rejects a notStated dimension without a reason", () => {
+        const catalogue = cloneCatalogue();
+        delete catalogue.cranes[2].dimensions.mastWidthM.reason;
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[2].dimensions.mastWidthM.reason",
+            message: "Mast width must explain why it is not stated.",
+        });
+    });
+
+    test("rejects a notStated dimension that also carries a value", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[2].dimensions.baseWidthM.value = 1.2;
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[2].dimensions.baseWidthM",
+            message: "Base width cannot be both not stated and numeric.",
+        });
+    });
+
+    test("rejects a notStated freestanding height without a reason", () => {
+        const catalogue = cloneCatalogue();
+        delete catalogue.cranes[0].freestandingHeightM.reason;
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[0].freestandingHeightM.reason",
+            message: "Freestanding height must explain why it is not stated.",
+        });
+    });
+
+    test("rejects a notStated heaviest component that also carries a mass", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[2].heaviestErectionComponent.massT = {
+            value: 1,
+            provenance: { kind: "source", sourceId: "packingList" },
+        };
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[2].heaviestErectionComponent",
+            message: "A not-stated heaviest component cannot also carry a name or mass.",
+        });
+    });
+
+    test("rejects a combined transport package without a name", () => {
+        const catalogue = cloneCatalogue();
+        delete catalogue.cranes[2].combinedTransportPackage.name;
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[2].combinedTransportPackage.name",
+            message: "Combined transport package must have a name.",
+        });
+    });
+
+    test("rejects a non-positive combined transport package mass", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[2].combinedTransportPackage.massT.value = 0;
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(errors).toContainEqual({
+            path: "cranes[2].combinedTransportPackage.massT.value",
+            message: "Combined transport package mass must be greater than zero.",
+        });
+    });
+
+    test("rejects a numeric dimension with no provenance", () => {
+        const catalogue = cloneCatalogue();
+        catalogue.cranes[0].dimensions.baseWidthM = { value: 3.8 };
+
+        const errors = expectErrors(validateCatalogue(catalogue));
+
+        expect(findError(errors, "cranes[0].dimensions.baseWidthM")).toBeDefined();
+        expect(errors.some((error) => error.message.includes("provenance"))).toBe(true);
     });
 
     test("rejects a malformed top-level document", () => {

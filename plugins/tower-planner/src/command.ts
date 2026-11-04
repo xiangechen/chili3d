@@ -61,7 +61,7 @@ export type CraneDialogNotes = {
     sourcePage: number;
     defaultJibKind: "source" | "indicative";
     defaultJibDetail: string;
-    capacityMethod: "chart" | "tip-load";
+    capacityMethod: "chart" | "tip-load" | "unsupported";
     capacitySourceDocument: string;
     capacitySourcePage: number;
 };
@@ -84,7 +84,8 @@ export function craneDialogNotes(crane: TowerCrane): CraneDialogNotes {
         sourcePage: overview.page,
         defaultJibKind: provenance.kind,
         defaultJibDetail,
-        capacityMethod: crane.loadChart ? "chart" : "tip-load",
+        capacityMethod:
+            crane.craneType === "luffing-jib" ? "unsupported" : crane.loadChart ? "chart" : "tip-load",
         capacitySourceDocument: capacity.document,
         capacitySourcePage: capacity.page,
     };
@@ -95,6 +96,7 @@ const STATUS_I18N: Record<PickStatus, TowerI18nKey> = {
     FAIL: "tower.status.fail",
     OUT_OF_RANGE: "tower.status.outOfRange",
     INVALID: "tower.status.invalid",
+    UNSUPPORTED: "tower.status.unsupported",
 };
 
 const GOVERNING_I18N: Record<PickRadiusSource, TowerI18nKey> = {
@@ -113,12 +115,16 @@ const REASON_I18N: Record<SelectionReason, TowerI18nKey> = {
     "invalid-radius": "tower.reason.invalidRadius",
     "jib-outside-published-range": "tower.reason.jibOutsideRange",
     "invalid-capacity": "tower.reason.invalidCapacity",
+    "unsupported-crane-type": "tower.reason.unsupportedCraneType",
     "over-capacity": "tower.reason.overCapacity",
     "out-of-range": "tower.reason.outOfRange",
 };
 
 function statusColor(status: PickStatus): string {
-    return status === "PASS" ? "#1b7f3a" : status === "FAIL" ? "#b42318" : "#8a5a00";
+    if (status === "PASS") return "#1b7f3a";
+    if (status === "FAIL") return "#b42318";
+    if (status === "UNSUPPORTED") return "#5a6472";
+    return "#8a5a00";
 }
 
 type PickRowControls = {
@@ -482,17 +488,22 @@ export class TowerPickCheckCommand implements ICommand {
                     ? t("tower.dialog.indicativeJib", notes.defaultJibDetail)
                     : t("tower.dialog.sourceJib", notes.defaultJibDetail);
 
-            capacityMethod.textContent = t(
-                notes.capacityMethod === "chart"
-                    ? "tower.dialog.capacityMethodChart"
-                    : "tower.dialog.capacityMethodTipLoad",
-            );
+            if (notes.capacityMethod === "unsupported") {
+                capacityMethod.textContent = t("tower.dialog.capacityMethodUnsupported");
+                capacitySourceLine.textContent = t("tower.dialog.capacitySourceUnsupported");
+            } else {
+                capacityMethod.textContent = t(
+                    notes.capacityMethod === "chart"
+                        ? "tower.dialog.capacityMethodChart"
+                        : "tower.dialog.capacityMethodTipLoad",
+                );
 
-            capacitySourceLine.textContent = t(
-                "tower.dialog.capacitySourceLine",
-                notes.capacitySourceDocument,
-                notes.capacitySourcePage,
-            );
+                capacitySourceLine.textContent = t(
+                    "tower.dialog.capacitySourceLine",
+                    notes.capacitySourceDocument,
+                    notes.capacitySourcePage,
+                );
+            }
         }
 
         function readPicks(): Pick[] {
@@ -562,10 +573,14 @@ export class TowerPickCheckCommand implements ICommand {
             const total = evaluation.picks.length;
             const passing = evaluation.picks.filter((result) => result.status === "PASS").length;
             const invalid = evaluation.picks.filter((result) => result.status === "INVALID").length;
+            const unsupported = evaluation.picks.filter((result) => result.status === "UNSUPPORTED").length;
             const allInvalid = total > 0 && invalid === total;
+            const allUnsupported = total > 0 && unsupported === total;
 
             if (total === 0) {
                 controls.overall.textContent = t("tower.matrix.rowNoPicks");
+            } else if (allUnsupported) {
+                controls.overall.textContent = t("tower.matrix.rowUnsupported");
             } else if (evaluation.allPass) {
                 controls.overall.textContent = t("tower.matrix.rowPass", passing, total);
             } else if (allInvalid) {
@@ -574,10 +589,15 @@ export class TowerPickCheckCommand implements ICommand {
                 controls.overall.textContent = t("tower.matrix.rowFail", passing, total);
             }
             controls.overall.style.fontWeight = "600";
-            controls.overall.style.color = evaluation.allPass ? "#1b7f3a" : "#8a5a00";
+            controls.overall.style.color = allUnsupported
+                ? "#5a6472"
+                : evaluation.allPass
+                  ? "#1b7f3a"
+                  : "#8a5a00";
             controls.overall.setAttribute("data-matrix-all-pass", String(evaluation.allPass));
             controls.overall.setAttribute("data-matrix-passing", String(passing));
             controls.overall.setAttribute("data-matrix-total", String(total));
+            controls.overall.setAttribute("data-matrix-unsupported", String(allUnsupported));
         }
 
         function renderMatrix(matrix: SelectionMatrix): void {
@@ -590,6 +610,8 @@ export class TowerPickCheckCommand implements ICommand {
             matrixSummary.setAttribute("data-state", matrix.state);
             matrixSummary.setAttribute("data-passing-cranes", String(matrix.passingCraneCount));
             matrixSummary.setAttribute("data-crane-count", String(matrix.craneCount));
+            matrixSummary.setAttribute("data-evaluated-cranes", String(matrix.evaluatedCraneCount));
+            matrixSummary.setAttribute("data-unsupported-cranes", String(matrix.unsupportedCraneCount));
             matrixSummary.style.color =
                 matrix.state === "cranes-pass"
                     ? "#1b7f3a"
@@ -607,16 +629,35 @@ export class TowerPickCheckCommand implements ICommand {
                 case "missing-mast":
                     matrixSummary.textContent = t("tower.matrix.missingMast");
                     break;
+                case "no-supported-cranes":
+                    matrixSummary.textContent = t("tower.matrix.noSupportedCranes");
+                    break;
                 case "no-crane-passes":
-                    matrixSummary.textContent = t("tower.matrix.noCranePasses", matrix.craneCount);
+                    matrixSummary.textContent =
+                        matrix.unsupportedCraneCount > 0
+                            ? t(
+                                  "tower.matrix.noCranePassesUnsupported",
+                                  matrix.evaluatedCraneCount,
+                                  matrix.unsupportedCraneCount,
+                              )
+                            : t("tower.matrix.noCranePasses", matrix.craneCount);
                     break;
                 case "cranes-pass":
-                    matrixSummary.textContent = t(
-                        "tower.matrix.cranesPass",
-                        matrix.passingCraneCount,
-                        matrix.craneCount,
-                        matrix.allPassCraneNames.join(", "),
-                    );
+                    matrixSummary.textContent =
+                        matrix.unsupportedCraneCount > 0
+                            ? t(
+                                  "tower.matrix.cranesPassUnsupported",
+                                  matrix.passingCraneCount,
+                                  matrix.evaluatedCraneCount,
+                                  matrix.allPassCraneNames.join(", "),
+                                  matrix.unsupportedCraneCount,
+                              )
+                            : t(
+                                  "tower.matrix.cranesPass",
+                                  matrix.passingCraneCount,
+                                  matrix.craneCount,
+                                  matrix.allPassCraneNames.join(", "),
+                              );
                     break;
             }
         }
@@ -660,7 +701,9 @@ export class TowerPickCheckCommand implements ICommand {
             });
 
             const passing = evaluation.picks.filter((result) => result.status === "PASS").length;
-            summary.textContent = t("tower.dialog.summary", passing, evaluation.picks.length);
+            summary.textContent = evaluation.unsupported
+                ? t("tower.dialog.summaryUnsupported")
+                : t("tower.dialog.summary", passing, evaluation.picks.length);
             summary.setAttribute("data-all-pass", String(evaluation.allPass));
 
             // The catalogue matrix compares every crane at its own default jib;

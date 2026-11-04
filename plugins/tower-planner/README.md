@@ -1,10 +1,18 @@
 # DGOC Tower Crane Planner plugin
 
 Sourced tower-crane catalogue, capacity model, placement and clearance checks for the DGOC Crane
-Planner. The catalogue contains two verified entries:
+Planner. The catalogue contains four entries:
 
-- **Potain MCT 88** (EN 14439 C25) — Cycle 2 idealised tip-load model.
+- **Potain MCT 88** (EN 14439 C25) — Cycle 2 idealised tip-load model. Default entry.
 - **Potain MCT 85 F5** (FEM 1.001-A3) — published per-radius load-chart lookup.
+- **JASO J438PA.2R, 213 ft TD** (EN 14439 C25 / FEM 1005-C25) — `INDICATIVE` luffing-jib
+  configuration. Listed but **not evaluated** by the trolley-jib capacity engine.
+- **JASO J438PA.2R, 213 ft 2R** — the second `INDICATIVE` configuration of the same JASO model,
+  also listed but not evaluated.
+
+The two JASO rows are configurations of one crane model, not two separate models. The 213 ft TD/2R
+choice is `INDICATIVE` because the datasheet also publishes shorter jibs; the chart values themselves
+are transcribed from the PDF.
 
 > **Planning aid, not a certified lift plan.**
 
@@ -13,9 +21,9 @@ Planner. The catalogue contains two verified entries:
 | Path | Purpose |
 | --- | --- |
 | `data/crane-catalogue.json` | Crane data. Every number carries a source (document + page) or is explicitly `INDICATIVE`. |
-| `src/catalogueValidator.ts` | Strict JSON validator. Rejects bare numbers, unknown sources, malformed tip tables and malformed load charts. |
-| `src/catalogue.ts` | Validates the JSON at module load and exposes `MCT88`, `MCT85F5`, `TOWER_CRANES` and `getCraneById`. |
-| `src/capacity.ts` | MCT 88 tip-load model, MCT 85 F5 chart lookup and the `SIMULATED` wind rule. |
+| `src/catalogueValidator.ts` | Strict JSON validator. Rejects bare numbers, unknown sources, malformed tip tables and load charts, missing `notStated` reasons, wrong entry counts and a non-MCT 88 default. |
+| `src/catalogue.ts` | Validates the JSON at module load and exposes `MCT88`, `MCT85F5`, `JASO_TD`, `JASO_2R`, `TOWER_CRANES` and `getCraneById`. |
+| `src/capacity.ts` | MCT 88 tip-load model, MCT 85 F5 chart lookup, the `SIMULATED` wind rule and the luffing-jib guard. |
 | `src/pickEngine.ts` | UI-independent pick evaluation, utilisation, PASS/FAIL and crane filtering. |
 | `src/units.ts` | One-way metre → millimetre conversion for the Chili3D scene boundary. |
 | `src/command.ts` | Three-pick sample dialog for the selected catalogue crane. |
@@ -62,9 +70,14 @@ and page before using the result.
 | --- | --- | --- | --- | --- | --- | --- |
 | Potain MCT 88 | EN 14439 C25 | 5 t | 52 m | n/a (idealised model) | 30 m (`INDICATIVE`) | Tip-load labels, datasheet p. 1 |
 | Potain MCT 85 F5 | FEM 1.001-A3 | 5 t | 52 m | 2.7 m (printed) | 30 m (`INDICATIVE`) | Per-radius chart, datasheet p. 3 |
+| JASO J438PA.2R (213 ft TD) | EN 14439 C25 / FEM 1005-C25 | 16.0118 t (converted) | 64.9224 m (213 ft) | 24.9936 m (82 ft) | 213 ft (`INDICATIVE`) | Imperial chart, p. 2; not evaluated (luffing-jib) |
+| JASO J438PA.2R (213 ft 2R) | EN 14439 C25 / FEM 1005-C25 | 18.0076 t (converted) | 64.9224 m (213 ft) | 24.9936 m (82 ft) | 213 ft (`INDICATIVE`) | Imperial chart, p. 2; not evaluated (luffing-jib) |
 
-For both cranes, 53.1 m is the overall tip length, not a working jib configuration. The published
-working configurations are 20, 25, 30, 35, 40, 45, 50 and 52 m.
+For both Potain cranes, 53.1 m is the overall tip length, not a working jib configuration. The
+published Potain working configurations are 20, 25, 30, 35, 40, 45, 50 and 52 m. The JASO chart values
+are converted from feet and pounds with 1 ft = 0.3048 m and 1 lb = 0.00045359237 t; the imperial
+labels are the source. The JASO `maxCapacityT` is the first chart value, not a separately printed
+maximum-capacity label.
 
 ## Capacity models
 
@@ -101,6 +114,21 @@ The MCT 85 F5 uses its own manufacturer chart, not the MCT 88 formula:
 For example, on the 30 m jib, 19 m returns 3.9 t (the 20 m point), not the linearly interpolated
 4.48 t; 24 m returns 3.0 t (the 25 m point); 28 m returns 2.5 t (the 29 m point).
 
+### JASO J438PA.2R — listed but not evaluated
+
+The JASO entries are **luffing-jib** cranes. Their published charts are stored with p. 2 provenance,
+but the current capacity engine models a trolley jib and cannot represent luffing geometry. For these
+entries:
+
+- `capacityAt` returns `null`, even for a radius printed in the chart;
+- a pick is reported as `UNSUPPORTED` with issue `unsupported-crane-type`, not as PASS/FAIL;
+- the selection matrix lists the rows but excludes them from `evaluatedCraneCount` and never counts
+  them as passing; when every entry is luffing-jib the matrix state is `no-supported-cranes`.
+
+The safeguard is deliberate. It prevents an imperial luffing-jib chart from being read through the
+trolley-jib formula and presented as an equivalent capacity result. See
+[`docs/SOURCES.md`](docs/SOURCES.md) §6.
+
 ### Wind
 
 The optional wind rule multiplies the base capacity by 0.8 at 20 km/h or above. It is labelled
@@ -110,7 +138,7 @@ negative or non-finite wind is `INVALID` with issue `invalid-wind` instead of be
 
 ## Sample picks
 
-Both tables use the catalogue default 30 m jib.
+The MCT 88 and MCT 85 F5 tables use the catalogue default 30 m jib.
 
 **MCT 88**
 
@@ -136,6 +164,10 @@ The third row is the acceptance case from `BACKLOG.md`: a 4 t pick at 30 m on th
   11.9 m. The p. 1 drawing's 13.7 m / 11.3 m counter-jib radius is a different dimension.
 - **MCT 85 F5:** counter-jib, 4.38 t (variant A, 14.6 m), datasheet p. 5; variant B is 4.25 t / 11.9 m.
   Do not apply the MCT 88 11.9 m / 4.38 t pairing to the MCT 85 F5 table.
+- **JASO J438PA.2R:** `notStated`. The pp. 6-7 packing list gives transport packages, not an
+  erection-component schedule. The heaviest line is a **combined** counter-jib + luffing mechanisms +
+  reeving block + auxiliary jib package of 45,310 lb (20.5523 t), stored separately as
+  `combinedTransportPackage`; it is not an individual erection lift.
 
 These are component-weight tables, not erection sequences. They do not state the lift radius, rigging
 or assembly order. Confirm the actual heaviest lift against the manufacturer's erection manual before
@@ -155,12 +187,13 @@ in the copied plugin directory.
 
 ## Limitations
 
-- Only the two cranes above are catalogued. The Jaso J438PA.2R PDF was inspected but is not
-  catalogued: it is a luffing-jib crane, its chart is imperial-only, it contains multiple TD/2R
-  configurations with different capacities, and its packing list is not an erection sequence. See
-  [`docs/SOURCES.md`](docs/SOURCES.md) §6.
-- The 30 m default jib is `INDICATIVE` project configuration for both cranes, not a manufacturer
-  recommendation.
+- Four catalogue entries are present: two sourced Potain trolley-jib cranes and two `INDICATIVE`
+  JASO luffing-jib configurations. The JASO rows are listed but **not evaluated** by the
+  trolley-jib capacity engine; their capacity charts are stored, but `capacityAt` refuses them and
+  picks are `UNSUPPORTED`. See [`docs/SOURCES.md`](docs/SOURCES.md) §6.
+- The MCT 88 and MCT 85 F5 30 m default jib is `INDICATIVE` project configuration, not a manufacturer
+  recommendation. The JASO 213 ft TD/2R configuration choice is `INDICATIVE` for the same reason: the
+  datasheet publishes other jib lengths.
 - The model is not a structural, dynamic, reeving or ground-bearing check.
 - The MCT 88 source documents disagree about the 30 m tip value (2.70 t label vs 2.54 t imperial
   conversion, and a 2.5 t point on the metric curve page). The load-curve page is also recorded as
@@ -172,6 +205,9 @@ in the copied plugin directory.
 - `BACKLOG.md` refers to `docs/validation-calculation.txt`. No original was found in the working tree
   or Git history; [`docs/validation-calculation.txt`](docs/validation-calculation.txt) is a clearly
   labelled **reconstruction**, not the recovered original. See [`docs/SOURCES.md`](docs/SOURCES.md) §7.
+- The JASO mast width, base width, counter-jib structural length, counter-jib radius and heaviest
+  erection component are `notStated` because the inspected PDF does not publish them. They are not
+  inferred from other dimensions or from the combined transport package.
 - The MCT 85 F5 and Jaso PDFs do not state a redistribution licence. Confirm the manufacturer's terms
   before packaging or mirroring them. The PDFs are ignored by Git, and the production build copies
   only `manifest.json`, `icons/` and `dist/`, so they are not in `dist/plugins/tower-planner/`.
