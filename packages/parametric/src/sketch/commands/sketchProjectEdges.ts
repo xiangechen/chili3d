@@ -21,7 +21,7 @@ import { sameEdgeFingerprint } from "../../features/edgeRef";
 import { reportSilentIdLoss } from "../../features/idDiagnostics";
 import { ParametricBodyNode } from "../../parametricBodyNode";
 import type { SketchEditor } from "../editor/sketchEditor";
-import { captureExternalRef, isEdgeCoplanarWithPlane } from "../externalRef";
+import { captureExternalRef } from "../externalRef";
 import { type ExternalRefData, isExternalEntityId } from "../sketchModel";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
@@ -71,7 +71,6 @@ function projectEdge(
 ): boolean {
     const worldEdge = (picked.shape as IEdge).transformedMul(picked.transform) as IEdge;
     try {
-        if (!isEdgeCoplanarWithPlane(plane, worldEdge)) return false;
         const owner = picked.owner.node;
         const edgeId = pickedEdgeTrackedId(owner, picked.indexes[0]);
         // solver-side monotonic counter — deleted ids are never reissued
@@ -98,9 +97,11 @@ function projectEdge(
 
 /**
  * Projects picked scene edges onto the active sketch as external references.
- * Only edges coplanar with the sketch plane whose curve is a line or a circle
- * (full or trimmed) can be projected; the role option decides whether they also
- * participate in profile building.
+ * The edges are orthogonally projected onto the sketch plane and need not lie on
+ * it; what can be projected is limited by the projected curve's kind — a line
+ * (unless perpendicular to the plane), or a circle/arc whose axis is parallel to
+ * the plane normal. The role option decides whether they also participate in
+ * profile building.
  */
 @command({ key: "sketch.projectEdges", icon: "icon-projectEdges" })
 export class ProjectSketchEdges extends SketchConstraintCommand {

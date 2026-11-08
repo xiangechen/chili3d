@@ -228,7 +228,7 @@
 | 变换 | `sketch.transform` | 拖控制柄；Enter 确认 |
 | 阵列 | `sketch.array` | 线形/环形/沿曲线；徽标/解散 |
 | 约束列表 | `sketch.constraints` | 浮层面板 |
-| 投影边线 | `sketch.projectEdges` | 共面边投影 |
+| 投影边线 | `sketch.projectEdges` | 边正交投影到草图平面 |
 | 切换外部参考 | `sketch.toggleExternal` | 参考 ↔ 轮廓 |
 | 切换构造线 | `sketch.toggleConstruction` | 普通 ↔ 构造 |
 | 退出草图 | `sketch.exit` | 结束会话 |

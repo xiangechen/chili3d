@@ -294,7 +294,7 @@ export default {
         "sketch.offsetBranchedNoJoin{0}{1}":
             "As arestas escolhidas se encontram em {0} cantos que não podem ser unidos — cada uma se desloca por conta própria — e mais {1} cantos não puderam ser unidos: as curvas deslocadas ficam separadas",
         "sketch.noConstraints": "Sem restrições",
-        "sketch.noProjectableEdges": "Nenhuma aresta coplanar pôde ser projetada",
+        "sketch.noProjectableEdges": "Nenhuma aresta pôde ser projetada no plano do esboço",
         "sketch.redundant": "Restrições redundantes",
         "sketch.rollbackFailed": "Alguns corpos não puderam ser revertidos à linha do tempo do sketch",
         "sketch.trimRemovedConstraints{0}": "A operação removeu {0} restrições",

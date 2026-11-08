@@ -736,7 +736,7 @@ export default {
         "sketch.offsetBranchedNoJoin{0}{1}":
             "有 {0} 个角是多条边交汇、无法接缝，各自独立偏移；另有 {1} 个角的两条偏移曲线不相交，未能接缝",
         "sketch.noConstraints": "无约束",
-        "sketch.noProjectableEdges": "没有可投影的共面边线",
+        "sketch.noProjectableEdges": "没有可投影到草图平面的边线",
         "sketch.recovery.conflict{0}": "删掉 {0} 中任意一条即可消除冲突",
         "sketch.recovery.entangledConflict":
             "这些约束互相支撑，删掉任何单独一条都消除不了冲突，需要删掉一组。",

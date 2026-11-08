@@ -25,7 +25,7 @@ import {
     refScore,
     sameEdgeFingerprint,
 } from "../features/edgeRef";
-import { directionsParallel, MATCH_TOLERANCE, plainVec } from "../features/refGeometry";
+import { directionsParallel, INCIDENCE_TOLERANCE, MATCH_TOLERANCE, plainVec } from "../features/refGeometry";
 import { indexesOfOverlappingId } from "../features/trackedId";
 import { type ShapeSource, shapeSourceOf } from "./shapeSource";
 import { type ExternalRefData, type SketchEntityType, toUV } from "./sketchModel";
@@ -52,15 +52,27 @@ export interface ExternalResolveResult {
 }
 
 /**
- * Sketch-UV geometry of a world-coordinate edge, or undefined when the curve
- * cannot be represented as a sketch entity: only lines and circles (full or
- * trimmed to an arc) are supported, and a circle's axis must be parallel to the
- * plane normal — otherwise its projection would be an ellipse.
+ * Sketch-UV geometry of a world-coordinate edge, or undefined when its projection
+ * cannot be represented as a sketch entity. The edge is orthogonally projected onto
+ * the plane, so it need not lie on the plane itself; what limits support is the
+ * projected curve's kind:
+ *
+ * - A line always projects to a line, unless it stands perpendicular to the plane
+ *   and projects to a point.
+ * - A circle/arc projects to a circle/arc of the same radius only when its axis is
+ *   parallel to the plane normal; otherwise the projection is an ellipse.
+ * - Other curve kinds project to curves a sketch entity cannot carry.
  */
 export function edgeSnapshotUV(plane: Plane, edge: IEdge): ExternalSnapshot | undefined {
     const basis = edge.curve.basisCurve;
     if (CurveUtils.isLine(basis)) {
-        return { type: "line", params: [...toUV(plane, edge.startPoint()), ...toUV(plane, edge.endPoint())] };
+        const start = toUV(plane, edge.startPoint());
+        const end = toUV(plane, edge.endPoint());
+        // Perpendicular (or nearly so) to the plane: the projection collapses toward a point,
+        // which no sketch entity can carry, and a line below the solver's incidence tolerance
+        // would read as zero-length to every profile consumer.
+        if (Math.hypot(end[0] - start[0], end[1] - start[1]) < INCIDENCE_TOLERANCE) return undefined;
+        return { type: "line", params: [...start, ...end] };
     }
     if (!CurveUtils.isCircle(basis)) return undefined;
     const axis = basis.axis.normalize()!;
@@ -71,28 +83,20 @@ export function edgeSnapshotUV(plane: Plane, edge: IEdge): ExternalSnapshot | un
     }
     let start = edge.startPoint();
     let end = edge.endPoint();
-    // An anti-parallel axis reverses the apparent sweep; sketch arcs are always
-    // counter-clockwise about the plane normal, so swap the trim points.
-    if (axis.dot(plane.normal) < 0) [start, end] = [end, start];
+    // Sketch arcs are always counter-clockwise about the plane normal; swap the traversal's
+    // trim points when the edge runs clockwise in that frame.
+    if (!traversesSketchCcw(plane, edge, axis)) [start, end] = [end, start];
     return { type: "arc", params: [cu, cv, ...toUV(plane, start), ...toUV(plane, end)] };
 }
 
 /**
- * Whether a world-coordinate edge lies on the sketch plane (a line: both
- * endpoints on the plane; a circle/arc: center on the plane and axis parallel
- * to the plane normal). Other curve kinds are never coplanar-projectable.
+ * Whether an edge traverses its circle counter-clockwise in the sketch frame. The circle's
+ * axis is the curve's own CCW direction, but a REVERSED edge traverses it the other way
+ * round — so the sweep's axis is the circle's, flipped for a reversed edge.
  */
-export function isEdgeCoplanarWithPlane(plane: Plane, edge: IEdge): boolean {
-    const basis = edge.curve.basisCurve;
-    const onPlane = (point: XYZ) => point.distanceTo(plane.project(point)) <= Precision.Distance;
-    if (CurveUtils.isLine(basis)) {
-        return onPlane(edge.startPoint()) && onPlane(edge.endPoint());
-    }
-    if (CurveUtils.isCircle(basis)) {
-        const axis = basis.axis.normalize()!;
-        return directionsParallel(axis, plane.normal) && onPlane(basis.center);
-    }
-    return false;
+function traversesSketchCcw(plane: Plane, edge: IEdge, axis: XYZ): boolean {
+    const traversalAxis = edge.orientation() === "reversed" ? axis.multiply(-1) : axis;
+    return traversalAxis.dot(plane.normal) >= 0;
 }
 
 /**
@@ -595,7 +599,7 @@ function arcCoverageSpans(
         let start = edge.startPoint();
         let end = edge.endPoint();
         const basis = edge.curve.basisCurve;
-        if (CurveUtils.isCircle(basis) && basis.axis.normalize()!.dot(plane.normal) < 0) {
+        if (CurveUtils.isCircle(basis) && !traversesSketchCcw(plane, edge, basis.axis.normalize()!)) {
             [start, end] = [end, start];
         }
         // a candidate spanning the full circle covers everything

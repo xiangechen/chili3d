@@ -13,6 +13,7 @@ import {
     type INodeVisual,
     type IShape,
     Matrix4,
+    type Orientation,
     type PickShapeOptions,
     Plane,
     Precision,
@@ -400,9 +401,8 @@ describe("SketchSolver external entities", () => {
     });
 });
 
-function lineBasisEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
-    const start = new XYZ({ x: x1, y: y1, z: 0 });
-    const end = new XYZ({ x: x2, y: y2, z: 0 });
+/** A line edge mock between two world points, with a `dispose` spy. */
+function lineEdgeBetween(start: XYZ, end: XYZ): IEdge {
     return {
         shapeType: ShapeTypes.edge,
         curve: {
@@ -418,6 +418,10 @@ function lineBasisEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
         isEqual: () => false,
         dispose: rs.fn(),
     } as unknown as IEdge;
+}
+
+function lineBasisEdge(x1: number, y1: number, x2: number, y2: number): IEdge {
+    return lineEdgeBetween(new XYZ({ x: x1, y: y1, z: 0 }), new XYZ({ x: x2, y: y2, z: 0 }));
 }
 
 /** `lineBasisEdge` plus a `transformedMul` that actually moves the endpoints. */
@@ -447,7 +451,14 @@ function trackingMovableLineEdge(x1: number, y1: number, x2: number, y2: number,
 }
 
 /** Arc (or full circle) edge mock on a circle in the XY plane, angles in radians. */
-function arcBasisEdge(cx: number, cy: number, radius: number, a0: number, a1: number): IEdge {
+function arcBasisEdge(
+    cx: number,
+    cy: number,
+    radius: number,
+    a0: number,
+    a1: number,
+    orientation: Orientation = "forward",
+): IEdge {
     const at = (angle: number) =>
         new XYZ({ x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle), z: 0 });
     const start = at(a0);
@@ -457,6 +468,7 @@ function arcBasisEdge(cx: number, cy: number, radius: number, a0: number, a1: nu
         curve: { basisCurve: { center: new XYZ({ x: cx, y: cy, z: 0 }), radius, axis: XYZ.unitZ } },
         startPoint: () => start,
         endPoint: () => end,
+        orientation: () => orientation,
         isEqual: () => false,
         dispose: rs.fn(),
     } as unknown as IEdge;
@@ -516,6 +528,78 @@ describe("resolveExternalRefs", () => {
             kind: "line",
             start: { x: 0, y: 5, z: 0 },
             end: { x: 10, y: 5, z: 0 },
+            edgeId: undefined,
+        });
+    });
+
+    test("an off-plane source edge re-resolves against its projection", () => {
+        const edge = lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 0, z: 5 }));
+        const { doc, source } = setup(edge);
+        const ref = captureExternalRef(-100, source.id, Plane.XY, edge, undefined, "reference")!;
+        expect(ref.snapshot).toEqual([0, 0, 10, 0]);
+
+        const [result] = resolveExternalRefs(doc, Plane.XY, [ref]);
+
+        expect(result.geometryChanged).toBe(false);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([0, 0, 10, 0]);
+        // the fingerprint keeps the world edge, not its projection
+        expect(ref.edge).toEqual({
+            kind: "line",
+            start: { x: 0, y: 0, z: 5 },
+            end: { x: 10, y: 0, z: 5 },
+            edgeId: undefined,
+        });
+    });
+
+    test("a reversed source arc re-resolves against the same CCW snapshot", () => {
+        // the first quadrant traversed backwards: start π/2 → end 0, reversed
+        const edge = arcBasisEdge(5, 5, 3, Math.PI / 2, 0, "reversed");
+        const { doc, source } = setup(edge);
+        const ref = captureExternalRef(-100, source.id, Plane.XY, edge, undefined, "reference")!;
+        expect(ref.snapshot).toEqual([5, 5, 8, 5, 5, 8]);
+
+        const [result] = resolveExternalRefs(doc, Plane.XY, [ref]);
+
+        expect(result.geometryChanged).toBe(false);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([5, 5, 8, 5, 5, 8]);
+    });
+
+    test("an in-plane move of an off-plane source follows the projection", () => {
+        const edge = lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 0, z: 5 }));
+        const { doc, source } = setup(edge);
+        const ref = captureExternalRef(-100, source.id, Plane.XY, edge, undefined, "reference")!;
+
+        source.shape = Result.ok(
+            solidWithEdges(lineEdgeBetween(new XYZ({ x: 2, y: 0, z: 5 }), new XYZ({ x: 12, y: 0, z: 5 }))),
+        );
+        const [result] = resolveExternalRefs(doc, Plane.XY, [ref]);
+
+        expect(result.geometryChanged).toBe(true);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([2, 0, 12, 0]);
+    });
+
+    test("a move along the plane normal leaves an off-plane projection unchanged", () => {
+        const edge = lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 0, z: 5 }));
+        const { doc, source } = setup(edge);
+        const ref = captureExternalRef(-100, source.id, Plane.XY, edge, undefined, "reference")!;
+
+        source.shape = Result.ok(
+            solidWithEdges(lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 7 }), new XYZ({ x: 10, y: 0, z: 7 }))),
+        );
+        const [result] = resolveExternalRefs(doc, Plane.XY, [ref]);
+
+        expect(result.mutated).toBe(true);
+        expect(result.geometryChanged).toBe(false);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual([0, 0, 10, 0]);
+        // the fingerprint follows the world edge; only the projection is invariant
+        expect(ref.edge).toEqual({
+            kind: "line",
+            start: { x: 0, y: 0, z: 7 },
+            end: { x: 10, y: 0, z: 7 },
             edgeId: undefined,
         });
     });
@@ -714,6 +798,27 @@ describe("resolveExternalRefs", () => {
         });
         // the exact match re-anchored to the identical fingerprint — nothing mutated
         expect(again.mutated).toBe(false);
+    });
+
+    test("an arc edge split into a REVERSED piece still resolves by sweep coverage", () => {
+        const arc = arcBasisEdge(5, 0, 5, 0, Math.PI);
+        const { doc, source } = setup(arc);
+        const ref = captureExternalRef(-100, source.id, Plane.XY, arc, "e1:0", "profile")!;
+        const snapshot = [...ref.snapshot];
+
+        source.shape = Result.ok(
+            solidWithEdges(
+                // the same first quarter, traversed from π/2 back to 0 by a reversed edge
+                arcBasisEdge(5, 0, 5, Math.PI / 2, 0, "reversed"),
+                arcBasisEdge(5, 0, 5, Math.PI / 2, Math.PI),
+            ),
+        );
+
+        const [result] = resolveExternalRefs(doc, Plane.XY, [ref]);
+
+        expect(result.geometryChanged).toBe(false);
+        expect(ref.dangling).toBeUndefined();
+        expect(ref.snapshot).toEqual(snapshot);
     });
 
     test("an arc edge split into two arcs resolves by sweep coverage", () => {
@@ -2451,22 +2556,31 @@ describe("ProjectSketchEdges command", () => {
         return { transformedMul: () => worldEdge } as unknown as IEdge;
     }
 
-    /** A full line edge mock parallel to the sketch plane but 5 units above it. */
-    function offPlaneLineEdge(): IEdge {
-        const start = new XYZ({ x: 0, y: 0, z: 5 });
-        const end = new XYZ({ x: 10, y: 0, z: 5 });
+    /**
+     * A circle/arc edge on a plane `z` above the sketch plane (disposal tracked). The
+     * angles are in traversal order, so a reversed arc names its geometric end first.
+     */
+    function offPlaneCircleEdge(
+        options: { z?: number; axis?: XYZ; orientation?: Orientation; a0?: number; a1?: number } = {},
+    ): IEdge {
+        const z = options.z ?? 0;
+        const a0 = options.a0 ?? 0;
+        const a1 = options.a1 ?? a0;
+        const at = (angle: number) => new XYZ({ x: 5 + 3 * Math.cos(angle), y: 5 + 3 * Math.sin(angle), z });
+        const start = at(a0);
+        const end = at(a1);
         return {
             shapeType: ShapeTypes.edge,
             curve: {
-                basisCurve: { direction: end.sub(start) },
-                nearestFromPoint: (point: XYZ) => nearestOnSegment(start, end, point),
+                basisCurve: {
+                    center: new XYZ({ x: 5, y: 5, z }),
+                    radius: 3,
+                    axis: options.axis ?? XYZ.unitZ,
+                },
             },
             startPoint: () => start,
             endPoint: () => end,
-            firstParameter: () => 0,
-            lastParameter: () => 1,
-            pointAt: (t: number) => start.add(end.sub(start).multiply(t)),
-            length: () => start.distanceTo(end),
+            orientation: () => options.orientation ?? "forward",
             isEqual: () => false,
             dispose: rs.fn(),
         } as unknown as IEdge;
@@ -2592,21 +2706,120 @@ describe("ProjectSketchEdges command", () => {
         }
     });
 
-    test("reports when nothing picked is projectable, committing nothing", async () => {
-        const editor = fakeProjectEditor([pickedOf(edgeProjectingTo(offPlaneLineEdge()))]);
+    test("projects a line parallel to but off the sketch plane", async () => {
+        const worldEdge = lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 0, z: 5 }));
+        const editor = fakeProjectEditor([pickedOf(edgeProjectingTo(worldEdge))]);
+        try {
+            await runProject(editor);
+
+            const refs = editor.solver.toData().externalRefs!;
+            expect(refs.length).toBe(2);
+            // the fingerprint stays the world edge; only the snapshot is its projection
+            expect(refs[1]).toMatchObject({
+                type: "line",
+                snapshot: [0, 0, 10, 0],
+                edge: { kind: "line", start: { x: 0, y: 0, z: 5 }, end: { x: 10, y: 0, z: 5 } },
+            });
+            expect(editor.solver.entity(refs[1].entityId)).toMatchObject({ params: [0, 0, 10, 0] });
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("projects a slanted line as its orthogonal projection", async () => {
+        const worldEdge = lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 5 }), new XYZ({ x: 10, y: 10, z: 15 }));
+        const editor = fakeProjectEditor([pickedOf(edgeProjectingTo(worldEdge))]);
+        try {
+            await runProject(editor);
+
+            const refs = editor.solver.toData().externalRefs!;
+            expect(refs[1]).toMatchObject({ type: "line", snapshot: [0, 0, 10, 10] });
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test("projects a circle from a plane parallel to and off the sketch plane", async () => {
+        const editor = fakeProjectEditor([pickedOf(edgeProjectingTo(offPlaneCircleEdge({ z: 5 })))]);
+        try {
+            await runProject(editor);
+
+            const refs = editor.solver.toData().externalRefs!;
+            expect(refs[1]).toMatchObject({
+                type: "circle",
+                snapshot: [5, 5, 3],
+                edge: { kind: "circle", center: { x: 5, y: 5, z: 5 }, radius: 3 },
+            });
+            expect(editor.solver.entity(refs[1].entityId)).toMatchObject({
+                type: "circle",
+                params: [5, 5, 3],
+            });
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        // a forward arc runs the circle's own CCW direction
+        { label: "forward", options: { z: 5, a0: 0, a1: Math.PI / 2 }, orientation: "forward" as const },
+        // the same geometric quarter arc traversed the other way
+        {
+            label: "reversed",
+            options: { z: 5, a0: Math.PI / 2, a1: 0 },
+            orientation: "reversed" as const,
+        },
+        // an anti-parallel axis reverses the curve's own sweep: both signs must combine
+        {
+            label: "forward with an anti-parallel axis",
+            options: { z: 5, axis: new XYZ({ x: 0, y: 0, z: -1 }), a0: Math.PI / 2, a1: 0 },
+            orientation: "forward" as const,
+        },
+        {
+            label: "reversed with an anti-parallel axis",
+            options: { z: 5, axis: new XYZ({ x: 0, y: 0, z: -1 }), a0: 0, a1: Math.PI / 2 },
+            orientation: "reversed" as const,
+        },
+    ])("projects an off-plane $label arc as the same CCW sketch arc", async ({ options, orientation }) => {
+        const worldEdge = offPlaneCircleEdge({ ...options, orientation });
+        const editor = fakeProjectEditor([pickedOf(edgeProjectingTo(worldEdge))]);
+        try {
+            await runProject(editor);
+
+            const refs = editor.solver.toData().externalRefs!;
+            // both traversals must yield the first-quadrant arc, not its complement
+            expect(refs[1]).toMatchObject({ type: "arc", snapshot: [5, 5, 8, 5, 5, 8] });
+            expect(editor.commit).toHaveBeenCalledTimes(1);
+        } finally {
+            editor.solver.dispose();
+        }
+    });
+
+    test.each([
+        [
+            "a line perpendicular to the sketch plane",
+            () => lineEdgeBetween(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 0, y: 0, z: 10 })),
+        ],
+        [
+            "a circle whose axis is not parallel to the plane normal",
+            () => offPlaneCircleEdge({ axis: new XYZ({ x: 1, y: 0, z: 0 }) }),
+        ],
+    ])("reports when the picked edge projects to nothing representable: %s", async (_name, edge) => {
+        const editor = fakeProjectEditor([pickedOf(edgeProjectingTo(edge()))]);
         const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
         try {
             await runProject(editor);
             // mockRestore clears the recorded calls — assert before restoring
             expect(pub).toHaveBeenCalledWith("displayValidation", "sketch.noProjectableEdges");
+            expect(editor.solver.toData().externalRefs!.length).toBe(1);
+            expect(editor.commit).not.toHaveBeenCalled();
+            expect(editor.refreshExternalDisplay).not.toHaveBeenCalled();
         } finally {
             pub.mockRestore();
             editor.solver.dispose();
         }
-
-        expect(editor.solver.toData().externalRefs!.length).toBe(1);
-        expect(editor.commit).not.toHaveBeenCalled();
-        expect(editor.refreshExternalDisplay).not.toHaveBeenCalled();
     });
 
     test("an empty pick returns without touching the sketch", async () => {

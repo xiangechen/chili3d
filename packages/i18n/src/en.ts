@@ -765,7 +765,7 @@ export default {
         "sketch.offsetBranchedNoJoin{0}{1}":
             "The picked edges meet at {0} corners that cannot be joined — they offset on their own — and {1} more could not be joined: their offset curves stay apart",
         "sketch.noConstraints": "No constraints",
-        "sketch.noProjectableEdges": "No coplanar edges could be projected",
+        "sketch.noProjectableEdges": "No edges could be projected onto the sketch plane",
         "sketch.recovery.conflict{0}": "Delete any one of {0} to clear the conflict",
         "sketch.recovery.entangledConflict":
             "These constraints hold each other up: deleting any single one leaves the conflict. Remove a combination.",
