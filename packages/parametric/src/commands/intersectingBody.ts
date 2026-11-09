@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, type IDocument } from "@chili3d/core";
+import { BoundingBox, type IDocument, isConsumedTool } from "@chili3d/core";
 import { ParametricBodyNode } from "../parametricBodyNode";
 
 /**
@@ -26,6 +26,11 @@ export function findIntersectingBodies(document: IDocument, box: BoundingBox): P
     return document.modelManager.findNodes(
         (node) =>
             node instanceof ParametricBodyNode &&
+            // A consumed tool's geometry is already the consumer's (`isConsumedTool` in core):
+            // handing a feature to both applies it twice, and the copy on the tool edits the very
+            // chain the consumer reads. Measured: a rib on a fused plate and boss was committed to
+            // the hidden tool too, whose chain then reported "The rib does not reach the body".
+            !isConsumedTool(node) &&
             node.shape.isOk &&
             BoundingBox.isIntersect(
                 box,

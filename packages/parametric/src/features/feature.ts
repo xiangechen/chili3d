@@ -813,7 +813,8 @@ export interface HoleFeatureData extends FeatureBase {
 /**
  * Rib (SolidWorks' and Onshape's): a thin fin standing on an OPEN sketch polyline, filling the
  * corner that polyline is drawn across. The material grows IN the sketch plane, from the chain out
- * until it lands on the body; the thickness stands it OFF the plane.
+ * until it lands on the body; the thickness stands it OFF the plane. `extrusion` can swap those
+ * two axes (see `RibExtrusion`).
  *
  * The chain is the one reference in this module that names OPEN geometry. `ProfileRef` cannot
  * express it — every profile the sketch layer hands out is a closed region, and an open entity
@@ -823,6 +824,15 @@ export interface HoleFeatureData extends FeatureBase {
  * world coordinates, and the entity ids carry its identity (`SketchData`'s own ids, never
  * reused — see `shapeEntityIds`).
  */
+/**
+ * Which axis carries the material and which carries the thickness — SolidWorks' and Onshape's
+ * "Extrusion Direction". `parallel` (the default, and every older document): the material grows
+ * in the sketch plane until it lands on the body and the thickness stands it off the plane — a
+ * gusset. `normal`: the chain is thickened IN the plane and that ribbon grows along the normal
+ * until it reaches the body — a wall hanging off a sketch.
+ */
+export type RibExtrusion = "parallel" | "normal";
+
 export interface RibFeatureData extends FeatureBase {
     readonly type: "rib";
     /** The sketch whose open entities form the chain. */
@@ -850,6 +860,14 @@ export interface RibFeatureData extends FeatureBase {
      * that already reaches — it meets the wall at parameter zero.
      */
     readonly extend?: boolean;
+    /**
+     * Which axis carries the material and which the thickness (see `RibExtrusion`). Absent means
+     * `parallel`, the gusset — documents written before this field existed rebuild unchanged.
+     * `extend` belongs to the parallel extrusion: a normal one has no in-plane growth to push.
+     */
+    readonly extrusion?: RibExtrusion;
+    /** Normal extrusion only: grow along the sketch normal's opposite side. */
+    readonly reverse?: boolean;
     /**
      * How the rib combines with the preceding feature's shape on the host body. A rib is a
      * stiffener, so the command always sets one — "fuse" unless the user asked otherwise.

@@ -25,7 +25,7 @@ import {
     type VisualShapeData,
     VisualStates,
 } from "@chili3d/core";
-import type { RibFeatureData } from "../features/feature";
+import type { RibExtrusion, RibFeatureData } from "../features/feature";
 import { type RibParams, ribTool } from "../features/rib";
 import { ParametricBodyNode } from "../parametricBodyNode";
 import { shapeEntityIds } from "../sketch/sketchModel";
@@ -43,6 +43,13 @@ import { FORM_FEATURE_OPERATIONS } from "./extrudeCommand";
 const OPERATION_JOIN = "option.command.operation.join";
 const NO_EXTEND_TARGET = "Select the body to extend the profile to";
 const INVALID_PARAMS = "Invalid rib parameters";
+/** SolidWorks' and Onshape's Extrusion Direction, as the data values behind its labels. */
+const EXTRUSION_PARALLEL = "option.command.extrusion.parallel";
+const EXTRUSION_NORMAL = "option.command.extrusion.normal";
+const EXTRUSIONS: Record<string, RibExtrusion> = {
+    [EXTRUSION_PARALLEL]: "parallel",
+    [EXTRUSION_NORMAL]: "normal",
+};
 
 /**
  * What `plan()` works out: the rib, where it goes, and the parameters behind both — or the reason
@@ -93,6 +100,27 @@ export class RibFeatureCommand extends MultistepCommand {
     }
     set thickness(value: ParameterValue) {
         this.setProperty("thickness", value);
+        this.updatePreview();
+    }
+
+    @property("option.command.extrusionDirection", {
+        combobox: Combobox.from([EXTRUSION_PARALLEL, EXTRUSION_NORMAL]),
+    })
+    get extrusion(): string {
+        return this.getPrivateValue("extrusion", EXTRUSION_PARALLEL);
+    }
+    set extrusion(value: string) {
+        this.setProperty("extrusion", value);
+        this.updatePreview();
+    }
+
+    /** The normal extrusion's arrow flip: grow along −normal instead of +normal. */
+    @property("option.command.flip")
+    get reverse(): boolean {
+        return this.getPrivateValue("reverse", false);
+    }
+    set reverse(value: boolean) {
+        this.setProperty("reverse", value);
         this.updatePreview();
     }
 
@@ -307,6 +335,8 @@ export class RibFeatureCommand extends MultistepCommand {
             entityIds: chain.entityIds,
             thickness: this.thickness,
             ...(params.extend ? { extend: true } : {}),
+            ...(params.extrusion === "normal" ? { extrusion: params.extrusion } : {}),
+            ...(params.extrusion === "normal" && params.reverse ? { reverse: true } : {}),
         };
     }
 
@@ -337,7 +367,13 @@ export class RibFeatureCommand extends MultistepCommand {
     private params(): RibParams | undefined {
         const thickness = this.positiveLength(this.thickness);
         if (thickness === undefined) return undefined;
-        return { thickness, extend: this.extend };
+        return {
+            thickness,
+            extend: this.extend,
+            extrusion: EXTRUSIONS[this.extrusion] ?? "parallel",
+            reverse: this.reverse,
+            operation: FORM_FEATURE_OPERATIONS[this.operation],
+        };
     }
 
     private positiveLength(value: ParameterValue): number | undefined {

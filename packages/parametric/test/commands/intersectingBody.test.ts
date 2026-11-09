@@ -67,6 +67,18 @@ describe("findIntersectingBodies", () => {
         expect(findIntersectingBodies(doc, boxAt(-5, 0, 0))).toEqual([body]);
     });
 
+    test("a body a boolean has swallowed is not a target", () => {
+        const { doc, body: host } = scenario();
+        // The default `consumeTools` moves the tool under the consumer (see `isConsumedTool`):
+        // its geometry is the host's now, so a feature appended to it would apply twice. The
+        // parent is set straight — the move itself fires a rebuild that needs a kernel.
+        const tool = scenario(Matrix4.identity(), "b2").body;
+        doc.modelManager.addNode(tool);
+        tool.parent = host;
+
+        expect(findIntersectingBodies(doc, boxAt(5, 5, 5))).toEqual([host]);
+    });
+
     test("ignores bodies without a usable shape", () => {
         const { doc, body } = scenario();
         (body as any)._shape = Result.err("no shape");

@@ -5,6 +5,7 @@ import {
     type BoundingBox,
     type IDocument,
     Id,
+    isConsumedTool,
     type TargetCandidate,
     type TargetSelection,
 } from "@chili3d/core";
@@ -35,10 +36,15 @@ export type BooleanScopedFeature =
     | RibFeatureData
     | PrimitiveFeatureData;
 
-/** Every body the feature could combine with, in tree order — what the panel lists. */
+/**
+ * Every body the feature could combine with, in tree order — what the panel lists. A body a
+ * boolean has swallowed is left out (see `isConsumedTool`): its geometry is already the
+ * consumer's, and a feature appended here would both be applied twice and edit the chain the
+ * consumer reads.
+ */
 export function candidateBodies(document: IDocument): ParametricBodyNode[] {
     return document.modelManager.findNodes(
-        (node) => node instanceof ParametricBodyNode,
+        (node) => node instanceof ParametricBodyNode && !isConsumedTool(node),
     ) as ParametricBodyNode[];
 }
 

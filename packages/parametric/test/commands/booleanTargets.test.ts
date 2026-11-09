@@ -182,3 +182,29 @@ describe("candidateBodies", () => {
         expect(targetCandidate(second)).toEqual({ id: "b2", label: second.name });
     });
 });
+
+describe("consumed tools", () => {
+    /**
+     * The state `moveConsumedTools` installs — a consumed tool's parent is the body that
+     * swallowed it, which is what `pressPullConsumedBySource.kernel.test.ts` pins on real
+     * shapes. Set straight here: the move itself fires a rebuild that needs a kernel, and the
+     * rule under test reads nothing but the parent chain.
+     */
+    const swallow = (host: ParametricBodyNode, tool: ParametricBodyNode) => {
+        tool.parent = host;
+    };
+
+    test("a body a boolean has swallowed is neither a candidate nor a target", () => {
+        const doc = scenario();
+        const host = addBody(doc, "b1");
+        const tool = addBody(doc, "b2");
+        swallow(host, tool);
+
+        expect(candidateBodies(doc)).toEqual([host]);
+        expect(resolveTargetBodies(doc, boxAt(5, 5, 5), AUTO_TARGETS)).toEqual([host]);
+        // Naming it does not bring it back: it is not a body of its own any more. Measured cause:
+        // a rib on a fused plate and boss was committed to the hidden tool as well, whose chain
+        // then reported "The rib does not reach the body".
+        expect(resolveTargetBodies(doc, undefined, explicit(["b1", "b2"]))).toEqual([host]);
+    });
+});
