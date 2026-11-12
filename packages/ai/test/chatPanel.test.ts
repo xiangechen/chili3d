@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type IDocument, type IHistoryRecord, PubSub } from "@chili3d/core";
+import { type IDocument, type IHistoryRecord, ObjectStorage, PubSub } from "@chili3d/core";
 import { createMockDocument, createPlainNode, mockLocalStorage } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import { ChatPanel } from "../src/chatPanel";
@@ -2693,5 +2693,65 @@ describe("ChatPanel questions", () => {
         expect(card!.classList.contains("askAnswered")).toBe(true);
         expect(card!.querySelector(".askQuestion")?.textContent).toBe("how big?");
         expect(card!.querySelector(".askAnswer")?.textContent).toBe("8mm");
+    });
+});
+
+describe("ChatPanel ChatGPT plan", () => {
+    function signIn() {
+        ObjectStorage.default.setValue("ai.chatgpt", {
+            hostId: "h",
+            clientId: "oaiapp_1",
+            email: "a@example.com",
+            session: { accessToken: "at", refreshToken: "rt", expiresAt: Date.now() + 3_600_000, scope: "" },
+        });
+    }
+
+    function openSettingsOn(provider: string) {
+        const panel = new ChatPanel();
+        const anyPanel = panel as any;
+        (anyPanel.settingsButtonEl as HTMLButtonElement).click();
+        anyPanel.providerSelect.value = provider;
+        anyPanel.providerSelect.dispatchEvent(new Event("change"));
+        return anyPanel;
+    }
+
+    test("swaps the key fields for the sign-in block, and back", () => {
+        const anyPanel = openSettingsOn("chatgpt");
+
+        expect(anyPanel.apiKeyInput.closest("div").style.display).toBe("none");
+        expect(anyPanel.baseURLInput.closest("div").style.display).toBe("none");
+        expect(anyPanel.chatGPTButton.closest("div").style.display).toBe("");
+        expect(anyPanel.chatGPTButton.textContent).toBe("ai.chatgpt.signIn");
+        expect(anyPanel.chatGPTStatus.textContent).toBe("ai.chatgpt.notSignedIn");
+
+        anyPanel.providerSelect.value = "anthropic";
+        anyPanel.providerSelect.dispatchEvent(new Event("change"));
+        expect(anyPanel.apiKeyInput.closest("div").style.display).toBe("");
+        expect(anyPanel.chatGPTButton.closest("div").style.display).toBe("none");
+    });
+
+    test("a signed-in plan saves without a key and leaves the panel ready to send", async () => {
+        signIn();
+        const anyPanel = openSettingsOn("chatgpt");
+        expect(anyPanel.chatGPTButton.textContent).toBe("ai.chatgpt.signOut");
+        anyPanel.apiKeyInput.value = "sk-left-over";
+        anyPanel.baseURLInput.value = "https://relay.example/v1";
+
+        (anyPanel.settingsOverlay.querySelector("form") as HTMLFormElement).requestSubmit();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        // The hidden key fields belong to the other providers and are not sent along.
+        expect(loadConfig()).toMatchObject({ provider: "chatgpt", apiKey: "", baseURL: undefined });
+        expect(anyPanel.configured).toBe(true);
+    });
+
+    test("the plan without a sign-in is not configured", async () => {
+        const anyPanel = openSettingsOn("chatgpt");
+
+        (anyPanel.settingsOverlay.querySelector("form") as HTMLFormElement).requestSubmit();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect(loadConfig()?.provider).toBe("chatgpt");
+        expect(anyPanel.configured).toBe(false);
     });
 });

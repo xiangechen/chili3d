@@ -1,7 +1,9 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { I18n } from "@chili3d/core";
 import OpenAI from "openai";
+import { chatGPTAccessToken, chatGPTApiBase } from "../chatgptAuth";
 import type { LLMConfig } from "../settings";
 import {
     type ChatMessage,
@@ -18,15 +20,37 @@ import {
 type ResponseStreamEvent = OpenAI.Responses.ResponseStreamEvent;
 type ToolArgsBuffer = Map<string, string>;
 
-/** OpenAI Responses API provider, via the official `openai` SDK. */
+/**
+ * The namespace every tool is grouped under on the ChatGPT plan route, which accepts function tools
+ * only inside a namespace (or as `additional_tools` items). Calls come back with the bare name and
+ * this in their `namespace` field, and a replayed call has to carry it again.
+ */
+export const CHATGPT_TOOL_NAMESPACE = "chili3d";
+
+/** The plan route's refusals, by error code, worded for the user rather than left as API codes. */
+const PLAN_ERRORS: Record<string, "ai.chatgpt.limitReached" | "ai.chatgpt.notEligible"> = {
+    subscription_sharing_usage_limit_exceeded: "ai.chatgpt.limitReached",
+    subscription_sharing_user_not_eligible: "ai.chatgpt.notEligible",
+};
+
+/**
+ * OpenAI Responses API provider, via the official `openai` SDK. With the `chatgpt` provider it is
+ * the same API paid for by the user's ChatGPT plan: the bearer is the signed-in access token
+ * (refreshed by the SDK's `apiKey` callback before each request), and the request follows that
+ * route's rules — `store: false`, tools in a namespace — see `planRequest`.
+ */
 export class ResponsesProvider implements LLMProvider {
     readonly id = "responses";
     private readonly client: OpenAI;
+    private readonly plan: boolean;
 
     constructor(config: LLMConfig) {
+        this.plan = config.provider === "chatgpt";
         this.client = new OpenAI({
-            apiKey: config.apiKey,
-            baseURL: (config.baseURL ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
+            apiKey: this.plan ? chatGPTAccessToken : config.apiKey,
+            baseURL: this.plan
+                ? chatGPTApiBase()
+                : (config.baseURL ?? "https://api.openai.com/v1").replace(/\/+$/, ""),
             dangerouslyAllowBrowser: true,
         });
     }
@@ -44,24 +68,26 @@ export class ResponsesProvider implements LLMProvider {
     }
 
     private async *stream(opts: StreamChatOptions, input: unknown[]): AsyncIterable<StreamEvent> {
-        const stream = await this.client.responses.create(
-            {
-                model: opts.model,
-                // One instruction string, stable half first — see `SystemPrompt`.
-                instructions: flattenSystem(opts.system),
-                input: input as any,
-                tools: opts.tools.map(toTool) as any,
-                stream: true,
-                // Without this the API produces no reasoning events at all, and the branch that
-                // reads them below simply never fires. `auto` lets the model decide how much of
-                // its reasoning to summarise.
-                reasoning: {
-                    summary: "auto",
-                    ...(opts.effort ? { effort: openAIReasoningEffort(opts.effort) } : {}),
-                },
+        const request = {
+            model: opts.model,
+            // One instruction string, stable half first — see `SystemPrompt`.
+            instructions: flattenSystem(opts.system),
+            input: input as any,
+            tools: opts.tools.map(toTool) as any,
+            stream: true as const,
+            // Without this the API produces no reasoning events at all, and the branch that
+            // reads them below simply never fires. `auto` lets the model decide how much of
+            // its reasoning to summarise.
+            reasoning: {
+                summary: "auto" as const,
+                ...(opts.effort ? { effort: openAIReasoningEffort(opts.effort) } : {}),
             },
-            { signal: opts.signal },
-        );
+        };
+        const stream = await this.client.responses
+            .create(this.plan ? planRequest(request) : request, { signal: opts.signal })
+            .catch((err: unknown) => {
+                throw this.plan ? planError(err) : err;
+            });
 
         const state: ConvertState = { toolArgs: new Map(), reasoned: false, texted: false, calls: 0 };
         const unconsumed = new Set<string>();
@@ -241,6 +267,43 @@ function toUsage(usage: OpenAI.Responses.ResponseUsage): TokenUsage {
         cacheReadTokens: cached,
         cacheCreationTokens: written,
     };
+}
+
+/**
+ * The ChatGPT plan route's version of a request: nothing stored server-side (HTTP requests must
+ * say so), every tool inside one namespace, and every replayed call naming that namespace again.
+ * Everything else this provider sends is already within the route's limits — no `temperature`,
+ * `max_output_tokens`, `previous_response_id` or system-role items.
+ */
+export function planRequest<T extends { input: unknown[]; tools: unknown[] }>(
+    request: T,
+): T & { store: false } {
+    return {
+        ...request,
+        store: false,
+        input: request.input.map((item) =>
+            (item as { type?: string }).type === "function_call"
+                ? { ...(item as object), namespace: CHATGPT_TOOL_NAMESPACE }
+                : item,
+        ),
+        tools: request.tools.length
+            ? [
+                  {
+                      type: "namespace",
+                      name: CHATGPT_TOOL_NAMESPACE,
+                      description: "Chili3D: read and edit the open 3D CAD document.",
+                      tools: request.tools,
+                  },
+              ]
+            : [],
+    };
+}
+
+/** A plan-route refusal the user can act on, in their language; anything else passes through. */
+export function planError(err: unknown): unknown {
+    const e = err as { code?: string; error?: { code?: string } } | undefined;
+    const key = PLAN_ERRORS[e?.code ?? e?.error?.code ?? ""];
+    return key ? new Error(I18n.translate(key)) : err;
 }
 
 function toTool(t: Tool) {

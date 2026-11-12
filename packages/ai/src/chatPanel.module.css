@@ -779,6 +779,21 @@
     color: var(--foreground-color);
 }
 
+/* The ChatGPT plan's sign-in/out button: a cancel button's look, at the field's width. */
+.signInButton {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.signInButton:hover {
+    background: var(--hover-background-color);
+    color: var(--foreground-color);
+}
+
 .field {
     background: var(--input-background-color);
     color: var(--input-text-color);

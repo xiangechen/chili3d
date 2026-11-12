@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { ObjectStorage } from "@chili3d/core";
+import { isSignedInToChatGPT } from "./chatgptAuth";
 
 /**
  * How deep the model may think before it answers. Unset sends nothing at all and leaves whatever
@@ -15,7 +16,8 @@ export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as co
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 
 export interface LLMConfig {
-    provider: "anthropic" | "completions" | "responses";
+    /** `chatgpt` is the Responses API paid for by a ChatGPT plan: signed in, no API key. */
+    provider: "anthropic" | "completions" | "responses" | "chatgpt";
     baseURL?: string;
     apiKey: string;
     model: string;
@@ -75,7 +77,19 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
         baseURL: "https://api.openai.com/v1",
         defaultModel: DEFAULT_OPENAI_MODEL,
     },
+    {
+        id: "chatgpt",
+        label: "ChatGPT plan (sign in)",
+        provider: "chatgpt",
+        defaultModel: DEFAULT_OPENAI_MODEL,
+    },
 ];
+
+/** Whether the config can make a request: an API key, or for the ChatGPT plan, a signed-in session. */
+export function hasCredentials(config: LLMConfig | undefined): boolean {
+    if (!config) return false;
+    return config.provider === "chatgpt" ? isSignedInToChatGPT() : config.apiKey.length > 0;
+}
 
 const STORAGE_KEY = "ai.config";
 

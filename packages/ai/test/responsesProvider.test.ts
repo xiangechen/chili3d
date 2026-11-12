@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import { rs } from "@rstest/core";
-import { convertEvent, ResponsesProvider } from "../src/llm/responses";
+import { CHATGPT_TOOL_NAMESPACE, convertEvent, planError, ResponsesProvider } from "../src/llm/responses";
 import type { StreamEvent } from "../src/llm/types";
 
 const providerMock = rs.hoisted(() => {
@@ -279,5 +279,101 @@ describe("a response that stopped short", () => {
             { type: "text", text: "Do" },
             { type: "text", text: "ne." },
         ]);
+    });
+});
+
+describe("responses on the ChatGPT plan route", () => {
+    beforeEach(() => {
+        providerMock.create.mock.calls.length = 0;
+    });
+
+    async function drain(provider: ResponsesProvider, opts: { messages?: never[]; tools?: never[] } = {}) {
+        for await (const _ of provider.streamChat({
+            model: "m",
+            system: SYSTEM,
+            messages: opts.messages ?? [],
+            tools: opts.tools ?? [],
+        })) {
+            // drained
+        }
+        return providerMock.create.mock.calls[0][0] as unknown as {
+            store?: unknown;
+            tools?: unknown;
+            input?: unknown;
+        };
+    }
+
+    test("stores nothing, groups the tools in a namespace and names it on every replayed call", async () => {
+        const provider = new ResponsesProvider({ provider: "chatgpt", apiKey: "", model: "m" });
+        const params = await drain(provider, {
+            messages: [
+                { role: "user", content: "make a box" },
+                {
+                    role: "assistant",
+                    content: "",
+                    toolCalls: [{ id: "c1", name: "create_box", arguments: "{}" }],
+                },
+                { role: "tool", toolCallId: "c1", content: "ok" },
+            ] as never[],
+            tools: [
+                { name: "create_box", description: "Make a box", parameters: { type: "object" } },
+            ] as never[],
+        });
+
+        // The route rejects a stored response over HTTP and function tools outside a namespace.
+        expect(params.store).toBe(false);
+        expect(params.tools).toEqual([
+            {
+                type: "namespace",
+                name: CHATGPT_TOOL_NAMESPACE,
+                description: expect.any(String),
+                tools: [
+                    {
+                        type: "function",
+                        name: "create_box",
+                        description: "Make a box",
+                        parameters: { type: "object" },
+                        strict: false,
+                    },
+                ],
+            },
+        ]);
+        expect(params.input).toContainEqual({
+            type: "function_call",
+            call_id: "c1",
+            name: "create_box",
+            arguments: "{}",
+            namespace: CHATGPT_TOOL_NAMESPACE,
+        });
+        // Fields the route refuses are never sent.
+        for (const field of ["temperature", "max_output_tokens", "previous_response_id", "user"]) {
+            expect(params).not.toHaveProperty(field);
+        }
+    });
+
+    test("an API-key Responses request is left as it was", async () => {
+        const provider = new ResponsesProvider({ provider: "responses", apiKey: "k", model: "m" });
+        const params = await drain(provider, {
+            tools: [{ name: "t", description: "d", parameters: {} }] as never[],
+        });
+
+        expect(params).not.toHaveProperty("store");
+        expect((params.tools as { type: string }[])[0].type).toBe("function");
+    });
+
+    test.each([
+        ["subscription_sharing_usage_limit_exceeded", "ai.chatgpt.limitReached"],
+        ["subscription_sharing_user_not_eligible", "ai.chatgpt.notEligible"],
+    ])("words the plan refusal %s for the user", (code, key) => {
+        const mapped = planError({ status: 429, code });
+
+        expect(mapped).toBeInstanceOf(Error);
+        expect((mapped as Error).message).toBe(key);
+    });
+
+    test("passes any other error through untouched", () => {
+        const err = { status: 500, code: "server_error" };
+
+        expect(planError(err)).toBe(err);
     });
 });
