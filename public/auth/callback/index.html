@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Chili3D sign-in</title>
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                display: grid;
+                place-items: center;
+                min-height: 100vh;
+                margin: 0;
+                color: #333;
+            }
+        </style>
+    </head>
+    <body>
+        <p id="status">Signing in…</p>
+        <script>
+            // The ChatGPT sign-in redirect lands here (see packages/ai/src/chatgptAuth.ts). This page
+            // never loads the app: it hands the query string to the Chili3D tab that started the
+            // sign-in — same origin, so a BroadcastChannel reaches it even when the auth pages cut
+            // `window.opener` — and closes itself.
+            try {
+                const channel = new BroadcastChannel("chili3d.chatgpt-auth");
+                channel.postMessage(window.location.search);
+                channel.close();
+                document.getElementById("status").textContent = "Done — you can close this window.";
+            } catch (e) {
+                document.getElementById("status").textContent = "Could not reach Chili3D: " + e;
+            }
+            window.close();
+        </script>
+    </body>
+</html>

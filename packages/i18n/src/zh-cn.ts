@@ -13,6 +13,35 @@ export default {
         "ai.ask.placeholder": "输入回答…",
         "ai.baseURL": "Base URL",
         "ai.cancel": "取消",
+        "ai.chatgpt.account": "ChatGPT 账户",
+        "ai.chatgpt.badIdToken": "无法验证登录响应，请重试。",
+        "ai.chatgpt.cancelled": "登录已取消。",
+        "ai.chatgpt.clientMismatch": "ChatGPT 返回的应用注册与此浏览器中保存的不一致。请退出后重试。",
+        "ai.chatgpt.denied": "登录未完成：{0}",
+        "ai.chatgpt.exchangeFailed": "无法完成登录：{0}",
+        "ai.chatgpt.expired": "ChatGPT 登录已过期，请在助手设置中重新登录。",
+        "ai.chatgpt.hint":
+            "使用你的 ChatGPT Plus 或 Pro 套餐代替 API Key。仅当 Chili3D 通过 http://127.0.0.1 打开时（例如 http://127.0.0.1:8080）才能登录，localhost 或线上地址不可用。登录状态会保存在此浏览器中，直到你退出。",
+        "ai.chatgpt.limitReached":
+            "你的 ChatGPT 套餐在此应用的用量已达上限。请稍后再试，或在 ChatGPT 设置中提高此应用的额度。",
+        "ai.chatgpt.needLoopback":
+            "仅当 Chili3D 通过 http://127.0.0.1 打开时才能使用 ChatGPT 登录——请改为打开 http://127.0.0.1:{0}。",
+        "ai.chatgpt.noCode": "登录响应不完整，请重试。",
+        "ai.chatgpt.notEligible":
+            "此 ChatGPT 账户无法在此使用套餐（套餐、工作区或管理员策略限制）。请改用 API Key。",
+        "ai.chatgpt.notFunded":
+            "已登录，但未授予使用 ChatGPT 套餐的权限。请重新登录并允许“使用你的 ChatGPT 套餐”。",
+        "ai.chatgpt.notSignedIn": "未登录",
+        "ai.chatgpt.popupBlocked": "登录窗口被拦截。请允许此页面弹出窗口后重试。",
+        "ai.chatgpt.revokeUnconfirmed":
+            "已在此处退出，但 ChatGPT 未确认。你可以在 ChatGPT 设置中断开 Chili3D。",
+        "ai.chatgpt.signIn": "使用 ChatGPT 登录",
+        "ai.chatgpt.signOut": "退出登录",
+        "ai.chatgpt.signedInAs": "已登录：{0}",
+        "ai.chatgpt.signedOut": "未登录 ChatGPT。请在助手设置中登录。",
+        "ai.chatgpt.signingIn": "正在等待 ChatGPT 窗口中的登录…",
+        "ai.chatgpt.stateMismatch": "登录响应与本次尝试不匹配，请重试。",
+        "ai.chatgpt.timeout": "登录超时，请重试。",
         "ai.contextHint": "上下文：{0} / {1} tokens",
         "ai.contextWindow": "上下文窗口（tokens）",
         "ai.contextTrimmed": "以上更早的消息已不再发送给模型。",

@@ -16,6 +16,38 @@ export default {
         "ai.ask.placeholder": "Digite sua resposta…",
         "ai.baseURL": "URL Base",
         "ai.cancel": "Cancelar",
+        "ai.chatgpt.account": "Conta do ChatGPT",
+        "ai.chatgpt.badIdToken": "Não foi possível verificar a resposta de login. Tente novamente.",
+        "ai.chatgpt.cancelled": "O login foi cancelado.",
+        "ai.chatgpt.clientMismatch":
+            "O ChatGPT retornou um registro de app diferente do salvo neste navegador. Saia e tente novamente.",
+        "ai.chatgpt.denied": "O login não foi concluído: {0}",
+        "ai.chatgpt.exchangeFailed": "Não foi possível concluir o login: {0}",
+        "ai.chatgpt.expired":
+            "Seu login do ChatGPT expirou. Entre novamente nas configurações do assistente.",
+        "ai.chatgpt.hint":
+            "Usa seu plano ChatGPT Plus ou Pro em vez de uma chave de API. O login só funciona com o Chili3D aberto em http://127.0.0.1 (por exemplo http://127.0.0.1:8080), não em localhost nem em um endereço hospedado. O login fica salvo neste navegador até você sair.",
+        "ai.chatgpt.limitReached":
+            "O limite de uso do seu plano ChatGPT para este app foi atingido. Tente mais tarde ou aumente o limite do app nas configurações do ChatGPT.",
+        "ai.chatgpt.needLoopback":
+            "O login do ChatGPT só funciona com o Chili3D aberto em http://127.0.0.1 — abra http://127.0.0.1:{0} em vez deste endereço.",
+        "ai.chatgpt.noCode": "A resposta de login veio incompleta. Tente novamente.",
+        "ai.chatgpt.notEligible":
+            "Esta conta do ChatGPT não pode usar o plano aqui (plano, workspace ou política do administrador). Use uma chave de API.",
+        "ai.chatgpt.notFunded":
+            'Login feito, mas a permissão para usar seu plano ChatGPT não foi concedida. Entre novamente e permita "Usar seu plano ChatGPT".',
+        "ai.chatgpt.notSignedIn": "Não conectado",
+        "ai.chatgpt.popupBlocked":
+            "A janela de login foi bloqueada. Permita pop-ups nesta página e tente novamente.",
+        "ai.chatgpt.revokeUnconfirmed":
+            "Você saiu aqui, mas o ChatGPT não confirmou. Você pode desconectar o Chili3D nas configurações do ChatGPT.",
+        "ai.chatgpt.signIn": "Entrar com o ChatGPT",
+        "ai.chatgpt.signOut": "Sair",
+        "ai.chatgpt.signedInAs": "Conectado como {0}",
+        "ai.chatgpt.signedOut": "Não conectado ao ChatGPT. Entre nas configurações do assistente.",
+        "ai.chatgpt.signingIn": "Aguardando o login na janela do ChatGPT…",
+        "ai.chatgpt.stateMismatch": "A resposta de login não corresponde a esta tentativa. Tente novamente.",
+        "ai.chatgpt.timeout": "O login expirou. Tente novamente.",
         "ai.contextHint": "Contexto: {0} de {1} tokens",
         "ai.contextWindow": "Janela de contexto (tokens)",
         "ai.contextTrimmed": "As mensagens mais antigas acima não são mais enviadas ao modelo.",

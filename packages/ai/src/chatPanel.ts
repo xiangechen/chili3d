@@ -26,6 +26,13 @@ import {
     textarea,
 } from "@chili3d/element";
 import { marked, type Tokens } from "marked";
+import {
+    chatGPTAccountEmail,
+    isSignedInToChatGPT,
+    listChatGPTModels,
+    signInWithChatGPT,
+    signOutOfChatGPT,
+} from "./chatgptAuth";
 import style from "./chatPanel.module.css";
 import {
     conversationTitle,
@@ -50,6 +57,7 @@ import {
     CONTEXT_WINDOW_OPTIONS,
     currentConfig,
     DEFAULT_CONTEXT_WINDOW,
+    hasCredentials,
     type LLMConfig,
     loadConfig,
     offerKeyToPasswordManager,
@@ -548,6 +556,15 @@ export class ChatPanel extends HTMLElement {
     private customWindowOption?: HTMLOptionElement;
     private apiKeyInput!: HTMLInputElement;
     private usernameInput!: HTMLInputElement;
+    /** The fields only an API-key provider has, hidden while the ChatGPT plan is selected. */
+    private keyOnlyFields: HTMLElement[] = [];
+    /** The ChatGPT plan's sign-in block, shown in place of the key fields. */
+    private chatGPTFields: HTMLElement[] = [];
+    private chatGPTStatus!: HTMLElement;
+    private chatGPTButton!: HTMLButtonElement;
+    private modelList!: HTMLDataListElement;
+    /** The sign-in in flight; a second click abandons it and starts over (the popup may be gone). */
+    private chatGPTSignIn?: AbortController;
     private readonly imagePreview: HTMLElement;
     private readonly pendingImages: ImagePart[] = [];
     private configured = false;
@@ -785,7 +802,7 @@ export class ChatPanel extends HTMLElement {
     }
 
     private loadConfig() {
-        this.configured = !!loadConfig()?.apiKey;
+        this.configured = hasCredentials(loadConfig());
         this.renderState();
     }
 
@@ -816,7 +833,11 @@ export class ChatPanel extends HTMLElement {
             ...PROVIDER_PRESETS.map((p) => option({ value: p.id, textContent: p.label })),
         );
         this.baseURLInput = input({ className: style.field, placeholder: "base URL (OpenAI-compatible)" });
+        // Filled with the account's models after a ChatGPT sign-in; any name can still be typed.
+        this.modelList = document.createElement("datalist");
+        this.modelList.id = "chili3d-ai-models";
         this.modelInput = input({ className: style.field, placeholder: "model" });
+        this.modelInput.setAttribute("list", this.modelList.id);
         this.effortSelect = select(
             { className: style.field },
             // The empty value is the endpoint's own default, not a level: sending nothing is what
@@ -847,7 +868,67 @@ export class ChatPanel extends HTMLElement {
             autocomplete: "current-password",
         });
 
+        this.chatGPTStatus = div({ className: style.settingsLabel });
+        this.chatGPTButton = button({
+            className: style.signInButton,
+            type: "button",
+            onclick: () => void this.onChatGPTButton(),
+        });
         this.providerSelect.onchange = () => this.onProviderChanged();
+    }
+
+    private isChatGPTSelected(): boolean {
+        return this.providerSelect?.value === "chatgpt";
+    }
+
+    /** Show the key fields or the sign-in block, whichever the selected provider authenticates with. */
+    private syncProviderFields() {
+        const chatgpt = this.isChatGPTSelected();
+        for (const el of this.keyOnlyFields) el.style.display = chatgpt ? "none" : "";
+        for (const el of this.chatGPTFields) el.style.display = chatgpt ? "" : "none";
+        if (chatgpt) this.renderChatGPTStatus();
+    }
+
+    private renderChatGPTStatus(message?: string) {
+        const signedIn = isSignedInToChatGPT();
+        this.chatGPTStatus.textContent =
+            message ??
+            (signedIn
+                ? I18n.translate("ai.chatgpt.signedInAs", chatGPTAccountEmail() ?? "ChatGPT")
+                : I18n.translate("ai.chatgpt.notSignedIn"));
+        this.chatGPTButton.textContent = I18n.translate(
+            signedIn ? "ai.chatgpt.signOut" : "ai.chatgpt.signIn",
+        );
+    }
+
+    private async onChatGPTButton() {
+        if (isSignedInToChatGPT()) {
+            const confirmed = await signOutOfChatGPT();
+            this.renderChatGPTStatus(confirmed ? undefined : I18n.translate("ai.chatgpt.revokeUnconfirmed"));
+        } else {
+            this.chatGPTSignIn?.abort();
+            const controller = new AbortController();
+            this.chatGPTSignIn = controller;
+            this.renderChatGPTStatus(I18n.translate("ai.chatgpt.signingIn"));
+            const result = await signInWithChatGPT(controller.signal);
+            // A newer click took over; its own outcome will be shown.
+            if (controller.signal.aborted) return;
+            this.chatGPTSignIn = undefined;
+            this.renderChatGPTStatus(result.isOk ? undefined : result.error);
+            if (result.isOk) await this.offerChatGPTModels();
+        }
+        // The saved provider may be this one, so whether the panel can send just changed.
+        this.loadConfig();
+    }
+
+    /**
+     * Which models a plan can use depends on the account, so after signing in the model field is
+     * offered the account's list — and a model the account does not have is replaced by one it does.
+     */
+    private async offerChatGPTModels() {
+        const models = await listChatGPTModels();
+        this.modelList.replaceChildren(...models.map((id) => option({ value: id })));
+        if (models.length > 0 && !models.includes(this.modelInput.value)) this.modelInput.value = models[0];
     }
 
     private settingsField(label: Localize, el: HTMLElement) {
@@ -882,16 +963,34 @@ export class ChatPanel extends HTMLElement {
                 { className: style.settingsBody },
                 this.usernameInput,
                 this.settingsField(new Localize("ai.provider"), this.providerSelect),
-                this.settingsField(new Localize("ai.baseURL"), this.baseURLInput),
+                ...this.chatGPTSettingsFields(),
+                this.keyOnly(this.settingsField(new Localize("ai.baseURL"), this.baseURLInput)),
                 this.settingsField(new Localize("ai.model"), this.modelInput),
+                this.modelList,
                 this.settingsField(new Localize("ai.reasoningEffort"), this.effortSelect),
                 div({ className: style.settingsHint, textContent: new Localize("ai.reasoningEffortHint") }),
                 this.settingsField(new Localize("ai.contextWindow"), this.contextWindowSelect),
-                this.settingsField(new Localize("ai.apiKey"), this.apiKeyInput),
-                div({ className: style.settingsHint, textContent: new Localize("ai.apiKeyHint") }),
+                this.keyOnly(this.settingsField(new Localize("ai.apiKey"), this.apiKeyInput)),
+                this.keyOnly(
+                    div({ className: style.settingsHint, textContent: new Localize("ai.apiKeyHint") }),
+                ),
             ),
             this.settingsFooter(),
         );
+    }
+
+    private keyOnly(el: HTMLElement): HTMLElement {
+        this.keyOnlyFields.push(el);
+        return el;
+    }
+
+    private chatGPTSettingsFields(): HTMLElement[] {
+        this.chatGPTFields = [
+            this.settingsField(new Localize("ai.chatgpt.account"), this.chatGPTButton),
+            this.chatGPTStatus,
+            div({ className: style.settingsHint, textContent: new Localize("ai.chatgpt.hint") }),
+        ];
+        return this.chatGPTFields;
     }
 
     private settingsFooter(): HTMLElement {
@@ -933,6 +1032,7 @@ export class ChatPanel extends HTMLElement {
         }
         this.appliedPreset = preset;
         if (this.usernameInput) this.usernameInput.value = preset.id;
+        this.syncProviderFields();
     }
 
     /** Nothing saved to start from, so the preset's own values stand in — blank fields help nobody. */
@@ -945,6 +1045,7 @@ export class ChatPanel extends HTMLElement {
         this.effortSelect.value = "";
         if (this.usernameInput) this.usernameInput.value = preset.id;
         this.appliedPreset = preset;
+        this.syncProviderFields();
     }
 
     /**
@@ -982,6 +1083,7 @@ export class ChatPanel extends HTMLElement {
             this.effortSelect.value = saved.reasoningEffort ?? "";
             this.apiKeyInput.value = saved.apiKey;
             if (this.usernameInput) this.usernameInput.value = preset?.id ?? saved.provider;
+            this.syncProviderFields();
         } else {
             this.applyPresetDefaults();
         }
@@ -994,17 +1096,20 @@ export class ChatPanel extends HTMLElement {
 
     private async saveSettings() {
         const preset = PROVIDER_PRESETS.find((p) => p.id === this.providerSelect?.value);
+        const chatgpt = preset?.provider === "chatgpt";
         const config: LLMConfig = {
             provider: preset?.provider ?? "anthropic",
-            baseURL: this.baseURLInput?.value || undefined,
+            // The plan route has one fixed endpoint and no key; whatever the hidden fields hold is
+            // the other providers' business.
+            baseURL: chatgpt ? undefined : this.baseURLInput?.value || undefined,
             model: this.modelInput?.value ?? "",
             contextWindow: Number(this.contextWindowSelect?.value) || DEFAULT_CONTEXT_WINDOW,
             reasoningEffort: (this.effortSelect?.value || undefined) as ReasoningEffort | undefined,
-            apiKey: this.apiKeyInput?.value.trim() ?? "",
+            apiKey: chatgpt ? "" : (this.apiKeyInput?.value.trim() ?? ""),
         };
         saveConfig(config);
-        await offerKeyToPasswordManager(preset?.id ?? config.provider, config.apiKey);
-        this.configured = config.apiKey.length > 0;
+        if (!chatgpt) await offerKeyToPasswordManager(preset?.id ?? config.provider, config.apiKey);
+        this.configured = hasCredentials(config);
         this.renderState();
         this.hideSettings();
     }
@@ -1397,7 +1502,7 @@ export class ChatPanel extends HTMLElement {
     /** The config to run with, or undefined after sending the user to the settings overlay. */
     private configuredConfig(): LLMConfig | undefined {
         const config = currentConfig();
-        if (config.apiKey) return config;
+        if (hasCredentials(config)) return config;
         this.configured = false;
         this.renderState();
         this.showSettings();

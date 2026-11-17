@@ -14,6 +14,37 @@ export default {
         "ai.ask.placeholder": "Type your answer…",
         "ai.baseURL": "Base URL",
         "ai.cancel": "Cancel",
+        "ai.chatgpt.account": "ChatGPT account",
+        "ai.chatgpt.badIdToken": "The sign-in response could not be verified. Please try again.",
+        "ai.chatgpt.cancelled": "Sign-in was cancelled.",
+        "ai.chatgpt.clientMismatch":
+            "ChatGPT returned a different app registration than the one saved in this browser. Sign out and try again.",
+        "ai.chatgpt.denied": "Sign-in was not completed: {0}",
+        "ai.chatgpt.exchangeFailed": "Could not finish signing in: {0}",
+        "ai.chatgpt.expired": "Your ChatGPT sign-in has expired. Sign in again in the assistant settings.",
+        "ai.chatgpt.hint":
+            "Uses your ChatGPT Plus or Pro plan instead of an API key. Sign-in only works when Chili3D is opened at http://127.0.0.1 (for example http://127.0.0.1:8080), not localhost or a hosted address. The sign-in is kept in this browser until you sign out.",
+        "ai.chatgpt.limitReached":
+            "Your ChatGPT plan's usage limit for this app has been reached. Try again later or raise the app's limit in ChatGPT settings.",
+        "ai.chatgpt.needLoopback":
+            "ChatGPT sign-in only works when Chili3D is opened at http://127.0.0.1 — open http://127.0.0.1:{0} instead of this address.",
+        "ai.chatgpt.noCode": "The sign-in response was incomplete. Please try again.",
+        "ai.chatgpt.notEligible":
+            "This ChatGPT account cannot use its plan here (plan, workspace or admin policy). Use an API key instead.",
+        "ai.chatgpt.notFunded":
+            'Signed in, but permission to use your ChatGPT plan was not granted. Sign in again and allow "Use your ChatGPT plan".',
+        "ai.chatgpt.notSignedIn": "Not signed in",
+        "ai.chatgpt.popupBlocked":
+            "The sign-in window was blocked. Allow pop-ups for this page and try again.",
+        "ai.chatgpt.revokeUnconfirmed":
+            "Signed out here, but ChatGPT did not confirm it. You can disconnect Chili3D in ChatGPT settings.",
+        "ai.chatgpt.signIn": "Sign in with ChatGPT",
+        "ai.chatgpt.signOut": "Sign out",
+        "ai.chatgpt.signedInAs": "Signed in as {0}",
+        "ai.chatgpt.signedOut": "Not signed in to ChatGPT. Sign in in the assistant settings.",
+        "ai.chatgpt.signingIn": "Waiting for sign-in in the ChatGPT window…",
+        "ai.chatgpt.stateMismatch": "The sign-in response did not match this attempt. Please try again.",
+        "ai.chatgpt.timeout": "Sign-in timed out. Please try again.",
         "ai.contextHint": "Context: {0} of {1} tokens",
         "ai.contextWindow": "Context window (tokens)",
         "ai.contextTrimmed": "Earlier messages are no longer sent to the model.",
