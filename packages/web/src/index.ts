@@ -5,9 +5,11 @@ import { AppBuilder } from "@chili3d/builder";
 import { type IApplication, Logger, PubSub, pendingWork, quietFrames } from "@chili3d/core";
 import { installApplicationErrorCapture } from "./errorCapture";
 import { Loading } from "./loading";
+import { registerServiceWorker } from "./pwa";
 import { parseStartupParams } from "./startupParams";
 
 installApplicationErrorCapture();
+registerServiceWorker(__IS_PRODUCTION__);
 
 const loading = new Loading();
 document.body.appendChild(loading);

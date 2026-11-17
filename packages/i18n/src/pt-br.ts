@@ -9,6 +9,9 @@ export default {
     language: "pt-BR",
     translation: {
         ...en.translation,
+        "pwa.later": "Mais tarde",
+        "pwa.reload": "Recarregar todas as abas",
+        "pwa.updateAvailable": "Uma nova versão está pronta. Recarregue todas as abas para aplicá-la.",
         "ai.apiKey": "Chave de API",
         "ai.apiKeyHint":
             "A chave nunca é gravada no armazenamento do navegador. Salve-a com o gerenciador de senhas quando solicitado, ou digite-a uma vez por sessão.",

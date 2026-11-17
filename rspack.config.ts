@@ -6,6 +6,18 @@ import packages from "./package.json" with { type: "json" };
 
 const isProduction = process.env.NODE_ENV === "production";
 const configDir = import.meta.dirname;
+const developmentServiceWorker = `
+self.addEventListener("install", (event) => event.waitUntil(self.skipWaiting()));
+self.addEventListener("activate", (event) => {
+    event.waitUntil((async () => {
+        const names = await caches.keys();
+        await Promise.all(names.filter((name) => name.startsWith("chili3d-")).map((name) => caches.delete(name)));
+        await self.registration.unregister();
+        const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        await Promise.all(clients.map((client) => client.navigate(client.url)));
+    })());
+});
+`;
 
 export default defineConfig({
     devtool: isProduction ? false : "source-map",
@@ -14,6 +26,18 @@ export default defineConfig({
     },
     experiments: {
         css: true,
+    },
+    devServer: {
+        headers: isProduction ? {} : { "X-Chili3D-Development": "true" },
+        setupMiddlewares: (middlewares, server) => {
+            if (!isProduction) {
+                server.app?.use("/sw.js", (_request, response) => {
+                    response.setHeader("Content-Type", "application/javascript; charset=utf-8");
+                    response.end(developmentServiceWorker);
+                });
+            }
+            return middlewares;
+        },
     },
     module: {
         parser: {
@@ -70,7 +94,7 @@ export default defineConfig({
                 {
                     from: resolve(configDir, "public"),
                     globOptions: {
-                        ignore: ["**/**/index.html"],
+                        ignore: ["**/**/index.html", "**/sw.js"],
                     },
                 },
             ],
