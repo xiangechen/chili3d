@@ -169,7 +169,8 @@ export class AnnotationBatch extends Object3D {
         if (this._triangles.visible) geometry.computeBoundingSphere();
     }
 
-    dispose(): void {
+    override dispose(): void {
+        super.dispose();
         this._disposed = true;
         this._lines.geometry.dispose();
         (this._lines.material as LineMaterial).dispose();

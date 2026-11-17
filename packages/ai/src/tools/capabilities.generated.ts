@@ -319,7 +319,7 @@ export const shapeCapabilities: ShapeCapability[] = [
             { name: "shape", kind: "ref" },
             { name: "openFaces", kind: "refArray" },
             { name: "thickness", kind: "number" },
-            { name: "joinType", kind: "enum", enum: ["arc", "tangent", "intersection"] },
+            { name: "joinType", kind: "enum", enum: ["arc", "intersection", "tangent"] },
             { name: "mode", kind: "enum", enum: ["skin", "pipe", "rectoVerso"], required: false },
             { name: "intersection", kind: "boolean", required: false },
         ],
@@ -379,7 +379,7 @@ export const shapeCapabilities: ShapeCapability[] = [
         params: [
             { name: "profiles", kind: "refArray" },
             { name: "path", kind: "ref" },
-            { name: "mode", kind: "enum", enum: ["frenet", "correctedFrenet", "fixed"] },
+            { name: "mode", kind: "enum", enum: ["correctedFrenet", "fixed", "frenet"] },
             { name: "isRoundCorner", kind: "boolean" },
             { name: "fixedDirection", kind: "xyz", required: false },
         ],
@@ -411,7 +411,7 @@ export const shapeCapabilities: ShapeCapability[] = [
             { name: "sections", kind: "refArray" },
             { name: "isSolid", kind: "boolean" },
             { name: "isRuled", kind: "boolean" },
-            { name: "continuity", kind: "enum", enum: ["c0", "g1", "c1", "g2", "c2", "c3", "cn"] },
+            { name: "continuity", kind: "enum", enum: ["c0", "c1", "c2", "c3", "cn", "g1", "g2"] },
         ],
     },
     {
@@ -862,7 +862,7 @@ export const queryCapabilities: QueryCapability[] = [
         returnKind: "shapeRef",
         params: [
             { name: "distance", kind: "number" },
-            { name: "joinType", kind: "enum", enum: ["arc", "tangent", "intersection"] },
+            { name: "joinType", kind: "enum", enum: ["arc", "intersection", "tangent"] },
         ],
     },
     { method: "face.area", name: "area", owner: "face", family: "shape", returnKind: "data", params: [] },
@@ -2036,16 +2036,16 @@ export const capabilitiesSource = `Available modeling capabilities (from IShapeF
   sewing(shapes: refArray) -> shape
   combine(shapes: refArray) -> compound
   makeThickSolidBySimple(shape: ref, thickness: number) -> shape
-  makeThickSolidByJoin(shape: ref, openFaces: refArray, thickness: number, joinType: arc|tangent|intersection, mode: skin|pipe|rectoVerso?, intersection: boolean?) -> shape
+  makeThickSolidByJoin(shape: ref, openFaces: refArray, thickness: number, joinType: arc|intersection|tangent, mode: skin|pipe|rectoVerso?, intersection: boolean?) -> shape
   fillet(shape: ref, edges: numberArray, radius: number) -> shape
   chamfer(shape: ref, edges: numberArray, distance: number) -> shape
   chamferTwoDist(shape: ref, edges: numberArray, d1: number, d2: number, faces: numberArray) -> shape
   filletVariable(shape: ref, edges: numberArray, radii: numberArray) -> shape
   draft(shape: ref, faces: refArray, pullDirection: xyz, angle: number, neutralPlane: plane) -> shape
-  sweepWithMode(profiles: refArray, path: ref, mode: frenet|correctedFrenet|fixed, isRoundCorner: boolean, fixedDirection: xyz?) -> shape
+  sweepWithMode(profiles: refArray, path: ref, mode: correctedFrenet|fixed|frenet, isRoundCorner: boolean, fixedDirection: xyz?) -> shape
   fillet2d(face: ref, edge1: ref, edge2: ref, radius: number) -> face
   chamfer2d(face: ref, edge1: ref, edge2: ref, distance: number) -> face
-  loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: c0|g1|c1|g2|c2|c3|cn) -> shape
+  loft(sections: refArray, isSolid: boolean, isRuled: boolean, continuity: c0|c1|c2|c3|cn|g1|g2) -> shape
   gordon(profiles: refArray, guides: refArray, tolerance: number?, approximate: boolean?) -> face
   removeFeature(shape: ref, faces: refArray) -> shape
   removeFillet(shape: ref, faces: refArray) -> shapeWithData
@@ -2117,12 +2117,12 @@ edge.* (target must be an edge):
   edge.offset(target, distance: number, dir: xyz) -> shape ref (registered under the op id)
   edge.trim(target, start: number, end: number) -> shape ref (registered under the op id)
   edge.hasContinuity(target, face1: ref, face2: ref) -> boolean
-  edge.continuity(target, face1: ref, face2: ref) -> "c0" | "g1" | "c1" | "g2" | "c2" | "c3" | "cn"
+  edge.continuity(target, face1: ref, face2: ref) -> "c0" | "c1" | "c2" | "c3" | "cn" | "g1" | "g2"
 
 wire.* (target must be a wire):
   wire.toFace(target) -> shape ref (registered under the op id)
   wire.edgeLoop(target) -> { count, refs } — also registers sub-shape refs <id>#0..n
-  wire.offset(target, distance: number, joinType: arc|tangent|intersection) -> shape ref (registered under the op id)
+  wire.offset(target, distance: number, joinType: arc|intersection|tangent) -> shape ref (registered under the op id)
 
 face.* (target must be a face):
   face.area(target) -> number
@@ -2175,7 +2175,7 @@ curve.* (target must be a curve (or a subtype of it)):
   curve.isClosed(target) -> boolean
   curve.period(target) -> number
   curve.isPeriodic(target) -> boolean
-  curve.continuity(target) -> "c0" | "g1" | "c1" | "g2" | "c2" | "c3" | "cn"
+  curve.continuity(target) -> "c0" | "c1" | "c2" | "c3" | "cn" | "g1" | "g2"
 
 line.* (target must be a line (or a subtype of it)):
   line.direction(target) -> XYZ
@@ -2273,7 +2273,7 @@ surface.* (target must be a surface (or a subtype of it)):
   surface.project(target, point: xyz) -> XYZ[]
   surface.projectCurve(target, curve: curveRef) -> curve ref (registered under the op id)
   surface.parameter(target, point: xyz, maxDistance: number) -> { u: number; v: number; } | undefined
-  surface.continuity(target) -> "c0" | "g1" | "c1" | "g2" | "c2" | "c3" | "cn"
+  surface.continuity(target) -> "c0" | "c1" | "c2" | "c3" | "cn" | "g1" | "g2"
   surface.uIso(target, u: number) -> curve ref (registered under the op id)
   surface.vIso(target, v: number) -> curve ref (registered under the op id)
   surface.isPlanar(target) -> boolean

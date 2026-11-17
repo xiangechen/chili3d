@@ -60,12 +60,18 @@ describe("download function", () => {
                         return anchorDownload;
                     },
                 });
-                Object.defineProperty(htmlEl.style, "visibility", {
-                    set(value: string) {
-                        anchorVisibility = value;
-                    },
-                    get() {
-                        return anchorVisibility;
+                // Replace the whole `style` rather than defining `visibility` on it: since
+                // happy-dom 20.14 `style` is a proxy whose `defineProperty` trap refuses the
+                // property. `download` only ever writes `visibility` on the anchor.
+                Object.defineProperty(htmlEl, "style", {
+                    configurable: true,
+                    value: {
+                        set visibility(value: string) {
+                            anchorVisibility = value;
+                        },
+                        get visibility() {
+                            return anchorVisibility;
+                        },
                     },
                 });
                 el.click = () => {

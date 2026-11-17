@@ -2,7 +2,13 @@
 // See LICENSE file in the project root for full license information.
 
 import __wbg_init, { initSync, WasmSystem } from "../../lib/garlic";
-import wasmUrl from "../../lib/garlic_bg.wasm";
+
+// A URL rather than `import wasmUrl from "../../lib/garlic_bg.wasm"`: rstest 0.12 treats every
+// `.wasm` import as an asynchronous WebAssembly module and instantiates it at import time — for
+// this vendored glue the wasm's import module (`./garlic_bg.js`) does not exist, so the import
+// throws. `__wbg_init` wants a URL or bytes anyway, and rspack still emits the file as an asset
+// from an explicit `new URL(..., import.meta.url)`; rstest leaves it as a runtime file: URL.
+const wasmUrl = new URL("../../lib/garlic_bg.wasm", import.meta.url);
 
 let initialized = false;
 let initPromise: Promise<unknown> | undefined;

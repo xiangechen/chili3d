@@ -43,6 +43,11 @@ export default defineConfig({
         parser: {
             "css/auto": {
                 namedExports: false,
+                // Rspack 2.3 localizes dashed identifiers (custom properties) by default, so the
+                // theme variables a module declares (`--border-color`, ...) land under a
+                // `--chili3d-..._module_css-` name that no other file's `var(--border-color)`
+                // resolves against. They are the app's theme contract, not module locals.
+                dashedIdents: false,
             },
         },
         rules: [
@@ -124,5 +129,12 @@ export default defineConfig({
     },
     output: {
         clean: true,
+    },
+    watchOptions: {
+        // On the TypeScript-Go path ts-checker watches the whole rspack context (the repo
+        // root); chokidar 4 opens each file with its own `fs.watch`, so the OCCT checkout
+        // under cpp/build alone would exhaust the file-descriptor limit. Build/report outputs
+        // take no part in the bundle.
+        ignored: [/[/\\](cpp|dist|coverage|docs|types)[/\\]/],
     },
 });

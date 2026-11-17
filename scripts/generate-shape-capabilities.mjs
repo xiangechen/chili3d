@@ -11,12 +11,27 @@
 // `packages/ai/test/capabilitiesFreshness.test.ts` re-runs this script and fails when the
 // checked-in file is stale, so an edit to core's shape API cannot silently leave the model
 // with an outdated catalog.
+//
+// Runs on the TypeScript 7 compiler (`typescript/unstable/sync`): TS 7 is the native Go port
+// and no longer ships the classic Compiler API (`createProgram`, `Program.getTypeChecker`),
+// but its replacement exposes the same checker surface this script needs (`getTypeAtLocation`,
+// `typeToString`, `getReturnTypeOfSignature`, ...) against a project loaded by the compiler
+// itself. That API is marked unstable — if a TS 7.x upgrade moves it, this script fails to
+// import and the freshness test reports it, rather than silently emitting an old catalog.
 
 import { spawnSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import {
+    isGetAccessorDeclaration,
+    isIdentifier,
+    isInterfaceDeclaration,
+    isMethodSignatureDeclaration,
+    isObjectBindingPattern,
+    isPropertySignatureDeclaration,
+} from "typescript/unstable/ast/is";
+import { API, SignatureKind, TypeFlags } from "typescript/unstable/sync";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -96,6 +111,8 @@ const QUERY_SOURCES = [
     },
 ];
 
+// Named alias types the checker prints unexpanded when they sit in a union (an optional
+// `mode?: OffsetMode` prints as `OffsetMode | undefined`) — inline their values here.
 const ENUM_VALUES = {
     Continuity: ["c0", "g1", "c1", "g2", "c2", "c3", "cn"],
     JoinType: ["arc", "tangent", "intersection"],
@@ -239,7 +256,7 @@ function collectInterfaceNames(program) {
               ? names.curve
               : names.surface;
         for (const stmt of sf.statements) {
-            if (ts.isInterfaceDeclaration(stmt)) bucket.add(stmt.name.text);
+            if (isInterfaceDeclaration(stmt)) bucket.add(stmt.name.text);
         }
     }
     return names;
@@ -248,36 +265,46 @@ function collectInterfaceNames(program) {
 function makeQueryReturnClassifier(checker, ifaceNames) {
     const isJson = (type, depth) => {
         if (depth > 8) return false;
-        const F = ts.TypeFlags;
         if (
             type.flags &
-            (F.Number | F.String | F.Boolean | F.NumberLiteral | F.StringLiteral | F.BooleanLiteral)
+            (TypeFlags.Number |
+                TypeFlags.String |
+                TypeFlags.Boolean |
+                TypeFlags.NumberLiteral |
+                TypeFlags.StringLiteral |
+                TypeFlags.BooleanLiteral)
         ) {
             return true;
         }
-        const name = type.symbol?.getName();
+        const name = type.getSymbol()?.name;
         if (name && JSON_OK_CLASSES.has(name)) return true;
-        if (type.isUnion()) {
-            return type.types.every((t) => t.flags & F.Undefined || isJson(t, depth + 1));
+        if (type.isUnionType()) {
+            return type.getTypes().every((t) => t.flags & TypeFlags.Undefined || isJson(t, depth + 1));
         }
-        if (type.isIntersection()) {
-            return type.types.every((t) => isJson(t, depth + 1));
+        if (type.isIntersectionType()) {
+            return type.getTypes().every((t) => isJson(t, depth + 1));
         }
         if (checker.isArrayType(type) || checker.isTupleType(type)) {
             return checker.getTypeArguments(type).every((t) => isJson(t, depth + 1));
         }
-        if (type.flags & F.Object) {
+        if (type.flags & TypeFlags.Object) {
             // Named classes/interfaces (Matrix4, EdgeMeshData, geometry objects, ...) are
             // only allowed via the whitelist above; anonymous object types walk members.
-            const decls = type.symbol?.declarations ?? [];
-            if (decls.some((d) => ts.isClassDeclaration(d) || ts.isInterfaceDeclaration(d))) return false;
-            if (type.getCallSignatures().length || type.getConstructSignatures().length) return false;
-            const props = type.getProperties();
+            if (type.isClassOrInterface()) return false;
+            if (
+                checker.getSignaturesOfType(type, SignatureKind.Call).length ||
+                checker.getSignaturesOfType(type, SignatureKind.Construct).length
+            ) {
+                return false;
+            }
+            const props = checker.getPropertiesOfType(type);
             if (!props.length) return false;
             return props.every((p) => {
-                const decl = p.valueDeclaration ?? p.declarations?.[0];
-                if (decl && ts.isMethodSignature(decl)) return false;
-                return isJson(checker.getTypeOfSymbol(p), depth + 1);
+                const propType = checker.getTypeOfSymbol(p);
+                // A method signature is not data: its own type is callable.
+                if (!propType || checker.getSignaturesOfType(propType, SignatureKind.Call).length)
+                    return false;
+                return isJson(propType, depth + 1);
             });
         }
         return false;
@@ -286,23 +313,23 @@ function makeQueryReturnClassifier(checker, ifaceNames) {
     const isShapeArray = (type) => {
         if (!checker.isArrayType(type)) return false;
         const [arg] = checker.getTypeArguments(type);
-        const name = arg?.symbol?.getName();
+        const name = arg?.getSymbol()?.name;
         return name ? ifaceNames.shape.has(name) : false;
     };
 
     /** Returns { kind } or null. Result<T, E> is unwrapped (the engine handles it at runtime). */
     return (type) => {
         let t = type;
-        if (t.isUnion()) {
-            const parts = t.types.filter((x) => !(x.flags & ts.TypeFlags.Undefined));
+        if (t.isUnionType()) {
+            const parts = t.getTypes().filter((x) => !(x.flags & TypeFlags.Undefined));
             if (parts.length === 1) t = parts[0];
         }
-        if (t.flags & ts.TypeFlags.Void) return { kind: "mutate" };
-        let name = t.symbol?.getName() ?? t.aliasSymbol?.getName();
+        if (t.flags & TypeFlags.Void) return { kind: "mutate" };
+        let name = t.getSymbol()?.name ?? t.getAliasSymbol()?.name;
         if (name === "Result") {
             [t] = checker.getTypeArguments(t);
             if (!t) return null;
-            name = t.symbol?.getName() ?? t.aliasSymbol?.getName();
+            name = t.getSymbol()?.name ?? t.getAliasSymbol()?.name;
         }
         // A shape's `shapeType` is a numeric bit flag at runtime, while the doc hands the model
         // the name union — the engine decodes it, so the model can compare names directly.
@@ -320,21 +347,26 @@ function collectFactoryCapabilities(program, checker, skipped) {
     const sf = program.getSourceFile(factoryPath);
     const capabilities = [];
     for (const stmt of sf.statements) {
-        if (!ts.isInterfaceDeclaration(stmt) || stmt.name.text !== "IShapeFactory") continue;
+        if (!isInterfaceDeclaration(stmt) || stmt.name.text !== "IShapeFactory") continue;
 
         for (const member of stmt.members) {
-            if (!ts.isMethodSignature(member)) continue;
-            const method = member.name.getText(sf);
+            if (!isMethodSignatureDeclaration(member)) continue;
+            const method = member.name.text;
             if (FACTORY_EXCLUDES.has(method)) {
                 skipped.push(`${method} (intentionally excluded, see FACTORY_EXCLUDES)`);
                 continue;
             }
 
-            const params = classifyParams(member, sf, checker, `${method}()`, skipped);
+            const params = classifyParams(member, checker, `${method}()`, skipped);
             if (!params) continue;
 
             const sig = checker.getSignatureFromDeclaration(member);
-            const returnStr = checker.typeToString(checker.getReturnTypeOfSignature(sig));
+            const returnType = sig && checker.getReturnTypeOfSignature(sig);
+            if (!returnType) {
+                skipped.push(`${method} -> <unresolved signature>`);
+                continue;
+            }
+            const returnStr = checker.typeToString(returnType);
             const returnKind = classifyReturn(returnStr);
             if (!returnKind) {
                 skipped.push(`${method} -> ${returnStr}`);
@@ -347,15 +379,20 @@ function collectFactoryCapabilities(program, checker, skipped) {
     return capabilities;
 }
 
-function classifyParams(member, sf, checker, context, skipped) {
+function classifyParams(member, checker, context, skipped) {
     const params = [];
     for (const p of member.parameters ?? []) {
-        const name = ts.isIdentifier(p.name)
+        const name = isIdentifier(p.name)
             ? p.name.text
-            : ts.isObjectBindingPattern(p.name)
-              ? p.name.elements.map((e) => e.name.getText(sf)).join(",")
-              : p.name.getText(sf);
-        const typeStr = checker.typeToString(checker.getTypeAtLocation(p));
+            : isObjectBindingPattern(p.name)
+              ? p.name.elements.map((e) => e.name.text).join(",")
+              : String(p.name.text ?? "<pattern>");
+        const paramType = checker.getTypeAtLocation(p);
+        if (!paramType) {
+            skipped.push(`${context}(${name}: <unresolved type>)`);
+            return null;
+        }
+        const typeStr = checker.typeToString(paramType);
         const cls = classifyParam(typeStr);
         if (!cls) {
             skipped.push(`${context}(${name}: ${typeStr})`);
@@ -374,16 +411,16 @@ function collectQueryCapabilities(program, checker, skipped) {
     for (const { file, family, owners, runtimeTypes } of QUERY_SOURCES) {
         const sf = program.getSourceFile(resolve(root, file));
         for (const stmt of sf.statements) {
-            if (!ts.isInterfaceDeclaration(stmt)) continue;
+            if (!isInterfaceDeclaration(stmt)) continue;
             const owner = owners[stmt.name.text];
             if (!owner) continue;
 
             for (const member of stmt.members) {
                 const name =
-                    ts.isMethodSignature(member) ||
-                    ts.isPropertySignature(member) ||
-                    ts.isGetAccessorDeclaration(member)
-                        ? member.name.getText(sf)
+                    isMethodSignatureDeclaration(member) ||
+                    isPropertySignatureDeclaration(member) ||
+                    isGetAccessorDeclaration(member)
+                        ? member.name.text
                         : null;
                 if (name === null) continue;
                 const method = `${owner}.${name}`;
@@ -391,7 +428,6 @@ function collectQueryCapabilities(program, checker, skipped) {
 
                 const cap = classifyQueryMember(
                     member,
-                    sf,
                     checker,
                     { method, name, owner, family, runtimeType: runtimeTypes?.[owner] },
                     classifyQueryReturn,
@@ -407,18 +443,26 @@ function collectQueryCapabilities(program, checker, skipped) {
 }
 
 /** Classify one interface member into a query capability; returns null when unusable. */
-function classifyQueryMember(member, sf, checker, base, classifyQueryReturn, skipped) {
-    const params = classifyParams(member, sf, checker, base.method, skipped) ?? null;
+function classifyQueryMember(member, checker, base, classifyQueryReturn, skipped) {
+    const params = classifyParams(member, checker, base.method, skipped) ?? null;
     if (!params) return null;
 
     let type;
     let returnStr;
-    if (ts.isMethodSignature(member)) {
+    if (isMethodSignatureDeclaration(member)) {
         const sig = checker.getSignatureFromDeclaration(member);
-        type = checker.getReturnTypeOfSignature(sig);
-        returnStr = checker.typeToString(type, undefined, ts.TypeFormatFlags.NoTruncation);
+        type = sig && checker.getReturnTypeOfSignature(sig);
+        if (!type) {
+            skipped.push(`${base.method} -> <unresolved signature>`);
+            return null;
+        }
+        returnStr = checker.typeToString(type);
     } else {
         type = checker.getTypeAtLocation(member);
+        if (!type) {
+            skipped.push(`${base.method} -> <unresolved type>`);
+            return null;
+        }
         returnStr = checker.typeToString(type);
     }
     const cls = classifyQueryReturn(type);
@@ -462,18 +506,28 @@ function queryDocLine(c) {
 }
 
 function main() {
-    const program = ts.createProgram([factoryPath, ...QUERY_SOURCES.map((s) => resolve(root, s.file))], {
-        target: ts.ScriptTarget.ES2020,
-        module: ts.ModuleKind.ESNext,
-        strict: true,
-        moduleResolution: ts.ModuleResolutionKind.Node10,
-        skipLibCheck: true,
-    });
-    const checker = program.getTypeChecker();
+    // The compiler hosts the project itself, so the sources are resolved through the repo's
+    // tsconfig (module + path resolution as the build sees it) rather than an ad-hoc file list.
+    const sources = [factoryPath, ...QUERY_SOURCES.map((s) => resolve(root, s.file))];
+    const api = new API({ cwd: root });
+    let capabilities;
+    let queries;
+    let skipped;
+    try {
+        const snapshot = api.updateSnapshot({ openFiles: sources });
+        const project = snapshot.getDefaultProjectForFile(factoryPath);
+        if (!project) {
+            throw new Error(`no TypeScript project found for ${factoryPath}`);
+        }
+        const program = project.program;
+        const checker = project.checker;
 
-    const skipped = [];
-    const capabilities = collectFactoryCapabilities(program, checker, skipped);
-    const queries = collectQueryCapabilities(program, checker, skipped);
+        skipped = [];
+        capabilities = collectFactoryCapabilities(program, checker, skipped);
+        queries = collectQueryCapabilities(program, checker, skipped);
+    } finally {
+        api.close();
+    }
 
     writeFileSync(outPath, renderGenerated(capabilities, queries));
     formatGenerated();

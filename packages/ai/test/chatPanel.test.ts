@@ -140,7 +140,7 @@ rs.mock("../src/chatPanel.module.css", () => ({
 beforeEach(() => {
     mockLocalStorage();
     agentMock.pending.length = 0;
-    agentMock.runAgent.mock.calls.length = 0;
+    agentMock.runAgent.mockClear();
     referenceMock.readReference.mockClear();
 });
 

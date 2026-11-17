@@ -1176,7 +1176,7 @@ describe("capabilityEngine", () => {
                                 },
                             ],
                         }),
-                    ).rejects.toThrow("joinType must be one of arc|tangent|intersection");
+                    ).rejects.toThrow("joinType must be one of arc|intersection|tangent");
                     expect(makeThickSolidByJoin.mock.calls.length).toBe(0);
                 } finally {
                     rs.unstubAllGlobals();

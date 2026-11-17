@@ -3,6 +3,7 @@
 
 import { type IDocument, Plane } from "@chili3d/core";
 import * as THREE from "three";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { ThreeHighlighter } from "../src/threeHighlighter";
 import { ThreeView } from "../src/threeView";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
@@ -93,4 +94,22 @@ export class TestView extends ThreeView {
 
     // PMREMGenerator drives a real WebGL renderer; the fake above cannot stand in for it.
     protected override initEnvironment() {}
+
+    /**
+     * Since three 0.187 `LineSegments2.raycast` early-returns until the renderer has pushed a
+     * non-zero viewport into the material's `resolution` uniform (real rendering does it in
+     * `onBeforeRender`). Nothing renders here, so stand in for it from the container size —
+     * without it every edge/annotation pick in a test comes back empty.
+     */
+    protected override initRaycaster(mx: number, my: number) {
+        this.content.scene.traverse((object) => {
+            const material = (object as THREE.Mesh).material;
+            for (const m of Array.isArray(material) ? material : [material]) {
+                if (m instanceof LineMaterial) {
+                    m.resolution.set(container.clientWidth, container.clientHeight);
+                }
+            }
+        });
+        return super.initRaycaster(mx, my);
+    }
 }

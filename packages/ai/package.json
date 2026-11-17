@@ -9,7 +9,7 @@
         "@chili3d/parametric": "*"
     },
     "dependencies": {
-        "@anthropic-ai/sdk": "^0.124.0",
+        "@anthropic-ai/sdk": "^1.8.0",
         "marked": "^18.0.12",
         "openai": "^7.10.0"
     }

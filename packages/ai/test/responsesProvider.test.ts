@@ -156,7 +156,7 @@ describe("responses convertEvent", () => {
 
 describe("responses request", () => {
     beforeEach(() => {
-        providerMock.create.mock.calls.length = 0;
+        providerMock.create.mockClear();
     });
 
     test("asks for a reasoning summary, without which no reasoning events are ever sent", async () => {

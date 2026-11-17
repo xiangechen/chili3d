@@ -50,6 +50,9 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
     }
     set transform(value: Matrix4) {
         this.matrix.fromArray(value.toArray());
+        // `updateWorldMatrix` has only recomputed on `matrixWorldNeedsUpdate` (or force) since
+        // three 0.187, so a direct `matrix` write has to flag it.
+        this.matrixWorldNeedsUpdate = true;
         this.updateWorldMatrix(true, false);
         this.markBatchDirty();
     }
@@ -131,7 +134,8 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
 
     abstract wholeVisual(): (Mesh | LineSegments2 | Points)[];
 
-    dispose(): void {
+    override dispose(): void {
+        super.dispose();
         this.handleRemovedFromParent();
         this.removeEventListener("added", this.handleAddedToParent);
         this.removeEventListener("removed", this.handleRemovedFromParent);

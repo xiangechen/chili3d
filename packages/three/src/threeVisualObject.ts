@@ -64,6 +64,9 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
     set transform(value: Matrix4) {
         this.matrix.fromArray(value.toArray());
         // matrixWorld is lazy (recomputed on render), but "transform" listeners read it synchronously.
+        // Since three 0.187 `updateWorldMatrix` only recomputes when `matrixWorldNeedsUpdate` is
+        // set (or forced), so writing `matrix` behind its back has to flag it explicitly.
+        this.matrixWorldNeedsUpdate = true;
         this.updateWorldMatrix(true, false);
     }
 
@@ -114,7 +117,8 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         return ThreeHelper.getBoundingBox(this);
     }
 
-    dispose() {
+    override dispose() {
+        super.dispose();
         this.node.removePropertyChanged(this.handlePropertyChanged);
         this._node = null as any;
     }
@@ -292,6 +296,9 @@ export class GroupVisualObject extends Group implements IVisualObject {
     set transform(value: Matrix4) {
         this.matrix.fromArray(value.toArray());
         // matrixWorld is lazy (recomputed on render), but "transform" listeners read it synchronously.
+        // Since three 0.187 `updateWorldMatrix` only recomputes when `matrixWorldNeedsUpdate` is
+        // set (or forced), so writing `matrix` behind its back has to flag it explicitly.
+        this.matrixWorldNeedsUpdate = true;
         this.updateWorldMatrix(true, false);
     }
 
@@ -335,7 +342,8 @@ export class GroupVisualObject extends Group implements IVisualObject {
         return ThreeHelper.getBoundingBox(this);
     }
 
-    dispose() {
+    override dispose() {
+        super.dispose();
         this.groupNode.removePropertyChanged(this.handlePropertyChanged);
     }
 }

@@ -1252,7 +1252,12 @@ export class ThreeView extends Observable implements IView {
         return shapes;
     }
 
-    private initRaycaster(mx: number, my: number) {
+    /**
+     * Protected so a view without a real renderer can stand in for what rendering does before a
+     * pick — a test view overrides it to push the viewport into the line materials, which
+     * `LineSegments2.raycast` requires since three 0.187.
+     */
+    protected initRaycaster(mx: number, my: number) {
         const threshold = Config.instance.SnapDistance;
         const { x, y } = this.screenToCameraRect(mx, my);
         const mousePos = new Vector2(x, y);
