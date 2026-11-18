@@ -1,5 +1,11 @@
-const CACHE_PREFIX = "chili3d-";
+// The scope is part of the name: two Chili3D apps on one origin (e.g. "/" and "/pro/") must not
+// delete each other's caches. "|" is percent-encoded inside a URL path, so it cannot appear in the
+// encoded pathname; using it as the terminator keeps "/a" from prefix-matching "/a-b" (a plain "-"
+// terminator would, because encodeURIComponent leaves "-" alone).
+const CACHE_PREFIX = `chili3d|${encodeURIComponent(new URL(self.registration.scope).pathname)}|`;
 const CACHE_NAME = `${CACHE_PREFIX}${"__BUILD_HASH__"}`;
+// Caches from releases that used the origin-wide "chili3d-<hash>" name; removed on activation.
+const LEGACY_CACHE = /^chili3d-[0-9a-f]+$/;
 const PRECACHE_URLS = "__PRECACHE_MANIFEST__";
 const STATIC_DESTINATIONS = new Set(["font", "image", "manifest", "script", "style", "worker"]);
 const OPTIONAL_URLS = new Set(["images/wechat.jpg", "videos.json"]);
@@ -20,8 +26,10 @@ function assetRequest(path) {
 }
 
 async function reuseHashedAssets(cache, urls) {
+    // Legacy caches are reused here too: their hashed assets are still valid, and activate deletes
+    // them right after install anyway — without this the first upgrade re-downloads both wasm files.
     const names = (await caches.keys()).filter(
-        (name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME,
+        (name) => name !== CACHE_NAME && (name.startsWith(CACHE_PREFIX) || LEGACY_CACHE.test(name)),
     );
     const oldCaches = await Promise.all(names.map((name) => caches.open(name)));
     const remaining = new Set(urls);
@@ -67,7 +75,9 @@ self.addEventListener("activate", (event) => {
             const cacheNames = await caches.keys();
             await Promise.all(
                 cacheNames
-                    .filter((name) => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME)
+                    .filter(
+                        (name) => name !== CACHE_NAME && (name.startsWith(CACHE_PREFIX) || LEGACY_CACHE.test(name)),
+                    )
                     .map((name) => caches.delete(name)),
             );
             await self.clients.claim();
@@ -82,7 +92,9 @@ self.addEventListener("message", (event) => {
 async function clearDevelopmentCache() {
     const names = await caches.keys();
     await Promise.all(
-        names.filter((name) => name.startsWith(CACHE_PREFIX)).map((name) => caches.delete(name)),
+        names
+            .filter((name) => name.startsWith(CACHE_PREFIX) || LEGACY_CACHE.test(name))
+            .map((name) => caches.delete(name)),
     );
     await self.registration.unregister();
 }
@@ -103,12 +115,27 @@ async function handleNavigation(request) {
 
 async function resolveAsset(request, cacheResponse) {
     if (development) return { response: await fetch(request) };
-    const cached = await caches.match(request);
-    if (cached) return { response: cached };
 
-    const response = await fetch(request);
-    const cacheCopy = cacheResponse && response.status === 200 ? response.clone() : undefined;
-    return { response, cacheCopy };
+    // Content-hashed names are immutable, so the cache is authoritative. Every other asset keeps
+    // its URL across releases (index.css, iconfont.js, the plugin bundles): serving those from the
+    // cache would pair a fresh app with stale files while an update is waiting, so revalidate them
+    // against the network and only fall back to the cache when offline. `cache: "no-cache"` is what
+    // makes that read authoritative — a plain fetch() accepts a heuristically "fresh" HTTP-cache
+    // copy, and the static server sends no Cache-Control for these files.
+    if (CONTENT_HASH.test(new URL(request.url).pathname)) {
+        const cached = await caches.match(request);
+        if (cached) return { response: cached };
+    }
+
+    try {
+        const response = await fetch(request, { cache: "no-cache" });
+        const cacheCopy = cacheResponse && response.status === 200 ? response.clone() : undefined;
+        return { response, cacheCopy };
+    } catch (error) {
+        const cached = await caches.match(request);
+        if (cached) return { response: cached };
+        throw error;
+    }
 }
 
 async function cacheRuntimeResponse(request, resultPromise) {

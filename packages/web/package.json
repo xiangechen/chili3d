@@ -3,6 +3,10 @@
     "version": "0.8.0",
     "description": "",
     "main": "src/index.ts",
+    "exports": {
+        ".": "./src/index.ts",
+        "./pwa": "./src/pwa.ts"
+    },
     "devDependencies": {
         "@chili3d/builder": "*"
     }

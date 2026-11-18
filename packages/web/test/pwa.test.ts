@@ -58,13 +58,16 @@ describe("registerServiceWorker", () => {
     test("should unregister and clear application caches when disabled", async () => {
         const { cache, getRegistrations, register } = mockServiceWorker();
         const unregister = rs.fn(() => Promise.resolve(true));
+        const scope = new URL("./", window.location.href);
         getRegistrations.mockResolvedValue([
             {
-                scope: new URL("./", window.location.href).href,
+                scope: scope.href,
                 unregister,
             } as unknown as ServiceWorkerRegistration,
         ]);
-        cache.keys.mockResolvedValue(["chili3d-old", "another-cache"]);
+        const ownCache = `chili3d|${encodeURIComponent(scope.pathname)}|old`;
+        const siblingCache = `chili3d|${encodeURIComponent("/pro/")}|old`;
+        cache.keys.mockResolvedValue([ownCache, siblingCache, "chili3d-0123456789abcdef", "another-cache"]);
 
         registerServiceWorker(false);
         window.dispatchEvent(new Event("load"));
@@ -72,7 +75,10 @@ describe("registerServiceWorker", () => {
 
         expect(register).not.toHaveBeenCalled();
         expect(unregister).toHaveBeenCalledTimes(1);
-        expect(cache.delete).toHaveBeenCalledWith("chili3d-old");
+        expect(cache.delete).toHaveBeenCalledWith(ownCache);
+        expect(cache.delete).toHaveBeenCalledWith("chili3d-0123456789abcdef");
+        // Another Chili3D app on the same origin owns its own scope's caches.
+        expect(cache.delete).not.toHaveBeenCalledWith(siblingCache);
         expect(cache.delete).not.toHaveBeenCalledWith("another-cache");
     });
 

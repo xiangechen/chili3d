@@ -1,13 +1,26 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+// Run: node scripts/finalize-pwa.mjs [--dist <dir>] [--template <file>]
+// Both paths may be absolute or relative to the current working directory. They default to
+// this package's dist and public/sw.js, so the engine's own build needs no arguments; a
+// downstream app that extends this config passes `--dist <its own output>`.
 import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
+
+const { values } = parseArgs({
+    options: {
+        dist: { type: "string" },
+        template: { type: "string" },
+    },
+});
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const distDir = path.join(rootDir, "dist");
+const distDir = path.resolve(process.cwd(), values.dist ?? path.join(rootDir, "dist"));
+const templatePath = path.resolve(process.cwd(), values.template ?? path.join(rootDir, "public", "sw.js"));
 
 async function assetFiles(directory, prefix = "") {
     const entries = await readdir(directory, { withFileTypes: true });
@@ -28,9 +41,11 @@ function replaceRequired(source, placeholder, value) {
 }
 
 const files = await assetFiles(distDir);
-if (!files.includes("index.html")) throw new Error("Cannot generate PWA manifest without index.html");
+if (!files.includes("index.html")) {
+    throw new Error(`Cannot generate PWA manifest: ${path.join(distDir, "index.html")} not found`);
+}
 
-const template = await readFile(path.join(rootDir, "public", "sw.js"), "utf8");
+const template = await readFile(templatePath, "utf8");
 const hash = createHash("sha256");
 hash.update(template);
 for (const file of files) {

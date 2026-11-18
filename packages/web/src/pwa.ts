@@ -3,6 +3,13 @@
 
 import { I18n, Logger } from "@chili3d/core";
 
+/** Mirrors the prefix built in public/sw.js: the registration scope is part of every cache name. */
+const LEGACY_CACHE = /^chili3d-[0-9a-f]+$/;
+
+function cachePrefix(scope: string): string {
+    return `chili3d|${encodeURIComponent(new URL(scope).pathname)}|`;
+}
+
 function reloadAllTabsAfterActivation(): void {
     let hadController = Boolean(navigator.serviceWorker.controller);
     let reloading = false;
@@ -67,11 +74,16 @@ function watchForUpdates(registration: ServiceWorkerRegistration): void {
 
 async function clearDevelopmentCache(): Promise<void> {
     const scope = new URL("./", window.location.href).href;
+    const prefix = cachePrefix(scope);
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(registrations.filter((item) => item.scope === scope).map((item) => item.unregister()));
     if (!("caches" in globalThis)) return;
     const names = await caches.keys();
-    await Promise.all(names.filter((name) => name.startsWith("chili3d-")).map((name) => caches.delete(name)));
+    await Promise.all(
+        names
+            .filter((name) => name.startsWith(prefix) || LEGACY_CACHE.test(name))
+            .map((name) => caches.delete(name)),
+    );
 }
 
 async function register(): Promise<void> {
