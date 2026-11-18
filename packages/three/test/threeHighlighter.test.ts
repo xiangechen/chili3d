@@ -532,6 +532,26 @@ describe("GeometryState with ThreeGeometry", () => {
         expect(geo.edges()?.material).not.toBe(originalEdgeMat);
     });
 
+    test("shape rebuilds preserve whole-node selection on every geometry", () => {
+        Object.assign(context, { visual: { highlighter } });
+        const firstNode = createTestGeometryNode({ hasFaces: false, hasVertexs: false });
+        const secondNode = createTestGeometryNode({ hasFaces: false, hasVertexs: false });
+        const first = new ThreeGeometry(firstNode, context);
+        const second = new ThreeGeometry(secondNode, context);
+        highlighter.addState(first, VisualStates.edgeSelected, ShapeTypes.shape);
+        highlighter.addState(second, VisualStates.edgeSelected, ShapeTypes.shape);
+
+        firstNode._notify("shape");
+        secondNode._notify("shape");
+
+        expect(first.edges()?.material).toBe(selectedEdgeMaterial);
+        expect(second.edges()?.material).toBe(selectedEdgeMaterial);
+        expect(highlighter.getState(first, ShapeTypes.shape)).toBe(VisualStates.edgeSelected);
+        expect(highlighter.getState(second, ShapeTypes.shape)).toBe(VisualStates.edgeSelected);
+        first.dispose();
+        second.dispose();
+    });
+
     test("addState faceTransparent ghosts the faces and leaves the edges alone", () => {
         const originalFaceMat = geo.faces()?.material;
         const originalEdgeMat = geo.edges()?.material;

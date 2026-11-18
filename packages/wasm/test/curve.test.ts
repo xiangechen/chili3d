@@ -446,6 +446,23 @@ describe("OccBSplineCurve", () => {
         expect(bspline.nbKnots()).toBeGreaterThan(0);
         expect(bspline.degree()).toBeGreaterThanOrEqual(1);
     });
+
+    test("setPole changes a control point without changing its weight", () => {
+        const edge = factory.bspline(
+            [XYZ.zero, XYZ.unitX, XYZ.unitY, new XYZ(0, 0, 1)],
+            [1, 2, 1, 1],
+            [0, 0, 0, 0, 1, 1, 1, 1],
+            3,
+        ).value as OccEdge;
+        const bspline = basisCurveOfEdge(edge) as OccBSplineCurve;
+        const target = new XYZ(4, 5, 6);
+
+        bspline.setPole(2, target, undefined);
+
+        expect(bspline.pole(2)).toEqual(target);
+        expect(bspline.weight(2)).toBe(2);
+        expect(bspline.nbKnots()).toBe(2);
+    });
 });
 
 // ============================================================================

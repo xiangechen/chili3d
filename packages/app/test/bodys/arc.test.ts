@@ -49,9 +49,12 @@ describe("ArcNode", () => {
             expect(node.angle).toBe(180);
         });
 
-        test("start should be read-only (no setter)", () => {
+        test("setting start should update value", () => {
+            setupShapeFactoryMock({ arc: () => Result.ok(createMockShape()) });
             const node = new ArcNode({ document: doc, normal, center, start, angle: 90 });
-            expect(node.start).toBe(start);
+            const next = new XYZ(0, 10, 0);
+            node.start = next;
+            expect(node.start).toBe(next);
         });
 
         test("normal should be read-only (no setter)", () => {

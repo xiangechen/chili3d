@@ -1466,6 +1466,19 @@ export const queryCapabilities: QueryCapability[] = [
         params: [],
     },
     {
+        method: "bsplineCurve.setPole",
+        name: "setPole",
+        owner: "bsplineCurve",
+        family: "curve",
+        returnKind: "mutate",
+        runtimeType: "bsplineCurve",
+        params: [
+            { name: "index", kind: "number" },
+            { name: "point", kind: "xyz" },
+            { name: "weight", kind: "number", required: false },
+        ],
+    },
+    {
         method: "bsplineCurve.weight",
         name: "weight",
         owner: "bsplineCurve",
@@ -2221,6 +2234,7 @@ bsplineCurve.* (target must be a bsplineCurve (or a subtype of it)):
   bsplineCurve.nbPoles(target) -> number
   bsplineCurve.pole(target, index: number) -> XYZ
   bsplineCurve.poles(target) -> XYZ[]
+  bsplineCurve.setPole(target, index: number, point: xyz, weight: number?) -> null — mutates the target ref's geometry in place (re-applied on ref refresh)
   bsplineCurve.weight(target, index: number) -> number
   bsplineCurve.setWeight(target, index: number, value: number) -> null — mutates the target ref's geometry in place (re-applied on ref refresh)
 

@@ -175,7 +175,13 @@ describe("ShapeFactory — tracked (face history)", () => {
             const result = factory.booleanCutTracked([box], [tool]);
             expect(result.isOk).toBe(true);
             if (!result.isOk) return;
+            expect(result.value.shape.shapeType).toBe(ShapeTypes.solid);
             expect(faceMap(result.value).length).toBe(faceCount(result.value.shape));
+            for (let i = 0; i + 1 < result.value.edgeAncestors.length; i += 2) {
+                expect(result.value.edgeAncestors[i]).toBeLessThan(
+                    result.value.shape.findSubShapes(ShapeTypes.edge).length,
+                );
+            }
             // Box faces keep indexes 0-5; the cylindrical cut face traces back to the
             // tool's lateral face — tool faces are enumerated after the args (index 6+).
             expect(faceMap(result.value).some((x) => x >= 0 && x < 6)).toBe(true);

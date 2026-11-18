@@ -76,11 +76,30 @@ function convertShapeResult<P extends unknown[] = unknown[]>(
     if (!result.isOk) {
         res = Result.err(result.error);
     } else {
-        res = Result.ok(OccShape.wrap(result.shape));
+        res = Result.ok(OccShape.wrap(unwrapSingleSubShape(result.shape)));
     }
 
     result.delete();
     return res;
+}
+
+function unwrapSingleSubShape(shape: TopoDS_Shape) {
+    let unwrapped = shape;
+    while (
+        unwrapped.shapeType() === wasm.TopAbs_ShapeEnum.TopAbs_COMPOUND ||
+        unwrapped.shapeType() === wasm.TopAbs_ShapeEnum.TopAbs_COMPSOLID
+    ) {
+        const directShapes = wasm.Shape.getDirectSubShapes(unwrapped);
+        if (directShapes.length !== 1) {
+            directShapes.forEach((x) => {
+                x.delete();
+            });
+            break;
+        }
+        if (unwrapped !== shape) unwrapped.delete();
+        unwrapped = directShapes[0];
+    }
+    return unwrapped;
 }
 
 function convertShapesResult<P extends unknown[] = unknown[]>(
@@ -104,7 +123,7 @@ function convertShapesResult<P extends unknown[] = unknown[]>(
         for (let i = 0; i < arr.length; i++) {
             const ts = arr[i];
             if (ts && !ts.isNull()) {
-                shapes.push(OccShape.wrap(ts));
+                shapes.push(OccShape.wrap(unwrapSingleSubShape(ts)));
             }
         }
         res = Result.ok(shapes);
@@ -140,7 +159,7 @@ function convertTrackedShapeResult<P extends unknown[] = unknown[]>(
 /** Every channel a tracked result carries, read off `result` while its vectors are alive. */
 function trackedShapeOf(result: TrackedShapeResult): TrackedShape {
     return {
-        shape: OccShape.wrap(result.shape),
+        shape: OccShape.wrap(unwrapSingleSubShape(result.shape)),
         faceEdgeMap: toIntArray(result.faceEdgeMap),
         faceAncestors: toIntArray(result.faceAncestors),
         edgeAncestors: toIntArray(result.edgeAncestors),

@@ -162,6 +162,11 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
         } else if ((property as keyof ShapeNode) === "shape") {
             this.removeMeshes();
             this.generateShape();
+            const highlighter = this.context.visual?.highlighter;
+            const state = highlighter?.getState(this, ShapeTypes.shape);
+            if (highlighter && state !== undefined) {
+                highlighter.addState(this, state, ShapeTypes.shape);
+            }
         }
     };
 

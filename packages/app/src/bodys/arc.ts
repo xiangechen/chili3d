@@ -41,6 +41,9 @@ export class ArcNode extends ParameterShapeNode {
     get start(): XYZ {
         return this.getPrivateValue("start");
     }
+    set start(start: XYZ) {
+        this.setPropertyEmitShapeChanged("start", start);
+    }
 
     @serialize()
     get normal(): XYZ {

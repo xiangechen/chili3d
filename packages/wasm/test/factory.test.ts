@@ -1386,6 +1386,17 @@ describe("ShapeFactory — advanced operations", () => {
             expect(result.value.shapeType).toBe(ShapeTypes.compound);
         });
 
+        test("should unwrap a single-child compound without invalidating the child", () => {
+            const box = factory.box(plane, 5, 5, 5).value;
+
+            const result = factory.combine([box]);
+
+            expect(result.isOk).toBe(true);
+            expect(result.value.shapeType).toBe(ShapeTypes.solid);
+            expect(result.value.volume()).toBeCloseTo(125, 6);
+            expect(result.value.findSubShapes(ShapeTypes.face)).toHaveLength(6);
+        });
+
         test("should compute the volume of a compound as the sum of its solids", () => {
             const box1 = factory.box(plane, 5, 5, 5).value;
             const box2 = factory.box(

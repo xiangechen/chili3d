@@ -598,6 +598,15 @@ export class OccBSplineCurve extends OccBoundedCurve implements IBSplineCurve {
     pole(index: number): XYZ {
         return gc((c) => toXYZ(c(this.bspline.pole(index))));
     }
+    setPole(index: number, point: XYZ, weight: number | undefined): void {
+        gc((c) => {
+            if (weight === undefined) {
+                this.bspline.setPole(index, c(toPnt(point)));
+            } else {
+                this.bspline.setPoleWithWeight(index, c(toPnt(point)), weight);
+            }
+        });
+    }
     poles(): XYZ[] {
         return gc((c) => {
             const result: XYZ[] = [];

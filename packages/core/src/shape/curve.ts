@@ -129,6 +129,7 @@ export interface IBSplineCurve extends IBoundedCurve {
     nbPoles(): number;
     pole(index: number): XYZ;
     poles(): XYZ[];
+    setPole(index: number, point: XYZ, weight?: number): void;
     weight(index: number): number;
     setWeight(index: number, value: number): void;
 }
