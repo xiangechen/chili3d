@@ -85,6 +85,10 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
     buildTriangles(_target: number[]): void {}
 
     worldTransform(): Matrix4 {
+        // A re-parent leaves matrixWorld stale until the next render, and the anti-mirror
+        // test reads this synchronously. Since three 0.187 `updateWorldMatrix` only
+        // recomputes a flagged object, so flag it first.
+        this.matrixWorldNeedsUpdate = true;
         this.updateWorldMatrix(true, false);
         return ThreeHelper.toMatrix(this.matrixWorld);
     }

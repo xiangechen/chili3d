@@ -95,6 +95,11 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
     }
 
     worldTransform(): Matrix4 {
+        // `add`/re-parenting does not touch matrixWorld — only the next render recomputes
+        // it — and callers (picking, grips, the editing boundary) read it synchronously.
+        // Since three 0.187 `updateWorldMatrix` only recomputes a flagged object.
+        this.matrixWorldNeedsUpdate = true;
+        this.updateWorldMatrix(true, false);
         return ThreeHelper.toMatrix(this.matrixWorld);
     }
 
@@ -303,6 +308,10 @@ export class GroupVisualObject extends Group implements IVisualObject {
     }
 
     worldTransform(): Matrix4 {
+        // Same contract as `ThreeVisualObject.worldTransform()`: a group added under a
+        // transformed parent has a stale matrixWorld until the next render.
+        this.matrixWorldNeedsUpdate = true;
+        this.updateWorldMatrix(true, false);
         return ThreeHelper.toMatrix(this.matrixWorld);
     }
 

@@ -92,6 +92,18 @@ describe("GroupVisualObject", () => {
         expect(gvo.transform.toArray()[14]).toBe(15);
     });
 
+    test("worldTransform sees the parent chain of a group added after it was built", () => {
+        const parent = new Group();
+        parent.position.set(1, 0, 0);
+        parent.updateMatrixWorld();
+
+        const gvo = new GroupVisualObject(createTestGroupNode());
+        gvo.transform = CoreMatrix4.fromArray([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1]);
+        parent.add(gvo);
+
+        expect(gvo.worldTransform().toArray()[12]).toBe(11);
+    });
+
     test("locked triggers material swap on children", () => {
         const node = createTestGroupNode();
         const gvo = new GroupVisualObject(node);
@@ -218,6 +230,21 @@ describe("ThreeVisualObject base class", () => {
         const matrix = CoreMatrix4.fromArray([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1]);
         obj.transform = matrix;
         expect(obj.matrix.elements[12]).toBe(10);
+    });
+
+    test("worldTransform sees the parent chain of a visual added after it was built", () => {
+        const parent = new Group();
+        parent.position.set(1, 0, 0);
+        parent.updateMatrixWorld();
+
+        const obj = new TestableVisualObject(createTestVisualNode());
+        obj.transform = CoreMatrix4.fromArray([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 10, 0, 0, 1]);
+        // `add` leaves matrixWorld at the 10 built before the parent existed; only the next
+        // render recomputes it, and callers read it synchronously (picking, grips, the
+        // editing boundary).
+        parent.add(obj);
+
+        expect(obj.worldTransform().toArray()[12]).toBe(11);
     });
 
     test("transform setter refreshes worldTransform without a render", () => {

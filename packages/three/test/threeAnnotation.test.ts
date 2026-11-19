@@ -32,6 +32,7 @@ import {
 import { TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import {
+    Group,
     type InterleavedBufferAttribute,
     Layers,
     Mesh,
@@ -160,6 +161,20 @@ describe("ThreeRefSegmentAnnotation", () => {
         expect(annotation.locked).toBe(false);
         expect(annotation.transform.equals(Matrix4.identity())).toBe(true);
         expect(annotation.worldTransform().equals(Matrix4.identity())).toBe(true);
+    });
+
+    test("worldTransform sees the parent chain of an annotation added after it was built", () => {
+        const { context } = createTestContext();
+        const annotation = new ThreeRefSegmentAnnotation(context, createRefSegment());
+        annotation.transform = Matrix4.fromTranslation(10, 0, 0);
+
+        const parent = new Group();
+        parent.position.set(1, 0, 0);
+        parent.updateMatrixWorld();
+        parent.add(annotation);
+
+        // No render in between: the matrix has to refresh itself when read.
+        expect(annotation.worldTransform().toArray()[12]).toBe(11);
     });
 
     test("writes its segment into the parent's batch once added", async () => {
