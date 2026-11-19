@@ -653,7 +653,10 @@ export class ArrayCommand extends MultistepCommand {
             }
             case "option.command.patternType.curve": {
                 const shapeData = this.stepDatas[0].shapes[0];
-                const edge = shapeData.shape.transformedMul(shapeData.owner.transform) as IEdge;
+                // `owner.transform` is only the owner node's own matrix; a node under a
+                // transformed parent needs the rest of the chain. Every other branch here
+                // works in world space, and `transform` is the detected world placement.
+                const edge = shapeData.shape.transformedMul(shapeData.transform) as IEdge;
                 return this.getCurveTransforms(edge.curve);
             }
             default:

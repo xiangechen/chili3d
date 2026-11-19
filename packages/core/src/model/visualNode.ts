@@ -72,12 +72,30 @@ export abstract class VisualNode extends Node {
         return this.cloneTransformed(transform);
     }
 
+    /**
+     * The node's placement in world space. A displayed node asks its visual, whose
+     * matrixWorld is the one the viewport draws. A node that is not displayed — mid-command,
+     * or detached into a component — has no visual to ask, but the document tree still
+     * knows: a parent's placement (the group explode writes, say) is part of the world
+     * placement just the same, and answering with the node's own transform alone left every
+     * ancestor behind.
+     */
     worldTransform(): Matrix4 {
         const visual = this.document.visual.context.getVisual(this);
         if (visual) {
             return visual.worldTransform();
         }
-        return this.transform;
+
+        // `multiply` applies its receiver first: start at the node's own placement and wrap
+        // it in each ancestor's, innermost first, the way the scene graph composes them.
+        let placement = this.transform;
+        for (let parent = this.parent; parent !== undefined; parent = parent.parent) {
+            const transform = (parent as unknown as { transform?: Matrix4 }).transform;
+            if (transform !== undefined) {
+                placement = placement.multiply(transform);
+            }
+        }
+        return placement;
     }
 
     protected onVisibleChanged(): void {

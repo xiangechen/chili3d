@@ -735,10 +735,13 @@ describe("ArrayCommand", () => {
                 const edge = mockShape({ shapeType: ShapeTypes.edge }) as unknown as IEdge;
                 (edge as any).curve = curve;
 
-                const ownerTransform = Matrix4.identity();
+                // The picked edge is placed by the detected world transform, not by the
+                // owner node's own matrix (the chain's ancestors are the difference).
+                const ownerTransform = Matrix4.fromTranslation(5, 0, 0);
+                const transformedMul = rs.fn((_matrix: Matrix4) => edge);
                 const edgeShape = mockShape({
                     shapeType: ShapeTypes.edge,
-                    transformedMul: rs.fn(() => edge),
+                    transformedMul,
                 });
 
                 seedStepDatas(cmd, [
@@ -762,6 +765,9 @@ describe("ArrayCommand", () => {
                 (cmd as any).executeMainTask();
 
                 expect(addedNodes).toHaveLength(3);
+                // The curve is built in world space, like every other pattern branch.
+                expect(transformedMul).toHaveBeenCalledTimes(1);
+                expect(transformedMul.mock.calls[0][0]).toBe(ownerTransform);
             } finally {
                 restoreTx();
                 restoreApp();

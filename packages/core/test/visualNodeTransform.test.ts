@@ -77,6 +77,23 @@ describe("VisualNode transform hooks", () => {
         expect(copy.transform.equals(Matrix4.identity())).toBe(true);
     });
 
+    test("a node outside the scene composes its ancestors for worldTransform", () => {
+        const node = new TestVisualNode(new TestDocument() as any, "nested", Id.generate());
+        node.transform = Matrix4.fromTranslation(1, 0, 0);
+        // TestDocument's visual answers no visual for any node, so this is the tree path.
+        const grandParent = { transform: Matrix4.fromTranslation(100, 0, 0), parent: undefined };
+        const parent = { transform: Matrix4.fromTranslation(10, 0, 0), parent: grandParent };
+        Object.defineProperty(node, "parent", { configurable: true, value: parent });
+
+        expect(node.worldTransform().toArray()[12]).toBe(111);
+    });
+
+    test("a node with no parent reports its own placement", () => {
+        node.transform = Matrix4.fromTranslation(7, 0, 0);
+
+        expect(node.worldTransform().toArray()[12]).toBe(7);
+    });
+
     test("cloneTransformed falls back to a direct placement when the hook refuses", () => {
         const refusing = new RefusingVisualNode(new TestDocument() as any, "refusing", Id.generate());
         refusing.transform = Matrix4.fromTranslation(1, 0, 0);
