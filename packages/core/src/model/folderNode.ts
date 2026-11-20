@@ -92,3 +92,12 @@ export class FolderNode extends Node implements INodeLinkedList {
 export function isConsumedTool(node: INode): boolean {
     return node.parent !== undefined && !(node.parent instanceof FolderNode);
 }
+
+/**
+ * True only for `FolderNode` itself. A subclass (`GroupNode`) is still a folder that
+ * holds nodes, but it carries semantics of its own (a transform), so it is not the
+ * place where the next new node lands.
+ */
+export function isPlainFolder(node: INode | undefined): node is FolderNode {
+    return node?.constructor === FolderNode;
+}

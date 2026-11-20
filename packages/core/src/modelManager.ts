@@ -12,8 +12,8 @@ import {
 } from "./foundation";
 import { Material } from "./material";
 import { type Component, ComponentNode } from "./model/component";
-import { FolderNode } from "./model/folderNode";
-import { type INode, type INodeLinkedList, NodeUtils } from "./model/node";
+import { FolderNode, isPlainFolder } from "./model/folderNode";
+import { type INode, NodeUtils } from "./model/node";
 import { type Serialized, Serializer } from "./serialize";
 
 export type OnNodeChanged = (records: NodeRecord[]) => void;
@@ -46,14 +46,14 @@ export class ModelManager extends Observable {
     readonly components: ObservableCollection<Component> = new ObservableCollection();
     readonly materials: ObservableCollection<Material> = new ObservableCollection();
 
-    private _rootNode: INodeLinkedList | undefined;
-    get rootNode(): INodeLinkedList {
+    private _rootNode: FolderNode | undefined;
+    get rootNode(): FolderNode {
         if (this._rootNode === undefined) {
             this._rootNode = this.initRootNode();
         }
         return this._rootNode;
     }
-    set rootNode(value: INodeLinkedList) {
+    set rootNode(value: FolderNode) {
         if (this._rootNode === value) return;
 
         this._rootNode?.removePropertyChanged(this.handleRootNodeNameChanged);
@@ -61,12 +61,19 @@ export class ModelManager extends Observable {
         this._rootNode.onPropertyChanged(this.handleRootNodeNameChanged);
     }
 
-    private _currentNode?: INodeLinkedList;
-    get currentNode(): INodeLinkedList | undefined {
+    /**
+     * The folder new nodes land in. Only a plain `FolderNode` qualifies: a parametric
+     * body is a linked list too (holding hidden consumed tools), and a `GroupNode`
+     * subclass carries semantics of its own.
+     */
+    private _currentNode?: FolderNode;
+    get currentNode(): FolderNode | undefined {
         return this._currentNode;
     }
-    set currentNode(value: INodeLinkedList | undefined) {
-        this.setProperty("currentNode", value);
+    set currentNode(value: FolderNode | undefined) {
+        // A `GroupNode` satisfies the type but not the contract: a node added there would
+        // inherit the group's transform. Refuse it here so no future writer can slip one in.
+        this.setProperty("currentNode", isPlainFolder(value) ? value : undefined);
     }
 
     constructor(readonly document: IDocument) {
@@ -84,6 +91,21 @@ export class ModelManager extends Observable {
 
     initRootNode() {
         return new FolderNode({ document: this.document, name: this.document.name });
+    }
+
+    /**
+     * The saved root is always a folder (a `GroupNode` counts, being a subclass). Hand-edited
+     * data could hold a bare linked list instead: wrap it rather than drop the whole tree, which
+     * would open the document empty with no trace.
+     */
+    private folderRoot(node: INode | undefined): FolderNode {
+        if (node instanceof FolderNode) return node;
+        const folder = this.initRootNode();
+        if (node !== undefined) {
+            console.warn(`document root is not a folder, wrapping it: ${node.id}`);
+            folder.add(node);
+        }
+        return folder;
     }
 
     addNodeObserver(observer: OnNodeChanged) {
@@ -221,7 +243,7 @@ export class ModelManager extends Observable {
         this._deserializing = true;
         try {
             const rootNode = await NodeUtils.deserializeNode(this.document, data.nodes);
-            this.rootNode = rootNode!;
+            this.rootNode = this.folderRoot(rootNode);
             this.ensureMaterials();
         } finally {
             this._deserializing = false;

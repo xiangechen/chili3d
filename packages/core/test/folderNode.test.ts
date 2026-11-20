@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, type IDocument, type NodeRecord } from "../src";
+import { FolderNode, GroupNode, type IDocument, isPlainFolder, type NodeRecord } from "../src";
 import { createPlainNode, TestDocument } from "../test-utils";
 
 describe("FolderNode", () => {
@@ -443,6 +443,23 @@ describe("FolderNode", () => {
 
             grandparent.visible = false;
             expect(child.parentVisible).toBe(false);
+        });
+    });
+
+    describe("isPlainFolder", () => {
+        test("should accept a plain FolderNode", () => {
+            const folder = new FolderNode({ document: doc, name: "folder" });
+            expect(isPlainFolder(folder)).toBe(true);
+        });
+
+        test("should reject a GroupNode subclass", () => {
+            const group = new GroupNode({ document: doc, name: "group" });
+            expect(isPlainFolder(group)).toBe(false);
+        });
+
+        test("should reject undefined and nodes that are not folders", () => {
+            expect(isPlainFolder(undefined)).toBe(false);
+            expect(isPlainFolder(createPlainNode("plain"))).toBe(false);
         });
     });
 

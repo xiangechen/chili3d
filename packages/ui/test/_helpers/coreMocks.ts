@@ -50,6 +50,16 @@ export const TransactionMock = {
 /** FolderNode stub: tests opt a node into `instanceof` by linking its prototype. */
 export class FolderNodeMock {}
 
+/**
+ * Mirror of core's `isPlainFolder`: a folder node that is not a `GroupNode` subclass.
+ * The tree test marks a subclass node with `isGroupNode`, the same way `isFolder`
+ * marks the mocked `instanceof FolderNode` base.
+ */
+export function isPlainFolderMock(node: unknown): boolean {
+    const candidate = node as { isFolder?: boolean; isGroupNode?: boolean } | undefined;
+    return candidate?.isFolder === true && candidate?.isGroupNode !== true;
+}
+
 /** Mirror of core's real guard (the mid-init snapshot can miss function exports). */
 export function isFeatureListNodeMock(node: unknown): boolean {
     const candidate = node as {

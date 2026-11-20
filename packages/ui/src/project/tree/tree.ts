@@ -7,6 +7,7 @@ import {
     type IDocument,
     type INode,
     type INodeLinkedList,
+    isPlainFolder,
     type ModelManager,
     type NodeRecord,
     NodeSelectionHandler,
@@ -21,6 +22,19 @@ import style from "./tree.module.css";
 import { TreeItem } from "./treeItem";
 import { TreeGroup } from "./treeItemGroup";
 import { TreeModel } from "./treeModel";
+
+/**
+ * The nearest ancestor of `node` — or the node itself — that is a plain `FolderNode`.
+ * New nodes land in the current node, so a click inside a parametric body (a linked
+ * list whose hidden children are consumed tools) or inside a `GroupNode` climbs out
+ * to the folder that can hold them.
+ */
+function nearestPlainFolder(node: INode | undefined): FolderNode | undefined {
+    for (let current = node; current !== undefined; current = current.parent) {
+        if (isPlainFolder(current)) return current;
+    }
+    return undefined;
+}
 
 export class Tree extends HTMLElement {
     private readonly nodeMap = new Map<INode, TreeItem>();
@@ -274,14 +288,7 @@ export class Tree extends HTMLElement {
     private handleLastClickItem(item: INode | undefined) {
         this.lastClicked = item;
         if (item !== undefined) {
-            // Only folders accept new nodes: a parametric body is a linked list too,
-            // but its children are consumed boolean tools hidden from the scene.
-            // Walk up to the nearest folder ancestor when clicking inside such a body.
-            let node: INodeLinkedList | undefined = item instanceof FolderNode ? item : item.parent;
-            while (node !== undefined && !(node instanceof FolderNode)) {
-                node = node.parent;
-            }
-            this.document.modelManager.currentNode = node;
+            this.document.modelManager.currentNode = nearestPlainFolder(item);
         }
     }
 

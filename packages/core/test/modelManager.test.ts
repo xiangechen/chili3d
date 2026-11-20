@@ -1,14 +1,19 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
+import { rs } from "@rstest/core";
+
 import {
     Component,
     FolderNode,
+    GroupNode,
     Id,
     type INode,
+    type INodeLinkedList,
     InternalClassName,
     type ModelManager,
     type NodeRecord,
+    NodeUtils,
     type OnNodeChanged,
     UserData,
     XYZ,
@@ -123,6 +128,14 @@ describe("ModelManager", () => {
             const node = new FolderNode({ document: doc, name: "current" });
             modelManager.currentNode = node;
             modelManager.currentNode = undefined;
+            expect(modelManager.currentNode).toBeUndefined();
+        });
+
+        test("should refuse a GroupNode as currentNode", () => {
+            // A GroupNode is a FolderNode subtype, so the type checker lets it through;
+            // nodes added to it would inherit its transform.
+            const group = new GroupNode({ document: doc, name: "group" });
+            modelManager.currentNode = group;
             expect(modelManager.currentNode).toBeUndefined();
         });
     });
@@ -441,6 +454,30 @@ describe("ModelManager", () => {
             expect(calls.length).toBe(1);
             expect(calls[0][0].node).toBe(modelManager.rootNode);
             expect(childVisibleAtNotify).toBe(true);
+        });
+
+        test("should wrap a non-folder root instead of dropping the tree", async () => {
+            const bare = newNode("bare") as unknown as INodeLinkedList;
+            const deserializeNode = rs.spyOn(NodeUtils, "deserializeNode").mockResolvedValue(bare);
+            const warn = rs.spyOn(console, "warn").mockImplementation(() => {});
+            try {
+                await modelManager.deserialize({ components: [], nodes: [], materials: [] });
+
+                expect(modelManager.rootNode).toBeInstanceOf(FolderNode);
+                expect(modelManager.rootNode.firstChild).toBe(bare);
+                expect(bare.parent).toBe(modelManager.rootNode);
+                expect(warn).toHaveBeenCalledWith(expect.stringContaining(bare.id));
+            } finally {
+                deserializeNode.mockRestore();
+                warn.mockRestore();
+            }
+        });
+
+        test("should open an empty document when the saved nodes are empty", async () => {
+            await modelManager.deserialize({ components: [], nodes: [], materials: [] });
+
+            expect(modelManager.rootNode).toBeInstanceOf(FolderNode);
+            expect(modelManager.rootNode.count).toBe(0);
         });
     });
 

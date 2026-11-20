@@ -31,6 +31,7 @@ rs.mock("@chili3d/core", () => {
         isFeatureListNodeMock,
         isNodeIconMock,
         isNodeWarningMock,
+        isPlainFolderMock,
     } = rs.hoisted(() => require("./coreMocks"));
     class VisualNode {}
     class Annotation {}
@@ -58,6 +59,7 @@ rs.mock("@chili3d/core", () => {
         VisualNode,
         Annotation,
         FolderNode,
+        isPlainFolder: isPlainFolderMock,
         NodeSelectionHandler,
         ShapeSelectionHandler,
         NodeUtils: {

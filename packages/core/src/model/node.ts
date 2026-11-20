@@ -364,6 +364,8 @@ export class NodeUtils {
                 console.warn(`parent not found: ${parentId}`);
             }
         });
-        return Promise.resolve(nodeMap.get(nodes[0]["id"]));
+        // An empty save (hand-edited, or a write that never finished) has no root to look
+        // up: return undefined so the caller opens an empty document instead of throwing.
+        return Promise.resolve(nodeMap.get(nodes.at(0)?.["id"]));
     }
 }

@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { IDocument, INode, INodeLinkedList, NodeRecord } from "@chili3d/core";
+import type { FolderNode, IDocument, INode, NodeRecord } from "@chili3d/core";
 // test-utils must load BEFORE the core-mock helper so the real core module is
 // fully cached by the time `rs.mock("@chili3d/core")` registers.
 import { createMockDocument, type MockDocumentOverrides } from "@chili3d/core/test-utils";
@@ -57,6 +57,8 @@ type PropertyHandler = (property: string, model: unknown) => void;
 class MockNode {
     isGroup = false;
     isFolder = false;
+    /** Marks a GroupNode subclass: a folder, but not the plain folder core accepts as current. */
+    isGroupNode = false;
     visible = true;
     parentVisible: boolean | undefined = true;
     parent: MockNode | undefined;
@@ -306,17 +308,17 @@ describe("Tree", () => {
     describe("current node", () => {
         test("should move current style when currentNode changes", () => {
             fixture = createFixture();
-            const model1El = fixture.tree.treeItem(fixture.model1 as unknown as INode)!;
-            const model2El = fixture.tree.treeItem(fixture.model2 as unknown as INode)!;
+            const group = fixture.tree.treeItem(fixture.groupA as unknown as INode) as TreeGroup;
+            const root = fixture.tree.treeItem(fixture.root as unknown as INode) as TreeGroup;
 
-            fixture.doc.modelManager.currentNode = fixture.model1 as unknown as INodeLinkedList;
+            fixture.doc.modelManager.currentNode = fixture.groupA as unknown as FolderNode;
             fixture.doc.emitPropChanged("currentNode", undefined);
-            expect(model1El.classList.contains("tree-current")).toBe(true);
+            expect(group.mainElement().classList.contains("tree-current")).toBe(true);
 
-            fixture.doc.modelManager.currentNode = fixture.model2 as unknown as INodeLinkedList;
-            fixture.doc.emitPropChanged("currentNode", fixture.model1);
-            expect(model1El.classList.contains("tree-current")).toBe(false);
-            expect(model2El.classList.contains("tree-current")).toBe(true);
+            fixture.doc.modelManager.currentNode = fixture.root as unknown as FolderNode;
+            fixture.doc.emitPropChanged("currentNode", fixture.groupA);
+            expect(group.mainElement().classList.contains("tree-current")).toBe(false);
+            expect(root.mainElement().classList.contains("tree-current")).toBe(true);
         });
 
         test("should set a clicked folder as current node", () => {
@@ -329,6 +331,50 @@ describe("Tree", () => {
             groupEl.click();
 
             expect(fixture.doc.modelManager.currentNode).toBe(fixture.groupA);
+        });
+
+        test("should climb to the parent folder when clicking a GroupNode", () => {
+            fixture = createFixture();
+            fixture.doc.visual.eventHandler = new (
+                NodeSelectionHandler as unknown as new () => unknown
+            )() as typeof fixture.doc.visual.eventHandler;
+            // A GroupNode is still a folder for drops, but it carries a transform, so
+            // new nodes do not land in it.
+            const group = new MockNode("group");
+            group.isGroup = true;
+            group.isFolder = true;
+            group.isGroupNode = true;
+            group.parent = fixture.root;
+            fixture.doc.emitNodeChanged([{ node: group, newParent: fixture.root } as unknown as NodeRecord]);
+            const groupEl = fixture.tree.treeItem(group as unknown as INode) as HTMLElement;
+
+            groupEl.click();
+
+            expect(fixture.doc.modelManager.currentNode).toBe(fixture.root);
+        });
+
+        test("should climb out of a GroupNode when clicking its child", () => {
+            fixture = createFixture();
+            fixture.doc.visual.eventHandler = new (
+                NodeSelectionHandler as unknown as new () => unknown
+            )() as typeof fixture.doc.visual.eventHandler;
+            const group = new MockNode("group");
+            group.isGroup = true;
+            group.isFolder = true;
+            group.isGroupNode = true;
+            group.parent = fixture.root;
+            fixture.doc.emitNodeChanged([{ node: group, newParent: fixture.root } as unknown as NodeRecord]);
+            // A child inside the group — the shape a clicked STEP entity lands on.
+            const part = new MockNode("part");
+            part.parent = group;
+            group.firstChild = part;
+            fixture.doc.emitNodeChanged([{ node: part, newParent: group } as unknown as NodeRecord]);
+            const partEl = fixture.tree.treeItem(part as unknown as INode) as HTMLElement;
+
+            partEl.click();
+
+            // Neither the part nor its group takes new nodes: the folder outside does.
+            expect(fixture.doc.modelManager.currentNode).toBe(fixture.root);
         });
 
         test("should keep the parent as current node when clicking a non-folder group", () => {
