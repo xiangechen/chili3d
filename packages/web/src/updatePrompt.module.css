@@ -1,0 +1,99 @@
+.prompt {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    gap: 12px;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background-color: var(--panel-background-color);
+    box-shadow: var(--panel-shadow);
+    color: var(--foreground-color);
+    font-size: 0.875rem;
+    animation: appear 0.18s ease-out;
+}
+
+.icon {
+    box-sizing: content-box;
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    padding: 6px;
+    border-radius: 50%;
+    background-color: color-mix(in srgb, var(--primary-color) 12%, transparent);
+    color: var(--primary-color);
+}
+
+.message {
+    flex: 1 1 auto;
+    color: var(--foreground-color);
+    line-height: 1.5;
+}
+
+.actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 4px;
+}
+
+.button {
+    padding: 6px 12px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background-color: transparent;
+    color: var(--foreground-secondary-color);
+    font: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background-color 0.15s,
+        color 0.15s;
+}
+
+.button:hover {
+    background-color: var(--hover-background-color);
+    color: var(--foreground-color);
+}
+
+.button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.primary {
+    background-color: var(--button-primary-background);
+    color: #ffffff;
+}
+
+.primary:hover {
+    background-color: var(--button-primary-hover);
+    color: #ffffff;
+}
+
+/* The dark theme's accent is light, so white text on it would fall below 3:1. */
+:root[theme="dark"] .primary {
+    color: #10151c;
+}
+
+@keyframes appear {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .prompt {
+        animation: none;
+    }
+}

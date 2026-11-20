@@ -1,7 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { I18n, Logger } from "@chili3d/core";
+import { Logger } from "@chili3d/core";
+import { UpdatePrompt } from "./updatePrompt";
 
 /** Mirrors the prefix built in public/sw.js: the registration scope is part of every cache name. */
 const LEGACY_CACHE = /^chili3d-[0-9a-f]+$/;
@@ -26,32 +27,7 @@ function reloadAllTabsAfterActivation(): void {
 
 function showUpdatePrompt(registration: ServiceWorkerRegistration): void {
     if (document.getElementById("pwa-update")) return;
-
-    const prompt = document.createElement("div");
-    prompt.id = "pwa-update";
-    prompt.setAttribute("role", "status");
-    prompt.style.cssText =
-        "position:fixed;right:16px;bottom:16px;z-index:10000;display:flex;align-items:center;gap:12px;" +
-        "padding:12px 16px;border-radius:6px;background:#181818;color:#eee;box-shadow:0 2px 12px #0008;";
-
-    const message = document.createElement("span");
-    message.textContent = I18n.translate("pwa.updateAvailable");
-    const reload = document.createElement("button");
-    reload.id = "pwa-update-reload";
-    reload.textContent = I18n.translate("pwa.reload");
-    const dismiss = document.createElement("button");
-    dismiss.textContent = I18n.translate("pwa.later");
-    dismiss.addEventListener("click", () => prompt.remove());
-    reload.addEventListener("click", () => {
-        if (!registration.waiting) {
-            prompt.remove();
-            window.location.reload();
-            return;
-        }
-        registration.waiting.postMessage({ type: "SKIP_WAITING" });
-    });
-    prompt.append(message, reload, dismiss);
-    document.body.appendChild(prompt);
+    document.body.appendChild(new UpdatePrompt(registration));
 }
 
 function watchWorker(registration: ServiceWorkerRegistration, worker: ServiceWorker): void {
