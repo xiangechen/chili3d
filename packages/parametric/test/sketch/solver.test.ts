@@ -1488,7 +1488,9 @@ describe("fullyConstrainedEntities", () => {
             });
             const found = findCorners(solver, loop, 0.1, "fillet");
             if (!found.isOk) throw new Error(found.error);
-            const corners = found.value.filter((corner) => corner.line1 !== left && corner.line2 !== left);
+            const corners = found.value.filter(
+                (corner) => corner.entity1 !== left && corner.entity2 !== left,
+            );
             expect(corners).toHaveLength(2);
             expect(applyCornerOps(solver, corners, { method: "fillet", radius: 5 }).isOk).toBe(true);
 

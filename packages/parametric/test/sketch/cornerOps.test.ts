@@ -99,8 +99,8 @@ describe("findCorners", () => {
         const { solver, horizontal, vertical } = rightAngleSolver();
         try {
             expect(cornerOf(solver, horizontal, vertical)).toEqual({
-                line1: horizontal,
-                line2: vertical,
+                entity1: horizontal,
+                entity2: vertical,
                 ref1: ref(horizontal, 0),
                 ref2: ref(vertical, 0),
                 far1: ref(horizontal, 1),
@@ -742,4 +742,265 @@ describe("a rectangle carrying the gaps between its edges", () => {
             solver.dispose();
         }
     });
+});
+
+/**
+ * A line (0,0)→(10,0) ending where an arc centred at (5,0), radius 5, starts and turns
+ * up. The corner is at (10,0), and the two edges leave it along −x and +y.
+ */
+function lineArcSolver() {
+    const solver = new SketchSolver(Plane.XY);
+    const line = solver.addLine(0, 0, 10, 0);
+    const arc = solver.addArc(5, 0, 10, 0, 5, 5);
+    solver.addConstraint({
+        kind: ConstraintKind.P2PCoincident,
+        refs: [ref(line, 1), ref(arc, 1)],
+    });
+    return { solver, line, arc };
+}
+
+const pointAt = (solver: SketchSolver, entityId: number, pointIndex: number): [number, number] =>
+    solver.pointOf(ref(entityId, pointIndex));
+
+const arcsOf = (solver: SketchSolver): SketchEntityData[] =>
+    solver.entities().filter((e) => e.type === "arc");
+
+/** Distance from a point to the infinite line through a line entity's two points. */
+function distanceToEntityLine(solver: SketchSolver, entityId: number, point: [number, number]): number {
+    return distanceToLine(point, solver.entity(entityId)!.params);
+}
+
+describe("a corner between a line and an arc", () => {
+    test("reads the arc's start as the corner and its end as the far end", () => {
+        const { solver, line, arc } = lineArcSolver();
+        try {
+            const corner = cornerOf(solver, line, arc);
+            expect(corner.entity1).toBe(line);
+            expect(corner.entity2).toBe(arc);
+            expect(corner.ref1).toEqual(ref(line, 1));
+            expect(corner.ref2).toEqual(ref(arc, 1));
+            expect(corner.far1).toEqual(ref(line, 0));
+            expect(corner.far2).toEqual(ref(arc, 2));
+            expect(corner.jointIds).toHaveLength(1);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("rounds it tangent to both edges", () => {
+        const { solver, line, arc } = lineArcSolver();
+        try {
+            const corner = cornerOf(solver, line, arc);
+            const applied = applyCornerOps(solver, [corner], { method: "fillet", radius: 1 });
+            expect(applied.isOk).toBe(true);
+
+            expect(arcsOf(solver)).toHaveLength(2);
+            const round = arcsOf(solver).find((e) => e.id !== arc)!;
+            // centre (8.873, 1): 1 from the line, and 5 − 1 from the original centre
+            expect(round.params[0]).toBeCloseTo(8.873, 3);
+            expect(round.params[1]).toBeCloseTo(1, 3);
+            expect(pointAt(solver, line, 1)[0]).toBeCloseTo(8.873, 3);
+            expect(pointAt(solver, arc, 1)[0]).toBeCloseTo(9.841, 3);
+            expect(pointAt(solver, arc, 1)[1]).toBeCloseTo(1.25, 3);
+
+            expect(kindsOf(solver, ConstraintKind.TangentLineArc)).toBe(1);
+            expect(kindsOf(solver, ConstraintKind.TangentArcArc)).toBe(1);
+            expect(kindsOf(solver, ConstraintKind.Radius)).toBe(1);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("stays tangent and keeps its radius when the line's free end is dragged", () => {
+        const { solver, line, arc } = lineArcSolver();
+        try {
+            const corner = cornerOf(solver, line, arc);
+            expect(applyCornerOps(solver, [corner], { method: "fillet", radius: 1 }).isOk).toBe(true);
+            const round = arcsOf(solver).find((e) => e.id !== arc)!;
+
+            solver.setPointPosition(ref(line, 0), -2, 3);
+            expect(["Ok", "OkUnderconstrained"]).toContain(solver.solve(true).result);
+
+            const params = solver.entity(round.id)!.params;
+            const center: [number, number] = [params[0], params[1]];
+            expect(Math.hypot(params[2] - params[0], params[3] - params[1])).toBeCloseTo(1, 6);
+            expect(distanceToEntityLine(solver, line, center)).toBeCloseTo(1, 6);
+            const arcParams = solver.entity(arc)!.params;
+            const arcRadius = Math.hypot(arcParams[2] - arcParams[0], arcParams[3] - arcParams[1]);
+            expect(Math.hypot(center[0] - arcParams[0], center[1] - arcParams[1])).toBeCloseTo(
+                arcRadius - 1,
+                5,
+            );
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("chamfers the arc by arc length", () => {
+        const { solver, line, arc } = lineArcSolver();
+        try {
+            const corner = cornerOf(solver, line, arc);
+            const applied = applyCornerOps(solver, [corner], { method: "chamfer", distance: 1 });
+            expect(applied.isOk).toBe(true);
+
+            // the straight side loses 1 mm
+            expect(pointAt(solver, line, 1)[0]).toBeCloseTo(9, 3);
+            // the arc loses 1 mm of arc length: 1/5 rad around a radius-5 circle
+            const q = pointAt(solver, arc, 1);
+            expect(Math.atan2(q[1], q[0] - 5)).toBeCloseTo(0.2, 3);
+
+            const chamfer = solver.entities().find((e) => e.type === "line" && e.id !== line)!;
+            expect(
+                Math.hypot(chamfer.params[2] - chamfer.params[0], chamfer.params[3] - chamfer.params[1]),
+            ).toBeCloseTo(1.3406, 3);
+            // chamfer span, trimmed line length and the arc's chord
+            expect(kindsOf(solver, ConstraintKind.P2PDistance)).toBe(3);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("keeps the chamfer when the line's free end is dragged", () => {
+        const { solver, line, arc } = lineArcSolver();
+        try {
+            const corner = cornerOf(solver, line, arc);
+            expect(applyCornerOps(solver, [corner], { method: "chamfer", distance: 1 }).isOk).toBe(true);
+            const chamfer = solver.entities().find((e) => e.type === "line" && e.id !== line)!;
+
+            solver.setPointPosition(ref(line, 0), -2, 3);
+            expect(["Ok", "OkUnderconstrained"]).toContain(solver.solve(true).result);
+
+            expect(
+                Math.hypot(chamfer.params[2] - chamfer.params[0], chamfer.params[3] - chamfer.params[1]),
+            ).toBeCloseTo(1.3406, 3);
+            expect(pointAt(solver, line, 1)[0]).toBeLessThan(10);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("rejects a radius that does not fit and leaves the sketch untouched", () => {
+        const { solver, line, arc } = lineArcSolver();
+        try {
+            const corner = cornerOf(solver, line, arc);
+            const applied = applyCornerOps(solver, [corner], { method: "fillet", radius: 6 });
+            expect(applied.isOk).toBe(false);
+            expect(applied.isOk ? "" : applied.error).toBe(
+                "The fillet radius is too large for one of the edges",
+            );
+            expect(pointAt(solver, line, 1)[0]).toBeCloseTo(10, 6);
+            expect(arcsOf(solver)).toHaveLength(1);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("refuses a corner between two arcs for now", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const arc1 = solver.addArc(0, 0, 10, 0, 0, 10);
+            const arc2 = solver.addArc(10, 10, 10, 0, 20, 10);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(arc1, 1), ref(arc2, 1)],
+            });
+            const fillet = findCorners(solver, [arc1, arc2], TOLERANCE, "fillet");
+            expect(fillet.isOk).toBe(false);
+            expect(fillet.isOk ? "" : fillet.error).toBe("Filleting two arcs is not supported yet");
+            const chamfer = findCorners(solver, [arc1, arc2], TOLERANCE, "chamfer");
+            expect(chamfer.isOk).toBe(false);
+            expect(chamfer.isOk ? "" : chamfer.error).toBe("Chamfering two arcs is not supported yet");
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("converts the other corners when the batch also holds an arc-arc corner", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            const arc1 = solver.addArc(0, 0, 10, 0, 0, 10);
+            const arc2 = solver.addArc(10, 10, 10, 0, 20, 10);
+            const line = solver.addLine(0, 10, 0, 20);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(arc1, 1), ref(arc2, 1)],
+            });
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(arc1, 2), ref(line, 0)],
+            });
+
+            const found = findCorners(solver, [arc1, arc2, line], TOLERANCE, "fillet");
+            expect(found.isOk).toBe(true);
+            expect(found.value).toHaveLength(1);
+            expect([found.value[0].entity1, found.value[0].entity2].sort()).toEqual([arc1, line].sort());
+            expect(applyCornerOps(solver, found.value, { method: "fillet", radius: 1 }).isOk).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("skips the tangent pairs a finished fillet leaves behind", () => {
+        const { solver, lines } = rectangleSolver();
+        try {
+            const first = findCorners(solver, [lines[0], lines[1]], TOLERANCE, "fillet");
+            expect(first.isOk).toBe(true);
+            expect(applyCornerOps(solver, first.value, { method: "fillet", radius: 1 }).isOk).toBe(true);
+
+            // selecting the whole finished profile: its two fillet/line pairs are tangent,
+            // not corners, so only the three still-sharp corners convert
+            const all = solver
+                .entities()
+                .filter((e) => e.type === "line" || e.type === "arc")
+                .map((e) => e.id);
+            const found = findCorners(solver, all, TOLERANCE, "chamfer");
+            expect(found.isOk).toBe(true);
+            expect(found.value).toHaveLength(3);
+            expect(applyCornerOps(solver, found.value, { method: "chamfer", distance: 1 }).isOk).toBe(true);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test("does not read a centre coincidence as a corner", () => {
+        const solver = new SketchSolver(Plane.XY);
+        try {
+            // a leftover from a break/trim: the centre (pointIndex 0), not an endpoint
+            const arc = solver.addArc(5, 0, 10, 0, 5, 5);
+            const line = solver.addLine(5, 0, 5, 10);
+            solver.addConstraint({
+                kind: ConstraintKind.P2PCoincident,
+                refs: [ref(arc, 0), ref(line, 0)],
+            });
+            const found = findCorners(solver, [arc, line], TOLERANCE, "chamfer");
+            expect(found.isOk).toBe(true);
+            expect(found.value).toHaveLength(0);
+        } finally {
+            solver.dispose();
+        }
+    });
+
+    test.each([ConstraintKind.TangentCircleArc, ConstraintKind.EqualArcRadius])(
+        "%s on an arc's start does not block its corner",
+        (kind) => {
+            const { solver, line, arc } = lineArcSolver();
+            try {
+                if (kind === ConstraintKind.TangentCircleArc) {
+                    const circle = solver.addCircle(5, 10, 5);
+                    solver.addConstraint({ kind, refs: [ref(circle, 0), ref(arc, 0), ref(arc, 1)] });
+                } else {
+                    const other = solver.addArc(30, 0, 35, 0, 30, 5);
+                    solver.addConstraint({
+                        kind,
+                        refs: [ref(arc, 0), ref(arc, 1), ref(other, 0), ref(other, 1)],
+                    });
+                }
+                const found = findCorners(solver, [line, arc], TOLERANCE, "fillet");
+                expect(found.isOk).toBe(true);
+                expect(found.value).toHaveLength(1);
+            } finally {
+                solver.dispose();
+            }
+        },
+    );
 });

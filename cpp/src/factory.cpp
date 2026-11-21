@@ -62,6 +62,8 @@
 #include <ChFi2d_Builder.hxx>
 #include <ChFi2d_ChamferAPI.hxx>
 #include <ChFi2d_FilletAPI.hxx>
+#include <ChFi2d_FilletAlgo.hxx>
+#include <ElCLib.hxx>
 #include <GProp_GProps.hxx>
 #include <Geom2d_Curve.hxx>
 #include <GeomAPI_ExtremaCurveCurve.hxx>
@@ -70,18 +72,18 @@
 #include <Geom_BSplineCurve.hxx>
 #include <Geom_BSplineSurface.hxx>
 #include <Geom_BezierCurve.hxx>
+#include <Geom_Circle.hxx>
 #include <Geom_ConicalSurface.hxx>
 #include <Geom_CylindricalSurface.hxx>
-#include <Geom_Circle.hxx>
 #include <Geom_Ellipse.hxx>
 #include <Geom_Hyperbola.hxx>
 #include <Geom_Line.hxx>
 #include <Geom_OffsetCurve.hxx>
+#include <Geom_Parabola.hxx>
 #include <Geom_RectangularTrimmedSurface.hxx>
 #include <Geom_SphericalSurface.hxx>
 #include <Geom_Surface.hxx>
 #include <Geom_ToroidalSurface.hxx>
-#include <Geom_Parabola.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <HelixBRep_BuilderHelix.hxx>
 #include <NCollection_Array1.hxx>
@@ -627,26 +629,232 @@ static std::string mapGordonError(GeomFill_Gordon::ResultStatus status)
 }
 
 struct CornerPlane {
-    gp_Pnt point; // intersection of the two support lines
+    gp_Pnt point; // the point the two edges meet at
     gp_Dir normal; // normal of the plane containing both edges
-    double param1 = 0.0; // corner parameter on the first support line
-    double param2 = 0.0; // corner parameter on the second support line
+    double param1 = 0.0; // corner parameter on the first edge's curve
+    double param2 = 0.0; // corner parameter on the second edge's curve
+    TopoDS_Vertex cornerVertex; // set when the corner is a real point of both edges
 };
 
+// Whether the curve is one the 2D fillet/chamfer algorithms handle. ChFi2d works on
+// linear and circular edges; anything else is refused up front.
+static bool isCornerCurve(const Handle(Geom_Curve) & curve)
+{
+    return curve->IsKind(STANDARD_TYPE(Geom_Line)) || curve->IsKind(STANDARD_TYPE(Geom_Circle));
+}
+
+// The parameter of a point on a line or circle, as the curve reports it (a circle's angle
+// may be on either branch around 2*pi).
+static bool rawCurveParameter(const Handle(Geom_Curve) & curve, const gp_Pnt& point, double& parameter)
+{
+    if (auto line = Handle(Geom_Line)::DownCast(curve)) {
+        parameter = ElCLib::Parameter(line->Lin(), point);
+        return true;
+    }
+    if (auto circle = Handle(Geom_Circle)::DownCast(curve)) {
+        parameter = ElCLib::Parameter(circle->Circ(), point);
+        return true;
+    }
+    return false;
+}
+
+// The parameter of a corner point on its curve. A circle is periodic, so the angle is
+// moved into this edge's own window — the projection could otherwise report the other
+// branch of the same point.
+static bool cornerParameter(const Handle(Geom_Curve) & curve, double first, double last, const gp_Pnt& point,
+    double& parameter)
+{
+    if (!rawCurveParameter(curve, point, parameter))
+        return false;
+    if (curve->IsKind(STANDARD_TYPE(Geom_Line)))
+        return true;
+
+    double period = 2.0 * M_PI;
+    double shifted = std::fmod(parameter - first, period);
+    if (shifted < 0.0)
+        shifted += period;
+    parameter = first + shifted;
+    if (parameter > last)
+        parameter -= period;
+    if (std::abs(parameter - first) <= Precision::PConfusion())
+        parameter = first;
+    else if (std::abs(parameter - last) <= Precision::PConfusion())
+        parameter = last;
+    return true;
+}
+
+// Whether a point lies on the edge's own parameter window. A circle is periodic, so the
+// angle is moved to the window's branch first; a tangent point on the other side of the
+// circle then falls outside it.
+static bool pointOnEdgeWindow(const Handle(Geom_Curve) & curve, double first, double last,
+    const gp_Pnt& point)
+{
+    double parameter = 0.0;
+    if (!rawCurveParameter(curve, point, parameter))
+        return false;
+    if (curve->IsKind(STANDARD_TYPE(Geom_Line)))
+        return parameter >= first - Precision::PConfusion() && parameter <= last + Precision::PConfusion();
+
+    double period = 2.0 * M_PI;
+    double shifted = std::fmod(parameter - first, period);
+    if (shifted < 0.0)
+        shifted += period;
+    return first + shifted <= last + Precision::PConfusion();
+}
+
+// The parameter step that travels `distance` along the curve: a line's parameter is a
+// length, a circle's is an angle.
+static bool cornerParameterStep(const Handle(Geom_Curve) & curve, double distance, double& step)
+{
+    if (curve->IsKind(STANDARD_TYPE(Geom_Line))) {
+        step = distance;
+        return true;
+    }
+    if (auto circle = Handle(Geom_Circle)::DownCast(curve)) {
+        step = distance / circle->Circ().Radius();
+        return true;
+    }
+    return false;
+}
+
+// Whether the cut leaves some edge behind. A straight edge can be extended to reach it —
+// that is how a corner beyond the segment is handled — but a circular edge cannot. A cut
+// landing exactly on the far endpoint leaves nothing: MakeEdge(p, p) raises on a line (the
+// Release build cannot catch it) and silently turns a circle into its full period.
+static bool cutWithinEdge(
+    const Handle(Geom_Curve) & curve, double cut, double first, double last, double farEnd)
+{
+    if (curve->IsKind(STANDARD_TYPE(Geom_Line)))
+        return std::abs(cut - farEnd) > Precision::Confusion();
+    return cut >= first + Precision::Confusion() && cut <= last - Precision::Confusion();
+}
+
+// Whether the whole curve lies on the plane, sampled at its ends and middle. The corner's
+// point and the two tangents only define the plane; this is what checks the curves stay in
+// it.
+static bool curveOnPlane(const Handle(Geom_Curve) & curve, double first, double last, const gp_Pln& plane)
+{
+    const double parameters[] = { first, (first + last) / 2.0, last };
+    for (double parameter : parameters) {
+        if (plane.Distance(curve->Value(parameter)) > Precision::Confusion())
+            return false;
+    }
+    return true;
+}
+
+// The point the two edges share. A wire's adjacent edges share a topological vertex;
+// standalone edge bodies hold independent TShapes, so their endpoints are matched
+// geometrically instead.
+static bool edgesShareCorner(const TopoDS_Edge& edge1, const Handle(Geom_Curve) & curve1, double first1,
+    double last1, const TopoDS_Edge& edge2, const Handle(Geom_Curve) & curve2, double first2, double last2,
+    gp_Pnt& point)
+{
+    TopoDS_Vertex common = findCommonVertex(edge1, edge2);
+    if (!common.IsNull()) {
+        point = BRep_Tool::Pnt(common);
+        return true;
+    }
+
+    const gp_Pnt ends1[] = { curve1->Value(first1), curve1->Value(last1) };
+    const gp_Pnt ends2[] = { curve2->Value(first2), curve2->Value(last2) };
+    bool found = false;
+    double best = Precision::Confusion();
+    for (const gp_Pnt& p1 : ends1) {
+        for (const gp_Pnt& p2 : ends2) {
+            double distance = p1.Distance(p2);
+            if (distance <= best) {
+                best = distance;
+                point = p1;
+                found = true;
+            }
+        }
+    }
+    return found;
+}
+
+// The corner between two edges when at least one is circular. Unlike straight edges —
+// whose support lines give a corner even when it lies beyond them — a circular edge has no
+// such extension, so the edges must actually meet. They must also be coplanar and leave a
+// real angle: a tangent pair has no corner to round.
+static std::optional<CornerPlane> curvedCorner(const TopoDS_Edge& edge1, const Handle(Geom_Curve) & curve1,
+    double first1, double last1, const TopoDS_Edge& edge2, const Handle(Geom_Curve) & curve2, double first2,
+    double last2, std::string& error)
+{
+    gp_Pnt point;
+    if (!edgesShareCorner(edge1, curve1, first1, last1, edge2, curve2, first2, last2, point)) {
+        error = "Edges must share a common vertex";
+        return std::nullopt;
+    }
+
+    double param1 = 0.0;
+    double param2 = 0.0;
+    if (!cornerParameter(curve1, first1, last1, point, param1)
+        || !cornerParameter(curve2, first2, last2, point, param2)) {
+        error = "Edges must be Line or Circle";
+        return std::nullopt;
+    }
+
+    gp_Pnt onCurve1;
+    gp_Pnt onCurve2;
+    gp_Vec tangent1;
+    gp_Vec tangent2;
+    curve1->D1(param1, onCurve1, tangent1);
+    curve2->D1(param2, onCurve2, tangent2);
+    if (tangent1.Magnitude() <= Precision::Confusion() || tangent2.Magnitude() <= Precision::Confusion()) {
+        error = "Edges must be Line or Circle";
+        return std::nullopt;
+    }
+    tangent1.Normalize();
+    tangent2.Normalize();
+
+    gp_Vec cross = tangent1.Crossed(tangent2);
+    if (cross.Magnitude() <= Precision::Angular()) {
+        error = "Edges must not be tangent";
+        return std::nullopt;
+    }
+
+    // The plane's normal follows the circular edge's own axis. ChFi2d's analytical
+    // algorithm turns its 2D tangents by that circle's own orientation, so a plane flipped
+    // against the circle mirrors the coordinates and its result fails; the tangents' cross
+    // product describes the same plane but may pick the flipped side.
+    gp_Dir normal;
+    if (auto circle = Handle(Geom_Circle)::DownCast(curve1))
+        normal = circle->Circ().Axis().Direction();
+    else if (auto circle = Handle(Geom_Circle)::DownCast(curve2))
+        normal = circle->Circ().Axis().Direction();
+    else
+        normal = gp_Dir(cross);
+
+    gp_Pln plane(point, normal);
+    if (!curveOnPlane(curve1, first1, last1, plane) || !curveOnPlane(curve2, first2, last2, plane)) {
+        error = "Edges must be coplanar";
+        return std::nullopt;
+    }
+    // One vertex shared by both rebuilt edges: ChFi2d joins them into a wire internally, and
+    // a wire only connects edges whose vertices are the same TShape. Two independent edge
+    // bodies do not share one.
+    return CornerPlane { point, gp_Dir(normal), param1, param2, BRepBuilderAPI_MakeVertex(point) };
+}
+
 // Compute the corner reference point and the plane for a 2D fillet/chamfer between two
-// edges. Only straight edges are supported: they must be coplanar and non-parallel, and
-// the corner is the intersection of their support lines, which need not lie on the
-// edges themselves.
+// edges. Two straight edges keep their support-line corner, which need not lie on the
+// edges themselves; any corner involving a circular edge is a point the two edges share.
+// Either way the edges must be coplanar and leave an angle.
 static std::optional<CornerPlane> computeCornerPlane(const TopoDS_Edge& edge1, const TopoDS_Edge& edge2,
     std::string& error)
 {
-    double f, l;
-    Handle(Geom_Line) line1 = Handle(Geom_Line)::DownCast(basisCurve(edge1, f, l));
-    Handle(Geom_Line) line2 = Handle(Geom_Line)::DownCast(basisCurve(edge2, f, l));
-    if (line1.IsNull() || line2.IsNull()) {
-        error = "Edges must be Line";
+    double first1, last1, first2, last2;
+    Handle(Geom_Curve) curve1 = basisCurve(edge1, first1, last1);
+    Handle(Geom_Curve) curve2 = basisCurve(edge2, first2, last2);
+    if (curve1.IsNull() || curve2.IsNull() || !isCornerCurve(curve1) || !isCornerCurve(curve2)) {
+        error = "Edges must be Line or Circle";
         return std::nullopt;
     }
+
+    Handle(Geom_Line) line1 = Handle(Geom_Line)::DownCast(curve1);
+    Handle(Geom_Line) line2 = Handle(Geom_Line)::DownCast(curve2);
+    if (line1.IsNull() || line2.IsNull())
+        return curvedCorner(edge1, curve1, first1, last1, edge2, curve2, first2, last2, error);
 
     gp_Vec d1(line1->Lin().Direction());
     gp_Vec d2(line2->Lin().Direction());
@@ -681,6 +889,19 @@ static TopoDS_Edge edgeThroughCorner(const Handle(Geom_Curve) & basis, double fi
     return BRepBuilderAPI_MakeEdge(basis, std::min(first, p), std::max(last, p)).Edge();
 }
 
+// The edge rebuilt with the shared corner vertex at one end and a fresh vertex at the far
+// endpoint. ChFi2d joins the two edges into a wire internally, which only works when their
+// common vertex is the same TShape.
+static TopoDS_Edge edgeFromCorner(const Handle(Geom_Curve) & basis, double first, double last,
+    double cornerParam, const TopoDS_Vertex& cornerVertex)
+{
+    bool cornerAtStart = std::abs(cornerParam - first) <= std::abs(cornerParam - last);
+    double farParam = cornerAtStart ? last : first;
+    TopoDS_Vertex farVertex = BRepBuilderAPI_MakeVertex(basis->Value(farParam));
+    return cornerAtStart ? BRepBuilderAPI_MakeEdge(basis, cornerVertex, farVertex).Edge()
+                         : BRepBuilderAPI_MakeEdge(basis, farVertex, cornerVertex).Edge();
+}
+
 // Endpoints of an edge, evaluated on its underlying curve.
 static void edgeEndPoints(const TopoDS_Edge& edge, gp_Pnt& start, gp_Pnt& end)
 {
@@ -690,18 +911,37 @@ static void edgeEndPoints(const TopoDS_Edge& edge, gp_Pnt& start, gp_Pnt& end)
     end = curve->Value(last);
 }
 
+// Whether a trimmed fillet neighbour keeps its tangent point on the original edge. The
+// algorithm also finds a symmetric solution on the other side of a circular edge, and only
+// one of the two lies on the arc the user picked.
+static bool trimOnEdge(const TopoDS_Edge& trimmed, const Handle(Geom_Curve) & basis, double first,
+    double last, const gp_Pnt& corner)
+{
+    gp_Pnt start, end;
+    edgeEndPoints(trimmed, start, end);
+    const gp_Pnt& tangent = start.Distance(corner) <= end.Distance(corner) ? start : end;
+    return pointOnEdgeWindow(basis, first, last, tangent);
+}
+
 // ChFi2d may trim either side of the corner, so the kept side is rebuilt
 // deterministically: from the fillet tangent point (whichever arc endpoint lies on this
-// curve) to the end of the edge farthest from the corner.
+// curve) to the end of the edge farthest from the corner. The far end is chosen by actual
+// distance, because a circle's parameter is an angle, not a length.
 static TopoDS_Edge edgeToFarEnd(const Handle(Geom_Curve) & basis, double first, double last,
     double cornerParam, const gp_Pnt& arcStart, const gp_Pnt& arcEnd)
 {
     GeomAPI_ProjectPointOnCurve fromStart(arcStart, basis);
     GeomAPI_ProjectPointOnCurve fromEnd(arcEnd, basis);
-    double tangent = fromStart.LowerDistance() <= fromEnd.LowerDistance()
-        ? fromStart.LowerDistanceParameter()
-        : fromEnd.LowerDistanceParameter();
-    double farEnd = cornerParam - first >= last - cornerParam ? first : last;
+    if (fromStart.NbPoints() == 0 || fromEnd.NbPoints() == 0)
+        return TopoDS_Edge();
+
+    const gp_Pnt& tangentPoint = fromStart.LowerDistance() <= fromEnd.LowerDistance() ? arcStart : arcEnd;
+    double tangent = 0.0;
+    if (!cornerParameter(basis, first, last, tangentPoint, tangent))
+        return TopoDS_Edge();
+
+    const gp_Pnt corner = basis->Value(cornerParam);
+    double farEnd = corner.Distance(basis->Value(first)) >= corner.Distance(basis->Value(last)) ? first : last;
     return BRepBuilderAPI_MakeEdge(basis, std::min(tangent, farEnd), std::max(tangent, farEnd)).Edge();
 }
 
@@ -3850,16 +4090,46 @@ public:
         double f1, l1, f2, l2;
         Handle(Geom_Curve) c1 = basisCurve(edge1, f1, l1);
         Handle(Geom_Curve) c2 = basisCurve(edge2, f2, l2);
-        TopoDS_Edge e1 = edgeThroughCorner(c1, f1, l1, corner->param1);
-        TopoDS_Edge e2 = edgeThroughCorner(c2, f2, l2, corner->param2);
+        TopoDS_Edge e1 = corner->cornerVertex.IsNull()
+            ? edgeThroughCorner(c1, f1, l1, corner->param1)
+            : edgeFromCorner(c1, f1, l1, corner->param1, corner->cornerVertex);
+        TopoDS_Edge e2 = corner->cornerVertex.IsNull()
+            ? edgeThroughCorner(c2, f2, l2, corner->param2)
+            : edgeFromCorner(c2, f2, l2, corner->param2, corner->cornerVertex);
 
         gp_Pln plane(corner->point, corner->normal);
-        ChFi2d_FilletAPI fillet(e1, e2, plane);
-        if (!fillet.Perform(radius)) {
-            return ShapesResult { ShapeArray(val::array()), false, "Failed to create 2D fillet" };
-        }
         TopoDS_Edge newE1, newE2;
-        TopoDS_Edge filletEdge = fillet.Result(corner->point, newE1, newE2);
+        TopoDS_Edge filletEdge;
+        if (corner->cornerVertex.IsNull()) {
+            ChFi2d_FilletAPI fillet(e1, e2, plane);
+            if (!fillet.Perform(radius)) {
+                return ShapesResult { ShapeArray(val::array()), false, "Failed to create 2D fillet" };
+            }
+            filletEdge = fillet.Result(corner->point, newE1, newE2);
+        } else {
+            // A circular corner has several tangent solutions — one on each side of the
+            // circle — and the analytical algorithm only offers one. The iterative one
+            // enumerates them; keep the one whose tangent points stay on the picked arcs.
+            ChFi2d_FilletAlgo fillet(e1, e2, plane);
+            if (!fillet.Perform(radius)) {
+                return ShapesResult { ShapeArray(val::array()), false, "Failed to create 2D fillet" };
+            }
+            int count = fillet.NbResults(corner->point);
+            for (int i = 1; i <= count && filletEdge.IsNull(); i++) {
+                TopoDS_Edge candidate1, candidate2;
+                TopoDS_Edge candidate = fillet.Result(corner->point, candidate1, candidate2, i);
+                if (candidate.IsNull())
+                    continue;
+                if (trimOnEdge(candidate1, c1, f1, l1, corner->point)
+                    && trimOnEdge(candidate2, c2, f2, l2, corner->point)) {
+                    filletEdge = candidate;
+                    newE1 = candidate1;
+                    newE2 = candidate2;
+                }
+            }
+            if (filletEdge.IsNull())
+                filletEdge = fillet.Result(corner->point, newE1, newE2);
+        }
         if (filletEdge.IsNull()) {
             return ShapesResult { ShapeArray(val::array()), false, "Failed to get fillet result" };
         }
@@ -3868,6 +4138,9 @@ public:
         edgeEndPoints(filletEdge, arcStart, arcEnd);
         newE1 = edgeToFarEnd(c1, f1, l1, corner->param1, arcStart, arcEnd);
         newE2 = edgeToFarEnd(c2, f2, l2, corner->param2, arcStart, arcEnd);
+        if (newE1.IsNull() || newE2.IsNull()) {
+            return ShapesResult { ShapeArray(val::array()), false, "Failed to get fillet result" };
+        }
 
         return ShapesResult { ShapeArray(buildEdgeTriple(newE1, filletEdge, newE2)), true, "" };
     }
@@ -3895,15 +4168,24 @@ public:
         Handle(Geom_Curve) c1 = basisCurve(edge1, f1, l1);
         Handle(Geom_Curve) c2 = basisCurve(edge2, f2, l2);
 
-        // for a line the parameter measures arc length, so the cut is at corner +/- distance
-        double p1 = GeomAPI_ProjectPointOnCurve(corner->point, c1).LowerDistanceParameter();
-        double p2 = GeomAPI_ProjectPointOnCurve(corner->point, c2).LowerDistanceParameter();
+        // The distance is measured along the edge: a line's parameter is a length, a
+        // circle's is an angle, so the same distance lands at a different parameter step.
+        double step1 = 0.0;
+        double step2 = 0.0;
+        if (!cornerParameterStep(c1, distance, step1) || !cornerParameterStep(c2, distance, step2)) {
+            return ShapesResult { ShapeArray(val::array()), false, "Edges must be Line or Circle" };
+        }
 
+        double p1 = corner->param1;
+        double p2 = corner->param2;
         // keep the side of the corner that contains the edge midpoint
-        double cut1 = p1 + ((f1 + l1) / 2 > p1 ? distance : -distance);
-        double cut2 = p2 + ((f2 + l2) / 2 > p2 ? distance : -distance);
+        double cut1 = p1 + ((f1 + l1) / 2 > p1 ? step1 : -step1);
+        double cut2 = p2 + ((f2 + l2) / 2 > p2 ? step2 : -step2);
         double end1 = cut1 > p1 ? l1 : f1;
         double end2 = cut2 > p2 ? l2 : f2;
+        if (!cutWithinEdge(c1, cut1, f1, l1, end1) || !cutWithinEdge(c2, cut2, f2, l2, end2)) {
+            return ShapesResult { ShapeArray(val::array()), false, "The chamfer distance is too large" };
+        }
 
         TopoDS_Edge newE1 = BRepBuilderAPI_MakeEdge(c1, std::min(cut1, end1), std::max(cut1, end1)).Edge();
         TopoDS_Edge newE2 = BRepBuilderAPI_MakeEdge(c2, std::min(cut2, end2), std::max(cut2, end2)).Edge();

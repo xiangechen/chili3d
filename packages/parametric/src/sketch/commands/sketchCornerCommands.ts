@@ -10,16 +10,23 @@ import {
     property,
     type Result,
 } from "@chili3d/core";
-import { applyCornerOps, type CornerOptions, findCorners, type SketchCorner } from "../cornerOps";
+import {
+    applyCornerOps,
+    type CornerOptions,
+    findCorners,
+    isCornerEntity,
+    type SketchCorner,
+} from "../cornerOps";
 import type { SketchEditor } from "../editor/sketchEditor";
 import { displaySketchError } from "../sketchError";
 import { SketchConstraintCommand } from "./sketchConstraints";
 
 /**
- * Rounds or cuts the corners of every selected line pair. A pre-existing selection of
- * two or more lines is converted in one commit and the command ends; with nothing
- * selected it picks two lines at a time until ESC — the same shape as
- * `sketch.toggleConstruction`, and what makes box-selecting a profile's edges work.
+ * Rounds or cuts the corners of every selected edge pair — lines and arcs alike. A
+ * pre-existing selection of two or more edges is converted in one commit and the
+ * command ends; with nothing selected it picks two edges at a time until ESC — the same
+ * shape as `sketch.toggleConstruction`, and what makes box-selecting a profile's edges
+ * work.
  */
 abstract class SketchCornerCommand extends SketchConstraintCommand {
     /** Which corner op this is — the corner pre-flight is op-aware (see `findCorners`). */
@@ -31,26 +38,26 @@ abstract class SketchCornerCommand extends SketchConstraintCommand {
     protected abstract optionsFor(value: number): CornerOptions;
 
     protected async executeWithEditor(editor: SketchEditor): Promise<void> {
-        const selected = editor.selectedEntityIds().filter((id) => editor.solver.entity(id)?.type === "line");
+        const selected = editor.selectedEntityIds().filter((id) => isCornerEntity(editor.solver.entity(id)));
         if (selected.length >= 2) {
             this.applyCorners(editor, this.cornersOf(editor, selected));
             // the highlight would keep claiming a selection the command consumed
             editor.clearEntitySelection();
             return;
         }
-        // a lone selected line is the first half of the pair, not something to drop
+        // a lone selected edge is the first half of the pair, not something to drop
         await this.pickLoop(editor, selected);
     }
 
-    /** Corners among the picked lines, reporting why a valid-looking pick found none. */
-    private cornersOf(editor: SketchEditor, lineIds: readonly number[]): SketchCorner[] | undefined {
-        const found = findCorners(editor.solver, lineIds, cornerTolerance(editor), this.method);
+    /** Corners among the picked edges, reporting why a valid-looking pick found none. */
+    private cornersOf(editor: SketchEditor, entityIds: readonly number[]): SketchCorner[] | undefined {
+        const found = findCorners(editor.solver, entityIds, cornerTolerance(editor), this.method);
         if (!found.isOk) {
             PubSub.default.pub("displayValidation", found.error);
             return undefined;
         }
         if (found.value.length === 0) {
-            PubSub.default.pub("displayValidation", "The picked lines do not share an endpoint");
+            PubSub.default.pub("displayValidation", "The picked edges do not share an endpoint");
             return undefined;
         }
         return found.value;
@@ -88,32 +95,37 @@ abstract class SketchCornerCommand extends SketchConstraintCommand {
 
     /**
      * Picks edges until ESC, starting from `initial` — what was already selected when
-     * the command was invoked. A click yields one line and keeps it for the next click,
+     * the command was invoked. A click yields one edge and keeps it for the next click,
      * a rubber-band box yields its whole set at once; either way every corner among
-     * the lines gathered so far is converted as soon as there are two. Each round
+     * the edges gathered so far is converted as soon as there are two. Each round
      * commits on its own, so the result shows as it is picked.
      */
     private async pickLoop(editor: SketchEditor, initial: readonly number[]): Promise<void> {
         let pending: number[] = [...initial];
         while (true) {
-            const picked = await this.pickLines(editor);
+            const picked = await this.pickEdges(editor);
             if (picked === undefined) return;
-            const lines = [...new Set([...pending, ...picked])];
-            if (lines.length < 2) {
-                pending = lines;
+            const edges = [...new Set([...pending, ...picked])];
+            if (edges.length < 2) {
+                pending = edges;
                 continue;
             }
             pending = [];
-            this.applyCorners(editor, this.cornersOf(editor, lines));
+            this.applyCorners(editor, this.cornersOf(editor, edges));
             // a box leaves its catch highlighted; the click path selects nothing
             editor.clearEntitySelection();
         }
     }
 
-    /** One edge pick: a click answers with the line under the cursor, a box with everything it crossed. */
-    private async pickLines(editor: SketchEditor): Promise<number[] | undefined> {
+    /** One edge pick: a click answers with the edge under the cursor, a box with everything it crossed. */
+    private async pickEdges(editor: SketchEditor): Promise<number[] | undefined> {
         this.controller = new AsyncController();
-        const ids = await editor.pickEntities("prompt.pickSketchEntity", "line", undefined, this.controller);
+        const ids = await editor.pickEntities(
+            "prompt.pickSketchEntity",
+            ["line", "arc"],
+            undefined,
+            this.controller,
+        );
         this.controller.dispose();
         return ids;
     }

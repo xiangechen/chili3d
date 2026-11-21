@@ -322,6 +322,46 @@ describe("SketchFilletCommand", () => {
     });
 });
 
+test("rounds a corner whose second edge is an arc", async () => {
+    const editor = fakeEditor();
+    try {
+        const line = editor.solver.addLine(0, 0, 10, 0);
+        const arc = editor.solver.addArc(5, 0, 10, 0, 5, 5);
+        editor.solver.addConstraint({
+            kind: ConstraintKind.P2PCoincident,
+            refs: [ref(line, 1), ref(arc, 1)],
+        });
+        editor.selection.add(line);
+        editor.selection.add(arc);
+
+        await runCommand(fillet(1), editor);
+
+        expect(arcsOf(editor).length).toBe(2);
+        expect(editor.commit).toHaveBeenCalledTimes(1);
+        expect(editor.selectedEntityIds()).toEqual([]);
+    } finally {
+        editor.solver.dispose();
+    }
+});
+
+test("offers lines and arcs when it picks edges", async () => {
+    const editor = fakeEditor();
+    try {
+        const [l1, l2] = corner(editor);
+        editor.entityQueue.push(l1, l2);
+
+        await runCommand(fillet(2), editor);
+
+        // two answers plus the abort that ends the loop
+        expect(editor.pickEntities.mock.calls.length).toBeGreaterThanOrEqual(2);
+        for (const call of editor.pickEntities.mock.calls) {
+            expect(call[1]).toEqual(["line", "arc"]);
+        }
+    } finally {
+        editor.solver.dispose();
+    }
+});
+
 describe("SketchChamferCommand", () => {
     test("cuts a selected corner and pins the trimmed lengths", async () => {
         const editor = fakeEditor();

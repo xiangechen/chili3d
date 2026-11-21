@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
+    CurveUtils,
     type IEdge,
     type IFace,
     type IShape,
@@ -791,46 +792,47 @@ describe("ShapeFactory — operations", () => {
             expect(() => factory.sweep([fakeShape], pathWire, false)).toThrow();
         });
 
-        test.each([
-            false,
-            true,
-        ])("should sweep a circular profile along a straight path (isRound=%s)", (isRound) => {
-            const profile = unwrapOk(factory.wire([unwrapOk(factory.circle(XYZ.unitZ, XYZ.zero, 2))]));
-            const path = unwrapOk(
-                factory.wire([unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 0, y: 0, z: 10 })))]),
-            );
-            const result = factory.sweep([profile], path, isRound);
-            expect(result.isOk).toBe(true);
-            const shape = result.value;
-            expect(shape.shapeType).toBe(ShapeTypes.solid);
-            expect(shape.findSubShapes(ShapeTypes.face).length).toBe(3);
-            const solid = shape.findSubShapes(ShapeTypes.solid)[0] as unknown as OccSolid;
-            // A radius-2 circle swept 10 along its normal is a cylinder
-            expect(solid.volume()).toBeCloseTo(Math.PI * 2 * 2 * 10, 6);
-        });
+        test.each([false, true])(
+            "should sweep a circular profile along a straight path (isRound=%s)",
+            (isRound) => {
+                const profile = unwrapOk(factory.wire([unwrapOk(factory.circle(XYZ.unitZ, XYZ.zero, 2))]));
+                const path = unwrapOk(
+                    factory.wire([unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 0, y: 0, z: 10 })))]),
+                );
+                const result = factory.sweep([profile], path, isRound);
+                expect(result.isOk).toBe(true);
+                const shape = result.value;
+                expect(shape.shapeType).toBe(ShapeTypes.solid);
+                expect(shape.findSubShapes(ShapeTypes.face).length).toBe(3);
+                const solid = shape.findSubShapes(ShapeTypes.solid)[0] as unknown as OccSolid;
+                // A radius-2 circle swept 10 along its normal is a cylinder
+                expect(solid.volume()).toBeCloseTo(Math.PI * 2 * 2 * 10, 6);
+            },
+        );
 
         test.each([
             { isRound: false, faces: 4, volume: Math.PI * 20 },
             { isRound: true, faces: 5, volume: 62.5457 },
-        ])("should sweep a profile along an L-shaped path (isRound=$isRound)", ({
-            isRound,
-            faces,
-            volume,
-        }) => {
-            const profile = unwrapOk(factory.wire([unwrapOk(factory.circle(XYZ.unitZ, XYZ.zero, 1))]));
-            const path = unwrapOk(
-                factory.wire([
-                    unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 0, y: 0, z: 10 }))),
-                    unwrapOk(factory.line(new XYZ({ x: 0, y: 0, z: 10 }), new XYZ({ x: 10, y: 0, z: 10 }))),
-                ]),
-            );
-            const result = factory.sweep([profile], path, isRound);
-            expect(result.isOk).toBe(true);
-            const shape = result.value;
-            expect(shape.findSubShapes(ShapeTypes.face).length).toBe(faces);
-            const solid = shape.findSubShapes(ShapeTypes.solid)[0] as unknown as OccSolid;
-            expect(solid.volume()).toBeCloseTo(volume, 3);
-        });
+        ])(
+            "should sweep a profile along an L-shaped path (isRound=$isRound)",
+            ({ isRound, faces, volume }) => {
+                const profile = unwrapOk(factory.wire([unwrapOk(factory.circle(XYZ.unitZ, XYZ.zero, 1))]));
+                const path = unwrapOk(
+                    factory.wire([
+                        unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 0, y: 0, z: 10 }))),
+                        unwrapOk(
+                            factory.line(new XYZ({ x: 0, y: 0, z: 10 }), new XYZ({ x: 10, y: 0, z: 10 })),
+                        ),
+                    ]),
+                );
+                const result = factory.sweep([profile], path, isRound);
+                expect(result.isOk).toBe(true);
+                const shape = result.value;
+                expect(shape.findSubShapes(ShapeTypes.face).length).toBe(faces);
+                const solid = shape.findSubShapes(ShapeTypes.solid)[0] as unknown as OccSolid;
+                expect(solid.volume()).toBeCloseTo(volume, 3);
+            },
+        );
     });
 
     describe("loft", () => {
@@ -1511,22 +1513,22 @@ describe("ShapeFactory — advanced operations", () => {
             { mode: "skin", intersection: false },
             { mode: "pipe", intersection: false },
             { mode: "rectoVerso", intersection: true },
-        ] as const)("should create a thick solid with $mode mode, intersection=$intersection", ({
-            mode,
-            intersection,
-        }) => {
-            const box = factory.box(plane, 10, 10, 10).value;
-            const faces = box.findSubShapes(ShapeTypes.face);
-            const thickJoinResult = factory.makeThickSolidByJoin(
-                box,
-                [faces[0] as IFace],
-                0.5,
-                "arc",
-                mode,
-                intersection,
-            );
-            expect(thickJoinResult.isOk).toBe(true);
-        });
+        ] as const)(
+            "should create a thick solid with $mode mode, intersection=$intersection",
+            ({ mode, intersection }) => {
+                const box = factory.box(plane, 10, 10, 10).value;
+                const faces = box.findSubShapes(ShapeTypes.face);
+                const thickJoinResult = factory.makeThickSolidByJoin(
+                    box,
+                    [faces[0] as IFace],
+                    0.5,
+                    "arc",
+                    mode,
+                    intersection,
+                );
+                expect(thickJoinResult.isOk).toBe(true);
+            },
+        );
     });
 
     describe("curveProjection", () => {
@@ -1826,6 +1828,42 @@ describe("ShapeFactory — 2D fillet & chamfer", () => {
         };
     };
 
+    /** A closed profile whose lower straight edge runs into a quarter arc at (15, 0). */
+    const lineArcFace = () => {
+        const line = unwrapOk(factory.line(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 15, y: 0, z: 0 })));
+        const arc = unwrapOk(
+            factory.arc(XYZ.unitZ, new XYZ({ x: 10, y: 0, z: 0 }), new XYZ({ x: 15, y: 0, z: 0 }), 90),
+        );
+        const up = unwrapOk(factory.line(new XYZ({ x: 10, y: 5, z: 0 }), new XYZ({ x: 10, y: 10, z: 0 })));
+        const top = unwrapOk(factory.line(new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 0, y: 10, z: 0 })));
+        const left = unwrapOk(factory.line(new XYZ({ x: 0, y: 10, z: 0 }), new XYZ({ x: 0, y: 0, z: 0 })));
+        return unwrapOk(factory.face([unwrapOk(factory.wire([line, arc, up, top, left]))]));
+    };
+
+    /** The arc of that face and the straight edge meeting it at the corner. */
+    const lineArcCorner = (face: IFace) => {
+        const edges = face.findSubShapes(ShapeTypes.edge) as IEdge[];
+        const arc = edges.find((e) => CurveUtils.isCircle(e.curve.basisCurve));
+        const line = edges.find(
+            (e) =>
+                !CurveUtils.isCircle(e.curve.basisCurve) && e.startPoint().y < 1e-6 && e.endPoint().y < 1e-6,
+        );
+        if (arc === undefined || line === undefined) {
+            throw new Error("the fixture has no line-to-arc corner");
+        }
+        return { arc, line };
+    };
+
+    /** A crescent whose two quarter arcs meet at (10, 0). */
+    const arcArcFace = () => {
+        const arc1 = unwrapOk(factory.arc(XYZ.unitZ, XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }), 90));
+        const top = unwrapOk(factory.line(new XYZ({ x: 0, y: 10, z: 0 }), new XYZ({ x: 20, y: 10, z: 0 })));
+        const arc2 = unwrapOk(
+            factory.arc(XYZ.unitZ, new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 20, y: 10, z: 0 }), -90),
+        );
+        return unwrapOk(factory.face([unwrapOk(factory.wire([arc1, top, arc2]))]));
+    };
+
     describe("fillet2d", () => {
         test("should create a 2D fillet on a rect face", () => {
             const rect = factory.rect(plane, 10, 10).value as IFace;
@@ -1852,6 +1890,26 @@ describe("ShapeFactory — 2D fillet & chamfer", () => {
             expect(result.isOk).toBe(false);
             expect(result.error).toBe("Edges must share a common vertex");
         });
+
+        test("should fillet a line-to-arc corner on a face", () => {
+            const face = lineArcFace();
+            const { arc, line } = lineArcCorner(face);
+            const result = factory.fillet2d(face, line, arc, 1);
+            expect(result.isOk).toBe(true);
+            // the two neighbours are replaced by their trims plus the round
+            expect(result.value.findSubShapes(ShapeTypes.edge).length).toBe(6);
+        });
+
+        test("should fillet an arc-to-arc corner on a face", () => {
+            const face = arcArcFace();
+            const arcs = (face.findSubShapes(ShapeTypes.edge) as IEdge[]).filter((e) =>
+                CurveUtils.isCircle(e.curve.basisCurve),
+            );
+            expect(arcs).toHaveLength(2);
+            const result = factory.fillet2d(face, arcs[0], arcs[1], 1);
+            expect(result.isOk).toBe(true);
+            expect(result.value.findSubShapes(ShapeTypes.edge).length).toBe(4);
+        });
     });
 
     describe("chamfer2d", () => {
@@ -1877,6 +1935,15 @@ describe("ShapeFactory — 2D fillet & chamfer", () => {
             const result = factory.chamfer2d(face, edge1, edge2, 2);
             expect(result.isOk).toBe(false);
             expect(result.error).toBe("Failed to create 2D chamfer");
+        });
+
+        test("should chamfer a line-to-arc corner on a face", () => {
+            const face = lineArcFace();
+            const { arc, line } = lineArcCorner(face);
+            const result = factory.chamfer2d(face, line, arc, 1);
+            expect(result.isOk).toBe(true);
+            // the two neighbours are replaced by their trims plus the chamfer strip
+            expect((result.value as IFace).findSubShapes(ShapeTypes.edge).length).toBe(6);
         });
     });
 
@@ -1997,12 +2064,84 @@ describe("ShapeFactory — 2D fillet & chamfer", () => {
             expect(result.error).toBe("Edges must be coplanar");
         });
 
-        test("should return error when edges are not line", () => {
-            const edge1 = factory.circle(XYZ.unitZ, XYZ.zero, 5).value;
-            const edge2 = factory.circle(XYZ.unitZ, new XYZ({ x: 20, y: 0, z: 0 }), 5).value;
-            const result = factory.filletEdge2d(edge1, edge2, 2);
+        test.each([
+            { arcFirst: false, expected: [8.873, 1.8235, 6.5906] },
+            { arcFirst: true, expected: [6.5906, 1.8235, 8.873] },
+        ])("should fillet a line and an arc (arc first: $arcFirst)", ({ arcFirst, expected }) => {
+            const line = unwrapOk(
+                factory.line(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            );
+            const arc = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 5, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const result = arcFirst ? factory.filletEdge2d(arc, line, 1) : factory.filletEdge2d(line, arc, 1);
+            expect(result.isOk).toBe(true);
+            const edges = result.value as unknown as OccEdge[];
+            expect(edges).toHaveLength(3);
+            // the input order only swaps which side is reported first; the round is tangent
+            // to the line 1.127 from the corner and to the arc 1.25 along it
+            for (let i = 0; i < expected.length; i++) {
+                expect(edges[i].length()).toBeCloseTo(expected[i], 3);
+            }
+            expect(CurveUtils.isCircle(edges[1].curve.basisCurve)).toBe(true);
+        });
+
+        test("should fillet two arcs that meet at a corner", () => {
+            const arc1 = unwrapOk(factory.arc(XYZ.unitZ, XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }), 90));
+            const arc2 = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const result = factory.filletEdge2d(arc1, arc2, 1);
+            expect(result.isOk).toBe(true);
+            const edges = result.value as unknown as OccEdge[];
+            expect(edges).toHaveLength(3);
+            // both neighbours shrink from the 15.708 mm quarter arc they started as
+            expect(edges[0].length()).toBeCloseTo(14.7517, 3);
+            expect(CurveUtils.isCircle(edges[1].curve.basisCurve)).toBe(true);
+            expect(edges[2].length()).toBeCloseTo(14.6507, 3);
+        });
+
+        test("should return error when edges are tangent", () => {
+            const line = unwrapOk(
+                factory.line(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            );
+            const arc = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 10, y: 5, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const result = factory.filletEdge2d(line, arc, 1);
             expect(result.isOk).toBe(false);
-            expect(result.error).toBe("Edges must be Line");
+            expect(result.error).toBe("Edges must not be tangent");
+        });
+
+        test("should return error when a circular edge does not meet the other", () => {
+            const line = unwrapOk(
+                factory.line(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            );
+            const arc = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 20, y: 0, z: 0 }), new XYZ({ x: 25, y: 0, z: 0 }), 90),
+            );
+            const result = factory.filletEdge2d(line, arc, 1);
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("Edges must share a common vertex");
+        });
+
+        test("should return error when an edge is neither line nor circle", () => {
+            const bspline = unwrapOk(
+                factory.bspline(
+                    [
+                        { x: 0, y: 0, z: 0 },
+                        { x: 5, y: 5, z: 0 },
+                        { x: 10, y: 0, z: 0 },
+                    ],
+                    undefined,
+                    [0, 0, 0, 1, 1, 1],
+                    2,
+                ),
+            );
+            const line = unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 10, y: 10, z: 0 })));
+            const result = factory.filletEdge2d(line, bspline, 2);
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("Edges must be Line or Circle");
         });
     });
 
@@ -2104,6 +2243,68 @@ describe("ShapeFactory — 2D fillet & chamfer", () => {
             const result = factory.chamferEdge2d(edge1, edge2, 2);
             expect(result.isOk).toBe(false);
             expect(result.error).toBe("Edges must be coplanar");
+        });
+
+        test("should chamfer a line into an arc along each edge", () => {
+            const line = unwrapOk(
+                factory.line(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            );
+            const arc = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 5, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const result = factory.chamferEdge2d(line, arc, 1);
+            expect(result.isOk).toBe(true);
+            const edges = result.value as unknown as OccEdge[];
+            expect(edges).toHaveLength(3);
+            // the straight side loses 1 mm; the arc loses 1 mm of arc length, not 1 radian
+            expect(edges[0].length()).toBeCloseTo(9, 3);
+            expect(edges[2].length()).toBeCloseTo((Math.PI / 2) * 5 - 1, 3);
+            expect(CurveUtils.isCircle(edges[2].curve.basisCurve)).toBe(true);
+        });
+
+        test("should chamfer two arcs that meet at a corner", () => {
+            const arc1 = unwrapOk(factory.arc(XYZ.unitZ, XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 }), 90));
+            const arc2 = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 10, y: 10, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const result = factory.chamferEdge2d(arc1, arc2, 1);
+            expect(result.isOk).toBe(true);
+            const edges = result.value as unknown as OccEdge[];
+            expect(edges).toHaveLength(3);
+            // both 15.708 mm quarter arcs lose exactly 1 mm of arc length
+            expect(edges[0].length()).toBeCloseTo((Math.PI / 2) * 10 - 1, 3);
+            expect(edges[2].length()).toBeCloseTo((Math.PI / 2) * 10 - 1, 3);
+            expect(CurveUtils.isLine(edges[1].curve.basisCurve)).toBe(true);
+        });
+
+        test("should return error when the distance does not fit on a circular edge", () => {
+            const line = unwrapOk(
+                factory.line(new XYZ({ x: 0, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 })),
+            );
+            const arc = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 5, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const result = factory.chamferEdge2d(line, arc, 8);
+            expect(result.isOk).toBe(false);
+            expect(result.error).toBe("The chamfer distance is too large");
+        });
+
+        test("should refuse a distance that consumes a whole edge", () => {
+            // Exactly the edge's own length leaves no edge behind: MakeEdge(p, p) would raise
+            // on the line and silently become the full circle on the arc.
+            const line1 = unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 })));
+            const line2 = unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 0, y: 10, z: 0 })));
+            const onLine = factory.chamferEdge2d(line1, line2, 10);
+            expect(onLine.isOk).toBe(false);
+            expect(onLine.error).toBe("The chamfer distance is too large");
+
+            const line = unwrapOk(factory.line(XYZ.zero, new XYZ({ x: 10, y: 0, z: 0 })));
+            const arc = unwrapOk(
+                factory.arc(XYZ.unitZ, new XYZ({ x: 5, y: 0, z: 0 }), new XYZ({ x: 10, y: 0, z: 0 }), 90),
+            );
+            const onArc = factory.chamferEdge2d(line, arc, (Math.PI / 2) * 5);
+            expect(onArc.isOk).toBe(false);
+            expect(onArc.error).toBe("The chamfer distance is too large");
         });
     });
 });
