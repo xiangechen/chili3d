@@ -4,14 +4,17 @@
 import {
     type I18nKeys,
     type IDocument,
+    type INode,
     type IShape,
     type IShapeFactory,
+    isInstanceNode,
     Matrix4,
     Result,
     ShapeNode,
     ShapeTypes,
     type TrackedShape,
 } from "@chili3d/core";
+import { type IBodyTimelineNode, isBodyTimelineNode } from "./bodyTracking";
 import {
     type BooleanFeatureData,
     type BooleanOperation,
@@ -22,7 +25,7 @@ import {
     registerFeature,
     trackedAncestors,
 } from "./feature";
-import { bornEdgeIdMap, mapBooleanIds } from "./operationIds";
+import { type BooleanToolInput, bornEdgeIdMap, mapBooleanIds } from "./operationIds";
 
 const DISPLAYS: Record<BooleanOperation, I18nKeys> = {
     fuse: "command.feature.fuse",
@@ -66,7 +69,7 @@ const booleanHandler: FeatureHandler<BooleanFeatureData> = {
         const toolShapes = toolShapesInHostSpace(tools, context.host);
         // `transformedMul` copies are intermediate inputs — the kernel reads them
         // eagerly, so dispose them once the operation returns.
-        const owned = toolShapes.filter((x, i) => x !== tools[i].shape.unchecked());
+        const owned = toolShapes.filter((shape, index) => shape !== tools[index].shape);
         try {
             if (context.tracking !== undefined && tracked !== undefined) {
                 return evaluateTracked(context, tools, toolShapes, tracked);
@@ -91,15 +94,77 @@ const booleanHandler: FeatureHandler<BooleanFeatureData> = {
  * shape by hostWorld⁻¹ · toolWorld — a moved copy cuts where it is displayed, not
  * where its shape was generated. Identity mappings reuse the raw shape.
  */
-function toolShapesInHostSpace(tools: ShapeNode[], host: IShapeHost): IShape[] {
+function toolShapesInHostSpace(tools: readonly BooleanToolInput[], host: IShapeHost): IShape[] {
     const hostInvert = host.worldTransform().invert();
-    if (hostInvert === undefined) return tools.map((x) => x.shape.unchecked()!);
+    if (hostInvert === undefined) return tools.map((tool) => tool.shape);
     const identity = Matrix4.identity();
-    return tools.map((node) => {
-        const shape = node.shape.unchecked()!;
-        const matrix = hostInvert.multiply(node.worldTransform());
-        return matrix.equals(identity) ? shape : shape.transformedMul(matrix);
+    return tools.map((tool) => {
+        const matrix = hostInvert.multiply(tool.node.worldTransform());
+        return matrix.equals(identity) ? tool.shape : tool.shape.transformedMul(matrix);
     });
+}
+
+/**
+ * Captures every tool's current timeline position, rejecting a tool whose visible prefix is
+ * empty. Like sketch external refs, a capture during a rollback session intentionally records
+ * the visible preview position, including when the caller is an AI/bridge program.
+ */
+export function captureBooleanToolFeatureCounts(tools: readonly INode[]): Result<(number | null)[]> {
+    const counts: (number | null)[] = [];
+    for (const node of tools) {
+        if (!(node instanceof ShapeNode) || !node.shape.isOk) {
+            return Result.err("Boolean tool has no shape");
+        }
+        const timeline = booleanToolTimeline(node);
+        if (timeline === undefined) {
+            counts.push(null);
+            continue;
+        }
+        const position = timeline.evaluationStopIndex();
+        if (timeline.timelineStateAfter(position)?.shape === undefined) {
+            return Result.err("Boolean tool has no shape");
+        }
+        counts.push(position);
+    }
+    return Result.ok(counts);
+}
+
+function booleanToolTimeline(node: INode): IBodyTimelineNode | undefined {
+    const seen = new Set<string>();
+    let current: INode | undefined = node;
+    while (current !== undefined && !seen.has(current.id)) {
+        seen.add(current.id);
+        if (isBodyTimelineNode(current)) return current;
+        current = isInstanceNode(current) ? current.source : undefined;
+    }
+    return undefined;
+}
+
+/**
+ * Resolves the selected node to the exact shape and ids its captured timeline position names.
+ * An instance retarget keeps the ordinal anchor and interprets it against the NEW source's
+ * chain (clamped when shorter); it does not preserve the old source's timeline.
+ */
+export function resolveBooleanTool(
+    feature: BooleanFeatureData,
+    index: number,
+    node: ShapeNode,
+): Result<BooleanToolInput> {
+    const current = node.shape;
+    const timeline = booleanToolTimeline(node);
+    if (timeline === undefined) {
+        return current.isOk
+            ? Result.ok({ node, shape: current.value })
+            : Result.err("Boolean tool has no shape");
+    }
+    const captured = feature.toolFeatureCounts?.[index];
+    const position = typeof captured === "number" ? captured : timeline.evaluationStopIndex();
+    const state = timeline.timelineStateAfter(position);
+    if (state?.shape === undefined) return Result.err("Boolean tool has no shape");
+    // A feature AFTER the captured position may fail without invalidating the prefix this
+    // boolean actually reads. An unanchored tool keeps the old failure behavior.
+    if (typeof captured !== "number" && !current.isOk) return Result.err("Boolean tool has no shape");
+    return Result.ok({ node, ...state, shape: state.shape });
 }
 
 /**
@@ -111,8 +176,8 @@ function toolShapesInHostSpace(tools: ShapeNode[], host: IShapeHost): IShape[] {
 function collectTools(
     feature: BooleanFeatureData,
     document: IDocument,
-): Result<{ tools: ShapeNode[]; missing: number[] }> {
-    const tools: ShapeNode[] = [];
+): Result<{ tools: BooleanToolInput[]; missing: number[] }> {
+    const tools: BooleanToolInput[] = [];
     const missing: number[] = [];
     for (const [index, id] of feature.toolIds.entries()) {
         const node = document.modelManager.findNode((n) => n.id === id);
@@ -120,8 +185,9 @@ function collectTools(
             missing.push(index);
             continue;
         }
-        if (!node.shape.isOk) return Result.err("Boolean tool has no shape");
-        tools.push(node);
+        const tool = resolveBooleanTool(feature, index, node);
+        if (!tool.isOk) return Result.err(tool.error);
+        tools.push(tool.value);
     }
     if (tools.length === 0) return Result.err("Boolean tool not found");
     return Result.ok({ tools, missing });
@@ -142,7 +208,7 @@ export function trackedBoolean(operation: BooleanOperation): TrackedMethod | und
 
 function evaluateTracked(
     context: FeatureContext,
-    tools: ShapeNode[],
+    tools: readonly BooleanToolInput[],
     toolShapes: IShape[],
     tracked: TrackedMethod,
 ): Result<IShape> {

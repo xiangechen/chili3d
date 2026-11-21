@@ -67,6 +67,13 @@ export interface FeatureTimelineState {
 export interface IBodyTimelineNode extends IBodyTrackingNode {
     readonly featureCount: number;
     timelineStateAt(index: number): FeatureTimelineState | undefined;
+    /** Current replay stop, including either rollback mechanism — where a new reference anchors. */
+    evaluationStopIndex(): number;
+    /**
+     * Chain output after `index` features, read from the last successful run. Positions beyond
+     * the current replay stop clamp to its output; an empty prefix has no state.
+     */
+    timelineStateAfter(index: number): FeatureTimelineState | undefined;
     /**
      * Feature-list index of the boolean that consumes `nodeId` as a tool — the anchor a
      * press-pull sourced on THIS body resolves against once this body has absorbed the

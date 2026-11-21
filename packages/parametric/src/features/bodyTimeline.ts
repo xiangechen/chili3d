@@ -17,7 +17,8 @@ import { idIsShared, indexesOfOverlappingId } from "./trackedId";
 
 /** Snapshot of one referenced node, used to decide whether a cached entry is still valid. */
 export interface RefSnapshot {
-    readonly shape: Result<IShape> | undefined;
+    /** Identity token for `!==` cache checks only — never dereference it as a shape or Result. */
+    readonly identity: Result<IShape> | IShape | undefined;
     /** World transform at capture time — moving a reference must bust the cache too. */
     readonly transform: Matrix4 | undefined;
 }
@@ -87,6 +88,13 @@ export class BodyTimeline {
     stateAt(index: number): FeatureTimelineState | undefined {
         const state = (this._inflight ?? this._committed)[index];
         return state?.shape === undefined ? undefined : state;
+    }
+
+    /** Output after `index` features, measured against the readable run rather than the requested stop. */
+    stateAfter(index: number): FeatureTimelineState | undefined {
+        const states = this._inflight ?? this._committed;
+        if (index < states.length) return this.stateAt(index);
+        return index === states.length ? this.outputState() : undefined;
     }
 
     entryAt(index: number): FeatureCacheEntry | undefined {

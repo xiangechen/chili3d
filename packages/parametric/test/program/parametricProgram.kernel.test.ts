@@ -419,12 +419,34 @@ describe("fillet and boolean", () => {
         const tool = createdBody(doc, result, "b2");
         expectClean(body);
         expect(result.consumed.map((c) => c.nodeId)).toEqual([tool.id]);
+        expect(body.features[1]).toMatchObject({ toolFeatureCounts: [1] });
         // Hidden by re-parenting, not by a visibility flag — the body's child list renders nothing.
         expect(body.firstChild?.id).toBe(tool.id);
         expect(tool.parent?.id).toBe(body.id);
         // The outer extent is unchanged by the pocket; the tool still exists as a node.
         expect(extent(body)).toEqual([0, 0, 0, 40, 30, 20]);
         expect(nodeIds(doc)).toContain(tool.id);
+    });
+
+    test("a boolean refuses a tool rolled back before its first feature", () => {
+        const doc = newDoc();
+        const result = run(doc, [
+            ...plate(20),
+            { op: "sketch", id: "s2", plane: "XY", entities: rect(10, 10, 20, 20) },
+            { op: "extrude", id: "b2", sketch: "s2", depth: 40 },
+        ]);
+        const body = createdBody(doc, result, "b1");
+        const tool = createdBody(doc, result, "b2");
+        tool.setRollbackBar(0);
+
+        expect(() =>
+            runParametricProgram(doc, [
+                { op: "boolean", id: "c1", body: "b1", operation: "cut", tools: ["b2"] },
+            ]),
+        ).toThrow(/Boolean tool has no shape/);
+        expect(body.features).toHaveLength(1);
+        tool.setRollbackBar(undefined);
+        expectClean(body, tool);
     });
 });
 

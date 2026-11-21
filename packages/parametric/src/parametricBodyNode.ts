@@ -58,6 +58,7 @@ import {
     featureHandler,
     isRigidTransform,
     type ResolvedEndTargets,
+    resolveBooleanTool,
     type ShapeTracking,
     type UnresolvedInputs,
 } from "./features";
@@ -1280,6 +1281,10 @@ export class ParametricBodyNode
         return this._timeline.stateAt(index);
     }
 
+    timelineStateAfter(index: number): FeatureTimelineState | undefined {
+        return this._timeline.stateAfter(Math.min(index, this.evaluationStopIndex()));
+    }
+
     /**
      * The first boolean taking `nodeId` as a tool — where this body swallowed that node's
      * geometry. `consumeTools: false` still counts: it only keeps the tool in the tree, the
@@ -1389,7 +1394,7 @@ export class ParametricBodyNode
      * needs the tool's shape, while the tool's refs resolve against this body's chain state
      * up to that very boolean (`sourceFaceMatcher.ts`). Solving the tool HERE — after the
      * state entering this feature was pushed, so `timelineStateAt` already describes it —
-     * hands the boolean the current tool instead of the previous revision's, and this body's
+     * hands the boolean the current revision of its referenced tool prefix, and this body's
      * `_evaluating` flag keeps the tool's shape change from bouncing back into this run.
      *
      * Without it the two bodies trade revisions: each rebuild reads the other's stale shape
@@ -1660,7 +1665,7 @@ export class ParametricBodyNode
         nextCache: FeatureCacheEntry[],
     ): Result<FeatureStepOutput> {
         const key = this.cacheKey(feature, scope);
-        const cached = this.validCacheEntry(key, input, nextCache.length);
+        const cached = this.validCacheEntry(key, input, nextCache.length, feature);
         if (cached !== undefined) {
             nextCache.push(cached);
             return Result.ok({
@@ -1730,14 +1735,15 @@ export class ParametricBodyNode
         key: string,
         input: IShape | undefined,
         index: number,
+        feature: FeatureData,
     ): FeatureCacheEntry | undefined {
         const entry = this._timeline.entryAt(index);
         if (entry === undefined || entry.input !== input || entry.json !== key) {
             return undefined;
         }
         for (const [id, snapshot] of entry.refs) {
-            const current = this.snapshotNode(id);
-            if (current.shape !== snapshot.shape) return undefined;
+            const current = this.snapshotNodeRef(feature, id);
+            if (current.identity !== snapshot.identity) return undefined;
             if (!sameTransform(current.transform, snapshot.transform)) return undefined;
         }
         return entry;
@@ -1749,15 +1755,19 @@ export class ParametricBodyNode
             // A feature may reference the host itself (e.g. an extrude sourced on one
             // of its own faces) — the input-identity check already covers that.
             if (id === this.id) continue;
-            refs.set(id, this.snapshotNode(id));
+            refs.set(id, this.snapshotNodeRef(feature, id));
         }
         return refs;
     }
 
-    private snapshotNode(id: string): RefSnapshot {
+    private snapshotNodeRef(feature: FeatureData, id: string): RefSnapshot {
         const node = this.document.modelManager.findNode((n) => n.id === id);
-        if (!(node instanceof ShapeNode)) return { shape: undefined, transform: undefined };
-        return { shape: node.shape, transform: node.worldTransform() };
+        if (!(node instanceof ShapeNode)) return { identity: undefined, transform: undefined };
+        if (feature.type === "boolean") {
+            const tool = resolveBooleanTool(feature, feature.toolIds.indexOf(id), node);
+            if (tool.isOk) return { identity: tool.value.shape, transform: node.worldTransform() };
+        }
+        return { identity: node.shape, transform: node.worldTransform() };
     }
 
     /**

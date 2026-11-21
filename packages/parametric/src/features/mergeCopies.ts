@@ -17,8 +17,8 @@ import { bornEdgeIdMap, mapOperationIds } from "./operationIds";
  * is what the copies are CALLED — a pattern scopes each instance (`patternIds`), a mirror reflects
  * the input's own names off its plane (`mirroredIds`) — so the caller builds those two flat lists
  * and this does the rest. `boolean.ts`'s `evaluateTracked` has the same shape with its own mapper
- * (`mapBooleanIds`, which reads tool ids off the tool NODES rather than being handed a list); it is
- * left alone because that is a different mapper, not a different list of ids.
+ * (`mapBooleanIds`, which reads ids from each `BooleanToolInput`'s captured timeline state); it
+ * is left alone because that is a different mapper, not a different list of ids.
  *
  * The kernel enumerates the input's sub-shapes first, then each tool's in order (the
  * `completeTrackedHistory` contract); every copy enumerates exactly the input's sub-shapes (the 1:1

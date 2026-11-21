@@ -1340,10 +1340,10 @@ function allFaceIds(node: ShapeNode): (string | undefined)[] {
  *
  * What this deliberately does NOT replay of the real run (`ParametricBodyNode.evaluateChain`):
  * `followReferencedSketches` (a sketch's external refs are NOT re-resolved against the in-flight
- * timeline), `refreshConsumedTools` (a boolean tool derived from this body is read as its CURRENT
- * shape, not re-solved mid-chain), and the per-feature cache. For a chain without those the answer
- * is exact; with them it can diverge from the commit's rebuild in EITHER direction — a preview
- * showing a shape the confirm would never build, or the revolve rehearsal
+ * timeline), `refreshConsumedTools` (a boolean tool derived from this body is read from its
+ * committed timeline, not re-solved mid-chain), and the per-feature cache. For a chain without
+ * those the answer is exact; with them it can diverge from the commit's rebuild in EITHER
+ * direction — a preview showing a shape the confirm would never build, or the revolve rehearsal
  * (`reselectRevolveRefs`) vetoing a pick the commit would have accepted. The rehearsal is a
  * gate, so that window is the price of keeping it cheap; the commit still rebuilds truthfully
  * and reports on the feature row.

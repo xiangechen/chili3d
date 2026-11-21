@@ -2,8 +2,15 @@
 // See LICENSE file in the project root for full license information.
 
 import { type IEdge, type IFace, type IShape, type ShapeNode, ShapeTypes } from "@chili3d/core";
-import { isBodyTrackingNode } from "./bodyTracking";
 import { boundaryId, mapAncestorIds, prefixedId, uncontested } from "./trackedId";
+
+/** A tool at the timeline position its boolean references, with the ids from that same state. */
+export interface BooleanToolInput {
+    readonly node: ShapeNode;
+    readonly shape: IShape;
+    readonly faceIds?: readonly (string | undefined)[];
+    readonly edgeIds?: readonly (string | undefined)[];
+}
 
 /**
  * The three ways an operation's kernel history becomes stable tracked ids — one per operation
@@ -42,7 +49,7 @@ import { boundaryId, mapAncestorIds, prefixedId, uncontested } from "./trackedId
 export function mapBooleanIds(
     input: IShape,
     inputIds: readonly (string | undefined)[],
-    tools: ShapeNode[],
+    tools: readonly BooleanToolInput[],
     map: readonly number[],
     type: (typeof ShapeTypes)["face" | "edge"],
     ancestors?: number[],
@@ -53,9 +60,9 @@ export function mapBooleanIds(
     // would leak into the tool ranges and get bogus tool ids.
     const mainCount = Math.max(inputIds.length, input.findSubShapes(type).length);
     let start = mainCount;
-    const ranges = tools.map((node) => {
-        const count = node.shape.unchecked()!.findSubShapes(type).length;
-        const range = { node, start, count };
+    const ranges = tools.map((tool) => {
+        const count = tool.shape.findSubShapes(type).length;
+        const range = { tool, start, count };
         start += count;
         return range;
     });
@@ -66,18 +73,14 @@ export function mapBooleanIds(
         const range = ranges.find((x) => inputIndex >= x.start && inputIndex < x.start + x.count);
         if (range === undefined) return undefined;
         const local = inputIndex - range.start;
-        const node = range.node;
-        const toolId = isBodyTrackingNode(node)
-            ? type === ShapeTypes.face
-                ? node.faceIdAt(local)
-                : node.edgeIdAt(local)
-            : undefined;
+        const { tool } = range;
+        const toolId = type === ShapeTypes.face ? tool.faceIds?.[local] : tool.edgeIds?.[local];
         if (toolId === undefined) return undefined;
         // A parametric tool's id may already be a compound (`combineIds` over a merge).
         // Prefix EVERY leaf: prefixing only the first leaks the rest into the host's id
         // space as bare ids, colliding with the seeds a direct boolean against those
         // bodies generates (`idsOverlap` would then match unrelated sub-shapes).
-        return prefixedId(`tool:${node.id}`, toolId);
+        return prefixedId(`tool:${tool.node.id}`, toolId);
     };
     return mapAncestorIds(map, ancestors, idOfInput, bornId);
 }

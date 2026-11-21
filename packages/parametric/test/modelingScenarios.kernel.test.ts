@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+    BodyInstanceNode,
     BoundingBox,
     type IEdge,
     type IFace,
@@ -28,6 +29,8 @@ import {
 } from "@chili3d/core";
 import { createMockApplication, createMockVisualWithDocument, TestDocument } from "@chili3d/core/test-utils";
 import { initWasm, ShapeFactory } from "@chili3d/wasm";
+import { rs } from "@rstest/core";
+import { captureBooleanToolFeatureCounts } from "../src/features/boolean";
 import { captureEdgeRef } from "../src/features/edgeRef";
 import type {
     BooleanFeatureData,
@@ -40,6 +43,7 @@ import { ParametricBodyNode } from "../src/parametricBodyNode";
 import { captureFaceRef, sketchPlaneOfFace } from "../src/sketch/planeRef";
 import { ConstraintKind, type SketchData } from "../src/sketch/sketchModel";
 import { SketchNode } from "../src/sketch/sketchNode";
+import { expectBodyVolume } from "./conformance/_scene";
 import "./sketch/setup";
 
 const WASM_BINARY = readFileSync(
@@ -410,6 +414,97 @@ describe("boolean flows", () => {
         // The tool stays in the scene (consumeTools off) and still cuts when it moves.
         tool.transform = Matrix4.fromTranslation(-5, -5, 30);
         expectClean(host, tool);
+    });
+
+    test("a cut reads its tool at the captured feature-list position", () => {
+        const doc = newDoc();
+        const host = boxBody(doc, 40);
+        const tool = boxBody(doc, 10);
+        tool.transform = Matrix4.fromTranslation(-5, -5, 30);
+        append(host, {
+            ...booleanFeature("b1", "cut", [tool.id], false),
+            toolFeatureCounts: [tool.evaluationStopIndex()],
+        });
+        expectClean(host, tool);
+        expectBodyVolume(host, 40 ** 3 - 5 * 5 * 10);
+
+        append(tool, pressPullFeature("e2", tool, "x", 10, "fuse"));
+        expectClean(host, tool);
+        expectBodyVolume(host, 40 ** 3 - 5 * 5 * 10);
+        expectBodyVolume(tool, 2 * 10 ** 3);
+
+        const cut = rs.spyOn(shapeFactory, "booleanCutTracked");
+        try {
+            setDepth(tool, "e2", 20);
+            expectClean(host, tool);
+            expect(cut).not.toHaveBeenCalled();
+            expectBodyVolume(host, 40 ** 3 - 5 * 5 * 10);
+            expectBodyVolume(tool, 3 * 10 ** 3);
+
+            setDepth(tool, "e1", 5);
+            expectClean(host, tool);
+            expect(cut).toHaveBeenCalledTimes(1);
+            expectBodyVolume(host, 40 ** 3 - 5 * 5 * 5);
+            expectBodyVolume(tool, 1500);
+        } finally {
+            cut.mockRestore();
+        }
+    });
+
+    test("a failing feature after the captured position does not invalidate the cut", () => {
+        const doc = newDoc();
+        const host = boxBody(doc, 40);
+        const tool = boxBody(doc, 10);
+        tool.transform = Matrix4.fromTranslation(-5, -5, 30);
+        append(host, {
+            ...booleanFeature("b1", "cut", [tool.id], false),
+            toolFeatureCounts: [tool.evaluationStopIndex()],
+        });
+        expectBodyVolume(host, 40 ** 3 - 250);
+
+        const { ref } = outwardFace(tool, "x");
+        append(tool, {
+            id: "broken",
+            type: "extrude",
+            depth: 10,
+            source: { nodeId: "no-such-body", profiles: [ref] },
+        });
+        expect(tool.featureItems()[1].error).toBe("Extrude source body not found");
+        expectClean(host);
+
+        setDepth(host, "e1", 41);
+        expectClean(host);
+        expectBodyVolume(host, 40 * 40 * 41 - 250);
+    });
+
+    test("an instance tool reads its source at the captured position but keeps its own placement live", () => {
+        const doc = newDoc();
+        const host = boxBody(doc, 40);
+        const source = boxBody(doc, 10);
+        const instance = BodyInstanceNode.fromSource(source, Matrix4.fromTranslation(-5, -5, 30));
+        doc.modelManager.addNode(instance);
+        const captured = captureBooleanToolFeatureCounts([instance]);
+        if (!captured.isOk) throw new Error(captured.error);
+        append(host, {
+            ...booleanFeature("b1", "cut", [instance.id], false),
+            toolFeatureCounts: captured.value,
+        });
+        expect(captured.value).toEqual([1]);
+        expectBodyVolume(host, 40 ** 3 - 250);
+
+        append(source, pressPullFeature("e2", source, "x", 10, "fuse"));
+        expectClean(host, source);
+        expectBodyVolume(host, 40 ** 3 - 250);
+        expectBodyVolume(source, 2000);
+
+        setDepth(source, "e1", 5);
+        expectClean(host, source);
+        expectBodyVolume(host, 40 ** 3 - 125);
+        expectBodyVolume(source, 1000);
+
+        instance.transform = Matrix4.fromTranslation(-5, -5, 40);
+        expectClean(host, source);
+        expectBodyVolume(host, 40 ** 3);
     });
 });
 

@@ -359,6 +359,13 @@ export interface BooleanFeatureData extends FeatureBase {
     /** Node ids of the tool bodies; the body watches them for changes. */
     readonly toolIds: string[];
     /**
+     * Feature-list position captured for each parametric tool when the boolean is created.
+     * The tool contributes only its prefix up to that position, so features appended later do
+     * not flow backward into this boolean. Null entries name non-parametric tools; when the
+     * whole array is absent, every tool is read at its current evaluation position.
+     */
+    readonly toolFeatureCounts?: (number | null)[];
+    /**
      * When true (the default), tool nodes become children of the body — hidden from
      * the scene, still listed and editable under the body in the model tree.
      */

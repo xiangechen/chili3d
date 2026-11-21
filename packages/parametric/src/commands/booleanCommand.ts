@@ -9,15 +9,26 @@ import {
     type IStep,
     isReferenceGeometryNode,
     MultistepCommand,
+    PubSub,
+    property,
     ShapeNode,
     Transaction,
 } from "@chili3d/core";
+import { captureBooleanToolFeatureCounts } from "../features/boolean";
 import type { BooleanOperation } from "../features/feature";
 import { ParametricBodyNode } from "../parametricBodyNode";
 
 /** Shared flow for boolean features: pick a parametric body, then pick the tool bodies. */
 abstract class BooleanFeatureCommand extends MultistepCommand {
     protected abstract readonly operation: BooleanOperation;
+
+    @property("features.consumeTools")
+    get consumeTools() {
+        return this.getPrivateValue("consumeTools", true);
+    }
+    set consumeTools(value: boolean) {
+        this.setProperty("consumeTools", value);
+    }
 
     private get body(): ParametricBodyNode {
         return this.stepDatas[0].nodes?.[0] as unknown as ParametricBodyNode;
@@ -41,7 +52,12 @@ abstract class BooleanFeatureCommand extends MultistepCommand {
     }
 
     protected override executeMainTask(): void {
-        const toolIds = (this.stepDatas[1].nodes ?? []).map((node) => node.id);
+        const tools = this.stepDatas[1].nodes ?? [];
+        const captured = captureBooleanToolFeatureCounts(tools);
+        if (!captured.isOk) {
+            PubSub.default.pub("showToast", "error.default:{0}", captured.error);
+            return;
+        }
         Transaction.execute(this.document, `excute feature.${this.operation}`, () => {
             this.body.setFeaturesEmitShapeChanged([
                 ...this.body.features,
@@ -49,8 +65,9 @@ abstract class BooleanFeatureCommand extends MultistepCommand {
                     id: Id.generate(),
                     type: "boolean",
                     operation: this.operation,
-                    toolIds,
-                    consumeTools: true,
+                    toolIds: tools.map((node) => node.id),
+                    toolFeatureCounts: captured.value,
+                    consumeTools: this.consumeTools,
                 },
             ]);
             this.document.visual.update();

@@ -20,6 +20,7 @@ import {
     type UnitSpec,
 } from "@chili3d/core";
 import { isBodyTrackingNode } from "../features/bodyTracking";
+import { captureBooleanToolFeatureCounts } from "../features/boolean";
 import { captureEdgeRef } from "../features/edgeRef";
 import type {
     BooleanOperation,
@@ -552,11 +553,14 @@ function runBooleanOp(state: State, op: BooleanOp): void {
             throw new Error(`boolean tool "${tool.name}" is a ${tool.constructor.name}, not a shape node`);
         }
     }
+    const captured = captureBooleanToolFeatureCounts(tools);
+    if (!captured.isOk) throw new Error(captured.error);
     appendFeature(state, body, {
         id: Id.generate(),
         type: "boolean",
         operation: op.operation,
         toolIds: tools.map((tool) => tool.id),
+        toolFeatureCounts: captured.value,
         ...(op.consumeTools === false ? { consumeTools: false } : {}),
     });
     // The body adopts the tools itself (`syncConsumedTools`); this only reports it.
