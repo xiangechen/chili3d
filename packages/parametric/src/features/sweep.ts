@@ -315,7 +315,7 @@ function resolveSourceProfiles(
     context: FeatureContext,
     owned: IShape[],
 ): Result<SweepProfile[]> {
-    const resolved = resolveSourceFaces(source, context);
+    const resolved = resolveSourceFaces(source, context, "Sweep");
     if (!resolved.isOk) return Result.err(resolved.error);
     const { worldFaces, faceIds, edgeIdsOf } = resolved.value;
     owned.push(...resolved.value.owned);

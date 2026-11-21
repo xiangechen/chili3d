@@ -114,13 +114,13 @@ describe("PlanePickHandler", () => {
         } as unknown as PointerEvent;
     }
 
-    function setup(rayAt: IView["rayAt"], detectShapes?: IView["detectShapes"]) {
+    function setup(rayAt: IView["rayAt"], detectShapes?: IView["detectShapes"], allowCurved = false) {
         const document = new TestDocument();
         document.visual = createMockVisualWithDocument(document) as any;
         const controller = new AsyncController();
         let completed = false;
         controller.onCompleted(() => (completed = true));
-        const handler = new PlanePickHandler(document, controller);
+        const handler = new PlanePickHandler(document, controller, allowCurved);
         const view = createMockView({ document, rayAt, ...(detectShapes ? { detectShapes } : {}) });
         return { controller, handler, view, isCompleted: () => completed };
     }
@@ -229,6 +229,7 @@ describe("PlanePickHandler", () => {
         const world = {
             shapeType: ShapeTypes.face,
             normal: () => [XYZ.zero, XYZ.unitZ],
+            surface: () => ({ isPlanar: () => true }),
             dispose: rs.fn(),
         } as unknown as IFace;
         return {
@@ -240,6 +241,27 @@ describe("PlanePickHandler", () => {
             owner: {} as any,
             transform: Matrix4.identity(),
             indexes: [0],
+        };
+    }
+
+    function curvedFaceBehindQuads(): VisualShapeData {
+        const world = {
+            shapeType: ShapeTypes.face,
+            normal: () => [XYZ.zero, XYZ.unitZ],
+            surface: () => ({ isPlanar: () => false }),
+            dispose: rs.fn(),
+        } as unknown as IFace;
+        return {
+            shape: {
+                shapeType: ShapeTypes.face,
+                transformedMul: () => world,
+                surface: world.surface,
+                dispose: rs.fn(),
+            } as unknown as IFace,
+            owner: {} as any,
+            transform: Matrix4.identity(),
+            indexes: [0],
+            point: new XYZ(5, 5, 2),
         };
     }
 
@@ -268,6 +290,26 @@ describe("PlanePickHandler", () => {
 
         // the face pick carries where the pointer met the face: the preview centres on it
         expect(handler.result).toEqual({ kind: "face", data, point: new XYZ({ x: 5, y: 5, z: 0 }) });
+        expect(isCompleted()).toBe(true);
+    });
+
+    test("curved faces remain excluded from plane picks", () => {
+        const data = curvedFaceBehindQuads();
+        const { handler } = setup(hitXY);
+
+        expect(handler.shapefilter).toBeDefined();
+        expect(handler.shapefilter?.allow(data.shape, data.transform)).toBe(false);
+    });
+
+    test("split's curved-face opt-in picks the face at its detected point", () => {
+        const data = curvedFaceBehindQuads();
+        const missDatum = () =>
+            new Ray({ point: new XYZ({ x: 5, y: 5, z: 10 }), direction: new XYZ({ x: 0, y: 0, z: -1 }) });
+        const { handler, view, isCompleted } = setup(missDatum, () => [data], true);
+
+        click(handler, view);
+
+        expect(handler.result).toEqual({ kind: "face", data, point: new XYZ(5, 5, 2) });
         expect(isCompleted()).toBe(true);
     });
 

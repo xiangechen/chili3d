@@ -625,6 +625,7 @@ export default {
         "prompt.curvePatternPreview": "Adjust the pattern options, Enter to confirm, ESC key to cancel",
         "prompt.patternPreview":
             "Drag the arrows or adjust the pattern options, Enter to confirm, ESC key to cancel",
+        "prompt.splitPreview": "Adjust the side to keep, Enter to confirm, ESC key to cancel",
         "prompt.saveDocument{0}": "Do you want to save the changes to {0}?",
         "prompt.select.axis": "Please select a axis",
         "prompt.select.boundary": "Please select the boundary edge",
@@ -650,6 +651,7 @@ export default {
         "prompt.select.sketch": "Please select a sketch",
         "prompt.select.sketchPoints":
             "Pick sketch points as hole centers, or click the hole face — Enter to finish",
+        "prompt.select.splitTool": "Please select a datum plane or a solid face",
         "prompt.select.solids": "Please select solids",
         "prompt.select.vertexes": "Please select vertexes",
         "prompt.select.wires": "Please select wires",

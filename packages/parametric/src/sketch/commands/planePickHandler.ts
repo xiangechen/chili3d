@@ -139,6 +139,7 @@ export function captureNeutralPlane(
 function facePlanePoint(data: VisualShapeData, view: IView, event: PointerEvent): XYZ | undefined {
     const world = data.shape.transformedMul(data.transform) as IFace;
     try {
+        if (!world.surface().isPlanar()) return data.point;
         return planeOfFace(world).intersectRay(view.rayAt(event.offsetX, event.offsetY));
     } finally {
         world.dispose();
@@ -146,9 +147,8 @@ function facePlanePoint(data: VisualShapeData, view: IView, event: PointerEvent)
 }
 
 /**
- * Picks the sketch base plane directly in the viewport: a planar face of a
- * solid takes precedence, otherwise one of the three translucent datum quads
- * shown while the handler is active.
+ * Picks a datum or a solid face in the viewport. Plane commands keep the default
+ * planar-only filter; the split command opts into curved faces too.
  */
 export class PlanePickHandler extends ShapeSelectionHandler {
     result: PlanePickResult | undefined;
@@ -158,13 +158,13 @@ export class PlanePickHandler extends ShapeSelectionHandler {
     private readonly _planeNodeQuads: PlaneNodeQuad[] = [];
     private _hoveredPlaneNode = -1;
 
-    constructor(document: IDocument, controller: AsyncController) {
+    constructor(document: IDocument, controller: AsyncController, allowCurved = false) {
         super(
             document,
             ShapeTypes.face,
             false,
             controller,
-            { allow: (shape) => (shape as IFace).surface().isPlanar() },
+            { allow: (shape) => allowCurved || (shape as IFace).surface().isPlanar() },
             // A datum plane's own display rectangle is derived geometry: clicking it must
             // pick the PLANE (the quad below), never capture its rectangle as a face ref.
             { allow: (node) => !isReferenceGeometryNode(node) },

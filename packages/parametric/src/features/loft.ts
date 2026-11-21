@@ -411,7 +411,11 @@ function resolveBodyFaceSection(
     context: FeatureContext,
     owned: IShape[],
 ): Result<ResolvedSection> {
-    const resolved = resolveSourceFaces({ nodeId: section.nodeId, profiles: [section.profile] }, context);
+    const resolved = resolveSourceFaces(
+        { nodeId: section.nodeId, profiles: [section.profile] },
+        context,
+        "Loft",
+    );
     if (!resolved.isOk) return Result.err(resolved.error);
     const { worldFaces, faceIds, edgeIdsOf } = resolved.value;
     owned.push(...resolved.value.owned);

@@ -327,7 +327,7 @@ describe("sweep feature", () => {
             const body = bodyWith([feature]);
 
             expect(body.shape.isOk).toBe(false);
-            expect(body.featureItems()[0].error).toBe("Extrude source body not found");
+            expect(body.featureItems()[0].error).toBe("Sweep source body not found");
             expect(mocks.sweep).not.toHaveBeenCalled();
         });
     });

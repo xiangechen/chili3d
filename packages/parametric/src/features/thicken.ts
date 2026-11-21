@@ -114,7 +114,7 @@ function resolveThickenFaces(
     feature: ThickenFeatureData,
     context: FeatureContext,
 ): Result<{ inputs: ThickenInput[]; owned: IFace[] }> {
-    const resolved = resolveSourceFaces(feature.source, context);
+    const resolved = resolveSourceFaces(feature.source, context, "Thicken");
     if (!resolved.isOk) return Result.err(resolved.error);
     const { worldFaces, faceIds, edgeIdsOf, owned } = resolved.value;
     const matched = matchSourceFaceIndexes(worldFaces, faceIds, feature.source.profiles);

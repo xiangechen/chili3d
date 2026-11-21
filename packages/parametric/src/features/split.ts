@@ -1,7 +1,16 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { BoundingBox, type IShape, type Plane, Result, ShapeTypes } from "@chili3d/core";
+import {
+    BoundingBox,
+    type IFace,
+    type IShape,
+    type IVertex,
+    type Plane,
+    Result,
+    ShapeTypes,
+    type XYZ,
+} from "@chili3d/core";
 import {
     type FeatureContext,
     type FeatureHandler,
@@ -10,27 +19,20 @@ import {
     type SplitFeatureData,
 } from "./feature";
 import { resolveNeutralPlane } from "./neutralPlane";
+import { captureProfileRef } from "./profileRef";
+import { matchSourceFaceIndexes, resolveSourceFaces } from "./sourceFaceMatcher";
 
 /**
- * Split: cut the chain input with a plane, keeping both halves (one compound) or only the
- * piece(s) on one side.
- *
- * The tool is a neutral plane (`SplitFeatureData.tool` documents why planar only), resolved
- * exactly as a draft's is, then inflated into a rectangle face large enough to cover the
- * input's bounding box — the kernel entry (`IShape.split`, a BOPAlgo splitter) cuts by the
- * tool FACE, not by the infinite plane.
- *
- * There is no tracked variant of the operation: the pieces keep no kernel history, so their
- * sub-shape ids fall back to geometric matching (the `trackedIds` fallback in `feature.ts`).
- * A reference anchored across a split re-matches by fingerprint — stable for a planar cut,
- * which is the other half of why the tool is planar.
+ * Split the chain input with a plane or a surface. Plane tools are inflated into a rectangle
+ * large enough to cover the input; surface tools cut with every referenced face piece.
+ * The operation has no tracked variant, so result sub-shape ids use geometric matching.
  */
 const splitHandler: FeatureHandler<SplitFeatureData> = {
     display: "command.feature.split",
     icon: "icon-split",
 
     nodeIds: (feature) => {
-        const nodeId = planeRefNodeId(feature.tool);
+        const nodeId = feature.tool.kind === "surface" ? feature.tool.nodeId : planeRefNodeId(feature.tool);
         return nodeId === undefined ? [] : [nodeId];
     },
 
@@ -48,26 +50,102 @@ const splitHandler: FeatureHandler<SplitFeatureData> = {
 
     setParameter: (feature, key, value) => ({ ...feature, [key]: value }),
 
+    applyResolvedRefs: (feature, { resolvedProfiles }) => {
+        if (feature.tool.kind !== "surface" || resolvedProfiles === undefined) return feature;
+        return { ...feature, tool: { ...feature.tool, profiles: resolvedProfiles } };
+    },
+
     evaluate(feature, context): Result<IShape> {
         const input = context.input;
         if (input === undefined) return Result.err("Split requires a preceding feature");
-        const keepSide = feature.keepSide ?? "both";
-        if (!["both", "positive", "negative"].includes(keepSide)) {
-            return Result.err(`Invalid keep side: ${keepSide}`);
+        if (feature.tool.kind === "surface") {
+            return evaluateSurface(feature.tool, context, input, feature.keepSide);
         }
         const plane = resolveNeutralPlane(feature.tool, context, "Split");
         if (!plane.isOk) return Result.err(plane.error);
-
-        const tool = splitTool(plane.value, input);
-        if (!tool.isOk) return Result.err(tool.error);
-        try {
-            const split = input.split([tool.value]);
-            return pickSide(split, plane.value, keepSide);
-        } finally {
-            tool.value.dispose();
-        }
+        return splitByPlane(input, plane.value, feature.keepSide);
     },
 };
+
+/** The feature's plane build, shared with the command's live preview. */
+export function splitByPlane(
+    input: IShape,
+    plane: Plane,
+    keepSide: SplitFeatureData["keepSide"] = "both",
+): Result<IShape> {
+    const side = keepSide ?? "both";
+    if (!["both", "positive", "negative"].includes(side)) {
+        return Result.err(`Invalid keep side: ${side}`);
+    }
+    const tool = splitTool(plane, input);
+    if (!tool.isOk) return Result.err(tool.error);
+    try {
+        const split = input.split([tool.value]);
+        return pickSide(split, plane, side);
+    } finally {
+        tool.value.dispose();
+    }
+}
+
+/** The feature's surface build, shared with the command's live preview. `tools` stay caller-owned. */
+export function splitBySurface(
+    input: IShape,
+    tools: readonly IFace[],
+    keepSide: SplitFeatureData["keepSide"] = "both",
+): Result<IShape> {
+    const side = keepSide ?? "both";
+    if (!["both", "positive", "negative"].includes(side)) {
+        return Result.err(`Invalid keep side: ${side}`);
+    }
+    if (tools.length === 0) return Result.err("Split requires at least one surface tool");
+    const split = input.split([...tools]);
+    return pickSurfaceSide(split, tools, side);
+}
+
+function evaluateSurface(
+    tool: Extract<SplitFeatureData["tool"], { kind: "surface" }>,
+    context: FeatureContext,
+    input: IShape,
+    keepSide: SplitFeatureData["keepSide"],
+): Result<IShape> {
+    const resolved = resolveSourceFaces({ nodeId: tool.nodeId, profiles: tool.profiles }, context, "Split");
+    if (!resolved.isOk) return Result.err(resolved.error);
+    const { worldFaces, faceIds, owned } = resolved.value;
+    try {
+        const matched = matchSourceFaceIndexes(worldFaces, faceIds, tool.profiles);
+        if (!matched.isOk) return Result.err(matched.error);
+        if (matched.value.indexes.length === 0) return Result.err("Split surface not found after rebuild");
+        if (context.tracking !== undefined) {
+            context.tracking.resolvedProfiles = matched.value.indexes.map((faceIndex, k) =>
+                captureProfileRef(
+                    worldFaces[faceIndex],
+                    faceIds?.[faceIndex],
+                    tool.profiles[matched.value.refIndexes[k]].splitPiece,
+                    true,
+                ),
+            );
+            if (matched.value.missing.length > 0) {
+                context.tracking.unresolved = { key: "profiles", refIndexes: matched.value.missing };
+            }
+        }
+        const inverse = context.host.worldTransform().invert();
+        if (inverse === undefined) return Result.err("Split cannot place the surface in the body");
+        const localTools = matched.value.indexes.map(
+            (index) => worldFaces[index].transformedMul(inverse) as IFace,
+        );
+        try {
+            return splitBySurface(input, localTools, keepSide);
+        } finally {
+            localTools.forEach((localTool) => {
+                localTool.dispose();
+            });
+        }
+    } finally {
+        owned.forEach((shape) => {
+            shape.dispose();
+        });
+    }
+}
 
 /**
  * A rectangle face on `plane` covering `input`'s bounding box with room to spare — the
@@ -83,26 +161,74 @@ function splitTool(plane: Plane, input: IShape) {
     return shapeFactory.rect(plane.translateTo(corner), 2 * half, 2 * half);
 }
 
-/**
- * The pieces of `split` the keep-side names: all of them (`both`), or the ones whose bounding-box
- * centre sits on the plane normal's side of it (`positive`) / the opposite side (`negative`).
- * A side with no pieces is an error — the plane missed the input, and a silent empty compound
- * would read as a successful split.
- */
 function pickSide(split: IShape, plane: Plane, keepSide: "both" | "positive" | "negative"): Result<IShape> {
-    if (keepSide === "both") return Result.ok(split);
-    const pieces = split.directSubShapes();
-    const kept = pieces.filter((piece) => {
+    return pickPieces(split, keepSide, (piece) => {
         const center = BoundingBox.center(piece.boundingBox());
-        const side = center.sub(plane.origin).dot(plane.normal);
+        return center.sub(plane.origin).dot(plane.normal);
+    });
+}
+
+function pickSurfaceSide(
+    split: IShape,
+    tools: readonly IFace[],
+    keepSide: "both" | "positive" | "negative",
+): Result<IShape> {
+    return pickPieces(split, keepSide, (piece) => surfaceSide(piece, tools));
+}
+
+function pickPieces(
+    split: IShape,
+    keepSide: "both" | "positive" | "negative",
+    sideOf: (piece: IShape) => number,
+): Result<IShape> {
+    if (keepSide === "both") return Result.ok(split);
+    const kept = split.directSubShapes().filter((piece) => {
+        const side = sideOf(piece);
         return keepSide === "positive" ? side > 0 : side < 0;
     });
-    // A piece ON the plane (a zero-thickness sliver the cut shaved off) lands in neither side.
-    if (kept.length === 0)
-        return Result.err("Split: nothing remains on the kept side — the plane misses the input");
+    if (kept.length === 0) {
+        return Result.err("Split: nothing remains on the kept side — the tool misses the input");
+    }
     if (kept.length === 1) return Result.ok(kept[0]);
     const combined = shapeFactory.combine(kept);
     return combined.isOk ? Result.ok(combined.value) : Result.err(combined.error);
+}
+
+/**
+ * The signed side of a piece, sampled at its centre and vertices. The farthest sample wins:
+ * a symmetric shell around a cylindrical tool has its bbox centre on the axis like the inner
+ * solid, but its outer vertices are unambiguously outside.
+ */
+function surfaceSide(piece: IShape, tools: readonly IFace[]): number {
+    const samples = [
+        BoundingBox.center(piece.boundingBox()),
+        ...(piece.findSubShapes(ShapeTypes.vertex) as IVertex[]).map((vertex) => vertex.point()),
+    ];
+    let best = 0;
+    for (const point of samples) {
+        const signed = signedSurfaceDistance(point, tools);
+        if (Math.abs(signed) > Math.abs(best)) best = signed;
+    }
+    return best;
+}
+
+function signedSurfaceDistance(point: XYZ, tools: readonly IFace[]): number {
+    let best: { distance: number; signed: number } | undefined;
+    for (const tool of tools) {
+        const surface = tool.surface();
+        const nearest = surface.nearestPoint(point);
+        if (nearest === undefined) continue;
+        const uv = surface.parameter(nearest[0], 1e-3);
+        if (uv === undefined) continue;
+        const normal = tool.normal(uv.u, uv.v)[1].normalize();
+        if (normal === undefined) continue;
+        const candidate = {
+            distance: point.distanceTo(nearest[0]),
+            signed: point.sub(nearest[0]).dot(normal),
+        };
+        if (best === undefined || candidate.distance < best.distance) best = candidate;
+    }
+    return best?.signed ?? 0;
 }
 
 registerFeature("split", splitHandler);

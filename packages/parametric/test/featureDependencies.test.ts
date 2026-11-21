@@ -228,6 +228,21 @@ describe("referencedSubshapeIds", () => {
         expect(refsOf(mirror("other-body"))).toEqual({ faces: [], edges: [] });
     });
 
+    test("split names every host surface ref and no refs on another body", () => {
+        const split = (nodeId: string): FeatureData =>
+            ({
+                id: "s",
+                type: "split",
+                tool: { kind: "surface", nodeId, profiles: [profileRef("fs"), profileRef("ft")] },
+            }) as FeatureData;
+        expect(refsOf(split(HOST))).toEqual({ faces: ["fs", "ft"], edges: [] });
+        expect(refsOf(split("other-body"))).toEqual({ faces: [], edges: [] });
+        expect(refsOf({ id: "s", type: "split", tool: { kind: "datum", name: "XY" } })).toEqual({
+            faces: [],
+            edges: [],
+        });
+    });
+
     test("hole names its host seat face only", () => {
         const hole = (nodeId: string, faceId?: string): FeatureData =>
             ({

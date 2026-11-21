@@ -893,20 +893,19 @@ export interface RemoveFeatureFeatureData extends FeatureBase {
 }
 
 /**
- * Split: cut the chain input with a plane, keeping both halves (one compound) or only the
- * piece on one side of it.
+ * Split: cut the chain input with a plane or a face, keeping both halves (one compound)
+ * or only the piece on one side of it.
  *
- * The tool is a NEUTRAL PLANE (`NeutralPlaneRef` — a global datum or a planar face of a node),
- * resolved exactly as a draft's is. A planar tool only, deliberately: the kernel entry used
- * here (`IShape.split`, a BOPAlgo splitter) has no tracked variant, so the pieces' ids fall
- * back to geometric matching (`trackedIds`), and a planar cut's pieces re-match stably under
- * that fallback in a way a curved tool's would not. A non-planar face is rejected at pick
- * time; one hand-written into a file is a rebuild error.
+ * Plane tools keep the original `NeutralPlaneRef` representation. A surface tool names
+ * its faces with the same world-space `ProfileRef` contract as an extrude's source faces:
+ * one pick starts as one ref and becomes one ref per piece if a rebuild splits that face.
  */
 export interface SplitFeatureData extends FeatureBase {
     readonly type: "split";
-    /** The plane to cut with. */
-    readonly tool: NeutralPlaneRef;
+    /** The plane or surface to cut with. */
+    readonly tool:
+        | NeutralPlaneRef
+        | { readonly kind: "surface"; readonly nodeId: string; readonly profiles: ProfileRef[] };
     /**
      * Which side of the tool to keep: `both` (the default) keeps every piece as one compound;
      * `positive` keeps the piece(s) on the side the plane's normal points to, `negative` the

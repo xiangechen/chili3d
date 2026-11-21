@@ -489,6 +489,7 @@ export default {
             "выберите геометрию для размера; щёлкните по пустому месту, чтобы поставить, ESC для отмены",
         "prompt.pickSketchPoint": "выберите точку эскиза, ESC для отмены",
         "prompt.polygon.close": "Закрыть",
+        "prompt.splitPreview": "Выберите сохраняемую сторону, Enter для подтверждения, ESC для отмены",
         "prompt.saveDocument{0}": "Сохранить изменения в {0}?",
         "prompt.select.axis": "Пожалуйста выберите оси",
         "prompt.select.boundary": "Пожалуйста выберите граничную конечность",
@@ -510,6 +511,7 @@ export default {
         "prompt.select.sketch": "Выберите эскиз",
         "prompt.select.sketchPoints":
             "Выберите точки эскиза как центры отверстий или грань — Enter для завершения",
+        "prompt.select.splitTool": "Выберите базовую плоскость или грань тела",
         "prompt.select.solids": "Пожалуйста выберите массивы",
         "prompt.select.vertexes": "Пожалуйста выберите вершины",
         "prompt.select.wires": "Пожалуйста выберите ребра",

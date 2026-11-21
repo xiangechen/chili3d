@@ -196,7 +196,15 @@ export function referencedSubshapeIds(feature: FeatureData, hostId: string): Fea
         case "removeFeature":
             return { faces: profileRefIds(feature.faces), edges: [] };
         case "split":
-            return { faces: planeRefIds(feature.tool, hostId), edges: [] };
+            return {
+                faces:
+                    feature.tool.kind === "surface"
+                        ? feature.tool.nodeId === hostId
+                            ? profileRefIds(feature.tool.profiles)
+                            : []
+                        : planeRefIds(feature.tool, hostId),
+                edges: [],
+            };
         case "draft":
             return {
                 faces: [...profileRefIds(feature.faces), ...planeRefIds(feature.neutralPlane, hostId)],

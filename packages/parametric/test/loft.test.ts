@@ -226,7 +226,7 @@ describe("loft feature", () => {
         const body = bodyWith([loftFeature([profileSection(sketch1), missing])]);
 
         expect(body.shape.isOk).toBe(false);
-        expect(body.featureItems()[0].error).toBe("Extrude source body not found");
+        expect(body.featureItems()[0].error).toBe("Loft source body not found");
         expect(mocks.loftTracked).not.toHaveBeenCalled();
     });
 

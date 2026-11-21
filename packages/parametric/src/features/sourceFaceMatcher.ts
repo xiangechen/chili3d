@@ -251,9 +251,12 @@ function narrowToPickedPiece(faces: IFace[], ref: ProfileRef, hits: number[]): R
 export function resolveSourceFaces(
     source: NonNullable<ExtrudeFeatureData["source"]>,
     context: FeatureContext,
+    label = "Extrude",
 ): Result<ResolvedSourceFaces> {
     const resolved =
-        source.nodeId === context.host.id ? hostInputFaces(context) : sourceNodeFaces(source.nodeId, context);
+        source.nodeId === context.host.id
+            ? hostInputFaces(context, label)
+            : sourceNodeFaces(source.nodeId, context, label);
     if (!resolved.isOk) return Result.err(resolved.error);
 
     const { faces, faceIds, shapeEdges, edgeIds, transform } = resolved.value;
@@ -327,9 +330,9 @@ function faceEdgeIds(
 }
 
 /** The feature's own input faces, used when the source is the host body itself. */
-function hostInputFaces(context: FeatureContext): Result<SourceFaceGeometry> {
+function hostInputFaces(context: FeatureContext, label: string): Result<SourceFaceGeometry> {
     if (context.input === undefined) {
-        return Result.err("Extrude source face requires a preceding feature");
+        return Result.err(`${label} source face requires a preceding feature`);
     }
     const faces = context.input.findSubShapes(ShapeTypes.face) as IFace[];
     const trackedFaces = context.tracking?.inputFaceIds;
@@ -348,10 +351,10 @@ function hostInputFaces(context: FeatureContext): Result<SourceFaceGeometry> {
 }
 
 /** Another node's faces — off its live shape, or the pre-boolean state when it consumed this host. */
-function sourceNodeFaces(nodeId: string, context: FeatureContext): Result<SourceFaceGeometry> {
+function sourceNodeFaces(nodeId: string, context: FeatureContext, label: string): Result<SourceFaceGeometry> {
     const node = context.document.modelManager.findNode((n) => n.id === nodeId);
     if (!(node instanceof ShapeNode)) {
-        return Result.err("Extrude source body not found");
+        return Result.err(`${label} source body not found`);
     }
     // A rolled-back source shows a transient session-preview shape lacking every
     // face born from a hidden feature: matching against it would re-anchor (and
@@ -360,7 +363,7 @@ function sourceNodeFaces(nodeId: string, context: FeatureContext): Result<Source
     // once the source restores (the sketch-side refs guard the same way, see
     // SketchNode.handlePlaneRefNodeChanged).
     if (isBodyTimelineNode(node) && node.rollbackIndex !== undefined) {
-        return Result.err("Extrude source body is rolled back for a sketch session");
+        return Result.err(`${label} source body is rolled back for a sketch session`);
     }
     // When the source body later CONSUMED this host (a fuse whose tool is the host), the
     // source's final shape already contains the geometry this press-pull builds out of it:
@@ -378,7 +381,7 @@ function sourceNodeFaces(nodeId: string, context: FeatureContext): Result<Source
     const consumed = consumedFaces(node, context);
     if (consumed !== undefined) return Result.ok(consumed);
     if (!node.shape.isOk) {
-        return Result.err("Extrude source body not found");
+        return Result.err(`${label} source body not found`);
     }
     const faces = node.shape.value.findSubShapes(ShapeTypes.face) as IFace[];
     const tracked = isBodyTrackingNode(node) ? node : undefined;
