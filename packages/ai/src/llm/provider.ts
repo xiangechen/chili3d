@@ -10,6 +10,7 @@ import type { LLMProvider } from "./types";
 /** The provider the configured surface names, with the default surface as the fallback. */
 export function createProvider(config: LLMConfig): LLMProvider {
     if (config.provider === "anthropic") return new AnthropicProvider(config);
-    if (config.provider === "responses") return new ResponsesProvider(config);
+    if (config.provider === "responses" || config.provider === "chatgpt")
+        return new ResponsesProvider(config);
     return new CompletionsProvider(config);
 }
