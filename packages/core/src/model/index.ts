@@ -21,6 +21,7 @@ export * from "./node";
 export * from "./nodeIcon";
 export * from "./nodeWarning";
 export * from "./planarDimensionLayout";
+export * from "./sectionPlaneNode";
 export * from "./shapeNode";
 export * from "./userData";
 export * from "./visualNode";

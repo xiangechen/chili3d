@@ -56,7 +56,7 @@ export interface PubSubEventMap {
     documentClosed: (document: IDocument) => void;
     editMaterial: (document: IDocument, material: Material, callback: (material: Material) => void) => void;
     editVariables: (document: IDocument, onApplied: () => void) => void;
-    executeCommand: (commandName: CommandKeys) => void;
+    executeCommand: (commandName: CommandKeys, ...args: unknown[]) => void;
     loggerError: (message: unknown, optionalParams: unknown[]) => void;
     modelUpdate: (model: INode) => void;
     nodeDoubleClicked: (node: INode) => void;

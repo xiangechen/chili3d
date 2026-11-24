@@ -147,6 +147,8 @@ describe("CommandService", () => {
         unregisterCommand("test.error2");
         unregisterCommand("test.urgent");
         unregisterCommand("test.running");
+        unregisterCommand("test.toggle");
+        unregisterCommand("test.args");
         PubSub.default.removeAll("executeCommand");
         PubSub.default.removeAll("activeViewChanged");
     });
@@ -154,6 +156,26 @@ describe("CommandService", () => {
     // ── lifecycle ──────────────────────────────────────────────────
 
     describe("register", () => {
+        test("should forward one-shot arguments to the command constructor", async () => {
+            let received: unknown[] = [];
+            class CommandWithArgs implements ICommand {
+                constructor(...args: unknown[]) {
+                    received = args;
+                }
+
+                async execute(_application: IApplication): Promise<void> {}
+            }
+            registerCommand("test.args", CommandWithArgs);
+            const argument = { section: "node" };
+            service.register(app);
+            service.start();
+
+            PubSub.default.pub("executeCommand", "test.args" as CommandKeys, argument);
+            await waitForCommandCompleted(app, "test.args");
+
+            expect(received).toEqual([argument]);
+        });
+
         test("should wire the application so published commands execute against it", async () => {
             registerCommand("test.box");
             service.register(app);
@@ -302,6 +324,22 @@ describe("CommandService", () => {
 
             PubSub.default.pub("executeCommand", "test.box" as CommandKeys);
             await waitForCommandCompleted(app, "test.box");
+        });
+
+        test("should cancel a toggle command when it is executed again", async () => {
+            CommandStore.registerCommand(TestCancelableCommand, {
+                key: "test.toggle" as CommandKeys,
+                icon: "test-icon",
+                toggleOnExecute: true,
+            });
+            const running = new TestCancelableCommand();
+            app.executingCommand = running;
+
+            PubSub.default.pub("executeCommand", "test.toggle" as CommandKeys);
+            await running.cancelled;
+
+            expect(running.cancelCalls).toBe(1);
+            expect(app.lastCommand).toBeUndefined();
         });
 
         test("should say which command is in the way when it cannot be interrupted", async () => {

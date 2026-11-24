@@ -2,5 +2,6 @@
 // See LICENSE file in the project root for full license information.
 
 export * from "./nodeSelectionEventHandler";
+export * from "./planePickHandler";
 export * from "./selectionEventHandler";
 export * from "./shapeSelectionEventHandler";

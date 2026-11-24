@@ -6,16 +6,16 @@ import {
     ARROW_HOVER_COLOR,
     ARROW_HOVER_TOLERANCE,
     ARROW_LENGTH,
+    ArrowHandle,
     type AsyncController,
     arrowMeshes,
     distanceToSegment,
     type I18nKeys,
     type IDocument,
     type IView,
-    Line,
     Precision,
     PubSub,
-    pxSizedArrowLength,
+    projectAxisValue,
     Result,
     type ShapeMeshData,
     XYZ,
@@ -36,8 +36,15 @@ const DRAG_THRESHOLD_SQ = 9; // px², below this a press-release is a click, not
  * this class owns everything about the gesture itself.
  */
 export abstract class AxisDragHandler extends PreviewConfirmHandler {
-    /** World-space arrow length, adapted so the arrow renders at a fixed pixel size. */
-    protected arrowLength: number | undefined;
+    private readonly arrowHandle: ArrowHandle;
+
+    protected get arrowLength(): number | undefined {
+        return this.arrowHandle.length;
+    }
+
+    protected set arrowLength(value: number | undefined) {
+        this.arrowHandle.length = value;
+    }
 
     private _downX: number | undefined;
     private _downY: number | undefined;
@@ -49,9 +56,6 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     /** Whether the readout box is up — kept in step with the box itself, via its `onClose`. */
     private _boxShown = false;
 
-    private _arrowIds: number[] = [];
-    /** The view whose camera changes are tracked for arrow rescaling. */
-    private _cameraView: IView | undefined;
     /** Canonical arrow geometry, keyed by direction and colour, re-placed on every rebuild. */
     private readonly _arrowCache = new Map<string, ShapeMeshData[]>();
     /**
@@ -64,6 +68,16 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
 
     constructor(document: IDocument, controller: AsyncController) {
         super(document, controller);
+        this.arrowHandle = new ArrowHandle(
+            document,
+            (view) => {
+                if (!this.cleaned) {
+                    this.refreshArrow(view);
+                    this.onCameraChanged(view);
+                }
+            },
+            true,
+        );
     }
 
     /**
@@ -72,7 +86,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
      */
     protected override start(): void {
         const view = this.document.application.activeView;
-        if (view !== undefined) this.trackCamera(view);
+        if (view !== undefined) this.arrowHandle.track(view);
         super.start();
     }
 
@@ -154,7 +168,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     // ------------------------------------------------------------------ Pointer events
 
     override pointerMove(view: IView, event: PointerEvent): void {
-        this.trackCamera(view);
+        this.arrowHandle.track(view);
         if (this._awaitingClick) {
             this.updateDrag(view, event);
         } else if (this._downX !== undefined) {
@@ -174,7 +188,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
 
     override pointerDown(view: IView, event: PointerEvent): void {
         if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
-        this.trackCamera(view);
+        this.arrowHandle.track(view);
         if (this._awaitingClick) return; // the release commits; nothing to track
         // a gesture that keeps no readout of its own takes the last gesture's down first:
         // the box stays up after a drag so the number can still be typed over, but it must
@@ -223,7 +237,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     }
 
     mouseWheel(view: IView, _event: WheelEvent): void {
-        this.trackCamera(view);
+        this.arrowHandle.track(view);
         view.update();
     }
 
@@ -264,9 +278,7 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     /** Projects the mouse ray onto the drag axis and returns the signed distance from its origin. */
     protected projectValue(view: IView, event: PointerEvent): number {
         const { origin, normal } = this.axis();
-        const ray = view.rayAt(event.offsetX, event.offsetY);
-        const axisLine = new Line({ point: origin, direction: normal });
-        return axisLine.nearestTo(ray.toLine()).sub(origin).dot(normal);
+        return projectAxisValue(view, origin, normal, event);
     }
 
     /** Enters click-move-click mode: grabs the current projection so the value does not jump. */
@@ -468,19 +480,12 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
     }
 
     protected override removeHandle(): void {
-        for (const id of this._arrowIds) {
-            this.document.visual.context.removeMesh(id);
-        }
-        this._arrowIds = [];
+        this.arrowHandle.clear();
     }
 
     protected refreshArrow(view?: IView): void {
-        if (view !== undefined) this.updateArrowScale(view);
-        this.removeHandle();
-        const context = this.document.visual.context;
-        for (const mesh of this.buildArrowMeshes()) {
-            this._arrowIds.push(context.displayMesh([mesh], { meshOpacity: 1, onTop: true }));
-        }
+        if (view !== undefined) this.arrowHandle.updateScale(view, this.scaleAnchor(), this.axis().normal);
+        this.arrowHandle.replace(this.buildArrowMeshes().map((data) => ({ data, kind: "face" })));
         this.document.visual.update();
     }
 
@@ -513,21 +518,13 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
         }));
     }
 
-    /** Adapts the world-space arrow length so the arrow renders at a fixed pixel size. */
-    private updateArrowScale(view: IView): void {
-        const anchor = this.scaleAnchor();
-        const length = pxSizedArrowLength(view, anchor, this.axis().normal);
-        if (length !== undefined) this.arrowLength = length;
-    }
-
     /**
      * The drag's own teardown, ahead of the preview meshes (see the base class's cleanup
      * protocol): unhook the camera first — its next change would rescale an arrow that is
      * about to come down.
      */
     protected override onCleanupStart(): void {
-        this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
-        this._cameraView = undefined;
+        this.arrowHandle.stopTracking();
         // A frame still pending here belongs to a gesture being torn down: the meshes it
         // would build are removed a statement later, before anything renders them. Only
         // confirm() flushes — the commit proceeds synchronously from the final value.
@@ -535,25 +532,6 @@ export abstract class AxisDragHandler extends PreviewConfirmHandler {
         this.clearHover();
         PubSub.default.pub("clearInput");
     }
-
-    /**
-     * The viewport dispatches the wheel event to this handler before the camera zooms,
-     * so rescaling there would use the stale camera. Track camera changes instead:
-     * `cameraPosition` is emitted after every zoom/pan/rotate.
-     */
-    private trackCamera(view: IView): void {
-        if (this._cameraView === view) return;
-        this._cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
-        this._cameraView = view;
-        view.cameraController.onPropertyChanged(this.handleCameraChanged);
-    }
-
-    private readonly handleCameraChanged = () => {
-        if (this._cameraView !== undefined && !this.cleaned) {
-            this.refreshArrow(this._cameraView);
-            this.onCameraChanged(this._cameraView);
-        }
-    };
 }
 
 /** Uniformly scales canonical arrow geometry and moves it to `offset`. */

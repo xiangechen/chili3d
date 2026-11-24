@@ -8,7 +8,7 @@ coverage
 CMakeUserPresets.json
 types
 
-# a scenario run's screenshots (/test/scenarios/<name>/*.png)
-/test/scenarios
+# a scenario run's screenshots (/test/scenario-results/<name>/*.png)
+/test/scenario-results
 
 /docs/manual/book/

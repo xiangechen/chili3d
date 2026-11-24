@@ -155,6 +155,23 @@ export class MeshDataUtils {
         };
     }
 
+    static createPolylineMesh(
+        points: readonly XYZ[],
+        color: number,
+        lineWidth: number,
+        lineType: LineType = "solid",
+    ): EdgeMeshData[] {
+        const meshes: EdgeMeshData[] = [];
+        for (let i = 0; i + 1 < points.length; i++) {
+            const segment = MeshDataUtils.createEdgeMesh(points[i], points[i + 1], color, lineType);
+            segment.lineWidth = lineWidth;
+            meshes.push(segment);
+        }
+        return meshes.length === 0
+            ? []
+            : [meshes.reduce((all, one) => MeshDataUtils.mergeEdgeMesh(all, one))];
+    }
+
     static mergeEdgeMesh(data: EdgeMeshData, other: EdgeMeshData): EdgeMeshData {
         const otherRange = other.range.map((range) => {
             return {

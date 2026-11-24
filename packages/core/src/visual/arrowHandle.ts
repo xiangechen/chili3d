@@ -1,7 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import type { XY, XYZ } from "../math";
+import type { IDocument } from "../document";
+import { Line, type XY, type XYZ } from "../math";
 import type { IFace, ISurface, ShapeMeshData } from "../shape";
 import type { IView } from "./view";
 
@@ -9,7 +10,7 @@ import type { IView } from "./view";
  * The pixel-sized drag arrow value handles draw: the extrude drag and the
  * fillet/chamfer drag show the same handle, so its constants and its pure geometry
  * live here instead of in either step. What each handler does with the arrow — when to
- * show it, hover and drag state, camera tracking — stays in the handler.
+ * show it and its hover and drag state — stays in the handler.
  */
 
 /** Blue handle color, distinct from the green highlight/selection tints. */
@@ -81,6 +82,12 @@ export function distanceToSegment(x: number, y: number, a: XY, b: XY): number {
     return Math.hypot(x - a.x - t * abx, y - a.y - t * aby);
 }
 
+export function projectAxisValue(view: IView, origin: XYZ, normal: XYZ, event: PointerEvent): number {
+    const ray = view.rayAt(event.offsetX, event.offsetY);
+    const axis = new Line({ point: origin, direction: normal });
+    return axis.nearestTo(ray.toLine()).sub(origin).dot(normal);
+}
+
 /**
  * The world length at which an arrow anchored at `anchor` along `axis` renders at
  * ARROW_LENGTH_PX, or undefined when the view degenerates at that anchor.
@@ -93,6 +100,77 @@ export function pxSizedArrowLength(view: IView, anchor: XYZ, axis: XYZ): number 
     const b = view.worldToScreen(anchor.add(side.multiply(SCALE_MEASURE_BASELINE)));
     const pxPerUnit = a.distanceTo(b) / SCALE_MEASURE_BASELINE;
     return pxPerUnit > 1e-6 ? ARROW_LENGTH_PX / pxPerUnit : undefined;
+}
+
+export interface ArrowDisplayMesh {
+    readonly data: ShapeMeshData;
+    readonly kind?: "face" | "line" | "vertex";
+}
+
+export class ArrowHandle {
+    length?: number;
+    private ids: number[] = [];
+    private cameraView?: IView;
+
+    constructor(
+        private readonly document: IDocument,
+        private readonly onCameraChanged: (view: IView) => void,
+        private readonly unlit = false,
+    ) {}
+
+    get handleLength(): number {
+        return this.length ?? ARROW_LENGTH;
+    }
+
+    track(view: IView): void {
+        this.trackCamera(view);
+    }
+
+    updateScale(view: IView, anchor: XYZ, axis: XYZ): void {
+        this.trackCamera(view);
+        this.length = pxSizedArrowLength(view, anchor, axis) ?? this.length;
+    }
+
+    replace(meshes: readonly ArrowDisplayMesh[]): void {
+        this.clear();
+        for (const { data, kind = "face" } of meshes) {
+            this.ids.push(
+                this.document.visual.context.displayMesh([data], {
+                    meshOpacity: kind === "face" ? 1 : undefined,
+                    lineOpacity: kind === "line" ? 1 : undefined,
+                    vertexOpacity: kind === "vertex" ? 1 : undefined,
+                    onTop: true,
+                    unlit: this.unlit || undefined,
+                }),
+            );
+        }
+    }
+
+    clear(): void {
+        for (const id of this.ids) this.document.visual.context.removeMesh(id);
+        this.ids = [];
+    }
+
+    stopTracking(): void {
+        this.cameraView?.cameraController.removePropertyChanged(this.handleCameraChanged);
+        this.cameraView = undefined;
+    }
+
+    dispose(): void {
+        this.stopTracking();
+        this.clear();
+    }
+
+    private trackCamera(view: IView): void {
+        if (this.cameraView === view) return;
+        this.stopTracking();
+        this.cameraView = view;
+        view.cameraController.onPropertyChanged(this.handleCameraChanged);
+    }
+
+    private readonly handleCameraChanged = (): void => {
+        if (this.cameraView) this.onCameraChanged(this.cameraView);
+    };
 }
 
 /**

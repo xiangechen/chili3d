@@ -114,6 +114,8 @@ export abstract class CancelableCommand extends Observable implements ICancelabl
     async execute(application: IApplication): Promise<void> {
         if (!application.activeView?.document) return;
         this._application = application;
+        this._isCompleted = false;
+        this._isCanceled = false;
 
         await Promise.try(async () => {
             this.beforeExecute();

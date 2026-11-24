@@ -352,6 +352,18 @@ describe("ThreeMeshObject", () => {
         expect(obj.visible).toBe(true);
     });
 
+    test("worldBoundingBox applies the node transform exactly once", () => {
+        const node = createTestMeshNode({ meshType: "surface" });
+        node.transform = CoreMatrix4.fromTranslation(100, 0, 0);
+        const obj = new ThreeMeshObject(context, node);
+        context.visualShapes.add(obj);
+
+        const box = obj.worldBoundingBox();
+
+        expect(box?.min.x).toBe(100);
+        expect(box?.max.x).toBe(101);
+    });
+
     test("surface meshes sanitize invalid positions without changing the index count", () => {
         const node = createTestMeshNode({ meshType: "surface" });
         node.mesh.position = new Float32Array([0, 0, 0, Number.NaN, 0, 0, 0, 1, 0]);

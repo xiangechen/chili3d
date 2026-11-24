@@ -6,6 +6,7 @@ export * from "./newDocument";
 export * from "./openDocument";
 export * from "./performanceTest";
 export * from "./saveDocument";
+export * from "./sectionView";
 export * from "./toFile";
 export * from "./toggleDynamicWorkplane";
 export * from "./wechatGroup";

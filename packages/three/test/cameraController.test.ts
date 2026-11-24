@@ -60,6 +60,9 @@ function createFakeView(overrides: Partial<ThreeView> = {}): ThreeView {
         detectVisual(_x: number, _y: number) {
             return [];
         },
+        isClipped() {
+            return false;
+        },
         highlighter: {} as ThreeHighlighter,
         ...overrides,
     } as unknown as ThreeView;

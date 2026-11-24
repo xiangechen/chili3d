@@ -54,13 +54,13 @@ export class CommandService implements IService {
             await this.app.executingCommand.cancel();
     };
 
-    private readonly executeCommand = async (commandName: CommandKeys) => {
+    private readonly executeCommand = async (commandName: CommandKeys, ...args: unknown[]) => {
         // A command is the app's unit of "work in flight": a scripted run waits on this
         // rather than on a timer (see `pendingWork`). The release covers the whole call,
         // including the cancellation path below.
         const released = pendingWork.begin();
         try {
-            await this.runCommand(commandName);
+            await this.runCommand(commandName, args);
         } catch (error) {
             // Reaches here when the check itself failed — a cancel that rejects, say —
             // rather than the command's own run, which `executeAsync` reports.
@@ -71,14 +71,14 @@ export class CommandService implements IService {
         }
     };
 
-    private async runCommand(commandName: CommandKeys) {
+    private async runCommand(commandName: CommandKeys, args: unknown[]) {
         const command = commandName === "special.last" ? this.app.lastCommand : commandName;
         if (!command || !(await this.canExecute(command))) return;
         Logger.info(`executing command ${command}`);
-        await this.executeAsync(command);
+        await this.executeAsync(command, args);
     }
 
-    private async executeAsync(commandName: CommandKeys) {
+    private async executeAsync(commandName: CommandKeys, args: unknown[]) {
         const commandCtor = CommandStore.getCommand(commandName)!;
         if (!commandCtor) {
             Logger.error(`Can not find ${commandName} command`);
@@ -93,7 +93,7 @@ export class CommandService implements IService {
         // returns, so "in flight" is longer than this call (see `SaveDocument`).
         const alwaysAvailable = CommandStore.getComandData(commandName)?.alwaysAvailable === true;
 
-        const command = new commandCtor();
+        const command = new commandCtor(...args);
         if (!alwaysAvailable) {
             this.app.executingCommand = command;
             PubSub.default.pub("showProperties", this.app.activeView?.document!, []);
@@ -140,6 +140,10 @@ export class CommandService implements IService {
         const runningCommand = this.app.executingCommand;
         const runningKey = CommandStore.getComandData(runningCommand)?.key;
         if (runningKey === commandName) {
+            if (commandData?.toggleOnExecute && isCancelableCommand(runningCommand)) {
+                await runningCommand.cancel();
+                return false;
+            }
             PubSub.default.pub("showToast", "toast.command.{0}excuting", commandLabel(commandName));
             return false;
         }

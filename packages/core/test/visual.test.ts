@@ -66,6 +66,10 @@ describe("isVisualGeometry", () => {
             return undefined;
         }
 
+        worldBoundingBox(): BoundingBox | undefined {
+            return undefined;
+        }
+
         dispose(): void {
             this.disposed = true;
         }
@@ -82,6 +86,10 @@ describe("isVisualGeometry", () => {
         }
 
         boundingBox(): BoundingBox | undefined {
+            return undefined;
+        }
+
+        worldBoundingBox(): BoundingBox | undefined {
             return undefined;
         }
 
@@ -108,6 +116,7 @@ describe("isVisualGeometry", () => {
             locked: false,
             worldTransform: () => mockMatrix,
             boundingBox: () => undefined,
+            worldBoundingBox: () => undefined,
             dispose: () => {},
         } as IVisualObject;
         expect(isVisualGeometry(objectWithUndefinedGeometry)).toBe(false);
@@ -119,6 +128,7 @@ describe("isVisualGeometry", () => {
             transform: mockMatrix,
             worldTransform: () => mockMatrix,
             boundingBox: () => undefined,
+            worldBoundingBox: () => undefined,
             dispose: () => {},
         } as IVisualObject;
         expect(isVisualGeometry(objectWithoutGeometryNode)).toBe(false);
@@ -132,6 +142,7 @@ describe("isVisualGeometry", () => {
             locked: false,
             worldTransform: () => mockMatrix,
             boundingBox: () => undefined,
+            worldBoundingBox: () => undefined,
             dispose: () => {},
         } as IVisualObject;
         expect(isVisualGeometry(objectWithNullGeometry)).toBe(true);

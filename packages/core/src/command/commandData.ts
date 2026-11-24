@@ -21,6 +21,8 @@ export interface CommandData {
     helpText?: string;
     helpUrl?: string;
     isApplicationCommand?: boolean;
+    /** A second click cancels the running command instead of reporting that it is already active. */
+    toggleOnExecute?: boolean;
     /**
      * Whether the command runs no matter what is going on: it is not queued behind the command
      * in flight (nor does it cancel it), and it does not require an active view — an

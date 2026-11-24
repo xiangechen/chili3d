@@ -10,6 +10,7 @@ import {
     type IConverter,
     type IEventHandler,
     type IView,
+    isCancelableCommand,
     Localize,
     PubSub,
     Result,
@@ -95,6 +96,20 @@ export class Viewport extends HTMLElement {
     }
 
     private createActionControls() {
+        const sectionButton = svg({
+            icon: "icon-sectionView",
+            title: new Localize("command.act.sectionView"),
+            onclick: async (e) => {
+                e.stopPropagation();
+                const application = this.view.document.application;
+                if (application.activeView !== this.view) {
+                    const running = application.executingCommand;
+                    application.activeView = this.view;
+                    if (running && isCancelableCommand(running)) await running.cancel();
+                }
+                PubSub.default.pub("executeCommand", "act.sectionView");
+            },
+        });
         return div(
             { className: style.border },
             svg({
@@ -106,6 +121,7 @@ export class Viewport extends HTMLElement {
                     this.view.update();
                 },
             }),
+            sectionButton,
             svg({
                 icon: "icon-zoomin",
                 title: new Localize("viewport.zoomIn"),
@@ -289,6 +305,7 @@ export class Viewport extends HTMLElement {
             ["pointermove", this.pointerMove],
             ["pointerout", this.pointerOut],
             ["pointerup", this.pointerUp],
+            ["pointercancel", this.pointerCancel],
             ["wheel", this.mouseWheel],
             ["dblclick", this.doubleClick],
         ];
@@ -374,6 +391,10 @@ export class Viewport extends HTMLElement {
 
     private readonly pointerUp = (event: PointerEvent) => {
         this.handleEvent("pointerUp", event);
+    };
+
+    private readonly pointerCancel = (event: PointerEvent) => {
+        this.handleEvent("pointerCancel", event);
     };
 
     private readonly pointerOut = (event: PointerEvent) => {

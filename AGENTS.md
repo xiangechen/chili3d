@@ -59,7 +59,7 @@ OCCT v8.0.0 → `chili-wasm.wasm` via Emscripten. `cpp/src/`: `factory.cpp` (sha
 ## Testing
 
 - Scenario runs — `npm run test:scenarios` drives the real app in headless Chrome from
-`packages/parametric/test/scenarios/*.json`, waiting on the app's own settle signal
+`test/scenarios/*.json`, waiting on the app's own settle signal
 (`pendingWork`) instead of on timers. It needs `npm run dev` up. See that directory's
 README for the step vocabulary before writing one; a command that opens a dialog never
 settles until the dialog is answered.

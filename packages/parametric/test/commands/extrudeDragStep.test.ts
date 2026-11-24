@@ -7,6 +7,7 @@ import {
     type IView,
     type IVisualObject,
     Matrix4,
+    type MeshOption,
     Plane,
     PubSub,
     Ray,
@@ -138,6 +139,19 @@ describe("ExtrudeDragHandler", () => {
         expect(display).toHaveBeenCalledWith([overlay], { meshOpacity: 0.45, onTop: true });
         pub.mockRestore();
         handler.dispose();
+    });
+
+    test("draws the drag arrow unlit so section rendering keeps it whole", () => {
+        const pub = rs.spyOn(PubSub.default, "pub").mockImplementation(() => {});
+        const display = rs.fn((_datas: ShapeMeshData[], _options?: MeshOption) => 5);
+        (doc.visual.context as any).displayMesh = display;
+        const handler = new ExtrudeDragHandler(doc, controller, dragData());
+
+        const arrowCalls = display.mock.calls.filter((call) => call[1]?.unlit === true);
+        expect(arrowCalls.length).toBeGreaterThan(0);
+        for (const call of arrowCalls) expect(call[1]?.onTop).toBe(true);
+        handler.dispose();
+        pub.mockRestore();
     });
 
     test("confirming at zero depth is a no-op", () => {

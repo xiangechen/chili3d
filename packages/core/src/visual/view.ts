@@ -70,6 +70,8 @@ export interface IView extends IPropertyChanged, IDisposable {
     mode: ViewMode;
     name: string;
     workplane: Plane;
+    /** Active clipping planes; geometry on any plane's negative side is hidden. */
+    readonly sectionPlanes: readonly Plane[];
     update(): void;
     up(): XYZ;
     toImage(options?: ToImageOptions): string;

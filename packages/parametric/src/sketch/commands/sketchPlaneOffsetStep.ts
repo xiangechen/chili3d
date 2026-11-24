@@ -4,6 +4,9 @@
 import {
     ARROW_LENGTH,
     type AsyncController,
+    DATUM_PREVIEW_SIZE,
+    datumQuadAt,
+    datumQuadCenter,
     type I18nKeys,
     type IDocument,
     type IStep,
@@ -16,7 +19,6 @@ import {
     type XYZ,
 } from "@chili3d/core";
 import { AxisDragHandler, type DragPreview } from "../../commands/axisDragHandler";
-import { DATUM_PREVIEW_SIZE, datumQuadAt, datumQuadCenter } from "./planePreview";
 
 const GUIDE_COLOR = 0x4a9eff;
 const AXIS_X_COLOR = 0xd9534f;

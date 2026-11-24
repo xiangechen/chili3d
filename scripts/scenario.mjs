@@ -23,7 +23,7 @@
 //      npm run test:scenarios [name ...]        (all of them when no name is given)
 //
 // Env: CHILI3D_URL (default http://localhost:8080), CHROME (browser binary),
-//      SCENARIO_OUT (default <repo>/test/scenarios)
+//      SCENARIO_OUT (default <repo>/test/scenario-results)
 
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -33,8 +33,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const SCENARIO_DIR = resolve(repoRoot, "packages/parametric/test/scenarios");
-const OUT_ROOT = resolve(process.env.SCENARIO_OUT ?? join(repoRoot, "test", "scenarios"));
+const SCENARIO_DIR = resolve(repoRoot, "test", "scenarios");
+const OUT_ROOT = resolve(process.env.SCENARIO_OUT ?? join(repoRoot, "test", "scenario-results"));
 const URL_BASE = process.env.CHILI3D_URL ?? "http://localhost:8080";
 
 const CHROME_CANDIDATES = [
@@ -320,6 +320,15 @@ async function runStep(page, step, context) {
             const to = await page.worldToScreen(step.to[0], step.to[1], step.to[2] ?? 0);
             return page.drag(from, to);
         }
+        case "clickEval": {
+            const point = await page.evaluate(step.point);
+            return page.clickAt(point.x, point.y);
+        }
+        case "dragEval": {
+            const from = await page.evaluate(step.from);
+            const to = await page.evaluate(step.to);
+            return page.drag(from, to);
+        }
         case "key":
             return page.key(step.text);
         case "type":
@@ -372,13 +381,13 @@ async function runScenario(browser, name) {
         for (const [index, step] of scenario.steps.entries()) {
             try {
                 await runStep(page, step, context);
+                // Every step ends the same way: the app settles, then a frame draws it. A
+                // scenario therefore says nothing about timing except where timing is the
+                // thing under test.
+                if (step.settle !== false) await page.settled();
             } catch (error) {
                 throw new Error(`step ${index + 1} (${step.kind}): ${error.message}`);
             }
-            // Every step ends the same way: the app settles, then a frame draws it. A
-            // scenario therefore says nothing about timing except where timing is the
-            // thing under test.
-            await page.settled();
         }
     } finally {
         await page.close();

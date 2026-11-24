@@ -4,6 +4,7 @@
 import {
     BoundingBox,
     Config,
+    defaultFontService,
     EditableShapeNode,
     type IView,
     Matrix4,
@@ -11,8 +12,10 @@ import {
     Plane,
     Ray,
     Result,
+    SectionPlaneNode,
     type ShapeNode,
     ShapeTypes,
+    sectionPlaneNodes,
     type VisualNode,
     XY,
     XYZ,
@@ -23,6 +26,7 @@ import {
     BufferGeometry,
     DirectionalLight,
     Group,
+    type Intersection,
     Layers,
     type Mesh,
     MeshBasicMaterial,
@@ -31,10 +35,12 @@ import {
     Raycaster,
     Scene,
     Vector2,
+    Vector3,
 } from "three";
 import { CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer.js";
 import { Constants } from "../src/constants";
 import { ThreeGeometry } from "../src/threeGeometry";
+import { ThreeSectionPlaneObject } from "../src/threeSectionPlaneObject";
 import { ThreeView } from "../src/threeView";
 import type { ThreeVisualContext } from "../src/threeVisualContext";
 import { ThreeComponentObject, ThreeMeshObject, type ThreeVisualObject } from "../src/threeVisualObject";
@@ -46,9 +52,22 @@ import {
 } from "./mocks";
 import { container, TestView } from "./testView";
 
+beforeEach(() => {
+    rs.spyOn(defaultFontService, "ensureLoaded").mockImplementation(() => {});
+});
+
+afterEach(() => {
+    rs.restoreAllMocks();
+});
+
 // ============================================================================
 // Helpers — patch application.views and build a TestView for tests
 // ============================================================================
+
+type SectionClippingTestAccess = {
+    unclippedIntersections(intersections: Intersection[]): Intersection[];
+    isBoundingBoxClipped(box: BoundingBox, worldMatrix?: Matrix4): boolean;
+};
 
 function createViewsArray(): IView[] {
     const arr: IView[] = [];
@@ -64,7 +83,11 @@ function createTestView(overrides?: {
     content?: ThreeVisualContext;
     name?: string;
     workplane?: Plane;
-}): { view: TestView; doc: TestDocument; context: ThreeVisualContext } {
+}): {
+    view: TestView & { sectionPlane: Plane | undefined };
+    doc: TestDocument;
+    context: ThreeVisualContext;
+} {
     const doc = overrides?.document ?? new TestDocument();
     // Ensure application.views supports .remove()
     if (!doc.application.views || !(doc.application.views as any).remove) {
@@ -72,9 +95,33 @@ function createTestView(overrides?: {
     }
     const context = overrides?.content ?? createThreeMockVisualContext();
     (context as any).scene ??= new Scene();
+    doc.selection.getSelectedNodes ??= () => [];
+    doc.selection.setSelectedNodes ??= () => 0;
     const view = new TestView(doc, context, {
         name: overrides?.name,
         workplane: overrides?.workplane,
+    }) as TestView & { sectionPlane: Plane | undefined };
+    Object.defineProperty(view, "sectionPlane", {
+        get: () => sectionPlaneNodes(doc)[0]?.plane,
+        set: (plane: Plane | undefined) => {
+            const nodes = sectionPlaneNodes(doc);
+            if (plane !== undefined && nodes[0]) {
+                nodes[0].plane = plane;
+                return;
+            }
+            for (const node of nodes) {
+                node.parent?.remove(node);
+                const visual = context.getVisual(node) as ThreeSectionPlaneObject | undefined;
+                if (visual) {
+                    (context as any).removeTransientVisual(visual);
+                    visual.dispose();
+                }
+            }
+            if (plane === undefined) return;
+            const node = new SectionPlaneNode({ document: doc, plane });
+            doc.modelManager.addNode(node);
+            (context as any).addTransientVisual(new ThreeSectionPlaneObject(node));
+        },
     });
     return { view, doc, context };
 }
@@ -173,6 +220,157 @@ describe("ThreeView — properties", () => {
         view.workplane = newPlane;
         expect(view.workplane).toBe(newPlane);
         expect(fired).toContain("workplane");
+    });
+
+    test("sectionPlane updates renderer clipping and can be cleared", () => {
+        const { view, context } = createTestView();
+        const fired: string[] = [];
+        view.onPropertyChanged((prop) => fired.push(prop as string));
+        const plane = new Plane({ origin: new XYZ(1, 2, 3), normal: XYZ.unitX, xvec: XYZ.unitY });
+
+        view.sectionPlane = plane;
+
+        expect(view.sectionPlane).toBe(plane);
+        expect(view.renderer.clippingPlanes).toHaveLength(1);
+        expect(view.renderer.clippingPlanes[0].normal.equals(new Vector3(1, 0, 0))).toBe(true);
+        expect(view.renderer.clippingPlanes[0].distanceToPoint(new Vector3(1, 2, 3))).toBeCloseTo(-1e-4);
+        expect(fired).toContain("sectionPlanes");
+        expect(context.visualShapes.children.some((child) => child.name === "sectionPlane")).toBe(true);
+
+        view.sectionPlane = undefined;
+        expect(view.renderer.clippingPlanes).toHaveLength(0);
+        expect(context.visualShapes.children.some((child) => child.name === "sectionPlane")).toBe(false);
+    });
+
+    test("picking and bounds use the same clipping epsilon as rendering", () => {
+        const { view } = createTestView();
+        view.sectionPlane = Plane.XY;
+        const clippingView = view as unknown as SectionClippingTestAccess;
+        const visibleHit = {
+            point: new Vector3(0, 0, -0.00005),
+            object: new Group(),
+        } as unknown as Intersection;
+        const visibleBounds = new BoundingBox(new XYZ(-1, -1, -0.00006), new XYZ(1, 1, -0.00004));
+        const hiddenBounds = new BoundingBox(new XYZ(-1, -1, -0.0002), new XYZ(1, 1, -0.00011));
+
+        expect(view.isClipped(visibleHit.point)).toBe(false);
+        expect(clippingView.unclippedIntersections([visibleHit])).toEqual([visibleHit]);
+        expect(clippingView.isBoundingBoxClipped(visibleBounds, Matrix4.identity())).toBe(false);
+        expect(clippingView.isBoundingBoxClipped(hiddenBounds, Matrix4.identity())).toBe(true);
+    });
+
+    test("section frame is detected as its viewport-owned selection node", () => {
+        const { view, context } = createTestView();
+        view.sectionPlane = Plane.XY;
+        const visual = context.visualShapes.getObjectByName("sectionPlane") as ThreeSectionPlaneObject;
+        expect(visual).toBeInstanceOf(ThreeSectionPlaneObject);
+        visual.updateFrame(Plane.XY, { center: new XYZ(0, 0, 0), width: 20, height: 20 });
+        view.camera.updateMatrixWorld();
+        const point = view.worldToScreen(new XYZ(0, 10, 0));
+
+        (view.document.visual as any).context = context;
+        const detected = view.detectVisual(point.x, point.y);
+
+        expect(detected.includes(visual)).toBe(true);
+        expect(context.getNode(visual) === visual.sectionNode).toBe(true);
+        expect(visual.sectionNode.document === view.document).toBe(true);
+    });
+
+    test("section planes are shared between views of the same document", () => {
+        const context = createThreeMockVisualContext();
+        const first = createTestView({ content: context }).view;
+        const second = createTestView({ content: context, document: first.document }).view;
+
+        first.sectionPlane = Plane.XY;
+
+        expect(first.renderer.clippingPlanes).toHaveLength(1);
+        expect(second.renderer.clippingPlanes).toHaveLength(1);
+        expect(second.sectionPlane).toBe(Plane.XY);
+    });
+
+    test("renders and picks every section frame in the current document", () => {
+        const context = createThreeMockVisualContext();
+        const first = createTestView({ content: context }).view;
+        createTestView({ content: context, document: first.document });
+        first.sectionPlane = Plane.XY;
+        const firstNode = sectionPlaneNodes(first.document)[0];
+        const secondNode = new SectionPlaneNode({ document: first.document, plane: Plane.YZ });
+        first.document.modelManager.addNode(secondNode);
+        const firstFrame = context.getVisual(firstNode) as ThreeSectionPlaneObject;
+        const secondFrame = new ThreeSectionPlaneObject(secondNode);
+        (context as any).addTransientVisual(secondFrame);
+        firstFrame.updateFrame(Plane.XY, { center: new XYZ(0, 0, 0), width: 20, height: 20 });
+        secondFrame.updateFrame(Plane.XY, { center: new XYZ(0, 0, 0), width: 20, height: 20 });
+        (first.document.visual as any).context = context;
+        first.camera.updateMatrixWorld();
+        const point = first.worldToScreen(new XYZ(-5, 10, 0));
+
+        const detected = first.detectVisual(point.x, point.y);
+        expect(detected.includes(firstFrame)).toBe(true);
+        expect(detected.includes(secondFrame)).toBe(true);
+
+        let secondVisibleDuringRender: boolean | undefined;
+        const render = rs.spyOn(first.renderer, "render").mockImplementation((object) => {
+            if (object.parent === secondFrame) secondVisibleDuringRender = secondFrame.visible;
+        });
+        (first as any).renderScene();
+        expect(secondVisibleDuringRender).toBe(true);
+        expect(secondFrame.visible).toBe(true);
+        render.mockRestore();
+    });
+
+    test("section filtering removes clipped hits and uses a line's point on the geometry", () => {
+        const { view } = createTestView();
+        view.sectionPlane = Plane.XY;
+        const intersection = (point: Vector3, pointOnLine?: Vector3): Intersection => ({
+            distance: 0,
+            object: new Scene(),
+            point,
+            pointOnLine,
+        });
+        const clipped = intersection(new Vector3(0, 0, -1));
+        const retained = intersection(new Vector3(0, 0, 1));
+        const boundary = intersection(new Vector3(0, 0, 0));
+        const line = intersection(new Vector3(0, 0, -1), new Vector3(0, 0, 0.5));
+
+        const result = (view as unknown as SectionClippingTestAccess).unclippedIntersections([
+            clipped,
+            retained,
+            boundary,
+            line,
+        ]);
+
+        expect(result).toEqual([retained, boundary, line]);
+    });
+
+    test("rectangle selection rejects only bounds entirely on the clipped side", () => {
+        const { view } = createTestView();
+        view.sectionPlane = Plane.XY;
+        const clipped = new BoundingBox(new XYZ(-1, -1, -2), new XYZ(1, 1, -1));
+        const crossing = new BoundingBox(new XYZ(-1, -1, -1), new XYZ(1, 1, 1));
+        const clippingView = view as unknown as SectionClippingTestAccess;
+
+        expect(clippingView.isBoundingBoxClipped(clipped, Matrix4.identity())).toBe(true);
+        expect(clippingView.isBoundingBoxClipped(crossing, Matrix4.identity())).toBe(false);
+    });
+
+    test("rectangle selection keeps a section frame on another section's clipped side", () => {
+        const { view, context } = createTestView();
+        view.sectionPlane = Plane.YZ;
+        const frame = context.visualShapes.getObjectByName("sectionPlane") as ThreeSectionPlaneObject;
+        frame.updateFrame(Plane.XY, { center: new XYZ(-10, 0, 0), width: 4, height: 4 });
+        (view.document.visual as any).context = context;
+        view.camera.updateMatrixWorld();
+        const bounds = frame.worldBoundingBox();
+        if (!bounds) throw new Error("Section frame has no bounds");
+        expect(BoundingBox.isValid(bounds)).toBe(true);
+        expect((view as any).isBoundingBoxInRect(bounds, Matrix4.identity(), 0, 0, 100, 100, true)).toBe(
+            true,
+        );
+
+        const detected = view.detectVisualRect(0, 0, 100, 100);
+        expect(detected.length).toBe(1);
+        expect(detected.some((candidate) => candidate === frame)).toBe(true);
     });
 
     test("dom returns undefined before setDom", () => {
@@ -663,6 +861,23 @@ describe("ThreeView — detectVisualRect", () => {
         const filter = { allow: () => true };
         const result = view.detectVisualRect(10, 10, 90, 90, filter);
         expect(Array.isArray(result)).toBe(true);
+    });
+
+    test("keeps partially clipped nodes selectable without the original-center SelectionBox", () => {
+        const { view, context } = createTestView();
+        const node = createTestGeometryNode({ hasEdges: false, hasVertexs: false });
+        node.mesh.faces!.position = new Float32Array([8, 8, 1, -8, -8, -10, -8, 8, -10]);
+        const visual = new ThreeGeometry(node, context);
+        context.visualShapes.add(visual);
+        view.document.visual.context.visuals = () => [visual];
+        (view.renderer as any).clearStencil = rs.fn();
+        view.sectionPlane = Plane.XY;
+        const selectionBox = rs.spyOn(view as any, "initSelectionBox");
+
+        const result = view.detectVisualRect(-1000, -1000, 1000, 1000);
+
+        expect(selectionBox).not.toHaveBeenCalled();
+        expect(result).toEqual([visual]);
     });
 
     test("detectVisualRect with inverted coordinates", () => {
@@ -1211,6 +1426,57 @@ describe("ThreeView — isShapeInRect", () => {
         } as any;
 
         const result = (view as any).isShapeInRect(shape, undefined, Matrix4.identity(), 0, 0, 100, 100);
+        expect(result).toBe(false);
+    });
+
+    function crossingShape() {
+        return {
+            boundingBox: () => BoundingBox.fromNumbers([-10, -10, -10, 10, 10, 1]),
+            shapeType: ShapeTypes.face,
+            mesh: {
+                faces: {
+                    position: new Float32Array([8, 8, 1, -8, -8, -10, -8, 8, -10]),
+                    index: new Uint32Array([0, 1, 2]),
+                },
+                edges: undefined,
+                vertexs: undefined,
+            },
+        };
+    }
+
+    test("uses the visible portion when a crossing shape's original center is clipped", () => {
+        const { view } = createTestView();
+        view.sectionPlane = Plane.XY;
+        const visible = view.worldToScreen(new XYZ(8, 8, 1));
+
+        const result = (view as any).isShapeInRect(
+            crossingShape(),
+            undefined,
+            Matrix4.identity(),
+            visible.x - 4,
+            visible.y - 4,
+            visible.x + 4,
+            visible.y + 4,
+        );
+
+        expect(result).toBe(true);
+    });
+
+    test("does not select a crossing shape through its clipped center", () => {
+        const { view } = createTestView();
+        view.sectionPlane = Plane.XY;
+        const hiddenCenter = view.worldToScreen(XYZ.zero);
+
+        const result = (view as any).isShapeInRect(
+            crossingShape(),
+            undefined,
+            Matrix4.identity(),
+            hiddenCenter.x - 1,
+            hiddenCenter.y - 1,
+            hiddenCenter.x + 1,
+            hiddenCenter.y + 1,
+        );
+
         expect(result).toBe(false);
     });
 

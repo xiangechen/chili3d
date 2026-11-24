@@ -1,7 +1,7 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { type EdgeMeshData, ShapeTypes, XYZ } from "@chili3d/core";
+import { type EdgeMeshData, Matrix4, ShapeTypes, XYZ } from "@chili3d/core";
 import { Box3, Mesh, MeshBasicMaterial, Points } from "three";
 import type { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
@@ -128,6 +128,17 @@ describe("ThreeGeometry", () => {
             expect(box?.max.x).toBe(1);
             expect(box?.max.y).toBe(1);
             expect(box?.max.z).toBe(0);
+        });
+
+        test("worldBoundingBox transforms the local geometry box exactly once", () => {
+            const node = createTestGeometryNode();
+            node.transform = Matrix4.fromTranslation(100, 0, 0);
+            const geo = new ThreeGeometry(node, context);
+
+            const box = geo.worldBoundingBox();
+
+            expect(box?.min.x).toBe(100);
+            expect(box?.max.x).toBe(101);
         });
 
         test("box returns the Three.js bounding box", () => {

@@ -1,0 +1,23 @@
+{
+    "//": "A section coplanar with a visible solid face leaves that face unhatched, while a section through the solid interior shows the hatch.",
+    "start": "document",
+    "steps": [
+        {
+            "kind": "eval",
+            "expression": "(async () => { const view = globalThis.activeView; Object.defineProperty(view, 'sectionPlane', { get: () => view.document.modelManager.findNodes((node) => node.constructor.name === 'SectionPlaneNode')[0]?.plane }); view.cameraController.lookAt({ x: 80, y: -70, z: 70 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }, { duration: 0 }); view.camera.lookAt(view.cameraController.target); view.camera.updateMatrixWorld(); const click = async (point, requireSnap = true) => { const screen = view.worldToScreen(point); const event = { offsetX: screen.x, offsetY: screen.y, pointerType: 'mouse', button: 0, isPrimary: true, pointerId: 1, preventDefault() {}, stopImmediatePropagation() {} }; const handler = view.document.visual.eventHandler; handler.pointerMove(view, event); if (requireSnap && !handler.snaped) throw new Error(`no snap at ${JSON.stringify(point)}`); handler.pointerDown(view, event); handler.pointerUp(view, event); await new Promise((resolve) => setTimeout(resolve, 50)); }; globalThis.__sectionClick = click; globalThis.__chiliTest.dispatch('create.box'); await new Promise((resolve) => setTimeout(resolve, 100)); await click({ x: 0, y: 0, z: 0 }); await click({ x: 40, y: 30, z: 0 }); await click({ x: 0, y: 0, z: 20 }); await globalThis.__chiliTest.pendingWork.whenIdle(); return true; })()"
+        },
+        { "kind": "runCommand", "name": "act.sectionView", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); const view = globalThis.activeView; view.cameraController.lookAt({ x: 400, y: -400, z: 350 }, { x: 60, y: 60, z: 50 }, { x: 0, y: 0, z: 1 }, { duration: 0 }); view.camera.lookAt(view.cameraController.target); view.camera.updateMatrixWorld(); await new Promise((resolve) => setTimeout(resolve, 150)); await globalThis.__sectionClick({ x: 0, y: 125, z: 125 }, false); const deadline = Date.now() + 5000; while (!view.sectionPlane?.normal.isEqualTo({ x: 1, y: 0, z: 0 }) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50)); if (!view.sectionPlane) throw new Error('YZ viewport plane was not picked'); const panel = globalThis.app.mainWindow.querySelector('command-context'); const offset = panel.querySelector('input[type=text]'); offset.value = '40'; offset.dispatchEvent(new Event('blur')); panel.querySelector('input[type=checkbox]').click(); const viewportContainer = view.dom.parentElement.parentElement; for (const sibling of viewportContainer.parentElement.children) if (sibling !== viewportContainer) sibling.style.display = 'none'; panel.style.visibility = 'hidden'; await new Promise((resolve) => setTimeout(resolve, 150)); view.cameraController.fitContent({ duration: 0 }); view.camera.lookAt(view.cameraController.target); view.camera.updateMatrixWorld(); view.update(); await new Promise((resolve) => setTimeout(resolve, 150)); if (Math.abs(view.sectionPlane.origin.x - 40) > 0.05 || !view.sectionPlane.normal.isEqualTo({ x: -1, y: 0, z: 0 })) throw new Error('coplanar setup did not apply offset and flip'); return true; })()"
+        },
+        { "kind": "screenshot", "name": "00-coplanar-face", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; const panel = globalThis.app.mainWindow.querySelector('command-context'); const offset = panel.querySelector('input[type=text]'); offset.value = '20'; offset.dispatchEvent(new Event('blur')); view.update(); await new Promise((resolve) => setTimeout(resolve, 150)); if (Math.abs(view.sectionPlane.origin.x - 20) > 0.05) throw new Error(`interior offset did not apply: ${view.sectionPlane.origin.x}`); return true; })()"
+        },
+        { "kind": "screenshot", "name": "01-section-interior", "settle": false }
+    ]
+}

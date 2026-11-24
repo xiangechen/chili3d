@@ -1,0 +1,137 @@
+{
+    "//": "Sections are persistent document nodes: creation adds simultaneous clipping planes, deleting a picked frame removes only that node, and double-clicking reopens that node's editor without another plane pick.",
+    "start": "document",
+    "steps": [
+        {
+            "kind": "eval",
+            "expression": "(async () => { const view = globalThis.activeView; const sectionNodes = () => view.document.modelManager.findNodes((node) => node.constructor.name === 'SectionPlaneNode'); globalThis.__sectionNodes = sectionNodes; Object.defineProperty(view, 'sectionPlane', { get: () => sectionNodes().at(-1)?.plane }); const click = async (point, requireSnap = true) => { const screen = view.worldToScreen(point); const event = { offsetX: screen.x, offsetY: screen.y, pointerType: 'mouse', button: 0, isPrimary: true, pointerId: 1, preventDefault() {}, stopImmediatePropagation() {} }; const handler = view.document.visual.eventHandler; handler.pointerMove(view, event); if (requireSnap && !handler.snaped) throw new Error(`no snap at ${JSON.stringify(point)}`); handler.pointerDown(view, event); handler.pointerUp(view, event); await new Promise((resolve) => setTimeout(resolve, 50)); }; globalThis.__sectionClick = click; globalThis.__chiliTest.dispatch('create.box'); await new Promise((resolve) => setTimeout(resolve, 100)); await click({ x: 0, y: 0, z: 0 }); await click({ x: 40, y: 30, z: 0 }); await click({ x: 0, y: 0, z: 20 }); await globalThis.__chiliTest.pendingWork.whenIdle(); if (globalThis.activeDocument.modelManager.findNodes().length === 0) throw new Error('the solid used by the section test was not created'); return true; })()"
+        },
+        { "kind": "runCommand", "name": "act.sectionView", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); const view = globalThis.activeView; if (view.sectionPlane) throw new Error('section was created before a plane was picked'); const panel = globalThis.app.mainWindow.querySelector('command-context'); if (!panel) throw new Error('section command context did not open'); if (panel.querySelector('select')) throw new Error('section axis dropdown still exists'); if (panel.querySelectorAll('button').length !== 0) throw new Error('section action buttons still exist'); const viewportContainer = view.dom.parentElement.parentElement; for (const sibling of viewportContainer.parentElement.children) if (sibling !== viewportContainer) sibling.style.display = 'none'; await new Promise((resolve) => setTimeout(resolve, 150)); view.cameraController.lookAt({ x: 400, y: -400, z: 350 }, { x: 60, y: 60, z: 50 }, { x: 0, y: 0, z: 1 }, { duration: 0 }); view.camera.lookAt(view.cameraController.target); view.camera.updateMatrixWorld(); view.update(); return true; })()"
+        },
+        { "kind": "screenshot", "name": "00-section-plane-choice", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; await globalThis.__sectionClick({ x: 125, y: 125, z: 0 }, false); const deadline = Date.now() + 5000; while (!view.sectionPlane && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50)); if (!view.sectionPlane) throw new Error('XY viewport plane pick did not create a section'); const panel = globalThis.app.mainWindow.querySelector('command-context'); const offset = panel?.querySelector('input[type=text]'); if (!offset) throw new Error('section offset option is missing'); offset.value = '5'; offset.dispatchEvent(new Event('blur')); return true; })()"
+        },
+        { "kind": "runCommand", "name": "act.sectionView" },
+        {
+            "kind": "eval",
+            "expression": "(() => { const view = globalThis.activeView; if (!view.sectionPlane) throw new Error('closing the editor removed its section'); if (globalThis.__sectionNodes()[0].parent?.name !== 'Views') throw new Error('section was not created under the Views folder'); if (view.renderer.clippingPlanes.length !== 1) throw new Error('closing the editor disabled renderer clipping'); return true; })()"
+        },
+        { "kind": "runCommand", "name": "act.sectionView", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { await new Promise((resolve) => setTimeout(resolve, 100)); const view = globalThis.activeView; view.cameraController.lookAt({ x: 400, y: -400, z: 350 }, { x: 60, y: 60, z: 50 }, { x: 0, y: 0, z: 1 }, { duration: 0 }); view.camera.lookAt(view.cameraController.target); view.camera.updateMatrixWorld(); await new Promise((resolve) => setTimeout(resolve, 150)); await globalThis.__sectionClick({ x: 0, y: 125, z: 125 }, false); const deadline = Date.now() + 5000; while (!view.sectionPlane?.normal.isEqualTo({ x: 1, y: 0, z: 0 }) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50)); if (!view.sectionPlane.normal.isEqualTo({ x: 1, y: 0, z: 0 })) throw new Error('YZ viewport plane was not picked'); const panel = globalThis.app.mainWindow.querySelector('command-context'); const offset = panel.querySelector('input[type=text]'); offset.value = '5'; offset.dispatchEvent(new Event('blur')); if (Math.abs(view.sectionPlane.origin.x - 5) > 0.05) throw new Error('offset option did not move the YZ plane'); const viewportContainer = view.dom.parentElement.parentElement; for (const sibling of viewportContainer.parentElement.children) if (sibling !== viewportContainer) sibling.style.display = 'none'; panel.style.visibility = 'hidden'; await new Promise((resolve) => setTimeout(resolve, 150)); view.cameraController.fitContent({ duration: 0 }); view.camera.lookAt(view.cameraController.target); view.camera.updateMatrixWorld(); view.update(); globalThis.__sectionScreen = (point) => { const at = view.worldToScreen(point); const rect = view.dom.getBoundingClientRect(); return { x: rect.left + at.x, y: rect.top + at.y }; }; globalThis.__sectionSetArcDrag = (axis) => { const handler = view.document.visual.eventHandler; const handle = handler.rotationHandle(axis); const tip = handle.origin.sub(handle.rotationAxis.multiply(handle.radial.dot(handle.rotationAxis) * handle.radius)); const point = (degrees) => { const radial = handle.radial.rotate(handle.rotationAxis, (degrees * Math.PI) / 180); if (!radial) throw new Error('rotation arc is degenerate'); return tip.add(radial.multiply(handle.radius)); }; globalThis.__sectionArcDrag = { from: globalThis.__sectionScreen(point(15)), to: globalThis.__sectionScreen(point(45)) }; }; return true; })()"
+        },
+        {
+            "kind": "dragEval",
+            "settle": false,
+            "from": "globalThis.__sectionScreen({ x: 5, y: 0, z: 0 })",
+            "to": "globalThis.__sectionScreen({ x: 7, y: 0, z: 0 })"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(() => { const view = globalThis.activeView; if (Math.abs(view.sectionPlane.origin.x - 7) > 0.25) throw new Error(`dragging the section arrow did not update the offset: ${view.sectionPlane.origin.x}`); globalThis.__sectionSetArcDrag('x'); return true; })()"
+        },
+        {
+            "kind": "dragEval",
+            "settle": false,
+            "from": "globalThis.__sectionArcDrag.from",
+            "to": "globalThis.__sectionArcDrag.to"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(() => { if (Math.abs(globalThis.app.executingCommand.angleX - 30) > 1) throw new Error('X arc did not rotate the section'); globalThis.__sectionSetArcDrag('y'); return true; })()"
+        },
+        {
+            "kind": "dragEval",
+            "settle": false,
+            "from": "globalThis.__sectionArcDrag.from",
+            "to": "globalThis.__sectionArcDrag.to"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(() => { const view = globalThis.activeView; if (Math.abs(globalThis.app.executingCommand.angleY - 30) > 5) throw new Error(`Y arc did not rotate the section: ${JSON.stringify({ angleX: globalThis.app.executingCommand.angleX, angleY: globalThis.app.executingCommand.angleY })}`); if (Math.abs(view.sectionPlane.origin.x - 7) > 0.25) throw new Error('rotation changed the section offset'); if (view.document.visual.context.tempShapes.children.length !== 5) throw new Error('section arrow, arc midpoint, or rotation arcs are not displayed'); return true; })()"
+        },
+        { "kind": "screenshot", "name": "01-section-view", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; const panel = globalThis.app.mainWindow.querySelector('command-context'); const flip = panel.querySelector('input[type=checkbox]'); if (!flip) throw new Error('flip option is missing'); const offsetBeforeFlip = view.sectionPlane.origin.x; const normalBeforeFlip = view.sectionPlane.normal; flip.click(); if (!view.sectionPlane.normal.isEqualTo(normalBeforeFlip.reverse())) throw new Error('flip did not reverse the normal'); if (Math.abs(view.sectionPlane.origin.x - offsetBeforeFlip) > 1e-6) throw new Error('flip moved the plane'); view.update(); await new Promise((resolve) => setTimeout(resolve, 100)); return true; })()"
+        },
+        { "kind": "screenshot", "name": "02-section-view-flipped", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; view.cameraController.zoom(view.width / 2, view.height / 2, -3); view.camera.updateMatrixWorld(); view.update(); await new Promise((resolve) => setTimeout(resolve, 150)); return true; })()"
+        },
+        { "kind": "screenshot", "name": "03-section-view-zoomed", "settle": false },
+        { "kind": "runCommand", "name": "act.sectionView" },
+        {
+            "kind": "eval",
+            "expression": "(() => { const view = globalThis.activeView; if (!view.sectionPlane) throw new Error('closing the editor removed its section'); if (globalThis.app.mainWindow.querySelector('command-context')) throw new Error('section command context did not close'); if (view.document.visual.eventHandler !== view.document.visual.defaultEventHandler) throw new Error('section arrow handler survived the editor'); if (view.document.visual.context.tempShapes.children.length !== 0) throw new Error('section arrow meshes survived the editor'); return true; })()"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(() => { const view = globalThis.activeView; globalThis.__sectionCountBeforeCreate = globalThis.__sectionNodes().length; globalThis.__firstSectionNode = globalThis.__sectionNodes()[0]; globalThis.__sectionPlaneBeforeDelete = globalThis.__firstSectionNode.plane; const button = Array.from(view.dom.querySelectorAll('svg')).find((svg) => svg.querySelector('use')?.getAttributeNS('http://www.w3.org/1999/xlink', 'href') === '#icon-sectionView'); if (!button) throw new Error('viewport section button is missing'); button.dispatchEvent(new MouseEvent('click', { bubbles: true })); return true; })()"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; await new Promise((resolve) => setTimeout(resolve, 100)); await globalThis.__sectionClick({ x: 125, y: 125, z: 0 }, false); const deadline = Date.now() + 5000; while (globalThis.__sectionNodes().length !== globalThis.__sectionCountBeforeCreate + 1 && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 50)); const nodes = globalThis.__sectionNodes(); if (nodes.length !== globalThis.__sectionCountBeforeCreate + 1) throw new Error('viewport create button did not add another section'); if (nodes[0] !== globalThis.__firstSectionNode || nodes[0].plane !== globalThis.__sectionPlaneBeforeDelete) throw new Error('creating another section modified the first one'); if (view.sectionPlanes.length !== globalThis.__sectionCountBeforeCreate + 1 || view.renderer.clippingPlanes.length !== globalThis.__sectionCountBeforeCreate + 1) throw new Error('multiple sections are not clipping simultaneously'); return true; })()"
+        },
+        { "kind": "runCommand", "name": "act.sectionView" },
+        { "kind": "screenshot", "name": "04-multiple-sections" },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; view.update(); await new Promise((resolve) => setTimeout(resolve, 200)); globalThis.__updateSectionFrameClick = () => { const visual = view.document.visual.context.visualShapes.getObjectByName('sectionPlane'); if (!visual) throw new Error('section frame visual is missing'); const frame = visual.wholeVisual()[0]; const positions = frame.geometry.attributes.instanceStart; if (!frame.visible || positions.count !== 4) throw new Error('section frame is not a visible rectangle'); const start = view.camera.position.clone().fromBufferAttribute(positions, 0); const end = view.camera.position.clone().fromBufferAttribute(positions, 1); const point = view.worldToScreen(start.clone().add(end).multiplyScalar(0.5)); const rect = view.dom.getBoundingClientRect(); globalThis.__sectionFrameClick = { x: rect.left + point.x, y: rect.top + point.y }; }; globalThis.__updateSectionFrameClick(); return true; })()"
+        },
+        { "kind": "clickEval", "point": "globalThis.__sectionFrameClick" },
+        {
+            "kind": "eval",
+            "expression": "(() => { const selected = globalThis.activeDocument.selection.getSelectedNodes(); if (selected.length !== 1 || selected[0].constructor.name !== 'SectionPlaneNode') throw new Error('clicking the section frame did not select its viewport section'); return true; })()"
+        },
+        { "kind": "key", "text": "Delete" },
+        {
+            "kind": "eval",
+            "expression": "(() => { const view = globalThis.activeView; const nodes = globalThis.__sectionNodes(); if (nodes.length !== globalThis.__sectionCountBeforeCreate || nodes[0] === globalThis.__firstSectionNode) throw new Error('deleting one section did not preserve the others'); if (view.sectionPlanes.length !== globalThis.__sectionCountBeforeCreate || view.renderer.clippingPlanes.length !== globalThis.__sectionCountBeforeCreate) throw new Error('deleting one section did not preserve the other clipping planes'); if (view.document.visual.context.getVisual(globalThis.__firstSectionNode)) throw new Error('deleting the selected section left its frame visual behind'); const saved = JSON.stringify(view.document.serialize()); if (!saved.includes('SectionPlaneNode') || !saved.includes(nodes[0].id) || !saved.includes('Views')) throw new Error('the remaining section is not saved under Views in the document'); globalThis.__lastSectionNode = nodes[0]; globalThis.__sectionPlaneBeforeDelete = nodes[0].plane; return true; })()"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(async () => { const view = globalThis.activeView; view.update(); await new Promise((resolve) => setTimeout(resolve, 200)); globalThis.__updateSectionFrameClick(); const point = globalThis.__sectionFrameClick; view.dom.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: point.x, clientY: point.y })); await new Promise((resolve) => setTimeout(resolve, 150)); if (!globalThis.app.executingCommand) throw new Error('double-clicking the section frame did not open its editor'); if (view.document.visual.eventHandler === view.document.visual.defaultEventHandler) throw new Error('double-clicking the section frame did not install its edit handles'); if (view.document.visual.context.tempShapes.children.length !== 5) throw new Error('double-clicking asked for a new plane instead of editing the retained section'); if (globalThis.__lastSectionNode.plane !== globalThis.__sectionPlaneBeforeDelete) throw new Error('double-clicking changed the retained plane before an edit'); return true; })()"
+        },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(() => { const view = globalThis.activeView; const frame = view.document.visual.context.visualShapes.getObjectByName('sectionPlane').wholeVisual()[0]; const positions = frame.geometry.attributes.instanceStart; const rect = view.dom.getBoundingClientRect(); for (let segment = 0; segment < 4; segment++) { const start = view.camera.position.clone().fromBufferAttribute(positions, segment * 2); const end = view.camera.position.clone().fromBufferAttribute(positions, segment * 2 + 1); for (const t of [0.5, 0.25, 0.75]) { const screen = view.worldToScreen(start.clone().lerp(end, t)); const point = { x: rect.left + screen.x, y: rect.top + screen.y }; if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue; const target = document.elementFromPoint(point.x, point.y); if (target && view.dom.contains(target) && !target.closest('command-context')) { globalThis.__sectionFrameClick = point; return true; } } } throw new Error('no section frame edge is clickable outside the editor panel'); })()"
+        },
+        { "kind": "clickEval", "point": "globalThis.__sectionFrameClick", "settle": false },
+        {
+            "kind": "eval",
+            "settle": false,
+            "expression": "(() => { const view = globalThis.activeView; const selected = view.document.selection.getSelectedNodes(); if (!globalThis.app.executingCommand) throw new Error('section editor closed during frame selection'); if (selected.length !== 1 || selected[0].constructor.name !== 'SectionPlaneNode') throw new Error('section frame cannot be selected while its editor is active'); return true; })()"
+        },
+        { "kind": "runCommand", "name": "act.sectionView" },
+        {
+            "kind": "eval",
+            "expression": "(() => { const view = globalThis.activeView; if (globalThis.__lastSectionNode.plane !== globalThis.__sectionPlaneBeforeDelete) throw new Error('closing the double-click editor removed its section'); if (view.document.visual.eventHandler !== view.document.visual.defaultEventHandler) throw new Error('double-click editor did not restore selection'); if (view.document.selection.getSelectedNodes().length !== 1) throw new Error('closing the editor cleared the frame selection'); return true; })()"
+        },
+        { "kind": "key", "text": "Delete" },
+        {
+            "kind": "eval",
+            "expression": "(() => { const view = globalThis.activeView; if (globalThis.__sectionNodes().length !== globalThis.__sectionCountBeforeCreate - 1 || view.sectionPlanes.length !== globalThis.__sectionCountBeforeCreate - 1) throw new Error('deleting the selected section removed more than its own plane'); if (view.renderer.clippingPlanes.length !== globalThis.__sectionCountBeforeCreate - 1) throw new Error('deleting the selected section left the wrong clipping plane count'); if (view.document.visual.context.getVisual(globalThis.__lastSectionNode)) throw new Error('deleting the selected section left its visual behind'); return true; })()"
+        }
+    ]
+}

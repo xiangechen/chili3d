@@ -24,6 +24,7 @@ import {
     type MeshOption,
     type NodeRecord,
     NodeUtils,
+    SectionPlaneNode,
     type ShapeMeshData,
     type ShapeNode,
     type ShapeType,
@@ -58,6 +59,7 @@ import { createAnnotationVisual, ThreeAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeGeometryFactory } from "./threeGeometryFactory";
 import { ThreeHelper } from "./threeHelper";
+import { ThreeSectionPlaneObject } from "./threeSectionPlaneObject";
 import { GroupVisualObject, ThreeComponentObject, ThreeMeshObject } from "./threeVisualObject";
 
 /** Whether a material in `materialMap` is one of the document's physically based surfaces. */
@@ -373,6 +375,7 @@ export class ThreeVisualContext implements IVisualContext {
         } else if (
             obj instanceof ThreeGeometry ||
             obj instanceof ThreeMeshObject ||
+            obj instanceof ThreeSectionPlaneObject ||
             obj instanceof ThreeAnnotation
         ) {
             visuals.push(obj);
@@ -528,6 +531,8 @@ export class ThreeVisualContext implements IVisualContext {
         let visualObject: (IVisualObject & Object3D) | undefined;
         if (node instanceof MeshNode) {
             visualObject = new ThreeMeshObject(this, node);
+        } else if (node instanceof SectionPlaneNode) {
+            visualObject = new ThreeSectionPlaneObject(node);
         } else if (node instanceof GeometryNode) {
             visualObject = new ThreeGeometry(node, this);
         } else if (node instanceof GroupNode) {

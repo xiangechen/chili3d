@@ -18,19 +18,21 @@ import {
     type IView,
     type IViewGizmo,
     type IVisualObject,
-    type Matrix4,
+    Matrix4,
     MultiShapeNode,
     Observable,
     type Plane,
     Precision,
     PubSub,
     Ray,
+    type SectionPlaneNode,
     type ShapeMeshRange,
     ShapeNode,
     type ShapeType,
     ShapeTypes,
     ShapeTypeUtils,
     screenDistance,
+    sectionPlaneNodes,
     type ToImageOptions,
     type ViewMode,
     type VisualNode,
@@ -42,6 +44,7 @@ import {
 import { div, span, svg } from "@chili3d/element";
 import {
     Box3,
+    Plane as ClippingPlane,
     DirectionalLight,
     Frustum,
     type Intersection,
@@ -64,14 +67,19 @@ import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRe
 import { AnnotationBatch } from "./annotationBatch";
 import { CameraController } from "./cameraController";
 import { Constants, EdgeVertexOffsetKey } from "./constants";
+import { visibleShapeCenter } from "./sectionEdges";
+import { SectionViewRenderer } from "./sectionViewRenderer";
 import { ThreeAnnotation } from "./threeAnnotation";
 import { ThreeGeometry } from "./threeGeometry";
 import { ThreeHelper } from "./threeHelper";
 import type { ThreeHighlighter } from "./threeHighlighter";
+import { ThreeSectionPlaneObject } from "./threeSectionPlaneObject";
 import style from "./threeView.module.css";
 import type { ThreeVisualContext } from "./threeVisualContext";
 import { ThreeComponentObject, ThreeMeshObject, ThreeVisualObject } from "./threeVisualObject";
 import { ViewGizmo } from "./viewGizmo";
+
+const SECTION_CLIP_EPSILON = 1e-4;
 
 /** One sub-shape a hit resolved to, and the indexes it occupies in its own node's shape list. */
 interface SubShapeEntry {
@@ -212,7 +220,11 @@ export class ThreeView extends Observable implements IView {
     private readonly _renderer: WebGLRenderer;
     private readonly _cssRenderer: CSS2DRenderer;
     private readonly _gizmo: IViewGizmo;
+    private _clippingPlanes: ClippingPlane[] = [];
+    private _gpuClippingPlanes: ClippingPlane[] = [];
+    private readonly _sectionRenderer: SectionViewRenderer;
     private readonly _resizeObserver: ResizeObserver;
+    private _sectionNodes: SectionPlaneNode[] = [];
 
     readonly cameraController: CameraController;
     readonly dynamicLight = new DirectionalLight(0xffffff, 1);
@@ -246,6 +258,12 @@ export class ThreeView extends Observable implements IView {
         });
     }
 
+    get sectionPlanes(): readonly Plane[] {
+        return this._sectionNodes
+            .filter((node) => node.visible && node.parentVisible)
+            .map((node) => node.plane);
+    }
+
     constructor(
         readonly document: IDocument,
         name: string,
@@ -261,18 +279,25 @@ export class ThreeView extends Observable implements IView {
         this._resizeObserver = new ResizeObserver(this._resizerObserverCallback);
         this.cameraController = new CameraController(this);
         this._renderer = this.initRenderer();
+        this._sectionRenderer = new SectionViewRenderer(content);
         this._cssRenderer = this.initCssRenderer();
         this.initEnvironment();
         this._scene.add(this.dynamicLight);
         this._gizmo = this.initGizmo();
         this.camera.layers.enableAll();
+        this.document.modelManager.addNodeObserver(this.syncSectionNodes);
+        this.syncSectionNodes();
         this.document.application.views.push(this);
         this.animate();
     }
 
     override disposeInternal(): void {
         super.disposeInternal();
+        this.document.modelManager.removeNodeObserver(this.syncSectionNodes);
+        for (const node of this._sectionNodes) node.removePropertyChanged(this.onSectionNodeChanged);
+        this._sectionNodes = [];
         this._gizmo.dispose();
+        this._sectionRenderer.dispose();
         this._resizeObserver.disconnect();
     }
 
@@ -307,10 +332,48 @@ export class ThreeView extends Observable implements IView {
         const renderer = new WebGLRenderer({
             antialias: true,
             alpha: true,
+            stencil: true,
         });
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.localClippingEnabled = true;
 
         return renderer;
+    }
+
+    isClipped(point: Vector3): boolean {
+        return this._gpuClippingPlanes.some((plane) => plane.distanceToPoint(point) < 0);
+    }
+
+    private readonly syncSectionNodes = () => {
+        const nodes = sectionPlaneNodes(this.document);
+        for (const node of this._sectionNodes) {
+            if (!nodes.includes(node)) node.removePropertyChanged(this.onSectionNodeChanged);
+        }
+        for (const node of nodes) {
+            if (!this._sectionNodes.includes(node)) node.onPropertyChanged(this.onSectionNodeChanged);
+        }
+        this._sectionNodes = nodes;
+        this.updateSectionPlanes();
+    };
+
+    private readonly onSectionNodeChanged = (property: string) => {
+        if (property === "plane" || property === "visible" || property === "parentVisible") {
+            this.updateSectionPlanes();
+        }
+    };
+
+    private updateSectionPlanes(): void {
+        const planes = this.sectionPlanes;
+        this._clippingPlanes = planes.map((plane) => {
+            const normal = ThreeHelper.fromXYZ(plane.normal);
+            return new ClippingPlane(normal, -normal.dot(ThreeHelper.fromXYZ(plane.origin)));
+        });
+        this._gpuClippingPlanes = this._clippingPlanes.map(
+            (plane) => new ClippingPlane(plane.normal.clone(), plane.constant + SECTION_CLIP_EPSILON),
+        );
+        this._renderer.clippingPlanes = this._gpuClippingPlanes;
+        this.emitPropertyChanged("sectionPlanes", planes);
+        this.update();
     }
 
     protected initCssRenderer() {
@@ -440,7 +503,7 @@ export class ThreeView extends Observable implements IView {
     }
 
     private capture(options?: ToImageOptions): string {
-        this._renderer.render(this._scene, this.camera);
+        this.renderScene();
         const source = this.renderer.domElement;
         const maxSize = options?.maxSize ?? Number.POSITIVE_INFINITY;
         if (Math.max(source.width, source.height) <= maxSize) {
@@ -499,11 +562,25 @@ export class ThreeView extends Observable implements IView {
         if (!this._needsUpdate) return;
 
         this.syncCameraDependentState();
-        this._renderer.render(this._scene, this.camera);
+        this.renderScene();
         this._cssRenderer.render(this._scene, this.camera);
         this._gizmo?.update();
 
         this._needsUpdate = false;
+    }
+
+    private renderScene(): void {
+        const sections = this._sectionNodes
+            .filter((node) => node.visible && node.parentVisible)
+            .map((node, index) => {
+                const visual = this.content.getVisual(node);
+                return {
+                    plane: node.plane,
+                    clippingPlane: this._clippingPlanes[index],
+                    visual: visual instanceof ThreeSectionPlaneObject ? visual : undefined,
+                };
+            });
+        this._sectionRenderer.render(this._renderer, this._scene, this.camera, sections);
     }
 
     resize(width: number, height: number) {
@@ -663,15 +740,31 @@ export class ThreeView extends Observable implements IView {
         my2: number,
         nodeFilter?: INodeFilter,
     ): IVisualObject[] {
-        const selectionBox = this.initSelectionBox(mx1, my1, mx2, my2);
+        const candidates = this.sectionPlanes.length
+            ? this.detectVisualsInRect(
+                  Math.min(mx1, mx2),
+                  Math.min(my1, my2),
+                  Math.max(mx1, mx2),
+                  Math.max(my1, my2),
+                  nodeFilter,
+              )
+            : this.initSelectionBox(mx1, my1, mx2, my2)
+                  .select()
+                  .map((obj) => obj.parent as ThreeVisualObject);
         const visual = new Set<IVisualObject>();
-        for (const obj of selectionBox.select()) {
-            const threeObject = obj.parent as ThreeVisualObject;
+        for (const threeObject of candidates) {
             if (!threeObject?.visible) continue;
-
             const node = this.getNodeFromObject(threeObject);
             if (node === undefined) continue;
             if (nodeFilter !== undefined && !nodeFilter.allow(node)) {
+                continue;
+            }
+            const bounds = threeObject.worldBoundingBox();
+            if (
+                !(threeObject instanceof ThreeSectionPlaneObject) &&
+                bounds &&
+                this.isBoundingBoxClipped(bounds)
+            ) {
                 continue;
             }
             visual.add(threeObject);
@@ -691,10 +784,8 @@ export class ThreeView extends Observable implements IView {
             if (!(x instanceof ThreeAnnotation) || !x.visible) continue;
             const node = x.annotation;
             if (!node.visible || !node.parentVisible) continue;
-            const box = x.boundingBox();
-            if (box === undefined) continue;
-            const worldBox = BoundingBox.transformed(box, x.worldTransform());
-            if (worldBox === undefined) continue;
+            const worldBox = x.worldBoundingBox();
+            if (worldBox === undefined || this.isBoundingBoxClipped(worldBox)) continue;
 
             const testBox = new Box3(
                 new Vector3(worldBox.min.x, worldBox.min.y, worldBox.min.z),
@@ -747,6 +838,8 @@ export class ThreeView extends Observable implements IView {
             node = threeObject.geometryNode;
         } else if (threeObject instanceof ThreeComponentObject) {
             node = threeObject.componentNode;
+        } else if (threeObject instanceof ThreeSectionPlaneObject) {
+            node = threeObject.sectionNode;
         } else if (threeObject instanceof ThreeAnnotation) {
             node = threeObject.annotation;
         }
@@ -803,6 +896,11 @@ export class ThreeView extends Observable implements IView {
             const added = new Set<string>();
             for (const shape of shapes) {
                 if (added.has(shape.id)) continue;
+                if (
+                    this.sectionPlanes.length &&
+                    this.isBoundingBoxClipped(shape.boundingBox(), worldTransform)
+                )
+                    continue;
                 if (shapeFilter && !shapeFilter.allow(shape, worldTransform)) continue;
 
                 added.add(shape.id);
@@ -843,10 +941,20 @@ export class ThreeView extends Observable implements IView {
             if (node === undefined) return;
             if (nodeFilter && !nodeFilter.allow(node)) return;
 
-            const box = x.boundingBox();
+            const box = x.worldBoundingBox();
             if (!box) return;
 
-            if (this.isBoundingBoxInRect(box, x.worldTransform(), minX, minY, maxX, maxY)) {
+            if (
+                this.isBoundingBoxInRect(
+                    box,
+                    Matrix4.identity(),
+                    minX,
+                    minY,
+                    maxX,
+                    maxY,
+                    x instanceof ThreeSectionPlaneObject,
+                )
+            ) {
                 result.push(x);
             }
         });
@@ -975,6 +1083,25 @@ export class ThreeView extends Observable implements IView {
         entries.push({ shape: entry.shape, transform: entry.transform, indexes: entry.indexes });
     }
 
+    private isBoundingBoxClipped(box: BoundingBox, worldMatrix?: Matrix4): boolean {
+        if (!this.sectionPlanes.length || !BoundingBox.isValid(box)) return false;
+        const { min, max } = box;
+        return this._gpuClippingPlanes.some((plane) => {
+            for (let i = 0; i < 8; i++) {
+                const point = {
+                    x: i & 1 ? max.x : min.x,
+                    y: i & 2 ? max.y : min.y,
+                    z: i & 4 ? max.z : min.z,
+                };
+                const worldPoint = worldMatrix ? worldMatrix.ofPoint(point) : point;
+                if (plane.distanceToPoint(ThreeHelper.fromXYZ(worldPoint)) >= 0) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
     private isBoundingBoxInRect(
         box: BoundingBox,
         worldMatrix: Matrix4,
@@ -982,8 +1109,11 @@ export class ThreeView extends Observable implements IView {
         minY: number,
         maxX: number,
         maxY: number,
+        includeClipped = false,
     ): boolean {
-        if (!BoundingBox.isValid(box)) return false;
+        if (!BoundingBox.isValid(box) || (!includeClipped && this.isBoundingBoxClipped(box, worldMatrix))) {
+            return false;
+        }
 
         let screenMinX = Number.POSITIVE_INFINITY;
         let screenMinY = Number.POSITIVE_INFINITY;
@@ -1018,8 +1148,14 @@ export class ThreeView extends Observable implements IView {
         if (!box) return false;
 
         const composed = localTransform ? worldMatrix.multiply(localTransform) : worldMatrix;
-        const center = BoundingBox.center(box);
-        const { x, y } = this.worldToScreen(composed.ofPoint(center));
+        if (this.isBoundingBoxClipped(box, composed)) return false;
+        let worldCenter = composed.ofPoint(BoundingBox.center(box));
+        if (this.isClipped(ThreeHelper.fromXYZ(worldCenter))) {
+            const visibleCenter = visibleShapeCenter(shape, composed, this._gpuClippingPlanes);
+            if (!visibleCenter) return false;
+            worldCenter = visibleCenter;
+        }
+        const { x, y } = this.worldToScreen(worldCenter);
 
         return x <= maxX && x >= minX && y <= maxY && y >= minY;
     }
@@ -1226,7 +1362,16 @@ export class ThreeView extends Observable implements IView {
         // Raycasting ignores `visible` — filter it ourselves: hidden children (grip
         // dots, an empty batch's objects) must not eat hover raycasts.
         visuals = visuals.filter((x) => x !== undefined && x !== null && x.visible);
-        return this.initRaycaster(mx, my).intersectObjects(visuals, false);
+        return this.unclippedIntersections(this.initRaycaster(mx, my).intersectObjects(visuals, false));
+    }
+
+    private unclippedIntersections(intersections: Intersection[]): Intersection[] {
+        if (!this.sectionPlanes.length) return intersections;
+        return intersections.filter(
+            (hit) =>
+                hit.object.parent instanceof ThreeSectionPlaneObject ||
+                !this.isClipped(hit.pointOnLine ?? hit.point),
+        );
     }
 
     private findIntersectedShapes(
@@ -1237,7 +1382,7 @@ export class ThreeView extends Observable implements IView {
     ) {
         const raycaster = this.initRaycaster(mx, my);
         const shapes = this.initIntersectableShapes(shapeType, includeHiddenVisuals);
-        return raycaster.intersectObjects(shapes, false);
+        return this.unclippedIntersections(raycaster.intersectObjects(shapes, false));
     }
 
     private initIntersectableShapes(shapeType: ShapeType, includeHiddenVisuals: boolean) {

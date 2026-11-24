@@ -122,6 +122,10 @@ export abstract class ThreeVisualObject extends Object3D implements IVisualObjec
         return ThreeHelper.getBoundingBox(this);
     }
 
+    worldBoundingBox(): BoundingBox | undefined {
+        return ThreeHelper.getBoundingBox(this);
+    }
+
     override dispose() {
         super.dispose();
         this.node.removePropertyChanged(this.handlePropertyChanged);
@@ -348,6 +352,10 @@ export class GroupVisualObject extends Group implements IVisualObject {
     };
 
     boundingBox(): BoundingBox | undefined {
+        return ThreeHelper.getBoundingBox(this);
+    }
+
+    worldBoundingBox(): BoundingBox | undefined {
         return ThreeHelper.getBoundingBox(this);
     }
 

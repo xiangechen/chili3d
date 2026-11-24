@@ -1,8 +1,8 @@
 // Part of the Chili3d Project, under the AGPL-3.0 License.
 // See LICENSE file in the project root for full license information.
 
-import { FolderNode, PubSub, Transaction } from "@chili3d/core";
-import { createMockDocument } from "@chili3d/core/test-utils";
+import { FolderNode, Plane, PubSub, SectionPlaneNode, sectionPlaneNodes, Transaction } from "@chili3d/core";
+import { createMockDocument, createMockView } from "@chili3d/core/test-utils";
 import { describe, expect, test } from "@rstest/core";
 import { Delete } from "../../src/commands/delete";
 
@@ -263,6 +263,21 @@ describe("Delete", () => {
             PubSub.default.pub = originalPub;
             Transaction.execute = originalExecute;
         }
+    });
+
+    test("deletes a selected section through the normal node removal path", () => {
+        const doc = createMockDocument();
+        const view = createMockView({ document: doc });
+        const section = new SectionPlaneNode({ document: doc, plane: Plane.XY });
+        doc.modelManager.addNode(section);
+        const cmd = new Delete();
+        (cmd as any)._application = { activeView: view };
+        (cmd as any).stepDatas = [{ nodes: [section] }];
+
+        (cmd as any).executeMainTask();
+
+        expect(section.parent).toBeUndefined();
+        expect(sectionPlaneNodes(doc)).toEqual([]);
     });
 
     test("should delete free nodes while skipping consumed tools", () => {

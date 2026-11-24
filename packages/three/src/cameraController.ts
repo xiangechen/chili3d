@@ -373,7 +373,9 @@ export class CameraController extends Observable implements ICameraController {
     private caclueZoomFactor(x: number, y: number, direction: Vector3) {
         const raycaster = new Raycaster();
         raycaster.setFromCamera(this.view.screenToCameraRect(x, y), this.camera);
-        const intersect = raycaster.intersectObjects(this.view.content.visualShapes.children).at(0)?.point;
+        const intersect = raycaster
+            .intersectObjects(this.view.content.visualShapes.children)
+            .find((hit) => !this.view.isClipped(hit.pointOnLine ?? hit.point))?.point;
         let zoomFactor = ZOOM_SPEED_FACTOR;
         if (intersect) {
             zoomFactor = (ZOOM_SPEED_FACTOR * this._position.distanceTo(intersect)) / direction.length();

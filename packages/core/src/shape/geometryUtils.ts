@@ -105,13 +105,25 @@ export class GeometryUtils {
         return Result.err("Cannot find next edge");
     }
 
+    private static faceNormal(face: IFace): XYZ {
+        // The UV midpoint can be a surface singularity (zero normal), sample a few
+        // fallback parameters before giving up.
+        for (const [u, v] of FACE_NORMAL_SAMPLE_UV) {
+            const normal = face.normal(u, v)[1].normalize();
+            if (normal) return normal;
+        }
+        console.warn("Cannot compute face normal, fallback to unitZ");
+        return XYZ.unitZ;
+    }
+
     /**
      * The plane a face lies in, anchored at the face's parameter origin. The x
      * direction is world X where the face allows it and derived from world Z where
      * it does not, so a horizontal face keeps the axes a drawing would expect.
      */
     static planeFromFace(face: IFace): Plane {
-        const [point, normal] = face.normal(0, 0);
+        const [point] = face.normal(0, 0);
+        const normal = GeometryUtils.faceNormal(face);
         let xvec = XYZ.unitX;
         if (!normal.isParallelTo(XYZ.unitZ)) {
             xvec = XYZ.unitZ.cross(normal).normalize() ?? XYZ.unitX;
@@ -119,17 +131,22 @@ export class GeometryUtils {
         return new Plane({ origin: point, normal, xvec });
     }
 
+    static uprightPlaneFromFace(face: IFace): Plane {
+        const [point] = face.normal(0, 0);
+        const normal = GeometryUtils.faceNormal(face);
+        return new Plane({ origin: point, normal, xvec: GeometryUtils.worldAxisXVec(normal) });
+    }
+
+    static worldAxisXVec(normal: XYZ): XYZ {
+        const n = normal.normalize() ?? XYZ.unitZ;
+        const yvec =
+            Math.abs(n.z) > 1 - 1e-6 ? XYZ.unitY : (XYZ.unitZ.sub(n.multiply(n.z)).normalize() ?? XYZ.unitY);
+        return yvec.cross(n);
+    }
+
     static normal(shape: IFace | IWire | IEdge): XYZ {
         if (shape.shapeType === ShapeTypes.face) {
-            // The UV midpoint can be a surface singularity (zero normal), sample a few
-            // fallback parameters before giving up.
-            const face = shape as IFace;
-            for (const [u, v] of FACE_NORMAL_SAMPLE_UV) {
-                const normal = face.normal(u, v)[1].normalize();
-                if (normal) return normal;
-            }
-            console.warn("Cannot compute face normal, fallback to unitZ");
-            return XYZ.unitZ;
+            return GeometryUtils.faceNormal(shape as IFace);
         }
 
         if (shape.shapeType === ShapeTypes.edge) {

@@ -19,6 +19,7 @@ function createMockVisualObject(overrides?: Partial<IVisualObject>): IVisualObje
         transform: Matrix4.identity(),
         worldTransform: () => Matrix4.identity(),
         boundingBox: () => undefined,
+        worldBoundingBox: () => undefined,
         dispose: () => {},
         ...overrides,
     };

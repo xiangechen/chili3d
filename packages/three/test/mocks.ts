@@ -13,6 +13,7 @@ import type {
 } from "@chili3d/core";
 import { Matrix4 as CoreMatrix4, Mesh as CoreMesh } from "@chili3d/core";
 import { Group, type Mesh, MeshBasicMaterial, Scene } from "three";
+import type { ThreeSectionPlaneObject } from "../src/threeSectionPlaneObject";
 import { ThreeVisualContext } from "../src/threeVisualContext";
 
 // ============================================================================
@@ -27,6 +28,7 @@ import { ThreeVisualContext } from "../src/threeVisualContext";
 export function createThreeMockVisualContext(visualMap?: Map<VisualNode, Mesh>): ThreeVisualContext {
     const scene = new Scene();
     const visualShapes = new Group();
+    const transientVisuals = new Map<VisualNode, ThreeSectionPlaneObject>();
     scene.add(visualShapes);
 
     if (visualMap) {
@@ -43,7 +45,7 @@ export function createThreeMockVisualContext(visualMap?: Map<VisualNode, Mesh>):
         cssObjects: new Group(),
         materialMap: new Map(),
         getVisual(node: VisualNode) {
-            return visualMap?.get(node) as any;
+            return transientVisuals.get(node) ?? visualMap?.get(node);
         },
         getMaterial() {
             return new MeshBasicMaterial();
@@ -51,12 +53,12 @@ export function createThreeMockVisualContext(visualMap?: Map<VisualNode, Mesh>):
         addNode() {},
         removeNode() {},
         dispose() {},
-        getNode() {
-            return undefined;
+        getNode(visual: ThreeSectionPlaneObject) {
+            return transientVisuals.get(visual?.node) === visual ? visual.node : undefined;
         },
         redrawNode() {},
         visuals() {
-            return [];
+            return [...transientVisuals.values()];
         },
         boundingBoxIntersectFilter() {
             return [];
@@ -78,6 +80,14 @@ export function createThreeMockVisualContext(visualMap?: Map<VisualNode, Mesh>):
         moveNode() {},
         addVisualObject() {},
         removeVisualObject() {},
+        addTransientVisual(object: ThreeSectionPlaneObject) {
+            transientVisuals.set(object.node, object);
+            visualShapes.add(object);
+        },
+        removeTransientVisual(object: ThreeSectionPlaneObject) {
+            transientVisuals.delete(object.node);
+            visualShapes.remove(object);
+        },
         findShapes() {
             return [];
         },
@@ -313,7 +323,7 @@ export function createTestComponentNode(
                 normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]),
                 uv: new Float32Array([0, 0, 1, 0, 1, 1]),
                 index: new Uint32Array([0, 1, 2]),
-                range: [{ start: 0, count: 3, shape: { id: "f1", shapeType: 2 } }],
+                range: [{ start: 0, count: 3, shape: { id: "f1", shapeType: 2, isClosed: () => true } }],
                 groups: [],
                 color: 0xff0000,
             },

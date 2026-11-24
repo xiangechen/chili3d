@@ -168,6 +168,25 @@ describe("MeshData", () => {
             });
         });
 
+        describe("createPolylineMesh", () => {
+            test("joins consecutive points into one mesh and preserves line width", () => {
+                const result = MeshDataUtils.createPolylineMesh(
+                    [XYZ.zero, XYZ.unitX, new XYZ(1, 1, 0)],
+                    0x123456,
+                    2.5,
+                );
+
+                expect(result).toHaveLength(1);
+                expect(result[0].position).toEqual(new Float32Array([0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0]));
+                expect(result[0].lineWidth).toBe(2.5);
+                expect(result[0].color).toBe(0x123456);
+            });
+
+            test("returns no mesh for fewer than two points", () => {
+                expect(MeshDataUtils.createPolylineMesh([XYZ.zero], 0x123456, 2.5)).toEqual([]);
+            });
+        });
+
         describe("mergeEdgeMesh", () => {
             test("should merge two edge meshes", () => {
                 const mesh1: EdgeMeshData = {

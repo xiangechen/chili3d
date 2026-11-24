@@ -211,6 +211,27 @@ describe("GeometryUtils", () => {
         });
     });
 
+    describe("face planes", () => {
+        test("should sample a valid normal when the face UV origin is degenerate", () => {
+            const face = {
+                shapeType: ShapeTypes.face,
+                normal: (u: number, v: number) =>
+                    u === 0 && v === 0 ? [XYZ.zero, XYZ.zero] : [XYZ.zero, XYZ.unitZ],
+            } as unknown as IFace;
+
+            const plane = GeometryUtils.planeFromFace(face);
+            const upright = GeometryUtils.uprightPlaneFromFace(face);
+
+            expect(plane.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+            expect(upright.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+            expect(upright.xvec.isEqualTo(XYZ.unitX)).toBe(true);
+        });
+
+        test("should provide a stable x axis for a zero normal", () => {
+            expect(GeometryUtils.worldAxisXVec(XYZ.zero).isEqualTo(XYZ.unitX)).toBe(true);
+        });
+    });
+
     describe("normal", () => {
         test("should return the normalized face normal at (0.5, 0.5)", () => {
             const face = {

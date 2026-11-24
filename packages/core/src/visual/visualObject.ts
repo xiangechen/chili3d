@@ -13,6 +13,7 @@ export interface IVisualObject extends IDisposable {
     transform: Matrix4;
     worldTransform(): Matrix4;
     boundingBox(): BoundingBox | undefined;
+    worldBoundingBox(): BoundingBox | undefined;
 }
 
 export interface INodeVisual extends IVisualObject {

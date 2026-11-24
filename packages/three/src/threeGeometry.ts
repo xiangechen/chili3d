@@ -2,7 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
-    type BoundingBox,
+    BoundingBox,
     type EdgeMeshData,
     type FaceMeshData,
     type GeometryNode,
@@ -154,6 +154,11 @@ export class ThreeGeometry extends ThreeVisualObject implements IVisualGeometry 
             min: ThreeHelper.toXYZ(box.min),
             max: ThreeHelper.toXYZ(box.max),
         };
+    }
+
+    override worldBoundingBox(): BoundingBox | undefined {
+        const box = this.boundingBox();
+        return box ? BoundingBox.transformed(box, this.worldTransform()) : undefined;
     }
 
     private readonly handleGeometryPropertyChanged = (property: keyof GeometryNode) => {

@@ -2,6 +2,7 @@
 // See LICENSE file in the project root for full license information.
 
 import {
+    GeometryUtils,
     type IDocument,
     type IFace,
     type Matrix4,
@@ -33,48 +34,14 @@ export interface PlaneFaceRef {
     faceId?: string;
 }
 
-/**
- * Name of a global datum plane. Unlike a face ref there is nothing to rebuild-match —
- * the three datum planes never move — so the name alone re-derives the base plane and
- * the sketch's offset then composes on top of it, same as it does for a face.
- */
-export type DatumPlaneName = "XY" | "YZ" | "ZX";
-
-export const DATUM_PLANE_NAMES: readonly DatumPlaneName[] = ["XY", "YZ", "ZX"];
-
-/** The base plane a datum name stands for — the sketch planes, not the display quads. */
-export function datumPlaneOf(name: DatumPlaneName): Plane {
-    if (name === "XY") return Plane.XY;
-    if (name === "YZ") return Plane.YZ;
-    return Plane.ZX;
-}
-
-/**
- * The frame a datum's quad is drawn in: each quad stays in the positive quadrant so the three
- * stay symmetric around the origin. Decoupled from the sketch plane's own orientation — the
- * sketch planes are Z-up, so `Plane.ZX` has xvec = −X, but its quad still shows in +X+Z.
- *
- * Everything that draws a datum quad uses this frame — the picker, and the offset preview that
- * follows a datum pick: the preview is meant to read as the quad the user just clicked moving,
- * which it only does while both draw in one frame.
- */
-const DATUM_DISPLAY_PLANES: Record<DatumPlaneName, Plane> = {
-    XY: Plane.XY,
-    YZ: Plane.YZ,
-    ZX: new Plane({ origin: XYZ.zero, normal: XYZ.unitY, xvec: XYZ.unitZ }),
-};
-
-export function datumDisplayPlane(name: DatumPlaneName): Plane {
-    return DATUM_DISPLAY_PLANES[name];
-}
+export { DATUM_PLANE_NAMES, type DatumPlaneName, datumDisplayPlane, datumPlaneOf } from "@chili3d/core";
 
 /**
  * Outward-facing plane of a planar face, origin at the face's (0, 0) parameter
  * point. The face is expected to be transformed into world coordinates already.
  */
 export function planeOfFace(face: IFace): Plane {
-    const [point, normal] = face.normal(0, 0);
-    return new Plane({ origin: point, normal, xvec: worldAxisXVec(normal) });
+    return GeometryUtils.uprightPlaneFromFace(face);
 }
 
 /**
@@ -94,7 +61,7 @@ export function sketchPlaneOfFace(face: IFace): Plane {
  * (the hole feature's frozen fallback) rather than a face.
  */
 export function stablePlaneFrame(point: XYZ, normal: XYZ): Plane {
-    const n = normal.normalize()!;
+    const n = normal.normalize() ?? XYZ.unitZ;
     return new Plane({ origin: n.multiply(n.dot(point)), normal: n, xvec: worldAxisXVec(n) });
 }
 
@@ -105,9 +72,7 @@ export function stablePlaneFrame(point: XYZ, normal: XYZ): Plane {
  * the viewport regardless of the face's tilt.
  */
 export function worldAxisXVec(normal: XYZ): XYZ {
-    const n = normal.normalize()!;
-    const yvec = Math.abs(n.z) > 1 - 1e-6 ? XYZ.unitY : XYZ.unitZ.sub(n.multiply(n.z)).normalize()!;
-    return yvec.cross(n);
+    return GeometryUtils.worldAxisXVec(normal);
 }
 
 /** The face must already be in world coordinates. */

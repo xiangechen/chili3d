@@ -1349,13 +1349,7 @@ function arcMarkMeshes(
 
 /** A run of points as the one stroked line it draws, or nothing when it has no segments. */
 function arcLineMeshes(points: readonly XYZ[], color: number, lineWidth: number): EdgeMeshData[] {
-    const meshes: EdgeMeshData[] = [];
-    for (let i = 0; i + 1 < points.length; i++) {
-        const segment = MeshDataUtils.createEdgeMesh(points[i], points[i + 1], color, "solid");
-        segment.lineWidth = lineWidth;
-        meshes.push(segment);
-    }
-    return meshes.length === 0 ? [] : [meshes.reduce((all, one) => MeshDataUtils.mergeEdgeMesh(all, one))];
+    return MeshDataUtils.createPolylineMesh(points, color, lineWidth);
 }
 
 /**

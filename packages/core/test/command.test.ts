@@ -140,6 +140,34 @@ describe("Command System", () => {
             expect(command.isCompleted).toBe(true);
         });
 
+        test("resets lifecycle flags when reusing a cancelled command instance", async () => {
+            const command = new TestCommand();
+            let executions = 0;
+            let finishFirst: (() => void) | undefined;
+            command.setExecuteMock(async () => {
+                executions++;
+                await new Promise<void>((resolve) => {
+                    finishFirst = resolve;
+                });
+            });
+            const first = command.execute(mockApplication);
+            const cancelling = command.cancel();
+            finishFirst!();
+            await Promise.all([first, cancelling]);
+            expect(command.isCanceled).toBe(true);
+            expect(command.isCompleted).toBe(true);
+
+            command.setExecuteMock(async () => {
+                executions++;
+                expect(command.isCanceled).toBe(false);
+                expect(command.isCompleted).toBe(false);
+            });
+            await command.execute(mockApplication);
+
+            expect(executions).toBe(2);
+            expect(command.isCompleted).toBe(true);
+        });
+
         test("should expose application property correctly", () => {
             const command = new TestCommand();
             (command as any)._application = mockApplication;

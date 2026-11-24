@@ -24,6 +24,7 @@ export function createMockView(overrides?: Partial<IView>): IView {
         mode: "solid",
         name: "test-view",
         workplane: Plane.XY,
+        sectionPlanes: [],
         update: () => {},
         up: () => XYZ.unitZ,
         toImage: () => "",

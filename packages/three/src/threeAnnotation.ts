@@ -3,7 +3,7 @@
 
 import {
     type Annotation,
-    type BoundingBox,
+    BoundingBox,
     DimensionAnnotation,
     debounce,
     defaultFontService,
@@ -95,6 +95,11 @@ export abstract class ThreeAnnotation extends Object3D implements IVisualObject,
 
     boundingBox(): BoundingBox | undefined {
         return this.annotation.boundingBox();
+    }
+
+    worldBoundingBox(): BoundingBox | undefined {
+        const box = this.boundingBox();
+        return box ? BoundingBox.transformed(box, this.worldTransform()) : undefined;
     }
 
     highlight(): void {

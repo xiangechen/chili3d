@@ -20,6 +20,7 @@ function createMockNodeVisual(overrides?: Partial<INodeVisual>): INodeVisual {
         transform: Matrix4.identity(),
         worldTransform: () => Matrix4.identity(),
         boundingBox: () => undefined,
+        worldBoundingBox: () => undefined,
         dispose: () => {},
         get node() {
             return {} as any;

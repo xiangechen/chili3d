@@ -17,7 +17,13 @@ import { createMockApplication, TestDocument } from "@chili3d/core/test-utils";
 import { rs } from "@rstest/core";
 import type { FeatureData } from "../../src/features/feature";
 import { ParametricBodyNode } from "../../src/parametricBodyNode";
-import { captureFaceRef, type PlaneFaceRef, planeOfFace, resolveFacePlane } from "../../src/sketch/planeRef";
+import {
+    captureFaceRef,
+    type PlaneFaceRef,
+    planeOfFace,
+    resolveFacePlane,
+    stablePlaneFrame,
+} from "../../src/sketch/planeRef";
 import { SketchNode } from "../../src/sketch/sketchNode";
 
 function planarFace(point: XYZ, normal: XYZ): IFace {
@@ -53,6 +59,21 @@ describe("planeOfFace", () => {
         const plane = planeOfFace(planarFace(new XYZ({ x: 1, y: 2, z: 5 }), XYZ.unitZ));
 
         expect(plane.origin.isEqualTo(new XYZ({ x: 1, y: 2, z: 5 }))).toBe(true);
+        expect(plane.normal.isEqualTo(XYZ.unitZ)).toBe(true);
+        expect(plane.xvec.isEqualTo(XYZ.unitX)).toBe(true);
+    });
+
+    test("keeps the sketch's upright frame on a downward horizontal face", () => {
+        const plane = planeOfFace(planarFace(XYZ.zero, XYZ.unitNZ));
+
+        expect(plane.xvec.isEqualTo(XYZ.unitNX)).toBe(true);
+        expect(plane.yvec.isEqualTo(XYZ.unitY)).toBe(true);
+    });
+
+    test("uses a stable fallback frame for a zero normal", () => {
+        const plane = stablePlaneFrame(new XYZ({ x: 1, y: 2, z: 3 }), XYZ.zero);
+
+        expect(plane.origin.isEqualTo(new XYZ({ x: 0, y: 0, z: 3 }))).toBe(true);
         expect(plane.normal.isEqualTo(XYZ.unitZ)).toBe(true);
         expect(plane.xvec.isEqualTo(XYZ.unitX)).toBe(true);
     });

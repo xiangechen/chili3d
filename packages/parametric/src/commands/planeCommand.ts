@@ -7,6 +7,7 @@ import {
     Combobox,
     CurveUtils,
     command,
+    datumQuadAt,
     type I18nKeys,
     type IDocument,
     type IEdge,
@@ -53,7 +54,6 @@ import {
     type PickedNeutralPlane,
     PlanePickHandler,
 } from "../sketch/commands/planePickHandler";
-import { datumQuadAt } from "../sketch/commands/planePreview";
 import { worldShape } from "./booleanPreview";
 import { type DragPreview, PreviewConfirmHandler } from "./previewConfirmHandler";
 

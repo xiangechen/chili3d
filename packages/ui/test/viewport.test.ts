@@ -33,8 +33,15 @@ rs.mock("@chili3d/core", () => {
         ...actual,
         Binding: BindingMock,
         Localize: LocalizeMock,
-        I18n: { set: () => {} },
+        I18n: {
+            set: (dom: HTMLElement, path: string, key: string) => {
+                if (path === "title") dom.setAttribute("title", key);
+                else dom.textContent = key;
+            },
+            translate: (key: string) => key,
+        },
         PubSub: pubSubRecorder.stub,
+        Result: { ok: (value: unknown) => ({ isOk: true, value }) },
         ViewModes: [],
         ViewModeI18nKeys: {},
     };
@@ -76,6 +83,8 @@ function createMockView(
         setDom: rs.fn(),
         update: rs.fn(),
         detectVisual: rs.fn(() => detected),
+        onPropertyChanged: rs.fn(),
+        removePropertyChanged: rs.fn(),
     };
     return { doc, view };
 }
@@ -200,6 +209,25 @@ describe("Viewport pointer offsets", () => {
         );
     });
 
+    test("forwards pointer cancellation to the active handlers", () => {
+        const { doc, view } = createMockView([], undefined);
+        const handler = {
+            isEnabled: true,
+            pointerCancel: rs.fn(),
+        };
+        (doc.visual as any).eventHandler = handler;
+        (doc.visual as any).viewHandler = { isEnabled: false, dispose: () => {} };
+        viewport = new Viewport(view as unknown as IView, false);
+        document.body.appendChild(viewport);
+
+        viewport.dispatchEvent(new MouseEvent("pointercancel", { bubbles: true }));
+
+        expect(handler.pointerCancel).toHaveBeenCalledWith(
+            view,
+            expect.objectContaining({ type: "pointercancel" }),
+        );
+    });
+
     test("leaves the offset alone when the pointer is over the viewport itself", () => {
         const { doc, view } = createMockView([], undefined);
         const handler = {
@@ -223,5 +251,57 @@ describe("Viewport pointer offsets", () => {
             view,
             expect.objectContaining({ offsetX: 5, offsetY: 6 }),
         );
+    });
+});
+
+describe("Viewport section action", () => {
+    let viewport: Viewport | undefined;
+
+    afterEach(() => {
+        viewport?.remove();
+        viewport = undefined;
+        pubSubRecorder.reset();
+    });
+
+    function clickSectionButton() {
+        const button = viewport?.querySelector("svg[icon='icon-sectionView']") as
+            | (SVGElement & { _onclick?: (event: MouseEvent) => void })
+            | undefined;
+        expect(button).not.toBeNull();
+        button?._onclick?.(new MouseEvent("click"));
+    }
+
+    test("creates a section when none is active", () => {
+        const { view } = createMockView([], undefined);
+        viewport = new Viewport(view as unknown as IView, true);
+
+        clickSectionButton();
+
+        expect(pubSubRecorder.pubs).toEqual([{ topic: "executeCommand", args: ["act.sectionView"] }]);
+    });
+
+    test("creates another section when one is already active", () => {
+        const { view } = createMockView([], undefined);
+        Object.defineProperty(view, "sectionPlanes", { value: [{}] });
+        viewport = new Viewport(view as unknown as IView, true);
+
+        clickSectionButton();
+
+        expect(pubSubRecorder.pubs).toEqual([{ topic: "executeCommand", args: ["act.sectionView"] }]);
+        const button = viewport.querySelector("svg[icon='icon-sectionView']");
+        expect(button?.getAttribute("title")).toBe("command.act.sectionView");
+    });
+
+    test("activates the viewport that owns the section button", () => {
+        const first = createMockView([], undefined);
+        const second = { ...first.view } as unknown as IView;
+        const application = first.doc.application as { activeView: unknown };
+        application.activeView = first.view;
+        viewport = new Viewport(second, true);
+
+        clickSectionButton();
+
+        expect(application.activeView).toBe(second);
+        expect(pubSubRecorder.pubs).toEqual([{ topic: "executeCommand", args: ["act.sectionView"] }]);
     });
 });
